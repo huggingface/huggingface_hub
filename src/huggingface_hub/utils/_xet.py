@@ -160,7 +160,13 @@ def fetch_xet_connection_info_from_repo_info(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token"
+    if repo_type != "bucket" or revision is not None:
+        # On "bucket" repo type, the revision never needed => don't use it
+        # Otherwise, use the revision.
+        # Note: when creating a PR on a git-based repo, user needs write access but they don't know the revision in advance.
+        # => pass "/None" in URL and server will return a token for PR refs.
+        url += f"/{revision}"
     return _fetch_xet_connection_info_with_url(url, headers, params)
 
 

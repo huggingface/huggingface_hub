@@ -1,0 +1,1642 @@
+# coding=utf-8
+# Copyright 2025-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains commands to interact with buckets via the CLI."""
+
+import fnmatch
+import json
+import os
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Annotated, Any, Iterator, Literal, Optional, Union
+
+import typer
+
+from huggingface_hub import HfApi, logging
+from huggingface_hub.errors import BucketNotFoundError
+from huggingface_hub.hf_api import BucketFile, BucketFolder, _split_bucket_id_and_prefix
+from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+
+from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
+    QuietOpt,
+    StatusLine,
+    TokenOpt,
+    api_object_to_dict,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
+
+
+logger = logging.get_logger(__name__)
+
+
+BUCKET_PREFIX = "hf://buckets/"
+_SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
+
+buckets_cli = typer_factory(help="Commands to interact with buckets.")
+
+
+def _parse_bucket_path(path: str) -> tuple[str, str]:
+    """Parse a bucket path like hf://buckets/namespace/bucket_name/prefix into (bucket_id, prefix).
+
+    Returns:
+        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
+    """
+    if not path.startswith(BUCKET_PREFIX):
+        raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
+    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+
+
+def _parse_bucket_argument(argument: str) -> tuple[str, str]:
+    """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'.
+
+    Returns:
+        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
+    """
+    if argument.startswith(BUCKET_PREFIX):
+        return _parse_bucket_path(argument)
+    try:
+        return _split_bucket_id_and_prefix(argument)
+    except ValueError:
+        raise ValueError(
+            f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
+            f" or {BUCKET_PREFIX}namespace/bucket_name"
+        )
+
+
+def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
+    """Format a size in bytes."""
+    if not human_readable:
+        return str(size)
+
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1000:
+            if unit == "B":
+                return f"{size} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1000
+    return f"{size:.1f} PB"
+
+
+def _format_mtime(mtime: Optional[datetime], human_readable: bool = False) -> str:
+    """Format mtime datetime to a readable date string."""
+    if mtime is None:
+        return ""
+    if human_readable:
+        return mtime.strftime("%b %d %H:%M")
+    return mtime.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _build_tree(
+    items: list[Union[BucketFile, BucketFolder]],
+    human_readable: bool = False,
+    quiet: bool = False,
+) -> list[str]:
+    """Build a tree representation of files and directories.
+
+    Produces ASCII tree with size and date columns before the tree connector.
+    When quiet=True, only the tree structure is shown (no size/date).
+
+    Args:
+        items: List of BucketFile/BucketFolder items
+        human_readable: Whether to show human-readable sizes and short dates
+        quiet: If True, show only the tree structure without sizes/dates
+
+    Returns:
+        List of formatted tree lines
+    """
+    # Build a nested structure
+    tree: dict = {}
+
+    for item in items:
+        parts = item.path.split("/")
+        current = tree
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {"__children__": {}}
+            current = current[part]["__children__"]
+
+        final_part = parts[-1]
+        if isinstance(item, BucketFolder):
+            if final_part not in current:
+                current[final_part] = {"__children__": {}}
+        else:
+            current[final_part] = {"__item__": item}
+
+    # Compute prefix width for alignment (size + date columns)
+    prefix_width = 0
+    max_size_width = 0
+    max_date_width = 0
+    if not quiet:
+        for item in items:
+            if isinstance(item, BucketFile):
+                size_str = _format_size(item.size, human_readable)
+                max_size_width = max(max_size_width, len(size_str))
+                date_str = _format_mtime(item.mtime, human_readable)
+                max_date_width = max(max_date_width, len(date_str))
+        if max_size_width > 0:
+            prefix_width = max_size_width + 2 + max_date_width
+
+    # Render tree
+    lines: list[str] = []
+    _render_tree(
+        tree,
+        lines,
+        "",
+        prefix_width=prefix_width,
+        max_size_width=max_size_width,
+        human_readable=human_readable,
+    )
+    return lines
+
+
+def _render_tree(
+    node: dict,
+    lines: list[str],
+    indent: str,
+    prefix_width: int = 0,
+    max_size_width: int = 0,
+    human_readable: bool = False,
+) -> None:
+    """Recursively render a tree structure with size+date prefix."""
+    items = sorted(node.items())
+    for i, (name, value) in enumerate(items):
+        is_last = i == len(items) - 1
+        connector = "└── " if is_last else "├── "
+
+        is_dir = "__children__" in value
+        children = value.get("__children__", {})
+
+        if prefix_width > 0:
+            if is_dir:
+                prefix = " " * prefix_width
+            else:
+                item = value.get("__item__")
+                if item is not None:
+                    size_str = _format_size(item.size, human_readable)
+                    date_str = _format_mtime(item.mtime, human_readable)
+                    prefix = f"{size_str:>{max_size_width}}  {date_str}"
+                else:
+                    prefix = " " * prefix_width
+            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
+        else:
+            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
+
+        if children:
+            child_indent = indent + ("    " if is_last else "│   ")
+            _render_tree(
+                children,
+                lines,
+                child_indent,
+                prefix_width=prefix_width,
+                max_size_width=max_size_width,
+                human_readable=human_readable,
+            )
+
+
+@buckets_cli.command(
+    name="create",
+    examples=[
+        "hf buckets create my-bucket",
+        "hf buckets create user/my-bucket",
+        "hf buckets create hf://buckets/user/my-bucket",
+        "hf buckets create user/my-bucket --private",
+        "hf buckets create user/my-bucket --exist-ok",
+    ],
+)
+def create(
+    bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    private: Annotated[
+        bool,
+        typer.Option(
+            "--private",
+            help="Create a private bucket.",
+        ),
+    ] = False,
+    exist_ok: Annotated[
+        bool,
+        typer.Option(
+            "--exist-ok",
+            help="Do not raise an error if the bucket already exists.",
+        ),
+    ] = False,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Create a new bucket."""
+    api = get_hf_api(token=token)
+
+    if bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_id, prefix = _parse_bucket_argument(bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket creation: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed_id
+
+    bucket_url = api.create_bucket(
+        bucket_id,
+        private=private if private else None,
+        exist_ok=exist_ok,
+    )
+    if quiet:
+        print(bucket_url.handle)
+    else:
+        print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
+
+
+def _is_bucket_id(argument: str) -> bool:
+    """Check if argument is a bucket ID (namespace/name) vs just a namespace."""
+    if argument.startswith(BUCKET_PREFIX):
+        path = argument[len(BUCKET_PREFIX) :]
+    else:
+        path = argument
+    return "/" in path
+
+
+@buckets_cli.command(
+    name="list | ls",
+    examples=[
+        "hf buckets list",
+        "hf buckets list huggingface",
+        "hf buckets list user/my-bucket",
+        "hf buckets list user/my-bucket -R",
+        "hf buckets list user/my-bucket -h",
+        "hf buckets list user/my-bucket --tree",
+        "hf buckets list user/my-bucket --tree -h",
+        "hf buckets list hf://buckets/user/my-bucket",
+        "hf buckets list user/my-bucket/sub -R",
+    ],
+)
+def list_cmd(
+    argument: Annotated[
+        Optional[str],
+        typer.Argument(
+            help=(
+                "Namespace (user or org) to list buckets, or bucket ID"
+                " (namespace/bucket_name(/prefix) or hf://buckets/...) to list files."
+            ),
+        ),
+    ] = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option(
+            "--human-readable",
+            "-h",
+            help="Show sizes in human readable format.",
+        ),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option(
+            "--tree",
+            help="List files in tree format (only for listing files).",
+        ),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-R",
+            help="List files recursively (only for listing files).",
+        ),
+    ] = False,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """List buckets or files in a bucket.
+
+    When called with no argument or a namespace, lists buckets.
+    When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
+    """
+    # Determine mode: listing buckets or listing files
+    is_file_mode = argument is not None and _is_bucket_id(argument)
+
+    if is_file_mode:
+        _list_files(
+            argument=argument,  # type: ignore[arg-type]
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
+        )
+    else:
+        _list_buckets(
+            namespace=argument,
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
+        )
+
+
+def _list_buckets(
+    namespace: Optional[str],
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List buckets in a namespace."""
+    # Validate incompatible flags
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing buckets.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing buckets.")
+
+    # Handle hf://buckets/namespace format
+    if namespace is not None and namespace.startswith(BUCKET_PREFIX):
+        namespace = namespace[len(BUCKET_PREFIX) :]
+        # Strip trailing slash if any
+        namespace = namespace.rstrip("/")
+
+    api = get_hf_api(token=token)
+    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
+    headers = ["id", "private", "size", "total_files", "created_at"]
+
+    def row_fn(item: dict) -> list[str]:
+        from ._cli_utils import _format_cell
+
+        return [
+            _format_cell(item.get("id")),
+            _format_cell(item.get("private")),
+            _format_size(item.get("size", 0), human_readable=human_readable),
+            _format_cell(item.get("total_files")),
+            _format_cell(item.get("created_at")),
+        ]
+
+    alignments = {"size": "right", "total_files": "right"}
+    print_list_output(results, format=format, quiet=quiet, headers=headers, row_fn=row_fn, alignments=alignments)
+
+
+def _list_files(
+    argument: str,
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List files in a bucket."""
+    # Validate incompatible flags
+    if as_tree and format == OutputFormat.json:
+        raise typer.BadParameter("Cannot use --tree with --format json.")
+
+    api = get_hf_api(token=token)
+
+    try:
+        bucket_id, prefix = _parse_bucket_argument(argument)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    # Fetch items from the bucket
+    items = list(
+        api.list_bucket_tree(
+            bucket_id,
+            prefix=prefix or None,
+            recursive=recursive,
+        )
+    )
+
+    if not items:
+        print("(empty)")
+        return
+
+    has_directories = any(isinstance(item, BucketFolder) for item in items)
+
+    if format == OutputFormat.json:
+        results = [api_object_to_dict(item) for item in items]
+        print(json.dumps(results, indent=2))
+    elif as_tree:
+        # Tree format with size+date prefix, or quiet for structure only
+        tree_lines = _build_tree(items, human_readable=human_readable, quiet=quiet)
+        for line in tree_lines:
+            print(line)
+    elif quiet:
+        for item in items:
+            if isinstance(item, BucketFolder):
+                print(f"{item.path}/")
+            else:
+                print(item.path)
+    else:
+        # Flat table format
+        for item in items:
+            if isinstance(item, BucketFolder):
+                mtime_str = _format_mtime(item.uploaded_at, human_readable)
+                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
+            else:
+                size_str = _format_size(item.size, human_readable)
+                mtime_str = _format_mtime(item.mtime, human_readable)
+                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
+
+    if not recursive and has_directories:
+        StatusLine().done("Use -R to list files recursively.")
+
+
+@buckets_cli.command(
+    name="info",
+    examples=[
+        "hf buckets info user/my-bucket",
+        "hf buckets info hf://buckets/user/my-bucket",
+    ],
+)
+def info(
+    bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Get info about a bucket."""
+    api = get_hf_api(token=token)
+
+    try:
+        parsed_id, _ = _parse_bucket_argument(bucket_id)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    bucket = api.bucket_info(parsed_id)
+    if quiet:
+        print(bucket.id)
+    else:
+        print(json.dumps(api_object_to_dict(bucket), indent=2))
+
+
+@buckets_cli.command(
+    name="delete",
+    examples=[
+        "hf buckets delete user/my-bucket",
+        "hf buckets delete hf://buckets/user/my-bucket",
+        "hf buckets delete user/my-bucket --yes",
+        "hf buckets delete user/my-bucket --missing-ok",
+    ],
+)
+def delete(
+    bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    missing_ok: Annotated[
+        bool,
+        typer.Option(
+            "--missing-ok",
+            help="Do not raise an error if the bucket does not exist.",
+        ),
+    ] = False,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Delete a bucket."""
+    api = get_hf_api(token=token)
+
+    if bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_id, prefix = _parse_bucket_argument(bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket deletion: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed_id
+    elif "/" not in bucket_id:
+        raise typer.BadParameter(
+            f"Invalid bucket ID: {bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    # Confirm deletion unless -y flag is provided
+    if not yes:
+        confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
+        if not confirm:
+            print("Aborted.")
+            raise typer.Abort()
+
+    api.delete_bucket(
+        bucket_id,
+        missing_ok=missing_ok,
+    )
+    if quiet:
+        print(bucket_id)
+    else:
+        print(f"Bucket deleted: {bucket_id}")
+
+
+# =============================================================================
+# Sync command
+# =============================================================================
+
+
+@dataclass
+class SyncOperation:
+    """Represents a sync operation to be performed."""
+
+    action: Literal["upload", "download", "delete", "skip"]
+    path: str
+    size: Optional[int] = None
+    reason: str = ""
+    local_mtime: Optional[str] = None
+    remote_mtime: Optional[str] = None
+    bucket_file: Optional[BucketFile] = None  # BucketFile when available (not serialized to plan file)
+
+
+@dataclass
+class SyncPlan:
+    """Represents a complete sync plan."""
+
+    source: str
+    dest: str
+    timestamp: str
+    operations: list[SyncOperation] = field(default_factory=list)
+
+    def summary(self) -> dict[str, Union[int, str]]:
+        uploads = sum(1 for op in self.operations if op.action == "upload")
+        downloads = sum(1 for op in self.operations if op.action == "download")
+        deletes = sum(1 for op in self.operations if op.action == "delete")
+        skips = sum(1 for op in self.operations if op.action == "skip")
+        total_size = sum(op.size or 0 for op in self.operations if op.action in ("upload", "download"))
+        return {
+            "uploads": uploads,
+            "downloads": downloads,
+            "deletes": deletes,
+            "skips": skips,
+            "total_size": total_size,
+        }
+
+
+def _is_bucket_path(path: str) -> bool:
+    """Check if a path is a bucket path."""
+    return path.startswith(BUCKET_PREFIX)
+
+
+def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
+    """List all files in a local directory.
+
+    Yields:
+        tuple: (relative_path, size, mtime_ms) for each file
+    """
+    local_path = os.path.abspath(local_path)
+    if not os.path.isdir(local_path):
+        raise ValueError(f"Local path must be a directory: {local_path}")
+
+    for root, _, files in os.walk(local_path):
+        for filename in files:
+            full_path = os.path.join(root, filename)
+            rel_path = os.path.relpath(full_path, local_path)
+            # Normalize to forward slashes for consistency
+            rel_path = rel_path.replace(os.sep, "/")
+            size = os.path.getsize(full_path)
+            mtime_ms = os.path.getmtime(full_path) * 1000
+            yield rel_path, size, mtime_ms
+
+
+def _list_remote_files(api: HfApi, bucket_id: str, prefix: str) -> Iterator[tuple[str, int, float, Any]]:
+    """List all files in a bucket with a given prefix.
+
+    Yields:
+        tuple: (relative_path, size, mtime_ms, bucket_file) for each file.
+            bucket_file is the BucketFile object from list_bucket_tree.
+    """
+    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, recursive=True):
+        if isinstance(item, BucketFolder):
+            continue
+        path = item.path
+        # Remove prefix from path to get relative path
+        # Only strip prefix if it's followed by "/" (directory boundary) or is exact match
+        if prefix:
+            if path.startswith(prefix + "/"):
+                rel_path = path[len(prefix) + 1 :]
+            elif path == prefix:
+                # Exact match: the file IS the prefix (e.g., single file download)
+                rel_path = path.rsplit("/", 1)[-1] if "/" in path else path
+            else:
+                # Path doesn't match prefix pattern (e.g., "submarine.txt" for prefix "sub")
+                # Skip this file - it was returned by the API but doesn't belong to this prefix
+                continue
+        else:
+            rel_path = path
+        mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
+        yield rel_path, item.size, mtime_ms, item
+
+
+class FilterMatcher:
+    """Matches file paths against include/exclude patterns."""
+
+    def __init__(
+        self,
+        include_patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
+        filter_rules: Optional[list[tuple[str, str]]] = None,
+    ):
+        """Initialize the filter matcher.
+
+        Args:
+            include_patterns: Patterns to include (from --include)
+            exclude_patterns: Patterns to exclude (from --exclude)
+            filter_rules: Rules from filter file as list of ("+"/"-", pattern) tuples
+        """
+        self.include_patterns = include_patterns or []
+        self.exclude_patterns = exclude_patterns or []
+        self.filter_rules = filter_rules or []
+
+    def matches(self, path: str) -> bool:
+        """Check if a path should be included based on the filter rules.
+
+        Filtering rules:
+        - Filters are evaluated in order, first matching rule decides
+        - If no rules match, include by default (unless include patterns are specified)
+        """
+        # First check filter rules from file (in order)
+        for sign, pattern in self.filter_rules:
+            if fnmatch.fnmatch(path, pattern):
+                return sign == "+"
+
+        # Then check CLI patterns
+        for pattern in self.exclude_patterns:
+            if fnmatch.fnmatch(path, pattern):
+                return False
+
+        for pattern in self.include_patterns:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        # If include patterns were specified but none matched, exclude
+        if self.include_patterns:
+            return False
+
+        # Default: include
+        return True
+
+
+def _parse_filter_file(filter_file: str) -> list[tuple[str, str]]:
+    """Parse a filter file and return a list of (sign, pattern) tuples.
+
+    Filter file format:
+    - Lines starting with "+" are include patterns
+    - Lines starting with "-" are exclude patterns
+    - Empty lines and lines starting with "#" are ignored
+    """
+    rules = []
+    with open(filter_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("+"):
+                rules.append(("+", line[1:].strip()))
+            elif line.startswith("-"):
+                rules.append(("-", line[1:].strip()))
+            else:
+                # Default to include if no prefix
+                rules.append(("+", line))
+    return rules
+
+
+def _mtime_to_iso(mtime_ms: float) -> str:
+    """Convert mtime in milliseconds to ISO format string."""
+    return datetime.fromtimestamp(mtime_ms / 1000, tz=timezone.utc).isoformat()
+
+
+def _compare_files_for_sync(
+    *,
+    path: str,
+    action: Literal["upload", "download"],
+    source_size: int,
+    source_mtime: float,
+    dest_size: int,
+    dest_mtime: float,
+    source_newer_label: str,
+    dest_newer_label: str,
+    ignore_sizes: bool,
+    ignore_times: bool,
+    ignore_existing: bool,
+    bucket_file: Optional[Any] = None,
+) -> SyncOperation:
+    """Compare source and dest files and return the appropriate sync operation.
+
+    This is a unified helper for both upload and download directions.
+
+    Args:
+        path: Relative file path
+        action: "upload" or "download"
+        source_size: Size of the source file (bytes)
+        source_mtime: Mtime of the source file (milliseconds)
+        dest_size: Size of the destination file (bytes)
+        dest_mtime: Mtime of the destination file (milliseconds)
+        source_newer_label: Label when source is newer (e.g., "local newer" or "remote newer")
+        dest_newer_label: Label when dest is newer (e.g., "remote newer" or "local newer")
+        ignore_sizes: Only compare mtime
+        ignore_times: Only compare size
+        ignore_existing: Skip files that exist on receiver
+        bucket_file: BucketFile object (for downloads only)
+
+    Returns:
+        SyncOperation describing the action to take
+    """
+    local_mtime_iso = _mtime_to_iso(source_mtime if action == "upload" else dest_mtime)
+    remote_mtime_iso = _mtime_to_iso(dest_mtime if action == "upload" else source_mtime)
+
+    base_kwargs: dict[str, Any] = {
+        "path": path,
+        "size": source_size,
+        "local_mtime": local_mtime_iso,
+        "remote_mtime": remote_mtime_iso,
+    }
+
+    if ignore_existing:
+        return SyncOperation(action="skip", reason="exists on receiver (--ignore-existing)", **base_kwargs)
+
+    size_differs = source_size != dest_size
+    source_newer = (source_mtime - dest_mtime) > _SYNC_TIME_WINDOW_MS
+
+    if ignore_sizes:
+        if source_newer:
+            return SyncOperation(action=action, reason=source_newer_label, bucket_file=bucket_file, **base_kwargs)
+        else:
+            dest_newer = (dest_mtime - source_mtime) > _SYNC_TIME_WINDOW_MS
+            skip_reason = dest_newer_label if dest_newer else "same mtime"
+            return SyncOperation(action="skip", reason=skip_reason, **base_kwargs)
+    elif ignore_times:
+        if size_differs:
+            return SyncOperation(action=action, reason="size differs", bucket_file=bucket_file, **base_kwargs)
+        else:
+            return SyncOperation(action="skip", reason="same size", **base_kwargs)
+    else:
+        if size_differs or source_newer:
+            reason = "size differs" if size_differs else source_newer_label
+            return SyncOperation(action=action, reason=reason, bucket_file=bucket_file, **base_kwargs)
+        else:
+            return SyncOperation(action="skip", reason="identical", **base_kwargs)
+
+
+def _compute_sync_plan(
+    source: str,
+    dest: str,
+    api,
+    delete: bool = False,
+    ignore_times: bool = False,
+    ignore_sizes: bool = False,
+    existing: bool = False,
+    ignore_existing: bool = False,
+    filter_matcher: Optional[FilterMatcher] = None,
+    status: Optional[StatusLine] = None,
+) -> SyncPlan:
+    """Compute the sync plan by comparing source and destination.
+
+    Returns:
+        SyncPlan with all operations to be performed
+    """
+    filter_matcher = filter_matcher or FilterMatcher()
+    is_upload = not _is_bucket_path(source) and _is_bucket_path(dest)
+    is_download = _is_bucket_path(source) and not _is_bucket_path(dest)
+
+    if not is_upload and not is_download:
+        raise ValueError("One of source or dest must be a bucket path (hf://buckets/...) and the other must be local.")
+
+    plan = SyncPlan(
+        source=source,
+        dest=dest,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+    remote_total: Optional[int] = None
+    if is_upload:
+        # Local -> Remote
+        local_path = os.path.abspath(source)
+        bucket_id, prefix = _parse_bucket_path(dest)
+
+        if not os.path.isdir(local_path):
+            raise ValueError(f"Source must be a directory: {local_path}")
+
+        # Get local and remote file lists
+        local_files = {}
+        for rel_path, size, mtime_ms in _list_local_files(local_path):
+            if filter_matcher.matches(rel_path):
+                local_files[rel_path] = (size, mtime_ms)
+            if status:
+                status.update(f"Scanning local directory ({len(local_files)} files)")
+        if status:
+            status.done(f"Scanning local directory ({len(local_files)} files)")
+
+        remote_files = {}
+        if status:
+            try:
+                remote_total = api.bucket_info(bucket_id).total_files
+            except Exception:
+                pass
+        try:
+            for rel_path, size, mtime_ms, _ in _list_remote_files(api, bucket_id, prefix):
+                if filter_matcher.matches(rel_path):
+                    remote_files[rel_path] = (size, mtime_ms)
+                if status:
+                    total_str = f"/{remote_total}" if remote_total is not None else ""
+                    status.update(f"Scanning remote bucket ({len(remote_files)}{total_str} files)")
+        except BucketNotFoundError:
+            # Bucket doesn't exist yet - this is expected for new uploads
+            logger.debug(f"Bucket '{bucket_id}' not found, treating as empty.")
+        if status:
+            status.done(f"Scanning remote bucket ({len(remote_files)} files)")
+
+        # Compare files
+        all_paths = set(local_files.keys()) | set(remote_files.keys())
+        if status:
+            status.done(f"Comparing files ({len(all_paths)} paths)")
+        for path in sorted(all_paths):
+            local_info = local_files.get(path)
+            remote_info = remote_files.get(path)
+
+            if local_info and not remote_info:
+                # New file
+                if existing:
+                    # --existing: skip new files
+                    plan.operations.append(
+                        SyncOperation(
+                            action="skip",
+                            path=path,
+                            size=local_info[0],
+                            reason="new file (--existing)",
+                            local_mtime=_mtime_to_iso(local_info[1]),
+                        )
+                    )
+                else:
+                    plan.operations.append(
+                        SyncOperation(
+                            action="upload",
+                            path=path,
+                            size=local_info[0],
+                            reason="new file",
+                            local_mtime=_mtime_to_iso(local_info[1]),
+                        )
+                    )
+            elif local_info and remote_info:
+                # File exists in both - use helper to determine action
+                local_size, local_mtime = local_info
+                remote_size, remote_mtime = remote_info
+                plan.operations.append(
+                    _compare_files_for_sync(
+                        path=path,
+                        action="upload",
+                        source_size=local_size,
+                        source_mtime=local_mtime,
+                        dest_size=remote_size,
+                        dest_mtime=remote_mtime,
+                        source_newer_label="local newer",
+                        dest_newer_label="remote newer",
+                        ignore_sizes=ignore_sizes,
+                        ignore_times=ignore_times,
+                        ignore_existing=ignore_existing,
+                    )
+                )
+            elif not local_info and remote_info and delete:
+                # File only in remote and --delete mode
+                plan.operations.append(
+                    SyncOperation(
+                        action="delete",
+                        path=path,
+                        size=remote_info[0],
+                        reason="not in source (--delete)",
+                        remote_mtime=_mtime_to_iso(remote_info[1]),
+                    )
+                )
+
+    else:
+        # Remote -> Local (download)
+        bucket_id, prefix = _parse_bucket_path(source)
+        local_path = os.path.abspath(dest)
+
+        # Get remote and local file lists
+        remote_files = {}
+        bucket_file_map: dict[str, Any] = {}
+        if status:
+            try:
+                remote_total = api.bucket_info(bucket_id).total_files
+            except Exception:
+                pass
+        for rel_path, size, mtime_ms, bucket_file in _list_remote_files(api, bucket_id, prefix):
+            if filter_matcher.matches(rel_path):
+                remote_files[rel_path] = (size, mtime_ms)
+                bucket_file_map[rel_path] = bucket_file
+            if status:
+                total_str = f"/{remote_total}" if remote_total is not None else ""
+                status.update(f"Scanning remote bucket ({len(remote_files)}{total_str} files)")
+        if status:
+            status.done(f"Scanning remote bucket ({len(remote_files)} files)")
+
+        local_files = {}
+        if os.path.isdir(local_path):
+            for rel_path, size, mtime_ms in _list_local_files(local_path):
+                if filter_matcher.matches(rel_path):
+                    local_files[rel_path] = (size, mtime_ms)
+                if status:
+                    status.update(f"Scanning local directory ({len(local_files)} files)")
+        if status:
+            status.done(f"Scanning local directory ({len(local_files)} files)")
+
+        # Compare files
+        all_paths = set(remote_files.keys()) | set(local_files.keys())
+        if status:
+            status.done(f"Comparing files ({len(all_paths)} paths)")
+        for path in sorted(all_paths):
+            remote_info = remote_files.get(path)
+            local_info = local_files.get(path)
+
+            if remote_info and not local_info:
+                # New file
+                if existing:
+                    # --existing: skip new files
+                    plan.operations.append(
+                        SyncOperation(
+                            action="skip",
+                            path=path,
+                            size=remote_info[0],
+                            reason="new file (--existing)",
+                            remote_mtime=_mtime_to_iso(remote_info[1]),
+                        )
+                    )
+                else:
+                    plan.operations.append(
+                        SyncOperation(
+                            action="download",
+                            path=path,
+                            size=remote_info[0],
+                            reason="new file",
+                            remote_mtime=_mtime_to_iso(remote_info[1]),
+                            bucket_file=bucket_file_map.get(path),
+                        )
+                    )
+            elif remote_info and local_info:
+                # File exists in both - use helper to determine action
+                remote_size, remote_mtime = remote_info
+                local_size, local_mtime = local_info
+                plan.operations.append(
+                    _compare_files_for_sync(
+                        path=path,
+                        action="download",
+                        source_size=remote_size,
+                        source_mtime=remote_mtime,
+                        dest_size=local_size,
+                        dest_mtime=local_mtime,
+                        source_newer_label="remote newer",
+                        dest_newer_label="local newer",
+                        ignore_sizes=ignore_sizes,
+                        ignore_times=ignore_times,
+                        ignore_existing=ignore_existing,
+                        bucket_file=bucket_file_map.get(path),
+                    )
+                )
+            elif not remote_info and local_info and delete:
+                # File only in local and --delete mode
+                plan.operations.append(
+                    SyncOperation(
+                        action="delete",
+                        path=path,
+                        size=local_info[0],
+                        reason="not in source (--delete)",
+                        local_mtime=_mtime_to_iso(local_info[1]),
+                    )
+                )
+
+    return plan
+
+
+def _write_plan(plan: SyncPlan, f) -> None:
+    """Write a sync plan as JSONL to a file-like object."""
+    # Write header
+    header = {
+        "type": "header",
+        "source": plan.source,
+        "dest": plan.dest,
+        "timestamp": plan.timestamp,
+        "summary": plan.summary(),
+    }
+    f.write(json.dumps(header) + "\n")
+
+    # Write operations
+    for op in plan.operations:
+        op_dict: dict[str, Any] = {
+            "type": "operation",
+            "action": op.action,
+            "path": op.path,
+            "reason": op.reason,
+        }
+        if op.size is not None:
+            op_dict["size"] = op.size
+        if op.local_mtime is not None:
+            op_dict["local_mtime"] = op.local_mtime
+        if op.remote_mtime is not None:
+            op_dict["remote_mtime"] = op.remote_mtime
+        f.write(json.dumps(op_dict) + "\n")
+
+
+def _save_plan(plan: SyncPlan, plan_file: str) -> None:
+    """Save a sync plan to a JSONL file."""
+    with open(plan_file, "w") as f:
+        _write_plan(plan, f)
+
+
+def _load_plan(plan_file: str) -> SyncPlan:
+    """Load a sync plan from a JSONL file."""
+    with open(plan_file) as f:
+        lines = f.readlines()
+
+    if not lines:
+        raise ValueError(f"Empty plan file: {plan_file}")
+
+    # Parse header
+    header = json.loads(lines[0])
+    if header.get("type") != "header":
+        raise ValueError("Invalid plan file: expected header as first line")
+
+    plan = SyncPlan(
+        source=header["source"],
+        dest=header["dest"],
+        timestamp=header["timestamp"],
+    )
+
+    # Parse operations
+    for line in lines[1:]:
+        op_dict = json.loads(line)
+        if op_dict.get("type") != "operation":
+            continue
+        plan.operations.append(
+            SyncOperation(
+                action=op_dict["action"],
+                path=op_dict["path"],
+                size=op_dict.get("size"),
+                reason=op_dict.get("reason", ""),
+                local_mtime=op_dict.get("local_mtime"),
+                remote_mtime=op_dict.get("remote_mtime"),
+            )
+        )
+
+    return plan
+
+
+def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[StatusLine] = None) -> None:
+    """Execute a sync plan."""
+    is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
+    is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
+
+    if is_upload:
+        local_path = os.path.abspath(plan.source)
+        bucket_id, prefix = _parse_bucket_path(plan.dest)
+        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+
+        # Collect operations
+        add_files = []
+        delete_paths = []
+
+        for op in plan.operations:
+            if op.action == "upload":
+                local_file = os.path.join(local_path, op.path)
+                remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                if verbose:
+                    print(f"  Uploading: {op.path} ({op.reason})")
+                add_files.append((local_file, remote_path))
+            elif op.action == "delete":
+                remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                if verbose:
+                    print(f"  Deleting: {op.path} ({op.reason})")
+                delete_paths.append(remote_path)
+            elif op.action == "skip" and verbose:
+                print(f"  Skipping: {op.path} ({op.reason})")
+
+        # Execute batch operations
+        if add_files or delete_paths:
+            if status:
+                parts = []
+                if add_files:
+                    parts.append(f"uploading {len(add_files)} files")
+                if delete_paths:
+                    parts.append(f"deleting {len(delete_paths)} files")
+                status.done(", ".join(parts).capitalize())
+            api.batch_bucket_files(
+                bucket_id,
+                add=add_files or None,
+                delete=delete_paths or None,
+            )
+
+    elif is_download:
+        bucket_id, prefix = _parse_bucket_path(plan.source)
+        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+        local_path = os.path.abspath(plan.dest)
+
+        # Ensure local directory exists
+        os.makedirs(local_path, exist_ok=True)
+
+        # Collect download operations
+        download_files: list[tuple[Union[str, BucketFile], str]] = []
+        delete_files: list[str] = []
+
+        for op in plan.operations:
+            if op.action == "download":
+                local_file = os.path.join(local_path, op.path)
+                # Ensure parent directory exists
+                os.makedirs(os.path.dirname(local_file), exist_ok=True)
+                if verbose:
+                    print(f"  Downloading: {op.path} ({op.reason})")
+                # Use BucketFile when available (avoids extra metadata fetch per file)
+                if op.bucket_file is not None:
+                    download_files.append((op.bucket_file, local_file))
+                else:
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    download_files.append((remote_path, local_file))
+            elif op.action == "delete":
+                local_file = os.path.join(local_path, op.path)
+                if verbose:
+                    print(f"  Deleting: {op.path} ({op.reason})")
+                delete_files.append(local_file)
+            elif op.action == "skip" and verbose:
+                print(f"  Skipping: {op.path} ({op.reason})")
+
+        # Execute downloads
+        if download_files:
+            if status:
+                status.done(f"Downloading {len(download_files)} files")
+            api.download_bucket_files(bucket_id, download_files)
+
+        # Execute deletes
+        if status and delete_files:
+            status.done(f"Deleting {len(delete_files)} local files")
+        for file_path in delete_files:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                # Remove empty parent directories
+                parent = os.path.dirname(file_path)
+                while parent != local_path:
+                    try:
+                        os.rmdir(parent)
+                        parent = os.path.dirname(parent)
+                    except OSError:
+                        break
+
+
+def _print_plan_summary(plan: SyncPlan) -> None:
+    """Print a summary of the sync plan."""
+    summary = plan.summary()
+    print(f"Sync plan: {plan.source} -> {plan.dest}")
+    print(f"  Uploads: {summary['uploads']}")
+    print(f"  Downloads: {summary['downloads']}")
+    print(f"  Deletes: {summary['deletes']}")
+    print(f"  Skips: {summary['skips']}")
+
+
+@buckets_cli.command(
+    name="sync",
+    examples=[
+        "hf buckets sync ./data hf://buckets/user/my-bucket",
+        "hf buckets sync hf://buckets/user/my-bucket ./data",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --delete",
+        'hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"',
+        "hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl",
+        "hf buckets sync --apply sync-plan.jsonl",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run",
+        "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .",
+    ],
+)
+def sync(
+    source: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
+        ),
+    ] = None,
+    dest: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
+        ),
+    ] = None,
+    delete: Annotated[
+        bool,
+        typer.Option(
+            help="Delete destination files not present in source.",
+        ),
+    ] = False,
+    ignore_times: Annotated[
+        bool,
+        typer.Option(
+            "--ignore-times",
+            help="Skip files only based on size, ignoring modification times.",
+        ),
+    ] = False,
+    ignore_sizes: Annotated[
+        bool,
+        typer.Option(
+            "--ignore-sizes",
+            help="Skip files only based on modification times, ignoring sizes.",
+        ),
+    ] = False,
+    plan: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Save sync plan to JSONL file for review instead of executing.",
+        ),
+    ] = None,
+    apply: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Apply a previously saved plan file.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print sync plan to stdout as JSONL without executing.",
+        ),
+    ] = False,
+    include: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Include files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    exclude: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Exclude files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    filter_from: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Read include/exclude patterns from file.",
+        ),
+    ] = None,
+    existing: Annotated[
+        bool,
+        typer.Option(
+            "--existing",
+            help="Skip creating new files on receiver (only update existing files).",
+        ),
+    ] = False,
+    ignore_existing: Annotated[
+        bool,
+        typer.Option(
+            "--ignore-existing",
+            help="Skip updating files that exist on receiver (only create new files).",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show detailed logging with reasoning.",
+        ),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "--quiet",
+            "-q",
+            help="Minimal output.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Sync files between local directory and a bucket."""
+    api = get_hf_api(token=token)
+
+    # Validate arguments
+    if apply:
+        # Apply mode: load and execute plan
+        if source is not None or dest is not None:
+            raise typer.BadParameter("Cannot specify source/dest when using --apply")
+        if plan is not None:
+            raise typer.BadParameter("Cannot specify both --plan and --apply")
+        # Planning-related options are not allowed when applying
+        if delete:
+            raise typer.BadParameter("Cannot specify --delete when using --apply")
+        if ignore_times:
+            raise typer.BadParameter("Cannot specify --ignore-times when using --apply")
+        if ignore_sizes:
+            raise typer.BadParameter("Cannot specify --ignore-sizes when using --apply")
+        if include:
+            raise typer.BadParameter("Cannot specify --include when using --apply")
+        if exclude:
+            raise typer.BadParameter("Cannot specify --exclude when using --apply")
+        if filter_from:
+            raise typer.BadParameter("Cannot specify --filter-from when using --apply")
+        if existing:
+            raise typer.BadParameter("Cannot specify --existing when using --apply")
+        if ignore_existing:
+            raise typer.BadParameter("Cannot specify --ignore-existing when using --apply")
+        if dry_run:
+            raise typer.BadParameter("Cannot specify --dry-run when using --apply")
+
+        sync_plan = _load_plan(apply)
+        apply_status = StatusLine(enabled=not quiet)
+        if not quiet:
+            _print_plan_summary(sync_plan)
+            print("Executing plan...")
+
+        if quiet:
+            disable_progress_bars()
+        try:
+            _execute_plan(sync_plan, api, verbose=verbose, status=apply_status)
+        finally:
+            if quiet:
+                enable_progress_bars()
+
+        if not quiet:
+            print("Sync completed.")
+        return
+
+    # Normal mode: compute and optionally execute plan
+    if source is None or dest is None:
+        raise typer.BadParameter("Both source and dest are required (unless using --apply)")
+
+    # Validate source/dest
+    source_is_bucket = _is_bucket_path(source)
+    dest_is_bucket = _is_bucket_path(dest)
+
+    if source_is_bucket and dest_is_bucket:
+        raise typer.BadParameter("Remote to remote sync is not supported. One path must be local.")
+
+    if not source_is_bucket and not dest_is_bucket:
+        raise typer.BadParameter("One of source or dest must be a bucket path (hf://buckets/...).")
+
+    if ignore_times and ignore_sizes:
+        raise typer.BadParameter("Cannot specify both --ignore-times and --ignore-sizes")
+
+    if existing and ignore_existing:
+        raise typer.BadParameter("Cannot specify both --existing and --ignore-existing")
+
+    if dry_run and plan:
+        raise typer.BadParameter("Cannot specify both --dry-run and --plan")
+
+    # Validate local path
+    if source_is_bucket:
+        # Download: dest is local
+        if os.path.exists(dest) and not os.path.isdir(dest):
+            raise typer.BadParameter(f"Destination must be a directory: {dest}")
+    else:
+        # Upload: source is local
+        if not os.path.isdir(source):
+            raise typer.BadParameter(f"Source must be an existing directory: {source}")
+
+    # Build filter matcher
+    filter_rules = None
+    if filter_from:
+        filter_rules = _parse_filter_file(filter_from)
+
+    filter_matcher = FilterMatcher(
+        include_patterns=include,
+        exclude_patterns=exclude,
+        filter_rules=filter_rules,
+    )
+
+    # Status line for TTY feedback (disabled in quiet or dry-run mode)
+    status = StatusLine(enabled=not quiet and not dry_run)
+
+    # Compute sync plan
+    if not quiet and not dry_run:
+        print(f"Computing sync plan: {source} -> {dest}")
+
+    sync_plan = _compute_sync_plan(
+        source=source,
+        dest=dest,
+        api=api,
+        delete=delete,
+        ignore_times=ignore_times,
+        ignore_sizes=ignore_sizes,
+        existing=existing,
+        ignore_existing=ignore_existing,
+        filter_matcher=filter_matcher,
+        status=status,
+    )
+
+    if dry_run:
+        # Print plan as JSONL to stdout (pipe-friendly, no extra output)
+        _write_plan(sync_plan, sys.stdout)
+        return
+
+    if plan:
+        # Save plan to file
+        _save_plan(sync_plan, plan)
+        if not quiet:
+            _print_plan_summary(sync_plan)
+            print(f"Plan saved to: {plan}")
+        return
+
+    # Execute plan
+    if not quiet:
+        _print_plan_summary(sync_plan)
+
+    # Check if there's anything to do
+    summary = sync_plan.summary()
+    if summary["uploads"] == 0 and summary["downloads"] == 0 and summary["deletes"] == 0:
+        if not quiet:
+            print("Nothing to sync.")
+        return
+
+    if not quiet:
+        print("Syncing...")
+
+    if quiet:
+        disable_progress_bars()
+    try:
+        _execute_plan(sync_plan, api, verbose=verbose, status=status)
+    finally:
+        if quiet:
+            enable_progress_bars()
+
+    if not quiet:
+        print("Sync completed.")
+
+
+# =============================================================================
+# Cp command
+# =============================================================================
+
+
+@buckets_cli.command(
+    name="cp",
+    examples=[
+        "hf buckets cp hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json ./data/",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/config.json -",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
+        "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
+        "hf buckets cp - hf://buckets/user/my-bucket/config.json",
+    ],
+)
+def cp(
+    src: Annotated[str, typer.Argument(help="Source: local file, hf://buckets/... path, or - for stdin")],
+    dst: Annotated[
+        Optional[str], typer.Argument(help="Destination: local path, hf://buckets/... path, or - for stdout")
+    ] = None,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Copy a single file to or from a bucket."""
+    api = get_hf_api(token=token)
+
+    src_is_bucket = _is_bucket_path(src)
+    dst_is_bucket = dst is not None and _is_bucket_path(dst)
+    src_is_stdin = src == "-"
+    dst_is_stdout = dst == "-"
+
+    # --- Validation ---
+    if src_is_bucket and dst_is_bucket:
+        raise typer.BadParameter("Remote-to-remote copy not supported.")
+
+    if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
+        if dst is None:
+            raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")
+        raise typer.BadParameter("One of SRC or DST must be a bucket path (hf://buckets/...).")
+
+    if src_is_stdin and not dst_is_bucket:
+        raise typer.BadParameter("Stdin upload requires a bucket destination.")
+
+    if src_is_stdin and dst_is_bucket:
+        assert dst is not None
+        _, prefix = _parse_bucket_path(dst)
+        if prefix == "" or prefix.endswith("/"):
+            raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
+
+    if dst_is_stdout and not src_is_bucket:
+        raise typer.BadParameter("Cannot pipe to stdout for uploads.")
+
+    if not src_is_bucket and not src_is_stdin and os.path.isdir(src):
+        raise typer.BadParameter("Source must be a file, not a directory. Use `hf buckets sync` for directories.")
+
+    # --- Determine direction and execute ---
+    if src_is_bucket:
+        # Download: remote -> local or stdout
+        bucket_id, prefix = _parse_bucket_path(src)
+        if prefix == "" or prefix.endswith("/"):
+            raise typer.BadParameter("Source path must include a file name, not just a bucket or directory path.")
+        filename = prefix.rsplit("/", 1)[-1]
+
+        if dst_is_stdout:
+            # Download to stdout: always suppress progress bars to avoid polluting output
+            # Only re-enable if they weren't already disabled by the caller
+            pbar_was_disabled = are_progress_bars_disabled()
+            if not pbar_was_disabled:
+                disable_progress_bars()
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    tmp_path = os.path.join(tmp_dir, filename)
+                    api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
+                    with open(tmp_path, "rb") as f:
+                        sys.stdout.buffer.write(f.read())
+            finally:
+                if not pbar_was_disabled:
+                    enable_progress_bars()
+        else:
+            # Download to file
+            if dst is None:
+                local_path = filename
+            elif os.path.isdir(dst) or dst.endswith(os.sep) or dst.endswith("/"):
+                local_path = os.path.join(dst, filename)
+            else:
+                local_path = dst
+
+            # Ensure parent directory exists
+            parent_dir = os.path.dirname(local_path)
+            if parent_dir:
+                os.makedirs(parent_dir, exist_ok=True)
+
+            if quiet:
+                disable_progress_bars()
+            try:
+                api.download_bucket_files(bucket_id, [(prefix, local_path)])
+            finally:
+                if quiet:
+                    enable_progress_bars()
+
+            if not quiet:
+                print(f"Downloaded: {src} -> {local_path}")
+
+    elif src_is_stdin:
+        # Upload from stdin
+        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        data = sys.stdin.buffer.read()
+
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.batch_bucket_files(bucket_id, add=[(data, remote_path)])
+        finally:
+            if quiet:
+                enable_progress_bars()
+
+        if not quiet:
+            print(f"Uploaded: stdin -> {dst}")
+
+    else:
+        # Upload from file
+        if not os.path.isfile(src):
+            raise typer.BadParameter(f"Source file not found: {src}")
+
+        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore[arg-type]
+
+        if prefix == "":
+            remote_path = os.path.basename(src)
+        elif prefix.endswith("/"):
+            remote_path = prefix + os.path.basename(src)
+        else:
+            remote_path = prefix
+
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.batch_bucket_files(bucket_id, add=[(src, remote_path)])
+        finally:
+            if quiet:
+                enable_progress_bars()
+
+        if not quiet:
+            print(f"Uploaded: {src} -> {BUCKET_PREFIX}{bucket_id}/{remote_path}")

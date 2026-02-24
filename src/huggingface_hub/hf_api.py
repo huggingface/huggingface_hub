@@ -18,6 +18,8 @@ import base64
 import inspect
 import itertools
 import json
+import mimetypes
+import os
 import re
 import struct
 import time
@@ -50,6 +52,8 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
+from huggingface_hub.utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
+
 from . import constants
 from ._commit_api import (
     CommitOperation,
@@ -77,12 +81,15 @@ from .community import (
 )
 from .errors import (
     BadRequestError,
+    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    XetAuthorizationError,
+    XetRefreshTokenError,
 )
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
@@ -93,6 +100,8 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    XetFileData,
+    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -101,22 +110,28 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    http_backoff,
     logging,
     paginate,
     parse_datetime,
+    parse_xet_file_data_from_response,
+    refresh_xet_connection_info,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments
+from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
+from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
+    from .utils._xet_progress_reporting import XetProgressReporter
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
@@ -217,6 +232,10 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
     " Please check the repository ID and your access permissions."
     " If this is a private repository, ensure that your token is correct."
 )
+_BUCKET_PATHS_INFO_BATCH_SIZE = 1000
+_BUCKET_BATCH_ADD_CHUNK_SIZE = 100
+_BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+
 logger = logging.get_logger(__name__)
 
 
@@ -287,6 +306,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = url_segments[1]
                 repo_id = url_segments[2]
+            elif url_segments[0] == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
+                namespace = url_segments[1]
+                repo_id = url_segments[2]
             else:
                 # First segment is namespace
                 namespace = url_segments[0]
@@ -300,6 +324,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
             if namespace in constants.REPO_TYPES_MAPPING:
                 # Mean canonical dataset or model
                 repo_type = constants.REPO_TYPES_MAPPING[namespace]
+                namespace = None
+            elif namespace == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
                 namespace = None
             else:
                 repo_type = None
@@ -318,6 +346,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
                 repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = None
                 repo_id = hf_id.split("/")[-1]
+            elif url_segments[0] == "buckets":
+                # Special case for buckets
+                repo_type = "bucket"
+                namespace = None
+                repo_id = hf_id.split("/")[-1]
             else:
                 # Passed <user>/<model_id> or <org>/<model_id>
                 namespace, repo_id = hf_id.split("/")[-2:]
@@ -334,7 +367,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES and repo_type != "bucket":
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
@@ -600,6 +633,61 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+@dataclass
+class BucketUrl:
+    """Describes a bucket URL on the Hub.
+
+    `BucketUrl` is returned by [`create_bucket`]. At initialization, the URL is parsed to populate properties:
+    - endpoint (`str`)
+    - namespace (`str`)
+    - bucket_id (`str`)
+    - url (`str`)
+    - handle (`str`)
+
+    Args:
+        url (`str`):
+            String value of the bucket url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+    """
+
+    url: str
+    endpoint: str = ""
+    namespace: str = field(init=False)
+    bucket_id: str = field(init=False)
+    handle: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.endpoint = self.endpoint or constants.ENDPOINT
+
+        # Parse URL: expected format is `{endpoint}/buckets/{namespace}/{bucket_name}`
+        url_path = self.url.replace(self.endpoint, "").strip("/")
+        # Remove leading "buckets/" prefix
+        if url_path.startswith("buckets/"):
+            url_path = url_path[len("buckets/") :]
+        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
+        if prefix:
+            raise ValueError(f"Unable to parse bucket URL: {self.url}")
+        self.namespace = bucket_id.split("/")[0]
+        self.bucket_id = bucket_id
+
+        self.handle = f"hf://buckets/{self.bucket_id}"
+
+
+def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
+    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
+
+    Returns (bucket_id, prefix) where prefix may be empty string.
+    Raises ValueError if path doesn't contain at least namespace/name.
+    """
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2] if len(parts) > 2 else ""
+    return bucket_id, prefix
 
 
 @dataclass
@@ -1188,6 +1276,39 @@ class SpaceInfo:
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class BucketInfo:
+    """
+    Contains information about a bucket on the Hub. This object is returned by [`bucket_info`] and [`list_buckets`].
+
+    Attributes:
+        id (`str`):
+            ID of the bucket.
+        private (`bool`):
+            Is the bucket private.
+        created_at (`datetime`):
+            Date of creation of the bucket on the Hub.
+        size (`int`):
+            Size of the bucket in bytes.
+        total_files (`int`):
+            Total number of files in the bucket.
+    """
+
+    id: str
+    private: bool
+    created_at: datetime
+    size: int
+    total_files: int
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.private = kwargs.pop("private")
+        self.created_at = parse_datetime(kwargs.pop("createdAt"))
+        self.size = kwargs.pop("size")
+        self.total_files = kwargs.pop("totalFiles")
         self.__dict__.update(**kwargs)
 
 
@@ -1850,6 +1971,91 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+
+
+@dataclass
+class BucketFile:
+    """
+    Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFile`] but for files in buckets.
+    """
+
+    type: Literal["file"]
+    path: str
+    size: int
+    xet_hash: str
+    mtime: Optional[datetime]
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.size = kwargs.pop("size")
+        self.xet_hash = kwargs.pop("xetHash")
+        mtime = kwargs.pop("mtime", None)
+        self.mtime = parse_datetime(mtime) if mtime else None
+
+
+@dataclass
+class BucketFolder:
+    """
+    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFolder`] but for directories in buckets.
+    """
+
+    type: Literal["directory"]
+    path: str
+    uploaded_at: datetime
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
+
+
+@dataclass
+class _BucketAddFile:
+    source: Union[str, Path, bytes]
+    destination: str
+
+    xet_hash: Optional[str] = field(default=None)
+    size: Optional[int] = field(default=None)
+    mtime: int = field(init=False)
+    content_type: Optional[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = None
+        if isinstance(self.source, (str, Path)):  # guess content type from source path
+            self.content_type = mimetypes.guess_type(self.source)[0]
+        if self.content_type is None:  # or default to destination path content type
+            self.content_type = mimetypes.guess_type(self.destination)[0]
+
+        self.mtime = int(
+            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
+        )
+
+
+@dataclass
+class _BucketDeleteFile:
+    path: str
+
+
+@dataclass(frozen=True)
+class BucketFileMetadata:
+    """Data structure containing information about a file in a bucket.
+
+    Returned by [`get_bucket_file_metadata`].
+
+    Args:
+        size (`int`):
+            Size of the file in bytes.
+        xet_file_data (`XetFileData`):
+            Xet information for the file (hash and refresh route).
+    """
+
+    size: int
+    xet_file_data: XetFileData
 
 
 class HfApi:
@@ -11292,6 +11498,755 @@ class HfApi:
             ]
         return command, env, secrets
 
+    @validate_hf_hub_args
+    def create_bucket(
+        self,
+        bucket_id: str,
+        *,
+        private: Optional[bool] = None,
+        resource_group_id: Optional[str] = None,
+        exist_ok: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> BucketUrl:
+        """Create a bucket on the Hub.
+
+        Args:
+            bucket_id (`str`):
+                A namespace (user or an organization) and a bucket name separated by a `/`.
+                If no namespace is provided, the bucket will be created in the current user's namespace.
+            private (`bool`, *optional*):
+                Whether to make the bucket private. If `None` (default), the bucket will be public unless the
+                organization's default is private.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the bucket. Resource groups are only available for Enterprise Hub
+                organizations and allow to define which members of the organization can access the resource. The ID
+                of a resource group can be found in the URL of the resource's page on the Hub
+                (e.g. `"66670e5163145ca562cb1988"`). To learn more about resource groups, see
+                https://huggingface.co/docs/hub/en/security-resource-groups.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if the bucket already exists.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`BucketUrl`]: URL to the newly created bucket containing
+            attributes like `endpoint`, `namespace`, and `bucket_id`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import create_bucket
+
+            >>> url = create_bucket(bucket_id="my-bucket")
+            >>> url.bucket_id
+            'user/my-bucket'
+            >>> url.url
+            'https://huggingface.co/buckets/user/my-bucket'
+            >>> url.handle
+            'hf://buckets/user/my-bucket'
+
+            >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
+            BucketUrl(...)
+            ```
+        """
+        payload: dict[str, Any] = {}
+        if private is not None:
+            payload["private"] = private
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
+
+        if "/" not in bucket_id:
+            namespace, name = "me", bucket_id  # "me" namespace refers to the current user
+        else:
+            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
+            if prefix:
+                raise ValueError(f"Invalid bucket ID: {bucket_id}")
+            namespace, name = bucket_id_parsed.split("/")
+
+        response = get_session().post(
+            f"{self.endpoint}/api/buckets/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                # Repo already exists and `exist_ok=True`
+                pass
+            elif exist_ok and err.response.status_code == 403:
+                # No write permission on the namespace but repo might already exist
+                try:
+                    self.bucket_info(bucket_id=bucket_id, token=token)
+                    return BucketUrl(f"{self.endpoint}/buckets/{bucket_id}", endpoint=self.endpoint)
+                except HfHubHTTPError:
+                    raise err
+            else:
+                raise
+        return BucketUrl(response.json()["url"], endpoint=self.endpoint)
+
+    @validate_hf_hub_args
+    def bucket_info(
+        self,
+        bucket_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> BucketInfo:
+        """Get information about a specific bucket on the Hub.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`BucketInfo`]: The bucket information.
+
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import bucket_info
+            >>> info = bucket_info(bucket_id="Wauplin/first-bucket")
+            >>> info.id
+            'Wauplin/first-bucket'
+            >>> info.private
+            False
+            >>> info.created_at
+            datetime.datetime(2026, 2, 6, 17, 37, 57, tzinfo=datetime.timezone.utc)
+            >>> info.size
+            551879671
+            >>> info.total_files
+            12
+            ```
+        """
+        response = get_session().get(
+            f"{self.endpoint}/api/buckets/{bucket_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return BucketInfo(**response.json())
+
+    @validate_hf_hub_args
+    def list_buckets(
+        self,
+        namespace: Optional[str] = None,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[BucketInfo]:
+        """List buckets on the Hub under a certain namespace.
+
+        Args:
+            namespace (`str`, *optional*):
+                List buckets under this namespace (user or organization). Defaults to listing user's buckets.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[BucketInfo]`: An iterable of [`BucketInfo`] objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import list_buckets
+            >>> for bucket in list_buckets(): # lists buckets in the user's namespace
+            ...     print(bucket)
+
+            >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
+            ...     print(bucket)
+            ```
+        """
+        if namespace is None:
+            namespace = "me"
+        for item in paginate(
+            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+        ):
+            yield BucketInfo(**item)
+
+    @validate_hf_hub_args
+    def delete_bucket(
+        self,
+        bucket_id: str,
+        *,
+        missing_ok: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """Delete a bucket from the Hub.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            missing_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if the bucket does not exist.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found and `missing_ok` is set to `False` (default).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import delete_bucket
+            >>> delete_bucket(bucket_id="Wauplin/first-bucket")
+            >>> delete_bucket(bucket_id="Wauplin/first-bucket", missing_ok=True)
+            ```
+        """
+        response = get_session().delete(
+            f"{self.endpoint}/api/buckets/{bucket_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            if e.response.status_code != 404 or not missing_ok:
+                raise
+
+    @validate_hf_hub_args
+    def list_bucket_tree(
+        self,
+        bucket_id: str,
+        prefix: Optional[str] = None,
+        *,
+        recursive: Optional[bool] = None,
+        token: Union[str, bool, None] = None,
+    ) -> Iterable[Union[BucketFile, BucketFolder]]:
+        """List files in a bucket.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            prefix (`str`, *optional*):
+                Filter results to files whose path starts with this prefix.
+            recursive (`bool`, *optional*):
+                If `True`, list files recursively. If `False` (default), list files and directories only at root.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[Union[BucketFile, BucketFolder]]`: An iterable of [`BucketFile`] and [`BucketFolder`] objects
+             containing file and directory information (path, etc.).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import list_bucket_tree
+            >>> for file_info in list_bucket_tree(bucket_id="username/my-bucket"):
+            ...     print(file_info.path)
+
+            >>> # Filter by prefix
+            >>> for file_info in list_bucket_tree(bucket_id="username/my-bucket", prefix="models/"):
+            ...     print(file_info.path)
+            ```
+        """
+        encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
+        params = {}
+        if recursive is not None:
+            params["recursive"] = recursive
+        for item in paginate(
+            path=f"{self.endpoint}/api/buckets/{bucket_id}/tree{encoded_prefix}",
+            headers=self._build_hf_headers(token=token),
+            params=params,
+        ):
+            if item["type"] == "file":
+                yield BucketFile(**item)
+            elif item["type"] == "directory":
+                yield BucketFolder(**item)
+
+    @validate_hf_hub_args
+    def get_bucket_paths_info(
+        self,
+        bucket_id: str,
+        paths: Iterable[str],
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> Iterable[BucketFile]:
+        """
+        Get information about a bucket's paths.
+
+        Calls are made in batches of 1000 paths. Results are yielded as they are received.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            paths (`Iterable[str]`):
+                The paths to get information about. If a path does not exist, it is ignored without raising an exception.
+                Only file paths are supported.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[BucketFile]`:
+                The information about the paths, as an iterable of [`BucketFile`] objects.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import get_bucket_paths_info
+        >>> paths_info = get_bucket_paths_info("username/my-bucket", ["file.txt", "checkpoints/model.safetensors"])
+        >>> for info in paths_info:
+        ...     print(info)
+        BucketFile(type='file', path='file.txt', size=2379, xet_hash='96e637d9665bd35477b1908a23f2e254edfba0618dbd2d62f90a6baee7d139cf', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
+        BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
+        ```
+        """
+        headers = self._build_hf_headers(token=token)
+
+        for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
+            response = http_backoff(
+                "POST",
+                f"{self.endpoint}/api/buckets/{bucket_id}/paths-info",
+                json={"paths": list(batch)},
+                headers=headers,
+            )
+            hf_raise_for_status(response)
+            for path_info in response.json():
+                yield BucketFile(**path_info)
+
+    @validate_hf_hub_args
+    def batch_bucket_files(
+        self,
+        bucket_id: str,
+        *,
+        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        delete: Optional[list[str]] = None,
+        token: Union[str, bool, None] = None,
+    ):
+        """Add and/or delete files in a bucket.
+
+        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded or deleted,
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            add (`list` of `tuple`, *optional*):
+                Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
+                file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
+            delete (`list` of `str`, *optional*):
+                Paths of files to delete from the bucket.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import batch_bucket_files
+
+            # Upload files
+            >>> batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     add=[
+            ...         ("./model.safetensors", "models/model.safetensors"),
+            ...         (b'{{"key": "value"}}', "config.json"),
+            ...     ],
+            ... )
+
+            # Delete files
+            >>> batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
+
+            # Upload and delete in one batch
+            >>> batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     add=[("./new.txt", "new.txt")],
+            ...     delete=["old.txt"],
+            ... )
+            ```
+        """
+        add = add or []
+        delete = delete or []
+
+        # Small batch: do everything in one call
+        if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+            return
+
+        # Large batch: chunk adds first, then deletes
+        from .utils._xet_progress_reporting import XetProgressReporter
+
+        if add and not are_progress_bars_disabled():
+            progress = XetProgressReporter(total_files=len(add))
+        else:
+            progress = None
+
+        try:
+            for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
+
+            for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
+        finally:
+            if progress is not None:
+                progress.close(False)
+
+        return
+
+    def _batch_bucket_files(
+        self,
+        bucket_id: str,
+        *,
+        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        delete: Optional[list[str]] = None,
+        token: Union[str, bool, None] = None,
+        _progress: Optional["XetProgressReporter"] = None,
+    ):
+        """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
+        # Convert public API inputs to internal operation objects
+        operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
+        if add:
+            for source, destination in add:
+                operations.append(_BucketAddFile(source=source, destination=destination))
+        if delete:
+            for path in delete:
+                operations.append(_BucketDeleteFile(path=path))
+
+        if not operations:
+            return
+
+        from hf_xet import upload_bytes, upload_files
+
+        from .utils._xet_progress_reporting import XetProgressReporter
+
+        headers = self._build_hf_headers(token=token)
+
+        add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
+        add_bytes_operations = [op for op in add_operations if isinstance(op.source, bytes)]
+        add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
+
+        if len(add_operations) > 0:
+            try:
+                xet_connection_info = fetch_xet_connection_info_from_repo_info(
+                    token_type=XetTokenType.WRITE,
+                    repo_id=bucket_id,
+                    repo_type="bucket",
+                    headers=headers,
+                    endpoint=self.endpoint,
+                )
+            except HfHubHTTPError as e:
+                if e.response.status_code == 401:
+                    raise XetAuthorizationError(
+                        f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                        f"Please check that you have configured your access token with write access to the repo."
+                    ) from e
+                raise
+
+            xet_endpoint = xet_connection_info.endpoint
+            access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
+
+            def token_refresher() -> tuple[str, int]:
+                new_xet_connection = fetch_xet_connection_info_from_repo_info(
+                    token_type=XetTokenType.WRITE,
+                    repo_id=bucket_id,
+                    repo_type="bucket",
+                    headers=headers,
+                    endpoint=self.endpoint,
+                )
+                if new_xet_connection is None:
+                    raise XetRefreshTokenError("Failed to refresh xet token")
+                return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+
+            owns_progress = _progress is None
+            if _progress is not None:
+                progress = _progress
+                progress_callback = progress.update_progress
+            elif not are_progress_bars_disabled():
+                progress = XetProgressReporter()
+                progress_callback = progress.update_progress
+            else:
+                progress, progress_callback = None, None
+
+            try:
+                # 2.a. Upload path files
+                xet_upload_infos = upload_files(
+                    [str(op.source) for op in add_path_operations],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    progress_callback,
+                    "bucket",
+                )
+                for upload_info, op in zip(xet_upload_infos, add_path_operations):
+                    op.xet_hash = upload_info.hash
+                    op.size = upload_info.filesize
+
+                if progress is not None:
+                    progress.notify_upload_complete()
+
+                # 2.b. Upload bytes files
+                xet_upload_infos = upload_bytes(
+                    [op.source for op in add_bytes_operations],
+                    xet_endpoint,
+                    access_token_info,
+                    token_refresher,
+                    progress_callback,
+                    "bucket",
+                )
+                for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
+                    op.xet_hash = upload_info.hash
+                    op.size = upload_info.filesize
+
+                if progress is not None:
+                    progress.notify_upload_complete()
+            finally:
+                if owns_progress and progress is not None:
+                    progress.close(False)
+
+        # 3. /batch call
+        def _payload_as_ndjson() -> Iterable[bytes]:
+            for op in operations:
+                if isinstance(op, _BucketAddFile):
+                    payload = {
+                        "type": "addFile",
+                        "path": op.destination,
+                        "xetHash": op.xet_hash,
+                        "mtime": op.mtime,
+                    }
+                    if op.content_type is not None:
+                        payload["contentType"] = op.content_type
+                else:
+                    payload = {
+                        "type": "deleteFile",
+                        "path": op.path,
+                    }
+                yield json.dumps(payload).encode()
+                yield b"\n"
+
+        headers = {
+            "Content-Type": "application/x-ndjson",
+            **headers,
+        }
+        data = b"".join(_payload_as_ndjson())
+
+        response = http_backoff(
+            "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def get_bucket_file_metadata(
+        self,
+        bucket_id: str,
+        remote_path: str,
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> BucketFileMetadata:
+        """Fetch metadata of a file in a bucket.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            remote_path (`str`):
+                The path of the file in the bucket.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`BucketFileMetadata`]: The file metadata containing size and xet information.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import get_bucket_file_metadata
+            >>> metadata = get_bucket_file_metadata(
+            ...     bucket_id="username/my-bucket",
+            ...     remote_path="models/model.safetensors",
+            ... )
+            >>> metadata.size
+            42000
+            ```
+        """
+        response = _httpx_follow_relative_redirects_with_backoff(
+            "HEAD",
+            f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
+            headers=self._build_hf_headers(token=token),
+            retry_on_errors=True,
+        )
+
+        xet_file_data = parse_xet_file_data_from_response(response)
+        if xet_file_data is None:
+            raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
+
+        size = response.headers.get("Content-Length")
+        if size is None:
+            raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
+
+        return BucketFileMetadata(size=int(size), xet_file_data=xet_file_data)
+
+    @validate_hf_hub_args
+    def download_bucket_files(
+        self,
+        bucket_id: str,
+        files: list[tuple[Union[str, BucketFile], Union[str, Path]]],
+        *,
+        raise_on_missing_files: bool = False,
+        token: Union[str, bool, None] = None,
+    ) -> None:
+        """Download files from a bucket.
+
+        Files input is a list of `(remote file, local file)` tuples where `remote file` is either the path of the file
+        in the bucket or a [`BucketFile`] object, and `local file` is the destination path on the local filesystem.
+        When passing a [`BucketFile`] object (obtained from [`list_bucket_tree`]), the method will skip the metadata
+        fetching step and directly download the files.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            files (`list[tuple[Union[str, BucketFile], Union[str, Path]]]`):
+                Files to download as a list of tuple (source, destination). See description above for format details.
+            raise_on_missing_files (`bool`, *optional*):
+                If `True`, raise an [`EntryNotFoundError`] when a requested file does not exist in the bucket. If
+                `False` (default), missing files are skipped with a warning.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import download_bucket_files
+
+            >>> download_bucket_files(
+            ...     bucket_id="username/my-bucket",
+            ...     files=[
+            ...         ("models/model.safetensors", "./local/model.safetensors"),
+            ...         ("config.json", "./local/config.json"),
+            ...     ],
+            ... )
+            ```
+
+            ```python
+            >>> from huggingface_hub import download_bucket_files
+
+            >>> parquet_files = [file for file in list_bucket_tree(bucket_id="username/my-bucket") if file.path.endswith(".parquet")]
+            >>> download_bucket_files(
+            ...     bucket_id="username/my-bucket",
+            ...     files=[(file, f"./local/{file.path}") for file in parquet_files],
+            ... )
+            ```
+        """
+        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+
+        headers = self._build_hf_headers(token=token)
+
+        if len(files) == 0:
+            return
+
+        # Resolve all string paths to BucketFile objects in a single batch request
+        str_paths = [path for path, _ in files if not isinstance(path, BucketFile)]
+        bucket_files_by_path: dict[str, BucketFile] = {}
+        if str_paths:
+            bucket_files_by_path = {
+                info.path: info for info in self.get_bucket_paths_info(bucket_id, str_paths, token=token)
+            }
+
+            # Check for missing files
+            missing_paths = [path for path in str_paths if path not in bucket_files_by_path]
+            if missing_paths:
+                if raise_on_missing_files:
+                    raise EntryNotFoundError(
+                        f"{len(missing_paths)} file(s) not found in bucket '{bucket_id}': {', '.join(missing_paths)}"
+                    )
+                for path in missing_paths:
+                    warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
+
+        xet_download_infos = []
+        first_valid_bucket_file: Optional[BucketFile] = None
+        for remote_file, local_path in files:
+            if not isinstance(remote_file, BucketFile):
+                if remote_file not in bucket_files_by_path:
+                    continue  # skip missing files (already warned above)
+                remote_file = bucket_files_by_path[remote_file]
+            if first_valid_bucket_file is None:
+                first_valid_bucket_file = remote_file
+            xet_download_infos.append(
+                PyXetDownloadInfo(
+                    destination_path=str(Path(local_path).absolute()),
+                    hash=remote_file.xet_hash,
+                    file_size=remote_file.size,
+                )
+            )
+
+        if len(xet_download_infos) == 0 or first_valid_bucket_file is None:
+            return
+
+        # Fetch Xet connection info (same for all files)
+        remote_path = first_valid_bucket_file.path
+
+        metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
+        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
+
+        def token_refresher() -> tuple[str, int]:
+            connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
+            if connection_info is None:
+                raise ValueError("Failed to refresh token using xet metadata.")
+            return connection_info.access_token, connection_info.expiration_unix_epoch
+
+        # Create empty files for zero-size files (no need to download them)
+        # and filter them out from xet_download_infos to avoid passing to xet library
+        non_zero_download_infos = []
+        for download_info in xet_download_infos:
+            if download_info.file_size == 0:
+                dest_path = Path(download_info.destination_path)
+                if dest_path.exists():
+                    # already exists => make sure it's an empty file
+                    if dest_path.is_dir():
+                        raise IsADirectoryError(f"Expected file but found directory at '{dest_path}'")
+                    if dest_path.stat().st_size != 0:
+                        dest_path.write_bytes(b"")
+                else:
+                    # doesn't exist => create it
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    dest_path.touch()
+            else:
+                non_zero_download_infos.append(download_info)
+
+        # If only zero-size files, nothing more to download
+        if len(non_zero_download_infos) == 0:
+            return
+
+        # Download files
+        progress_cm = _get_progress_bar_context(
+            desc="Downloading bucket files",
+            log_level=logger.getEffectiveLevel(),
+            total=sum(info.file_size for info in non_zero_download_infos),
+            initial=0,
+            name="huggingface_hub.download_bucket_files",
+        )
+
+        with progress_cm as progress:
+
+            def progress_updater(progress_bytes: float):
+                progress.update(progress_bytes)
+
+            download_files(
+                non_zero_download_infos,
+                endpoint=connection_info.endpoint,
+                token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
+                token_refresher=token_refresher,
+                progress_updater=[progress_updater] * len(non_zero_download_infos),
+            )
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -11619,3 +12574,14 @@ delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 create_scheduled_uv_job = api.create_scheduled_uv_job
+
+# Buckets API
+create_bucket = api.create_bucket
+bucket_info = api.bucket_info
+list_buckets = api.list_buckets
+delete_bucket = api.delete_bucket
+list_bucket_tree = api.list_bucket_tree
+get_bucket_paths_info = api.get_bucket_paths_info
+batch_bucket_files = api.batch_bucket_files
+get_bucket_file_metadata = api.get_bucket_file_metadata
+download_bucket_files = api.download_bucket_files
