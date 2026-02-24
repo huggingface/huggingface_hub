@@ -106,6 +106,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         if cmd is not None:
             return cmd
         # Fall back to alias lookup: check if cmd_name matches any alias
+        # taken from https://github.com/fastapi/typer/issues/132#issuecomment-2417492805
         for registered_name, registered_cmd in self.commands.items():
             aliases = _ALIAS_SPLIT.split(registered_name)
             if cmd_name in aliases:
