@@ -2011,9 +2011,10 @@ class _BucketAddFile:
     content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.content_type = (mimetypes.guess_type(self.source)[0] if not isinstance(self.source, bytes) else None) or (
-            mimetypes.guess_type(self.destination)[0]
-        )
+        if isinstance(self.source, bytes):
+              self.content_type = mimetypes.guess_type(self.destination)[0]
+         else:
+              self.content_type = mimetypes.guess_type(self.source)[0] or mimetypes.guess_type(self.destination)[0]
         self.mtime = int(
             os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
         )
@@ -11526,7 +11527,7 @@ class HfApi:
             >>> url.bucket_id
             'user/my-bucket'
             >>> url.url
-            'https://huggingface.co/user/my-bucket'
+            'https://huggingface.co/buckets/user/my-bucket'
             >>> url.handle
             'hf://buckets/user/my-bucket'
 
@@ -12062,7 +12063,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             retry_on_errors=True,
         )
-        hf_raise_for_status(response)
 
         xet_file_data = parse_xet_file_data_from_response(response)
         if xet_file_data is None:
