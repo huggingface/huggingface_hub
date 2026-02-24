@@ -9,7 +9,7 @@ Buckets provide S3-like object storage on Hugging Face, powered by the Xet stora
 You can interact with buckets using the Python API ([`HfApi`]) or the CLI (`hf buckets`). In this guide, we will walk through all the operations available.
 
 > [!TIP]
-> All CLI commands are available under `hf buckets <command>`. Run `hf buckets --help` to see learn more.
+> All CLI commands are available under `hf buckets <command>`. Run `hf buckets --help` to learn more.
 
 ## Create and manage buckets
 
