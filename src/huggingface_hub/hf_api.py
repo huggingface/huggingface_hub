@@ -11525,7 +11525,7 @@ class HfApi:
             >>> url.bucket_id
             'user/my-bucket'
             >>> url.url
-            'https://huggingface.co/user/my-bucket'
+            'https://huggingface.co/buckets/user/my-bucket'
             >>> url.handle
             'hf://buckets/user/my-bucket'
 
