@@ -85,8 +85,10 @@ def test_get_duckdb_connection_missing_dependency(monkeypatch: pytest.MonkeyPatc
         return None
 
     monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", import_module)
-    with pytest.raises(ImportError, match="pip install duckdb"):
+    monkeypatch.setattr("huggingface_hub._datasets_sql.shutil.which", lambda _: None)
+    with pytest.raises(ImportError, match="pip install duckdb") as exc_info:
         _get_duckdb_connection(token=None)
+    assert "brew install duckdb" in str(exc_info.value)
 
 
 def test_get_duckdb_connection_creates_huggingface_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,7 +107,8 @@ def test_get_duckdb_connection_creates_huggingface_secret(monkeypatch: pytest.Mo
     connection = _get_duckdb_connection(token="abc")
 
     assert connection is fake_connection
-    assert any("TYPE HUGGINGFACE" in s and "'abc'" in s for s in fake_connection.executed)
+    assert any("BEARER_TOKEN 'abc'" in s for s in fake_connection.executed)
+    assert any("TYPE HUGGINGFACE" in s for s in fake_connection.executed)
 
 
 def test_get_duckdb_connection_creates_both_secrets(monkeypatch: pytest.MonkeyPatch) -> None:

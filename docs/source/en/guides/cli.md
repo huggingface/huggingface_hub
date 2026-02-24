@@ -565,6 +565,8 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 ### List parquet URLs
 
 Use `hf datasets parquet` to discover parquet file URLs for a dataset before writing SQL queries.
+Datasets on the Hub are auto-converted to Parquet on the backend by the Dataset Viewer service (for eligible datasets).
+See the [Parquet conversion guide](https://huggingface.co/docs/dataset-viewer/parquet) for details.
 
 ```bash
 >>> hf datasets parquet cfahlgren1/hub-stats
@@ -588,7 +590,11 @@ Discover URLs first with `hf datasets parquet`, then query them directly with `r
 Install DuckDB first if needed:
 
 ```bash
+# Python package
 >>> pip install duckdb
+
+# or standalone DuckDB CLI (Homebrew: macOS/Linux)
+>>> brew install duckdb
 ```
 
 ## hf spaces

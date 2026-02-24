@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
+import shutil
+import subprocess
 from dataclasses import dataclass
 from typing import Any, Union
 
@@ -29,6 +32,7 @@ class DatasetSqlQueryResult:
     columns: tuple[str, ...]
     rows: tuple[tuple[Any, ...], ...]
     table: str
+    raw_json: str | None = None
 
 
 def execute_raw_sql_query(
@@ -45,18 +49,29 @@ def execute_raw_sql_query(
     try:
         connection = _get_duckdb_connection(token=effective_token)
         relation = connection.sql(normalized_query)
-        if relation is None or relation.description is None:
+        if relation is None:
             raise ValueError("SQL query must return rows.")
-        columns = tuple(column[0] for column in relation.description)
         table: str
+        columns: tuple[str, ...]
         rows: tuple[tuple[Any, ...], ...]
         if output_format == "table":
             table = str(relation)
+            if not table:
+                raise ValueError("SQL query must return rows.")
+            columns = ()
             rows = ()
+            raw_json = None
         else:
+            to_json = getattr(relation, "to_json", None)
+            if callable(to_json):
+                return DatasetSqlQueryResult(columns=(), rows=(), table="", raw_json=to_json())
+            if relation.description is None:
+                raise ValueError("SQL query must return rows.")
+            columns = tuple(column[0] for column in relation.description)
             table = ""
             rows = tuple(tuple(row) for row in relation.fetchall())
-        return DatasetSqlQueryResult(columns=columns, rows=rows, table=table)
+            raw_json = None
+        return DatasetSqlQueryResult(columns=columns, rows=rows, table=table, raw_json=raw_json)
     except ValueError:
         raise
     except ImportError:
@@ -71,6 +86,8 @@ def execute_raw_sql_query(
 def format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
     if output_format == "table":
         return result.table
+    if result.raw_json is not None:
+        return result.raw_json
     return json.dumps(
         [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
         indent=2,
@@ -89,9 +106,13 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
     try:
         duckdb = importlib.import_module("duckdb")
     except ModuleNotFoundError as error:
-        raise ImportError(
-            "The 'duckdb' package is required for `hf datasets sql`. Install it with `pip install duckdb`."
-        ) from error
+        duckdb_binary = shutil.which("duckdb")
+        if duckdb_binary is None:
+            raise ImportError(
+                "DuckDB is required for `hf datasets sql`. Install the Python package with `pip install duckdb` or "
+                "install the DuckDB CLI binary (for example `brew install duckdb`)."
+            ) from error
+        return _DuckDBCliConnection(binary_path=duckdb_binary, token=token)
 
     connection = duckdb.connect()
     try:
@@ -107,3 +128,95 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
     except Exception:
         connection.close()
         raise
+
+
+@dataclass
+class _DuckDBCliConnection:
+    binary_path: str
+    token: Union[str, bool, None]
+
+    def __post_init__(self) -> None:
+        self._setup_statements = _build_duckdb_secret_statements(self.token)
+
+    def sql(self, query: str) -> "_DuckDBCliRelation":
+        return _DuckDBCliRelation(
+            binary_path=self.binary_path,
+            setup_statements=self._setup_statements,
+            query=query,
+        )
+
+    def close(self) -> None:
+        pass
+
+
+@dataclass
+class _DuckDBCliRelation:
+    binary_path: str
+    setup_statements: list[str]
+    query: str
+
+    def __post_init__(self) -> None:
+        self._table: str | None = None
+        self._json: str | None = None
+
+    def to_json(self) -> str:
+        if self._json is None:
+            output = _run_duckdb_cli(
+                binary_path=self.binary_path,
+                setup_statements=self.setup_statements,
+                query=self.query,
+                output_mode="json",
+            )
+            self._json = _extract_last_duckdb_json_chunk(output)
+        return self._json
+
+    def __str__(self) -> str:
+        if self._table is None:
+            self._table = _run_duckdb_cli(
+                binary_path=self.binary_path,
+                setup_statements=self.setup_statements,
+                query=self.query,
+                output_mode="table",
+            )
+        return self._table
+
+
+def _build_duckdb_secret_statements(token: Union[str, bool, None]) -> list[str]:
+    if not isinstance(token, str) or not token:
+        return []
+
+    escaped_token = token.replace("'", "''")
+    escaped_endpoint = constants.ENDPOINT.replace("'", "''")
+    return [
+        f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', SCOPE '{escaped_endpoint}')",
+        f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')",
+    ]
+
+
+def _run_duckdb_cli(binary_path: str, setup_statements: list[str], query: str, output_mode: str) -> str:
+    command = [binary_path]
+    if output_mode != "table":
+        command.append(f"-{output_mode}")
+    query_input = _build_duckdb_cli_input(setup_statements=setup_statements, query=query)
+    result = subprocess.run(command, input=query_input, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        error_message = result.stderr.strip() or result.stdout.strip() or "DuckDB CLI command failed."
+        raise ValueError(error_message)
+    return result.stdout.strip()
+
+
+def _build_duckdb_cli_input(setup_statements: list[str], query: str) -> str:
+    statements: list[str] = []
+    if setup_statements:
+        statements.append(f".output {os.devnull}")
+        statements.extend(f"{statement};" for statement in setup_statements)
+        statements.append(".output stdout")
+    statements.append(f"{query};")
+    return "\n".join(statements)
+
+
+def _extract_last_duckdb_json_chunk(output: str) -> str:
+    chunks = [line.strip() for line in output.splitlines() if line.strip()]
+    if not chunks:
+        return ""
+    return chunks[-1]
