@@ -2011,10 +2011,12 @@ class _BucketAddFile:
     content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.source, bytes):
-              self.content_type = mimetypes.guess_type(self.destination)[0]
-         else:
-              self.content_type = mimetypes.guess_type(self.source)[0] or mimetypes.guess_type(self.destination)[0]
+        self.content_type = None
+        if isinstance(self.source, (str, Path)):  # guess content type from source path
+            self.content_type = mimetypes.guess_type(self.source)[0]
+        if self.content_type is None:  # or default to destination path content type
+            self.content_type = mimetypes.guess_type(self.destination)[0]
+
         self.mtime = int(
             os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
         )

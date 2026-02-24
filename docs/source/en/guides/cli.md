@@ -38,24 +38,31 @@ Usage: hf [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --install-completion  Install completion for the current shell.
-  --show-completion     Show completion for the current shell, to copy it or
-                        customize the installation.
-  --help                Show this message and exit.
+  --show-completion     Show completion for the current shell, to copy it or customize the installation.
+  -h, --help            Show this message and exit.
 
-Commands:
+Main commands:
   auth                 Manage authentication (login, logout, etc.).
+  buckets              Commands to interact with buckets.
   cache                Manage local cache directory.
+  collections          Interact with collections on the Hub.
   datasets             Interact with datasets on the Hub.
   download             Download files from the Hub.
   endpoints            Manage Hugging Face Inference Endpoints.
-  env                  Print information about the environment.
+  extensions           Manage hf CLI extensions.
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
+  papers               Interact with papers on the Hub.
   repo                 Manage repos on the Hub.
+  skills               Manage skills for AI assistants.
   spaces               Interact with spaces on the Hub.
+  sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
-  version              Print information about the hf version.
+
+Help commands:
+  env      Print information about the environment.
+  version  Print information about the hf version.
 ```
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.
