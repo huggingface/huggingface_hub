@@ -15,13 +15,13 @@
 
 Usage:
     # create a new dataset repo on the Hub
-    hf reposs create my-cool-dataset --repo-type=dataset
+    hf repos create my-cool-dataset --repo-type=dataset
 
     # create a private model repo on the Hub
-    hf reposs create my-cool-model --private
+    hf repos create my-cool-model --private
 
     # delete files from a repo on the Hub
-    hf reposs delete-files my-model file.txt
+    hf repos delete-files my-model file.txt
 """
 
 import enum
