@@ -12218,9 +12218,6 @@ class HfApi:
         Returns:
             [`SyncPlan`]: The computed (or loaded) sync plan.
 
-        Raises:
-            `ValueError`: If arguments are invalid (e.g., both paths are remote, conflicting options).
-
         Example:
             ```python
             >>> from huggingface_hub import HfApi
