@@ -129,6 +129,7 @@ from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
+    from ._buckets import SyncPlan
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
     from .utils._xet_progress_reporting import XetProgressReporter
@@ -12247,6 +12248,125 @@ class HfApi:
                 progress_updater=[progress_updater] * len(non_zero_download_infos),
             )
 
+    @validate_hf_hub_args
+    def sync_bucket(
+        self,
+        source: Optional[str] = None,
+        dest: Optional[str] = None,
+        *,
+        delete: bool = False,
+        ignore_times: bool = False,
+        ignore_sizes: bool = False,
+        existing: bool = False,
+        ignore_existing: bool = False,
+        include: Optional[list[str]] = None,
+        exclude: Optional[list[str]] = None,
+        filter_from: Optional[str] = None,
+        plan: Optional[str] = None,
+        apply: Optional[str] = None,
+        dry_run: bool = False,
+        verbose: bool = False,
+        quiet: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> SyncPlan:
+        """Sync files between a local directory and a bucket.
+
+        This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
+        (``hf://buckets/...``) and the other must be a local directory path.
+
+        Args:
+            source (`str`, *optional*):
+                Source path: local directory or ``hf://buckets/namespace/bucket_name(/prefix)``.
+                Required unless using ``apply``.
+            dest (`str`, *optional*):
+                Destination path: local directory or ``hf://buckets/namespace/bucket_name(/prefix)``.
+                Required unless using ``apply``.
+            delete (`bool`, *optional*, defaults to `False`):
+                Delete destination files not present in source.
+            ignore_times (`bool`, *optional*, defaults to `False`):
+                Skip files only based on size, ignoring modification times.
+            ignore_sizes (`bool`, *optional*, defaults to `False`):
+                Skip files only based on modification times, ignoring sizes.
+            existing (`bool`, *optional*, defaults to `False`):
+                Skip creating new files on receiver (only update existing files).
+            ignore_existing (`bool`, *optional*, defaults to `False`):
+                Skip updating files that exist on receiver (only create new files).
+            include (`list[str]`, *optional*):
+                Include files matching patterns (fnmatch-style).
+            exclude (`list[str]`, *optional*):
+                Exclude files matching patterns (fnmatch-style).
+            filter_from (`str`, *optional*):
+                Path to a filter file with include/exclude rules.
+            plan (`str`, *optional*):
+                Save sync plan to this JSONL file instead of executing.
+            apply (`str`, *optional*):
+                Apply a previously saved plan file. When set, ``source`` and ``dest`` are not needed.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                Print sync plan to stdout as JSONL without executing.
+            verbose (`bool`, *optional*, defaults to `False`):
+                Show detailed per-file operations.
+            quiet (`bool`, *optional*, defaults to `False`):
+                Suppress all output and progress bars.
+            token (Union[bool, str, None], optional):
+                A valid user access token. If not provided, the locally saved token will be used.
+
+        Returns:
+            [`SyncPlan`]: The computed (or loaded) sync plan.
+
+        Raises:
+            `ValueError`: If arguments are invalid (e.g., both paths are remote, conflicting options).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            # Upload local directory to bucket
+            >>> api.sync_bucket("./data", "hf://buckets/username/my-bucket")
+
+            # Download bucket to local directory
+            >>> api.sync_bucket("hf://buckets/username/my-bucket", "./data")
+
+            # Sync with delete and filtering
+            >>> api.sync_bucket(
+            ...     "./data",
+            ...     "hf://buckets/username/my-bucket",
+            ...     delete=True,
+            ...     include=["*.safetensors"],
+            ... )
+
+            # Dry run: preview what would be synced
+            >>> plan = api.sync_bucket("./data", "hf://buckets/username/my-bucket", dry_run=True)
+            >>> plan.summary()
+            {'uploads': 3, 'downloads': 0, 'deletes': 0, 'skips': 1, 'total_size': 4096}
+
+            # Save plan for review, then apply
+            >>> api.sync_bucket("./data", "hf://buckets/username/my-bucket", plan="sync-plan.jsonl")
+            >>> api.sync_bucket(apply="sync-plan.jsonl")
+            ```
+        """
+        from ._buckets import sync_bucket as _sync_bucket
+
+        return _sync_bucket(
+            source=source,
+            dest=dest,
+            api=self,
+            delete=delete,
+            ignore_times=ignore_times,
+            ignore_sizes=ignore_sizes,
+            existing=existing,
+            ignore_existing=ignore_existing,
+            include=include,
+            exclude=exclude,
+            filter_from=filter_from,
+            plan=plan,
+            apply=apply,
+            dry_run=dry_run,
+            verbose=verbose,
+            quiet=quiet,
+            token=token,
+        )
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -12585,3 +12705,4 @@ get_bucket_paths_info = api.get_bucket_paths_info
 batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
+sync_bucket = api.sync_bucket
