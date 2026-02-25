@@ -51,6 +51,85 @@ def print_colored_diff(expected: str, current: str) -> None:
             print(line)  # Default color for context
 
 
+def _normalize_command_aliases(content: str) -> str:
+    """Transform pipe-separated aliases into proper documentation format.
+
+    Typer generates docs with pipe-separated command names (e.g. "list | ls") when
+    commands have aliases. This function transforms them into a cleaner format:
+    - Command list: `* `cmd | alias`: Desc` → `* `cmd`: (alias: alias) Desc`
+    - Section headers: `## `hf cmd | alias`` → `## `hf cmd`` with alias in description
+    - Usage examples: `$ hf cmd | alias [OPTIONS]` → `$ hf cmd [OPTIONS]`
+    """
+
+    def _format_aliases(aliases: list[str]) -> str:
+        return f"(alias: {', '.join(aliases)})"
+
+    # Transform command list items: `* `cmd | alias`: Description`
+    # Only match simple command names (alphanumeric + hyphens), not options like `--format [table|json]`
+    def _transform_list_item(match: re.Match) -> str:
+        full_name = match.group(1)  # e.g. "list | ls"
+        description = match.group(2)  # e.g. "List files..."
+        parts = [p.strip() for p in full_name.split("|")]
+        primary = parts[0]
+        aliases = parts[1:]
+        if aliases:
+            return f"* `{primary}`: {_format_aliases(aliases)} {description}"
+        return match.group(0)
+
+    content = re.sub(
+        r"^\* `([\w-]+(?: \| [\w-]+)+)`: (.*)$",
+        _transform_list_item,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Transform section headers: `## `hf cmd | alias`` or `### `hf parent cmd | alias``
+    # and add alias info to the description on the next non-empty line
+    def _transform_section(match: re.Match) -> str:
+        hashes = match.group(1)  # "##" or "###"
+        prefix = match.group(2)  # "hf" or "hf parent"
+        full_name = match.group(3)  # "cmd | alias"
+        whitespace = match.group(4)  # newlines between header and description
+        description = match.group(5)  # first line of description
+
+        parts = [p.strip() for p in full_name.split("|")]
+        primary = parts[0]
+        aliases = parts[1:]
+
+        new_header = f"{hashes} `{prefix} {primary}`"
+        if aliases:
+            new_description = f"{description} {_format_aliases(aliases)}"
+        else:
+            new_description = description
+        return f"{new_header}{whitespace}{new_description}"
+
+    content = re.sub(
+        r"^(#{2,}) `(hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
+        _transform_section,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`
+    def _transform_usage(match: re.Match) -> str:
+        prefix = match.group(1)  # "$ hf" or "$ hf parent"
+        full_name = match.group(2)  # "cmd | alias"
+        suffix = match.group(3)  # " [OPTIONS]..." or similar
+
+        parts = [p.strip() for p in full_name.split("|")]
+        primary = parts[0]
+        return f"{prefix} {primary}{suffix}"
+
+    content = re.sub(
+        r"^(\$ hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)( .*)$",
+        _transform_usage,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    return content
+
+
 def _strip_hidden_commands(content: str, hidden_commands: list[str]) -> str:
     """Remove hidden/deprecated commands from the generated CLI reference.
 
@@ -99,6 +178,7 @@ def generate_cli_reference() -> str:
         # Decode HTML entities that Typer generates
         content = html.unescape(content)
         content = _strip_hidden_commands(content, HIDDEN_COMMANDS)
+        content = _normalize_command_aliases(content)
         return f"{WARNING_HEADER}\n\n{content}"
 
 

@@ -206,7 +206,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list | ls`: List buckets or files in a bucket.
+* `list`: (alias: ls) List buckets or files in a bucket.
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -341,9 +341,9 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf buckets list | ls`
+### `hf buckets list`
 
-List buckets or files in a bucket.
+List buckets or files in a bucket. (alias: ls)
 
 When called with no argument or a namespace, lists buckets.
 When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
@@ -351,7 +351,7 @@ When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 **Usage**:
 
 ```console
-$ hf buckets list | ls [OPTIONS] [ARGUMENT]
+$ hf buckets list [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
