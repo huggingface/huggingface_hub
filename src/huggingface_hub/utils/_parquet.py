@@ -17,9 +17,9 @@
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from . import constants
-from .errors import EntryNotFoundError
-from .utils import build_hf_headers, get_session, hf_raise_for_status
+from .. import constants
+from ._headers import build_hf_headers
+from ._http import get_session, hf_raise_for_status
 
 
 @dataclass(frozen=True)
@@ -34,8 +34,10 @@ def list_dataset_parquet_entries(
     token: Union[str, bool, None],
     config: Optional[str] = None,
     split: Optional[str] = None,
+    *,
+    endpoint: str = constants.ENDPOINT,
 ) -> list[DatasetParquetEntry]:
-    payload = _fetch_json(url=_hub_parquet_url(repo_id=repo_id, endpoint=constants.ENDPOINT), token=token)
+    payload = _fetch_json(url=f"{endpoint.rstrip('/')}/api/datasets/{repo_id}/parquet", token=token)
 
     entries: list[DatasetParquetEntry] = []
     if isinstance(payload, dict):
@@ -55,11 +57,11 @@ def list_dataset_parquet_entries(
 
     if not entries:
         raise ValueError(
-              f"No parquet entries found for dataset '{repo_id}'"
-              + (f" with config={config!r}" if config else "")
-              + (f", split={split!r}" if split else "")
-              + "."
-          )
+            f"No parquet entries found for dataset '{repo_id}'"
+            + (f" with config={config!r}" if config else "")
+            + (f", split={split!r}" if split else "")
+            + "."
+        )
     return entries
 
 
@@ -67,7 +69,3 @@ def _fetch_json(url: str, token: Union[str, bool, None]) -> Any:
     response = get_session().get(url, headers=build_hf_headers(token=token), timeout=constants.DEFAULT_REQUEST_TIMEOUT)
     hf_raise_for_status(response)
     return response.json()
-
-
-def _hub_parquet_url(repo_id: str, endpoint: str) -> str:
-    return f"{endpoint.rstrip('/')}/api/datasets/{repo_id}/parquet"

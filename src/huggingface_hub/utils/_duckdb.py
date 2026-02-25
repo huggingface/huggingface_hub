@@ -20,10 +20,10 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Optional, Union
 
-from . import constants
-from .utils import get_token_to_send
+from .. import constants
+from ._headers import get_token_to_send
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,8 @@ def execute_raw_sql_query(
     sql_query: str,
     token: Union[str, bool, None],
     output_format: str = "table",
+    *,
+    endpoint: str = constants.ENDPOINT,
 ) -> DatasetSqlQueryResult:
     normalized_query = _normalize_query(sql_query)
     if output_format not in {"table", "json"}:
@@ -46,7 +48,7 @@ def execute_raw_sql_query(
     effective_token = get_token_to_send(token)
     connection = None
     try:
-        connection = _get_duckdb_connection(token=effective_token)
+        connection = _get_duckdb_connection(token=effective_token, endpoint=endpoint)
         relation = connection.sql(normalized_query)
         if relation is None:
             raise ValueError("SQL query must return rows.")
@@ -71,9 +73,7 @@ def execute_raw_sql_query(
             rows = tuple(tuple(row) for row in relation.fetchall())
             raw_json = None
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table, raw_json=raw_json)
-    except ValueError:
-        raise
-    except ImportError:
+    except (ImportError, ValueError):
         raise
     except Exception as e:
         raise ValueError(str(e)) from e
@@ -101,7 +101,7 @@ def _normalize_query(sql_query: str) -> str:
     return normalized_query
 
 
-def _get_duckdb_connection(token: Union[str, bool, None]):
+def _get_duckdb_connection(token: Union[str, bool, None], endpoint: str = constants.ENDPOINT):
     try:
         duckdb = importlib.import_module("duckdb")
     except ModuleNotFoundError as error:
@@ -111,18 +111,12 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
                 "DuckDB is required for `hf datasets sql`. Install the Python package with `pip install duckdb` or "
                 "install the DuckDB CLI binary (for example `brew install duckdb`)."
             ) from error
-        return _DuckDBCliConnection(binary_path=duckdb_binary, token=token)
+        return _DuckDBCliConnection(binary_path=duckdb_binary, token=token, endpoint=endpoint)
 
     connection = duckdb.connect()
     try:
-        if isinstance(token, str) and token:
-            escaped_token = token.replace("'", "''")
-            escaped_endpoint = constants.ENDPOINT.replace("'", "''")
-            connection.execute(
-                f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', "
-                f"SCOPE '{escaped_endpoint}')"
-            )
-            connection.execute(f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')")
+        for statement in _build_duckdb_secret_statements(token, endpoint=endpoint):
+            connection.execute(statement)
         return connection
     except Exception:
         connection.close()
@@ -133,9 +127,10 @@ def _get_duckdb_connection(token: Union[str, bool, None]):
 class _DuckDBCliConnection:
     binary_path: str
     token: Union[str, bool, None]
+    endpoint: str
 
     def __post_init__(self) -> None:
-        self._setup_statements = _build_duckdb_secret_statements(self.token)
+        self._setup_statements = _build_duckdb_secret_statements(self.token, endpoint=self.endpoint)
 
     def sql(self, query: str) -> "_DuckDBCliRelation":
         return _DuckDBCliRelation(
@@ -179,12 +174,12 @@ class _DuckDBCliRelation:
         return self._table
 
 
-def _build_duckdb_secret_statements(token: Union[str, bool, None]) -> list[str]:
+def _build_duckdb_secret_statements(token: Union[str, bool, None], endpoint: str = constants.ENDPOINT) -> list[str]:
     if not isinstance(token, str) or not token:
         return []
 
     escaped_token = token.replace("'", "''")
-    escaped_endpoint = constants.ENDPOINT.replace("'", "''")
+    escaped_endpoint = endpoint.replace("'", "''")
     return [
         f"CREATE OR REPLACE SECRET hf_hub_token (TYPE HTTP, BEARER_TOKEN '{escaped_token}', SCOPE '{escaped_endpoint}')",
         f"CREATE OR REPLACE SECRET hf_token (TYPE HUGGINGFACE, TOKEN '{escaped_token}')",

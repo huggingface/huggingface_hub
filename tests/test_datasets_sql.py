@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from huggingface_hub._datasets_sql import (
+from huggingface_hub.utils._duckdb import (
     DatasetSqlQueryResult,
     _build_duckdb_secret_statements,
     _DuckDBCliConnection,
@@ -63,8 +63,8 @@ def test_execute_raw_sql_query_runs_normalized_query(monkeypatch: pytest.MonkeyP
 
     fake_connection = FakeConnection()
     monkeypatch.setattr(
-        "huggingface_hub._datasets_sql._get_duckdb_connection",
-        lambda token: fake_connection,
+        "huggingface_hub.utils._duckdb._get_duckdb_connection",
+        lambda token, endpoint: fake_connection,
     )
 
     result = execute_raw_sql_query(
@@ -101,7 +101,9 @@ def test_execute_raw_sql_query_table_output(monkeypatch: pytest.MonkeyPatch) -> 
             self.closed = True
 
     fake_connection = FakeConnection()
-    monkeypatch.setattr("huggingface_hub._datasets_sql._get_duckdb_connection", lambda token: fake_connection)
+    monkeypatch.setattr(
+        "huggingface_hub.utils._duckdb._get_duckdb_connection", lambda token, endpoint: fake_connection
+    )
 
     result = execute_raw_sql_query(sql_query=" SELECT 1; ", token="token", output_format="table")
 
@@ -119,8 +121,8 @@ def test_get_duckdb_connection_missing_dependency(monkeypatch: pytest.MonkeyPatc
             raise ModuleNotFoundError("No module named 'duckdb'")
         return None
 
-    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", import_module)
-    monkeypatch.setattr("huggingface_hub._datasets_sql.shutil.which", lambda _: None)
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.importlib.import_module", import_module)
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.shutil.which", lambda _: None)
     with pytest.raises(ImportError, match="pip install duckdb") as exc_info:
         _get_duckdb_connection(token=None)
     assert "brew install duckdb" in str(exc_info.value)
@@ -137,7 +139,7 @@ def test_get_duckdb_connection_creates_huggingface_secret(monkeypatch: pytest.Mo
     fake_connection = FakeConnection()
     fake_duckdb = types.SimpleNamespace(connect=lambda: fake_connection)
 
-    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", lambda name: fake_duckdb)
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.importlib.import_module", lambda name: fake_duckdb)
 
     connection = _get_duckdb_connection(token="abc")
 
@@ -157,7 +159,7 @@ def test_get_duckdb_connection_skips_secrets_without_token(monkeypatch: pytest.M
     fake_connection = FakeConnection()
     fake_duckdb = types.SimpleNamespace(connect=lambda: fake_connection)
 
-    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", lambda name: fake_duckdb)
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.importlib.import_module", lambda name: fake_duckdb)
 
     _get_duckdb_connection(token=None)
 
@@ -170,8 +172,8 @@ def test_get_duckdb_connection_uses_cli_fallback_when_python_package_missing(mon
             raise ModuleNotFoundError("No module named 'duckdb'")
         return None
 
-    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", import_module)
-    monkeypatch.setattr("huggingface_hub._datasets_sql.shutil.which", lambda _: "/usr/local/bin/duckdb")
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.importlib.import_module", import_module)
+    monkeypatch.setattr("huggingface_hub.utils._duckdb.shutil.which", lambda _: "/usr/local/bin/duckdb")
 
     connection = _get_duckdb_connection(token="abc")
 

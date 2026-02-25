@@ -30,11 +30,8 @@ from typing import Annotated, Optional, Union, get_args
 
 import typer
 
-from huggingface_hub._datasets_parquet import list_dataset_parquet_entries
-from huggingface_hub._datasets_sql import execute_raw_sql_query, format_sql_result
 from huggingface_hub.errors import (
     CLIError,
-    EntryNotFoundError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -148,21 +145,17 @@ def datasets_parquet(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
-    format: Annotated[
-        OutputFormat,
-        typer.Option(help="Output format.", case_sensitive=False),
-    ] = OutputFormat.table,
+    format: FormatOpt = OutputFormat.table,
     token: TokenOpt = None,
 ) -> None:
     """List parquet file URLs available for a dataset."""
     api = get_hf_api(token=token)
-    effective_token = api.token
 
     try:
-        entries = list_dataset_parquet_entries(repo_id=dataset_id, token=effective_token, config=subset, split=split)
+        entries = api.list_dataset_parquet_entries(repo_id=dataset_id, config=subset, split=split)
     except RepositoryNotFoundError as e:
         raise CLIError(f"Dataset '{dataset_id}' not found.") from e
-    except EntryNotFoundError as e:
+    except ValueError as e:
         raise CLIError(str(e)) from e
     except HfHubHTTPError as e:
         raise CLIError(str(e)) from e
@@ -191,15 +184,13 @@ def datasets_parquet(
 )
 def datasets_sql(
     sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
-    format: Annotated[
-        OutputFormat,
-        typer.Option(help="Output format.", case_sensitive=False),
-    ] = OutputFormat.table,
+    format: FormatOpt = OutputFormat.table,
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
+    api = get_hf_api(token=token)
     try:
-        result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
+        output = api.execute_raw_sql_query(sql_query=sql, output_format=format.value)
     except (ImportError, ValueError) as e:
         raise CLIError(str(e)) from e
-    typer.echo(format_sql_result(result=result, output_format=format.value))
+    typer.echo(output)
