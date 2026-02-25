@@ -207,6 +207,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
+* `move`: Move (rename) a bucket to a new name or...
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -378,6 +379,36 @@ Examples
   $ hf buckets list user/my-bucket --tree -h
   $ hf buckets list hf://buckets/user/my-bucket
   $ hf buckets list user/my-bucket/sub -R
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets move`
+
+Move (rename) a bucket to a new name or namespace.
+
+**Usage**:
+
+```console
+$ hf buckets move [OPTIONS] FROM_ID TO_ID
+```
+
+**Arguments**:
+
+* `FROM_ID`: Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `TO_ID`: Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets move user/old-bucket user/new-bucket
+  $ hf buckets move user/my-bucket my-org/my-bucket
+  $ hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket
 
 Learn more
   Use `hf <command> --help` for more information about a command.

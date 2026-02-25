@@ -20,9 +20,9 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
+from huggingface_hub._buckets import _split_bucket_id_and_prefix
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
-from huggingface_hub.hf_api import _split_bucket_id_and_prefix
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
@@ -211,6 +211,26 @@ def test_delete_bucket_not_found():
     nonexistent = f"{USER}/{bucket_name()}"
     result = cli(f"hf buckets delete {nonexistent} --yes")
     assert result.exit_code != 0
+
+
+# =============================================================================
+# Move
+# =============================================================================
+
+
+def test_move_bucket(api: HfApi, bucket_write: str):
+    """Test renaming a bucket via CLI."""
+    new_bucket_id = f"{USER}/{bucket_name()}"
+    result = cli(f"hf buckets move {bucket_write} {new_bucket_id}")
+    assert result.exit_code == 0
+    assert "Bucket moved:" in result.output
+
+    # Verify move worked - new bucket should exist
+    info = api.bucket_info(new_bucket_id)
+    assert info.id == new_bucket_id
+
+    # Clean up
+    api.delete_bucket(new_bucket_id)
 
 
 # =============================================================================

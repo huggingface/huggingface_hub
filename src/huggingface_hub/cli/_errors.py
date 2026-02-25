@@ -38,6 +38,7 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
     LocalTokenNotFoundError: lambda e: "Not logged in. Run 'hf auth login' first.",
     RemoteEntryNotFoundError: lambda e: "File not found in repository.",
     HfHubHTTPError: lambda e: str(e),
+    ValueError: lambda e: f"Invalid value. {e}",
 }
 
 
