@@ -24,12 +24,13 @@ import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
 
-from . import logging
+from . import constants, logging
 from .errors import BucketNotFoundError
-from .hf_api import BucketFile, BucketFolder, _split_bucket_id_and_prefix
-from .utils import disable_progress_bars, enable_progress_bars
+from .utils import disable_progress_bars, enable_progress_bars, parse_datetime
+from .utils._terminal import _StatusLine
 
 
 if TYPE_CHECKING:
@@ -41,6 +42,112 @@ logger = logging.get_logger(__name__)
 
 BUCKET_PREFIX = "hf://buckets/"
 _SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
+
+
+# =============================================================================
+# Bucket data structures
+# =============================================================================
+
+
+def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
+    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
+
+    Returns (bucket_id, prefix) where prefix may be empty string.
+    Raises ValueError if path doesn't contain at least namespace/name.
+    """
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2] if len(parts) > 2 else ""
+    return bucket_id, prefix
+
+
+@dataclass
+class BucketUrl:
+    """Describes a bucket URL on the Hub.
+
+    `BucketUrl` is returned by [`create_bucket`]. At initialization, the URL is parsed to populate properties:
+    - endpoint (`str`)
+    - namespace (`str`)
+    - bucket_id (`str`)
+    - url (`str`)
+    - handle (`str`)
+
+    Args:
+        url (`str`):
+            String value of the bucket url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+    """
+
+    url: str
+    endpoint: str = ""
+    namespace: str = field(init=False)
+    bucket_id: str = field(init=False)
+    handle: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.endpoint = self.endpoint or constants.ENDPOINT
+
+        # Parse URL: expected format is `{endpoint}/buckets/{namespace}/{bucket_name}`
+        url_path = self.url.replace(self.endpoint, "").strip("/")
+        # Remove leading "buckets/" prefix
+        if url_path.startswith("buckets/"):
+            url_path = url_path[len("buckets/") :]
+        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
+        if prefix:
+            raise ValueError(f"Unable to parse bucket URL: {self.url}")
+        self.namespace = bucket_id.split("/")[0]
+        self.bucket_id = bucket_id
+
+        self.handle = f"hf://buckets/{self.bucket_id}"
+
+
+@dataclass
+class BucketFile:
+    """
+    Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFile`] but for files in buckets.
+    """
+
+    type: Literal["file"]
+    path: str
+    size: int
+    xet_hash: str
+    mtime: Optional[datetime]
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.size = kwargs.pop("size")
+        self.xet_hash = kwargs.pop("xetHash")
+        mtime = kwargs.pop("mtime", None)
+        self.mtime = parse_datetime(mtime) if mtime else None
+
+
+@dataclass
+class BucketFolder:
+    """
+    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
+
+    Similar to [`RepoFolder`] but for directories in buckets.
+    """
+
+    type: Literal["directory"]
+    path: str
+    uploaded_at: datetime
+
+    def __init__(self, **kwargs):
+        self.type = kwargs.pop("type")
+        self.path = kwargs.pop("path")
+        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
+
+
+# =============================================================================
+# Bucket path parsing
+# =============================================================================
 
 
 def _parse_bucket_path(path: str) -> tuple[str, str]:
@@ -682,7 +789,7 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: O
         os.makedirs(local_path, exist_ok=True)
 
         # Collect download operations
-        download_files: list[tuple[Union[str, BucketFile], str]] = []
+        download_files: list[tuple[Union[str, BucketFile], Union[str, Path]]] = []
         delete_files: list[str] = []
 
         for op in plan.operations:
@@ -872,6 +979,7 @@ def sync_bucket(
             raise ValueError("Cannot specify dry_run when using apply.")
 
         sync_plan = _load_plan(apply)
+        status = _StatusLine(enabled=not quiet)
         if not quiet:
             _print_plan_summary(sync_plan)
             print("Executing plan...")
@@ -879,7 +987,7 @@ def sync_bucket(
         if quiet:
             disable_progress_bars()
         try:
-            _execute_plan(sync_plan, api, verbose=verbose)
+            _execute_plan(sync_plan, api, verbose=verbose, status=status)
         finally:
             if quiet:
                 enable_progress_bars()
@@ -931,6 +1039,7 @@ def sync_bucket(
     )
 
     # Compute sync plan
+    status = _StatusLine(enabled=not quiet and not dry_run)
     sync_plan = _compute_sync_plan(
         source=source,
         dest=dest,
@@ -941,6 +1050,7 @@ def sync_bucket(
         existing=existing,
         ignore_existing=ignore_existing,
         filter_matcher=filter_matcher,
+        status=status,
     )
 
     if dry_run:
@@ -970,7 +1080,7 @@ def sync_bucket(
     if quiet:
         disable_progress_bars()
     try:
-        _execute_plan(sync_plan, api, verbose=verbose)
+        _execute_plan(sync_plan, api, verbose=verbose, status=status)
     finally:
         if quiet:
             enable_progress_bars()

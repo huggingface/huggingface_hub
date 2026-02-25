@@ -55,6 +55,8 @@ from tqdm.contrib.concurrent import thread_map
 from huggingface_hub.utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
 
 from . import constants
+from ._buckets import BucketFile, BucketFolder, BucketUrl, SyncPlan, _split_bucket_id_and_prefix
+from ._buckets import sync_bucket as _sync_bucket
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -129,7 +131,6 @@ from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
-    from ._buckets import SyncPlan
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
     from .utils._xet_progress_reporting import XetProgressReporter
@@ -634,61 +635,6 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
-
-
-@dataclass
-class BucketUrl:
-    """Describes a bucket URL on the Hub.
-
-    `BucketUrl` is returned by [`create_bucket`]. At initialization, the URL is parsed to populate properties:
-    - endpoint (`str`)
-    - namespace (`str`)
-    - bucket_id (`str`)
-    - url (`str`)
-    - handle (`str`)
-
-    Args:
-        url (`str`):
-            String value of the bucket url.
-        endpoint (`str`, *optional*):
-            Endpoint of the Hub. Defaults to <https://huggingface.co>.
-    """
-
-    url: str
-    endpoint: str = ""
-    namespace: str = field(init=False)
-    bucket_id: str = field(init=False)
-    handle: str = field(init=False)
-
-    def __post_init__(self) -> None:
-        self.endpoint = self.endpoint or constants.ENDPOINT
-
-        # Parse URL: expected format is `{endpoint}/buckets/{namespace}/{bucket_name}`
-        url_path = self.url.replace(self.endpoint, "").strip("/")
-        # Remove leading "buckets/" prefix
-        if url_path.startswith("buckets/"):
-            url_path = url_path[len("buckets/") :]
-        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
-        if prefix:
-            raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = bucket_id.split("/")[0]
-        self.bucket_id = bucket_id
-
-        self.handle = f"hf://buckets/{self.bucket_id}"
-
-
-def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
-    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
-
-    Returns (bucket_id, prefix) where prefix may be empty string.
-    Raises ValueError if path doesn't contain at least namespace/name.
-    """
-    parts = path.split("/", 2)
-    if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
 
 
 @dataclass
@@ -1972,47 +1918,6 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
-
-
-@dataclass
-class BucketFile:
-    """
-    Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
-
-    Similar to [`RepoFile`] but for files in buckets.
-    """
-
-    type: Literal["file"]
-    path: str
-    size: int
-    xet_hash: str
-    mtime: Optional[datetime]
-
-    def __init__(self, **kwargs):
-        self.type = kwargs.pop("type")
-        self.path = kwargs.pop("path")
-        self.size = kwargs.pop("size")
-        self.xet_hash = kwargs.pop("xetHash")
-        mtime = kwargs.pop("mtime", None)
-        self.mtime = parse_datetime(mtime) if mtime else None
-
-
-@dataclass
-class BucketFolder:
-    """
-    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
-
-    Similar to [`RepoFolder`] but for directories in buckets.
-    """
-
-    type: Literal["directory"]
-    path: str
-    uploaded_at: datetime
-
-    def __init__(self, **kwargs):
-        self.type = kwargs.pop("type")
-        self.path = kwargs.pop("path")
-        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
 
 
 @dataclass
@@ -12345,8 +12250,6 @@ class HfApi:
             >>> api.sync_bucket(apply="sync-plan.jsonl")
             ```
         """
-        from ._buckets import sync_bucket as _sync_bucket
-
         return _sync_bucket(
             source=source,
             dest=dest,

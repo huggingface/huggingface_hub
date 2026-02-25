@@ -24,8 +24,14 @@ from typing import Annotated, Optional, Union
 import typer
 
 from huggingface_hub import logging
-from huggingface_hub._buckets import BUCKET_PREFIX, _is_bucket_path, _parse_bucket_path
-from huggingface_hub.hf_api import BucketFile, BucketFolder, _split_bucket_id_and_prefix
+from huggingface_hub._buckets import (
+    BUCKET_PREFIX,
+    BucketFile,
+    BucketFolder,
+    _is_bucket_path,
+    _parse_bucket_path,
+    _split_bucket_id_and_prefix,
+)
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (

@@ -53,6 +53,11 @@ __version__ = "1.5.0.dev0"
 # re-generating the file !
 _SUBMOD_ATTRS = {
     "_buckets": [
+        "BucketFile",
+        "BucketFileMetadata",
+        "BucketFolder",
+        "BucketInfo",
+        "BucketUrl",
         "SyncOperation",
         "SyncPlan",
     ],
@@ -163,11 +168,6 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
-        "BucketFile",
-        "BucketFileMetadata",
-        "BucketFolder",
-        "BucketInfo",
-        "BucketUrl",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -1161,6 +1161,11 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._buckets import (
+        BucketFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
+        BucketFolder,  # noqa: F401
+        BucketInfo,  # noqa: F401
+        BucketUrl,  # noqa: F401
         SyncOperation,  # noqa: F401
         SyncPlan,  # noqa: F401
     )
@@ -1265,11 +1270,6 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
-        BucketFile,  # noqa: F401
-        BucketFileMetadata,  # noqa: F401
-        BucketFolder,  # noqa: F401
-        BucketInfo,  # noqa: F401
-        BucketUrl,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
