@@ -86,8 +86,8 @@ jobs:
             git add pyproject.toml
           fi
 
-          # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
-          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+          # Any line with `uv pip install --prerelease=allow --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
+          find .github/workflows/ -type f -exec sed -i 's/uv pip install --prerelease=allow /uv pip install --prerelease=allow --prerelease=allow /g' {} +
           git add .github/workflows/
 
           # Commit and push changes
