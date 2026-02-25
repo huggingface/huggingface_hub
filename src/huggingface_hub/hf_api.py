@@ -11654,7 +11654,7 @@ class HfApi:
             ```
         """
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
-        params = {"limit": 2}
+        params = {}
         if recursive is not None:
             params["recursive"] = recursive
         for item in paginate(
