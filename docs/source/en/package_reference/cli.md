@@ -31,7 +31,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
-* `extensions`: Manage hf CLI extensions.
+* `extensions`: Manage hf CLI extensions. [alias: ext]
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
@@ -206,7 +206,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list | ls`: List buckets or files in a bucket.
+* `list`: List buckets or files in a bucket. [alias: ls]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -341,9 +341,9 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf buckets list | ls`
+### `hf buckets list`
 
-List buckets or files in a bucket.
+List buckets or files in a bucket. [alias: ls]
 
 When called with no argument or a namespace, lists buckets.
 When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
@@ -351,7 +351,7 @@ When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 **Usage**:
 
 ```console
-$ hf buckets list | ls [OPTIONS] [ARGUMENT]
+$ hf buckets list [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
@@ -565,7 +565,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
@@ -947,7 +947,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -1349,7 +1349,7 @@ $ hf env [OPTIONS]
 
 ## `hf extensions`
 
-Manage hf CLI extensions.
+Manage hf CLI extensions. [alias: ext]
 
 Security Warning: extensions are third-party executables. Install only from sources you trust.
 
@@ -1370,7 +1370,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `list`: List installed extension commands.
 * `remove`: Remove an installed extension.
 
-### `hf extensions exec`
+### `hf extensions | ext exec`
 
 Execute an installed extension.
 
@@ -1397,7 +1397,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions install`
+### `hf extensions | ext install`
 
 Install an extension from a public GitHub repository.
 
@@ -1427,7 +1427,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions list`
+### `hf extensions | ext list`
 
 List installed extension commands.
 
@@ -1449,7 +1449,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions remove`
+### `hf extensions | ext remove`
 
 Remove an installed extension.
 
@@ -2261,7 +2261,7 @@ $ hf repo branch create [OPTIONS] REPO_ID BRANCH
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
@@ -2292,7 +2292,7 @@ $ hf repo branch delete [OPTIONS] REPO_ID BRANCH
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2319,7 +2319,7 @@ $ hf repo create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2352,7 +2352,7 @@ $ hf repo delete [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `--help`: Show this message and exit.
@@ -2382,7 +2382,7 @@ $ hf repo delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
@@ -2418,7 +2418,7 @@ $ hf repo move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2448,7 +2448,7 @@ $ hf repo settings [OPTIONS] REPO_ID
 * `--gated [auto|manual|false]`: The gated status for the repository.
 * `--private / --no-private`: Whether the repository should be private.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2500,7 +2500,7 @@ $ hf repo tag create [OPTIONS] REPO_ID TAG
 * `-m, --message TEXT`: The description of the tag to create.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2531,7 +2531,7 @@ $ hf repo tag delete [OPTIONS] REPO_ID TAG
 
 * `-y, --yes`: Answer Yes to prompt automatically
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2559,7 +2559,7 @@ $ hf repo tag list [OPTIONS] REPO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2795,7 +2795,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
@@ -2838,7 +2838,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.

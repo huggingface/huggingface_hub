@@ -133,7 +133,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             help_text = cmd.get_short_help_str(limit=formatter.width)
             aliases = alias_map.get(name, [])
             if aliases:
-                help_text = f"(alias: {', '.join(aliases)}) {help_text}"
+                help_text = f"{help_text} [alias: {', '.join(aliases)}]"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
@@ -146,14 +146,16 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 formatter.write_dl(topics[topic])
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        # Collect examples from all commands
+        # Collect only the first example from each command (to keep group help concise)
+        # Full examples are shown in individual subcommand help (e.g. `hf buckets sync --help`)
         all_examples: list[str] = []
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             cmd_examples = getattr(cmd, "examples", [])
-            all_examples.extend(cmd_examples)
+            if cmd_examples:
+                all_examples.append(cmd_examples[0])
 
         if all_examples:
             epilog = generate_epilog(all_examples)
@@ -287,6 +289,8 @@ RepoIdArg = Annotated[
 RepoTypeOpt = Annotated[
     RepoType,
     typer.Option(
+        "--type",
+        "--repo-type",
         help="The type of repository (model, dataset, or space).",
     ),
 ]
