@@ -11759,6 +11759,12 @@ class HfApi:
             >>> move_bucket(from_id="username/my-bucket", to_id="my-org/my-bucket")
             ```
         """
+        if len(from_id.split("/")) != 2:
+            raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
+
+        if len(to_id.split("/")) != 2:
+            raise ValueError(f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)")
+
         json_payload = {"fromRepo": from_id, "toRepo": to_id, "type": "bucket"}
 
         path = f"{self.endpoint}/api/repos/move"
