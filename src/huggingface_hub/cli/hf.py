@@ -33,8 +33,8 @@ from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
-from huggingface_hub.cli.repo import repos_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
+from huggingface_hub.cli.repos import repos_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
