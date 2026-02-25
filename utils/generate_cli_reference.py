@@ -56,13 +56,13 @@ def _normalize_command_aliases(content: str) -> str:
 
     Typer generates docs with pipe-separated command names (e.g. "list | ls") when
     commands have aliases. This function transforms them into a cleaner format:
-    - Command list: `* `cmd | alias`: Desc` → `* `cmd`: (alias: alias) Desc`
+    - Command list: `* `cmd | alias`: Desc` → `* `cmd`: Desc [alias: alias]`
     - Section headers: `## `hf cmd | alias`` → `## `hf cmd`` with alias in description
     - Usage examples: `$ hf cmd | alias [OPTIONS]` → `$ hf cmd [OPTIONS]`
     """
 
     def _format_aliases(aliases: list[str]) -> str:
-        return f"(alias: {', '.join(aliases)})"
+        return f"[alias: {', '.join(aliases)}]"
 
     # Transform command list items: `* `cmd | alias`: Description`
     # Only match simple command names (alphanumeric + hyphens), not options like `--format [table|json]`
@@ -73,7 +73,7 @@ def _normalize_command_aliases(content: str) -> str:
         primary = parts[0]
         aliases = parts[1:]
         if aliases:
-            return f"* `{primary}`: {_format_aliases(aliases)} {description}"
+            return f"* `{primary}`: {description} {_format_aliases(aliases)}"
         return match.group(0)
 
     content = re.sub(

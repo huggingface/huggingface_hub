@@ -206,7 +206,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list`: (alias: ls) List buckets or files in a bucket.
+* `list`: List buckets or files in a bucket. [alias: ls]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -343,7 +343,7 @@ Learn more
 
 ### `hf buckets list`
 
-List buckets or files in a bucket. (alias: ls)
+List buckets or files in a bucket. [alias: ls]
 
 When called with no argument or a namespace, lists buckets.
 When called with a bucket ID (namespace/bucket_name), lists files in the bucket.

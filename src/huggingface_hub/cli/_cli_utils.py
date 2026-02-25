@@ -133,7 +133,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             help_text = cmd.get_short_help_str(limit=formatter.width)
             aliases = alias_map.get(name, [])
             if aliases:
-                help_text = f"(alias: {', '.join(aliases)}) {help_text}"
+                help_text = f"{help_text} [alias: {', '.join(aliases)}]"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
