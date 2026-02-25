@@ -53,6 +53,14 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.BucketUrl
 
+### SyncOperation
+
+[[autodoc]] huggingface_hub.SyncOperation
+
+### SyncPlan
+
+[[autodoc]] huggingface_hub.SyncPlan
+
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo

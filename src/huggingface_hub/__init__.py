@@ -52,6 +52,15 @@ __version__ = "1.5.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_buckets": [
+        "BucketFile",
+        "BucketFileMetadata",
+        "BucketFolder",
+        "BucketInfo",
+        "BucketUrl",
+        "SyncOperation",
+        "SyncPlan",
+    ],
     "_commit_scheduler": [
         "CommitScheduler",
     ],
@@ -159,11 +168,6 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
-        "BucketFile",
-        "BucketFileMetadata",
-        "BucketFolder",
-        "BucketInfo",
-        "BucketUrl",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -310,6 +314,7 @@ _SUBMOD_ATTRS = {
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
+        "sync_bucket",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -782,6 +787,8 @@ __all__ = [
     "SummarizationOutput",
     "SummarizationParameters",
     "SummarizationTruncationStrategy",
+    "SyncOperation",
+    "SyncPlan",
     "TF2_WEIGHTS_NAME",
     "TF_WEIGHTS_NAME",
     "TableQuestionAnsweringInput",
@@ -1036,6 +1043,7 @@ __all__ = [
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
+    "sync_bucket",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1154,6 +1162,15 @@ if os.environ.get("EAGER_IMPORT", ""):
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._buckets import (
+        BucketFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
+        BucketFolder,  # noqa: F401
+        BucketInfo,  # noqa: F401
+        BucketUrl,  # noqa: F401
+        SyncOperation,  # noqa: F401
+        SyncPlan,  # noqa: F401
+    )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
         EvalResultEntry,  # noqa: F401
@@ -1255,11 +1272,6 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
-        BucketFile,  # noqa: F401
-        BucketFileMetadata,  # noqa: F401
-        BucketFolder,  # noqa: F401
-        BucketInfo,  # noqa: F401
-        BucketUrl,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
@@ -1406,6 +1418,7 @@ if TYPE_CHECKING:  # pragma: no cover
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
+        sync_bucket,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

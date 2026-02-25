@@ -19,8 +19,6 @@ import importlib.metadata
 import json
 import os
 import re
-import shutil
-import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -492,45 +490,6 @@ def make_expand_properties_parser(valid_properties: list[str]):
         return properties
 
     return _parse_expand_properties
-
-
-### STATUS LINE
-
-
-class StatusLine:
-    """Write transient grey status messages on a single line (TTY only).
-
-    Messages are written to stderr using carriage return to overwrite the previous status.
-    Does nothing when stderr is not a TTY (e.g. piped output) to avoid polluting output.
-    """
-
-    def __init__(self, enabled: bool = True):
-        self._active = enabled and sys.stderr.isatty()
-
-    def update(self, msg: str) -> None:
-        if not self._active:
-            return
-        width = shutil.get_terminal_size().columns
-        if len(msg) > width - 1:
-            msg = msg[: width - 4] + "..."
-        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}")
-        sys.stderr.flush()
-
-    def done(self, msg: str) -> None:
-        """Write a final status message for the current step and move to the next line."""
-        if not self._active:
-            return
-        width = shutil.get_terminal_size().columns
-        if len(msg) > width - 1:
-            msg = msg[: width - 4] + "..."
-        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}\n")
-        sys.stderr.flush()
-
-    def clear(self) -> None:
-        if not self._active:
-            return
-        sys.stderr.write("\r\033[K")
-        sys.stderr.flush()
 
 
 ### PyPI VERSION CHECKER

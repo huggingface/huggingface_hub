@@ -18,8 +18,6 @@ import base64
 import inspect
 import itertools
 import json
-import mimetypes
-import os
 import re
 import struct
 import time
@@ -59,6 +57,18 @@ from huggingface_hub.utils._xet import (
 )
 
 from . import constants
+from ._buckets import (
+    BucketFile,
+    BucketFileMetadata,
+    BucketFolder,
+    BucketInfo,
+    BucketUrl,
+    SyncPlan,
+    _BucketAddFile,
+    _BucketDeleteFile,
+    _split_bucket_id_and_prefix,
+    sync_bucket_internal,
+)
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -104,7 +114,6 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
-    XetFileData,
     are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
@@ -637,61 +646,6 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
-
-
-@dataclass
-class BucketUrl:
-    """Describes a bucket URL on the Hub.
-
-    `BucketUrl` is returned by [`create_bucket`]. At initialization, the URL is parsed to populate properties:
-    - endpoint (`str`)
-    - namespace (`str`)
-    - bucket_id (`str`)
-    - url (`str`)
-    - handle (`str`)
-
-    Args:
-        url (`str`):
-            String value of the bucket url.
-        endpoint (`str`, *optional*):
-            Endpoint of the Hub. Defaults to <https://huggingface.co>.
-    """
-
-    url: str
-    endpoint: str = ""
-    namespace: str = field(init=False)
-    bucket_id: str = field(init=False)
-    handle: str = field(init=False)
-
-    def __post_init__(self) -> None:
-        self.endpoint = self.endpoint or constants.ENDPOINT
-
-        # Parse URL: expected format is `{endpoint}/buckets/{namespace}/{bucket_name}`
-        url_path = self.url.replace(self.endpoint, "").strip("/")
-        # Remove leading "buckets/" prefix
-        if url_path.startswith("buckets/"):
-            url_path = url_path[len("buckets/") :]
-        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
-        if prefix:
-            raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = bucket_id.split("/")[0]
-        self.bucket_id = bucket_id
-
-        self.handle = f"hf://buckets/{self.bucket_id}"
-
-
-def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
-    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
-
-    Returns (bucket_id, prefix) where prefix may be empty string.
-    Raises ValueError if path doesn't contain at least namespace/name.
-    """
-    parts = path.split("/", 2)
-    if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
 
 
 @dataclass
@@ -1280,39 +1234,6 @@ class SpaceInfo:
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
-        self.__dict__.update(**kwargs)
-
-
-@dataclass
-class BucketInfo:
-    """
-    Contains information about a bucket on the Hub. This object is returned by [`bucket_info`] and [`list_buckets`].
-
-    Attributes:
-        id (`str`):
-            ID of the bucket.
-        private (`bool`):
-            Is the bucket private.
-        created_at (`datetime`):
-            Date of creation of the bucket on the Hub.
-        size (`int`):
-            Size of the bucket in bytes.
-        total_files (`int`):
-            Total number of files in the bucket.
-    """
-
-    id: str
-    private: bool
-    created_at: datetime
-    size: int
-    total_files: int
-
-    def __init__(self, **kwargs):
-        self.id = kwargs.pop("id")
-        self.private = kwargs.pop("private")
-        self.created_at = parse_datetime(kwargs.pop("createdAt"))
-        self.size = kwargs.pop("size")
-        self.total_files = kwargs.pop("totalFiles")
         self.__dict__.update(**kwargs)
 
 
@@ -1975,91 +1896,6 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
-
-
-@dataclass
-class BucketFile:
-    """
-    Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
-
-    Similar to [`RepoFile`] but for files in buckets.
-    """
-
-    type: Literal["file"]
-    path: str
-    size: int
-    xet_hash: str
-    mtime: Optional[datetime]
-
-    def __init__(self, **kwargs):
-        self.type = kwargs.pop("type")
-        self.path = kwargs.pop("path")
-        self.size = kwargs.pop("size")
-        self.xet_hash = kwargs.pop("xetHash")
-        mtime = kwargs.pop("mtime", None)
-        self.mtime = parse_datetime(mtime) if mtime else None
-
-
-@dataclass
-class BucketFolder:
-    """
-    Contains information about a directory in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
-
-    Similar to [`RepoFolder`] but for directories in buckets.
-    """
-
-    type: Literal["directory"]
-    path: str
-    uploaded_at: datetime
-
-    def __init__(self, **kwargs):
-        self.type = kwargs.pop("type")
-        self.path = kwargs.pop("path")
-        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
-
-
-@dataclass
-class _BucketAddFile:
-    source: Union[str, Path, bytes]
-    destination: str
-
-    xet_hash: Optional[str] = field(default=None)
-    size: Optional[int] = field(default=None)
-    mtime: int = field(init=False)
-    content_type: Optional[str] = field(init=False)
-
-    def __post_init__(self) -> None:
-        self.content_type = None
-        if isinstance(self.source, (str, Path)):  # guess content type from source path
-            self.content_type = mimetypes.guess_type(self.source)[0]
-        if self.content_type is None:  # or default to destination path content type
-            self.content_type = mimetypes.guess_type(self.destination)[0]
-
-        self.mtime = int(
-            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
-        )
-
-
-@dataclass
-class _BucketDeleteFile:
-    path: str
-
-
-@dataclass(frozen=True)
-class BucketFileMetadata:
-    """Data structure containing information about a file in a bucket.
-
-    Returned by [`get_bucket_file_metadata`].
-
-    Args:
-        size (`int`):
-            Size of the file in bytes.
-        xet_file_data (`XetFileData`):
-            Xet information for the file (hash and refresh route).
-    """
-
-    size: int
-    xet_file_data: XetFileData
 
 
 class HfApi:
@@ -12310,6 +12146,120 @@ class HfApi:
                 progress_updater=[progress_updater] * len(non_zero_download_infos),
             )
 
+    @validate_hf_hub_args
+    def sync_bucket(
+        self,
+        source: Optional[str] = None,
+        dest: Optional[str] = None,
+        *,
+        delete: bool = False,
+        ignore_times: bool = False,
+        ignore_sizes: bool = False,
+        existing: bool = False,
+        ignore_existing: bool = False,
+        include: Optional[list[str]] = None,
+        exclude: Optional[list[str]] = None,
+        filter_from: Optional[str] = None,
+        plan: Optional[str] = None,
+        apply: Optional[str] = None,
+        dry_run: bool = False,
+        verbose: bool = False,
+        quiet: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> SyncPlan:
+        """Sync files between a local directory and a bucket.
+
+        This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
+        (``hf://buckets/...``) and the other must be a local directory path.
+
+        Args:
+            source (`str`, *optional*):
+                Source path: local directory or ``hf://buckets/namespace/bucket_name(/prefix)``.
+                Required unless using ``apply``.
+            dest (`str`, *optional*):
+                Destination path: local directory or ``hf://buckets/namespace/bucket_name(/prefix)``.
+                Required unless using ``apply``.
+            delete (`bool`, *optional*, defaults to `False`):
+                Delete destination files not present in source.
+            ignore_times (`bool`, *optional*, defaults to `False`):
+                Skip files only based on size, ignoring modification times.
+            ignore_sizes (`bool`, *optional*, defaults to `False`):
+                Skip files only based on modification times, ignoring sizes.
+            existing (`bool`, *optional*, defaults to `False`):
+                Skip creating new files on receiver (only update existing files).
+            ignore_existing (`bool`, *optional*, defaults to `False`):
+                Skip updating files that exist on receiver (only create new files).
+            include (`list[str]`, *optional*):
+                Include files matching patterns (fnmatch-style).
+            exclude (`list[str]`, *optional*):
+                Exclude files matching patterns (fnmatch-style).
+            filter_from (`str`, *optional*):
+                Path to a filter file with include/exclude rules.
+            plan (`str`, *optional*):
+                Save sync plan to this JSONL file instead of executing.
+            apply (`str`, *optional*):
+                Apply a previously saved plan file. When set, ``source`` and ``dest`` are not needed.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                Print sync plan to stdout as JSONL without executing.
+            verbose (`bool`, *optional*, defaults to `False`):
+                Show detailed per-file operations.
+            quiet (`bool`, *optional*, defaults to `False`):
+                Suppress all output and progress bars.
+            token (Union[bool, str, None], optional):
+                A valid user access token. If not provided, the locally saved token will be used.
+
+        Returns:
+            [`SyncPlan`]: The computed (or loaded) sync plan.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            # Upload local directory to bucket
+            >>> api.sync_bucket("./data", "hf://buckets/username/my-bucket")
+
+            # Download bucket to local directory
+            >>> api.sync_bucket("hf://buckets/username/my-bucket", "./data")
+
+            # Sync with delete and filtering
+            >>> api.sync_bucket(
+            ...     "./data",
+            ...     "hf://buckets/username/my-bucket",
+            ...     delete=True,
+            ...     include=["*.safetensors"],
+            ... )
+
+            # Dry run: preview what would be synced
+            >>> plan = api.sync_bucket("./data", "hf://buckets/username/my-bucket", dry_run=True)
+            >>> plan.summary()
+            {'uploads': 3, 'downloads': 0, 'deletes': 0, 'skips': 1, 'total_size': 4096}
+
+            # Save plan for review, then apply
+            >>> api.sync_bucket("./data", "hf://buckets/username/my-bucket", plan="sync-plan.jsonl")
+            >>> api.sync_bucket(apply="sync-plan.jsonl")
+            ```
+        """
+        return sync_bucket_internal(
+            source=source,
+            dest=dest,
+            api=self,
+            delete=delete,
+            ignore_times=ignore_times,
+            ignore_sizes=ignore_sizes,
+            existing=existing,
+            ignore_existing=ignore_existing,
+            include=include,
+            exclude=exclude,
+            filter_from=filter_from,
+            plan=plan,
+            apply=apply,
+            dry_run=dry_run,
+            verbose=verbose,
+            quiet=quiet,
+            token=token,
+        )
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -12649,3 +12599,4 @@ get_bucket_paths_info = api.get_bucket_paths_info
 batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
+sync_bucket = api.sync_bucket

@@ -449,7 +449,7 @@ See the [Sync directories](#sync-directories) section below for the full set of 
 
 ## Sync directories
 
-The `hf buckets sync` command is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.
+The `hf buckets sync` command (and its API equivalent [`sync_bucket`]) is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.
 
 ### Basic sync
 
@@ -467,9 +467,21 @@ The `hf buckets sync` command is the most powerful way to transfer files between
 > >>> hf sync ./data hf://buckets/username/my-bucket
 > ```
 
+Or via Python:
+
+```py
+>>> from huggingface_hub import sync_bucket
+
+# Upload: local directory -> bucket
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket")
+
+# Download: bucket -> local directory
+>>> sync_bucket("hf://buckets/username/my-bucket", "./data")
+```
+
 ### Delete extraneous files
 
-By default, sync only adds or updates files. Use `--delete` to also remove files in the destination that don't exist in the source:
+By default, sync only adds or updates files. Use `--delete` (or `delete=True` in Python) to also remove files in the destination that don't exist in the source:
 
 ```bash
 # Upload and remove remote files not present locally
@@ -477,6 +489,13 @@ By default, sync only adds or updates files. Use `--delete` to also remove files
 
 # Download and remove local files not present in bucket
 >>> hf buckets sync hf://buckets/username/my-bucket ./data --delete
+```
+
+Or via Python:
+
+```py
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", delete=True)
+>>> sync_bucket("hf://buckets/username/my-bucket", "./data", delete=True)
 ```
 
 ### Filtering
@@ -494,7 +513,20 @@ You can control which files are synced using include/exclude patterns:
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --include "*.safetensors" --exclude "*.tmp"
 ```
 
-For more complex filtering, use a filter file with `--filter-from`:
+Or via Python:
+
+```py
+# Only sync .txt files
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", include=["*.txt"])
+
+# Exclude log files
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", exclude=["*.log"])
+
+# Combine include and exclude
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", include=["*.safetensors"], exclude=["*.tmp"])
+```
+
+For more complex filtering, use a filter file with `--filter-from` (or `filter_from` in Python):
 
 ```bash
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --filter-from filters.txt
@@ -528,6 +560,15 @@ By default, sync compares files using both size and modification time. You can c
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --ignore-existing
 ```
 
+Or via Python:
+
+```py
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", ignore_times=True)
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", ignore_sizes=True)
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", existing=True)
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", ignore_existing=True)
+```
+
 ### Plan and apply
 
 For critical operations, you can review the sync plan before executing it:
@@ -549,16 +590,34 @@ Plan saved to: sync-plan.jsonl
 >>> hf buckets sync --apply sync-plan.jsonl
 ```
 
+Or via Python:
+
+```py
+# Step 1: Generate a plan file (nothing is transferred)
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", plan="sync-plan.jsonl")
+
+# Step 2: Review the plan file (JSONL format), then apply
+>>> sync_bucket(apply="sync-plan.jsonl")
+```
+
 > [!TIP]
 > The plan file is a JSONL file with a header line followed by one line per operation. Each operation includes the action (`upload`, `download`, `delete`, or `skip`), the file path, and the reason for the action. You can edit this file manually before applying it but please be careful with the syntax.
 
 ### Dry run
 
-Use `--dry-run` to print the sync plan as JSONL directly to stdout without executing anything. This is convenient for piping into tools like `jq`:
+Use `--dry-run` (or `dry_run=True` in Python) to get the sync plan without executing anything:
 
 ```bash
 # Preview what would be synced
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --dry-run | jq '.action'
+```
+
+Or via Python:
+
+```py
+>>> plan = sync_bucket("./data", "hf://buckets/username/my-bucket", dry_run=True)
+>>> plan.summary()
+{'uploads': 3, 'downloads': 0, 'deletes': 0, 'skips': 1, 'total_size': 4096}
 ```
 
 > [!TIP]
@@ -572,6 +631,13 @@ Use `--dry-run` to print the sync plan as JSONL directly to stdout without execu
 
 # Suppress all output
 >>> hf buckets sync ./data hf://buckets/username/my-bucket --quiet
+```
+
+Or via Python:
+
+```py
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", verbose=True)
+>>> sync_bucket("./data", "hf://buckets/username/my-bucket", quiet=True)
 ```
 
 ## Advanced
