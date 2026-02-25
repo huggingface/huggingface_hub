@@ -928,7 +928,7 @@ def _print_plan_summary(plan: SyncPlan) -> None:
 # =============================================================================
 
 
-def sync_bucket(
+def sync_bucket_internal(
     source: Optional[str] = None,
     dest: Optional[str] = None,
     *,

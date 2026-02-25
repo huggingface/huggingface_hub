@@ -63,8 +63,8 @@ from ._buckets import (
     _BucketAddFile,
     _BucketDeleteFile,
     _split_bucket_id_and_prefix,
+    sync_bucket_internal,
 )
-from ._buckets import sync_bucket as _sync_bucket
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -12177,7 +12177,7 @@ class HfApi:
             >>> api.sync_bucket(apply="sync-plan.jsonl")
             ```
         """
-        return _sync_bucket(
+        return sync_bucket_internal(
             source=source,
             dest=dest,
             api=self,
