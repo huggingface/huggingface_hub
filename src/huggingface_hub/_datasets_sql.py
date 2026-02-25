@@ -156,8 +156,8 @@ class _DuckDBCliRelation:
     query: str
 
     def __post_init__(self) -> None:
-        self._table: str | None = None
-        self._json: str | None = None
+        self._table: Optional[str] = None
+        self._json: Optional[str] = None
 
     def to_json(self) -> str:
         if self._json is None:
