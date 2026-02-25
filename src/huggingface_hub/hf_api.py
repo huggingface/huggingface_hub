@@ -11723,13 +11723,11 @@ class HfApi:
         *,
         token: Union[bool, str, None] = None,
     ) -> None:
-        """Move a bucket from one namespace/name to another.
+        """Move a bucket from "namespace1/repo_name1" to "namespace2/repo_name2"
 
-        Note there are certain limitations. Moving a bucket is only allowed:
-        - within the same namespace (renaming)
-        - from a user namespace to an organization
-        - from an organization to a user (if the user is an admin)
-        - between organizations (if the user has appropriate permissions)
+        Note there are certain limitations. For more information about moving
+        repositories, please see
+        https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo.
 
         Args:
             from_id (`str`):
