@@ -11714,6 +11714,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
 
+        reset_xet_connection_info_cache_for_repo("bucket", bucket_id)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
