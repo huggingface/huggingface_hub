@@ -219,6 +219,19 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
+def test_move_bucket_rename(api: HfApi, bucket_write: str):
+    """Test renaming a bucket within the same namespace."""
+    new_bucket_id = f"{USER}/{bucket_name()}"
+    api.move_bucket(from_id=bucket_write, to_id=new_bucket_id)
+
+    # New bucket should exist
+    info = api.bucket_info(new_bucket_id)
+    assert info.id == new_bucket_id
+
+    # Clean up - delete the renamed bucket
+    api.delete_bucket(new_bucket_id)
+
+
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
     tree = list(api.list_bucket_tree(bucket_read))
     assert len(tree) == 4

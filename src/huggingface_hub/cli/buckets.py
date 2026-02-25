@@ -569,6 +569,51 @@ def delete(
         print(f"Bucket deleted: {bucket_id}")
 
 
+@buckets_cli.command(
+    name="move",
+    examples=[
+        "hf buckets move user/old-bucket user/new-bucket",
+        "hf buckets move user/my-bucket my-org/my-bucket",
+        "hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket",
+    ],
+)
+def move(
+    from_id: Annotated[
+        str,
+        typer.Argument(
+            help="Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    to_id: Annotated[
+        str,
+        typer.Argument(
+            help="Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    token: TokenOpt = None,
+) -> None:
+    """Move (rename) a bucket to a new name or namespace."""
+    # Parse from_id
+    parsed_from_id, from_prefix = _parse_bucket_argument(from_id)
+    if from_prefix:
+        raise typer.BadParameter(
+            f"Cannot specify a prefix for bucket move: {from_id}."
+            f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    # Parse to_id
+    parsed_to_id, to_prefix = _parse_bucket_argument(to_id)
+    if to_prefix:
+        raise typer.BadParameter(
+            f"Cannot specify a prefix for bucket move: {to_id}."
+            f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    api = get_hf_api(token=token)
+    api.move_bucket(from_id=parsed_from_id, to_id=parsed_to_id)
+    print(f"Bucket moved: {parsed_from_id} -> {parsed_to_id}")
+
+
 # =============================================================================
 # Sync command
 # =============================================================================

@@ -11722,6 +11722,63 @@ class HfApi:
                 raise
 
     @validate_hf_hub_args
+    def move_bucket(
+        self,
+        from_id: str,
+        to_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> None:
+        """Move a bucket from "namespace1/repo_name1" to "namespace2/repo_name2"
+
+        Note there are certain limitations. For more information about moving
+        repositories, please see
+        https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo.
+
+        Args:
+            from_id (`str`):
+                A namespace (user or an organization) and a bucket name separated
+                by a `/`. Original bucket identifier (e.g. `"username/my-bucket"`).
+            to_id (`str`):
+                A namespace (user or an organization) and a bucket name separated
+                by a `/`. Final bucket identifier (e.g. `"username/new-bucket-name"`
+                or `"organization/my-bucket"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`~errors.BucketNotFoundError`]:
+                If the source bucket cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import move_bucket
+
+            >>> # Rename a bucket within the same namespace
+            >>> move_bucket(from_id="username/old-name", to_id="username/new-name")
+
+            >>> # Transfer a bucket to an organization
+            >>> move_bucket(from_id="username/my-bucket", to_id="my-org/my-bucket")
+            ```
+        """
+        if len(from_id.split("/")) != 2:
+            raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
+
+        if len(to_id.split("/")) != 2:
+            raise ValueError(f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)")
+
+        json_payload = {"fromRepo": from_id, "toRepo": to_id, "type": "bucket"}
+
+        path = f"{self.endpoint}/api/repos/move"
+        headers = self._build_hf_headers(token=token)
+        response = get_session().post(path, headers=headers, json=json_payload)
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
     def list_bucket_tree(
         self,
         bucket_id: str,
@@ -12586,6 +12643,7 @@ create_bucket = api.create_bucket
 bucket_info = api.bucket_info
 list_buckets = api.list_buckets
 delete_bucket = api.delete_bucket
+move_bucket = api.move_bucket
 list_bucket_tree = api.list_bucket_tree
 get_bucket_paths_info = api.get_bucket_paths_info
 batch_bucket_files = api.batch_bucket_files

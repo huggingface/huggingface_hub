@@ -214,6 +214,26 @@ def test_delete_bucket_not_found():
 
 
 # =============================================================================
+# Move
+# =============================================================================
+
+
+def test_move_bucket(api: HfApi, bucket_write: str):
+    """Test renaming a bucket via CLI."""
+    new_bucket_id = f"{USER}/{bucket_name()}"
+    result = cli(f"hf buckets move {bucket_write} {new_bucket_id}")
+    assert result.exit_code == 0
+    assert "Bucket moved:" in result.output
+
+    # Verify move worked - new bucket should exist
+    info = api.bucket_info(new_bucket_id)
+    assert info.id == new_bucket_id
+
+    # Clean up
+    api.delete_bucket(new_bucket_id)
+
+
+# =============================================================================
 # List buckets
 # =============================================================================
 

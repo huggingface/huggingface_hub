@@ -185,6 +185,36 @@ Or via CLI:
 >>> hf buckets delete username/my-bucket --yes --missing-ok
 ```
 
+### Move a bucket
+
+Use [`move_bucket`] to move or rename a bucket. You can rename within the same namespace or transfer to a different namespace (user or organization).
+
+```py
+>>> from huggingface_hub import move_bucket
+
+# Rename a bucket
+>>> move_bucket(from_id="username/old-name", to_id="username/new-name")
+
+# Transfer to an organization
+>>> move_bucket(from_id="username/my-bucket", to_id="my-org/my-bucket")
+```
+
+Or via CLI:
+
+```bash
+# Rename a bucket
+>>> hf buckets move username/old-bucket username/new-bucket
+
+# Transfer to an organization
+>>> hf buckets move username/my-bucket my-org/my-bucket
+
+# Using the hf://buckets/ format
+>>> hf buckets move hf://buckets/username/old-bucket hf://buckets/username/new-bucket
+```
+
+> [!TIP]
+> For more information about moving repositories and buckets, see the [Hub documentation](https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo).
+
 ## Browse bucket contents
 
 ### List files
