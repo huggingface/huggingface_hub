@@ -219,6 +219,40 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
+def test_move_bucket_rename(api: HfApi, bucket_write: str):
+    """Test renaming a bucket within the same namespace."""
+    new_bucket_id = f"{USER}/{bucket_name()}"
+    api.move_bucket(from_bucket_id=bucket_write, to_bucket_id=new_bucket_id)
+
+    # Old bucket should not exist
+    with pytest.raises(BucketNotFoundError):
+        api.bucket_info(bucket_write)
+
+    # New bucket should exist
+    info = api.bucket_info(new_bucket_id)
+    assert info.id == new_bucket_id
+
+    # Clean up - delete the renamed bucket
+    api.delete_bucket(new_bucket_id)
+
+
+def test_move_bucket_invalid_bucket_id(api: HfApi):
+    """Test from_bucket_id and to_bucket_id must be in the form 'namespace/bucket_name'."""
+    with pytest.raises(ValueError, match=r"Invalid bucket ID"):
+        api.move_bucket(from_bucket_id="namespace/bucket_name", to_bucket_id="invalid_bucket_id")
+
+    with pytest.raises(ValueError, match=r"Invalid bucket ID"):
+        api.move_bucket(from_bucket_id="invalid_bucket_id", to_bucket_id="namespace/bucket_name")
+
+
+def test_move_bucket_not_found(api: HfApi):
+    """Test moving a non-existent bucket raises an error."""
+    nonexistent = f"{USER}/{bucket_name()}"
+    target = f"{USER}/{bucket_name()}"
+    with pytest.raises(HfHubHTTPError):
+        api.move_bucket(from_bucket_id=nonexistent, to_bucket_id=target)
+
+
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
     tree = list(api.list_bucket_tree(bucket_read))
     assert len(tree) == 4

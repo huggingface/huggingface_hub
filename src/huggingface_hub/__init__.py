@@ -282,6 +282,7 @@ _SUBMOD_ATTRS = {
         "list_webhooks",
         "merge_pull_request",
         "model_info",
+        "move_bucket",
         "move_repo",
         "paper_info",
         "parse_local_safetensors_file_metadata",
@@ -994,6 +995,7 @@ __all__ = [
     "metadata_save",
     "metadata_update",
     "model_info",
+    "move_bucket",
     "move_repo",
     "notebook_login",
     "paper_info",
@@ -1376,6 +1378,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
+        move_bucket,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
         parse_local_safetensors_file_metadata,  # noqa: F401

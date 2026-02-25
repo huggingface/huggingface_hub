@@ -569,6 +569,76 @@ def delete(
         print(f"Bucket deleted: {bucket_id}")
 
 
+@buckets_cli.command(
+    name="move",
+    examples=[
+        "hf buckets move user/old-bucket user/new-bucket",
+        "hf buckets move user/my-bucket my-org/my-bucket",
+        "hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket",
+    ],
+)
+def move(
+    from_bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    to_bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Move (rename) a bucket to a new name or namespace."""
+    api = get_hf_api(token=token)
+
+    # Parse source bucket ID
+    if from_bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_from_id, prefix = _parse_bucket_argument(from_bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket move: {from_bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        from_bucket_id = parsed_from_id
+    elif "/" not in from_bucket_id:
+        raise typer.BadParameter(
+            f"Invalid bucket ID: {from_bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    # Parse destination bucket ID
+    if to_bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_to_id, prefix = _parse_bucket_argument(to_bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket move: {to_bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        to_bucket_id = parsed_to_id
+    elif "/" not in to_bucket_id:
+        raise typer.BadParameter(
+            f"Invalid bucket ID: {to_bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    api.move_bucket(from_bucket_id=from_bucket_id, to_bucket_id=to_bucket_id)
+    if quiet:
+        print(to_bucket_id)
+    else:
+        print(f"Bucket moved: {from_bucket_id} -> {to_bucket_id}")
+
+
 # =============================================================================
 # Sync command
 # =============================================================================
