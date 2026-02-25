@@ -161,13 +161,12 @@ class _DuckDBCliRelation:
 
     def to_json(self) -> str:
         if self._json is None:
-            output = _run_duckdb_cli(
+            self._json = _run_duckdb_cli(
                 binary_path=self.binary_path,
                 setup_statements=self.setup_statements,
                 query=self.query,
                 output_mode="json",
             )
-            self._json = _extract_last_duckdb_json_chunk(output)
         return self._json
 
     def __str__(self) -> str:
@@ -213,10 +212,3 @@ def _build_duckdb_cli_input(setup_statements: list[str], query: str) -> str:
         statements.append(".output stdout")
     statements.append(f"{query};")
     return "\n".join(statements)
-
-
-def _extract_last_duckdb_json_chunk(output: str) -> str:
-    chunks = [line.strip() for line in output.splitlines() if line.strip()]
-    if not chunks:
-        return ""
-    return chunks[-1]

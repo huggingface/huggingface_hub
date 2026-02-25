@@ -4,6 +4,8 @@ import pytest
 
 from huggingface_hub._datasets_sql import (
     DatasetSqlQueryResult,
+    _build_duckdb_secret_statements,
+    _DuckDBCliConnection,
     _get_duckdb_connection,
     _normalize_query,
     execute_raw_sql_query,
@@ -78,6 +80,39 @@ def test_execute_raw_sql_query_runs_normalized_query(monkeypatch: pytest.MonkeyP
     assert fake_connection.closed is True
 
 
+def test_execute_raw_sql_query_table_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeRelation:
+        def __str__(self):
+            return "┌───┐\n│ a │\n├───┤\n│ 1 │\n└───┘"
+
+        def fetchall(self):
+            raise AssertionError("fetchall should not be called for table output")
+
+    class FakeConnection:
+        def __init__(self):
+            self.executed_queries = []
+            self.closed = False
+
+        def sql(self, query):
+            self.executed_queries.append(query)
+            return FakeRelation()
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = FakeConnection()
+    monkeypatch.setattr("huggingface_hub._datasets_sql._get_duckdb_connection", lambda token: fake_connection)
+
+    result = execute_raw_sql_query(sql_query=" SELECT 1; ", token="token", output_format="table")
+
+    assert result.columns == ()
+    assert result.rows == ()
+    assert result.table == "┌───┐\n│ a │\n├───┤\n│ 1 │\n└───┘"
+    assert result.raw_json is None
+    assert fake_connection.executed_queries == ["SELECT 1"]
+    assert fake_connection.closed is True
+
+
 def test_get_duckdb_connection_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     def import_module(name):
         if name == "duckdb":
@@ -111,7 +146,7 @@ def test_get_duckdb_connection_creates_huggingface_secret(monkeypatch: pytest.Mo
     assert any("TYPE HUGGINGFACE" in s for s in fake_connection.executed)
 
 
-def test_get_duckdb_connection_creates_both_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_duckdb_connection_skips_secrets_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeConnection:
         def __init__(self):
             self.executed = []
@@ -124,7 +159,24 @@ def test_get_duckdb_connection_creates_both_secrets(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", lambda name: fake_duckdb)
 
-    _get_duckdb_connection(token="abc")
+    _get_duckdb_connection(token=None)
 
-    assert any("BEARER_TOKEN 'abc'" in s for s in fake_connection.executed)
-    assert any("TYPE HUGGINGFACE" in s for s in fake_connection.executed)
+    assert fake_connection.executed == []
+
+
+def test_get_duckdb_connection_uses_cli_fallback_when_python_package_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def import_module(name):
+        if name == "duckdb":
+            raise ModuleNotFoundError("No module named 'duckdb'")
+        return None
+
+    monkeypatch.setattr("huggingface_hub._datasets_sql.importlib.import_module", import_module)
+    monkeypatch.setattr("huggingface_hub._datasets_sql.shutil.which", lambda _: "/usr/local/bin/duckdb")
+
+    connection = _get_duckdb_connection(token="abc")
+
+    assert isinstance(connection, _DuckDBCliConnection)
+    assert connection.binary_path == "/usr/local/bin/duckdb"
+    relation = connection.sql("SELECT 1")
+    assert relation.__class__.__name__ == "_DuckDBCliRelation"
+    assert relation.setup_statements == _build_duckdb_secret_statements("abc")
