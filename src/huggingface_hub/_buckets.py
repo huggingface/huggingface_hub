@@ -825,8 +825,8 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: O
         prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
 
         # Collect operations
-        add_files = []
-        delete_paths = []
+        add_files: list[tuple[Union[str, Path, bytes], str]] = []
+        delete_paths: list[str] = []
 
         for op in plan.operations:
             if op.action == "upload":
