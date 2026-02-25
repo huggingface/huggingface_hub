@@ -258,6 +258,8 @@ def hf_hub_url(
     if repo_type not in constants.REPO_TYPES:
         raise ValueError("Invalid repo type")
 
+    repo_id = repo_id.lower()
+
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
         repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
