@@ -219,6 +219,7 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_rename(api: HfApi, bucket_write: str):
     """Test renaming a bucket within the same namespace."""
     new_bucket_id = f"{USER}/{bucket_name()}"
@@ -245,6 +246,7 @@ def test_move_bucket_invalid_bucket_id(api: HfApi):
         api.move_bucket(from_bucket_id="invalid_bucket_id", to_bucket_id="namespace/bucket_name")
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_not_found(api: HfApi):
     """Test moving a non-existent bucket raises an error."""
     nonexistent = f"{USER}/{bucket_name()}"

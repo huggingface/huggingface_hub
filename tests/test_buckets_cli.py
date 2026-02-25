@@ -218,6 +218,7 @@ def test_delete_bucket_not_found():
 # =============================================================================
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket(api: HfApi, bucket_write: str):
     """Test renaming a bucket via CLI."""
     new_bucket_id = f"{USER}/{bucket_name()}"
@@ -239,6 +240,7 @@ def test_move_bucket(api: HfApi, bucket_write: str):
     api.delete_bucket(new_bucket_id)
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_quiet(api: HfApi, bucket_write: str):
     """Test move bucket with --quiet flag."""
     new_bucket_id = f"{USER}/{bucket_name()}"
@@ -251,6 +253,7 @@ def test_move_bucket_quiet(api: HfApi, bucket_write: str):
     api.delete_bucket(new_bucket_id)
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_with_hf_prefix(api: HfApi, bucket_write: str):
     """Test move bucket using hf://buckets/ prefix format."""
     new_name = bucket_name()
@@ -280,6 +283,7 @@ def test_move_bucket_invalid_target():
     assert "Invalid bucket ID" in result.output
 
 
+@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_not_found():
     """Test move of a non-existent bucket."""
     nonexistent = f"{USER}/{bucket_name()}"
