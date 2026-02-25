@@ -4,6 +4,13 @@ rendered properly in your Markdown viewer.
 
 # Buckets
 
+> [!WARNING]
+> The `hf buckets` commands are currently available from the `main` branch.
+> Install `hf` from `main` with:
+> ```bash
+> uv tool install "huggingface-hub @ git+https://github.com/huggingface/huggingface_hub.git@main"
+> ```
+
 Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control.
 
 You can interact with buckets using the Python API ([`HfApi`]) or the CLI (`hf buckets`). In this guide, we will walk through all the operations available.
