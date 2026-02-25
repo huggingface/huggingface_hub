@@ -408,7 +408,6 @@ $ hf buckets move [OPTIONS] FROM_ID TO_ID
 Examples
   $ hf buckets move user/old-bucket user/new-bucket
   $ hf buckets move user/my-bucket my-org/my-bucket
-  $ hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket
 
 Learn more
   Use `hf <command> --help` for more information about a command.
