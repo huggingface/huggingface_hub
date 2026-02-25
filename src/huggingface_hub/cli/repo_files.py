@@ -14,7 +14,7 @@
 # limitations under the License.
 """Legacy `hf repo-files` command.
 
-Kept for backward compatibility. Users are nudged to use `hf repo delete-files` instead.
+Kept for backward compatibility. Users are nudged to use `hf repos delete-files` instead.
 """
 
 import sys
@@ -32,7 +32,7 @@ logger = logging.get_logger(__name__)
 
 
 repo_files_cli = typer_factory(
-    help="(Deprecated) Manage files in a repo on the Hub. Use `hf repo delete-files` instead."
+    help="(Deprecated) Manage files in a repo on the Hub. Use `hf repos delete-files` instead."
 )
 
 
@@ -70,7 +70,7 @@ def repo_files_delete(
     token: TokenOpt = None,
 ) -> None:
     print(
-        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repo delete-files` instead."),
+        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repos delete-files` instead."),
         file=sys.stderr,
     )
     api = get_hf_api(token=token)

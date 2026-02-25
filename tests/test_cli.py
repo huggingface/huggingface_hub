@@ -1787,7 +1787,7 @@ def tmp_current_directory() -> Generator[str, None, None]:
 
 
 class TestRepoDeleteFilesCommand:
-    """Tests for `hf repo delete-files` (the new primary command)."""
+    """Tests for `hf repos delete-files` (the new primary command)."""
 
     @pytest.mark.parametrize(
         "cli_args, expected_kwargs",
@@ -1925,7 +1925,7 @@ class TestRepoFilesCommand:
         with patch("huggingface_hub.cli.repo_files.get_hf_api"):
             result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
         assert result.exit_code == 0
-        assert "hf repo delete-files" in result.output
+        assert "hf repos delete-files" in result.output
 
 
 class TestJobsCommand:

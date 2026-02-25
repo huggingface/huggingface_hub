@@ -15,13 +15,13 @@
 
 Usage:
     # create a new dataset repo on the Hub
-    hf repo create my-cool-dataset --repo-type=dataset
+    hf reposs create my-cool-dataset --repo-type=dataset
 
     # create a private model repo on the Hub
-    hf repo create my-cool-model --private
+    hf reposs create my-cool-model --private
 
     # delete files from a repo on the Hub
-    hf repo delete-files my-model file.txt
+    hf reposs delete-files my-model file.txt
 """
 
 import enum
@@ -44,11 +44,11 @@ from ._cli_utils import (
 )
 
 
-repo_cli = typer_factory(help="Manage repos on the Hub.")
+repos_cli = typer_factory(help="Manage repos on the Hub.")
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-repo_cli.add_typer(tag_cli, name="tag")
-repo_cli.add_typer(branch_cli, name="branch")
+repos_cli.add_typer(tag_cli, name="tag")
+repos_cli.add_typer(branch_cli, name="branch")
 
 
 class GatedChoices(str, enum.Enum):
@@ -57,11 +57,11 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
-@repo_cli.command(
+@repos_cli.command(
     "create",
     examples=[
-        "hf repo create my-model",
-        "hf repo create my-dataset --repo-type dataset --private",
+        "hf repos create my-model",
+        "hf repos create my-dataset --repo-type dataset --private",
     ],
 )
 def repo_create(
@@ -103,7 +103,7 @@ def repo_create(
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
 
 
-@repo_cli.command("delete", examples=["hf repo delete my-model"])
+@repos_cli.command("delete", examples=["hf repos delete my-model"])
 def repo_delete(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
@@ -125,7 +125,7 @@ def repo_delete(
     print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
 
 
-@repo_cli.command("move", examples=["hf repo move old-namespace/my-model new-namespace/my-model"])
+@repos_cli.command("move", examples=["hf repos move old-namespace/my-model new-namespace/my-model"])
 def repo_move(
     from_id: RepoIdArg,
     to_id: RepoIdArg,
@@ -142,11 +142,11 @@ def repo_move(
     print(f"Successfully moved {ANSI.bold(from_id)} to {ANSI.bold(to_id)} on the Hub.")
 
 
-@repo_cli.command(
+@repos_cli.command(
     "settings",
     examples=[
-        "hf repo settings my-model --private",
-        "hf repo settings my-model --gated auto",
+        "hf repos settings my-model --private",
+        "hf repos settings my-model --gated auto",
     ],
 )
 def repo_settings(
@@ -177,12 +177,12 @@ def repo_settings(
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
 
 
-@repo_cli.command(
+@repos_cli.command(
     "delete-files",
     examples=[
-        "hf repo delete-files my-model file.txt",
-        'hf repo delete-files my-model "*.json"',
-        "hf repo delete-files my-model folder/",
+        "hf repos delete-files my-model file.txt",
+        'hf repos delete-files my-model "*.json"',
+        "hf repos delete-files my-model folder/",
     ],
 )
 def repo_delete_files(
@@ -232,8 +232,8 @@ def repo_delete_files(
 @branch_cli.command(
     "create",
     examples=[
-        "hf repo branch create my-model dev",
-        "hf repo branch create my-model dev --revision abc123",
+        "hf repos branch create my-model dev",
+        "hf repos branch create my-model dev --revision abc123",
     ],
 )
 def branch_create(
@@ -266,7 +266,7 @@ def branch_create(
     print(f"Successfully created {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
 
 
-@branch_cli.command("delete", examples=["hf repo branch delete my-model dev"])
+@branch_cli.command("delete", examples=["hf repos branch delete my-model dev"])
 def branch_delete(
     repo_id: RepoIdArg,
     branch: Annotated[
@@ -291,8 +291,8 @@ def branch_delete(
 @tag_cli.command(
     "create",
     examples=[
-        "hf repo tag create my-model v1.0",
-        'hf repo tag create my-model v1.0 -m "First release"',
+        "hf repos tag create my-model v1.0",
+        'hf repos tag create my-model v1.0 -m "First release"',
     ],
 )
 def tag_create(
@@ -332,7 +332,7 @@ def tag_create(
     print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
 
 
-@tag_cli.command("list", examples=["hf repo tag list my-model"])
+@tag_cli.command("list", examples=["hf repos tag list my-model"])
 def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,
@@ -353,7 +353,7 @@ def tag_list(
         print(t.name)
 
 
-@tag_cli.command("delete", examples=["hf repo tag delete my-model v1.0"])
+@tag_cli.command("delete", examples=["hf repos tag delete my-model v1.0"])
 def tag_delete(
     repo_id: RepoIdArg,
     tag: Annotated[

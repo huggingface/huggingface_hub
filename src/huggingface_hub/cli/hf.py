@@ -33,7 +33,7 @@ from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
-from huggingface_hub.cli.repo import repo_cli
+from huggingface_hub.cli.repo import repos_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
@@ -86,7 +86,7 @@ app.add_typer(datasets_cli, name="datasets")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
-app.add_typer(repo_cli, name="repo")
+app.add_typer(repos_cli, name="repos | repo")
 app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
