@@ -25,6 +25,7 @@ Usage:
 """
 
 import enum
+import sys
 from typing import Annotated, Optional
 
 import typer
@@ -45,6 +46,17 @@ from ._cli_utils import (
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
+
+
+@repos_cli.callback(invoke_without_command=True)
+def _repos_callback(ctx: typer.Context) -> None:
+    if ctx.info_name == "repo":
+        print(
+            ANSI.yellow("FutureWarning: `hf repo` is deprecated in favor of `hf repos`."),
+            file=sys.stderr,
+        )
+
+
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
 repos_cli.add_typer(tag_cli, name="tag")
