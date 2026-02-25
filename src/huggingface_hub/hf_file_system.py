@@ -868,8 +868,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             if info["last_commit"] is None:
                 raise NotImplementedError(f"'modified' is not implemented for repository paths like '{path}'")
             return info["last_commit"].date
-        elif "mtime" in info:
+        elif "mtime" in info and info["mtime"]:
             return info["mtime"]
+        elif "uploaded_at" in info and info["uploaded_at"]:
+            return info["uploaded_at"]
         else:
             raise NotImplementedError(f"'modified' is not implemented for bucket directories like '{path}'")
 
