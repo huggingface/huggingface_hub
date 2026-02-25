@@ -574,6 +574,7 @@ def delete(
     examples=[
         "hf buckets move user/old-bucket user/new-bucket",
         "hf buckets move user/my-bucket my-org/my-bucket",
+        "hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket",
     ],
 )
 def move(
@@ -592,9 +593,31 @@ def move(
     token: TokenOpt = None,
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
+    # Parse from_id
+    try:
+        parsed_from_id, from_prefix = _parse_bucket_argument(from_id)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+    if from_prefix:
+        raise typer.BadParameter(
+            f"Cannot specify a prefix for bucket move: {from_id}."
+            f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    # Parse to_id
+    try:
+        parsed_to_id, to_prefix = _parse_bucket_argument(to_id)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+    if to_prefix:
+        raise typer.BadParameter(
+            f"Cannot specify a prefix for bucket move: {to_id}."
+            f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
     api = get_hf_api(token=token)
-    api.move_bucket(from_id=from_id, to_id=to_id)
-    print(f"Bucket moved: {from_id} -> {to_id}")
+    api.move_bucket(from_id=parsed_from_id, to_id=parsed_to_id)
+    print(f"Bucket moved: {parsed_from_id} -> {parsed_to_id}")
 
 
 # =============================================================================

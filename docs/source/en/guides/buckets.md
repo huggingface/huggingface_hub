@@ -200,6 +200,9 @@ Or via CLI:
 
 # Transfer to an organization
 >>> hf buckets move username/my-bucket my-org/my-bucket
+
+# Using the hf://buckets/ format
+>>> hf buckets move hf://buckets/username/old-bucket hf://buckets/username/new-bucket
 ```
 
 > [!TIP]
