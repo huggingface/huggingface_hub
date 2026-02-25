@@ -204,7 +204,6 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 * `cp`: Copy a single file to or from a bucket.
 * `create`: Create a new bucket.
-* `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
@@ -275,39 +274,6 @@ Examples
   $ hf buckets create hf://buckets/user/my-bucket
   $ hf buckets create user/my-bucket --private
   $ hf buckets create user/my-bucket --exist-ok
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf buckets delete`
-
-Delete a bucket.
-
-**Usage**:
-
-```console
-$ hf buckets delete [OPTIONS] BUCKET_ID
-```
-
-**Arguments**:
-
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
-
-**Options**:
-
-* `-y, --yes`: Skip confirmation prompt.
-* `--missing-ok`: Do not raise an error if the bucket does not exist.
-* `-q, --quiet`: Print only IDs (one per line).
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf buckets delete user/my-bucket
-  $ hf buckets delete hf://buckets/user/my-bucket
-  $ hf buckets delete user/my-bucket --yes
-  $ hf buckets delete user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.

@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import _split_bucket_id_and_prefix
+from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
@@ -52,6 +52,11 @@ def cli(command: str, input: Optional[str] = None) -> Result:
     assert command.startswith("hf ")
     args = command.split(" ")[1:]
     return CliRunner().invoke(app, [*args], input=input)
+
+
+def _remote_files(api: HfApi, bucket_id: str) -> set[str]:
+    """Return set of file paths in a bucket."""
+    return {f.path for f in api.list_bucket_tree(bucket_id)}
 
 
 @pytest.fixture(scope="module")
@@ -189,28 +194,207 @@ def test_bucket_info_quiet(bucket_read: str):
 
 
 # =============================================================================
-# Delete
+# Remove / rm  (file removal + bucket deletion)
 # =============================================================================
 
 
-def test_delete_bucket(api: HfApi, bucket_write: str):
-    result = cli(f"hf buckets delete {bucket_write} --yes")
+def test_rm_bucket(api: HfApi, bucket_write: str):
+    """'hf buckets rm bucket_id --yes' deletes the entire bucket."""
+    result = cli(f"hf buckets rm {bucket_write} --yes")
+    assert result.exit_code == 0
+    assert "Bucket deleted" in result.output
+
+    with pytest.raises(BucketNotFoundError):
+        api.bucket_info(bucket_write)
+
+
+def test_rm_bucket_missing_ok():
+    """'hf buckets rm' with --missing-ok does not error on nonexistent bucket."""
+    nonexistent = f"{USER}/{bucket_name()}"
+    result = cli(f"hf buckets rm {nonexistent} --yes --missing-ok")
+    assert result.exit_code == 0
+
+
+def test_rm_bucket_not_found():
+    """'hf buckets rm' without --missing-ok errors on nonexistent bucket."""
+    nonexistent = f"{USER}/{bucket_name()}"
+    result = cli(f"hf buckets rm {nonexistent} --yes")
+    assert result.exit_code != 0
+
+
+def test_rm_bucket_dry_run(api: HfApi, bucket_write: str):
+    """'hf buckets rm bucket_id --dry-run' previews without deleting."""
+    result = cli(f"hf buckets rm {bucket_write} --dry-run")
+    assert result.exit_code == 0
+    assert "(dry run)" in result.output
+
+    # Bucket should still exist
+    info = api.bucket_info(bucket_write)
+    assert info.id == bucket_write
+
+
+def test_rm_bucket_quiet(api: HfApi, bucket_write: str):
+    """'hf buckets rm --quiet' prints only the bucket ID."""
+    result = cli(f"hf buckets rm {bucket_write} --yes --quiet")
+    assert result.exit_code == 0
+    assert result.output.strip() == bucket_write
+
+
+def test_remove_alias(api: HfApi, bucket_write: str):
+    """'hf buckets remove' is an alias for 'hf buckets rm'."""
+    result = cli(f"hf buckets remove {bucket_write} --yes")
     assert result.exit_code == 0
 
     with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
 
 
-def test_delete_bucket_missing_ok():
-    nonexistent = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets delete {nonexistent} --yes --missing-ok")
+def test_rm_single_file(api: HfApi, bucket_write: str):
+    """Remove a single file from a bucket."""
+    api.batch_bucket_files(bucket_write, add=[(b"keep", "keep.txt"), (b"remove", "remove.txt")])
+    assert _remote_files(api, bucket_write) == {"keep.txt", "remove.txt"}
+
+    result = cli(f"hf buckets rm {bucket_write}/remove.txt --yes")
+    assert result.exit_code == 0
+    assert f"delete: {BUCKET_PREFIX}{bucket_write}/remove.txt" in result.output
+
+    assert _remote_files(api, bucket_write) == {"keep.txt"}
+
+
+def test_rm_single_file_quiet(api: HfApi, bucket_write: str):
+    """'hf buckets rm file --quiet' prints only the path."""
+    api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
+
+    result = cli(f"hf buckets rm {bucket_write}/file.txt --yes --quiet")
+    assert result.exit_code == 0
+    assert result.output.strip() == "file.txt"
+
+
+def test_rm_single_file_dry_run(api: HfApi, bucket_write: str):
+    """'hf buckets rm file --dry-run' previews without deleting."""
+    api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
+
+    result = cli(f"hf buckets rm {bucket_write}/file.txt --dry-run")
+    assert result.exit_code == 0
+    assert "(dry run)" in result.output
+    assert f"delete: {BUCKET_PREFIX}{bucket_write}/file.txt" in result.output
+
+    # File should still exist
+    assert "file.txt" in _remote_files(api, bucket_write)
+
+
+def test_rm_single_file_hf_prefix(api: HfApi, bucket_write: str):
+    """'hf buckets rm' accepts hf://buckets/ syntax for file removal."""
+    api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
+
+    result = cli(f"hf buckets rm hf://buckets/{bucket_write}/file.txt --yes")
     assert result.exit_code == 0
 
+    assert "file.txt" not in _remote_files(api, bucket_write)
 
-def test_delete_bucket_not_found():
-    nonexistent = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets delete {nonexistent} --yes")
+
+def test_rm_recursive(api: HfApi, bucket_write: str):
+    """'hf buckets rm prefix/ --recursive' removes all files under a prefix."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"keep", "keep.txt"),
+            (b"a", "logs/a.log"),
+            (b"b", "logs/b.log"),
+            (b"deep", "logs/sub/deep.log"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/logs --recursive --yes")
+    assert result.exit_code == 0
+    assert "3 file(s)" in result.output
+
+    assert _remote_files(api, bucket_write) == {"keep.txt"}
+
+
+def test_rm_recursive_dry_run(api: HfApi, bucket_write: str):
+    """'hf buckets rm prefix/ --recursive --dry-run' previews without deleting."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[(b"a", "data/a.txt"), (b"b", "data/b.txt")],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/data --recursive --dry-run")
+    assert result.exit_code == 0
+    assert "(dry run)" in result.output
+    assert "2 file(s) would be removed" in result.output
+
+    # Files should still exist
+    assert _remote_files(api, bucket_write) == {"data/a.txt", "data/b.txt"}
+
+
+def test_rm_recursive_include(api: HfApi, bucket_write: str):
+    """'hf buckets rm --recursive --include' only removes matching files."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"keep", "data/keep.safetensors"),
+            (b"rm1", "data/tmp1.tmp"),
+            (b"rm2", "data/tmp2.tmp"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/data --recursive --include *.tmp --yes")
+    assert result.exit_code == 0
+    assert "2 file(s)" in result.output
+
+    assert _remote_files(api, bucket_write) == {"data/keep.safetensors"}
+
+
+def test_rm_recursive_exclude(api: HfApi, bucket_write: str):
+    """'hf buckets rm --recursive --exclude' skips matching files."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"keep", "data/model.safetensors"),
+            (b"rm", "data/debug.log"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/data --recursive --exclude *.safetensors --yes")
+    assert result.exit_code == 0
+
+    assert _remote_files(api, bucket_write) == {"data/model.safetensors"}
+
+
+def test_rm_recursive_no_files(api: HfApi, bucket_write: str):
+    """'hf buckets rm --recursive' with no matching files prints a message."""
+    result = cli(f"hf buckets rm {bucket_write}/nonexistent --recursive --yes")
+    assert result.exit_code == 0
+    assert "No files to remove" in result.output
+
+
+def test_rm_error_include_without_recursive():
+    """--include without --recursive is an error."""
+    result = cli(f"hf buckets rm {USER}/some-bucket/file.txt --include *.tmp --yes")
     assert result.exit_code != 0
+    assert "--include and --exclude require --recursive" in result.output
+
+
+def test_rm_error_exclude_without_recursive():
+    """--exclude without --recursive is an error."""
+    result = cli(f"hf buckets rm {USER}/some-bucket/file.txt --exclude *.tmp --yes")
+    assert result.exit_code != 0
+    assert "--include and --exclude require --recursive" in result.output
+
+
+def test_rm_error_recursive_on_bucket():
+    """--recursive is not allowed when deleting an entire bucket."""
+    result = cli(f"hf buckets rm {USER}/some-bucket --recursive --yes")
+    assert result.exit_code != 0
+    assert "Cannot use --recursive when deleting an entire bucket" in result.output
+
+
+def test_rm_error_include_on_bucket():
+    """--include is not allowed when deleting an entire bucket."""
+    result = cli(f"hf buckets rm {USER}/some-bucket --include *.tmp --yes")
+    assert result.exit_code != 0
+    assert "Cannot use --include or --exclude when deleting an entire bucket" in result.output
 
 
 # =============================================================================
@@ -763,11 +947,6 @@ def _make_local_dir(tmp_path: Path, files: dict[str, str]) -> Path:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(content)
     return data_dir
-
-
-def _remote_files(api: HfApi, bucket_id: str) -> set[str]:
-    """Return set of file paths in a bucket."""
-    return {f.path for f in api.list_bucket_tree(bucket_id)}
 
 
 # -- Upload tests --

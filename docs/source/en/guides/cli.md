@@ -573,12 +573,38 @@ To get detailed information about a specific bucket (returned as JSON), use `hf 
 }
 ```
 
-### Delete a bucket
+### Remove files and delete buckets
 
-To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
+Use `hf buckets remove` (or its shorthand `hf buckets rm`) to remove files from a bucket or delete the entire bucket. The command works in two modes depending on whether you provide a file path or just a bucket ID — the same dual-mode approach used by `hf buckets list`.
+
+To remove a single file, specify its path:
 
 ```bash
->>> hf buckets delete username/my-bucket --yes
+>>> hf buckets rm username/my-bucket/old-model.bin
+```
+
+To remove all files under a prefix, use `--recursive`:
+
+```bash
+>>> hf buckets rm username/my-bucket/logs/ --recursive
+```
+
+You can filter which files to remove with `--include` and `--exclude` patterns (requires `--recursive`):
+
+```bash
+>>> hf buckets rm username/my-bucket/ --recursive --include "*.tmp"
+```
+
+Use `--dry-run` to preview what would be deleted without actually deleting anything:
+
+```bash
+>>> hf buckets rm username/my-bucket/checkpoints/ --recursive --dry-run
+```
+
+To delete the entire bucket, omit the file path. You will be prompted for confirmation unless you pass `--yes`:
+
+```bash
+>>> hf buckets rm username/my-bucket --yes
 ```
 
 ### Browse files

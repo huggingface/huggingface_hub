@@ -172,18 +172,51 @@ Use [`delete_bucket`] to delete a bucket. This operation is irreversible.
 >>> delete_bucket("username/my-bucket", missing_ok=True)
 ```
 
-Or via CLI:
+Or via CLI with `hf buckets rm` (or `hf buckets remove`). When called with just a bucket ID (no file path), it deletes the entire bucket:
 
 ```bash
 # Prompts for confirmation
->>> hf buckets delete username/my-bucket
+>>> hf buckets rm username/my-bucket
 
 # Skip confirmation
->>> hf buckets delete username/my-bucket --yes
+>>> hf buckets rm username/my-bucket --yes
 
 # Don't error if bucket doesn't exist
->>> hf buckets delete username/my-bucket --yes --missing-ok
+>>> hf buckets rm username/my-bucket --yes --missing-ok
 ```
+
+### Delete files
+
+Use [`batch_bucket_files`] with the `delete` parameter to delete files from a bucket:
+
+```py
+>>> from huggingface_hub import batch_bucket_files
+
+# Delete specific files
+>>> batch_bucket_files("username/my-bucket", delete=["old-model.bin", "logs/debug.log"])
+```
+
+Or via CLI with `hf buckets rm`. When called with a file path, it removes files from the bucket:
+
+```bash
+# Remove a single file
+>>> hf buckets rm username/my-bucket/old-model.bin
+
+# Remove all files under a prefix (requires --recursive)
+>>> hf buckets rm username/my-bucket/logs/ --recursive
+
+# Remove only files matching a pattern
+>>> hf buckets rm username/my-bucket/ --recursive --include "*.tmp"
+
+# Exclude specific files from removal
+>>> hf buckets rm username/my-bucket/data/ --recursive --exclude "*.safetensors"
+
+# Preview what would be deleted
+>>> hf buckets rm username/my-bucket/checkpoints/ --recursive --dry-run
+```
+
+> [!TIP]
+> `hf buckets rm` uses the same dual-mode pattern as `hf buckets list`: when given a file path (e.g. `user/bucket/file.txt`), it operates on files; when given just a bucket ID (e.g. `user/bucket`), it operates on the bucket itself.
 
 ### Move a bucket
 
