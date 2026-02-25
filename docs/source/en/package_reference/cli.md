@@ -208,6 +208,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
+* `remove`: Remove files from a bucket, or delete a... [alias: rm]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -409,6 +410,49 @@ Examples
   $ hf buckets move user/old-bucket user/new-bucket
   $ hf buckets move user/my-bucket my-org/my-bucket
   $ hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets remove`
+
+Remove files from a bucket, or delete a bucket entirely. [alias: rm]
+
+When called with a file path (namespace/bucket_name/path), removes files from the bucket.
+When called with just a bucket ID (namespace/bucket_name), deletes the entire bucket.
+
+**Usage**:
+
+```console
+$ hf buckets remove [OPTIONS] ARGUMENT
+```
+
+**Arguments**:
+
+* `ARGUMENT`: Bucket path to remove. Use namespace/bucket_name to delete the entire bucket, or namespace/bucket_name/path (or hf://buckets/...) to remove files.  [required]
+
+**Options**:
+
+* `-r, --recursive`: Remove files recursively under the given prefix.
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run`: Preview what would be deleted without actually deleting.
+* `--missing-ok`: Do not raise an error if the bucket or files do not exist.
+* `--include TEXT`: Include only files matching pattern (can specify multiple). Requires --recursive.
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple). Requires --recursive.
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets remove user/my-bucket/file.txt
+  $ hf buckets rm hf://buckets/user/my-bucket/file.txt
+  $ hf buckets rm user/my-bucket/logs/ --recursive
+  $ hf buckets rm user/my-bucket/ --recursive --include "*.tmp"
+  $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
+  $ hf buckets rm user/my-bucket --yes
+  $ hf buckets rm user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
