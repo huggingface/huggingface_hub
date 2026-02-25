@@ -574,7 +574,6 @@ def delete(
     examples=[
         "hf buckets move user/old-bucket user/new-bucket",
         "hf buckets move user/my-bucket my-org/my-bucket",
-        "hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket",
     ],
 )
 def move(
