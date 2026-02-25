@@ -8,7 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Iterator, NoReturn, Optional, Union
 from urllib.parse import quote, unquote
 
@@ -610,7 +610,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, BucketFolder]]
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
-                tree = self._api.list_bucket_tree(
+                tree = self._list_bucket_tree_with_folders(
                     resolved_path.bucket_id,
                     prefix=resolved_path.path,
                     recursive=recursive,
@@ -644,6 +644,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         "type": "file",
                         "xet_hash": path_info.xet_hash,
                         "mtime": path_info.mtime,
+                        "uploaded_at": path_info.uploaded_at,
                     }
                 elif isinstance(path_info, RepoFolder):
                     cache_path_info = {
@@ -665,6 +666,35 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
+        return out
+
+    def _list_bucket_tree_with_folders(
+        self, bucket_id: str, prefix: str, recursive: bool
+    ) -> Iterable[Union[BucketFile, BucketFolder]]:
+        """Same as `HfApi.list_bucket_tree` but always includes folders"""
+        bucket_files = self._api.list_bucket_tree(bucket_id, prefix, recursive=recursive)
+        bucket_folders: dict[str, BucketFolder] = {}
+        min_depth = 1 + prefix.count("/") if prefix else 0
+        out: list[Union[BucketFile, BucketFolder]] = []
+        for bucket_file in bucket_files:
+            if isinstance(bucket_file, BucketFolder):  # can happen if recursive=False
+                bucket_folders[bucket_file.path] = bucket_file
+            else:
+                for parent_bucket_folder in PurePosixPath(bucket_file.path).parents[: -min_depth - 1]:
+                    parent_bucket_folder_path = str(parent_bucket_folder)
+                    if parent_bucket_folder not in bucket_folders:
+                        bucket_folder = BucketFolder(
+                            type="directory", path=parent_bucket_folder_path, uploaded_at=bucket_file.uploaded_at
+                        )
+                        out.append(bucket_folder)
+                        bucket_folders[parent_bucket_folder_path] = bucket_folder
+                    else:
+                        bucket_folder = bucket_folders[parent_bucket_folder_path]
+                        if bucket_folder.uploaded_at is None or (
+                            bucket_file.uploaded_at is not None and bucket_folder.uploaded_at < bucket_file.uploaded_at
+                        ):
+                            bucket_folder.uploaded_at = bucket_file.uploaded_at
+            out.append(bucket_file)
         return out
 
     def walk(self, path: str, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str]]]:
