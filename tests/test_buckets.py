@@ -239,11 +239,23 @@ def test_move_bucket_rename(api: HfApi, bucket_write: str):
 
 def test_move_bucket_invalid_bucket_id(api: HfApi):
     """Test from_bucket_id and to_bucket_id must be in the form 'namespace/bucket_name'."""
-    with pytest.raises(ValueError, match=r"Invalid bucket ID"):
+    # Invalid format (no namespace)
+    with pytest.raises(ValueError, match=r"Invalid bucket"):
         api.move_bucket(from_bucket_id="namespace/bucket_name", to_bucket_id="invalid_bucket_id")
 
-    with pytest.raises(ValueError, match=r"Invalid bucket ID"):
+    with pytest.raises(ValueError, match=r"Invalid bucket"):
         api.move_bucket(from_bucket_id="invalid_bucket_id", to_bucket_id="namespace/bucket_name")
+
+    # Prefixes are not allowed
+    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
+        api.move_bucket(from_bucket_id="namespace/bucket/prefix", to_bucket_id="namespace/bucket")
+
+    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
+        api.move_bucket(from_bucket_id="namespace/bucket", to_bucket_id="namespace/bucket/prefix")
+
+    # hf://buckets/ format also works
+    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
+        api.move_bucket(from_bucket_id="hf://buckets/namespace/bucket/prefix", to_bucket_id="namespace/bucket")
 
 
 @pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")

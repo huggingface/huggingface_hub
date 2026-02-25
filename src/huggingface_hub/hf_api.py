@@ -11734,11 +11734,12 @@ class HfApi:
         Args:
             from_bucket_id (`str`):
                 A namespace (user or an organization) and a bucket name separated
-                by a `/`. Original bucket identifier (e.g. `"username/my-bucket"`).
+                by a `/`. Original bucket identifier (e.g. `"username/my-bucket"` or
+                `"hf://buckets/username/my-bucket"`).
             to_bucket_id (`str`):
                 A namespace (user or an organization) and a bucket name separated
                 by a `/`. Final bucket identifier (e.g. `"username/new-bucket-name"`
-                or `"organization/my-bucket"`).
+                or `"organization/my-bucket"` or `"hf://buckets/organization/my-bucket"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11761,15 +11762,22 @@ class HfApi:
             >>> move_bucket(from_bucket_id="username/my-bucket", to_bucket_id="my-org/my-bucket")
             ```
         """
-        if len(from_bucket_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid bucket ID: {from_bucket_id}. It should have a namespace (:namespace:/:bucket_name:)"
-            )
+        # Parse hf://buckets/ prefix if present
+        from_path = (
+            from_bucket_id.removeprefix("hf://buckets/")
+            if from_bucket_id.startswith("hf://buckets/")
+            else from_bucket_id
+        )
+        from_bucket_id, from_prefix = _split_bucket_id_and_prefix(from_path)
+        if from_prefix:
+            raise ValueError(f"Invalid bucket ID: '{from_path}'. Cannot specify a path prefix for move.")
 
-        if len(to_bucket_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid bucket ID: {to_bucket_id}. It should have a namespace (:namespace:/:bucket_name:)"
-            )
+        to_path = (
+            to_bucket_id.removeprefix("hf://buckets/") if to_bucket_id.startswith("hf://buckets/") else to_bucket_id
+        )
+        to_bucket_id, to_prefix = _split_bucket_id_and_prefix(to_path)
+        if to_prefix:
+            raise ValueError(f"Invalid bucket ID: '{to_path}'. Cannot specify a path prefix for move.")
 
         json_payload = {"fromBucket": from_bucket_id, "toBucket": to_bucket_id}
 

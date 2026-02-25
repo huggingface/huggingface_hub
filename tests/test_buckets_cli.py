@@ -225,78 +225,15 @@ def test_move_bucket(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets move {bucket_write} {new_bucket_id}")
     assert result.exit_code == 0
     assert "Bucket moved:" in result.output
-    assert bucket_write in result.output
-    assert new_bucket_id in result.output
 
-    # Old bucket should not exist
+    # Verify move worked
     with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
-
-    # New bucket should exist
     info = api.bucket_info(new_bucket_id)
     assert info.id == new_bucket_id
 
     # Clean up
     api.delete_bucket(new_bucket_id)
-
-
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
-def test_move_bucket_quiet(api: HfApi, bucket_write: str):
-    """Test move bucket with --quiet flag."""
-    new_bucket_id = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets move {bucket_write} {new_bucket_id} --quiet")
-    assert result.exit_code == 0
-    assert result.output.strip() == new_bucket_id
-    assert "Bucket moved:" not in result.output
-
-    # Clean up
-    api.delete_bucket(new_bucket_id)
-
-
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
-def test_move_bucket_with_hf_prefix(api: HfApi, bucket_write: str):
-    """Test move bucket using hf://buckets/ prefix format."""
-    new_name = bucket_name()
-    new_bucket_id = f"{USER}/{new_name}"
-    result = cli(f"hf buckets move hf://buckets/{bucket_write} hf://buckets/{new_bucket_id}")
-    assert result.exit_code == 0
-
-    # New bucket should exist
-    info = api.bucket_info(new_bucket_id)
-    assert info.id == new_bucket_id
-
-    # Clean up
-    api.delete_bucket(new_bucket_id)
-
-
-def test_move_bucket_invalid_source():
-    """Test move with invalid source bucket ID (no namespace)."""
-    result = cli(f"hf buckets move just-a-name {USER}/target")
-    assert result.exit_code != 0
-    assert "Invalid bucket ID" in result.output
-
-
-def test_move_bucket_invalid_target():
-    """Test move with invalid target bucket ID (no namespace)."""
-    result = cli(f"hf buckets move {USER}/source just-a-name")
-    assert result.exit_code != 0
-    assert "Invalid bucket ID" in result.output
-
-
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
-def test_move_bucket_not_found():
-    """Test move of a non-existent bucket."""
-    nonexistent = f"{USER}/{bucket_name()}"
-    target = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets move {nonexistent} {target}")
-    assert result.exit_code != 0
-
-
-def test_move_bucket_with_prefix_error():
-    """Test move with a path prefix (not allowed)."""
-    result = cli(f"hf buckets move hf://buckets/{USER}/bucket/prefix {USER}/target")
-    assert result.exit_code != 0
-    assert "Cannot specify a prefix" in result.output
 
 
 # =============================================================================

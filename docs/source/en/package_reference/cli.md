@@ -402,7 +402,6 @@ $ hf buckets move [OPTIONS] FROM_BUCKET_ID TO_BUCKET_ID
 
 **Options**:
 
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
