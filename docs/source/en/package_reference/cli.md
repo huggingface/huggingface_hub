@@ -31,7 +31,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
-* `extensions | ext`: Manage hf CLI extensions.
+* `extensions`: Manage hf CLI extensions. [alias: ext]
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
@@ -1347,16 +1347,16 @@ $ hf env [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-## `hf extensions | ext`
+## `hf extensions`
 
-Manage hf CLI extensions.
+Manage hf CLI extensions. [alias: ext]
 
 Security Warning: extensions are third-party executables. Install only from sources you trust.
 
 **Usage**:
 
 ```console
-$ hf extensions | ext [OPTIONS] COMMAND [ARGS]...
+$ hf extensions [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -1377,7 +1377,7 @@ Execute an installed extension.
 **Usage**:
 
 ```console
-$ hf extensions | ext exec [OPTIONS] NAME
+$ hf extensions exec [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -1406,7 +1406,7 @@ Security warning: this installs a third-party executable. Install only from sour
 **Usage**:
 
 ```console
-$ hf extensions | ext install [OPTIONS] REPO_ID
+$ hf extensions install [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -1434,7 +1434,7 @@ List installed extension commands.
 **Usage**:
 
 ```console
-$ hf extensions | ext list [OPTIONS]
+$ hf extensions list [OPTIONS]
 ```
 
 **Options**:
@@ -1456,7 +1456,7 @@ Remove an installed extension.
 **Usage**:
 
 ```console
-$ hf extensions | ext remove [OPTIONS] NAME
+$ hf extensions remove [OPTIONS] NAME
 ```
 
 **Arguments**:
