@@ -27,7 +27,7 @@ import typer
 
 from huggingface_hub import HfApi, logging
 from huggingface_hub.errors import BucketNotFoundError
-from huggingface_hub.hf_api import BucketFile, BucketFolder
+from huggingface_hub.hf_api import BucketFile, BucketFolder, _split_bucket_id_and_prefix
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -47,7 +47,7 @@ logger = logging.get_logger(__name__)
 
 
 BUCKET_PREFIX = "hf://buckets/"
-
+_SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
 
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
@@ -60,21 +60,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     """
     if not path.startswith(BUCKET_PREFIX):
         raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-
-    path_without_prefix = path[len(BUCKET_PREFIX) :]
-    parts = path_without_prefix.split("/", 2)
-
-    if len(parts) < 2:
-        raise ValueError(
-            f"Invalid bucket path: {path}. Must be in format {BUCKET_PREFIX}namespace/bucket_name(/prefix)"
-        )
-
-    namespace = parts[0]
-    bucket_name = parts[1]
-    bucket_id = f"{namespace}/{bucket_name}"
-    prefix = parts[2] if len(parts) > 2 else ""
-
-    return bucket_id, prefix
+    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
 
 
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
@@ -85,17 +71,13 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     """
     if argument.startswith(BUCKET_PREFIX):
         return _parse_bucket_path(argument)
-
-    parts = argument.split("/", 2)
-    if len(parts) < 2:
+    try:
+        return _split_bucket_id_and_prefix(argument)
+    except ValueError:
         raise ValueError(
             f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
             f" or {BUCKET_PREFIX}namespace/bucket_name"
         )
-
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
 
 
 def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
@@ -602,7 +584,7 @@ class SyncOperation:
     reason: str = ""
     local_mtime: Optional[str] = None
     remote_mtime: Optional[str] = None
-    bucket_file: Optional[Any] = None  # BucketFile when available (not serialized to plan file)
+    bucket_file: Optional[BucketFile] = None  # BucketFile when available (not serialized to plan file)
 
 
 @dataclass
@@ -812,13 +794,13 @@ def _compare_files_for_sync(
         return SyncOperation(action="skip", reason="exists on receiver (--ignore-existing)", **base_kwargs)
 
     size_differs = source_size != dest_size
-    source_newer = (source_mtime - dest_mtime) > 1000  # 1s window for precision
+    source_newer = (source_mtime - dest_mtime) > _SYNC_TIME_WINDOW_MS
 
     if ignore_sizes:
         if source_newer:
             return SyncOperation(action=action, reason=source_newer_label, bucket_file=bucket_file, **base_kwargs)
         else:
-            dest_newer = (dest_mtime - source_mtime) > 1000
+            dest_newer = (dest_mtime - source_mtime) > _SYNC_TIME_WINDOW_MS
             skip_reason = dest_newer_label if dest_newer else "same mtime"
             return SyncOperation(action="skip", reason=skip_reason, **base_kwargs)
     elif ignore_times:
@@ -1190,8 +1172,8 @@ def _execute_plan(plan: SyncPlan, api, verbose: bool = False, status: Optional[S
         os.makedirs(local_path, exist_ok=True)
 
         # Collect download operations
-        download_files = []
-        delete_files = []
+        download_files: list[tuple[Union[str, BucketFile], str]] = []
+        delete_files: list[str] = []
 
         for op in plan.operations:
             if op.action == "download":

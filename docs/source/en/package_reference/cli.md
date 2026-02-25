@@ -31,13 +31,13 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
+* `extensions`: Manage hf CLI extensions. [alias: ext]
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repo`: Manage repos on the Hub.
-* `repo-files`: Manage files in a repo on the Hub.
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
@@ -206,7 +206,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
-* `list | ls`: List buckets or files in a bucket.
+* `list`: List buckets or files in a bucket. [alias: ls]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -341,9 +341,9 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf buckets list | ls`
+### `hf buckets list`
 
-List buckets or files in a bucket.
+List buckets or files in a bucket. [alias: ls]
 
 When called with no argument or a namespace, lists buckets.
 When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
@@ -351,7 +351,7 @@ When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
 **Usage**:
 
 ```console
-$ hf buckets list | ls [OPTIONS] [ARGUMENT]
+$ hf buckets list [OPTIONS] [ARGUMENT]
 ```
 
 **Arguments**:
@@ -565,7 +565,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
@@ -947,7 +947,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -965,6 +965,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
   $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
+  $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1345,6 +1346,134 @@ $ hf env [OPTIONS]
 **Options**:
 
 * `--help`: Show this message and exit.
+
+## `hf extensions`
+
+Manage hf CLI extensions. [alias: ext]
+
+Security Warning: extensions are third-party executables. Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `exec`: Execute an installed extension.
+* `install`: Install an extension from a public GitHub...
+* `list`: List installed extension commands.
+* `remove`: Remove an installed extension.
+
+### `hf extensions | ext exec`
+
+Execute an installed extension.
+
+**Usage**:
+
+```console
+$ hf extensions exec [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions exec claude -- --help
+  $ hf extensions exec claude --model zai-org/GLM-5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions | ext install`
+
+Install an extension from a public GitHub repository.
+
+Security warning: this installs a third-party executable. Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions install [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: GitHub extension repository in `[OWNER/]hf-<name>` format.  [required]
+
+**Options**:
+
+* `--force`: Overwrite if already installed.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions install hf-claude
+  $ hf extensions install hanouticelina/hf-claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions | ext list`
+
+List installed extension commands.
+
+**Usage**:
+
+```console
+$ hf extensions list [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions list
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions | ext remove`
+
+Remove an installed extension.
+
+**Usage**:
+
+```console
+$ hf extensions remove [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name to remove (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions remove claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ## `hf jobs`
 
@@ -2089,6 +2218,7 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `branch`: Manage branches for a repo on the Hub.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
+* `delete-files`: Delete files from a repo on the Hub.
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -2131,7 +2261,7 @@ $ hf repo branch create [OPTIONS] REPO_ID BRANCH
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
@@ -2162,7 +2292,7 @@ $ hf repo branch delete [OPTIONS] REPO_ID BRANCH
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2189,7 +2319,7 @@ $ hf repo create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2222,13 +2352,48 @@ $ hf repo delete [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repo delete my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repo delete-files`
+
+Delete files from a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repo delete-files [OPTIONS] REPO_ID PATTERNS...
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--commit-message TEXT`: The summary / title / first line of the generated commit.
+* `--commit-description TEXT`: The description of the generated commit.
+* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repo delete-files my-model file.txt
+  $ hf repo delete-files my-model "*.json"
+  $ hf repo delete-files my-model folder/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2253,7 +2418,7 @@ $ hf repo move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2283,7 +2448,7 @@ $ hf repo settings [OPTIONS] REPO_ID
 * `--gated [auto|manual|false]`: The gated status for the repository.
 * `--private / --no-private`: Whether the repository should be private.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2335,7 +2500,7 @@ $ hf repo tag create [OPTIONS] REPO_ID TAG
 * `-m, --message TEXT`: The description of the tag to create.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2366,7 +2531,7 @@ $ hf repo tag delete [OPTIONS] REPO_ID TAG
 
 * `-y, --yes`: Answer Yes to prompt automatically
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2394,62 +2559,11 @@ $ hf repo tag list [OPTIONS] REPO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repo tag list my-model
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-## `hf repo-files`
-
-Manage files in a repo on the Hub.
-
-**Usage**:
-
-```console
-$ hf repo-files [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `delete`
-
-### `hf repo-files delete`
-
-**Usage**:
-
-```console
-$ hf repo-files delete [OPTIONS] REPO_ID PATTERNS...
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
-
-**Options**:
-
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--commit-message TEXT`: The summary / title / first line of the generated commit.
-* `--commit-description TEXT`: The description of the generated commit.
-* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf repo-files delete my-model file.txt
-  $ hf repo-files delete my-model "*.json"
-  $ hf repo-files delete my-model folder/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2539,13 +2653,6 @@ This command patches the live Python process using https://github.com/breuleux/j
 (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
 (meaning that Gradio demo object changes are reflected in the UI)
 
-Usage examples:
-
-    
-    hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
-    hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
-    hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
-
 **Usage**:
 
 ```console
@@ -2564,6 +2671,16 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 * `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
+  $ hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
+  $ hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf spaces info`
 
@@ -2678,7 +2795,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
@@ -2721,7 +2838,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Options**:
 
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.

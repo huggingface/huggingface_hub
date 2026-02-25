@@ -161,6 +161,7 @@ _SUBMOD_ATTRS = {
     "hf_api": [
         "BucketFile",
         "BucketFileMetadata",
+        "BucketFolder",
         "BucketInfo",
         "BucketUrl",
         "Collection",
@@ -602,6 +603,7 @@ __all__ = [
     "AutomaticSpeechRecognitionParameters",
     "BucketFile",
     "BucketFileMetadata",
+    "BucketFolder",
     "BucketInfo",
     "BucketUrl",
     "CLIENT_FACTORY_T",
@@ -1253,6 +1255,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import (
         BucketFile,  # noqa: F401
         BucketFileMetadata,  # noqa: F401
+        BucketFolder,  # noqa: F401
         BucketInfo,  # noqa: F401
         BucketUrl,  # noqa: F401
         Collection,  # noqa: F401

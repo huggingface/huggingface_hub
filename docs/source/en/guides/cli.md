@@ -38,25 +38,31 @@ Usage: hf [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --install-completion  Install completion for the current shell.
-  --show-completion     Show completion for the current shell, to copy it or
-                        customize the installation.
-  --help                Show this message and exit.
+  --show-completion     Show completion for the current shell, to copy it or customize the installation.
+  -h, --help            Show this message and exit.
 
-Commands:
+Main commands:
   auth                 Manage authentication (login, logout, etc.).
+  buckets              Commands to interact with buckets.
   cache                Manage local cache directory.
+  collections          Interact with collections on the Hub.
   datasets             Interact with datasets on the Hub.
   download             Download files from the Hub.
   endpoints            Manage Hugging Face Inference Endpoints.
-  env                  Print information about the environment.
+  extensions           Manage hf CLI extensions.
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
+  papers               Interact with papers on the Hub.
   repo                 Manage repos on the Hub.
-  repo-files           Manage files in a repo on the Hub.
+  skills               Manage skills for AI assistants.
   spaces               Interact with spaces on the Hub.
+  sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
-  version              Print information about the hf version.
+
+Help commands:
+  env      Print information about the environment.
+  version  Print information about the hf version.
 ```
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.
@@ -807,7 +813,7 @@ Use `hf papers` to list daily papers on the Hub.
 
 ## hf repo
 
-`hf repo` lets you create, delete, move repositories and update their settings on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repo` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
 
 ### Create a repo
 
@@ -856,6 +862,43 @@ Datasets and Spaces:
 - `--gated`: one of `auto`, `manual`, `false`
 - `--private true|false`: set repository privacy
 
+### Delete files from a repo
+
+The `hf repo delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder:
+
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model folder/
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Delete multiple files:
+
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+
+<Tip warning={true}>
+
+Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
+
+</Tip>
+
+```bash
+>>> hf repo delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+
+```bash
+>>> hf repo delete-files --token=hf_**** Wauplin/my-cool-model file.txt
+```
+
 ## hf repo branch
 
 Use `hf repo branch` to create and delete branches for repositories on the Hub.
@@ -873,47 +916,6 @@ Use `hf repo branch` to create and delete branches for repositories on the Hub.
 
 > [!TIP]
 > All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
-
-## hf repo-files
-
-If you want to delete files from a Hugging Face repository, use the `hf repo-files` command.
-
-### Delete files
-
-The `hf repo-files delete <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
-
-Delete a folder :
-```bash
->>> hf repo-files delete Wauplin/my-cool-model folder/
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-Delete multiple files:
-```bash
->>> hf repo-files delete Wauplin/my-cool-model file.txt folder/pytorch_model.bin
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
-
-<Tip warning={true}>
-
-Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
-
-</Tip>
-
-```bash
->>> hf repo-files delete Wauplin/my-cool-model "*.txt" "folder/*.bin"
-Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
-```
-
-### Specify a token
-
-To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
-
-```bash
->>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
-```
 
 ## hf cache
 
@@ -1303,6 +1305,22 @@ You can pass environment variables to your job using
 > Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
 > With this syntax, the secret is retrieved from the environment variable.
 > For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
+
+#### Built-in Environment Variables
+
+Inside the job container, the following environment variables are automatically available:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
+| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
+
+```bash
+# Access job environment information
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
+```
 
 ### Job Timeout
 

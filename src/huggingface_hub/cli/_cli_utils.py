@@ -77,6 +77,7 @@ Learn more
 
 
 TOPIC_T = Union[Literal["main", "help"], str]
+FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -105,6 +106,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         if cmd is not None:
             return cmd
         # Fall back to alias lookup: check if cmd_name matches any alias
+        # taken from https://github.com/fastapi/typer/issues/132#issuecomment-2417492805
         for registered_name, registered_cmd in self.commands.items():
             aliases = _ALIAS_SPLIT.split(registered_name)
             if cmd_name in aliases:
@@ -131,7 +133,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             help_text = cmd.get_short_help_str(limit=formatter.width)
             aliases = alias_map.get(name, [])
             if aliases:
-                help_text = f"(alias: {', '.join(aliases)}) {help_text}"
+                help_text = f"{help_text} [alias: {', '.join(aliases)}]"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
@@ -166,6 +168,19 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             primary = _ALIAS_SPLIT.split(name)[0]
             primary_names.append(primary)
         return sorted(primary_names)
+
+
+def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFCliTyperGroup]:
+    """Return a Typer group class that runs a fallback handler before command resolution."""
+
+    class FallbackTyperGroup(HFCliTyperGroup):
+        def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+            fallback_exit_code = fallback_handler(args, set(self.commands.keys()))
+            if fallback_exit_code is not None:
+                raise SystemExit(fallback_exit_code)
+            return super().resolve_command(ctx, args)
+
+    return FallbackTyperGroup
 
 
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
@@ -222,22 +237,27 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
+def typer_factory(
+    help: str, epilog: Optional[str] = None, cls: Optional[type[typer.core.TyperGroup]] = None
+) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
         help: Help text for the app.
         epilog: Optional epilog text (use `generate_epilog` to create one).
+        cls: Optional Click group class to use (defaults to `HFCliTyperGroup`).
 
     Returns:
         A configured Typer app.
     """
+    if cls is None:
+        cls = HFCliTyperGroup
     return HFCliApp(
         help=help,
         epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=HFCliTyperGroup,
+        cls=cls,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
@@ -267,6 +287,8 @@ RepoIdArg = Annotated[
 RepoTypeOpt = Annotated[
     RepoType,
     typer.Option(
+        "--type",
+        "--repo-type",
         help="The type of repository (model, dataset, or space).",
     ),
 ]

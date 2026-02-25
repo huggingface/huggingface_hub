@@ -9,7 +9,7 @@ Buckets provide S3-like object storage on Hugging Face, powered by the Xet stora
 You can interact with buckets using the Python API ([`HfApi`]) or the CLI (`hf buckets`). In this guide, we will walk through all the operations available.
 
 > [!TIP]
-> All CLI commands are available under `hf buckets <command>`. Run `hf buckets --help` to see learn more.
+> All CLI commands are available under `hf buckets <command>`. Run `hf buckets --help` to learn more.
 
 ## Create and manage buckets
 
@@ -130,7 +130,7 @@ username/logs                321.8 MB        2000 2026-02-13
 >>> hf buckets ls huggingface
 ```
 
-You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you to pipe the output to another tool like `grep` or `jq`.
+You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you want to pipe the output to another tool like `grep` or `jq`.
 
 ```bash
 # Quiet mode: prints one bucket ID per line

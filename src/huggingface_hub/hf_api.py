@@ -667,13 +667,27 @@ class BucketUrl:
         # Remove leading "buckets/" prefix
         if url_path.startswith("buckets/"):
             url_path = url_path[len("buckets/") :]
-        parts = url_path.split("/")
-        if len(parts) != 2:
+        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
+        if prefix:
             raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = parts[0]
-        self.bucket_id = f"{parts[0]}/{parts[1]}"
+        self.namespace = bucket_id.split("/")[0]
+        self.bucket_id = bucket_id
 
         self.handle = f"hf://buckets/{self.bucket_id}"
+
+
+def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
+    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
+
+    Returns (bucket_id, prefix) where prefix may be empty string.
+    Raises ValueError if path doesn't contain at least namespace/name.
+    """
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2] if len(parts) > 2 else ""
+    return bucket_id, prefix
 
 
 @dataclass
@@ -1340,7 +1354,8 @@ class CollectionItem:
             self.item_id = slug  # collection slug
         self.item_type: CollectionItemType_T = type
         self.position: int = position
-        self.note: str = note["text"] if note is not None else None
+        note_text = note.get("text") if note is not None else None
+        self.note = note_text if isinstance(note_text, str) else None
 
 
 @dataclass
@@ -2010,9 +2025,12 @@ class _BucketAddFile:
     content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
-        self.content_type = (mimetypes.guess_type(self.source)[0] if not isinstance(self.source, bytes) else None) or (
-            mimetypes.guess_type(self.destination)[0]
-        )
+        self.content_type = None
+        if isinstance(self.source, (str, Path)):  # guess content type from source path
+            self.content_type = mimetypes.guess_type(self.source)[0]
+        if self.content_type is None:  # or default to destination path content type
+            self.content_type = mimetypes.guess_type(self.destination)[0]
+
         self.mtime = int(
             os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
         )
@@ -11525,7 +11543,7 @@ class HfApi:
             >>> url.bucket_id
             'user/my-bucket'
             >>> url.url
-            'https://huggingface.co/user/my-bucket'
+            'https://huggingface.co/buckets/user/my-bucket'
             >>> url.handle
             'hf://buckets/user/my-bucket'
 
@@ -11539,13 +11557,13 @@ class HfApi:
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
 
-        parts = bucket_id.split("/")
-        if len(parts) == 1:
-            namespace, name = "me", parts[0]  # "me" namespace refers to the current user
-        elif len(parts) == 2:
-            namespace, name = parts
+        if "/" not in bucket_id:
+            namespace, name = "me", bucket_id  # "me" namespace refers to the current user
         else:
-            raise ValueError(f"Invalid bucket ID: {bucket_id}")
+            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
+            if prefix:
+                raise ValueError(f"Invalid bucket ID: {bucket_id}")
+            namespace, name = bucket_id_parsed.split("/")
 
         response = get_session().post(
             f"{self.endpoint}/api/buckets/{namespace}/{name}",
@@ -11713,6 +11731,8 @@ class HfApi:
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             prefix (`str`, *optional*):
                 Filter results to files whose path starts with this prefix.
+            recursive (`bool`, *optional*):
+                If `True`, list files recursively. If `False` (default), list files and directories only at root.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12061,7 +12081,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             retry_on_errors=True,
         )
-        hf_raise_for_status(response)
 
         xet_file_data = parse_xet_file_data_from_response(response)
         if xet_file_data is None:
@@ -12135,6 +12154,7 @@ class HfApi:
 
         # Resolve all string paths to BucketFile objects in a single batch request
         str_paths = [path for path, _ in files if not isinstance(path, BucketFile)]
+        bucket_files_by_path: dict[str, BucketFile] = {}
         if str_paths:
             bucket_files_by_path = {
                 info.path: info for info in self.get_bucket_paths_info(bucket_id, str_paths, token=token)
