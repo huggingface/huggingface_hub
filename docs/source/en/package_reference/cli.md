@@ -31,7 +31,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
-* `extensions`: Manage hf CLI extensions.
+* `extensions`: Manage hf CLI extensions. [alias: ext]
 * `jobs`: Run and manage Jobs on the Hub.
 * `lfs-enable-largefiles`: Configure your repository to enable upload...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
@@ -1349,7 +1349,7 @@ $ hf env [OPTIONS]
 
 ## `hf extensions`
 
-Manage hf CLI extensions.
+Manage hf CLI extensions. [alias: ext]
 
 Security Warning: extensions are third-party executables. Install only from sources you trust.
 
@@ -1370,7 +1370,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `list`: List installed extension commands.
 * `remove`: Remove an installed extension.
 
-### `hf extensions exec`
+### `hf extensions | ext exec`
 
 Execute an installed extension.
 
@@ -1397,7 +1397,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions install`
+### `hf extensions | ext install`
 
 Install an extension from a public GitHub repository.
 
@@ -1427,7 +1427,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions list`
+### `hf extensions | ext list`
 
 List installed extension commands.
 
@@ -1449,7 +1449,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions remove`
+### `hf extensions | ext remove`
 
 Remove an installed extension.
 
