@@ -981,7 +981,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 
 * `--subset TEXT`: Filter parquet entries by subset/config.
 * `--split TEXT`: Filter parquet entries by split.
-* `--format [table|json]`: Output format.  [default: table]
+* `--format [table|json]`: Output format (table or json).  [default: table]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1012,7 +1012,7 @@ $ hf datasets sql [OPTIONS] SQL
 
 **Options**:
 
-* `--format [table|json]`: Output format.  [default: table]
+* `--format [table|json]`: Output format (table or json).  [default: table]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
