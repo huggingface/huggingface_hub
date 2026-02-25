@@ -195,6 +195,7 @@ class BucketFile:
     size: int
     xet_hash: str
     mtime: Optional[datetime]
+    uploaded_at: Optional[datetime]
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -203,6 +204,8 @@ class BucketFile:
         self.xet_hash = kwargs.pop("xetHash")
         mtime = kwargs.pop("mtime", None)
         self.mtime = parse_datetime(mtime) if mtime else None
+        uploaded_at = kwargs.pop("uploadedAt", None)
+        self.uploaded_at = parse_datetime(uploaded_at) if uploaded_at else None
 
 
 @dataclass
@@ -215,12 +218,17 @@ class BucketFolder:
 
     type: Literal["directory"]
     path: str
-    uploaded_at: datetime
+    uploaded_at: Optional[datetime]
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
         self.path = kwargs.pop("path")
-        self.uploaded_at = parse_datetime(kwargs.pop("uploadedAt"))
+        uploaded_at = kwargs.pop("uploadedAt", None) or kwargs.pop("uploaded_at", None)
+        self.uploaded_at = (
+            (uploaded_at if isinstance(uploaded_at, datetime) else parse_datetime(uploaded_at))
+            if uploaded_at
+            else None
+        )
 
 
 # =============================================================================
