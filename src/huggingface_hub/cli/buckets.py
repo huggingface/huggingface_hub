@@ -594,10 +594,7 @@ def move(
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
     # Parse from_id
-    try:
-        parsed_from_id, from_prefix = _parse_bucket_argument(from_id)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
+    parsed_from_id, from_prefix = _parse_bucket_argument(from_id)
     if from_prefix:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {from_id}."
@@ -605,10 +602,7 @@ def move(
         )
 
     # Parse to_id
-    try:
-        parsed_to_id, to_prefix = _parse_bucket_argument(to_id)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
+    parsed_to_id, to_prefix = _parse_bucket_argument(to_id)
     if to_prefix:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {to_id}."
