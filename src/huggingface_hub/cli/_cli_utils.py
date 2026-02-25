@@ -19,8 +19,6 @@ import importlib.metadata
 import json
 import os
 import re
-import shutil
-import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -146,14 +144,16 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 formatter.write_dl(topics[topic])
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        # Collect examples from all commands
+        # Collect only the first example from each command (to keep group help concise)
+        # Full examples are shown in individual subcommand help (e.g. `hf buckets sync --help`)
         all_examples: list[str] = []
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             cmd_examples = getattr(cmd, "examples", [])
-            all_examples.extend(cmd_examples)
+            if cmd_examples:
+                all_examples.append(cmd_examples[0])
 
         if all_examples:
             epilog = generate_epilog(all_examples)
@@ -490,45 +490,6 @@ def make_expand_properties_parser(valid_properties: list[str]):
         return properties
 
     return _parse_expand_properties
-
-
-### STATUS LINE
-
-
-class StatusLine:
-    """Write transient grey status messages on a single line (TTY only).
-
-    Messages are written to stderr using carriage return to overwrite the previous status.
-    Does nothing when stderr is not a TTY (e.g. piped output) to avoid polluting output.
-    """
-
-    def __init__(self, enabled: bool = True):
-        self._active = enabled and sys.stderr.isatty()
-
-    def update(self, msg: str) -> None:
-        if not self._active:
-            return
-        width = shutil.get_terminal_size().columns
-        if len(msg) > width - 1:
-            msg = msg[: width - 4] + "..."
-        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}")
-        sys.stderr.flush()
-
-    def done(self, msg: str) -> None:
-        """Write a final status message for the current step and move to the next line."""
-        if not self._active:
-            return
-        width = shutil.get_terminal_size().columns
-        if len(msg) > width - 1:
-            msg = msg[: width - 4] + "..."
-        sys.stderr.write(f"\r\033[K{ANSI.gray(msg)}\n")
-        sys.stderr.flush()
-
-    def clear(self) -> None:
-        if not self._active:
-            return
-        sys.stderr.write("\r\033[K")
-        sys.stderr.flush()
 
 
 ### PyPI VERSION CHECKER

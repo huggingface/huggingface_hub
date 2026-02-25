@@ -14,7 +14,34 @@
 """Contains utilities to print stuff to the terminal (styling, helpers)."""
 
 import os
+import shutil
+import sys
 from typing import Optional, Union
+
+
+class StatusLine:
+    """Minimal TTY status line for sync progress (stderr, single-line overwrite)."""
+
+    def __init__(self, enabled: bool = True):
+        self._active = enabled and sys.stderr.isatty()
+
+    def update(self, msg: str) -> None:
+        if not self._active:
+            return
+        width = shutil.get_terminal_size().columns
+        if len(msg) > width - 1:
+            msg = msg[: width - 4] + "..."
+        sys.stderr.write(f"\r\033[K\033[90m{msg}\033[0m")
+        sys.stderr.flush()
+
+    def done(self, msg: str) -> None:
+        if not self._active:
+            return
+        width = shutil.get_terminal_size().columns
+        if len(msg) > width - 1:
+            msg = msg[: width - 4] + "..."
+        sys.stderr.write(f"\r\033[K\033[90m{msg}\033[0m\n")
+        sys.stderr.flush()
 
 
 class ANSI:
