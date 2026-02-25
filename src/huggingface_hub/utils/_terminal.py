@@ -19,7 +19,7 @@ import sys
 from typing import Optional, Union
 
 
-class _StatusLine:
+class StatusLine:
     """Minimal TTY status line for sync progress (stderr, single-line overwrite)."""
 
     def __init__(self, enabled: bool = True):

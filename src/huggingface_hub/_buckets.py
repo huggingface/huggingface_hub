@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
 from . import constants, logging
 from .errors import BucketNotFoundError
 from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
-from .utils._terminal import _StatusLine
+from .utils._terminal import StatusLine
 
 
 if TYPE_CHECKING:
@@ -1057,7 +1057,7 @@ def sync_bucket(
             raise ValueError("Cannot specify dry_run when using apply.")
 
         sync_plan = _load_plan(apply)
-        status = _StatusLine(enabled=not quiet)
+        status = StatusLine(enabled=not quiet)
         if not quiet:
             _print_plan_summary(sync_plan)
             print("Executing plan...")
@@ -1117,7 +1117,7 @@ def sync_bucket(
     )
 
     # Compute sync plan
-    status = _StatusLine(enabled=not quiet and not dry_run)
+    status = StatusLine(enabled=not quiet and not dry_run)
     sync_plan = _compute_sync_plan(
         source=source,
         dest=dest,

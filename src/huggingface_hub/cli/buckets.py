@@ -32,13 +32,12 @@ from huggingface_hub._buckets import (
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
 )
-from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     FormatOpt,
     OutputFormat,
     QuietOpt,
-    StatusLine,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
