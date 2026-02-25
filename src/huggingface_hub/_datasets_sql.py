@@ -32,7 +32,7 @@ class DatasetSqlQueryResult:
     columns: tuple[str, ...]
     rows: tuple[tuple[Any, ...], ...]
     table: str
-    raw_json: str | None = None
+    raw_json: Optional[str] = None
 
 
 def execute_raw_sql_query(
