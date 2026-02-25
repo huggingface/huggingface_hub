@@ -16,6 +16,7 @@
 from typing import Callable, Optional
 
 from huggingface_hub.errors import (
+    BucketNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -26,6 +27,9 @@ from huggingface_hub.errors import (
 
 
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
+    BucketNotFoundError: lambda e: (
+        "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated."
+    ),
     RepositoryNotFoundError: lambda e: (
         "Repository not found. Check the `repo_id` and `repo_type` parameters. If the repo is private, make sure you are authenticated."
     ),

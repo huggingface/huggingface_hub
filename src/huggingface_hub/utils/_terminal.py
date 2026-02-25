@@ -14,7 +14,7 @@
 """Contains utilities to print stuff to the terminal (styling, helpers)."""
 
 import os
-from typing import Union
+from typing import Optional, Union
 
 
 class ANSI:
@@ -62,15 +62,24 @@ class ANSI:
         return f"{code}{s}{cls._reset}"
 
 
-def tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
+def tabulate(
+    rows: list[list[Union[str, int]]],
+    headers: list[str],
+    alignments: Optional[dict[str, str]] = None,
+) -> str:
     """
     Inspired by:
 
     - stackoverflow.com/a/8356620/593036
     - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     """
+    _ALIGN_MAP = {"left": "<", "right": ">"}
+    for row in rows:
+        if len(row) < len(headers):
+            raise IndexError(f"Row has {len(row)} values but expected {len(headers)} (headers: {headers})")
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    row_format = ("{{:{}}} " * len(headers)).format(*col_widths)
+    col_aligns = [_ALIGN_MAP.get((alignments or {}).get(h, "left"), "<") for h in headers]
+    row_format = " ".join(f"{{:{a}{w}}}" for a, w in zip(col_aligns, col_widths))
     lines = []
     lines.append(row_format.format(*headers))
     lines.append(row_format.format(*["-" * w for w in col_widths]))

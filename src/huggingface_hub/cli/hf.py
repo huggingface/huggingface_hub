@@ -22,6 +22,7 @@ from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
+from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
@@ -65,6 +66,7 @@ def app_callback(
 
 
 # top level single commands (defined in their respective files)
+app.command()(sync)
 app.command(examples=DOWNLOAD_EXAMPLES)(download)
 app.command(examples=UPLOAD_EXAMPLES)(upload)
 app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
@@ -77,6 +79,7 @@ app.command(hidden=True)(lfs_multipart_upload)
 
 # command groups
 app.add_typer(auth_cli, name="auth")
+app.add_typer(buckets_cli, name="buckets")
 app.add_typer(cache_cli, name="cache")
 app.add_typer(collections_cli, name="collections")
 app.add_typer(datasets_cli, name="datasets")
@@ -84,11 +87,11 @@ app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
 app.add_typer(repo_cli, name="repo")
-app.add_typer(repo_files_cli, name="repo-files")
+app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(ie_cli, name="endpoints")
-app.add_typer(extensions_cli, name="extensions")
+app.add_typer(extensions_cli, name="extensions | ext")
 
 
 def main():
