@@ -12,16 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Shared logic for bucket sync operations.
+"""Shared logic for bucket operations.
 
-This module contains the core sync logic used by both the CLI (`hf buckets sync`)
-and the Python API (`HfApi.sync_bucket`).
+This module contains the core buckets logic used by both the CLI and the Python API.
 """
 
 import fnmatch
 import json
+import mimetypes
 import os
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,7 +30,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
 
 from . import constants, logging
 from .errors import BucketNotFoundError
-from .utils import disable_progress_bars, enable_progress_bars, parse_datetime
+from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
 from .utils._terminal import _StatusLine
 
 
@@ -61,6 +62,83 @@ def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
     bucket_id = f"{parts[0]}/{parts[1]}"
     prefix = parts[2] if len(parts) > 2 else ""
     return bucket_id, prefix
+
+
+@dataclass
+class BucketInfo:
+    """
+    Contains information about a bucket on the Hub. This object is returned by [`bucket_info`] and [`list_buckets`].
+
+    Attributes:
+        id (`str`):
+            ID of the bucket.
+        private (`bool`):
+            Is the bucket private.
+        created_at (`datetime`):
+            Date of creation of the bucket on the Hub.
+        size (`int`):
+            Size of the bucket in bytes.
+        total_files (`int`):
+            Total number of files in the bucket.
+    """
+
+    id: str
+    private: bool
+    created_at: datetime
+    size: int
+    total_files: int
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.private = kwargs.pop("private")
+        self.created_at = parse_datetime(kwargs.pop("createdAt"))
+        self.size = kwargs.pop("size")
+        self.total_files = kwargs.pop("totalFiles")
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class _BucketAddFile:
+    source: Union[str, Path, bytes]
+    destination: str
+
+    xet_hash: Optional[str] = field(default=None)
+    size: Optional[int] = field(default=None)
+    mtime: int = field(init=False)
+    content_type: Optional[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = None
+        if isinstance(self.source, (str, Path)):  # guess content type from source path
+            self.content_type = mimetypes.guess_type(self.source)[0]
+        if self.content_type is None:  # or default to destination path content type
+            self.content_type = mimetypes.guess_type(self.destination)[0]
+
+        self.mtime = int(
+            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
+        )
+
+
+@dataclass
+class _BucketDeleteFile:
+    path: str
+
+
+@dataclass(frozen=True)
+class BucketFileMetadata:
+    """Data structure containing information about a file in a bucket.
+
+    Returned by [`get_bucket_file_metadata`].
+
+    Args:
+        size (`int`):
+            Size of the file in bytes.
+        xet_file_data (`XetFileData`):
+            Xet information for the file (hash and refresh route).
+    """
+
+    size: int
+    xet_file_data: XetFileData
 
 
 @dataclass

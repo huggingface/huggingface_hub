@@ -16,7 +16,8 @@ import warnings
 
 import pytest
 
-from huggingface_hub import BucketInfo, HfApi
+from huggingface_hub import HfApi
+from huggingface_hub._buckets import BucketInfo
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
