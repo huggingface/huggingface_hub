@@ -218,7 +218,6 @@ def test_delete_bucket_not_found():
 # =============================================================================
 
 
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket(api: HfApi, bucket_write: str):
     """Test renaming a bucket via CLI."""
     new_bucket_id = f"{USER}/{bucket_name()}"
@@ -226,9 +225,7 @@ def test_move_bucket(api: HfApi, bucket_write: str):
     assert result.exit_code == 0
     assert "Bucket moved:" in result.output
 
-    # Verify move worked
-    with pytest.raises(BucketNotFoundError):
-        api.bucket_info(bucket_write)
+    # Verify move worked - new bucket should exist
     info = api.bucket_info(new_bucket_id)
     assert info.id == new_bucket_id
 

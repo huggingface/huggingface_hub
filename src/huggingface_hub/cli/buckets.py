@@ -578,13 +578,13 @@ def delete(
     ],
 )
 def move(
-    from_bucket_id: Annotated[
+    from_id: Annotated[
         str,
         typer.Argument(
             help="Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
-    to_bucket_id: Annotated[
+    to_id: Annotated[
         str,
         typer.Argument(
             help="Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
@@ -594,8 +594,8 @@ def move(
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
     api = get_hf_api(token=token)
-    api.move_bucket(from_bucket_id=from_bucket_id, to_bucket_id=to_bucket_id)
-    print(f"Bucket moved: {from_bucket_id} -> {to_bucket_id}")
+    api.move_bucket(from_id=from_id, to_id=to_id)
+    print(f"Bucket moved: {from_id} -> {to_id}")
 
 
 # =============================================================================

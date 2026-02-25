@@ -11718,8 +11718,8 @@ class HfApi:
     @validate_hf_hub_args
     def move_bucket(
         self,
-        from_bucket_id: str,
-        to_bucket_id: str,
+        from_id: str,
+        to_id: str,
         *,
         token: Union[bool, str, None] = None,
     ) -> None:
@@ -11732,14 +11732,13 @@ class HfApi:
         - between organizations (if the user has appropriate permissions)
 
         Args:
-            from_bucket_id (`str`):
+            from_id (`str`):
                 A namespace (user or an organization) and a bucket name separated
-                by a `/`. Original bucket identifier (e.g. `"username/my-bucket"` or
-                `"hf://buckets/username/my-bucket"`).
-            to_bucket_id (`str`):
+                by a `/`. Original bucket identifier (e.g. `"username/my-bucket"`).
+            to_id (`str`):
                 A namespace (user or an organization) and a bucket name separated
                 by a `/`. Final bucket identifier (e.g. `"username/new-bucket-name"`
-                or `"organization/my-bucket"` or `"hf://buckets/organization/my-bucket"`).
+                or `"organization/my-bucket"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11756,32 +11755,15 @@ class HfApi:
             >>> from huggingface_hub import move_bucket
 
             >>> # Rename a bucket within the same namespace
-            >>> move_bucket(from_bucket_id="username/old-name", to_bucket_id="username/new-name")
+            >>> move_bucket(from_id="username/old-name", to_id="username/new-name")
 
             >>> # Transfer a bucket to an organization
-            >>> move_bucket(from_bucket_id="username/my-bucket", to_bucket_id="my-org/my-bucket")
+            >>> move_bucket(from_id="username/my-bucket", to_id="my-org/my-bucket")
             ```
         """
-        # Parse hf://buckets/ prefix if present
-        from_path = (
-            from_bucket_id.removeprefix("hf://buckets/")
-            if from_bucket_id.startswith("hf://buckets/")
-            else from_bucket_id
-        )
-        from_bucket_id, from_prefix = _split_bucket_id_and_prefix(from_path)
-        if from_prefix:
-            raise ValueError(f"Invalid bucket ID: '{from_path}'. Cannot specify a path prefix for move.")
+        json_payload = {"fromRepo": from_id, "toRepo": to_id, "type": "bucket"}
 
-        to_path = (
-            to_bucket_id.removeprefix("hf://buckets/") if to_bucket_id.startswith("hf://buckets/") else to_bucket_id
-        )
-        to_bucket_id, to_prefix = _split_bucket_id_and_prefix(to_path)
-        if to_prefix:
-            raise ValueError(f"Invalid bucket ID: '{to_path}'. Cannot specify a path prefix for move.")
-
-        json_payload = {"fromBucket": from_bucket_id, "toBucket": to_bucket_id}
-
-        path = f"{self.endpoint}/api/buckets/move"
+        path = f"{self.endpoint}/api/repos/move"
         headers = self._build_hf_headers(token=token)
         response = get_session().post(path, headers=headers, json=json_payload)
         hf_raise_for_status(response)

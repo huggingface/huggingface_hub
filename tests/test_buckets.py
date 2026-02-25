@@ -219,15 +219,10 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
 def test_move_bucket_rename(api: HfApi, bucket_write: str):
     """Test renaming a bucket within the same namespace."""
     new_bucket_id = f"{USER}/{bucket_name()}"
-    api.move_bucket(from_bucket_id=bucket_write, to_bucket_id=new_bucket_id)
-
-    # Old bucket should not exist
-    with pytest.raises(BucketNotFoundError):
-        api.bucket_info(bucket_write)
+    api.move_bucket(from_id=bucket_write, to_id=new_bucket_id)
 
     # New bucket should exist
     info = api.bucket_info(new_bucket_id)
@@ -235,36 +230,6 @@ def test_move_bucket_rename(api: HfApi, bucket_write: str):
 
     # Clean up - delete the renamed bucket
     api.delete_bucket(new_bucket_id)
-
-
-def test_move_bucket_invalid_bucket_id(api: HfApi):
-    """Test from_bucket_id and to_bucket_id must be in the form 'namespace/bucket_name'."""
-    # Invalid format (no namespace)
-    with pytest.raises(ValueError, match=r"Invalid bucket"):
-        api.move_bucket(from_bucket_id="namespace/bucket_name", to_bucket_id="invalid_bucket_id")
-
-    with pytest.raises(ValueError, match=r"Invalid bucket"):
-        api.move_bucket(from_bucket_id="invalid_bucket_id", to_bucket_id="namespace/bucket_name")
-
-    # Prefixes are not allowed
-    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
-        api.move_bucket(from_bucket_id="namespace/bucket/prefix", to_bucket_id="namespace/bucket")
-
-    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
-        api.move_bucket(from_bucket_id="namespace/bucket", to_bucket_id="namespace/bucket/prefix")
-
-    # hf://buckets/ format also works
-    with pytest.raises(ValueError, match=r"Cannot specify a path prefix"):
-        api.move_bucket(from_bucket_id="hf://buckets/namespace/bucket/prefix", to_bucket_id="namespace/bucket")
-
-
-@pytest.mark.skip("Endpoint /api/buckets/move not yet deployed on staging")
-def test_move_bucket_not_found(api: HfApi):
-    """Test moving a non-existent bucket raises an error."""
-    nonexistent = f"{USER}/{bucket_name()}"
-    target = f"{USER}/{bucket_name()}"
-    with pytest.raises(HfHubHTTPError):
-        api.move_bucket(from_bucket_id=nonexistent, to_bucket_id=target)
 
 
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):

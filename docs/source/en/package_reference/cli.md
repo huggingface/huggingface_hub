@@ -392,13 +392,13 @@ Move (rename) a bucket to a new name or namespace.
 **Usage**:
 
 ```console
-$ hf buckets move [OPTIONS] FROM_BUCKET_ID TO_BUCKET_ID
+$ hf buckets move [OPTIONS] FROM_ID TO_ID
 ```
 
 **Arguments**:
 
-* `FROM_BUCKET_ID`: Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
-* `TO_BUCKET_ID`: Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `FROM_ID`: Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `TO_ID`: Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
 
 **Options**:
 
