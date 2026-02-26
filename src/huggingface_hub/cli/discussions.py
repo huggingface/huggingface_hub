@@ -46,6 +46,7 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub import constants
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.utils import ANSI
 
@@ -187,7 +188,7 @@ def discussion_list(
     """List discussions and pull requests on a repo."""
     api = get_hf_api(token=token)
 
-    api_status: Optional[str]
+    api_status: Optional[constants.DiscussionStatusFilter]
     if status == DiscussionStatus.open:
         api_status = "open"
     elif status == DiscussionStatus.closed:
@@ -195,7 +196,11 @@ def discussion_list(
     else:
         api_status = None
 
-    api_discussion_type = None if discussion_type == DiscussionType.all else discussion_type.value
+    api_discussion_type: Optional[constants.DiscussionTypeFilter]
+    if discussion_type == DiscussionType.all:
+        api_discussion_type = None
+    else:
+        api_discussion_type = discussion_type.value  # type: ignore[assignment]
 
     discussions = []
     for d in api.get_repo_discussions(
