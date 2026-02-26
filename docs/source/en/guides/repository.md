@@ -60,7 +60,7 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 Or via CLI:
 
 ```bash
->>> hf reposs create lysandre/test-dataset --repo-type dataset
+>>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
 When you create a repository, you can set your repository visibility with the `private` parameter.
