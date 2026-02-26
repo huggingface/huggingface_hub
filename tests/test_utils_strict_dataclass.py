@@ -520,10 +520,10 @@ def test_custom_repr_preserved_when_repr_false():
         x: int
 
         def __repr__(self):
-            return f"MyClass(x={self.x})"
+            return f"CustomRepr(x={self.x})"
 
     obj = MyClass(x=1, extra=2)
-    assert repr(obj) == "MyClass(x=1)"
+    assert repr(obj) == "CustomRepr(x=1)"
 
 
 def test_autocompletion_attribute_without_kwargs():
