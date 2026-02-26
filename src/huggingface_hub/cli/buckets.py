@@ -28,6 +28,7 @@ from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
     BucketFolder,
+    FilterMatcher,
     _is_bucket_path,
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
@@ -528,9 +529,10 @@ def delete(
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Delete a bucket."""
-    api = get_hf_api(token=token)
+    """Delete a bucket.
 
+    This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
+    """
     if bucket_id.startswith(BUCKET_PREFIX):
         try:
             parsed_id, prefix = _parse_bucket_argument(bucket_id)
@@ -548,21 +550,176 @@ def delete(
             f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
 
-    # Confirm deletion unless -y flag is provided
     if not yes:
         confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
         if not confirm:
             print("Aborted.")
             raise typer.Abort()
 
-    api.delete_bucket(
-        bucket_id,
-        missing_ok=missing_ok,
-    )
+    api = get_hf_api(token=token)
+    api.delete_bucket(bucket_id, missing_ok=missing_ok)
     if quiet:
         print(bucket_id)
     else:
         print(f"Bucket deleted: {bucket_id}")
+
+
+@buckets_cli.command(
+    name="remove | rm",
+    examples=[
+        "hf buckets remove user/my-bucket/file.txt",
+        "hf buckets rm hf://buckets/user/my-bucket/file.txt",
+        "hf buckets rm user/my-bucket/logs/ --recursive",
+        'hf buckets rm user/my-bucket --recursive --include "*.tmp"',
+        "hf buckets rm user/my-bucket/data/ --recursive --dry-run",
+    ],
+)
+def remove(
+    argument: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path."
+                " With --recursive, namespace/bucket_name is also accepted to target all files."
+            ),
+        ),
+    ],
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-R",
+            help="Remove files recursively under the given prefix.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Preview what would be deleted without actually deleting.",
+        ),
+    ] = False,
+    include: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Include only files matching pattern (can specify multiple). Requires --recursive.",
+        ),
+    ] = None,
+    exclude: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Exclude files matching pattern (can specify multiple). Requires --recursive.",
+        ),
+    ] = None,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Remove files from a bucket.
+
+    To delete an entire bucket, use `hf buckets delete` instead.
+    """
+    try:
+        bucket_id, prefix = _parse_bucket_argument(argument)
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    if prefix == "" and not recursive:
+        raise typer.BadParameter(
+            f"No file path specified. To remove files, provide a path"
+            f" (e.g. '{bucket_id}/FILE') or use --recursive to remove all files."
+            f" To delete the entire bucket, use `hf buckets delete {bucket_id}`."
+        )
+
+    if (include or exclude) and not recursive:
+        raise typer.BadParameter("--include and --exclude require --recursive.")
+
+    api = get_hf_api(token=token)
+
+    if recursive:
+        status = StatusLine(enabled=not quiet)
+        status.update("Listing files from remote")
+
+        all_files: list[BucketFile] = []
+        for item in api.list_bucket_tree(
+            bucket_id,
+            prefix=prefix.rstrip("/") or None,
+            recursive=True,
+        ):
+            if isinstance(item, BucketFile):
+                all_files.append(item)
+                status.update(f"Listing files from remote ({len(all_files)} files)")
+        status.done(f"Listing files from remote ({len(all_files)} files)")
+
+        if include or exclude:
+            matcher = FilterMatcher(include_patterns=include, exclude_patterns=exclude)
+            matched_files = [f for f in all_files if matcher.matches(f.path)]
+        else:
+            matched_files = all_files
+
+        file_paths = [f.path for f in matched_files]
+        total_size = sum(f.size for f in matched_files)
+        size_str = _format_size(total_size, human_readable=True)
+
+        if not file_paths:
+            if not quiet:
+                print("No files to remove.")
+            return
+
+        count_label = f"{len(file_paths)} file(s) totaling {size_str}"
+
+        if not yes and not dry_run:
+            if not quiet:
+                for path in file_paths:
+                    print(f"  {path}")
+            confirm = typer.confirm(f"Remove {count_label} from '{bucket_id}'?")
+            if not confirm:
+                print("Aborted.")
+                raise typer.Abort()
+
+        if dry_run:
+            for path in file_paths:
+                print(f"delete: {BUCKET_PREFIX}{bucket_id}/{path}")
+            print(f"(dry run) {count_label} would be removed.")
+            return
+
+        api.batch_bucket_files(bucket_id, delete=file_paths)
+        if quiet:
+            for path in file_paths:
+                print(path)
+        else:
+            for path in file_paths:
+                print(f"delete: {BUCKET_PREFIX}{bucket_id}/{path}")
+            print(f"Removed {count_label} from '{bucket_id}'.")
+
+    else:
+        file_path = prefix.rstrip("/")
+        if not file_path:
+            raise typer.BadParameter("File path cannot be empty.")
+
+        if dry_run:
+            print(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
+            print("(dry run) 1 file would be removed.")
+            return
+
+        if not yes:
+            confirm = typer.confirm(f"Remove '{file_path}' from '{bucket_id}'?")
+            if not confirm:
+                print("Aborted.")
+                raise typer.Abort()
+
+        api.batch_bucket_files(bucket_id, delete=[file_path])
+        if quiet:
+            print(file_path)
+        else:
+            print(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
 
 
 @buckets_cli.command(

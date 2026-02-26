@@ -185,6 +185,36 @@ Or via CLI:
 >>> hf buckets delete username/my-bucket --yes --missing-ok
 ```
 
+### Delete files
+
+Use [`batch_bucket_files`] with the `delete` parameter to delete files from a bucket:
+
+```py
+>>> from huggingface_hub import batch_bucket_files
+
+# Delete specific files
+>>> batch_bucket_files("username/my-bucket", delete=["old-model.bin", "logs/debug.log"])
+```
+
+Or via CLI with `hf buckets rm` (or `hf buckets remove`):
+
+```bash
+# Remove a single file
+>>> hf buckets rm username/my-bucket/old-model.bin
+
+# Remove all files under a prefix (requires --recursive)
+>>> hf buckets rm username/my-bucket/logs/ --recursive
+
+# Remove only files matching a pattern across the entire bucket
+>>> hf buckets rm username/my-bucket --recursive --include "*.tmp"
+
+# Exclude specific files from removal
+>>> hf buckets rm username/my-bucket/data/ --recursive --exclude "*.safetensors"
+
+# Preview what would be deleted
+>>> hf buckets rm username/my-bucket/checkpoints/ --recursive --dry-run
+```
+
 ### Move a bucket
 
 Use [`move_bucket`] to move or rename a bucket. You can rename within the same namespace or transfer to a different namespace (user or organization).
