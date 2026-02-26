@@ -811,14 +811,14 @@ Use `hf papers` to list daily papers on the Hub.
 >>> hf papers ls --sort=trending --limit=5
 ```
 
-## hf repo
+## hf repos
 
-`hf repo` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
 
 ### Create a repo
 
 ```bash
->>> hf repo create Wauplin/my-cool-model
+>>> hf repos create Wauplin/my-cool-model
 Successfully created Wauplin/my-cool-model on the Hub.
 Your repo is now available at https://huggingface.co/Wauplin/my-cool-model
 ```
@@ -826,8 +826,8 @@ Your repo is now available at https://huggingface.co/Wauplin/my-cool-model
 Create a private dataset or a Space:
 
 ```bash
->>> hf repo create my-cool-dataset --repo-type dataset --private
->>> hf repo create my-gradio-space --repo-type space --space-sdk gradio
+>>> hf repos create my-cool-dataset --repo-type dataset --private
+>>> hf repos create my-gradio-space --repo-type space --space-sdk gradio
 ```
 
 Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
@@ -835,28 +835,28 @@ Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to tar
 ### Delete a repo
 
 ```bash
->>> hf repo delete Wauplin/my-cool-model
+>>> hf repos delete Wauplin/my-cool-model
 ```
 
 Datasets and Spaces:
 
 ```bash
->>> hf repo delete my-cool-dataset --repo-type dataset
->>> hf repo delete my-gradio-space --repo-type space
+>>> hf repos delete my-cool-dataset --repo-type dataset
+>>> hf repos delete my-gradio-space --repo-type space
 ```
 
 ### Move a repo
 
 ```bash
->>> hf repo move old-namespace/my-model new-namespace/my-model
+>>> hf repos move old-namespace/my-model new-namespace/my-model
 ```
 
 ### Update repo settings
 
 ```bash
->>> hf repo settings Wauplin/my-cool-model --gated auto
->>> hf repo settings Wauplin/my-cool-model --private true
->>> hf repo settings Wauplin/my-cool-model --private false
+>>> hf repos settings Wauplin/my-cool-model --gated auto
+>>> hf repos settings Wauplin/my-cool-model --private true
+>>> hf repos settings Wauplin/my-cool-model --private false
 ```
 
 - `--gated`: one of `auto`, `manual`, `false`
@@ -864,19 +864,19 @@ Datasets and Spaces:
 
 ### Delete files from a repo
 
-The `hf repo delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
+The `hf repos delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
 
 Delete a folder:
 
 ```bash
->>> hf repo delete-files Wauplin/my-cool-model folder/
+>>> hf repos delete-files Wauplin/my-cool-model folder/
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Delete multiple files:
 
 ```bash
->>> hf repo delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
+>>> hf repos delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
@@ -889,29 +889,29 @@ Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix 
 </Tip>
 
 ```bash
->>> hf repo delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
+>>> hf repos delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
 
 ```bash
->>> hf repo delete-files --token=hf_**** Wauplin/my-cool-model file.txt
+>>> hf repos delete-files --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf repo branch
+## hf repos branch
 
-Use `hf repo branch` to create and delete branches for repositories on the Hub.
+Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
 ```bash
 # Create a branch
->>> hf repo branch create Wauplin/my-cool-model dev
+>>> hf repos branch create Wauplin/my-cool-model dev
 
 # Create a branch from a specific revision
->>> hf repo branch create Wauplin/my-cool-model release-1 --revision refs/pr/104
+>>> hf repos branch create Wauplin/my-cool-model release-1 --revision refs/pr/104
 
 # Delete a branch
->>> hf repo branch delete Wauplin/my-cool-model dev
+>>> hf repos branch delete Wauplin/my-cool-model dev
 ```
 
 > [!TIP]
@@ -1062,19 +1062,19 @@ On success, you will see a summary:
 
 If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
-## hf repo tag
+## hf repos tag
 
-Use `hf repo tag` to create, list, and delete tags for repositories on the Hub.
+Use `hf repos tag` to create, list, and delete tags for repositories on the Hub.
 
 ```bash
 # Create a tag
->>> hf repo tag create my-model v1.0
+>>> hf repos tag create my-model v1.0
 
 # List tags
->>> hf repo tag list my-model
+>>> hf repos tag list my-model
 
 # Delete a tag
->>> hf repo tag delete my-model v1.0
+>>> hf repos tag delete my-model v1.0
 ```
 
 ### Tag a model
@@ -1082,7 +1082,7 @@ Use `hf repo tag` to create, list, and delete tags for repositories on the Hub.
 To tag a repo, you need to provide the `repo_id` and the `tag` name:
 
 ```bash
->>> hf repo tag create Wauplin/my-cool-model v1.0
+>>> hf repos tag create Wauplin/my-cool-model v1.0
 You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
@@ -1092,7 +1092,7 @@ Tag v1.0 created on Wauplin/my-cool-model
 If you want to tag a specific revision, you can use the `--revision` option. By default, the tag will be created on the `main` branch:
 
 ```bash
->>> hf repo tag create Wauplin/my-cool-model v1.0 --revision refs/pr/104
+>>> hf repos tag create Wauplin/my-cool-model v1.0 --revision refs/pr/104
 You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
@@ -1102,7 +1102,7 @@ Tag v1.0 created on Wauplin/my-cool-model
 If you want to tag a dataset or Space, you must specify the `--repo-type` option:
 
 ```bash
->>> hf repo tag create bigcode/the-stack v1.0 --repo-type dataset
+>>> hf repos tag create bigcode/the-stack v1.0 --repo-type dataset
 You are about to create tag v1.0 on dataset bigcode/the-stack
 Tag v1.0 created on bigcode/the-stack
 ```
@@ -1112,7 +1112,7 @@ Tag v1.0 created on bigcode/the-stack
 To list all tags for a repository, use the `-l` or `--list` option:
 
 ```bash
->>> hf repo tag create Wauplin/gradio-space-ci -l --repo-type space
+>>> hf repos tag create Wauplin/gradio-space-ci -l --repo-type space
 Tags for space Wauplin/gradio-space-ci:
 0.2.2
 0.2.1
@@ -1127,7 +1127,7 @@ Tags for space Wauplin/gradio-space-ci:
 To delete a tag, use the `-d` or `--delete` option:
 
 ```bash
->>> hf repo tag create -d Wauplin/my-cool-model v1.0
+>>> hf repos tag create -d Wauplin/my-cool-model v1.0
 You are about to delete tag v1.0 on model Wauplin/my-cool-model
 Proceed? [Y/n] y
 Tag v1.0 deleted on Wauplin/my-cool-model

@@ -227,7 +227,7 @@ def upload(
             private=private,
             space_sdk="gradio" if repo_type_str == "space" else None,
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
         ).repo_id
 
         # Check if branch already exists and if not, create it

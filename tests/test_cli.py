@@ -1126,7 +1126,7 @@ class TestDownloadImpl:
 
 class TestTagCommands:
     def test_tag_create_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1143,7 +1143,7 @@ class TestTagCommands:
         )
 
     def test_tag_create_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1175,7 +1175,7 @@ class TestTagCommands:
 
     def test_tag_list_basic(self, runner: CliRunner) -> None:
         refs = Mock(tags=[Mock(name="v1")])
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_repo_refs.return_value = refs
             result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
@@ -1184,7 +1184,7 @@ class TestTagCommands:
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
 
     def test_tag_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1198,7 +1198,7 @@ class TestTagCommands:
 
 class TestBranchCommands:
     def test_branch_create_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "branch", "create", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
@@ -1212,7 +1212,7 @@ class TestBranchCommands:
         )
 
     def test_branch_create_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1242,7 +1242,7 @@ class TestBranchCommands:
         )
 
     def test_branch_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "branch", "delete", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
@@ -1254,7 +1254,7 @@ class TestBranchCommands:
         )
 
     def test_branch_delete_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1281,7 +1281,7 @@ class TestBranchCommands:
 
 class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "move", DUMMY_MODEL_ID, "new-id"])
         assert result.exit_code == 0
@@ -1293,7 +1293,7 @@ class TestRepoMoveCommand:
         )
 
     def test_repo_move_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1319,7 +1319,7 @@ class TestRepoMoveCommand:
 
 class TestRepoSettingsCommand:
     def test_repo_settings_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "settings", DUMMY_MODEL_ID])
         assert result.exit_code == 0
@@ -1332,7 +1332,7 @@ class TestRepoSettingsCommand:
         )
 
     def test_repo_settings_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1360,7 +1360,7 @@ class TestRepoSettingsCommand:
 
 class TestRepoDeleteCommand:
     def test_repo_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID])
         assert result.exit_code == 0
@@ -1372,7 +1372,7 @@ class TestRepoDeleteCommand:
         )
 
     def test_repo_delete_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1787,7 +1787,7 @@ def tmp_current_directory() -> Generator[str, None, None]:
 
 
 class TestRepoDeleteFilesCommand:
-    """Tests for `hf repo delete-files` (the new primary command)."""
+    """Tests for `hf repos delete-files` (the new primary command)."""
 
     @pytest.mark.parametrize(
         "cli_args, expected_kwargs",
@@ -1896,7 +1896,7 @@ class TestRepoDeleteFilesCommand:
         ],
     )
     def test_delete_files(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
@@ -1925,7 +1925,7 @@ class TestRepoFilesCommand:
         with patch("huggingface_hub.cli.repo_files.get_hf_api"):
             result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
         assert result.exit_code == 0
-        assert "hf repo delete-files" in result.output
+        assert "hf repos delete-files" in result.output
 
 
 class TestJobsCommand:
