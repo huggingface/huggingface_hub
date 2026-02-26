@@ -513,6 +513,19 @@ def test_repr_if_accept_kwargs():
     assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
 
 
+def test_custom_repr_preserved_when_repr_false():
+    @strict(accept_kwargs=True)
+    @dataclass(repr=False)
+    class MyClass:
+        x: int
+
+        def __repr__(self):
+            return f"MyClass(x={self.x})"
+
+    obj = MyClass(x=1, extra=2)
+    assert repr(obj) == "MyClass(x=1)"
+
+
 def test_autocompletion_attribute_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
