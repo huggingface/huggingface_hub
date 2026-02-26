@@ -16,6 +16,7 @@
 # ruff: noqa: F401
 from huggingface_hub.errors import (
     BadRequestError,
+    BucketNotFoundError,
     CacheNotFound,
     CorruptedCacheException,
     DisabledRepoError,
@@ -110,7 +111,7 @@ from ._runtime import (
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
-from ._terminal import ANSI, tabulate
+from ._terminal import ANSI, StatusLine, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (

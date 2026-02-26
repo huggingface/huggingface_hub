@@ -121,7 +121,9 @@ class TestTqdmUtils(CapsysBaseTest):
         self.assertEqual(captured.out, "")
         self.assertIn("10/10", captured.err)  # tqdm log
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_stream_file(self) -> None:
+        enable_progress_bars()
         with SoftTemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "config.json"
             with filepath.open("w") as f:

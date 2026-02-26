@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
 from typing import Any, Callable, Generator, Mapping, Optional, Union
+from urllib.parse import urlparse
 
 import httpx
 
@@ -34,6 +35,7 @@ from huggingface_hub.errors import OfflineModeIsEnabled
 from .. import constants
 from ..errors import (
     BadRequestError,
+    BucketNotFoundError,
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
@@ -157,6 +159,16 @@ REPO_API_REGEX = re.compile(
     flags=re.VERBOSE,
 )
 
+BUCKET_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https?://[^/]+
+        # on /api/buckets/...
+        /api/buckets/
+    """,
+    flags=re.VERBOSE,
+)
+
 
 def hf_request_event_hook(request: httpx.Request) -> None:
     """
@@ -219,7 +231,7 @@ def default_client_factory() -> httpx.Client:
     return httpx.Client(
         event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
+        timeout=None,
     )
 
 
@@ -230,7 +242,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.HF_HUB_DOWNLOAD_TIMEOUT, write=60.0),
+        timeout=None,
     )
 
 
@@ -601,6 +613,57 @@ def http_stream_backoff(
     )
 
 
+def _httpx_follow_relative_redirects_with_backoff(
+    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
+) -> httpx.Response:
+    """Perform an HTTP request with backoff and follow relative redirects only.
+
+    Used to fetch HEAD /resolve on repo or bucket files.
+
+    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+
+    A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
+
+    Args:
+        method (`str`):
+            HTTP method, such as 'GET' or 'HEAD'.
+        url (`str`):
+            The URL of the resource to fetch.
+        retry_on_errors (`bool`, *optional*, defaults to `False`):
+            Whether to retry on errors. If False, no retry is performed (fast fallback to local cache).
+            If True, uses default retry behavior (429, 5xx, timeout, network errors).
+        **httpx_kwargs (`dict`, *optional*):
+            Params to pass to `httpx.request`.
+    """
+    # if `retry_on_errors=False`, disable all retries for fast fallback to cache
+    no_retry_kwargs: dict[str, Any] = (
+        {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
+    )
+
+    while True:
+        response = http_backoff(
+            method=method,
+            url=url,
+            **httpx_kwargs,
+            follow_redirects=False,
+            **no_retry_kwargs,
+        )
+        hf_raise_for_status(response)
+
+        # Check if response is a relative redirect
+        if 300 <= response.status_code <= 399:
+            parsed_target = urlparse(response.headers["Location"])
+            if parsed_target.netloc == "":
+                # Relative redirect -> update URL and retry
+                url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                continue
+
+        # Break if no relative redirect
+        break
+
+    return response
+
+
 def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
     """Replace the default endpoint in a URL by a custom one.
 
@@ -685,6 +748,21 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + "Access to this resource is disabled."
             )
             raise _format(DisabledRepoError, message, response) from e
+
+        elif (
+            error_code == "RepoNotFound"
+            and response.request is not None
+            and response.request.url is not None
+            and BUCKET_API_REGEX.search(str(response.request.url)) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Bucket Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct bucket id (namespace/name)."
+                + "\nIf the bucket is private, make sure you are authenticated."
+            )
+            raise _format(BucketNotFoundError, message, response) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401

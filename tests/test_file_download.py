@@ -41,7 +41,7 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -561,19 +561,45 @@ class CachedDownloadTests(unittest.TestCase):
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
 
-    @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):
-        """Lock files should not be deleted on Linux."""
+        """Downloading should acquire locks under `.locks`."""
         with SoftTemporaryDirectory() as tmpdir:
-            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
-            lock_file_exist = False
-            locks_dir = os.path.join(tmpdir, ".locks")
-            for subdir, dirs, files in os.walk(locks_dir):
-                for file in files:
-                    if file.endswith(".lock"):
-                        lock_file_exist = True
-                        break
-            self.assertTrue(lock_file_exist, "no lock file can be found")
+            original_weak_file_lock = WeakFileLock
+            acquired_lock_paths = []
+
+            @contextmanager
+            def tracked_weak_file_lock(lock_file, **kwargs):
+                acquired_lock_paths.append(Path(lock_file))
+                with original_weak_file_lock(lock_file, **kwargs):
+                    yield
+
+            with patch("huggingface_hub.file_download.WeakFileLock", tracked_weak_file_lock):
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
+
+            def _normalize_lock_path(path: Path) -> str:
+                normalized = str(path)
+                # Windows long-path prefix can appear in lock paths.
+                if normalized.startswith("\\\\?\\"):
+                    normalized = normalized[4:]
+                return os.path.normcase(os.path.normpath(normalized))
+
+            locks_dir = _normalize_lock_path(Path(tmpdir) / ".locks")
+
+            def _is_lock_under_cache_locks(path: Path) -> bool:
+                normalized = _normalize_lock_path(path)
+                if not normalized.endswith(".lock"):
+                    return False
+                try:
+                    return os.path.commonpath([normalized, locks_dir]) == locks_dir
+                except ValueError:
+                    # Happens on Windows if drives differ.
+                    return False
+
+            self.assertGreater(len(acquired_lock_paths), 0, "no lock acquisition was recorded")
+            self.assertTrue(
+                any(_is_lock_under_cache_locks(path) for path in acquired_lock_paths),
+                "expected at least one lock acquisition in cache `.locks`",
+            )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -1151,6 +1177,47 @@ class TestHttpGet:
         assert len(mock_stream_backoff.call_args_list) == 4
         for i, expected_range in enumerate(expected_ranges):
             assert mock_stream_backoff.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
+
+    def test_http_get_retry_resets_file_when_range_ignored(self, caplog):
+        """Test that http_get resets the file when the server ignores the Range header.
+
+        When a download is interrupted and retried with a Range header, some servers
+        (e.g. CloudFront with Accept-Encoding: gzip) ignore the Range header and return
+        200 with the full file instead of 206. In that case, the code must truncate
+        the file before writing to avoid appending the full content to partial data.
+        """
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            # Server ignores Range, returns full content
+            yield b"B" * 100
+
+        mock_response_1 = Mock()
+        mock_response_1.status_code = 200
+        mock_response_1.headers = {"Content-Length": "100"}
+        mock_response_1.iter_bytes.return_value = _iter_content_1()
+
+        mock_response_2 = Mock()
+        mock_response_2.status_code = 200  # 200, not 206 — Range was ignored
+        mock_response_2.headers = {"Content-Length": "100"}
+        mock_response_2.iter_bytes.return_value = _iter_content_2()
+
+        mock_responses = iter([mock_response_1, mock_response_2])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(mock_responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file)
+
+        # File should contain only the full content from retry (100 bytes), not 130
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"B" * 100
 
 
 class CreateSymlinkTest(unittest.TestCase):

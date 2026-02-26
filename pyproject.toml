@@ -14,6 +14,7 @@ unresolved-attribute = "ignore"
 
 # Keep type: ignore comments for mypy compatibility
 unused-ignore-comment = "ignore"
+unused-type-ignore-comment = "ignore"
 
 # Be tolerant with framework/typing edge-cases and runtime-validated code paths
 unsupported-base = "ignore"
@@ -26,6 +27,9 @@ call-non-callable = "ignore"
 # Loosen strictness a bit on type matching
 missing-argument = "ignore"
 deprecated = "ignore"
+
+[tool.ty.src]
+exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully supported by ty
 
 [tool.pytest.ini_options]
 # Add the specified `OPTS` to the set of command line arguments as if they had
@@ -60,6 +64,7 @@ exclude = [
     "build",
     "dist",
     "venv",
+    "src/huggingface_hub/_hot_reload/sse_client.py", # Vendored
 ]
 line-length = 119
 # Ignored rules:

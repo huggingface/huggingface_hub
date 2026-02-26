@@ -3,14 +3,19 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from huggingface_hub import constants
+from huggingface_hub import HfApi, constants
 from huggingface_hub.utils._xet import (
     XetFileData,
+    XetTokenType,
     _fetch_xet_connection_info_with_url,
+    fetch_xet_connection_info_from_repo_info,
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
+
+from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_utils import repo_name
 
 
 def test_parse_valid_headers_file_info() -> None:
@@ -286,3 +291,54 @@ def test_env_var_hf_hub_disable_xet() -> None:
     monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DISABLE_XET", True)
 
     assert not is_xet_available()
+
+
+def test_xet_token_reset_after_repo_deletion() -> None:
+    """Test Xet token is reset after repo deletion.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/3829
+    """
+    # Create a repo
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    repo_id = api.create_repo(repo_id=repo_name()).repo_id
+
+    # Get XET token
+    xet_info_read = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.READ,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    xet_info_write = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    # Recreate the repo
+    api.delete_repo(repo_id=repo_id)
+    api.create_repo(repo_id)
+
+    # Get XET token for the new repo (same repo ID, same revision)
+    xet_info_read_new = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.READ,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+    xet_info_write_new = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    # XET token must have changed (reset after repo deletion)
+    assert xet_info_read.access_token != xet_info_read_new.access_token
+    assert xet_info_write.access_token != xet_info_write_new.access_token

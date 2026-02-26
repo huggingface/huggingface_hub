@@ -7,7 +7,7 @@ This guide assumes `huggingface_hub` is correctly installed and that your machin
 
 
 > [!TIP]
-> **New:** it is now possible to deploy an Inference Endpoint from the [HF model catalog](https://endpoints.huggingface.co/catalog) with a simple API call. The catalog is a carefully curated list of models that can be deployed with optimized settings. You don't need to configure anything, we take all the heavy stuff on us! All models and settings are guaranteed to have been tested to provide best cost/performance balance.  [`create_inference_endpoint_from_catalog`] works the same as [`create_inference_endpoint`], with much less parameters to pass. You can use [`list_inference_catalog`] to programmatically retrieve the catalog.
+> **New:** it is now possible to deploy an Inference Endpoint from the [HF model catalog](https://endpoints.huggingface.co/catalog) with a simple API call. The catalog is a carefully curated list of models that can be deployed with optimized settings. You don't need to configure anything, we take all the heavy stuff on us! All models and settings are guaranteed to have been tested to provide best cost/performance balance.  [`create_inference_endpoint_from_catalog`] works the same as [`create_inference_endpoint`], with much less parameters to pass. You can optionally specify an `accelerator` (`"cpu"`, `"gpu"`, or `"neuron"`) to override the default hardware selection. You can use [`list_inference_catalog`] to programmatically retrieve the catalog.
 >
 > Note that this is still an experimental feature. Let us know what you think if you use it!
 
@@ -39,7 +39,10 @@ Or via CLI:
 hf endpoints deploy my-endpoint-name --repo gpt2 --framework pytorch --accelerator cpu --vendor aws --region us-east-1 --instance-size x2 --instance-type intel-icl --task text-generation
 
 # Deploy from the catalog with a single command
-hf endpoints catalog deploy my-endpoint-name --repo openai/gpt-oss-120b
+hf endpoints catalog deploy --repo openai/gpt-oss-120b
+
+# Deploy from the catalog with a specific accelerator
+hf endpoints catalog deploy --repo openai/gpt-oss-120b --accelerator gpu
 ```
 
 

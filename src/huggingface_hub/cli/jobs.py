@@ -18,10 +18,13 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value] [--format TEMPLATE]
+    hf jobs ps [-a] [-f key=value] [--format table|json|TEMPLATE] [-q]
 
-    # Stream logs from a job
+    # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
+
+    # Stream logs from a job (blocking, like `docker logs -f`)
+    hf jobs logs -f <job-id>
 
     # Stream resources usage stats and metrics from a job
     hf jobs stats <job-id>
@@ -42,7 +45,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value] [--format TEMPLATE]
+    hf jobs scheduled ps [-a] [-f key=value] [--format table|json] [-q]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -62,7 +65,9 @@ import json
 import multiprocessing
 import multiprocessing.pool
 import os
+import shutil
 import time
+from collections import deque
 from dataclasses import asdict
 from fnmatch import fnmatch
 from pathlib import Path
@@ -77,10 +82,48 @@ from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    OutputFormat,
+    QuietOpt,
+    TokenOpt,
+    _format_cell,
+    api_object_to_dict,
+    get_hf_api,
+    print_list_output,
+    typer_factory,
+)
 
 
 logger = logging.get_logger(__name__)
+
+
+def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple[str, Optional[str]]:
+    """Extract namespace from job_id if provided in 'namespace/job_id' format.
+
+    Allows users to pass job IDs copied from the Hub UI (e.g. 'username/job_id')
+    instead of only bare job IDs. If the namespace is also provided explicitly via
+    --namespace and conflicts, a CLIError is raised.
+    """
+    if not job_id:
+        raise CLIError("Job ID cannot be empty.")
+
+    if job_id.count("/") > 1:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if "/" not in job_id:
+        return job_id, namespace
+
+    extracted_namespace, parsed_job_id = job_id.split("/", 1)
+    if not extracted_namespace or not parsed_job_id:
+        raise CLIError(f"Job ID must be in the form 'job_id' or 'namespace/job_id': '{job_id}'.")
+
+    if namespace is not None and namespace != extracted_namespace:
+        raise CLIError(
+            f"Conflicting namespace: got --namespace='{namespace}' but job ID implies namespace='{extracted_namespace}'"
+        )
+
+    return parsed_job_id, extracted_namespace
+
 
 SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
@@ -234,21 +277,21 @@ CommandArg = Annotated[
 JobIdArg = Annotated[
     str,
     typer.Argument(
-        help="Job ID",
+        help="Job ID (or 'namespace/job_id')",
     ),
 ]
 
 JobIdsArg = Annotated[
     Optional[list[str]],
     typer.Argument(
-        help="Job IDs",
+        help="Job IDs (or 'namespace/job_id')",
     ),
 ]
 
 ScheduledJobIdArg = Annotated[
     str,
     typer.Argument(
-        help="Scheduled Job ID",
+        help="Scheduled Job ID (or 'namespace/scheduled_job_id')",
     ),
 ]
 
@@ -311,20 +354,51 @@ def jobs_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
-@jobs_cli.command("logs", examples=["hf jobs logs <job_id>"])
+@jobs_cli.command(
+    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>"]
+)
 def jobs_logs(
     job_id: JobIdArg,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        Optional[int],
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Fetch the logs of a Job"""
+    """Fetch the logs of a Job.
+
+    By default, prints currently available logs and exits (non-blocking).
+    Use --follow/-f to stream logs in real-time until the job completes.
+    """
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
     api = get_hf_api(token=token)
     try:
-        for log in api.fetch_job_logs(job_id=job_id, namespace=namespace):
+        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
+        if tail is not None:
+            logs = deque(logs, maxlen=tail)
+        for log in logs:
             print(log)
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
@@ -411,6 +485,12 @@ def jobs_stats(
     token: TokenOpt = None,
 ) -> None:
     """Fetch the resource usage statistics and metrics of Jobs"""
+    if job_ids is not None:
+        parsed_ids = []
+        for job_id in job_ids:
+            job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+            parsed_ids.append(job_id)
+        job_ids = parsed_ids
     api = get_hf_api(token=token)
     if namespace is None:
         namespace = api.whoami()["name"]
@@ -507,19 +587,20 @@ def jobs_ps(
     ] = None,
     format: Annotated[
         Optional[str],
-        typer.Option(
-            help="Format output using a custom template",
-        ),
+        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
+    quiet: QuietOpt = False,
+    json_flag: Annotated[
+        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
+    ] = False,
 ) -> None:
     """List Jobs."""
+    if json_flag:
+        format = "json"
+
     api = get_hf_api(token=token)
     # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
-    # Define table headers
-    table_headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-    headers_aliases = ["id", "image", "command", "created", "status"]
-    rows: list[list[Union[str, int]]] = []
 
     filters: list[tuple[str, str, str]] = []
     labels_filters: list[tuple[str, str, str]] = []
@@ -557,43 +638,60 @@ def jobs_ps(
             filters.append((key.lower(), op, value.lower()))
         else:
             print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
-    # Process jobs data
+
+    # Filter jobs (operating on JobInfo objects to preserve existing filter behavior)
+    filtered_jobs = []
     for job in jobs:
-        # Extract job data for filtering
         status = job.status.stage if job.status else "UNKNOWN"
         if not all and status not in ("RUNNING", "UPDATING"):
-            # Skip job if not all jobs should be shown and status doesn't match criteria
             continue
-        # Extract job data for output
-        job_id = job.id
-
-        # Extract image or space information
         image_or_space = job.docker_image or "N/A"
-
-        # Extract and format command
         cmd = job.command or []
         command_str = " ".join(cmd) if cmd else "N/A"
-
-        # Extract creation time
-        created_at = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
-
-        # Create a dict with all job properties for filtering
-        props = {"id": job_id, "image": image_or_space, "status": status.lower(), "command": command_str}
+        props = {"id": job.id, "image": image_or_space, "status": status.lower(), "command": command_str}
         if not _matches_filters(props, filters):
             continue
         if not _matches_filters(job.labels or {}, labels_filters):
             continue
+        filtered_jobs.append(job)
 
-        # Create row
-        rows.append([job_id, image_or_space, command_str, created_at, status])
-
-    # Handle empty results
-    if not rows:
-        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-        print(f"No jobs found{filters_msg}")
+    if not filtered_jobs:
+        if not quiet and format != "json":
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+            print(f"No jobs found{filters_msg}")
+        elif format == "json":
+            print("[]")
         return
-    # Apply custom format if provided or use default tabular format
-    _print_output(rows, table_headers, headers_aliases, format)
+
+    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
+    aliases = ["id", "image", "command", "created", "status"]
+    items = [api_object_to_dict(job) for job in filtered_jobs]
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        status = item.get("status", {})
+        cmd = item.get("command") or []
+        command_str = " ".join(cmd) if cmd else "N/A"
+        return [
+            str(item.get("id", "")),
+            _format_cell(item.get("docker_image") or "N/A"),
+            _format_cell(command_str),
+            item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
+            str(status.get("stage", "UNKNOWN")),
+        ]
+
+    # Custom template format
+    if format and format not in ("table", "json"):
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+    else:
+        output_format = OutputFormat.json if format == "json" else OutputFormat.table
+        print_list_output(
+            items=items,
+            format=output_format,
+            quiet=quiet,
+            id_key="id",
+            headers=headers,
+            row_fn=row_fn,
+        )
 
 
 @jobs_cli.command("hardware", examples=["hf jobs hardware"])
@@ -624,13 +722,18 @@ def jobs_inspect(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The jobs to inspect",
+            help="Job IDs to inspect (or 'namespace/job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more Jobs"""
+    parsed_ids = []
+    for job_id in job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
+    job_ids = parsed_ids
     api = get_hf_api(token=token)
     try:
         jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
@@ -652,6 +755,7 @@ def jobs_cancel(
     token: TokenOpt = None,
 ) -> None:
     """Cancel a Job"""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
     try:
         api.cancel_job(job_id=job_id, namespace=namespace)
@@ -718,7 +822,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        flavor=flavor,  # type: ignore[arg-type]
+        flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
     )
@@ -728,7 +832,7 @@ def jobs_uv_run(
     if detach:
         return
     # Now let's stream the logs
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name):
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         print(log)
 
 
@@ -809,18 +913,19 @@ def scheduled_ps(
     ] = None,
     format: Annotated[
         Optional[str],
-        typer.Option(
-            "--format",
-            help="Format output using a custom template",
-        ),
+        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
+    quiet: QuietOpt = False,
+    json_flag: Annotated[
+        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
+    ] = False,
 ) -> None:
     """List scheduled Jobs"""
+    if json_flag:
+        format = "json"
+
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-    table_headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
-    headers_aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
-    rows: list[list[Union[str, int]]] = []
     filters: list[tuple[str, str, str]] = []
     for f in filter or []:
         if "=" in f:
@@ -835,33 +940,67 @@ def scheduled_ps(
         else:
             print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
 
+    # Filter scheduled jobs (operating on ScheduledJobInfo objects to preserve existing filter behavior)
+    filtered_jobs = []
     for scheduled_job in scheduled_jobs:
         suspend = scheduled_job.suspend or False
         if not all and suspend:
             continue
-        sj_id = scheduled_job.id
-        schedule = scheduled_job.schedule or "N/A"
         image_or_space = scheduled_job.job_spec.docker_image or "N/A"
         cmd = scheduled_job.job_spec.command or []
         command_str = " ".join(cmd) if cmd else "N/A"
-        last_job_at = (
-            scheduled_job.status.last_job.at.strftime("%Y-%m-%d %H:%M:%S") if scheduled_job.status.last_job else "N/A"
-        )
-        next_job_run_at = (
-            scheduled_job.status.next_job_run_at.strftime("%Y-%m-%d %H:%M:%S")
-            if scheduled_job.status.next_job_run_at
-            else "N/A"
-        )
-        props = {"id": sj_id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+        props = {"id": scheduled_job.id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
         if not _matches_filters(props, filters):
             continue
-        rows.append([sj_id, schedule, image_or_space, command_str, last_job_at, next_job_run_at, suspend])
+        filtered_jobs.append(scheduled_job)
 
-    if not rows:
-        filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-        print(f"No scheduled jobs found{filters_msg}")
+    if not filtered_jobs:
+        if not quiet and format != "json":
+            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
+            print(f"No scheduled jobs found{filters_msg}")
+        elif format == "json":
+            print("[]")
         return
-    _print_output(rows, table_headers, headers_aliases, format)
+
+    headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
+    aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
+    items = [api_object_to_dict(sj) for sj in filtered_jobs]
+
+    def row_fn(item: dict[str, Any]) -> list[str]:
+        job_spec = item.get("job_spec", {})
+        status = item.get("status", {})
+        last_job = status.get("last_job")
+        cmd = job_spec.get("command") or []
+        last_job_at = "N/A"
+        if last_job and last_job.get("at"):
+            last_job_at = last_job["at"][:19].replace("T", " ")
+        next_run = "N/A"
+        if status.get("next_job_run_at"):
+            next_run = status["next_job_run_at"][:19].replace("T", " ")
+        command_str = " ".join(cmd) if cmd else "N/A"
+        return [
+            str(item.get("id", "")),
+            str(item.get("schedule") or "N/A"),
+            _format_cell(job_spec.get("docker_image") or "N/A"),
+            _format_cell(command_str),
+            last_job_at,
+            next_run,
+            str(item.get("suspend", False)),
+        ]
+
+    # Custom template format (e.g. --format '{{.id}} {{.schedule}}')
+    if format and format not in ("table", "json"):
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+    else:
+        output_format = OutputFormat.json if format == "json" else OutputFormat.table
+        print_list_output(
+            items=items,
+            format=output_format,
+            quiet=quiet,
+            id_key="id",
+            headers=headers,
+            row_fn=row_fn,
+        )
 
 
 @scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
@@ -869,13 +1008,18 @@ def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="The scheduled jobs to inspect",
+            help="Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')",
         ),
     ],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Display detailed information on one or more scheduled Jobs"""
+    parsed_ids = []
+    for job_id in scheduled_job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
+    scheduled_job_ids = parsed_ids
     api = get_hf_api(token=token)
     scheduled_jobs = [
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
@@ -891,6 +1035,7 @@ def scheduled_delete(
     token: TokenOpt = None,
 ) -> None:
     """Delete a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
@@ -902,6 +1047,7 @@ def scheduled_suspend(
     token: TokenOpt = None,
 ) -> None:
     """Suspend (pause) a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
@@ -913,6 +1059,7 @@ def scheduled_resume(
     token: TokenOpt = None,
 ) -> None:
     """Resume (unpause) a scheduled Job."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
 
@@ -974,7 +1121,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        flavor=flavor,  # type: ignore[arg-type]
+        flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
     )
@@ -1010,7 +1157,7 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
     - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     """
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    terminal_width = max(os.get_terminal_size().columns, len(headers) * 12)
+    terminal_width = max(shutil.get_terminal_size().columns, len(headers) * 12)
     while len(headers) + sum(col_widths) > terminal_width:
         col_to_minimize = col_widths.index(max(col_widths))
         col_widths[col_to_minimize] //= 2
