@@ -631,31 +631,6 @@ def remove(
             f" To delete the entire bucket, use `hf buckets delete {bucket_id}`."
         )
 
-    _remove_files(
-        bucket_id=bucket_id,
-        prefix=prefix,
-        recursive=recursive,
-        yes=yes,
-        dry_run=dry_run,
-        include=include,
-        exclude=exclude,
-        quiet=quiet,
-        token=token,
-    )
-
-
-def _remove_files(
-    bucket_id: str,
-    prefix: str,
-    recursive: bool,
-    yes: bool,
-    dry_run: bool,
-    include: Optional[list[str]],
-    exclude: Optional[list[str]],
-    quiet: bool,
-    token: Optional[str],
-) -> None:
-    """Remove files from a bucket."""
     if (include or exclude) and not recursive:
         raise typer.BadParameter("--include and --exclude require --recursive.")
 
@@ -663,7 +638,7 @@ def _remove_files(
 
     if recursive:
         status = StatusLine(enabled=not quiet)
-        status.update("Listing files from remote...")
+        status.update("Listing files from remote")
 
         all_files: list[BucketFile] = []
         for item in api.list_bucket_tree(
@@ -673,8 +648,8 @@ def _remove_files(
         ):
             if isinstance(item, BucketFile):
                 all_files.append(item)
-                status.update(f"Listing files from remote... ({len(all_files)} files)")
-        status.update("")
+                status.update(f"Listing files from remote ({len(all_files)} files)")
+        status.done(f"Listing files from remote ({len(all_files)} files)")
 
         if include or exclude:
             matcher = FilterMatcher(include_patterns=include, exclude_patterns=exclude)
