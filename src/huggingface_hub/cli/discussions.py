@@ -18,7 +18,7 @@ Usage:
     hf discussions list username/my-model
 
     # list only pull requests
-    hf discussions list username/my-model --kind pull_request
+    hf discussions list username/my-model --discussion-type pull_request
 
     # view a specific discussion or PR
     hf discussions view username/my-model 5
@@ -30,7 +30,7 @@ Usage:
     hf discussions create username/my-model --title "Fix typo" --pull-request
 
     # comment on a discussion or PR
-    hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+    hf discussions comment username/my-model 5 --comment "Thanks for reporting!"
 
     # merge a pull request
     hf discussions merge username/my-model 5
@@ -66,7 +66,7 @@ from ._cli_utils import (
 )
 
 
-class DiscussionState(str, enum.Enum):
+class DiscussionStatus(str, enum.Enum):
     open = "open"
     closed = "closed"
     merged = "merged"
@@ -74,14 +74,14 @@ class DiscussionState(str, enum.Enum):
     all = "all"
 
 
-class DiscussionKind(str, enum.Enum):
+class DiscussionType(str, enum.Enum):
     all = "all"
     discussion = "discussion"
     pull_request = "pull_request"
 
 
-# States that require client-side filtering (not natively supported by the Hub API)
-_CLIENT_SIDE_STATES = {"merged", "draft"}
+# Statuses that require client-side filtering (not natively supported by the Hub API)
+_CLIENT_SIDE_STATUSES = {"merged", "draft"}
 
 
 DiscussionNumArg = Annotated[
@@ -155,29 +155,28 @@ discussions_cli = typer_factory(help="Manage discussions and pull requests on th
     "list | ls",
     examples=[
         "hf discussions list username/my-model",
-        "hf discussions list username/my-model --kind pull_request --state merged",
-        "hf discussions list username/my-dataset --type dataset --state closed",
+        "hf discussions list username/my-model --discussion-type pull_request --status merged",
+        "hf discussions list username/my-dataset --type dataset --status closed",
         "hf discussions list username/my-model --author alice --format json",
     ],
 )
 def discussion_list(
     repo_id: RepoIdArg,
-    state: Annotated[
-        DiscussionState,
+    status: Annotated[
+        DiscussionStatus,
         typer.Option(
             "-s",
-            "--state",
-            help="Filter by state (open, closed, merged, draft, all).",
+            "--status",
+            help="Filter by status (open, closed, merged, draft, all).",
         ),
-    ] = DiscussionState.open,
-    kind: Annotated[
-        DiscussionKind,
+    ] = DiscussionStatus.open,
+    discussion_type: Annotated[
+        DiscussionType,
         typer.Option(
-            "-k",
-            "--kind",
-            help="Filter by kind (discussion, pull_request, all).",
+            "--discussion-type",
+            help="Filter by type (discussion, pull_request, all).",
         ),
-    ] = DiscussionKind.all,
+    ] = DiscussionType.all,
     author: AuthorOpt = None,
     limit: LimitOpt = 30,
     repo_type: RepoTypeOpt = RepoType.model,
@@ -189,24 +188,24 @@ def discussion_list(
     api = get_hf_api(token=token)
 
     api_status: Optional[str]
-    if state == DiscussionState.open:
+    if status == DiscussionStatus.open:
         api_status = "open"
-    elif state == DiscussionState.closed:
+    elif status == DiscussionStatus.closed:
         api_status = "closed"
     else:
         api_status = None
 
-    discussion_type = None if kind == DiscussionKind.all else kind.value
+    api_discussion_type = None if discussion_type == DiscussionType.all else discussion_type.value
 
     discussions = []
     for d in api.get_repo_discussions(
         repo_id=repo_id,
         author=author,
-        discussion_type=discussion_type,
+        discussion_type=api_discussion_type,
         discussion_status=api_status,
         repo_type=repo_type.value,
     ):
-        if state.value in _CLIENT_SIDE_STATES and d.status != state.value:
+        if status.value in _CLIENT_SIDE_STATUSES and d.status != status.value:
             continue
         discussions.append(d)
         if len(discussions) >= limit:
@@ -357,7 +356,7 @@ def discussion_view(
     "create",
     examples=[
         'hf discussions create username/my-model --title "Bug report"',
-        'hf discussions create username/my-model --title "Feature request" --body "Please add X"',
+        'hf discussions create username/my-model --title "Feature request" --description "Please add X"',
         'hf discussions create username/my-model --title "Fix typo" --pull-request',
         'hf discussions create username/my-dataset --type dataset --title "Data quality issue"',
     ],
@@ -372,12 +371,10 @@ def discussion_create(
             help="The title of the discussion or pull request.",
         ),
     ],
-    body: Annotated[
+    description: Annotated[
         Optional[str],
         typer.Option(
-            "-b",
-            "--body",
-            help="The body/description (supports Markdown).",
+            help="The description (supports Markdown).",
         ),
     ] = None,
     pull_request: Annotated[
@@ -396,7 +393,7 @@ def discussion_create(
     discussion = api.create_discussion(
         repo_id=repo_id,
         title=title,
-        description=body,
+        description=description,
         repo_type=repo_type.value,
         pull_request=pull_request,
     )
@@ -410,18 +407,18 @@ def discussion_create(
 @discussions_cli.command(
     "comment",
     examples=[
-        'hf discussions comment username/my-model 5 --body "Thanks for reporting!"',
-        'hf discussions comment username/my-model 5 --body "LGTM!"',
+        'hf discussions comment username/my-model 5 --comment "Thanks for reporting!"',
+        'hf discussions comment username/my-model 5 --comment "LGTM!"',
     ],
 )
 def discussion_comment(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
-    body: Annotated[
+    comment: Annotated[
         str,
         typer.Option(
-            "-b",
-            "--body",
+            "-c",
+            "--comment",
             help="The comment text (supports Markdown).",
         ),
     ],
@@ -433,7 +430,7 @@ def discussion_comment(
     api.comment_discussion(
         repo_id=repo_id,
         discussion_num=num,
-        comment=body,
+        comment=comment,
         repo_type=repo_type.value,
     )
     print(f"Commented on #{num} in {ANSI.bold(repo_id)}")
@@ -508,17 +505,15 @@ def discussion_reopen(
 @discussions_cli.command(
     "rename",
     examples=[
-        'hf discussions rename username/my-model 5 --title "Updated title"',
+        'hf discussions rename username/my-model 5 --new-title "Updated title"',
     ],
 )
 def discussion_rename(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
-    title: Annotated[
+    new_title: Annotated[
         str,
         typer.Option(
-            "-t",
-            "--title",
             help="The new title.",
         ),
     ],
@@ -530,10 +525,10 @@ def discussion_rename(
     api.rename_discussion(
         repo_id=repo_id,
         discussion_num=num,
-        new_title=title,
+        new_title=new_title,
         repo_type=repo_type.value,
     )
-    print(f"Renamed #{num} to {ANSI.bold(title)} in {ANSI.bold(repo_id)}")
+    print(f"Renamed #{num} to {ANSI.bold(new_title)} in {ANSI.bold(repo_id)}")
 
 
 @discussions_cli.command(

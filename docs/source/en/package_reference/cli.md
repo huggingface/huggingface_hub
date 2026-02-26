@@ -1078,14 +1078,14 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-b, --body TEXT`: The comment text (supports Markdown).  [required]
+* `-c, --comment TEXT`: The comment text (supports Markdown).  [required]
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
-  $ hf discussions comment username/my-model 5 --body "LGTM!"
+  $ hf discussions comment username/my-model 5 --comment "Thanks for reporting!"
+  $ hf discussions comment username/my-model 5 --comment "LGTM!"
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1109,7 +1109,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 **Options**:
 
 * `-t, --title TEXT`: The title of the discussion or pull request.  [required]
-* `-b, --body TEXT`: The body/description (supports Markdown).
+* `--description TEXT`: The description (supports Markdown).
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -1117,7 +1117,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 
 Examples
   $ hf discussions create username/my-model --title "Bug report"
-  $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
+  $ hf discussions create username/my-model --title "Feature request" --description "Please add X"
   $ hf discussions create username/my-model --title "Fix typo" --pull-request
   $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
 
@@ -1171,8 +1171,8 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 **Options**:
 
-* `-s, --state [open|closed|merged|draft|all]`: Filter by state (open, closed, merged, draft, all).  [default: open]
-* `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
+* `-s, --status [open|closed|merged|draft|all]`: Filter by status (open, closed, merged, draft, all).  [default: open]
+* `--discussion-type [all|discussion|pull_request]`: Filter by type (discussion, pull_request, all).  [default: all]
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
@@ -1183,8 +1183,8 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 Examples
   $ hf discussions list username/my-model
-  $ hf discussions list username/my-model --kind pull_request --state merged
-  $ hf discussions list username/my-dataset --type dataset --state closed
+  $ hf discussions list username/my-model --discussion-type pull_request --status merged
+  $ hf discussions list username/my-dataset --type dataset --status closed
   $ hf discussions list username/my-model --author alice --format json
 
 Learn more
@@ -1240,13 +1240,13 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-t, --title TEXT`: The new title.  [required]
+* `--new-title TEXT`: The new title.  [required]
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf discussions rename username/my-model 5 --title "Updated title"
+  $ hf discussions rename username/my-model 5 --new-title "Updated title"
 
 Learn more
   Use `hf <command> --help` for more information about a command.
