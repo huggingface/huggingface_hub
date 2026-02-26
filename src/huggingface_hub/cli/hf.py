@@ -34,7 +34,6 @@ from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
 from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
-from huggingface_hub.cli.prs import prs_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.repos import repos_cli
 from huggingface_hub.cli.skills import skills_cli
@@ -85,11 +84,10 @@ app.add_typer(buckets_cli, name="buckets")
 app.add_typer(cache_cli, name="cache")
 app.add_typer(collections_cli, name="collections")
 app.add_typer(datasets_cli, name="datasets")
-app.add_typer(discussions_cli, name="discussion | discussions")
+app.add_typer(discussions_cli, name="discussions")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
-app.add_typer(prs_cli, name="pr | prs")
 app.add_typer(repos_cli, name="repos | repo")
 app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
