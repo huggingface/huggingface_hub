@@ -515,6 +515,7 @@ def remove(
         typer.Option(
             "--recursive",
             "-r",
+            "-R",
             help="Remove files recursively under the given prefix.",
         ),
     ] = False,
