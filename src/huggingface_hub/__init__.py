@@ -219,6 +219,7 @@ _SUBMOD_ATTRS = {
         "delete_bucket",
         "delete_collection",
         "delete_collection_item",
+        "delete_collection_items_containing_repo",
         "delete_file",
         "delete_folder",
         "delete_inference_endpoint",
@@ -909,6 +910,7 @@ __all__ = [
     "delete_bucket",
     "delete_collection",
     "delete_collection_item",
+    "delete_collection_items_containing_repo",
     "delete_file",
     "delete_folder",
     "delete_inference_endpoint",
@@ -1323,6 +1325,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_bucket,  # noqa: F401
         delete_collection,  # noqa: F401
         delete_collection_item,  # noqa: F401
+        delete_collection_items_containing_repo,  # noqa: F401
         delete_file,  # noqa: F401
         delete_folder,  # noqa: F401
         delete_inference_endpoint,  # noqa: F401

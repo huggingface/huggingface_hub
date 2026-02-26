@@ -4182,6 +4182,64 @@ class CollectionAPITest(HfApiCommonTest):
         assert collection.items[0].item_type == "collection"
         assert collection.items[0].item_id.startswith("celinah/")
 
+    def test_delete_collection_items_containing_repo(self) -> None:
+        """Test that delete_collection_items_containing_repo removes items from collections."""
+        # Create a repo and a collection
+        model_id = self._api.create_repo(repo_name()).repo_id
+        collection = self._api.create_collection(self.title)
+        self.slug = collection.slug
+
+        # Add the repo to the collection
+        self._api.add_collection_item(collection.slug, model_id, "model")
+
+        # Check consistency
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 1)
+        self.assertEqual(collection.items[0].item_id, model_id)
+
+        # Delete the collection item using the new method
+        deleted_count = self._api.delete_collection_items_containing_repo(model_id)
+        self.assertEqual(deleted_count, 1)
+
+        # Check collection is now empty
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 0)
+
+        # Calling again should return 0 (no items to delete)
+        deleted_count = self._api.delete_collection_items_containing_repo(model_id)
+        self.assertEqual(deleted_count, 0)
+
+        # Cleanup
+        self._api.delete_repo(model_id)
+        self._api.delete_collection(collection.slug)
+        self.slug = None
+
+    def test_delete_repo_with_delete_from_collections(self) -> None:
+        """Test that delete_repo with delete_from_collections=True cleans up collection items."""
+        # Create a repo and a collection
+        model_id = self._api.create_repo(repo_name()).repo_id
+        collection = self._api.create_collection(self.title)
+        self.slug = collection.slug
+
+        # Add the repo to the collection
+        self._api.add_collection_item(collection.slug, model_id, "model")
+
+        # Check consistency
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 1)
+        self.assertEqual(collection.items[0].item_id, model_id)
+
+        # Delete the repo with delete_from_collections=True
+        self._api.delete_repo(model_id, delete_from_collections=True)
+
+        # Check collection is now empty
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 0)
+
+        # Cleanup
+        self._api.delete_collection(collection.slug)
+        self.slug = None
+
 
 class AccessRequestAPITest(HfApiCommonTest):
     def setUp(self) -> None:

@@ -4035,6 +4035,7 @@ class HfApi:
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
         missing_ok: bool = False,
+        delete_from_collections: bool = False,
     ) -> None:
         """
         Delete a repo from the HuggingFace Hub. CAUTION: this is irreversible.
@@ -4053,11 +4054,24 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model.
             missing_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo does not exist.
+            delete_from_collections (`bool`, *optional*, defaults to `False`):
+                If `True`, remove all collection items pointing to this repo before
+                deleting it. This prevents orphaned items in collections. Note that
+                only collections owned by the authenticated user will be cleaned up.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]
               If the repository to delete from cannot be found and `missing_ok` is set to False (default).
         """
+        # Clean up collection items pointing to this repo if requested
+        if delete_from_collections:
+            self.delete_collection_items_containing_repo(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                missing_ok=True,
+                token=token,
+            )
+
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         path = f"{self.endpoint}/api/repos/delete"
@@ -8848,6 +8862,93 @@ class HfApi:
             else:
                 raise
 
+    @validate_hf_hub_args
+    def delete_collection_items_containing_repo(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        missing_ok: bool = False,
+        token: Union[bool, str, None] = None,
+    ) -> int:
+        """Delete all collection items pointing to a specific repo.
+
+        This is useful to clean up collections before or after deleting a repo, ensuring
+        no orphaned collection items remain pointing to a deleted repo.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the repo is a dataset or space,
+                `None` or `"model"` if it's a model.
+            missing_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if a collection item cannot be deleted
+                (e.g., due to permission issues).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `int`: The number of collection items deleted.
+
+        Raises:
+            [`~utils.HfHubHTTPError`]
+                If a collection item cannot be deleted and `missing_ok=False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+        # Delete all collection items pointing to a repo before deleting it
+        >>> deleted_count = api.delete_collection_items_containing_repo("username/my-model")
+        >>> print(f"Deleted {deleted_count} collection items")
+        >>> api.delete_repo("username/my-model")
+        ```
+        """
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type: {repo_type}")
+
+        # Build the item filter for list_collections (e.g., "models/username/repo")
+        repo_type_plural = {"model": "models", "dataset": "datasets", "space": "spaces"}[repo_type]
+        item_filter = f"{repo_type_plural}/{repo_id}"
+
+        deleted_count = 0
+
+        # Find all collections containing this repo
+        for collection in self.list_collections(item=item_filter, token=token):
+            # Get full collection to access all items and their item_object_ids
+            try:
+                full_collection = self.get_collection(collection.slug, token=token)
+            except HfHubHTTPError:
+                if missing_ok:
+                    continue
+                raise
+
+            # Find items matching this repo and delete them
+            for item in full_collection.items:
+                if item.item_id == repo_id and item.item_type == repo_type:
+                    try:
+                        self.delete_collection_item(
+                            collection_slug=full_collection.slug,
+                            item_object_id=item.item_object_id,
+                            missing_ok=missing_ok,
+                            token=token,
+                        )
+                        deleted_count += 1
+                    except HfHubHTTPError:
+                        if not missing_ok:
+                            raise
+
+        return deleted_count
+
     ##########################
     # Manage access requests #
     ##########################
@@ -12542,7 +12643,7 @@ delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item
 delete_collection_item = api.delete_collection_item
-delete_collection_item = api.delete_collection_item
+delete_collection_items_containing_repo = api.delete_collection_items_containing_repo
 
 # Access requests API
 list_pending_access_requests = api.list_pending_access_requests
