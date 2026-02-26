@@ -387,7 +387,8 @@ Learn more
 Remove files from a bucket, or delete a bucket entirely. [alias: rm]
 
 When called with a file path (namespace/bucket_name/path), removes files from the bucket.
-When called with just a bucket ID (namespace/bucket_name), deletes the entire bucket.
+When called with just a bucket ID (namespace/bucket_name) and no --recursive flag, deletes the entire bucket.
+When called with just a bucket ID and --recursive, removes files from the bucket (optionally filtered).
 
 **Usage**:
 
@@ -415,7 +416,7 @@ Examples
   $ hf buckets remove user/my-bucket/file.txt
   $ hf buckets rm hf://buckets/user/my-bucket/file.txt
   $ hf buckets rm user/my-bucket/logs/ --recursive
-  $ hf buckets rm user/my-bucket/ --recursive --include "*.tmp"
+  $ hf buckets rm user/my-bucket --recursive --include "*.tmp"
   $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
   $ hf buckets rm user/my-bucket --yes
   $ hf buckets rm user/my-bucket --missing-ok

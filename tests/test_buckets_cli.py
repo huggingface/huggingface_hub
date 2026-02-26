@@ -308,6 +308,7 @@ def test_rm_recursive(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets rm {bucket_write}/logs --recursive --yes")
     assert result.exit_code == 0
     assert "3 file(s)" in result.output
+    assert "totaling" in result.output
 
     assert _remote_files(api, bucket_write) == {"keep.txt"}
 
@@ -322,7 +323,9 @@ def test_rm_recursive_dry_run(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets rm {bucket_write}/data --recursive --dry-run")
     assert result.exit_code == 0
     assert "(dry run)" in result.output
-    assert "2 file(s) would be removed" in result.output
+    assert "2 file(s)" in result.output
+    assert "totaling" in result.output
+    assert "would be removed" in result.output
 
     # Files should still exist
     assert _remote_files(api, bucket_write) == {"data/a.txt", "data/b.txt"}
@@ -342,6 +345,7 @@ def test_rm_recursive_include(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets rm {bucket_write}/data --recursive --include *.tmp --yes")
     assert result.exit_code == 0
     assert "2 file(s)" in result.output
+    assert "out of 3 file(s)" in result.output
 
     assert _remote_files(api, bucket_write) == {"data/keep.safetensors"}
 
@@ -369,6 +373,46 @@ def test_rm_recursive_no_files(api: HfApi, bucket_write: str):
     assert "No files to remove" in result.output
 
 
+def test_rm_recursive_no_prefix(api: HfApi, bucket_write: str):
+    """'hf buckets rm bucket_id --recursive' removes all files without deleting the bucket."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"a", "file_a.txt"),
+            (b"b", "file_b.txt"),
+            (b"c", "sub/file_c.txt"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write} --recursive --yes")
+    assert result.exit_code == 0
+    assert "3 file(s)" in result.output
+
+    # All files removed but bucket still exists
+    assert _remote_files(api, bucket_write) == set()
+    info = api.bucket_info(bucket_write)
+    assert info.id == bucket_write
+
+
+def test_rm_recursive_no_prefix_include(api: HfApi, bucket_write: str):
+    """'hf buckets rm bucket_id --recursive --include' filters globally across the bucket."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"keep", "model.safetensors"),
+            (b"rm1", "cache/tmp1.tmp"),
+            (b"rm2", "tmp2.tmp"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write} --recursive --include *.tmp --yes")
+    assert result.exit_code == 0
+    assert "2 file(s)" in result.output
+    assert "out of 3 file(s)" in result.output
+
+    assert _remote_files(api, bucket_write) == {"model.safetensors"}
+
+
 def test_rm_error_include_without_recursive():
     """--include without --recursive is an error."""
     result = cli(f"hf buckets rm {USER}/some-bucket/file.txt --include *.tmp --yes")
@@ -381,20 +425,6 @@ def test_rm_error_exclude_without_recursive():
     result = cli(f"hf buckets rm {USER}/some-bucket/file.txt --exclude *.tmp --yes")
     assert result.exit_code != 0
     assert "--include and --exclude require --recursive" in result.output
-
-
-def test_rm_error_recursive_on_bucket():
-    """--recursive is not allowed when deleting an entire bucket."""
-    result = cli(f"hf buckets rm {USER}/some-bucket --recursive --yes")
-    assert result.exit_code != 0
-    assert "Cannot use --recursive when deleting an entire bucket" in result.output
-
-
-def test_rm_error_include_on_bucket():
-    """--include is not allowed when deleting an entire bucket."""
-    result = cli(f"hf buckets rm {USER}/some-bucket --include *.tmp --yes")
-    assert result.exit_code != 0
-    assert "Cannot use --include or --exclude when deleting an entire bucket" in result.output
 
 
 # =============================================================================
