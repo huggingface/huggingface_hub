@@ -52,6 +52,15 @@ __version__ = "1.5.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_buckets": [
+        "BucketFile",
+        "BucketFileMetadata",
+        "BucketFolder",
+        "BucketInfo",
+        "BucketUrl",
+        "SyncOperation",
+        "SyncPlan",
+    ],
     "_commit_scheduler": [
         "CommitScheduler",
     ],
@@ -186,11 +195,14 @@ _SUBMOD_ATTRS = {
         "add_space_secret",
         "add_space_variable",
         "auth_check",
+        "batch_bucket_files",
+        "bucket_info",
         "cancel_access_request",
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
+        "create_bucket",
         "create_collection",
         "create_commit",
         "create_discussion",
@@ -204,6 +216,7 @@ _SUBMOD_ATTRS = {
         "create_webhook",
         "dataset_info",
         "delete_branch",
+        "delete_bucket",
         "delete_collection",
         "delete_collection_item",
         "delete_file",
@@ -217,12 +230,15 @@ _SUBMOD_ATTRS = {
         "delete_tag",
         "delete_webhook",
         "disable_webhook",
+        "download_bucket_files",
         "duplicate_space",
         "edit_discussion_comment",
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
         "file_exists",
+        "get_bucket_file_metadata",
+        "get_bucket_paths_info",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
@@ -242,6 +258,8 @@ _SUBMOD_ATTRS = {
         "inspect_job",
         "inspect_scheduled_job",
         "list_accepted_access_requests",
+        "list_bucket_tree",
+        "list_buckets",
         "list_collections",
         "list_daily_papers",
         "list_datasets",
@@ -268,6 +286,7 @@ _SUBMOD_ATTRS = {
         "list_webhooks",
         "merge_pull_request",
         "model_info",
+        "move_bucket",
         "move_repo",
         "paper_info",
         "parse_local_safetensors_file_metadata",
@@ -295,6 +314,7 @@ _SUBMOD_ATTRS = {
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
+        "sync_bucket",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -587,6 +607,11 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "BucketFile",
+    "BucketFileMetadata",
+    "BucketFolder",
+    "BucketInfo",
+    "BucketUrl",
     "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
@@ -762,6 +787,8 @@ __all__ = [
     "SummarizationOutput",
     "SummarizationParameters",
     "SummarizationTruncationStrategy",
+    "SyncOperation",
+    "SyncPlan",
     "TF2_WEIGHTS_NAME",
     "TF_WEIGHTS_NAME",
     "TableQuestionAnsweringInput",
@@ -855,6 +882,8 @@ __all__ = [
     "auth_check",
     "auth_list",
     "auth_switch",
+    "batch_bucket_files",
+    "bucket_info",
     "cached_assets_path",
     "cancel_access_request",
     "cancel_job",
@@ -863,6 +892,7 @@ __all__ = [
     "close_session",
     "comment_discussion",
     "create_branch",
+    "create_bucket",
     "create_collection",
     "create_commit",
     "create_discussion",
@@ -876,6 +906,7 @@ __all__ = [
     "create_webhook",
     "dataset_info",
     "delete_branch",
+    "delete_bucket",
     "delete_collection",
     "delete_collection_item",
     "delete_file",
@@ -889,6 +920,7 @@ __all__ = [
     "delete_tag",
     "delete_webhook",
     "disable_webhook",
+    "download_bucket_files",
     "dump_environment_info",
     "duplicate_space",
     "edit_discussion_comment",
@@ -901,6 +933,8 @@ __all__ = [
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
+    "get_bucket_file_metadata",
+    "get_bucket_paths_info",
     "get_collection",
     "get_dataset_tags",
     "get_discussion_details",
@@ -931,6 +965,8 @@ __all__ = [
     "interpreter_login",
     "is_offline_mode",
     "list_accepted_access_requests",
+    "list_bucket_tree",
+    "list_buckets",
     "list_collections",
     "list_daily_papers",
     "list_datasets",
@@ -966,6 +1002,7 @@ __all__ = [
     "metadata_save",
     "metadata_update",
     "model_info",
+    "move_bucket",
     "move_repo",
     "notebook_login",
     "paper_info",
@@ -1006,6 +1043,7 @@ __all__ = [
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
+    "sync_bucket",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1124,6 +1162,15 @@ if os.environ.get("EAGER_IMPORT", ""):
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._buckets import (
+        BucketFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
+        BucketFolder,  # noqa: F401
+        BucketInfo,  # noqa: F401
+        BucketUrl,  # noqa: F401
+        SyncOperation,  # noqa: F401
+        SyncPlan,  # noqa: F401
+    )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
         EvalResultEntry,  # noqa: F401
@@ -1252,11 +1299,14 @@ if TYPE_CHECKING:  # pragma: no cover
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
         auth_check,  # noqa: F401
+        batch_bucket_files,  # noqa: F401
+        bucket_info,  # noqa: F401
         cancel_access_request,  # noqa: F401
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
+        create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
         create_commit,  # noqa: F401
         create_discussion,  # noqa: F401
@@ -1270,6 +1320,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
+        delete_bucket,  # noqa: F401
         delete_collection,  # noqa: F401
         delete_collection_item,  # noqa: F401
         delete_file,  # noqa: F401
@@ -1283,12 +1334,15 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
         disable_webhook,  # noqa: F401
+        download_bucket_files,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
         file_exists,  # noqa: F401
+        get_bucket_file_metadata,  # noqa: F401
+        get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
@@ -1308,6 +1362,8 @@ if TYPE_CHECKING:  # pragma: no cover
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
+        list_bucket_tree,  # noqa: F401
+        list_buckets,  # noqa: F401
         list_collections,  # noqa: F401
         list_daily_papers,  # noqa: F401
         list_datasets,  # noqa: F401
@@ -1334,6 +1390,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
+        move_bucket,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
         parse_local_safetensors_file_metadata,  # noqa: F401
@@ -1361,6 +1418,7 @@ if TYPE_CHECKING:  # pragma: no cover
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
+        sync_bucket,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

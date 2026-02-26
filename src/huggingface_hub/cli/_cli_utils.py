@@ -75,6 +75,7 @@ Learn more
 
 
 TOPIC_T = Union[Literal["main", "help"], str]
+FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -85,22 +86,52 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
             formatter.write_text(line)
 
 
+_ALIAS_SPLIT = re.compile(r"\s*\|\s*")
+
+
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
     Typer Group that:
     - lists commands alphabetically within sections.
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
+    - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     """
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
+        # Try exact match first
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd
+        # Fall back to alias lookup: check if cmd_name matches any alias
+        # taken from https://github.com/fastapi/typer/issues/132#issuecomment-2417492805
+        for registered_name, registered_cmd in self.commands.items():
+            aliases = _ALIAS_SPLIT.split(registered_name)
+            if cmd_name in aliases:
+                return registered_cmd
+        return None
+
+    def _alias_map(self) -> dict[str, list[str]]:
+        """Build a mapping from primary command name to its aliases (if any)."""
+        result: dict[str, list[str]] = {}
+        for registered_name in self.commands:
+            parts = _ALIAS_SPLIT.split(registered_name)
+            primary = parts[0]
+            result[primary] = parts[1:]
+        return result
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         topics: dict[str, list] = {}
+        alias_map = self._alias_map()
 
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             help_text = cmd.get_short_help_str(limit=formatter.width)
+            aliases = alias_map.get(name, [])
+            if aliases:
+                help_text = f"{help_text} [alias: {', '.join(aliases)}]"
             topic = getattr(cmd, "topic", "main")
             topics.setdefault(topic, []).append((name, help_text))
 
@@ -113,14 +144,16 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 formatter.write_dl(topics[topic])
 
     def format_epilog(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        # Collect examples from all commands
+        # Collect only the first example from each command (to keep group help concise)
+        # Full examples are shown in individual subcommand help (e.g. `hf buckets sync --help`)
         all_examples: list[str] = []
         for name in self.list_commands(ctx):
             cmd = self.get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 continue
             cmd_examples = getattr(cmd, "examples", [])
-            all_examples.extend(cmd_examples)
+            if cmd_examples:
+                all_examples.append(cmd_examples[0])
 
         if all_examples:
             epilog = generate_epilog(all_examples)
@@ -129,8 +162,25 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     def list_commands(self, ctx: click.Context) -> list[str]:  # type: ignore[name-defined]
-        # click.Group stores both commands and subgroups in `self.commands`
-        return sorted(self.commands.keys())
+        # For aliased commands ("list | ls"), use the primary name (first entry).
+        primary_names: list[str] = []
+        for name in self.commands:
+            primary = _ALIAS_SPLIT.split(name)[0]
+            primary_names.append(primary)
+        return sorted(primary_names)
+
+
+def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFCliTyperGroup]:
+    """Return a Typer group class that runs a fallback handler before command resolution."""
+
+    class FallbackTyperGroup(HFCliTyperGroup):
+        def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+            fallback_exit_code = fallback_handler(args, set(self.commands.keys()))
+            if fallback_exit_code is not None:
+                raise SystemExit(fallback_exit_code)
+            return super().resolve_command(ctx, args)
+
+    return FallbackTyperGroup
 
 
 def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
@@ -187,22 +237,27 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(help: str, epilog: Optional[str] = None) -> "HFCliApp":
+def typer_factory(
+    help: str, epilog: Optional[str] = None, cls: Optional[type[typer.core.TyperGroup]] = None
+) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
         help: Help text for the app.
         epilog: Optional epilog text (use `generate_epilog` to create one).
+        cls: Optional Click group class to use (defaults to `HFCliTyperGroup`).
 
     Returns:
         A configured Typer app.
     """
+    if cls is None:
+        cls = HFCliTyperGroup
     return HFCliApp(
         help=help,
         epilog=epilog,
         add_completion=True,
         no_args_is_help=True,
-        cls=HFCliTyperGroup,
+        cls=cls,
         # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
@@ -232,6 +287,8 @@ RepoIdArg = Annotated[
 RepoTypeOpt = Annotated[
     RepoType,
     typer.Option(
+        "--type",
+        "--repo-type",
         help="The type of repository (model, dataset, or space).",
     ),
 ]
@@ -341,6 +398,7 @@ def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print items as a formatted table.
 
@@ -348,12 +406,16 @@ def print_as_table(
         items: Sequence of dictionaries representing the items to display.
         headers: List of column headers.
         row_fn: Function that takes an item dict and returns a list of string values for each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if not items:
         print("No results found.")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    print(tabulate(rows, headers=[_to_header(h) for h in headers]))
+    screaming_headers = [_to_header(h) for h in headers]
+    # Remap alignments keys to screaming case to match tabulate headers
+    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
 
 
 def print_list_output(
@@ -363,6 +425,7 @@ def print_list_output(
     id_key: str = "id",
     headers: Optional[list[str]] = None,
     row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
+    alignments: Optional[dict[str, str]] = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -373,6 +436,7 @@ def print_list_output(
         id_key: Key to use for extracting IDs in quiet mode.
         headers: Optional list of column names for headers. If not provided, auto-detected from keys.
         row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
+        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
     if quiet:
         for item in items:
@@ -392,7 +456,7 @@ def print_list_output(
         def row_fn(item: dict[str, Any]) -> list[str]:
             return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
 
-    print_as_table(items, headers=headers, row_fn=row_fn)
+    print_as_table(items, headers=headers, row_fn=row_fn, alignments=alignments)
 
 
 def _serialize_value(v: object) -> object:

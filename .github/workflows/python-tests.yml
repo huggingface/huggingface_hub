@@ -102,7 +102,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not test_inference and not test_xet' -n 4"
+              PYTEST="$PYTEST ../tests -k 'not test_inference and not test_xet and not test_buckets' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -121,7 +121,7 @@ jobs:
             ;;
 
             "Xet only")
-              PYTEST="$PYTEST ../tests -k 'test_xet' -n 4"
+              PYTEST="$PYTEST ../tests -k 'test_xet or test_buckets' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;

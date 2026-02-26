@@ -160,8 +160,14 @@ def fetch_xet_connection_info_from_repo_info(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
-    return _fetch_xet_connection_info_with_url(url, headers, params)
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token"
+    if repo_type != "bucket" or revision is not None:
+        # On "bucket" repo type, the revision never needed => don't use it
+        # Otherwise, use the revision.
+        # Note: when creating a PR on a git-based repo, user needs write access but they don't know the revision in advance.
+        # => pass "/None" in URL and server will return a token for PR refs.
+        url += f"/{revision}"
+    return _fetch_xet_connection_info_with_url(url, headers, params, cache_key_prefix=f"{repo_type}-{repo_id}")
 
 
 @validate_hf_hub_args
@@ -169,6 +175,7 @@ def _fetch_xet_connection_info_with_url(
     url: str,
     headers: dict[str, str],
     params: Optional[dict[str, str]] = None,
+    cache_key_prefix: Optional[str] = None,
 ) -> XetConnectionInfo:
     """
     Requests the xet connection info from the supplied URL. This includes the
@@ -193,7 +200,7 @@ def _fetch_xet_connection_info_with_url(
             If the Hub API response is improperly formatted.
     """
     # Check cache first
-    cache_key = _cache_key(url, headers, params)
+    cache_key = _cache_key(url, headers, params, prefix=cache_key_prefix)
     cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
     if cached_info is not None:
         if not _is_expired(cached_info):
@@ -222,12 +229,27 @@ def _fetch_xet_connection_info_with_url(
     return metadata
 
 
-def _cache_key(url: str, headers: dict[str, str], params: Optional[dict[str, str]]) -> str:
+def reset_xet_connection_info_cache_for_repo(repo_type: Optional[str], repo_id: str) -> None:
+    """Reset the XET connection info cache for the given repo type and repo id.
+
+    Used when a repo is deleted.
+    """
+    if repo_type is None:
+        repo_type = constants.REPO_TYPE_MODEL
+    prefix = f"{repo_type}-{repo_id}|"
+    for k in list(XET_CONNECTION_INFO_CACHE.keys()):
+        if k.startswith(prefix):
+            XET_CONNECTION_INFO_CACHE.pop(k, None)
+
+
+def _cache_key(
+    url: str, headers: dict[str, str], params: Optional[dict[str, str]], prefix: Optional[str] = None
+) -> str:
     """Return a unique cache key for the given request parameters."""
     lower_headers = {k.lower(): v for k, v in headers.items()}  # casing is not guaranteed here
     auth_header = lower_headers.get("authorization", "")
     params_str = "&".join(f"{k}={v}" for k, v in sorted((params or {}).items(), key=lambda x: x[0]))
-    return f"{url}|{auth_header}|{params_str}"
+    return f"{prefix}|{url}|{auth_header}|{params_str}"
 
 
 def _is_expired(connection_info: XetConnectionInfo) -> bool:

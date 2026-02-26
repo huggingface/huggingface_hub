@@ -17,7 +17,7 @@ def get_version() -> str:
 HF_XET_VERSION = "hf-xet>=1.3.1,<2.0.0"
 
 install_requires = [
-    "filelock",
+    "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "httpx>=0.23.0, <1",
@@ -111,7 +111,7 @@ setup(
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
-    license="Apache",
+    license="Apache-2.0",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
     packages=find_packages("src"),
