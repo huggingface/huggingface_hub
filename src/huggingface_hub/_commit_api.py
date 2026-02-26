@@ -639,7 +639,6 @@ def _upload_xet_files(
         xet_headers = headers.copy()
         xet_headers.pop("authorization", None)
 
-
         if len(all_paths_ops) > 0:
             all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
             upload_files(
