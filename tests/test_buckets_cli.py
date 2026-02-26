@@ -194,59 +194,49 @@ def test_bucket_info_quiet(bucket_read: str):
 
 
 # =============================================================================
-# Remove / rm  (file removal + bucket deletion)
+# Delete (bucket deletion)
 # =============================================================================
 
 
-def test_rm_bucket(api: HfApi, bucket_write: str):
-    """'hf buckets rm bucket_id --yes' deletes the entire bucket."""
-    result = cli(f"hf buckets rm {bucket_write} --yes")
+def test_delete_bucket(api: HfApi, bucket_write: str):
+    result = cli(f"hf buckets delete {bucket_write} --yes")
     assert result.exit_code == 0
-    assert "Bucket deleted" in result.output
 
     with pytest.raises(BucketNotFoundError):
         api.bucket_info(bucket_write)
 
 
-def test_rm_bucket_missing_ok():
-    """'hf buckets rm' with --missing-ok does not error on nonexistent bucket."""
+def test_delete_bucket_missing_ok():
     nonexistent = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets rm {nonexistent} --yes --missing-ok")
+    result = cli(f"hf buckets delete {nonexistent} --yes --missing-ok")
     assert result.exit_code == 0
 
 
-def test_rm_bucket_not_found():
-    """'hf buckets rm' without --missing-ok errors on nonexistent bucket."""
+def test_delete_bucket_not_found():
     nonexistent = f"{USER}/{bucket_name()}"
-    result = cli(f"hf buckets rm {nonexistent} --yes")
+    result = cli(f"hf buckets delete {nonexistent} --yes")
     assert result.exit_code != 0
 
 
-def test_rm_bucket_dry_run(api: HfApi, bucket_write: str):
-    """'hf buckets rm bucket_id --dry-run' previews without deleting."""
-    result = cli(f"hf buckets rm {bucket_write} --dry-run")
-    assert result.exit_code == 0
-    assert "(dry run)" in result.output
-
-    # Bucket should still exist
-    info = api.bucket_info(bucket_write)
-    assert info.id == bucket_write
+# =============================================================================
+# Remove / rm  (file removal only)
+# =============================================================================
 
 
-def test_rm_bucket_quiet(api: HfApi, bucket_write: str):
-    """'hf buckets rm --quiet' prints only the bucket ID."""
-    result = cli(f"hf buckets rm {bucket_write} --yes --quiet")
-    assert result.exit_code == 0
-    assert result.output.strip() == bucket_write
+def test_rm_error_no_path():
+    """'hf buckets rm bucket_id' without a file path or --recursive errors with a helpful message."""
+    result = cli(f"hf buckets rm {USER}/some-bucket")
+    assert result.exit_code != 0
+    assert "hf buckets delete" in result.output
 
 
 def test_remove_alias(api: HfApi, bucket_write: str):
     """'hf buckets remove' is an alias for 'hf buckets rm'."""
-    result = cli(f"hf buckets remove {bucket_write} --yes")
-    assert result.exit_code == 0
+    api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
 
-    with pytest.raises(BucketNotFoundError):
-        api.bucket_info(bucket_write)
+    result = cli(f"hf buckets remove {bucket_write}/file.txt --yes")
+    assert result.exit_code == 0
+    assert "file.txt" not in _remote_files(api, bucket_write)
 
 
 def test_rm_single_file(api: HfApi, bucket_write: str):

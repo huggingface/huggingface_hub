@@ -204,10 +204,11 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 * `cp`: Copy a single file to or from a bucket.
 * `create`: Create a new bucket.
+* `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
-* `remove`: Remove files from a bucket, or delete a... [alias: rm]
+* `remove`: Remove files from a bucket. [alias: rm]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -274,6 +275,41 @@ Examples
   $ hf buckets create hf://buckets/user/my-bucket
   $ hf buckets create user/my-bucket --private
   $ hf buckets create user/my-bucket --exist-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets delete`
+
+Delete a bucket.
+
+This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
+
+**Usage**:
+
+```console
+$ hf buckets delete [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
+* `--missing-ok`: Do not raise an error if the bucket does not exist.
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets delete user/my-bucket
+  $ hf buckets delete hf://buckets/user/my-bucket
+  $ hf buckets delete user/my-bucket --yes
+  $ hf buckets delete user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -384,11 +420,9 @@ Learn more
 
 ### `hf buckets remove`
 
-Remove files from a bucket, or delete a bucket entirely. [alias: rm]
+Remove files from a bucket. [alias: rm]
 
-When called with a file path (namespace/bucket_name/path), removes files from the bucket.
-When called with just a bucket ID (namespace/bucket_name) and no --recursive flag, deletes the entire bucket.
-When called with just a bucket ID and --recursive, removes files from the bucket (optionally filtered).
+To delete an entire bucket, use `hf buckets delete` instead.
 
 **Usage**:
 
@@ -398,14 +432,13 @@ $ hf buckets remove [OPTIONS] ARGUMENT
 
 **Arguments**:
 
-* `ARGUMENT`: Bucket path to remove. Use namespace/bucket_name to delete the entire bucket, or namespace/bucket_name/path (or hf://buckets/...) to remove files.  [required]
+* `ARGUMENT`: Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path. With --recursive, namespace/bucket_name is also accepted to target all files.  [required]
 
 **Options**:
 
 * `-R, --recursive`: Remove files recursively under the given prefix.
 * `-y, --yes`: Skip confirmation prompt.
 * `--dry-run`: Preview what would be deleted without actually deleting.
-* `--missing-ok`: Do not raise an error if the bucket or files do not exist.
 * `--include TEXT`: Include only files matching pattern (can specify multiple). Requires --recursive.
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple). Requires --recursive.
 * `-q, --quiet`: Print only IDs (one per line).
@@ -418,8 +451,6 @@ Examples
   $ hf buckets rm user/my-bucket/logs/ --recursive
   $ hf buckets rm user/my-bucket --recursive --include "*.tmp"
   $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
-  $ hf buckets rm user/my-bucket --yes
-  $ hf buckets rm user/my-bucket --missing-ok
 
 Learn more
   Use `hf <command> --help` for more information about a command.

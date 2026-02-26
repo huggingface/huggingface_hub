@@ -489,6 +489,75 @@ def info(
 
 
 @buckets_cli.command(
+    name="delete",
+    examples=[
+        "hf buckets delete user/my-bucket",
+        "hf buckets delete hf://buckets/user/my-bucket",
+        "hf buckets delete user/my-bucket --yes",
+        "hf buckets delete user/my-bucket --missing-ok",
+    ],
+)
+def delete(
+    bucket_id: Annotated[
+        str,
+        typer.Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    missing_ok: Annotated[
+        bool,
+        typer.Option(
+            "--missing-ok",
+            help="Do not raise an error if the bucket does not exist.",
+        ),
+    ] = False,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Delete a bucket.
+
+    This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
+    """
+    if bucket_id.startswith(BUCKET_PREFIX):
+        try:
+            parsed_id, prefix = _parse_bucket_argument(bucket_id)
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        if prefix:
+            raise typer.BadParameter(
+                f"Cannot specify a prefix for bucket deletion: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed_id
+    elif "/" not in bucket_id:
+        raise typer.BadParameter(
+            f"Invalid bucket ID: {bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    if not yes:
+        confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
+        if not confirm:
+            print("Aborted.")
+            raise typer.Abort()
+
+    api = get_hf_api(token=token)
+    api.delete_bucket(bucket_id, missing_ok=missing_ok)
+    if quiet:
+        print(bucket_id)
+    else:
+        print(f"Bucket deleted: {bucket_id}")
+
+
+@buckets_cli.command(
     name="remove | rm",
     examples=[
         "hf buckets remove user/my-bucket/file.txt",
@@ -496,8 +565,6 @@ def info(
         "hf buckets rm user/my-bucket/logs/ --recursive",
         'hf buckets rm user/my-bucket --recursive --include "*.tmp"',
         "hf buckets rm user/my-bucket/data/ --recursive --dry-run",
-        "hf buckets rm user/my-bucket --yes",
-        "hf buckets rm user/my-bucket --missing-ok",
     ],
 )
 def remove(
@@ -505,8 +572,8 @@ def remove(
         str,
         typer.Argument(
             help=(
-                "Bucket path to remove. Use namespace/bucket_name to delete the entire bucket,"
-                " or namespace/bucket_name/path (or hf://buckets/...) to remove files."
+                "Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path."
+                " With --recursive, namespace/bucket_name is also accepted to target all files."
             ),
         ),
     ],
@@ -533,13 +600,6 @@ def remove(
             help="Preview what would be deleted without actually deleting.",
         ),
     ] = False,
-    missing_ok: Annotated[
-        bool,
-        typer.Option(
-            "--missing-ok",
-            help="Do not raise an error if the bucket or files do not exist.",
-        ),
-    ] = False,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -555,41 +615,33 @@ def remove(
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Remove files from a bucket, or delete a bucket entirely.
+    """Remove files from a bucket.
 
-    When called with a file path (namespace/bucket_name/path), removes files from the bucket.
-    When called with just a bucket ID (namespace/bucket_name) and no --recursive flag, deletes the entire bucket.
-    When called with just a bucket ID and --recursive, removes files from the bucket (optionally filtered).
+    To delete an entire bucket, use `hf buckets delete` instead.
     """
     try:
         bucket_id, prefix = _parse_bucket_argument(argument)
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
-    is_file_mode = prefix != "" or recursive or include or exclude
+    if prefix == "" and not recursive:
+        raise typer.BadParameter(
+            f"No file path specified. To remove files, provide a path"
+            f" (e.g. '{bucket_id}/FILE') or use --recursive to remove all files."
+            f" To delete the entire bucket, use `hf buckets delete {bucket_id}`."
+        )
 
-    if is_file_mode:
-        _remove_files(
-            bucket_id=bucket_id,
-            prefix=prefix,
-            recursive=recursive,
-            yes=yes,
-            dry_run=dry_run,
-            missing_ok=missing_ok,
-            include=include,
-            exclude=exclude,
-            quiet=quiet,
-            token=token,
-        )
-    else:
-        _delete_bucket(
-            bucket_id=bucket_id,
-            yes=yes,
-            dry_run=dry_run,
-            missing_ok=missing_ok,
-            quiet=quiet,
-            token=token,
-        )
+    _remove_files(
+        bucket_id=bucket_id,
+        prefix=prefix,
+        recursive=recursive,
+        yes=yes,
+        dry_run=dry_run,
+        include=include,
+        exclude=exclude,
+        quiet=quiet,
+        token=token,
+    )
 
 
 def _remove_files(
@@ -598,7 +650,6 @@ def _remove_files(
     recursive: bool,
     yes: bool,
     dry_run: bool,
-    missing_ok: bool,
     include: Optional[list[str]],
     exclude: Optional[list[str]],
     quiet: bool,
@@ -687,39 +738,6 @@ def _remove_files(
             print(file_path)
         else:
             print(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
-
-
-def _delete_bucket(
-    bucket_id: str,
-    yes: bool,
-    dry_run: bool,
-    missing_ok: bool,
-    quiet: bool,
-    token: Optional[str],
-) -> None:
-    """Delete an entire bucket."""
-    if "/" not in bucket_id:
-        raise typer.BadParameter(
-            f"Invalid bucket ID: {bucket_id}."
-            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
-        )
-
-    if dry_run:
-        print(f"(dry run) Bucket '{bucket_id}' would be deleted.")
-        return
-
-    if not yes:
-        confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Abort()
-
-    api = get_hf_api(token=token)
-    api.delete_bucket(bucket_id, missing_ok=missing_ok)
-    if quiet:
-        print(bucket_id)
-    else:
-        print(f"Bucket deleted: {bucket_id}")
 
 
 @buckets_cli.command(
