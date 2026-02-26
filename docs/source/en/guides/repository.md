@@ -44,7 +44,7 @@ Create an empty repository with [`create_repo`] and give it a name with the `rep
 Or via CLI:
 
 ```bash
->>> hf reposs create lysandre/test-model
+>>> hf repos create lysandre/test-model
 Successfully created lysandre/test-model on the Hub.
 Your repo is now available at https://huggingface.co/lysandre/test-model
 ```
