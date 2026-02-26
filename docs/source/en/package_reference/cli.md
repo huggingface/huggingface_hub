@@ -402,7 +402,7 @@ $ hf buckets remove [OPTIONS] ARGUMENT
 
 **Options**:
 
-* `-r, -R, --recursive`: Remove files recursively under the given prefix.
+* `-R, --recursive`: Remove files recursively under the given prefix.
 * `-y, --yes`: Skip confirmation prompt.
 * `--dry-run`: Preview what would be deleted without actually deleting.
 * `--missing-ok`: Do not raise an error if the bucket or files do not exist.
