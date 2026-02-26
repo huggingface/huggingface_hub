@@ -274,7 +274,7 @@ class TestXetFileDownload:
                     request_headers = mock.call_args.kwargs["request_headers"]
                     assert request_headers.get("x-custom-header") == "custom_value"
                     assert request_headers.get("user-agent") == "test-agent"
-                    assert not "authorization" in request_headers
+                    assert "authorization" not in request_headers
 
 
 @requires("hf_xet")
