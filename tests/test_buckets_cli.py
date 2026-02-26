@@ -345,7 +345,7 @@ def test_rm_recursive_include(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets rm {bucket_write}/data --recursive --include *.tmp --yes")
     assert result.exit_code == 0
     assert "2 file(s)" in result.output
-    assert "out of 3 file(s)" in result.output
+    assert "totaling" in result.output
 
     assert _remote_files(api, bucket_write) == {"data/keep.safetensors"}
 
@@ -408,7 +408,7 @@ def test_rm_recursive_no_prefix_include(api: HfApi, bucket_write: str):
     result = cli(f"hf buckets rm {bucket_write} --recursive --include *.tmp --yes")
     assert result.exit_code == 0
     assert "2 file(s)" in result.output
-    assert "out of 3 file(s)" in result.output
+    assert "totaling" in result.output
 
     assert _remote_files(api, bucket_write) == {"model.safetensors"}
 

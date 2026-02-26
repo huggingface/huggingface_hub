@@ -625,8 +625,6 @@ def _remove_files(
                 status.update(f"Listing files from remote... ({len(all_files)} files)")
         status.update("")
 
-        total_count = len(all_files)
-
         if include or exclude:
             matcher = FilterMatcher(include_patterns=include, exclude_patterns=exclude)
             matched_files = [f for f in all_files if matcher.matches(f.path)]
@@ -643,8 +641,6 @@ def _remove_files(
             return
 
         count_label = f"{len(file_paths)} file(s) totaling {size_str}"
-        if len(file_paths) < total_count:
-            count_label += f" (out of {total_count} file(s) in bucket)"
 
         if not yes and not dry_run:
             if not quiet:
