@@ -30,3 +30,17 @@ class TestUtilsCommon(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             next(chunk_iterable(range(128), -1))
+
+    def test_chunk_iterable_invalid_type(self):
+        """chunk_size must be an int — floats, strings and None should fail."""
+        # string should raise ValueError
+        with self.assertRaises(ValueError):
+            next(chunk_iterable(range(10), "4"))
+
+        # float should raise ValueError even if it looks whole
+        with self.assertRaises(ValueError):
+            next(chunk_iterable(range(10), 3.5))
+
+        # None should raise ValueError
+        with self.assertRaises(ValueError):
+            next(chunk_iterable(range(10), None))
