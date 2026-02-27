@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import shlex
 import tempfile
 from typing import Optional
 
@@ -37,13 +38,15 @@ def _setup_env(monkeypatch):
 def cli(command: str, input: Optional[str] = None) -> Result:
     """Invoke a CLI command.
 
+    Uses shlex.split to properly handle quoted arguments.
+
     Example:
         ```
-        >>> cli("hf discussions list my-user/my-repo")
+        >>> cli('hf discussions create user/repo --title "My title"')
         ```
     """
     assert command.startswith("hf ")
-    args = command.split(" ")[1:]
+    args = shlex.split(command)[1:]
     return CliRunner().invoke(app, [*args], input=input)
 
 
@@ -295,15 +298,29 @@ def test_rename_discussion(api: HfApi, repo_for_write: str):
 
 
 def test_merge_pr(api: HfApi, repo_for_write: str):
-    pr = api.create_pull_request(repo_id=repo_for_write, title="Merge test PR")
-    result = cli(f"hf discussions merge {repo_for_write} {pr.num} --yes")
+    commit = api.upload_file(
+        repo_id=repo_for_write,
+        path_or_fileobj=b"merge test",
+        path_in_repo="merge_test.txt",
+        create_pr=True,
+        commit_message="Merge test PR",
+    )
+    pr_num = int(commit.pr_url.split("/")[-1])
+    result = cli(f"hf discussions merge {repo_for_write} {pr_num} --yes")
     assert result.exit_code == 0, result.output
-    assert f"Merged #{pr.num}" in result.output
+    assert f"Merged #{pr_num}" in result.output
 
 
 def test_merge_requires_confirmation(api: HfApi, repo_for_write: str):
-    pr = api.create_pull_request(repo_id=repo_for_write, title="Merge confirm test PR")
-    result = cli(f"hf discussions merge {repo_for_write} {pr.num}", input="n\n")
+    commit = api.upload_file(
+        repo_id=repo_for_write,
+        path_or_fileobj=b"confirm test",
+        path_in_repo="confirm_test.txt",
+        create_pr=True,
+        commit_message="Merge confirm test PR",
+    )
+    pr_num = int(commit.pr_url.split("/")[-1])
+    result = cli(f"hf discussions merge {repo_for_write} {pr_num}", input="n\n")
     assert result.exit_code == 0
     assert "Aborted" in result.output
 
