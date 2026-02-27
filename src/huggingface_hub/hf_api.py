@@ -11332,7 +11332,7 @@ class HfApi:
                 for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
             )
             # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
-            quoted_parts = ["'" + a.replace("'", r"'\''") + "'" for a in [*uv_args, script, *script_args]]
+            quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
             command = [
                 "bash",
                 "-c",
