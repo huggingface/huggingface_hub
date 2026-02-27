@@ -34,18 +34,22 @@ def _setup_env(monkeypatch):
     yield
 
 
-def cli(command: str, input: Optional[str] = None) -> Result:
+def cli(command: str, input: Optional[str] = None, extra_args: Optional[list[str]] = None) -> Result:
     """Invoke a CLI command.
 
-    Uses shlex.split to properly handle quoted arguments.
+    Uses shlex.split to properly handle quoted arguments. For file paths on
+    Windows, pass them via `extra_args` to avoid backslash escaping issues.
 
     Example:
         ```
         >>> cli('hf discussions create user/repo --title "My title"')
+        >>> cli('hf discussions create user/repo --title "T"', extra_args=["--body-file", str(path)])
         ```
     """
     assert command.startswith("hf ")
     args = shlex.split(command)[1:]
+    if extra_args:
+        args.extend(extra_args)
     return CliRunner().invoke(app, [*args], input=input)
 
 
@@ -193,7 +197,10 @@ def test_create_with_body(repo_for_write: str):
 def test_create_with_body_file(repo_for_write: str, tmp_path):
     body_file = tmp_path / "body.md"
     body_file.write_text("Body from file")
-    result = cli(f'hf discussions create {repo_for_write} --title "From file" --body-file {body_file}')
+    result = cli(
+        f'hf discussions create {repo_for_write} --title "From file"',
+        extra_args=["--body-file", str(body_file)],
+    )
     assert result.exit_code == 0, result.output
     assert "Created discussion" in result.output
 
@@ -201,7 +208,10 @@ def test_create_with_body_file(repo_for_write: str, tmp_path):
 def test_create_body_and_body_file_conflict(repo_for_write: str, tmp_path):
     body_file = tmp_path / "body.md"
     body_file.write_text("Body from file")
-    result = cli(f'hf discussions create {repo_for_write} --title "Conflict" --body "inline" --body-file {body_file}')
+    result = cli(
+        f'hf discussions create {repo_for_write} --title "Conflict" --body "inline"',
+        extra_args=["--body-file", str(body_file)],
+    )
     assert result.exit_code != 0
 
 
@@ -221,7 +231,10 @@ def test_comment_body_file(api: HfApi, repo_for_write: str, tmp_path):
     discussion = api.create_discussion(repo_id=repo_for_write, title="Comment file test")
     body_file = tmp_path / "comment.md"
     body_file.write_text("Comment from file")
-    result = cli(f"hf discussions comment {repo_for_write} {discussion.num} --body-file {body_file}")
+    result = cli(
+        f"hf discussions comment {repo_for_write} {discussion.num}",
+        extra_args=["--body-file", str(body_file)],
+    )
     assert result.exit_code == 0, result.output
 
 
