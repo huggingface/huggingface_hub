@@ -14,7 +14,6 @@
 # limitations under the License.
 import json
 import shlex
-import tempfile
 from typing import Optional
 
 import pytest
@@ -191,20 +190,18 @@ def test_create_with_body(repo_for_write: str):
     assert "Created discussion" in result.output
 
 
-def test_create_with_body_file(repo_for_write: str):
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write("Body from file")
-        f.flush()
-        result = cli(f'hf discussions create {repo_for_write} --title "From file" --body-file {f.name}')
+def test_create_with_body_file(repo_for_write: str, tmp_path):
+    body_file = tmp_path / "body.md"
+    body_file.write_text("Body from file")
+    result = cli(f'hf discussions create {repo_for_write} --title "From file" --body-file {body_file}')
     assert result.exit_code == 0, result.output
     assert "Created discussion" in result.output
 
 
-def test_create_body_and_body_file_conflict(repo_for_write: str):
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write("Body from file")
-        f.flush()
-        result = cli(f'hf discussions create {repo_for_write} --title "Conflict" --body "inline" --body-file {f.name}')
+def test_create_body_and_body_file_conflict(repo_for_write: str, tmp_path):
+    body_file = tmp_path / "body.md"
+    body_file.write_text("Body from file")
+    result = cli(f'hf discussions create {repo_for_write} --title "Conflict" --body "inline" --body-file {body_file}')
     assert result.exit_code != 0
 
 
@@ -220,12 +217,11 @@ def test_comment_discussion(api: HfApi, repo_for_write: str):
     assert f"Commented on #{discussion.num}" in result.output
 
 
-def test_comment_body_file(api: HfApi, repo_for_write: str):
+def test_comment_body_file(api: HfApi, repo_for_write: str, tmp_path):
     discussion = api.create_discussion(repo_id=repo_for_write, title="Comment file test")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-        f.write("Comment from file")
-        f.flush()
-        result = cli(f"hf discussions comment {repo_for_write} {discussion.num} --body-file {f.name}")
+    body_file = tmp_path / "comment.md"
+    body_file.write_text("Comment from file")
+    result = cli(f"hf discussions comment {repo_for_write} {discussion.num} --body-file {body_file}")
     assert result.exit_code == 0, result.output
 
 
