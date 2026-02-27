@@ -839,6 +839,106 @@ Use `hf papers` to list daily papers on the Hub.
 >>> hf papers ls --sort=trending --limit=5
 ```
 
+## hf discussions
+
+Use `hf discussions` to manage discussions and pull requests on Hub repositories. The command group covers listing, viewing, creating, commenting on, and managing both discussions and PRs. For a full guide on how the Hub's community features work, see the [Discussions and Pull Requests guide](./community).
+
+### List discussions
+
+```bash
+# List open discussions and PRs
+>>> hf discussions list username/my-model
+
+# List only pull requests
+>>> hf discussions list username/my-model --kind pull_request
+
+# List merged PRs
+>>> hf discussions list username/my-model --kind pull_request --status merged
+
+# List discussions by a specific author
+>>> hf discussions list username/my-model --author alice
+
+# Output as JSON for scripting
+>>> hf discussions list username/my-model --format json
+
+# Quiet mode: print only numbers (one per line)
+>>> hf discussions ls username/my-model --quiet
+```
+
+### View a discussion or PR
+
+```bash
+# View discussion details
+>>> hf discussions view username/my-model 5
+
+# View with all comments
+>>> hf discussions view username/my-model 5 --comments
+
+# View with PR diff
+>>> hf discussions view username/my-model 5 --diff
+
+# JSON output
+>>> hf discussions view username/my-model 5 --format json
+
+# Disable colors (for piping)
+>>> hf discussions view username/my-model 5 --no-color
+```
+
+### Create a discussion or PR
+
+```bash
+# Create a discussion
+>>> hf discussions create username/my-model --title "Bug report"
+
+# Create a discussion with a description
+>>> hf discussions create username/my-model --title "Feature request" --body "Please add X"
+
+# Create a discussion with description from a file
+>>> hf discussions create username/my-model --title "Report" --body-file report.md
+
+# Create a pull request
+>>> hf discussions create username/my-model --title "Fix typo" --pull-request
+```
+
+### Comment on a discussion or PR
+
+```bash
+# Add a comment
+>>> hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+
+# Comment from a file
+>>> hf discussions comment username/my-model 5 --body-file review.md
+
+# Comment from stdin
+>>> echo "LGTM" | hf discussions comment username/my-model 5 --body-file -
+```
+
+### Close, reopen, and merge
+
+```bash
+# Close a discussion (will prompt for confirmation)
+>>> hf discussions close username/my-model 5
+
+# Close with a comment, skipping confirmation
+>>> hf discussions close username/my-model 5 --yes --comment "Resolved"
+
+# Reopen a closed discussion
+>>> hf discussions reopen username/my-model 5 --yes
+
+# Merge a pull request
+>>> hf discussions merge username/my-model 5 --yes
+```
+
+### Rename and diff
+
+```bash
+# Rename a discussion
+>>> hf discussions rename username/my-model 5 "Updated title"
+
+# Show the diff of a pull request
+>>> hf discussions diff username/my-model 5
+```
+
 ## hf repos
 
 `hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.

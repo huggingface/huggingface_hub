@@ -140,6 +140,36 @@ Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] c
 
 Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
 
+## Manage Discussions and Pull Requests from the CLI
+
+All of the above operations are also available from the command line via `hf discussions`. This is useful for
+scripting, CI pipelines, or quick interactions without writing Python code.
+
+```bash
+# List open discussions and PRs on a repo
+hf discussions list bigscience/bloom
+
+# View a specific discussion with comments
+hf discussions view bigscience/bloom 2 --comments
+
+# Create a new discussion
+hf discussions create username/repo-name --title "Bug report" --body "Description here"
+
+# Create a pull request
+hf discussions create username/repo-name --title "Fix typo" --pull-request
+
+# Comment on a discussion or PR
+hf discussions comment username/repo-name 5 --body "LGTM!"
+
+# Merge a pull request
+hf discussions merge username/repo-name 5 --yes
+
+# Show the diff of a pull request
+hf discussions diff username/repo-name 5
+```
+
+For the full list of options, run `hf discussions --help` or see the [CLI reference](./cli#hf-discussions).
+
 ## Push changes to a Pull Request
 
 *Coming soon !*
