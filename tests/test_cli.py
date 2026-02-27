@@ -2317,6 +2317,38 @@ class TestJobsCommand:
         assert "xyz789ghi012 COMPLETED" in result.output
 
 
+class TestCreateUvCommandQuoting:
+    """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
+
+    def test_dependencies_with_version_specifiers_are_quoted(self, tmp_path: Path) -> None:
+        """Regression test: --with 'torch>=2.1' must be quoted so bash doesn't interpret '>' as redirection."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        api = HfApi()
+        command, env, secrets = api._create_uv_command_env_and_secrets(
+            script=str(script_path),
+            script_args=None,
+            dependencies=["torch>=2.1", "numpy"],
+            python=None,
+            env=None,
+            secrets=None,
+            namespace="test-user",
+            token=None,
+        )
+
+        assert command[0] == "bash"
+        assert command[1] == "-c"
+        bash_script = command[2]
+        # The version specifier must be quoted to prevent shell redirection
+        assert "'torch>=2.1'" in bash_script
+        assert "'numpy'" in bash_script
+        # The script name must also be quoted
+        assert "'train.py'" in bash_script
+
+
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""
 
