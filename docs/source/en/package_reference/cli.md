@@ -37,7 +37,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
-* `repo`: Manage repos on the Hub.
+* `repos`: Manage repos on the Hub. [alias: repo]
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
@@ -208,6 +208,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
+* `remove`: Remove files from a bucket. [alias: rm]
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -283,6 +284,8 @@ Learn more
 ### `hf buckets delete`
 
 Delete a bucket.
+
+This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
 
 **Usage**:
 
@@ -409,6 +412,45 @@ Examples
   $ hf buckets move user/old-bucket user/new-bucket
   $ hf buckets move user/my-bucket my-org/my-bucket
   $ hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets remove`
+
+Remove files from a bucket. [alias: rm]
+
+To delete an entire bucket, use `hf buckets delete` instead.
+
+**Usage**:
+
+```console
+$ hf buckets remove [OPTIONS] ARGUMENT
+```
+
+**Arguments**:
+
+* `ARGUMENT`: Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path. With --recursive, namespace/bucket_name is also accepted to target all files.  [required]
+
+**Options**:
+
+* `-R, --recursive`: Remove files recursively under the given prefix.
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run`: Preview what would be deleted without actually deleting.
+* `--include TEXT`: Include only files matching pattern (can specify multiple). Requires --recursive.
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple). Requires --recursive.
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets remove user/my-bucket/file.txt
+  $ hf buckets rm hf://buckets/user/my-bucket/file.txt
+  $ hf buckets rm user/my-bucket/logs/ --recursive
+  $ hf buckets rm user/my-bucket --recursive --include "*.tmp"
+  $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2230,14 +2272,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-## `hf repo`
+## `hf repos`
 
-Manage repos on the Hub.
+Manage repos on the Hub. [alias: repo]
 
 **Usage**:
 
 ```console
-$ hf repo [OPTIONS] COMMAND [ARGS]...
+$ hf repos [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -2254,14 +2296,14 @@ $ hf repo [OPTIONS] COMMAND [ARGS]...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
 
-### `hf repo branch`
+### `hf repos | repo branch`
 
 Manage branches for a repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo branch [OPTIONS] COMMAND [ARGS]...
+$ hf repos branch [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -2273,14 +2315,14 @@ $ hf repo branch [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new branch for a repo on the Hub.
 * `delete`: Delete a branch from a repo on the Hub.
 
-#### `hf repo branch create`
+#### `hf repos | repo branch create`
 
 Create a new branch for a repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo branch create [OPTIONS] REPO_ID BRANCH
+$ hf repos branch create [OPTIONS] REPO_ID BRANCH
 ```
 
 **Arguments**:
@@ -2297,22 +2339,22 @@ $ hf repo branch create [OPTIONS] REPO_ID BRANCH
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo branch create my-model dev
-  $ hf repo branch create my-model dev --revision abc123
+  $ hf repos branch create my-model dev
+  $ hf repos branch create my-model dev --revision abc123
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repo branch delete`
+#### `hf repos | repo branch delete`
 
 Delete a branch from a repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo branch delete [OPTIONS] REPO_ID BRANCH
+$ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 ```
 
 **Arguments**:
@@ -2327,21 +2369,21 @@ $ hf repo branch delete [OPTIONS] REPO_ID BRANCH
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo branch delete my-model dev
+  $ hf repos branch delete my-model dev
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo create`
+### `hf repos | repo create`
 
 Create a new repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo create [OPTIONS] REPO_ID
+$ hf repos create [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -2359,22 +2401,22 @@ $ hf repo create [OPTIONS] REPO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo create my-model
-  $ hf repo create my-dataset --repo-type dataset --private
+  $ hf repos create my-model
+  $ hf repos create my-dataset --repo-type dataset --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo delete`
+### `hf repos | repo delete`
 
 Delete a repo from the Hub. This is an irreversible operation.
 
 **Usage**:
 
 ```console
-$ hf repo delete [OPTIONS] REPO_ID
+$ hf repos delete [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -2389,21 +2431,21 @@ $ hf repo delete [OPTIONS] REPO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo delete my-model
+  $ hf repos delete my-model
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo delete-files`
+### `hf repos | repo delete-files`
 
 Delete files from a repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo delete-files [OPTIONS] REPO_ID PATTERNS...
+$ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 ```
 
 **Arguments**:
@@ -2422,23 +2464,23 @@ $ hf repo delete-files [OPTIONS] REPO_ID PATTERNS...
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo delete-files my-model file.txt
-  $ hf repo delete-files my-model "*.json"
-  $ hf repo delete-files my-model folder/
+  $ hf repos delete-files my-model file.txt
+  $ hf repos delete-files my-model "*.json"
+  $ hf repos delete-files my-model folder/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo move`
+### `hf repos | repo move`
 
 Move a repository from a namespace to another namespace.
 
 **Usage**:
 
 ```console
-$ hf repo move [OPTIONS] FROM_ID TO_ID
+$ hf repos move [OPTIONS] FROM_ID TO_ID
 ```
 
 **Arguments**:
@@ -2453,21 +2495,21 @@ $ hf repo move [OPTIONS] FROM_ID TO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo move old-namespace/my-model new-namespace/my-model
+  $ hf repos move old-namespace/my-model new-namespace/my-model
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo settings`
+### `hf repos | repo settings`
 
 Update the settings of a repository.
 
 **Usage**:
 
 ```console
-$ hf repo settings [OPTIONS] REPO_ID
+$ hf repos settings [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -2483,22 +2525,22 @@ $ hf repo settings [OPTIONS] REPO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo settings my-model --private
-  $ hf repo settings my-model --gated auto
+  $ hf repos settings my-model --private
+  $ hf repos settings my-model --gated auto
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repo tag`
+### `hf repos | repo tag`
 
 Manage tags for a repo on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repo tag [OPTIONS] COMMAND [ARGS]...
+$ hf repos tag [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -2511,14 +2553,14 @@ $ hf repo tag [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a tag for a repo.
 * `list`: List tags for a repo.
 
-#### `hf repo tag create`
+#### `hf repos | repo tag create`
 
 Create a tag for a repo.
 
 **Usage**:
 
 ```console
-$ hf repo tag create [OPTIONS] REPO_ID TAG
+$ hf repos tag create [OPTIONS] REPO_ID TAG
 ```
 
 **Arguments**:
@@ -2535,22 +2577,22 @@ $ hf repo tag create [OPTIONS] REPO_ID TAG
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo tag create my-model v1.0
-  $ hf repo tag create my-model v1.0 -m "First release"
+  $ hf repos tag create my-model v1.0
+  $ hf repos tag create my-model v1.0 -m "First release"
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repo tag delete`
+#### `hf repos | repo tag delete`
 
 Delete a tag for a repo.
 
 **Usage**:
 
 ```console
-$ hf repo tag delete [OPTIONS] REPO_ID TAG
+$ hf repos tag delete [OPTIONS] REPO_ID TAG
 ```
 
 **Arguments**:
@@ -2566,21 +2608,21 @@ $ hf repo tag delete [OPTIONS] REPO_ID TAG
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo tag delete my-model v1.0
+  $ hf repos tag delete my-model v1.0
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repo tag list`
+#### `hf repos | repo tag list`
 
 List tags for a repo.
 
 **Usage**:
 
 ```console
-$ hf repo tag list [OPTIONS] REPO_ID
+$ hf repos tag list [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
@@ -2594,7 +2636,7 @@ $ hf repo tag list [OPTIONS] REPO_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repo tag list my-model
+  $ hf repos tag list my-model
 
 Learn more
   Use `hf <command> --help` for more information about a command.

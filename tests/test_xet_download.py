@@ -47,13 +47,11 @@ class TestXetFileDownload:
 
     @contextmanager
     def _patch_get_refresh_xet_connection_info(self):
-        patcher = patch("huggingface_hub.utils.refresh_xet_connection_info")
-        connection_info = (
-            XetConnectionInfo(
-                endpoint="mock_endpoint",
-                access_token="mock_token",
-                expiration_unix_epoch=9999999999,
-            ),
+        patcher = patch("huggingface_hub.file_download.refresh_xet_connection_info")
+        connection_info = XetConnectionInfo(
+            endpoint="mock_endpoint",
+            access_token="mock_token",
+            expiration_unix_epoch=9999999999,
         )
 
         mock_xet_connection = patcher.start()
@@ -253,6 +251,30 @@ class TestXetFileDownload:
                     # Verify xet_get was called and http_get was not
                     mocks["xet_get"].assert_called_once()
                     mocks["http_get"].assert_not_called()
+
+    def test_request_headers_passed_to_download_files(self, tmp_path):
+        """Test that headers (minus authorization) are passed as request_headers to hf_xet.download_files."""
+        headers = {
+            "authorization": "Bearer my_token",
+            "x-custom-header": "custom_value",
+            "user-agent": "test-agent",
+        }
+
+        with self._patch_xet_file_metadata(with_xet_data=True):
+            with self._patch_get_refresh_xet_connection_info():
+                with patch("hf_xet.download_files") as mock:
+                    hf_hub_download(
+                        DUMMY_XET_MODEL_ID,
+                        filename=DUMMY_XET_FILE,
+                        cache_dir=tmp_path,
+                        force_download=True,
+                        headers=headers,
+                    )
+                    mock.assert_called_once()
+                    request_headers = mock.call_args.kwargs["request_headers"]
+                    assert request_headers.get("x-custom-header") == "custom_value"
+                    assert request_headers.get("user-agent") == "test-agent"
+                    assert "authorization" not in request_headers
 
 
 @requires("hf_xet")

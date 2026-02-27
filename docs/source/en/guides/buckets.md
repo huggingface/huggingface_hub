@@ -4,13 +4,6 @@ rendered properly in your Markdown viewer.
 
 # Buckets
 
-> [!WARNING]
-> The `hf buckets` commands are currently available from the `main` branch.
-> Install `hf` from `main` with:
-> ```bash
-> uv tool install "huggingface-hub @ git+https://github.com/huggingface/huggingface_hub.git@main"
-> ```
-
 Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control.
 
 You can interact with buckets using the Python API ([`HfApi`]) or the CLI (`hf buckets`). In this guide, we will walk through all the operations available.
@@ -183,6 +176,36 @@ Or via CLI:
 
 # Don't error if bucket doesn't exist
 >>> hf buckets delete username/my-bucket --yes --missing-ok
+```
+
+### Delete files
+
+Use [`batch_bucket_files`] with the `delete` parameter to delete files from a bucket:
+
+```py
+>>> from huggingface_hub import batch_bucket_files
+
+# Delete specific files
+>>> batch_bucket_files("username/my-bucket", delete=["old-model.bin", "logs/debug.log"])
+```
+
+Or via CLI with `hf buckets rm` (or `hf buckets remove`):
+
+```bash
+# Remove a single file
+>>> hf buckets rm username/my-bucket/old-model.bin
+
+# Remove all files under a prefix (requires --recursive)
+>>> hf buckets rm username/my-bucket/logs/ --recursive
+
+# Remove only files matching a pattern across the entire bucket
+>>> hf buckets rm username/my-bucket --recursive --include "*.tmp"
+
+# Exclude specific files from removal
+>>> hf buckets rm username/my-bucket/data/ --recursive --exclude "*.safetensors"
+
+# Preview what would be deleted
+>>> hf buckets rm username/my-bucket/checkpoints/ --recursive --dry-run
 ```
 
 ### Move a bucket
