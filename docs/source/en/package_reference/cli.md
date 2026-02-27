@@ -1047,7 +1047,8 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-c, --comment TEXT`: An optional comment to post when closing.
+* `--comment TEXT`: An optional comment to post when closing.
+* `-y, --yes`: Skip confirmation prompt.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1078,7 +1079,8 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-b, --body TEXT`: The comment text (supports Markdown).  [required]
+* `--body TEXT`: The comment text (supports Markdown).
+* `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1108,8 +1110,9 @@ $ hf discussions create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `-t, --title TEXT`: The title of the discussion or pull request.  [required]
-* `-b, --body TEXT`: The description (supports Markdown).
+* `--title TEXT`: The title of the discussion or pull request.  [required]
+* `--body TEXT`: The description (supports Markdown).
+* `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -1172,10 +1175,10 @@ $ hf discussions list [OPTIONS] REPO_ID
 **Options**:
 
 * `-s, --status [open|closed|merged|draft|all]`: Filter by status (open, closed, merged, draft, all).  [default: open]
-* `--type [all|discussion|pull_request]`: Filter by type (discussion, pull_request, all).  [default: all]
+* `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -1183,8 +1186,8 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 Examples
   $ hf discussions list username/my-model
-  $ hf discussions list username/my-model --type pull_request --status merged
-  $ hf discussions list username/my-dataset --repo-type dataset --status closed
+  $ hf discussions list username/my-model --kind pull_request --status merged
+  $ hf discussions list username/my-dataset --type dataset --status closed
   $ hf discussions list username/my-model --author alice --format json
 
 Learn more
@@ -1209,7 +1212,8 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-c, --comment TEXT`: An optional comment to post when merging.
+* `--comment TEXT`: An optional comment to post when merging.
+* `-y, --yes`: Skip confirmation prompt.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1270,7 +1274,8 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-c, --comment TEXT`: An optional comment to post when reopening.
+* `--comment TEXT`: An optional comment to post when reopening.
+* `-y, --yes`: Skip confirmation prompt.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1301,11 +1306,11 @@ $ hf discussions view [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `-c, --comments`: Show all comments.
-* `-d, --diff`: Show the diff (for pull requests).
-* `-w, --web`: Open in the browser instead of printing to the terminal.
+* `--comments`: Show all comments.
+* `--diff`: Show the diff (for pull requests).
+* `--no-color`: Disable colored output.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--format [table|json]`: Output format (table or json).  [default: table]
+* `--format [text|json]`: Output format (text or json).  [default: text]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
