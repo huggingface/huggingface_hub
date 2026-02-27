@@ -26,6 +26,7 @@ from huggingface_hub.utils import (
     HFCacheInfo,
     SoftTemporaryDirectory,
 )
+from huggingface_hub.utils._parquet import DatasetParquetEntry
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_utils import DUMMY_MODEL_ID
@@ -1500,6 +1501,111 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestDatasetsParquetCommand:
+    def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_entries.return_value = [
+                DatasetParquetEntry(
+                    config="datasets",
+                    split="train",
+                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "SUBSET" in result.stdout
+        assert "URL" in result.stdout
+        assert "datasets" in result.stdout
+        assert "train" in result.stdout
+        assert (
+            "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet"
+            in result.stdout
+        )
+
+    def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_entries.return_value = [
+                DatasetParquetEntry(
+                    config="models",
+                    split="train",
+                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [
+            {
+                "subset": "models",
+                "split": "train",
+                "url": "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
+            }
+        ]
+
+    def test_datasets_parquet_no_entries_returns_cli_error(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_entries.side_effect = ValueError(
+                "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
+            )
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert str(result.exception) == "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
+
+
+class TestDatasetsSqlCommand:
+    def test_datasets_sql_table_output(self, runner: CliRunner) -> None:
+        table_str = "┌───────┐\n│ count │\n├───────┤\n│     5 │\n└───────┘"
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.execute_raw_sql_query.return_value = table_str
+            result = runner.invoke(
+                app,
+                ["datasets", "sql", "SELECT COUNT(*) AS count"],
+            )
+
+        assert result.exit_code == 0
+        assert "count" in result.stdout
+        assert "5" in result.stdout
+        assert api.execute_raw_sql_query.call_args.kwargs["output_format"] == "table"
+
+    def test_datasets_sql_json_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.execute_raw_sql_query.return_value = json.dumps([{"subset": "models"}], indent=2)
+            result = runner.invoke(
+                app,
+                [
+                    "datasets",
+                    "sql",
+                    "SELECT 'models' AS subset",
+                    "--format",
+                    "json",
+                ],
+            )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [{"subset": "models"}]
+        assert api.execute_raw_sql_query.call_args.kwargs["output_format"] == "json"
+
+    def test_datasets_sql_error_is_cli_error(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.execute_raw_sql_query.side_effect = ValueError("SQL query cannot be empty.")
+            result = runner.invoke(app, ["datasets", "sql", " "])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert str(result.exception) == "SQL query cannot be empty."
 
 
 class TestSpacesLsCommand:

@@ -26,12 +26,18 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, Optional, Union, get_args
 
 import typer
 
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import (
+    CLIError,
+    HfHubHTTPError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
+from huggingface_hub.utils import tabulate
 
 from ._cli_utils import (
     AuthorOpt,
@@ -124,3 +130,67 @@ def datasets_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{dataset_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
+
+
+@datasets_cli.command(
+    "parquet",
+    examples=[
+        "hf datasets parquet cfahlgren1/hub-stats",
+        "hf datasets parquet cfahlgren1/hub-stats --subset models",
+        "hf datasets parquet cfahlgren1/hub-stats --split train",
+        "hf datasets parquet cfahlgren1/hub-stats --format json",
+    ],
+)
+def datasets_parquet(
+    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
+    split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
+    format: FormatOpt = OutputFormat.table,
+    token: TokenOpt = None,
+) -> None:
+    """List parquet file URLs available for a dataset."""
+    api = get_hf_api(token=token)
+
+    try:
+        entries = api.list_dataset_parquet_entries(repo_id=dataset_id, config=subset, split=split)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
+    except ValueError as e:
+        raise CLIError(str(e)) from e
+    except HfHubHTTPError as e:
+        raise CLIError(str(e)) from e
+    rows: list[list[Union[str, int]]] = [[entry.config, entry.split, entry.url] for entry in entries]
+
+    if format == OutputFormat.table:
+        typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "URL"]))
+        return
+
+    if format == OutputFormat.json:
+        typer.echo(
+            json.dumps(
+                [{"subset": entry.config, "split": entry.split, "url": entry.url} for entry in entries],
+                indent=2,
+            )
+        )
+        return
+
+
+@datasets_cli.command(
+    "sql",
+    examples=[
+        "hf datasets sql \"SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')\"",
+        "hf datasets sql \"SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5\" --format json",
+    ],
+)
+def datasets_sql(
+    sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
+    format: FormatOpt = OutputFormat.table,
+    token: TokenOpt = None,
+) -> None:
+    """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
+    api = get_hf_api(token=token)
+    try:
+        output = api.execute_raw_sql_query(sql_query=sql, output_format=format.value)
+    except (ImportError, ValueError) as e:
+        raise CLIError(str(e)) from e
+    typer.echo(output)

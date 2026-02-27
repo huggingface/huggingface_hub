@@ -793,6 +793,41 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 >>> hf datasets info HuggingFaceFW/fineweb
 ```
 
+### List parquet URLs
+
+Use `hf datasets parquet` to discover parquet file URLs for a dataset before writing SQL queries.
+Datasets on the Hub are auto-converted to Parquet on the backend by the Dataset Viewer service (for eligible datasets).
+See the [Parquet conversion guide](https://huggingface.co/docs/dataset-viewer/parquet) for details.
+
+```bash
+>>> hf datasets parquet cfahlgren1/hub-stats
+>>> hf datasets parquet cfahlgren1/hub-stats --subset models
+>>> hf datasets parquet cfahlgren1/hub-stats --split train
+>>> hf datasets parquet cfahlgren1/hub-stats --format json
+```
+
+The default table output includes subset, split, and parquet file URL from the Hub API.
+
+### Run SQL on dataset parquet
+
+Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet URLs.
+Discover URLs first with `hf datasets parquet`, then query them directly with `read_parquet(...)`.
+
+```bash
+>>> hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
+>>> hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
+```
+
+Install DuckDB first if needed:
+
+```bash
+# Python package
+>>> pip install duckdb
+
+# or standalone DuckDB CLI (Homebrew: macOS/Linux)
+>>> brew install duckdb
+```
+
 ## hf spaces
 
 Use `hf spaces` to list Spaces on the Hub and get detailed information about a specific Space.

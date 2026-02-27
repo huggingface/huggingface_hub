@@ -939,6 +939,8 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 * `info`: Get info about a dataset on the Hub.
 * `ls`: List datasets on the Hub.
+* `parquet`: List parquet file URLs available for a...
+* `sql`: Execute a raw SQL query with DuckDB...
 
 ### `hf datasets info`
 
@@ -997,6 +999,68 @@ Examples
   $ hf datasets ls
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets parquet`
+
+List parquet file URLs available for a dataset.
+
+**Usage**:
+
+```console
+$ hf datasets parquet [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--subset TEXT`: Filter parquet entries by subset/config.
+* `--split TEXT`: Filter parquet entries by split.
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets parquet cfahlgren1/hub-stats
+  $ hf datasets parquet cfahlgren1/hub-stats --subset models
+  $ hf datasets parquet cfahlgren1/hub-stats --split train
+  $ hf datasets parquet cfahlgren1/hub-stats --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets sql`
+
+Execute a raw SQL query with DuckDB against dataset parquet URLs.
+
+**Usage**:
+
+```console
+$ hf datasets sql [OPTIONS] SQL
+```
+
+**Arguments**:
+
+* `SQL`: Raw SQL query to execute.  [required]
+
+**Options**:
+
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
+  $ hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
