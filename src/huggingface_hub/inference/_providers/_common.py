@@ -22,6 +22,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
     #                                    task="conversational",
     #                                    status="live")
+    "alphaneural": {},
     "cerebras": {},
     "cohere": {},
     "clarifai": {},
