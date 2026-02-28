@@ -29,6 +29,7 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .mokzu import MokzuImageToVideoTask
 from .nebius import (
     NebiusConversationalTask,
     NebiusFeatureExtractionTask,
@@ -73,6 +74,7 @@ PROVIDER_T = Literal[
     "groq",
     "hf-inference",
     "hyperbolic",
+    "mokzu",
     "nebius",
     "novita",
     "nscale",
@@ -155,6 +157,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-image": HyperbolicTextToImageTask(),
         "conversational": HyperbolicTextGenerationTask("conversational"),
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
+    },
+    "mokzu": {
+        "image-to-video": MokzuImageToVideoTask(),
     },
     "nebius": {
         "text-to-image": NebiusTextToImageTask(),
