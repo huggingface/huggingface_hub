@@ -2827,9 +2827,7 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         path = (
-            f"{self.endpoint}/api/models/{repo_id}"
-            if revision is None
-            else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
+            f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         )
         params: dict = {}
         if securityStatus:
@@ -2898,9 +2896,7 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         path = (
-            f"{self.endpoint}/api/datasets/{repo_id}"
-            if revision is None
-            else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
+            f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         )
         params: dict = {}
         if files_metadata:
@@ -2968,9 +2964,7 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         path = (
-            f"{self.endpoint}/api/spaces/{repo_id}"
-            if revision is None
-            else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
+            f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision or constants.DEFAULT_REVISION, safe='')}"
         )
         params: dict = {}
         if files_metadata:
