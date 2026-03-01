@@ -14,11 +14,13 @@ from unittest.mock import Mock, patch
 import fsspec
 import pytest
 
-from huggingface_hub import constants, hf_file_system
-from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub import HfApi, constants, hf_file_system
+from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
+    HfFileSystemResolvedBucketPath,
+    HfFileSystemResolvedRepositoryPath,
     HfFileSystemStreamFile,
 )
 
@@ -26,157 +28,80 @@ from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
 
 
-class HfFileSystemTests(unittest.TestCase):
+class _HfFileSystemBaseTests(unittest.TestCase):
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    http_url_path_prefix: str
+    hffs: HfFileSystem
+    hf_path: str
+    readme_file_path: str
+    readme_file: str
+    text_file_path: str
+    text_file: str
+
     @classmethod
     def setUpClass(cls):
         """Register `HfFileSystem` as a `fsspec` filesystem if not already registered."""
         if HfFileSystem.protocol not in fsspec.available_protocols():
             fsspec.register_implementation(HfFileSystem.protocol, HfFileSystem)
 
-    def setUp(self):
-        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
-        self.api = self.hffs._api
+    def assertInfoIsNotExpanded(self, info):
+        raise NotImplementedError
 
-        # Create dummy repo
-        repo_url = self.api.create_repo(repo_name(), repo_type="dataset")
-        self.repo_id = repo_url.repo_id
-        self.hf_path = f"datasets/{self.repo_id}"
+    def assertInfoIsExpanded(self, info):
+        raise NotImplementedError
 
-        # Upload files
-        self.api.upload_file(
-            path_or_fileobj=b"dummy binary data on pr",
-            path_in_repo="data/binary_data_for_pr.bin",
-            repo_id=self.repo_id,
-            repo_type="dataset",
-            create_pr=True,
-        )
-        self.api.upload_file(
-            path_or_fileobj="dummy text data".encode("utf-8"),
-            path_in_repo="data/text_data.txt",
-            repo_id=self.repo_id,
-            repo_type="dataset",
-        )
-        self.api.upload_file(
-            path_or_fileobj=b"dummy binary data",
-            path_in_repo="data/binary_data.bin",
-            repo_id=self.repo_id,
-            repo_type="dataset",
-        )
+    def assertInfoFields(self, info):
+        raise NotImplementedError
 
-        self.text_file_path_in_repo = "data/text_data.txt"
-        self.text_file = self.hf_path + "/" + self.text_file_path_in_repo
 
-    def tearDown(self):
-        self.api.delete_repo(self.repo_id, repo_type="dataset")
-
+class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
     def test_info(self):
         root_dir = self.hffs.info(self.hf_path)
         self.assertEqual(root_dir["type"], "directory")
         self.assertEqual(root_dir["size"], 0)
-        self.assertTrue(root_dir["name"].endswith(self.repo_id))
-        self.assertIsNone(root_dir["last_commit"])
+        self.assertEqual(root_dir["name"], self.hf_path)
+        self.assertInfoIsNotExpanded(root_dir)
+        self.assertInfoFields(root_dir)
 
         data_dir = self.hffs.info(self.hf_path + "/data")
         self.assertEqual(data_dir["type"], "directory")
         self.assertEqual(data_dir["size"], 0)
         self.assertTrue(data_dir["name"].endswith("/data"))
-        self.assertIsNone(data_dir["last_commit"])
-        self.assertIsNotNone(data_dir["tree_id"])
+        self.assertInfoIsNotExpanded(data_dir)
+        self.assertInfoFields(data_dir)
 
         text_data_file = self.hffs.info(self.text_file)
         self.assertEqual(text_data_file["type"], "file")
-        self.assertGreater(text_data_file["size"], 0)  # not empty
         self.assertTrue(text_data_file["name"].endswith("/data/text_data.txt"))
-        self.assertIsNone(text_data_file["lfs"])
-        self.assertIsNone(text_data_file["last_commit"])
-        self.assertIsNotNone(text_data_file["blob_id"])
-        self.assertIn("security", text_data_file)  # the staging endpoint does not run security checks
+        self.assertInfoIsNotExpanded(text_data_file)
+        self.assertInfoFields(text_data_file)
 
         # cached info
         self.assertEqual(self.hffs.info(self.text_file), text_data_file)
 
     def test_glob(self):
         self.assertEqual(
-            self.hffs.glob(self.hf_path + "/.gitattributes"),
-            [self.hf_path + "/.gitattributes"],
+            self.hffs.glob(self.readme_file),
+            [self.readme_file],
         )
         self.assertEqual(
             sorted(self.hffs.glob(self.hf_path + "/*")),
-            sorted([self.hf_path + "/.gitattributes", self.hf_path + "/data"]),
+            sorted([self.readme_file, self.hf_path + "/data"]),
         )
-
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "/*", revision="main")),
-            sorted([self.hf_path + "/.gitattributes", self.hf_path + "/data"]),
-        )
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "@main" + "/*")),
-            sorted([self.hf_path + "@main" + "/.gitattributes", self.hf_path + "@main" + "/data"]),
-        )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "@refs%2Fpr%2F1" + "/data/*"),
-            [self.hf_path + "@refs%2Fpr%2F1" + "/data/binary_data_for_pr.bin"],
-        )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"),
-            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
-        )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "/data/*", revision="refs/pr/1"),
-            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
-        )
-
-        self.assertIsNone(
-            self.hffs.dircache[self.hf_path + "@main"][0]["last_commit"]
-        )  # no detail -> no last_commit in cache
-
-        files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True, expand_info=False)
-        self.assertIsInstance(files, dict)
-        self.assertEqual(len(files), 2)
-        keys = sorted(files)
-        self.assertTrue(
-            files[keys[0]]["name"].endswith("/.gitattributes") and files[keys[1]]["name"].endswith("/data")
-        )
-        self.assertIsNone(
-            self.hffs.dircache[self.hf_path + "@main"][0]["last_commit"]
-        )  # detail but no expand info -> no last_commit in cache
-
-        files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True)
-        self.assertIsInstance(files, dict)
-        self.assertEqual(len(files), 2)
-        keys = sorted(files)
-        self.assertTrue(
-            files[keys[0]]["name"].endswith("/.gitattributes") and files[keys[1]]["name"].endswith("/data")
-        )
-        self.assertIsNone(files[keys[0]]["last_commit"])
 
     def test_url(self):
         self.assertEqual(
             self.hffs.url(self.text_file),
-            f"{ENDPOINT_STAGING}/datasets/{self.repo_id}/resolve/main/data/text_data.txt",
+            f"{ENDPOINT_STAGING}/{self.hf_path}/resolve/{self.http_url_path_prefix}data/text_data.txt",
         )
         self.assertEqual(
             self.hffs.url(self.hf_path + "/data"),
-            f"{ENDPOINT_STAGING}/datasets/{self.repo_id}/tree/main/data",
+            f"{ENDPOINT_STAGING}/{self.hf_path}/tree/{self.http_url_path_prefix}data",
         )
 
     def test_file_type(self):
-        self.assertTrue(
-            self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")
-        )
+        self.assertTrue(self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.readme_file))
         self.assertTrue(self.hffs.isfile(self.text_file) and not self.hffs.isfile(self.hf_path + "/data"))
-
-    def test_remove_file(self):
-        self.hffs.rm_file(self.text_file)
-        self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
-        self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
-        self.assertEqual(self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"), [])
-
-    def test_remove_directory(self):
-        self.hffs.rm(self.hf_path + "/data", recursive=True)
-        self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
-        self.hffs.rm(self.hf_path + "@refs/pr/1" + "/data", recursive=True)
-        self.assertNotIn(self.hf_path + "@refs/pr/1" + "/data", self.hffs.ls(self.hf_path))
 
     def test_read_file(self):
         with self.hffs.open(self.text_file, "r") as f:
@@ -266,51 +191,6 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(f.read(100), b"dummybinary")
         self.assertEqual(f.read(1), b"")
 
-    def test_read_file_with_revision(self):
-        with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
-            self.assertEqual(f.read(), b"dummy binary data on pr")
-
-    def test_write_file(self):
-        data = "new text data"
-        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
-            f.write(data)
-        self.assertIn(self.hf_path + "/data/new_text_data.txt", self.hffs.glob(self.hf_path + "/data/*"))
-        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
-            self.assertEqual(f.read(), data)
-
-    def test_write_file_multiple_chunks(self):
-        data = "a" * (4 << 20)  # 4MB
-        with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "w") as f:
-            for _ in range(8):  # 32MB in total
-                f.write(data)
-
-        self.assertIn(self.hf_path + "/data/new_text_data_big.txt", self.hffs.glob(self.hf_path + "/data/*"))
-        with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "r") as f:
-            for _ in range(8):
-                self.assertEqual(f.read(len(data)), data)
-
-    @unittest.skip("Not implemented yet")
-    def test_append_file(self):
-        with self.hffs.open(self.text_file, "a") as f:
-            f.write(" appended text")
-
-        with self.hffs.open(self.text_file, "r") as f:
-            self.assertEqual(f.read(), "dummy text data appended text")
-
-    def test_copy_file(self):
-        # Non-LFS file
-        self.assertIsNone(self.hffs.info(self.text_file)["lfs"])
-        self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
-        with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
-            self.assertEqual(f.read(), "dummy text data")
-        self.assertIsNone(self.hffs.info(self.hf_path + "/data/text_data_copy.txt")["lfs"])
-        # LFS file
-        self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data.bin")["lfs"])
-        self.hffs.cp_file(self.hf_path + "/data/binary_data.bin", self.hf_path + "/data/binary_data_copy.bin")
-        with self.hffs.open(self.hf_path + "/data/binary_data_copy.bin", "rb") as f:
-            self.assertEqual(f.read(), b"dummy binary data")
-        self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin")["lfs"])
-
     def test_modified_time(self):
         self.assertIsInstance(self.hffs.modified(self.text_file), datetime.datetime)
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
@@ -329,7 +209,7 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
-            f"hf://datasets/{self.repo_id}/data/text_data.txt",
+            "hf://" + self.text_file,
             storage_options={
                 "endpoint": ENDPOINT_STAGING,
                 "token": TOKEN,
@@ -340,104 +220,70 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(fs.token, TOKEN)
         self.assertEqual(paths, [self.text_file])
 
-        fs, _, paths = fsspec.get_fs_token_paths(f"hf://{self.repo_id}/data/text_data.txt")
+        fs, _, paths = fsspec.get_fs_token_paths("hf://" + self.text_file)
         self.assertIsInstance(fs, HfFileSystem)
-        self.assertEqual(paths, [f"{self.repo_id}/data/text_data.txt"])
+        self.assertEqual(paths, [self.text_file])
 
-    def test_list_root_directory_no_revision(self):
-        files = self.hffs.ls(self.hf_path)
+    def test_list_root_directory(self):
+        files = sorted(self.hffs.ls(self.hf_path), key=lambda info: info["name"])
         self.assertEqual(len(files), 2)
 
-        self.assertEqual(files[0]["type"], "directory")
-        self.assertEqual(files[0]["size"], 0)
-        self.assertTrue(files[0]["name"].endswith("/data"))
-        self.assertIsNone(files[0]["last_commit"])
-        self.assertIsNotNone(files[0]["tree_id"])
+        self.assertEqual(files[1]["type"], "directory")
+        self.assertEqual(files[1]["size"], 0)
+        self.assertTrue(files[1]["name"].endswith("/data"))
+        self.assertInfoIsNotExpanded(files[1])
+        self.assertInfoFields(files[1])
 
-        self.assertEqual(files[1]["type"], "file")
-        self.assertGreater(files[1]["size"], 0)  # not empty
-        self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNone(files[1]["last_commit"])
-        self.assertIsNotNone(files[1]["blob_id"])
-        self.assertIn("security", files[1])  # the staging endpoint does not run security checks
+        self.assertEqual(files[0]["type"], "file")
+        self.assertTrue(files[0]["name"].endswith(self.readme_file_path))
+        self.assertInfoIsNotExpanded(files[0])
+        self.assertInfoFields(files[0])
 
-    def test_list_data_directory_no_revision(self):
-        files = self.hffs.ls(self.hf_path + "/data")
+    def test_list_data_directory(self):
+        files = sorted(self.hffs.ls(self.hf_path + "/data"), key=lambda info: info["name"])
         self.assertEqual(len(files), 2)
 
         self.assertEqual(files[0]["type"], "file")
-        self.assertGreater(files[0]["size"], 0)  # not empty
         self.assertTrue(files[0]["name"].endswith("/data/binary_data.bin"))
-        self.assertIsNotNone(files[0]["lfs"])
-        self.assertIn("sha256", files[0]["lfs"])
-        self.assertIn("size", files[0]["lfs"])
-        self.assertIn("pointer_size", files[0]["lfs"])
-        self.assertIsNone(files[0]["last_commit"])
-        self.assertIsNotNone(files[0]["blob_id"])
-        self.assertIn("security", files[0])  # the staging endpoint does not run security checks
+        self.assertInfoIsNotExpanded(files[0])
+        self.assertInfoFields(files[0])
 
         self.assertEqual(files[1]["type"], "file")
-        self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
-        self.assertIsNone(files[1]["lfs"])
-        self.assertIsNone(files[1]["last_commit"])
-        self.assertIsNotNone(files[1]["blob_id"])
-        self.assertIn("security", files[1])  # the staging endpoint does not run security checks
+        self.assertInfoIsNotExpanded(files[1])
+        self.assertInfoFields(files[1])
 
-    def test_list_data_file_no_revision(self):
+    def test_list_data_file(self):
         files = self.hffs.ls(self.text_file)
         self.assertEqual(len(files), 1)
 
         self.assertEqual(files[0]["type"], "file")
-        self.assertGreater(files[0]["size"], 0)  # not empty
         self.assertTrue(files[0]["name"].endswith("/data/text_data.txt"))
-        self.assertIsNone(files[0]["lfs"])
-        self.assertIsNone(files[0]["last_commit"])
-        self.assertIsNotNone(files[0]["blob_id"])
-        self.assertIn("security", files[0])  # the staging endpoint does not run security checks
+        self.assertInfoIsNotExpanded(files[0])
+        self.assertInfoFields(files[0])
 
-    def test_list_data_directory_with_revision(self):
-        files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
-
-        for test_name, files in {
-            "quoted_rev_in_path": self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data"),
-            "rev_in_path": self.hffs.ls(self.hf_path + "@refs/pr/1" + "/data"),
-            "rev_as_arg": self.hffs.ls(self.hf_path + "/data", revision="refs/pr/1"),
-            "quoted_rev_in_path_and_rev_as_arg": self.hffs.ls(
-                self.hf_path + "@refs%2Fpr%2F1" + "/data", revision="refs/pr/1"
-            ),
-        }.items():
-            with self.subTest(test_name):
-                self.assertEqual(len(files), 1)  # only one file in PR
-                self.assertEqual(files[0]["type"], "file")
-                self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
-                if "quoted_rev_in_path" in test_name:
-                    self.assertIn("@refs%2Fpr%2F1", files[0]["name"])
-                elif "rev_in_path" in test_name:
-                    self.assertIn("@refs/pr/1", files[0]["name"])
-
-    def test_list_root_directory_no_revision_no_detail_then_with_detail(self):
-        files = self.hffs.ls(self.hf_path, detail=False)
+    def test_list_root_directory_no_detail_then_with_detail(self):
+        files = sorted(self.hffs.ls(self.hf_path, detail=False))
         self.assertEqual(len(files), 2)
-        self.assertTrue(files[0].endswith("/data") and files[1].endswith("/.gitattributes"))
-        self.assertIsNone(self.hffs.dircache[self.hf_path][0]["last_commit"])  # no detail -> no last_commit in cache
+        self.assertTrue(files[1].endswith("/data") and files[0].endswith(self.readme_file_path))
+        self.assertInfoIsNotExpanded(self.hffs.dircache[self.hf_path][0])
 
-        files = self.hffs.ls(self.hf_path, detail=True)
+        files = sorted(self.hffs.ls(self.hf_path, detail=True), key=lambda info: info["name"])
         self.assertEqual(len(files), 2)
-        self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNone(
-            self.hffs.dircache[self.hf_path][0]["last_commit"]
-        )  # no expand_info -> no last_commit in cache
+        self.assertTrue(files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path))
+        self.assertInfoIsNotExpanded(self.hffs.dircache[self.hf_path][0])
 
-        files = self.hffs.ls(self.hf_path, detail=True, expand_info=True)
+        files = sorted(self.hffs.ls(self.hf_path, detail=True, expand_info=True), key=lambda info: info["name"])
         self.assertEqual(len(files), 2)
-        self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
-        self.assertIsNotNone(self.hffs.dircache[self.hf_path][0]["last_commit"])
+        self.assertTrue(files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path))
+        self.assertInfoIsExpanded(self.hffs.dircache[self.hf_path][0])
 
-    def test_find_root_directory_no_revision(self):
+    def test_find_root_directory(self):
         files = self.hffs.find(self.hf_path, detail=False)
         self.assertEqual(
-            files, self.hffs.ls(self.hf_path, detail=False)[1:] + self.hffs.ls(self.hf_path + "/data", detail=False)
+            files,
+            sorted(self.hffs.ls(self.hf_path, detail=False))[:1]
+            + sorted(self.hffs.ls(self.hf_path + "/data", detail=False)),
         )
 
         files = self.hffs.find(self.hf_path, detail=True)
@@ -445,8 +291,8 @@ class HfFileSystemTests(unittest.TestCase):
             files,
             {
                 f["name"]: f
-                for f in self.hffs.ls(self.hf_path, detail=True)[1:]
-                + self.hffs.ls(self.hf_path + "/data", detail=True)
+                for f in sorted(self.hffs.ls(self.hf_path, detail=True), key=lambda info: info["name"])[:1]
+                + sorted(self.hffs.ls(self.hf_path + "/data", detail=True), key=lambda info: info["name"])
             },
         )
 
@@ -460,39 +306,12 @@ class HfFileSystemTests(unittest.TestCase):
             ),
         )
 
-    def test_find_root_directory_no_revision_with_incomplete_cache(self):
-        self.api.upload_file(
-            path_or_fileobj=b"dummy text data 2",
-            path_in_repo="data/sub_data/text_data2.txt",
-            repo_id=self.repo_id,
-            repo_type="dataset",
-        )
-
-        self.api.upload_file(
-            path_or_fileobj=b"dummy binary data 2",
-            path_in_repo="data1/binary_data2.bin",
-            repo_id=self.repo_id,
-            repo_type="dataset",
-        )
-
-        # Copy the result to make it robust to the cache modifications
-        # See discussion in https://github.com/huggingface/huggingface_hub/pull/2103
-        # for info on why this is not done in `HfFileSystem.find` by default
-        files = copy.deepcopy(self.hffs.find(self.hf_path, detail=True))
-
-        # some directories not in cache
-        self.hffs.dircache.pop(self.hf_path + "/data/sub_data")
-        # some files not expanded
-        self.hffs.dircache[self.hf_path + "/data"][1]["last_commit"] = None
-        out = self.hffs.find(self.hf_path, detail=True)
-        self.assertEqual(out, files)
-
-    def test_find_data_file_no_revision(self):
+    def test_find_data_file(self):
         files = self.hffs.find(self.text_file, detail=False)
         self.assertEqual(files, [self.text_file])
 
     def test_find_maxdepth(self):
-        text_file_depth = self.text_file_path_in_repo.count("/") + 1
+        text_file_depth = self.text_file_path.count("/") + 1
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
         self.assertNotIn(self.text_file, files)
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth)
@@ -566,8 +385,377 @@ class HfFileSystemTests(unittest.TestCase):
             assert isinstance(fs, HfFileSystem)
             assert fs in HfFileSystem._cache.values()
             assert self.hf_path + "/data" in fs.dircache
-            assert list(fs._repo_and_revision_exists_cache)[0][1] == self.repo_id
+            assert len(list(fs._repo_and_revision_exists_cache) + list(fs._bucket_exists_cache)) == 1
             assert fs.isfile(self.text_file)
+
+
+class _HfFileSystemBaseRWTests(_HfFileSystemBaseTests):
+    def test_remove_file(self):
+        self.hffs.rm_file(self.text_file)
+        self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
+
+    def test_remove_directory(self):
+        self.hffs.rm(self.hf_path + "/data", recursive=True)
+        self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
+
+    def test_write_file(self):
+        data = "new text data"
+        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
+            f.write(data)
+        self.assertIn(self.hf_path + "/data/new_text_data.txt", self.hffs.glob(self.hf_path + "/data/*"))
+        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
+            self.assertEqual(f.read(), data)
+
+    def test_write_file_multiple_chunks(self):
+        data = "a" * (4 << 20)  # 4MB
+        with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "w") as f:
+            for _ in range(8):  # 32MB in total
+                f.write(data)
+
+        self.assertIn(self.hf_path + "/data/new_text_data_big.txt", self.hffs.glob(self.hf_path + "/data/*"))
+        with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "r") as f:
+            for _ in range(8):
+                self.assertEqual(f.read(len(data)), data)
+
+    @unittest.skip("Not implemented yet")
+    def test_append_file(self):
+        with self.hffs.open(self.text_file, "a") as f:
+            f.write(" appended text")
+
+        with self.hffs.open(self.text_file, "r") as f:
+            self.assertEqual(f.read(), "dummy text data appended text")
+
+    def test_copy_file(self):
+        # Non-LFS file
+        self.assertInfoFields(self.hffs.info(self.text_file))
+        self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
+        with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
+            self.assertEqual(f.read(), "dummy text data")
+        self.assertInfoFields(self.hffs.info(self.hf_path + "/data/text_data_copy.txt"))
+        # LFS file
+        self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data.bin"))
+        self.hffs.cp_file(self.hf_path + "/data/binary_data.bin", self.hf_path + "/data/binary_data_copy.bin")
+        with self.hffs.open(self.hf_path + "/data/binary_data_copy.bin", "rb") as f:
+            self.assertEqual(f.read(), b"dummy binary data")
+        self.assertInfoFields(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin"))
+
+
+class _HfFileSystemRepositoryChecks(unittest.TestCase):
+    http_url_path_prefix = "main/"
+
+    def assertInfoIsNotExpanded(self, info):
+        self.assertIsNone(info["last_commit"])
+
+    def assertInfoIsExpanded(self, info):
+        self.assertIsNotNone(info["last_commit"])
+
+    def assertInfoFields(self, info):
+        if info["type"] == "file":
+            self.assertIsNotNone(info["blob_id"])
+            self.assertGreater(info["size"], 0)  # not empty
+            self.assertIn("security", info)  # the staging endpoint does not run security checks
+            if info["name"].endswith(".bin"):
+                self.assertIsNotNone(info["lfs"])
+                self.assertIn("sha256", info["lfs"])
+                self.assertIn("size", info["lfs"])
+                self.assertIn("pointer_size", info["lfs"])
+
+
+class _HfFileSystemBucketChecks(unittest.TestCase):
+    http_url_path_prefix = ""
+
+    def assertInfoIsNotExpanded(self, info):
+        pass
+
+    def assertInfoIsExpanded(self, info):
+        pass
+
+    def assertInfoFields(self, info):
+        is_bucket_root = info["name"].count("/") == 2
+        if not is_bucket_root:
+            self.assertIsNotNone(info["uploaded_at"])
+        if info["type"] == "file":
+            self.assertIsNotNone(info["mtime"])
+            self.assertGreater(info["size"], 0)  # not empty
+
+
+class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
+    @classmethod
+    def setUpClass(cls):
+        super(_HfFileSystemBaseROTests, cls).setUpClass()
+
+        # Create dummy repo
+        repo_url = cls.api.create_repo(repo_name(), repo_type="dataset")
+        cls.repo_id = repo_url.repo_id
+        cls.hf_path = f"datasets/{cls.repo_id}"
+
+        # Upload files
+        cls.api.upload_file(
+            path_or_fileobj=b"dummy binary data on pr",
+            path_in_repo="data/binary_data_for_pr.bin",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
+            create_pr=True,
+        )
+        cls.api.upload_file(
+            path_or_fileobj="dummy text data".encode("utf-8"),
+            path_in_repo="data/text_data.txt",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
+        )
+        cls.api.upload_file(
+            path_or_fileobj=b"dummy binary data",
+            path_in_repo="data/binary_data.bin",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
+        )
+        cls.api.upload_file(
+            path_or_fileobj="# Dataset card".encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
+        )
+        cls.api.delete_file(
+            path_in_repo=".gitattributes",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
+        )
+
+        cls.readme_file_path = "README.md"
+        cls.readme_file = cls.hf_path + "/" + cls.readme_file_path
+        cls.text_file_path = "data/text_data.txt"
+        cls.text_file = cls.hf_path + "/" + cls.text_file_path
+
+    @classmethod
+    def tearDownClass(cls):
+        super(_HfFileSystemBaseROTests, cls).tearDownClass()
+        cls.api.delete_repo(cls.repo_id, repo_type="dataset")
+
+    def setUp(self):
+        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+
+    def test_glob_with_revision(self):
+        self.assertEqual(
+            sorted(self.hffs.glob(self.hf_path + "/*", revision="main")),
+            sorted([self.readme_file, self.hf_path + "/data"]),
+        )
+        self.assertEqual(
+            sorted(self.hffs.glob(self.hf_path + "@main" + "/*")),
+            sorted([self.hf_path + "@main/" + self.readme_file_path, self.hf_path + "@main" + "/data"]),
+        )
+        self.assertEqual(
+            self.hffs.glob(self.hf_path + "@refs%2Fpr%2F1" + "/data/*"),
+            [self.hf_path + "@refs%2Fpr%2F1" + "/data/binary_data_for_pr.bin"],
+        )
+        self.assertEqual(
+            self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"),
+            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
+        )
+        self.assertEqual(
+            self.hffs.glob(self.hf_path + "/data/*", revision="refs/pr/1"),
+            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
+        )
+
+        self.assertInfoIsNotExpanded(
+            self.hffs.dircache[self.hf_path + "@main"][0]
+        )  # no detail -> no last_commit in cache
+
+        files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True, expand_info=False)
+        self.assertIsInstance(files, dict)
+        self.assertEqual(len(files), 2)
+        keys = sorted(files)
+        self.assertTrue(
+            files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
+        )
+        self.assertInfoIsNotExpanded(
+            self.hffs.dircache[self.hf_path + "@main"][0]
+        )  # detail but no expand info -> no last_commit in cache
+
+        files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True)
+        self.assertIsInstance(files, dict)
+        self.assertEqual(len(files), 2)
+        keys = sorted(files)
+        self.assertTrue(
+            files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
+        )
+        self.assertInfoIsNotExpanded(files[keys[0]])
+
+    def test_read_file_with_revision(self):
+        with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
+            self.assertEqual(f.read(), b"dummy binary data on pr")
+
+    def test_list_data_directory_with_revision(self):
+        files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
+
+        for test_name, files in {
+            "quoted_rev_in_path": self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data"),
+            "rev_in_path": self.hffs.ls(self.hf_path + "@refs/pr/1" + "/data"),
+            "rev_as_arg": self.hffs.ls(self.hf_path + "/data", revision="refs/pr/1"),
+            "quoted_rev_in_path_and_rev_as_arg": self.hffs.ls(
+                self.hf_path + "@refs%2Fpr%2F1" + "/data", revision="refs/pr/1"
+            ),
+        }.items():
+            with self.subTest(test_name):
+                self.assertEqual(len(files), 1)  # only one file in PR
+                self.assertEqual(files[0]["type"], "file")
+                self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
+                if "quoted_rev_in_path" in test_name:
+                    self.assertIn("@refs%2Fpr%2F1", files[0]["name"])
+                elif "rev_in_path" in test_name:
+                    self.assertIn("@refs/pr/1", files[0]["name"])
+
+
+class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
+    @classmethod
+    def setUpClass(cls):
+        super(_HfFileSystemBaseROTests, cls).setUpClass()
+
+        # Create dummy bucket
+        repo_url = cls.api.create_bucket(repo_name())
+        cls.bucket_id = repo_url.bucket_id
+        cls.hf_path = f"buckets/{cls.bucket_id}"
+
+        # Upload files
+        cls.api.batch_bucket_files(
+            cls.bucket_id,
+            add=[
+                ("dummy text data".encode("utf-8"), "data/text_data.txt"),
+                (b"dummy binary data", "data/binary_data.bin"),
+                ("# Dataset card".encode("utf-8"), "README.md"),
+            ],
+        )
+
+        cls.readme_file_path = "README.md"
+        cls.readme_file = cls.hf_path + "/" + cls.readme_file_path
+        cls.text_file_path = "data/text_data.txt"
+        cls.text_file = cls.hf_path + "/" + cls.text_file_path
+
+    @classmethod
+    def tearDownClass(cls):
+        super(_HfFileSystemBaseROTests, cls).tearDownClass()
+        cls.api.delete_bucket(cls.bucket_id)
+
+    def setUp(self):
+        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+
+
+class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
+    def setUp(self):
+        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+
+        # Create dummy repo
+        repo_url = self.api.create_repo(repo_name(), repo_type="dataset")
+        self.repo_id = repo_url.repo_id
+        self.hf_path = f"datasets/{self.repo_id}"
+
+        # Upload files
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data on pr",
+            path_in_repo="data/binary_data_for_pr.bin",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+            create_pr=True,
+        )
+        self.api.upload_file(
+            path_or_fileobj="dummy text data".encode("utf-8"),
+            path_in_repo="data/text_data.txt",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data",
+            path_in_repo="data/binary_data.bin",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+        self.api.upload_file(
+            path_or_fileobj="# Dataset card".encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+        self.api.delete_file(
+            path_in_repo=".gitattributes",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
+        self.readme_file_path = "README.md"
+        self.readme_file = self.hf_path + "/" + self.readme_file_path
+        self.text_file_path = "data/text_data.txt"
+        self.text_file = self.hf_path + "/" + self.text_file_path
+
+    def tearDown(self):
+        self.api.delete_repo(self.repo_id, repo_type="dataset")
+
+    def test_remove_file_with_revision(self):
+        self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
+        self.assertEqual(self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"), [])
+
+    def test_remove_directory_with_revision(self):
+        self.hffs.rm(self.hf_path + "/data", recursive=True)
+        self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
+        self.hffs.rm(self.hf_path + "@refs/pr/1" + "/data", recursive=True)
+        self.assertNotIn(self.hf_path + "@refs/pr/1" + "/data", self.hffs.ls(self.hf_path))
+
+    def test_find_root_directory_with_incomplete_cache(self):
+        self.api.upload_file(
+            path_or_fileobj=b"dummy text data 2",
+            path_in_repo="data/sub_data/text_data2.txt",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data 2",
+            path_in_repo="data1/binary_data2.bin",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
+        # Copy the result to make it robust to the cache modifications
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/2103
+        # for info on why this is not done in `HfFileSystem.find` by default
+        files = copy.deepcopy(self.hffs.find(self.hf_path, detail=True))
+
+        # some directories not in cache
+        self.hffs.dircache.pop(self.hf_path + "/data/sub_data")
+        # some files not expanded
+        self.hffs.dircache[self.hf_path + "/data"][1]["last_commit"] = None
+        out = self.hffs.find(self.hf_path, detail=True)
+        self.assertEqual(out, files)
+
+
+class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
+    def setUp(self):
+        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+
+        # Create dummy bucket
+        repo_url = self.api.create_bucket(repo_name())
+        self.bucket_id = repo_url.bucket_id
+        self.hf_path = f"buckets/{self.bucket_id}"
+
+        # Upload files
+        self.api.batch_bucket_files(
+            self.bucket_id,
+            add=[
+                ("dummy text data".encode("utf-8"), "data/text_data.txt"),
+                (b"dummy binary data", "data/binary_data.bin"),
+                ("# Dataset card".encode("utf-8"), "README.md"),
+            ],
+        )
+
+        self.readme_file_path = "README.md"
+        self.readme_file = self.hf_path + "/" + self.readme_file_path
+        self.text_file_path = "data/text_data.txt"
+        self.text_file = self.hf_path + "/" + self.text_file_path
+
+    def tearDown(self):
+        self.api.delete_bucket(self.bucket_id)
+
+    @unittest.skip("Not implemented yet")
+    def test_copy_file(self):
+        pass
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
@@ -625,6 +813,7 @@ def test_resolve_path(
 
     with mock_repo_info(fs):
         resolved_path = fs.resolve_path(path, revision=revision)
+        assert isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
         assert (
             resolved_path.repo_type,
             resolved_path.repo_id,
@@ -633,6 +822,19 @@ def test_resolve_path(
         ) == (repo_type, repo_id, resolved_revision, path_in_repo)
         if "@" in path and "@not-a-revision" not in path:
             assert resolved_path._raw_revision in path
+
+
+@pytest.mark.parametrize("root_path", ["buckets/username/my_bucket", "hf://buckets/username/my_bucket"])
+@pytest.mark.parametrize("path", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
+def test_resolve_bucket_path(root_path: str, path: str):
+    fs = HfFileSystem()
+    bucket_id = "username/my_bucket"
+    path = root_path + "/" + path if path else root_path
+
+    with mock_bucket_info(fs):
+        resolved_path = fs.resolve_path(path)
+        assert isinstance(resolved_path, HfFileSystemResolvedBucketPath)
+        assert resolved_path.bucket_id, resolved_path.path == (bucket_id, path)
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
@@ -654,6 +856,18 @@ def test_unresolve_path(path: str, revision: Optional[str], expected_path: str, 
         assert fs.resolve_path(path, revision=revision).unresolve() == expected_path
 
 
+@pytest.mark.parametrize("root_path", ["buckets/username/my_bucket", "hf://buckets/username/my_bucket"])
+@pytest.mark.parametrize("path", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
+def test_unresolve_bucket_path(root_path: str, path: str) -> None:
+    fs = HfFileSystem()
+    bucket_id = "username/my_bucket"
+    expected_path = "buckets/" + bucket_id + "/" + path if path else "buckets/" + bucket_id
+    path = root_path + "/" + path if path else root_path
+
+    with mock_bucket_info(fs):
+        assert fs.resolve_path(path).unresolve() == expected_path
+
+
 def test_resolve_path_with_refs_revision() -> None:
     """
     Testing a very specific edge case where a user has a repo with a revisions named "refs" and a file/directory
@@ -663,6 +877,7 @@ def test_resolve_path_with_refs_revision() -> None:
     fs = HfFileSystem()
     with mock_repo_info(fs):
         resolved = fs.resolve_path("hf://username/my_model@refs/pr/10", revision="refs")
+        assert isinstance(resolved, HfFileSystemResolvedRepositoryPath)
         assert resolved.revision == "refs"
         assert resolved.path_in_repo == "pr/10"
         assert resolved.unresolve() == "username/my_model@refs/pr/10"
@@ -676,6 +891,14 @@ def mock_repo_info(fs: HfFileSystem):
             raise RevisionNotFoundError(revision, response=Mock())
 
     return patch.object(fs._api, "repo_info", _inner)
+
+
+def mock_bucket_info(fs: HfFileSystem):
+    def _inner(bucket_id: str, *_, **kwargs):
+        if bucket_id not in ["username/my_bucket"]:
+            raise BucketNotFoundError(bucket_id, response=Mock())
+
+    return patch.object(fs._api, "bucket_info", _inner)
 
 
 def test_resolve_path_with_non_matching_revisions():

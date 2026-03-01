@@ -398,10 +398,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         (resolved_path.repo_type, resolved_path.repo_id, None), None
                     )
                     self._repo_and_revision_exists_cache.pop(
-                        (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
+                        (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, None), None
                     )
                 else:
-                    self._bucket_exists_cache.pop(resolved_path.bucket_id)
+                    self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
     def _open(  # type: ignore[override]
         self,
@@ -467,7 +467,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         resolved_path = self.resolve_path(path, revision=revision)
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
-            delete = [self.resolve_path(path).path for path in paths]
+            delete = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
             self._api.batch_bucket_files(resolved_path.bucket_id, delete=delete)
         else:
             paths_in_repo = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
@@ -676,25 +676,36 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         bucket_folders: dict[str, BucketFolder] = {}
         min_depth = 1 + prefix.count("/") if prefix else 0
         out: list[Union[BucketFile, BucketFolder]] = []
-        for bucket_file in bucket_files:
-            if isinstance(bucket_file, BucketFolder):  # can happen if recursive=False
-                bucket_folders[bucket_file.path] = bucket_file
-            else:
-                for parent_bucket_folder in PurePosixPath(bucket_file.path).parents[: -min_depth - 1]:
-                    parent_bucket_folder_path = str(parent_bucket_folder)
-                    if parent_bucket_folder not in bucket_folders:
-                        bucket_folder = BucketFolder(
-                            type="directory", path=parent_bucket_folder_path, uploaded_at=bucket_file.uploaded_at
-                        )
-                        out.append(bucket_folder)
-                        bucket_folders[parent_bucket_folder_path] = bucket_folder
-                    else:
-                        bucket_folder = bucket_folders[parent_bucket_folder_path]
-                        if bucket_folder.uploaded_at is None or (
-                            bucket_file.uploaded_at is not None and bucket_folder.uploaded_at < bucket_file.uploaded_at
-                        ):
-                            bucket_folder.uploaded_at = bucket_file.uploaded_at
-            out.append(bucket_file)
+
+        for bucket_entry in bucket_files:
+            out.append(bucket_entry)
+
+            # If recursive=False, both files and folders are returned by the server => nothing to do
+            if not recursive:
+                continue
+
+            # Otherwise, let's rebuild BucketFolders manually
+            for parent_bucket_folder_str in PurePosixPath(bucket_entry.path).parents[: -min_depth - 1]:
+                parent_bucket_folder = BucketFolder(
+                    type="directory", path=str(parent_bucket_folder_str), uploaded_at=bucket_entry.uploaded_at
+                )
+
+                # If folder not visited yet, add it
+                if parent_bucket_folder.path not in bucket_folders:
+                    out.append(parent_bucket_folder)
+                    bucket_folders[parent_bucket_folder.path] = parent_bucket_folder
+                    continue
+
+                # Otherwise, get back BucketFolder object and update its 'uploaded_at'
+                if parent_bucket_folder.uploaded_at is not None:
+                    bucket_folder = bucket_folders[parent_bucket_folder.path]
+                    if bucket_folder.uploaded_at is None or (
+                        bucket_folder.uploaded_at < parent_bucket_folder.uploaded_at
+                    ):
+                        bucket_folder.uploaded_at = parent_bucket_folder.uploaded_at
+
+        if not out:
+            raise EntryNotFoundError(f"File not found in bucket '{bucket_id}': '{prefix}'")
         return out
 
     def walk(self, path: str, *args, **kwargs) -> Iterator[tuple[str, list[str], list[str]]]:
@@ -873,7 +884,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         elif "uploaded_at" in info and info["uploaded_at"]:
             return info["uploaded_at"]
         else:
-            raise NotImplementedError(f"'modified' is not implemented for bucket directories like '{path}'")
+            raise NotImplementedError(f"Cannot determined 'modified' for path '{path}' (info: {info})")
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
         """
@@ -904,25 +915,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path:
             # Path is the root directory
-            out = (
-                {
-                    "name": path,
-                    "size": 0,
-                    "type": "directory",
-                }
-                if isinstance(resolved_path, HfFileSystemResolvedBucketPath)
-                else {
-                    "name": path,
-                    "size": 0,
-                    "type": "directory",
-                    "last_commit": None,
-                }
-            )
-            if (
-                isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
-                and expand_info
-                and resolved_path.repo_type in constants.REPO_TYPES_MAPPING
-            ):
+            out = {
+                "name": path,
+                "size": 0,
+                "type": "directory",
+            }
+            if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+                out["last_commit"] = None
+            if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath) and expand_info:
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
                 )[-1]
@@ -1174,6 +1174,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         return {
             "dircache": deepcopy(self.dircache),
             "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
+            "_bucket_exists_cache": deepcopy(self._bucket_exists_cache),
         }
 
 
