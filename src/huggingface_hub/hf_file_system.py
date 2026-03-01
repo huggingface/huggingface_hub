@@ -398,7 +398,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                         (resolved_path.repo_type, resolved_path.repo_id, None), None
                     )
                     self._repo_and_revision_exists_cache.pop(
-                        (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, None), None
+                        (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
                     )
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
