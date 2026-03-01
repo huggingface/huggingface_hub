@@ -29,6 +29,7 @@ from .testing_utils import OfflineSimulationMode, offline, repo_name, with_produ
 
 
 class _HfFileSystemBaseTests(unittest.TestCase):
+    __test__ = False
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
     http_url_path_prefix: str
     hffs: HfFileSystem
@@ -441,6 +442,7 @@ class _HfFileSystemBaseRWTests(_HfFileSystemBaseTests):
 
 
 class _HfFileSystemRepositoryChecks(unittest.TestCase):
+    __test__ = False
     http_url_path_prefix = "main/"
 
     def assertInfoIsNotExpanded(self, info):
@@ -462,6 +464,7 @@ class _HfFileSystemRepositoryChecks(unittest.TestCase):
 
 
 class _HfFileSystemBucketChecks(unittest.TestCase):
+    __test__ = False
     http_url_path_prefix = ""
 
     def assertInfoIsNotExpanded(self, info):
@@ -480,6 +483,8 @@ class _HfFileSystemBucketChecks(unittest.TestCase):
 
 
 class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
+    __test__ = True
+
     @classmethod
     def setUpClass(cls):
         super(_HfFileSystemBaseROTests, cls).setUpClass()
@@ -606,6 +611,8 @@ class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystem
 
 
 class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
+    __test__ = True
+
     @classmethod
     def setUpClass(cls):
         super(_HfFileSystemBaseROTests, cls).setUpClass()
@@ -640,6 +647,8 @@ class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTe
 
 
 class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
+    __test__ = True
+
     def setUp(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
@@ -727,6 +736,8 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
 
 
 class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
+    __test__ = True
+
     def setUp(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
