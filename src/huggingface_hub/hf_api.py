@@ -9487,7 +9487,11 @@ class HfApi:
         """
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        post_webhooks_json = {"watched": watched_dicts, "domains": domains, "secret": secret}
+        post_webhooks_json: dict = {"watched": watched_dicts}
+        if domains is not None:
+            post_webhooks_json["domains"] = domains
+        if secret is not None:
+            post_webhooks_json["secret"] = secret
         if url is not None and job_id is not None:
             raise ValueError("Set `url` or `job_id` but not both.")
         elif url is not None:

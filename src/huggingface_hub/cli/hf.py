@@ -40,6 +40,7 @@ from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
+from huggingface_hub.cli.webhooks import webhooks_cli
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
@@ -90,6 +91,7 @@ app.add_typer(repos_cli, name="repos | repo")
 app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
+app.add_typer(webhooks_cli, name="webhooks")
 app.add_typer(ie_cli, name="endpoints")
 app.add_typer(extensions_cli, name="extensions | ext")
 
