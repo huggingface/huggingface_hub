@@ -25,7 +25,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
+from .testing_utils import OfflineSimulationMode, offline, repo_name, requires, with_production_testing
 
 
 class _HfFileSystemBaseTests(unittest.TestCase):
@@ -610,6 +610,7 @@ class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystem
                     self.assertIn("@refs/pr/1", files[0]["name"])
 
 
+@requires("hf_xet")
 class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
@@ -735,6 +736,7 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
         self.assertEqual(out, files)
 
 
+@requires("hf_xet")
 class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 
