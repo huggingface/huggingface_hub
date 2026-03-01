@@ -685,7 +685,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 continue
 
             # Otherwise, let's rebuild BucketFolders manually
-            for parent_bucket_folder_str in PurePosixPath(bucket_entry.path).parents[: -min_depth - 1]:
+            for parent_bucket_folder_str in list(PurePosixPath(bucket_entry.path).parents)[: -min_depth - 1]:
                 parent_bucket_folder = BucketFolder(
                     type="directory", path=str(parent_bucket_folder_str), uploaded_at=bucket_entry.uploaded_at
                 )
