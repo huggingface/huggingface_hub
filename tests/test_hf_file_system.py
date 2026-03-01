@@ -25,7 +25,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import OfflineSimulationMode, offline, repo_name, requires, with_production_testing
+from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
 
 
 class _HfFileSystemBaseTests(unittest.TestCase):
@@ -610,43 +610,6 @@ class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystem
                     self.assertIn("@refs/pr/1", files[0]["name"])
 
 
-@requires("hf_xet")
-class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
-    __test__ = True
-
-    @classmethod
-    def setUpClass(cls):
-        super(_HfFileSystemBaseROTests, cls).setUpClass()
-
-        # Create dummy bucket
-        repo_url = cls.api.create_bucket(repo_name())
-        cls.bucket_id = repo_url.bucket_id
-        cls.hf_path = f"buckets/{cls.bucket_id}"
-
-        # Upload files
-        cls.api.batch_bucket_files(
-            cls.bucket_id,
-            add=[
-                ("dummy text data".encode("utf-8"), "data/text_data.txt"),
-                (b"dummy binary data", "data/binary_data.bin"),
-                ("# Dataset card".encode("utf-8"), "README.md"),
-            ],
-        )
-
-        cls.readme_file_path = "README.md"
-        cls.readme_file = cls.hf_path + "/" + cls.readme_file_path
-        cls.text_file_path = "data/text_data.txt"
-        cls.text_file = cls.hf_path + "/" + cls.text_file_path
-
-    @classmethod
-    def tearDownClass(cls):
-        super(_HfFileSystemBaseROTests, cls).tearDownClass()
-        cls.api.delete_bucket(cls.bucket_id)
-
-    def setUp(self):
-        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
-
-
 class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 
@@ -734,41 +697,6 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
         self.hffs.dircache[self.hf_path + "/data"][1]["last_commit"] = None
         out = self.hffs.find(self.hf_path, detail=True)
         self.assertEqual(out, files)
-
-
-@requires("hf_xet")
-class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
-    __test__ = True
-
-    def setUp(self):
-        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
-
-        # Create dummy bucket
-        repo_url = self.api.create_bucket(repo_name())
-        self.bucket_id = repo_url.bucket_id
-        self.hf_path = f"buckets/{self.bucket_id}"
-
-        # Upload files
-        self.api.batch_bucket_files(
-            self.bucket_id,
-            add=[
-                ("dummy text data".encode("utf-8"), "data/text_data.txt"),
-                (b"dummy binary data", "data/binary_data.bin"),
-                ("# Dataset card".encode("utf-8"), "README.md"),
-            ],
-        )
-
-        self.readme_file_path = "README.md"
-        self.readme_file = self.hf_path + "/" + self.readme_file_path
-        self.text_file_path = "data/text_data.txt"
-        self.text_file = self.hf_path + "/" + self.text_file_path
-
-    def tearDown(self):
-        self.api.delete_bucket(self.bucket_id)
-
-    @unittest.skip("Not implemented yet")
-    def test_copy_file(self):
-        pass
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
