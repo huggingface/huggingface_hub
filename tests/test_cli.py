@@ -2386,3 +2386,168 @@ class TestParseNamespaceFromJobId:
     def test_parse_namespace_from_job_id_errors(self, input_job_id: str, input_namespace: Optional[str]) -> None:
         with pytest.raises(CLIError):
             _parse_namespace_from_job_id(input_job_id, input_namespace)
+
+
+class TestWebhooksCommand:
+    def _make_webhook(self, **kwargs):
+        from huggingface_hub.hf_api import WebhookInfo, WebhookWatchedItem
+
+        defaults = dict(
+            id="wh-abc123",
+            url="https://example.com/hook",
+            job=None,
+            watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
+            domains=["repo"],
+            secret=None,
+            disabled=False,
+        )
+        return WebhookInfo(**{**defaults, **kwargs})
+
+    def test_ls(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls"])
+        assert result.exit_code == 0, result.output
+        assert "wh-abc123" in result.output
+
+    def test_ls_json(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls", "--format", "json"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert data[0]["id"] == "wh-abc123"
+
+    def test_ls_quiet(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls", "-q"])
+        assert result.exit_code == 0, result.output
+        assert result.output.strip() == "wh-abc123"
+
+    def test_ls_empty(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = []
+            result = runner.invoke(app, ["webhooks", "ls"])
+        assert result.exit_code == 0, result.output
+        assert "No results found" in result.output
+
+    def test_info(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.get_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "info", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["id"] == "wh-abc123"
+        api_cls.return_value.get_webhook.assert_called_once_with("wh-abc123")
+
+    def test_create(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "model:bert-base-uncased"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook created: wh-abc123" in result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url="https://example.com/hook",
+            watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
+            domains=None,
+            secret=None,
+        )
+
+    def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--url",
+                    "https://example.com/hook",
+                    "--watch",
+                    "org:HuggingFace",
+                    "--domain",
+                    "repo",
+                    "--secret",
+                    "mysecret",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url="https://example.com/hook",
+            watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
+            domains=["repo"],
+            secret="mysecret",
+        )
+
+    def test_create_bad_watch_format(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "bad-format"],
+        )
+        assert result.exit_code != 0
+
+    def test_create_bad_watch_type(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "badtype:name"],
+        )
+        assert result.exit_code != 0
+
+    def test_update(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url="https://new.example.com/hook")
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--url", "https://new.example.com/hook"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook updated: wh-abc123" in result.output
+        api_cls.return_value.update_webhook.assert_called_once_with(
+            "wh-abc123",
+            url="https://new.example.com/hook",
+            watched=None,
+            domains=None,
+            secret=None,
+        )
+
+    def test_enable(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(disabled=False)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.enable_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "enable", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook enabled: wh-abc123" in result.output
+        api_cls.return_value.enable_webhook.assert_called_once_with("wh-abc123")
+
+    def test_disable(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(disabled=True)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.disable_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "disable", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook disabled: wh-abc123" in result.output
+        api_cls.return_value.disable_webhook.assert_called_once_with("wh-abc123")
+
+    def test_delete(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.delete_webhook.return_value = None
+            result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook deleted: wh-abc123" in result.output
+        api_cls.return_value.delete_webhook.assert_called_once_with("wh-abc123")
