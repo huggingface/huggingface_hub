@@ -2292,6 +2292,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
+* `list`: List repos or files in a repo. [alias: ls]
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -2467,6 +2468,51 @@ Examples
   $ hf repos delete-files my-model file.txt
   $ hf repos delete-files my-model "*.json"
   $ hf repos delete-files my-model folder/
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos | repo list | ls`
+
+List repos or files in a repo.
+
+When called with no argument or a namespace, lists repos.
+When called with a repo ID (namespace/repo_name), lists files in the repo.
+
+**Usage**:
+
+```console
+$ hf repos list | ls [OPTIONS] [ARGUMENT]
+```
+
+**Arguments**:
+
+* `[ARGUMENT]`: Namespace (user or org) to list repos, or repo ID (namespace/repo_name(/path) or hf://...) to list files.
+
+**Options**:
+
+* `-h, --human-readable`: Show sizes in human readable format.
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos list
+  $ hf repos list huggingface
+  $ hf repos list user/my-model
+  $ hf repos list user/my-model -R
+  $ hf repos list user/my-model -h
+  $ hf repos list user/my-model --tree
+  $ hf repos list user/my-model --tree -h
+  $ hf repos list hf://datasets/user/my-dataset
+  $ hf repos list hf://datasets/user/my-dataset@main
+  $ hf repos list user/my-model/sub -R
 
 Learn more
   Use `hf <command> --help` for more information about a command.

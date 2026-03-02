@@ -841,7 +841,75 @@ Use `hf papers` to list daily papers on the Hub.
 
 ## hf repos
 
-`hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you create, delete, move repositories, update their settings, list files, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+
+### List repos or files
+
+Use `hf repos list` (alias `hf repos ls`) to list repositories under a namespace or list files in a specific repository. The behavior depends on the argument provided:
+- **No argument or namespace only**: lists repos (models by default, or datasets/spaces with `--type`).
+- **Repo ID** (e.g. `user/my-model`): lists files in the repo.
+- **hf:// handle** (e.g. `hf://datasets/user/my-dataset@main`): lists files, inferring the repo type and revision from the handle.
+
+List models (default) under the authenticated user:
+
+```bash
+>>> hf repos list
+```
+
+List datasets under a specific namespace:
+
+```bash
+>>> hf repos list huggingface --type dataset
+```
+
+List files in a model repo:
+
+```bash
+>>> hf repos list user/my-model
+```
+
+List files recursively:
+
+```bash
+>>> hf repos list user/my-model -R
+```
+
+List files with human-readable sizes:
+
+```bash
+>>> hf repos list user/my-model -h
+```
+
+List files in tree format:
+
+```bash
+>>> hf repos list user/my-model --tree
+>>> hf repos list user/my-model --tree -h
+```
+
+List files in a dataset at a specific revision:
+
+```bash
+>>> hf repos list hf://datasets/user/my-dataset@main
+```
+
+List files in a specific subfolder:
+
+```bash
+>>> hf repos list user/my-model/data -R
+```
+
+Output as JSON:
+
+```bash
+>>> hf repos list user/my-model --format json
+```
+
+Print only file paths (quiet mode):
+
+```bash
+>>> hf repos list user/my-model -q
+```
 
 ### Create a repo
 

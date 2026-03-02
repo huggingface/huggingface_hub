@@ -22,25 +22,40 @@ Usage:
 
     # delete files from a repo on the Hub
     hf repos delete-files my-model file.txt
+
+    # list repos or files in a repo
+    hf repos list
+    hf repos list user/my-model
+    hf repos list hf://datasets/user/my-dataset@main
 """
 
 import enum
+import json
+import re
 import sys
-from typing import Annotated, Optional
+from datetime import datetime
+from typing import Annotated, Optional, Union
+from urllib.parse import unquote
 
 import typer
 
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.utils import ANSI
+from huggingface_hub.hf_api import RepoFile, RepoFolder
+from huggingface_hub.utils import ANSI, StatusLine
 
 from ._cli_utils import (
+    FormatOpt,
+    OutputFormat,
     PrivateOpt,
+    QuietOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     RevisionOpt,
     TokenOpt,
+    api_object_to_dict,
     get_hf_api,
+    print_list_output,
     typer_factory,
 )
 
@@ -61,6 +76,412 @@ tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
 repos_cli.add_typer(tag_cli, name="tag")
 repos_cli.add_typer(branch_cli, name="branch")
+
+
+SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
+    |
+    (^refs\/pr\/\d+)          # PR revisions
+    """,
+    re.VERBOSE,
+)
+
+_REPO_TYPE_PREFIXES = {"models": "model", "datasets": "dataset", "spaces": "space"}
+
+
+def _parse_repo_argument(
+    argument: str, repo_type: Optional[str] = None
+) -> tuple[str, Optional[str], Optional[str], Optional[str]]:
+    """Parse a repo argument accepting both plain paths and hf:// handles.
+
+    Handles:
+        hf://models                          → (model, None, None, None)          list repos
+        hf://models/namespace                → (model, namespace, None, None)     list repos in namespace
+        hf://datasets/user/repo              → (dataset, user/repo, None, "")     list files
+        hf://datasets/user/repo@rev          → (dataset, user/repo, rev, "")      list files at rev
+        hf://datasets/user/repo@rev/path     → (dataset, user/repo, rev, path)    list files in path
+        hf://user/repo                       → (model, user/repo, None, "")       list files (default model)
+        user/repo                            → (model, user/repo, None, "")       list files
+        user/repo/path                       → (model, user/repo, None, path)     list files in path
+        namespace                            → (model, namespace, None, None)     list repos in namespace
+        (empty)                              → (model, None, None, None)          list repos
+
+    Returns:
+        tuple: (repo_type, identifier, revision, path_in_repo)
+        - When path_in_repo is None, identifier is a namespace (or None) for listing repos.
+        - When path_in_repo is a string (possibly empty), identifier is a repo_id for listing files.
+    """
+    path = argument
+
+    if path.startswith("hf://"):
+        path = path[len("hf://") :]
+
+    # Detect repo type from prefix
+    first_segment = path.split("/")[0] if path else ""
+    if first_segment in _REPO_TYPE_PREFIXES:
+        detected_type = _REPO_TYPE_PREFIXES[first_segment]
+        if repo_type is not None and repo_type != detected_type:
+            raise ValueError(f"Repo type from handle ('{detected_type}') conflicts with --type ('{repo_type}').")
+        repo_type = detected_type
+        path = "/".join(path.split("/")[1:])
+
+    if repo_type is None:
+        repo_type = "model"
+
+    if not path:
+        return (repo_type, None, None, None)
+
+    # Parse revision from @ in repo_id part
+    revision: Optional[str] = None
+
+    if "/" not in path:
+        # Single segment: could be namespace or repo_id-without-namespace
+        if "@" in path:
+            repo_id, rev = path.split("@", 1)
+            return (repo_type, repo_id, unquote(rev), "")
+        return (repo_type, path, None, None)
+
+    # Multiple segments: namespace/repo or namespace/repo/path or namespace/repo@rev/path
+    parts = path.split("/")
+    repo_id_candidate = "/".join(parts[:2])
+    remaining = "/".join(parts[2:])
+
+    if "@" in repo_id_candidate:
+        repo_id, rev_and_path = repo_id_candidate.split("@", 1)
+        if remaining:
+            rev_and_path = rev_and_path + "/" + remaining if rev_and_path else remaining
+        if "/" in rev_and_path:
+            match = SPECIAL_REFS_REVISION_REGEX.search(rev_and_path)
+            if match is not None:
+                path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", rev_and_path).lstrip("/")
+                revision = match.group()
+            else:
+                revision, path_in_repo = rev_and_path.split("/", 1)
+        else:
+            revision = rev_and_path
+            path_in_repo = ""
+        return (repo_type, repo_id, unquote(revision), path_in_repo)
+
+    return (repo_type, repo_id_candidate, None, remaining if remaining else "")
+
+
+def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
+    """Format a size in bytes."""
+    if not human_readable:
+        return str(size)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1000:
+            if unit == "B":
+                return f"{size} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1000
+    return f"{size:.1f} PB"
+
+
+def _format_mtime(dt: Optional[datetime], human_readable: bool = False) -> str:
+    """Format datetime to a readable date string."""
+    if dt is None:
+        return ""
+    if human_readable:
+        return dt.strftime("%b %d %H:%M")
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _build_tree(
+    items: list[Union[RepoFile, RepoFolder]],
+    human_readable: bool = False,
+    quiet: bool = False,
+) -> list[str]:
+    """Build a tree representation of files and directories."""
+    tree: dict = {}
+
+    for item in items:
+        parts = item.path.split("/")
+        current = tree
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {"__children__": {}}
+            current = current[part]["__children__"]
+
+        final_part = parts[-1]
+        if isinstance(item, RepoFolder):
+            if final_part not in current:
+                current[final_part] = {"__children__": {}}
+        else:
+            current[final_part] = {"__item__": item}
+
+    prefix_width = 0
+    max_size_width = 0
+    max_date_width = 0
+    if not quiet:
+        for item in items:
+            if isinstance(item, RepoFile):
+                size_str = _format_size(item.size, human_readable)
+                max_size_width = max(max_size_width, len(size_str))
+                if item.last_commit is not None:
+                    date_str = _format_mtime(item.last_commit.date, human_readable)
+                    max_date_width = max(max_date_width, len(date_str))
+        if max_size_width > 0:
+            prefix_width = max_size_width + 2 + max_date_width
+
+    lines: list[str] = []
+    _render_tree(
+        tree,
+        lines,
+        "",
+        prefix_width=prefix_width,
+        max_size_width=max_size_width,
+        human_readable=human_readable,
+    )
+    return lines
+
+
+def _render_tree(
+    node: dict,
+    lines: list[str],
+    indent: str,
+    prefix_width: int = 0,
+    max_size_width: int = 0,
+    human_readable: bool = False,
+) -> None:
+    """Recursively render a tree structure with size+date prefix."""
+    items = sorted(node.items())
+    for i, (name, value) in enumerate(items):
+        is_last = i == len(items) - 1
+        connector = "└── " if is_last else "├── "
+
+        is_dir = "__children__" in value
+        children = value.get("__children__", {})
+
+        if prefix_width > 0:
+            if is_dir:
+                prefix = " " * prefix_width
+            else:
+                item = value.get("__item__")
+                if item is not None:
+                    size_str = _format_size(item.size, human_readable)
+                    date_str = _format_mtime(
+                        item.last_commit.date if item.last_commit else None,
+                        human_readable,
+                    )
+                    prefix = f"{size_str:>{max_size_width}}  {date_str}"
+                else:
+                    prefix = " " * prefix_width
+            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
+        else:
+            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
+
+        if children:
+            child_indent = indent + ("    " if is_last else "│   ")
+            _render_tree(
+                children,
+                lines,
+                child_indent,
+                prefix_width=prefix_width,
+                max_size_width=max_size_width,
+                human_readable=human_readable,
+            )
+
+
+@repos_cli.command(
+    name="list | ls",
+    examples=[
+        "hf repos list",
+        "hf repos list huggingface",
+        "hf repos list user/my-model",
+        "hf repos list user/my-model -R",
+        "hf repos list user/my-model -h",
+        "hf repos list user/my-model --tree",
+        "hf repos list user/my-model --tree -h",
+        "hf repos list hf://datasets/user/my-dataset",
+        "hf repos list hf://datasets/user/my-dataset@main",
+        "hf repos list user/my-model/sub -R",
+    ],
+)
+def list_cmd(
+    argument: Annotated[
+        Optional[str],
+        typer.Argument(
+            help=(
+                "Namespace (user or org) to list repos, or repo ID"
+                " (namespace/repo_name(/path) or hf://...) to list files."
+            ),
+        ),
+    ] = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option(
+            "--human-readable",
+            "-h",
+            help="Show sizes in human readable format.",
+        ),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option(
+            "--tree",
+            help="List files in tree format (only for listing files).",
+        ),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-R",
+            help="List files recursively (only for listing files).",
+        ),
+    ] = False,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
+    repo_type: RepoTypeOpt = RepoType.model,
+    token: TokenOpt = None,
+) -> None:
+    """List repos or files in a repo.
+
+    When called with no argument or a namespace, lists repos.
+    When called with a repo ID (namespace/repo_name), lists files in the repo.
+    """
+    try:
+        parsed_type, identifier, revision, path_in_repo = _parse_repo_argument(
+            argument or "", repo_type=None if argument and argument.startswith("hf://") else repo_type.value
+        )
+    except ValueError as e:
+        raise typer.BadParameter(str(e))
+
+    # Use parsed type if it came from the handle, otherwise use the --type flag
+    effective_type = parsed_type if (argument and argument.startswith("hf://")) else repo_type.value
+
+    is_file_mode = path_in_repo is not None
+
+    if is_file_mode:
+        _list_repo_files(
+            repo_id=identifier,  # type: ignore[arg-type]
+            path_in_repo=path_in_repo or None,
+            revision=revision,
+            repo_type=effective_type,
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
+        )
+    else:
+        _list_repos(
+            namespace=identifier,
+            repo_type=effective_type,
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            format=format,
+            quiet=quiet,
+            token=token,
+        )
+
+
+def _list_repos(
+    namespace: Optional[str],
+    repo_type: str,
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List repos in a namespace."""
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing repos.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing repos.")
+
+    api = get_hf_api(token=token)
+
+    if repo_type == "model":
+        results = [api_object_to_dict(info) for info in api.list_models(author=namespace)]
+    elif repo_type == "dataset":
+        results = [api_object_to_dict(info) for info in api.list_datasets(author=namespace)]
+    elif repo_type == "space":
+        results = [api_object_to_dict(info) for info in api.list_spaces(author=namespace)]
+    else:
+        raise typer.BadParameter(f"Unknown repo type: {repo_type}")
+
+    if not results:
+        if not quiet and format != OutputFormat.json:
+            resolved_namespace = namespace if namespace is not None else api.whoami()["name"]
+            print(f"No {repo_type}s found under namespace '{resolved_namespace}'.")
+            return
+
+    print_list_output(results, format=format, quiet=quiet)
+
+
+def _list_repo_files(
+    repo_id: str,
+    path_in_repo: Optional[str],
+    revision: Optional[str],
+    repo_type: str,
+    human_readable: bool,
+    as_tree: bool,
+    recursive: bool,
+    format: OutputFormat,
+    quiet: bool,
+    token: Optional[str],
+) -> None:
+    """List files in a repo."""
+    if as_tree and format == OutputFormat.json:
+        raise typer.BadParameter("Cannot use --tree with --format json.")
+
+    api = get_hf_api(token=token)
+
+    items = list(
+        api.list_repo_tree(
+            repo_id,
+            path_in_repo=path_in_repo,
+            recursive=recursive,
+            expand=True,
+            revision=revision,
+            repo_type=repo_type,
+        )
+    )
+
+    if not items:
+        print("(empty)")
+        return
+
+    has_directories = any(isinstance(item, RepoFolder) for item in items)
+
+    if format == OutputFormat.json:
+        results = [api_object_to_dict(item) for item in items]
+        print(json.dumps(results, indent=2))
+    elif as_tree:
+        tree_lines = _build_tree(items, human_readable=human_readable, quiet=quiet)
+        for line in tree_lines:
+            print(line)
+    elif quiet:
+        for item in items:
+            if isinstance(item, RepoFolder):
+                print(f"{item.path}/")
+            else:
+                print(item.path)
+    else:
+        for item in items:
+            if isinstance(item, RepoFolder):
+                date_str = _format_mtime(
+                    item.last_commit.date if item.last_commit else None,
+                    human_readable,
+                )
+                print(f"{'':>12}  {date_str:>19}  {item.path}/")
+            else:
+                size_str = _format_size(item.size, human_readable)
+                date_str = _format_mtime(
+                    item.last_commit.date if item.last_commit else None,
+                    human_readable,
+                )
+                print(f"{size_str:>12}  {date_str:>19}  {item.path}")
+
+    if not recursive and has_directories:
+        StatusLine().done("Use -R to list files recursively.")
 
 
 class GatedChoices(str, enum.Enum):
