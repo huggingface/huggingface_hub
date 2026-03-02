@@ -202,7 +202,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `cp`: Copy a single file to or from a bucket.
+* `cp`: Copy a single file to or from a bucket, or...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
@@ -213,7 +213,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf buckets cp`
 
-Copy a single file to or from a bucket.
+Copy a single file to or from a bucket, or between remote locations in the same bucket.
 
 **Usage**:
 
@@ -241,6 +241,7 @@ Examples
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
   $ hf buckets cp - hf://buckets/user/my-bucket/config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/file.txt hf://buckets/user/my-bucket/copy.txt
 
 Learn more
   Use `hf <command> --help` for more information about a command.
