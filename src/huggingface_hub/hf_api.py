@@ -20,7 +20,6 @@ import itertools
 import json
 import re
 import struct
-import tempfile
 import time
 import warnings
 from collections import defaultdict
@@ -11818,17 +11817,48 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
     ) -> None:
-        """Copy files on the Hub.
+        """Copy files between locations on the Hub.
 
-        Supported:
-        - bucket -> bucket
-        - repo (model/dataset/space) -> bucket
+        Copy files from a bucket or repository (model, dataset, space) to a bucket. Both individual files and
+        entire folders are supported. When copying a folder, the destination path must end with `/`.
 
-        Unsupported:
-        - bucket -> repo
-        - local paths
+        Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
-        If source is a folder, destination must end with ``/``.
+        Args:
+            source (`str`):
+                Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
+                or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
+            destination (`str`):
+                Destination location as an `hf://` handle pointing to a bucket
+                (e.g. `"hf://buckets/my-bucket/target/path"`). Must end with `/` when copying a folder.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+                If the destination is not a bucket, if the source/destination handles are invalid, or if a folder
+                copy is attempted without a trailing `/` on the destination.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+
+            # Copy a single file between buckets
+            >>> api.copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
+
+            # Copy a folder from a bucket to another bucket
+            >>> api.copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
+
+            # Copy a file from a model repo to a bucket
+            >>> api.copy_files("hf://username/my-model/model.safetensors", "hf://buckets/my-bucket/")
+
+            # Copy an entire dataset to a bucket
+            >>> api.copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
+            ```
         """
         source_handle = _parse_hf_copy_handle(source)
         destination_handle = _parse_hf_copy_handle(destination)
@@ -11836,14 +11866,11 @@ class HfApi:
         if isinstance(destination_handle, _RepoCopyHandle):
             raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
 
-        if isinstance(source_handle, _BucketCopyHandle) and isinstance(destination_handle, _RepoCopyHandle):
-            raise ValueError("Bucket-to-repo copy is not supported.")
-
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
         destination_is_directory = destination_handle.is_directory or destination_path == ""
 
-        hash_based_adds: list[_BucketAddFile] = []
+        all_adds: list[Union[_BucketAddFile, tuple[str, str]]] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: Optional[str], is_single_file: bool) -> str:
             basename = src_file_path.rsplit("/", 1)[-1]
@@ -11871,38 +11898,39 @@ class HfApi:
                 return rel_path
             return f"{destination_path.rstrip('/')}/{rel_path}"
 
-        def _flush_hash_based_adds() -> None:
-            nonlocal hash_based_adds
-            if not hash_based_adds:
-                return
-            for add_chunk in chunk_iterable(hash_based_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
-            hash_based_adds = []
+        def _hash_copy(target_path: str, xet_hash: str, size: int) -> _BucketAddFile:
+            """Server-side copy by xet hash — no data transfer needed."""
+            return _BucketAddFile(source=b"", destination=target_path, xet_hash=xet_hash, size=size)
 
+        def _download_from_repo(file_path: str) -> str:
+            """Download a repo file to local cache, return the cache path."""
+            return self.hf_hub_download(
+                repo_id=source_handle.repo_id,
+                repo_type=source_handle.repo_type,
+                filename=file_path,
+                revision=source_handle.revision,
+                token=token,
+            )
+
+        def _add_repo_file(file: RepoFile, target_path: str) -> None:
+            """Queue a repo file: hash-copy if xet-backed, otherwise download first."""
+            if file.xet_hash is not None:
+                all_adds.append(_hash_copy(target_path, file.xet_hash, file.size))
+            else:
+                all_adds.append((_download_from_repo(file.path), target_path))
+
+        # === Source is a bucket: always hash-based copy (no download needed) ===
         if isinstance(source_handle, _BucketCopyHandle):
             source_path = source_handle.path
-            same_bucket_copy = source_handle.bucket_id == destination_bucket_id
             source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+
             if source_path_info:
+                # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
-                if same_bucket_copy:
-                    hash_based_adds.append(
-                        _BucketAddFile(
-                            source=b"",
-                            destination=target_path,
-                            xet_hash=source_file.xet_hash,
-                            size=source_file.size,
-                        )
-                    )
-                else:
-                    with tempfile.TemporaryDirectory() as tmp_dir:
-                        local_path = str(Path(tmp_dir) / source_file.path.rsplit("/", 1)[-1])
-                        self.download_bucket_files(
-                            source_handle.bucket_id, [(source_file.path, local_path)], token=token
-                        )
-                        self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
+                all_adds.append(_hash_copy(target_path, source_file.xet_hash, source_file.size))
             else:
+                # Source path is a folder (or prefix) — list and copy all matching files
                 if source_path != "" and not destination_is_directory:
                     raise ValueError("Folder copy requires destination to end with '/'.")
                 for item in self.list_bucket_tree(
@@ -11913,18 +11941,9 @@ class HfApi:
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    if same_bucket_copy:
-                        hash_based_adds.append(
-                            _BucketAddFile(source=b"", destination=target_path, xet_hash=item.xet_hash, size=item.size)
-                        )
-                    else:
-                        _flush_hash_based_adds()
-                        with tempfile.TemporaryDirectory() as tmp_dir:
-                            local_path = str(Path(tmp_dir) / item.path.rsplit("/", 1)[-1])
-                            self.download_bucket_files(source_handle.bucket_id, [(item.path, local_path)], token=token)
-                            self.batch_bucket_files(
-                                destination_bucket_id, add=[(local_path, target_path)], token=token
-                            )
+                    all_adds.append(_hash_copy(target_path, item.xet_hash, item.size))
+
+        # === Source is a repo: hash-copy if xet-backed, download otherwise ===
         else:
             source_path = source_handle.path
             source_path_info: list[Union[RepoFile, RepoFolder]] = []
@@ -11938,34 +11957,16 @@ class HfApi:
                 )
 
             if len(source_path_info) == 1 and isinstance(source_path_info[0], RepoFile):
-                source_file = source_path_info[0]
-                target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
-                if source_file.xet_hash is not None:
-                    hash_based_adds.append(
-                        _BucketAddFile(
-                            source=b"",
-                            destination=target_path,
-                            xet_hash=source_file.xet_hash,
-                            size=source_file.size,
-                        )
-                    )
-                else:
-                    with tempfile.TemporaryDirectory() as tmp_dir:
-                        local_path = self.hf_hub_download(
-                            repo_id=source_handle.repo_id,
-                            repo_type=source_handle.repo_type,
-                            filename=source_file.path,
-                            revision=source_handle.revision,
-                            local_dir=tmp_dir,
-                            token=token,
-                        )
-                        self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
+                # Source path matched a single file
+                target_path = _resolve_target_path(source_path_info[0].path, None, is_single_file=True)
+                _add_repo_file(source_path_info[0], target_path)
             else:
+                # Source path is a folder — list and copy all files recursively
                 if source_path and not destination_is_directory:
                     raise ValueError("Folder copy requires destination to end with '/'.")
                 for item in self.list_repo_tree(
                     repo_id=source_handle.repo_id,
-                    path_in_repo=source_path or None,
+                    path_in_repo=source_path,
                     recursive=True,
                     repo_type=source_handle.repo_type,
                     revision=source_handle.revision,
@@ -11974,27 +11975,12 @@ class HfApi:
                     if not isinstance(item, RepoFile):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    if item.xet_hash is not None:
-                        hash_based_adds.append(
-                            _BucketAddFile(source=b"", destination=target_path, xet_hash=item.xet_hash, size=item.size)
-                        )
-                    else:
-                        _flush_hash_based_adds()
-                        with tempfile.TemporaryDirectory() as tmp_dir:
-                            local_path = self.hf_hub_download(
-                                repo_id=source_handle.repo_id,
-                                repo_type=source_handle.repo_type,
-                                filename=item.path,
-                                revision=source_handle.revision,
-                                local_dir=tmp_dir,
-                                token=token,
-                            )
-                            self.batch_bucket_files(
-                                destination_bucket_id, add=[(local_path, target_path)], token=token
-                            )
+                    _add_repo_file(item, target_path)
 
-        _flush_hash_based_adds()
-        return None
+        # Single batched call at the end for all collected adds
+        if all_adds:
+            for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
 
     @validate_hf_hub_args
     def batch_bucket_files(
