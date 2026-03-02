@@ -11850,16 +11850,16 @@ class HfApi:
         # 1. Resolve copy operations: fetch source file metadata to get xet_hash
         copy_operations = [op for op in operations if isinstance(op, _BucketCopyFile)]
         if copy_operations:
-            src_paths = [op.src_path for op in copy_operations]
+            src_paths = [copy_op.src_path for copy_op in copy_operations]
             resolved = {info.path: info for info in self.get_bucket_paths_info(bucket_id, src_paths, token=token)}
-            for op in copy_operations:
-                info = resolved.get(op.src_path)
+            for copy_op in copy_operations:
+                info = resolved.get(copy_op.src_path)
                 if info is None:
                     raise EntryNotFoundError(
-                        f"Source file '{op.src_path}' not found in bucket '{bucket_id}'. Cannot copy."
+                        f"Source file '{copy_op.src_path}' not found in bucket '{bucket_id}'. Cannot copy."
                     )
-                op.xet_hash = info.xet_hash
-                op.size = info.size
+                copy_op.xet_hash = info.xet_hash
+                copy_op.size = info.size
 
         # 2. Upload add operations via XET
         add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
