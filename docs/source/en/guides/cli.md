@@ -657,7 +657,7 @@ To filter by prefix, append the prefix to the bucket path:
 
 ### Copy single files
 
-Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
+Use `hf buckets cp` to copy files between local paths and HF handles, or between remote HF handles.
 
 To upload a file:
 
@@ -686,6 +686,21 @@ You can also stream to stdout or from stdin using `-`:
 # Upload from stdin
 >>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
 ```
+
+To copy between remote handles:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+```
+
+Notes:
+
+- Folder copy requires destination to end with `/`.
+- Bucket-to-repo copy is not supported.
 
 ### Sync directories
 

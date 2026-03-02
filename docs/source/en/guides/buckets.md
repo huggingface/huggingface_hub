@@ -456,6 +456,43 @@ You can also pipe the content of a file directly to `stdout` using `-`:
 >>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
 ```
 
+### Copy between remote HF handles
+
+Use [`copy_files`] to copy files between HF handles:
+
+```py
+>>> from huggingface_hub import copy_files
+
+# Bucket to bucket (same bucket or different bucket)
+>>> copy_files(
+...     "hf://buckets/username/source-bucket/checkpoints/model.safetensors",
+...     "hf://buckets/username/destination-bucket/archive/model.safetensors",
+... )
+
+# Repo to bucket
+>>> copy_files(
+...     "hf://datasets/username/my-dataset/processed/",
+...     "hf://buckets/username/my-bucket/datasets/processed/",
+... )
+```
+
+The same is available from the CLI:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
+```
+
+Notes:
+
+- Folder copy requires destination to end with `/`.
+- Bucket-to-repo copy is not supported.
+- For repo sources, files with an available `xet_hash` are copied directly. Regular files without `xet_hash` are downloaded
+  and re-uploaded.
+
 ### Download a directory with the CLI
 
 Use `hf buckets sync` to download all files from a bucket to a local directory:
