@@ -52,6 +52,7 @@ from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import build_hf_headers, get_token_to_send
+from ._hf_url import HF_URL_PREFIX, SPECIAL_REFS_REVISION_REGEX, HfUrl, parse_hf_url
 from ._http import (
     ASYNC_CLIENT_FACTORY_T,
     CLIENT_FACTORY_T,

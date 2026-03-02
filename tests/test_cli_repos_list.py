@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.repos import _parse_repo_argument
 from huggingface_hub.hf_api import ModelInfo, RepoFile, RepoFolder
+from huggingface_hub.utils._hf_url import HfUrl, parse_hf_url
 
 
 @pytest.fixture
@@ -20,6 +21,86 @@ def runner() -> CliRunner:
 
 def _make_model_info(id: str, **kwargs) -> ModelInfo:
     return ModelInfo(id=id, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# parse_hf_url unit tests (shared utility)
+# ---------------------------------------------------------------------------
+
+
+class TestParseHfUrl:
+    def test_empty(self):
+        assert parse_hf_url("") == HfUrl()
+
+    def test_models_only(self):
+        assert parse_hf_url("hf://models") == HfUrl(resource_type="model")
+
+    def test_datasets_only(self):
+        assert parse_hf_url("hf://datasets") == HfUrl(resource_type="dataset")
+
+    def test_spaces_only(self):
+        assert parse_hf_url("hf://spaces") == HfUrl(resource_type="space")
+
+    def test_buckets_only(self):
+        assert parse_hf_url("hf://buckets") == HfUrl(resource_type="bucket")
+
+    def test_models_namespace(self):
+        assert parse_hf_url("hf://models/huggingface") == HfUrl(resource_type="model", repo_id="huggingface")
+
+    def test_datasets_repo(self):
+        assert parse_hf_url("hf://datasets/user/repo") == HfUrl(resource_type="dataset", repo_id="user/repo")
+
+    def test_repo_with_revision(self):
+        assert parse_hf_url("hf://datasets/user/repo@main") == HfUrl(
+            resource_type="dataset", repo_id="user/repo", revision="main"
+        )
+
+    def test_repo_with_revision_and_path(self):
+        assert parse_hf_url("hf://datasets/user/repo@v1/data/train") == HfUrl(
+            resource_type="dataset", repo_id="user/repo", revision="v1", path="data/train"
+        )
+
+    def test_bucket_with_path(self):
+        assert parse_hf_url("hf://buckets/user/bucket/prefix/file.txt") == HfUrl(
+            resource_type="bucket", repo_id="user/bucket", path="prefix/file.txt"
+        )
+
+    def test_bucket_no_prefix(self):
+        assert parse_hf_url("hf://buckets/user/bucket") == HfUrl(resource_type="bucket", repo_id="user/bucket")
+
+    def test_plain_repo_id(self):
+        assert parse_hf_url("user/repo") == HfUrl(repo_id="user/repo")
+
+    def test_plain_namespace(self):
+        assert parse_hf_url("namespace") == HfUrl(repo_id="namespace")
+
+    def test_plain_repo_with_path(self):
+        assert parse_hf_url("user/repo/path/to/file") == HfUrl(repo_id="user/repo", path="path/to/file")
+
+    def test_plain_repo_with_revision(self):
+        assert parse_hf_url("user/repo@dev") == HfUrl(repo_id="user/repo", revision="dev")
+
+    def test_special_refs_pr(self):
+        assert parse_hf_url("user/repo@refs/pr/123/some/path") == HfUrl(
+            repo_id="user/repo", revision="refs/pr/123", path="some/path"
+        )
+
+    def test_special_refs_convert(self):
+        assert parse_hf_url("user/repo@refs/convert/parquet") == HfUrl(
+            repo_id="user/repo", revision="refs/convert/parquet"
+        )
+
+    def test_url_encoded_revision(self):
+        assert parse_hf_url("user/repo@my%20branch") == HfUrl(repo_id="user/repo", revision="my branch")
+
+    def test_no_hf_prefix_with_type(self):
+        assert parse_hf_url("models/user/repo") == HfUrl(resource_type="model", repo_id="user/repo")
+
+    def test_hf_prefix_default_type(self):
+        assert parse_hf_url("hf://user/repo") == HfUrl(repo_id="user/repo")
+
+    def test_single_word_with_revision(self):
+        assert parse_hf_url("gpt2@dev") == HfUrl(repo_id="gpt2", revision="dev")
 
 
 # ---------------------------------------------------------------------------

@@ -31,9 +31,14 @@ from huggingface_hub._buckets import (
     FilterMatcher,
     _is_bucket_path,
     _parse_bucket_path,
-    _split_bucket_id_and_prefix,
 )
-from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import (
+    StatusLine,
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+    parse_hf_url,
+)
 
 from ._cli_utils import (
     FormatOpt,
@@ -59,15 +64,15 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     Returns:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
     """
-    if argument.startswith(BUCKET_PREFIX):
-        return _parse_bucket_path(argument)
-    try:
-        return _split_bucket_id_and_prefix(argument)
-    except ValueError:
-        raise ValueError(
-            f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
-            f" or {BUCKET_PREFIX}namespace/bucket_name"
-        )
+    parsed = parse_hf_url(argument)
+    if parsed.resource_type == "bucket" and parsed.repo_id is not None:
+        return parsed.repo_id, parsed.path
+    if parsed.resource_type is None and parsed.repo_id is not None and "/" in parsed.repo_id:
+        return parsed.repo_id, parsed.path
+    raise ValueError(
+        f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
+        f" or {BUCKET_PREFIX}namespace/bucket_name"
+    )
 
 
 def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
@@ -262,11 +267,10 @@ def create(
 
 def _is_bucket_id(argument: str) -> bool:
     """Check if argument is a bucket ID (namespace/name) vs just a namespace."""
-    if argument.startswith(BUCKET_PREFIX):
-        path = argument[len(BUCKET_PREFIX) :]
-    else:
-        path = argument
-    return "/" in path
+    parsed = parse_hf_url(argument)
+    if parsed.resource_type == "bucket":
+        return parsed.repo_id is not None and "/" in parsed.repo_id
+    return parsed.repo_id is not None and "/" in parsed.repo_id
 
 
 @buckets_cli.command(
@@ -366,11 +370,11 @@ def _list_buckets(
     if recursive:
         raise typer.BadParameter("Cannot use --recursive when listing buckets.")
 
-    # Handle hf://buckets/namespace format
-    if namespace is not None and namespace.startswith(BUCKET_PREFIX):
-        namespace = namespace[len(BUCKET_PREFIX) :]
-        # Strip trailing slash if any
-        namespace = namespace.rstrip("/")
+    if namespace is not None and namespace.startswith("hf://"):
+        parsed = parse_hf_url(namespace)
+        namespace = parsed.repo_id
+        if namespace:
+            namespace = namespace.rstrip("/")
 
     api = get_hf_api(token=token)
     results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]

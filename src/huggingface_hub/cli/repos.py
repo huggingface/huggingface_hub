@@ -31,17 +31,15 @@ Usage:
 
 import enum
 import json
-import re
 import sys
 from datetime import datetime
 from typing import Annotated, Optional, Union
-from urllib.parse import unquote
 
 import typer
 
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import RepoFile, RepoFolder
-from huggingface_hub.utils import ANSI, StatusLine
+from huggingface_hub.utils import ANSI, StatusLine, parse_hf_url
 
 from ._cli_utils import (
     FormatOpt,
@@ -78,92 +76,49 @@ repos_cli.add_typer(tag_cli, name="tag")
 repos_cli.add_typer(branch_cli, name="branch")
 
 
-SPECIAL_REFS_REVISION_REGEX = re.compile(
-    r"""
-    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
-    |
-    (^refs\/pr\/\d+)          # PR revisions
-    """,
-    re.VERBOSE,
-)
-
-_REPO_TYPE_PREFIXES = {"models": "model", "datasets": "dataset", "spaces": "space"}
-
-
 def _parse_repo_argument(
     argument: str, repo_type: Optional[str] = None
 ) -> tuple[str, Optional[str], Optional[str], Optional[str]]:
     """Parse a repo argument accepting both plain paths and hf:// handles.
 
-    Handles:
-        hf://models                          → (model, None, None, None)          list repos
-        hf://models/namespace                → (model, namespace, None, None)     list repos in namespace
-        hf://datasets/user/repo              → (dataset, user/repo, None, "")     list files
-        hf://datasets/user/repo@rev          → (dataset, user/repo, rev, "")      list files at rev
-        hf://datasets/user/repo@rev/path     → (dataset, user/repo, rev, path)    list files in path
-        hf://user/repo                       → (model, user/repo, None, "")       list files (default model)
-        user/repo                            → (model, user/repo, None, "")       list files
-        user/repo/path                       → (model, user/repo, None, path)     list files in path
-        namespace                            → (model, namespace, None, None)     list repos in namespace
-        (empty)                              → (model, None, None, None)          list repos
+    Delegates to :func:`~huggingface_hub.utils.parse_hf_url` for the heavy lifting.
 
     Returns:
         tuple: (repo_type, identifier, revision, path_in_repo)
         - When path_in_repo is None, identifier is a namespace (or None) for listing repos.
         - When path_in_repo is a string (possibly empty), identifier is a repo_id for listing files.
     """
-    path = argument
+    parsed = parse_hf_url(argument)
 
-    if path.startswith("hf://"):
-        path = path[len("hf://") :]
+    # Resolve resource type
+    effective_type = parsed.resource_type
+    if effective_type is not None and repo_type is not None and effective_type != repo_type:
+        raise ValueError(f"Repo type from handle ('{effective_type}') conflicts with --type ('{repo_type}').")
+    if effective_type is None:
+        effective_type = repo_type or "model"
 
-    # Detect repo type from prefix
-    first_segment = path.split("/")[0] if path else ""
-    if first_segment in _REPO_TYPE_PREFIXES:
-        detected_type = _REPO_TYPE_PREFIXES[first_segment]
-        if repo_type is not None and repo_type != detected_type:
-            raise ValueError(f"Repo type from handle ('{detected_type}') conflicts with --type ('{repo_type}').")
-        repo_type = detected_type
-        path = "/".join(path.split("/")[1:])
+    # Determine if this is file-listing mode or repo-listing mode.
+    # File mode: repo_id contains "/" (namespace/name) or has a revision.
+    # Repo mode: repo_id is None (type-only) or a single-segment namespace (no "/", no "@").
+    repo_id = parsed.repo_id
+    if repo_id is None:
+        return (effective_type, None, None, None)
 
-    if repo_type is None:
-        repo_type = "model"
+    has_namespace = "/" in repo_id
+    has_revision = parsed.revision is not None
+    has_path = parsed.path != ""
 
-    if not path:
-        return (repo_type, None, None, None)
+    if has_namespace or has_revision:
+        path_in_repo = parsed.path if parsed.path else ""
+        return (effective_type, repo_id, parsed.revision, path_in_repo)
 
-    # Parse revision from @ in repo_id part
-    revision: Optional[str] = None
+    if has_path:
+        full_id = f"{repo_id}/{parsed.path.split('/')[0]}"
+        remaining = "/".join(parsed.path.split("/")[1:])
+        return (effective_type, full_id, None, remaining if remaining else "")
 
-    if "/" not in path:
-        # Single segment: could be namespace or repo_id-without-namespace
-        if "@" in path:
-            repo_id, rev = path.split("@", 1)
-            return (repo_type, repo_id, unquote(rev), "")
-        return (repo_type, path, None, None)
-
-    # Multiple segments: namespace/repo or namespace/repo/path or namespace/repo@rev/path
-    parts = path.split("/")
-    repo_id_candidate = "/".join(parts[:2])
-    remaining = "/".join(parts[2:])
-
-    if "@" in repo_id_candidate:
-        repo_id, rev_and_path = repo_id_candidate.split("@", 1)
-        if remaining:
-            rev_and_path = rev_and_path + "/" + remaining if rev_and_path else remaining
-        if "/" in rev_and_path:
-            match = SPECIAL_REFS_REVISION_REGEX.search(rev_and_path)
-            if match is not None:
-                path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", rev_and_path).lstrip("/")
-                revision = match.group()
-            else:
-                revision, path_in_repo = rev_and_path.split("/", 1)
-        else:
-            revision = rev_and_path
-            path_in_repo = ""
-        return (repo_type, repo_id, unquote(revision), path_in_repo)
-
-    return (repo_type, repo_id_candidate, None, remaining if remaining else "")
+    # Single segment, no revision, no path → namespace for listing repos
+    return (effective_type, repo_id, None, None)
 
 
 def _format_size(size: Union[int, float], human_readable: bool = False) -> str:

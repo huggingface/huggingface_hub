@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
 from . import constants, logging
 from .errors import BucketNotFoundError
 from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
+from .utils._hf_url import parse_hf_url
 from .utils._terminal import StatusLine
 
 
@@ -242,9 +243,10 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     Returns:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
     """
-    if not path.startswith(BUCKET_PREFIX):
+    parsed = parse_hf_url(path)
+    if parsed.resource_type != "bucket" or parsed.repo_id is None:
         raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    return parsed.repo_id, parsed.path
 
 
 def _is_bucket_path(path: str) -> bool:
