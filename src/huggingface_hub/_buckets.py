@@ -123,12 +123,17 @@ class _BucketAddFile:
 class _BucketCopyFile:
     src_path: str
     dest_path: str
+
+    xet_hash: Optional[str] = field(default=None)
+    size: Optional[int] = field(default=None)
+    mtime: int = field(init=False)
     content_type: Optional[str] = field(init=False)
 
     def __post_init__(self) -> None:
         self.content_type = mimetypes.guess_type(self.src_path)[0]
         if self.content_type is None:
             self.content_type = mimetypes.guess_type(self.dest_path)[0]
+        self.mtime = int(time.time() * 1000)
 
 
 @dataclass

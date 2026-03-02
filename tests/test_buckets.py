@@ -12,12 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import warnings
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketInfo
+from huggingface_hub._buckets import BucketFile, BucketInfo
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
@@ -332,6 +334,12 @@ def test_batch_bucket_files_copy_to_subdir(api: HfApi, bucket_read: str):
     assert "backups/file.txt" in files
 
 
+def test_batch_bucket_files_copy_nonexistent_source(api: HfApi, bucket_read: str):
+    """Test that copying a non-existent source file raises EntryNotFoundError."""
+    with pytest.raises(EntryNotFoundError, match="not found"):
+        api.batch_bucket_files(bucket_read, copy=[("nonexistent.txt", "dest.txt")])
+
+
 @pytest.mark.parametrize(
     "source, destination, expected_content_type",
     [
@@ -381,3 +389,132 @@ def test_bucket_copy_file_content_type(src_path, dest_path, expected_content_typ
 
     entry = _BucketCopyFile(src_path=src_path, dest_path=dest_path)
     assert entry.content_type == expected_content_type
+
+
+# =============================================================================
+# Mock-based tests for copy logic (no network required)
+# =============================================================================
+
+
+def test_batch_bucket_files_copy_resolves_metadata_and_sends_add_file():
+    """Copy resolves source xet_hash via get_bucket_paths_info and emits addFile entries."""
+    api = HfApi(endpoint="https://fake.endpoint", token="fake-token")
+
+    fake_bucket_file = BucketFile(
+        type="file",
+        path="source.txt",
+        size=42,
+        xetHash="abc123hash",
+        mtime="2025-01-01T00:00:00.000Z",
+    )
+
+    captured_data = {}
+
+    def mock_http_backoff(method, url, **kwargs):
+        captured_data["method"] = method
+        captured_data["url"] = url
+        captured_data["content"] = kwargs.get("content", b"")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        return mock_response
+
+    with (
+        patch.object(api, "get_bucket_paths_info", return_value=[fake_bucket_file]) as mock_paths_info,
+        patch("huggingface_hub.hf_api.http_backoff", side_effect=mock_http_backoff),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        api.batch_bucket_files("user/my-bucket", copy=[("source.txt", "dest.txt")])
+
+    mock_paths_info.assert_called_once()
+    call_args = mock_paths_info.call_args
+    assert call_args[0][0] == "user/my-bucket"
+    assert list(call_args[0][1]) == ["source.txt"]
+
+    ndjson_lines = captured_data["content"].decode().strip().split("\n")
+    assert len(ndjson_lines) == 1
+    payload = json.loads(ndjson_lines[0])
+    assert payload["type"] == "addFile"
+    assert payload["path"] == "dest.txt"
+    assert payload["xetHash"] == "abc123hash"
+    assert "mtime" in payload
+
+
+def test_batch_bucket_files_copy_raises_on_missing_source():
+    """Copy raises EntryNotFoundError when source file doesn't exist."""
+    api = HfApi(endpoint="https://fake.endpoint", token="fake-token")
+
+    with patch.object(api, "get_bucket_paths_info", return_value=[]):
+        with pytest.raises(EntryNotFoundError, match="not found"):
+            api.batch_bucket_files("user/my-bucket", copy=[("missing.txt", "dest.txt")])
+
+
+def test_batch_bucket_files_copy_multiple_files():
+    """Copy resolves multiple files in a single get_bucket_paths_info call."""
+    api = HfApi(endpoint="https://fake.endpoint", token="fake-token")
+
+    fake_files = [
+        BucketFile(
+            type="file",
+            path="a.txt",
+            size=10,
+            xetHash="hash_a",
+            mtime="2025-01-01T00:00:00.000Z",
+        ),
+        BucketFile(
+            type="file",
+            path="b.txt",
+            size=20,
+            xetHash="hash_b",
+            mtime="2025-01-01T00:00:00.000Z",
+        ),
+    ]
+
+    captured_data = {}
+
+    def mock_http_backoff(method, url, **kwargs):
+        captured_data["content"] = kwargs.get("content", b"")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        return mock_response
+
+    with (
+        patch.object(api, "get_bucket_paths_info", return_value=fake_files),
+        patch("huggingface_hub.hf_api.http_backoff", side_effect=mock_http_backoff),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        api.batch_bucket_files(
+            "user/my-bucket",
+            copy=[("a.txt", "copy_a.txt"), ("b.txt", "copy_b.txt")],
+        )
+
+    ndjson_lines = captured_data["content"].decode().strip().split("\n")
+    assert len(ndjson_lines) == 2
+
+    payloads = [json.loads(line) for line in ndjson_lines]
+    assert all(p["type"] == "addFile" for p in payloads)
+
+    by_path = {p["path"]: p for p in payloads}
+    assert by_path["copy_a.txt"]["xetHash"] == "hash_a"
+    assert by_path["copy_b.txt"]["xetHash"] == "hash_b"
+
+
+def test_batch_bucket_files_copy_partial_missing():
+    """Copy raises EntryNotFoundError if any source file is missing, even if others exist."""
+    api = HfApi(endpoint="https://fake.endpoint", token="fake-token")
+
+    fake_files = [
+        BucketFile(
+            type="file",
+            path="exists.txt",
+            size=10,
+            xetHash="hash_exists",
+            mtime="2025-01-01T00:00:00.000Z",
+        ),
+    ]
+
+    with patch.object(api, "get_bucket_paths_info", return_value=fake_files):
+        with pytest.raises(EntryNotFoundError, match="missing.txt"):
+            api.batch_bucket_files(
+                "user/my-bucket",
+                copy=[("exists.txt", "copy.txt"), ("missing.txt", "dest.txt")],
+            )

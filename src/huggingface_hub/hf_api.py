@@ -11843,17 +11843,32 @@ class HfApi:
         if not operations:
             return
 
-        from hf_xet import upload_bytes, upload_files
-
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
 
+        # 1. Resolve copy operations: fetch source file metadata to get xet_hash
+        copy_operations = [op for op in operations if isinstance(op, _BucketCopyFile)]
+        if copy_operations:
+            src_paths = [op.src_path for op in copy_operations]
+            resolved = {info.path: info for info in self.get_bucket_paths_info(bucket_id, src_paths, token=token)}
+            for op in copy_operations:
+                info = resolved.get(op.src_path)
+                if info is None:
+                    raise EntryNotFoundError(
+                        f"Source file '{op.src_path}' not found in bucket '{bucket_id}'. Cannot copy."
+                    )
+                op.xet_hash = info.xet_hash
+                op.size = info.size
+
+        # 2. Upload add operations via XET
         add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
         add_bytes_operations = [op for op in add_operations if isinstance(op.source, bytes)]
         add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
         if len(add_operations) > 0:
+            from hf_xet import upload_bytes, upload_files
+
             try:
                 xet_connection_info = fetch_xet_connection_info_from_repo_info(
                     token_type=XetTokenType.WRITE,
@@ -11931,23 +11946,16 @@ class HfApi:
                 if owns_progress and progress is not None:
                     progress.close(False)
 
-        # 3. /batch call
+        # 3. /batch call — copy operations are sent as addFile entries
         def _payload_as_ndjson() -> Iterable[bytes]:
             for op in operations:
-                if isinstance(op, _BucketAddFile):
+                if isinstance(op, (_BucketAddFile, _BucketCopyFile)):
+                    dest = op.destination if isinstance(op, _BucketAddFile) else op.dest_path
                     payload = {
                         "type": "addFile",
-                        "path": op.destination,
+                        "path": dest,
                         "xetHash": op.xet_hash,
                         "mtime": op.mtime,
-                    }
-                    if op.content_type is not None:
-                        payload["contentType"] = op.content_type
-                elif isinstance(op, _BucketCopyFile):
-                    payload = {
-                        "type": "copyFile",
-                        "path": op.dest_path,
-                        "srcPath": op.src_path,
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
