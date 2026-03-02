@@ -29,6 +29,11 @@ def test_build_duckdb_cli_input_rejects_cli_meta_commands() -> None:
         _build_duckdb_cli_input(setup_statements=[], query="SELECT 1;\n.shell id")
 
 
+def test_build_duckdb_cli_input_allows_decimal_literal_at_line_start() -> None:
+    query_input = _build_duckdb_cli_input(setup_statements=[], query="SELECT\n  .5 AS x")
+    assert query_input == "SELECT\n  .5 AS x;"
+
+
 def test_format_sql_result_table_returns_duckdb_table() -> None:
     result = DatasetSqlQueryResult(
         columns=("name",),

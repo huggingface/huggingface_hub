@@ -199,7 +199,9 @@ def _run_duckdb_cli(binary_path: str, setup_statements: list[str], query: str, o
 
 
 def _query_contains_duckdb_cli_meta_command(query: str) -> bool:
-    return any(line.lstrip().startswith(".") for line in query.splitlines())
+    # DuckDB CLI meta-commands are dot-prefixed words (e.g. `.shell`, `.output`).
+    # Allow SQL expressions like `.5` that can legitimately start a line.
+    return any((stripped := line.lstrip()).startswith(".") and stripped[1:2].isalpha() for line in query.splitlines())
 
 
 def _build_duckdb_cli_input(setup_statements: list[str], query: str) -> str:
