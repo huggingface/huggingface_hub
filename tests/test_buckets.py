@@ -306,12 +306,11 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
 def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str):
     api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
 
-    copied_count = api.copy_files(
+    api.copy_files(
         f"hf://buckets/{bucket_write}/source.txt",
         f"hf://buckets/{bucket_write}/copied.txt",
     )
 
-    assert copied_count == 1
     files = {entry.path for entry in api.list_bucket_tree(bucket_write)}
     assert files >= {"source.txt", "copied.txt"}
 
@@ -322,12 +321,11 @@ def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: 
     destination_bucket = api.create_bucket(bucket_name()).bucket_id
     api.batch_bucket_files(source_bucket, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
 
-    copied_count = api.copy_files(
+    api.copy_files(
         f"hf://buckets/{source_bucket}/logs",
         f"hf://buckets/{destination_bucket}/backup/",
     )
 
-    assert copied_count == 2
     destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
     assert destination_files >= {"backup/a.txt", "backup/sub/b.txt"}
     assert "backup/c.txt" not in destination_files
@@ -344,12 +342,11 @@ def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, 
             repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch
         )
 
-        copied_count = api.copy_files(
+        api.copy_files(
             f"hf://{repo_id}@{branch}/nested/from-branch.txt",
             f"hf://buckets/{bucket_write}/from-repo.txt",
         )
 
-        assert copied_count == 1
         output_path = tmp_path / "from-repo.txt"
         api.download_bucket_files(bucket_write, [("from-repo.txt", output_path)])
         assert output_path.read_bytes() == b"branch"

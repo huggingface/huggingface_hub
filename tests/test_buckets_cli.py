@@ -886,7 +886,7 @@ def test_cp_remote_bucket_to_bucket(api: HfApi):
     )
 
     assert result.exit_code == 0, result.output
-    assert "Copied 2 file(s)" in result.output
+    assert f"Copied: hf://buckets/{source_bucket}/logs -> hf://buckets/{destination_bucket}/backup/" in result.output
     files = _remote_files(api, destination_bucket)
     assert files >= {"backup/a.txt", "backup/sub/b.txt"}
     assert "backup/c.txt" not in files
@@ -908,7 +908,9 @@ def test_cp_remote_repo_to_bucket(api: HfApi):
             f"hf buckets cp hf://{repo_id}@{branch}/nested/from-branch.txt hf://buckets/{destination_bucket}/copied.txt"
         )
         assert result.exit_code == 0, result.output
-        assert "Copied 1 file(s)" in result.output
+        assert (
+            f"Copied: hf://{repo_id}@{branch}/nested/from-branch.txt -> hf://buckets/{destination_bucket}/copied.txt"
+        ) in result.output
     finally:
         api.delete_repo(repo_id=repo_id)
 

@@ -11817,7 +11817,7 @@ class HfApi:
         destination: str,
         *,
         token: Union[str, bool, None] = None,
-    ) -> int:
+    ) -> None:
         """Copy files between HF handles.
 
         Supported:
@@ -11843,7 +11843,6 @@ class HfApi:
         destination_path = destination_handle.path
         destination_is_directory = destination_handle.is_directory or destination_path == ""
 
-        copy_count = 0
         hash_based_adds: list[_BucketAddFile] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: Optional[str], is_single_file: bool) -> str:
@@ -11903,7 +11902,6 @@ class HfApi:
                             source_handle.bucket_id, [(source_file.path, local_path)], token=token
                         )
                         self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
-                copy_count += 1
             else:
                 if source_path != "" and not destination_is_directory:
                     raise ValueError("Folder copy requires destination to end with '/'.")
@@ -11927,7 +11925,6 @@ class HfApi:
                             self.batch_bucket_files(
                                 destination_bucket_id, add=[(local_path, target_path)], token=token
                             )
-                    copy_count += 1
         else:
             source_path = source_handle.path
             source_path_info: list[Union[RepoFile, RepoFolder]] = []
@@ -11963,7 +11960,6 @@ class HfApi:
                             token=token,
                         )
                         self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
-                copy_count += 1
             else:
                 if source_path and not destination_is_directory:
                     raise ValueError("Folder copy requires destination to end with '/'.")
@@ -11996,10 +11992,9 @@ class HfApi:
                             self.batch_bucket_files(
                                 destination_bucket_id, add=[(local_path, target_path)], token=token
                             )
-                    copy_count += 1
 
         _flush_hash_based_adds()
-        return copy_count
+        return None
 
     @validate_hf_hub_args
     def batch_bucket_files(

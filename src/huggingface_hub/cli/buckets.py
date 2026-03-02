@@ -955,7 +955,7 @@ def cp(
         if quiet:
             disable_progress_bars()
         try:
-            copied_count = api.copy_files(src, dst)
+            api.copy_files(src, dst)
         except ValueError as error:
             raise typer.BadParameter(str(error))
         finally:
@@ -963,7 +963,7 @@ def cp(
                 enable_progress_bars()
 
         if not quiet:
-            print(f"Copied {copied_count} file(s): {src} -> {dst}")
+            print(f"Copied: {src} -> {dst}")
         return
 
     # --- Validation ---
