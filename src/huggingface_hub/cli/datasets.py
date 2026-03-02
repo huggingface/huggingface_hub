@@ -26,18 +26,13 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, Union, get_args
+from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub.errors import (
-    CLIError,
-    HfHubHTTPError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
-)
+from huggingface_hub._sql_dataset import execute_raw_sql_query, format_sql_result
+from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
-from huggingface_hub.utils import tabulate
 
 from ._cli_utils import (
     AuthorOpt,
@@ -146,33 +141,23 @@ def datasets_parquet(
     subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
     format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List parquet file URLs available for a dataset."""
     api = get_hf_api(token=token)
 
     try:
-        entries = api.list_dataset_parquet_entries(repo_id=dataset_id, config=subset, split=split)
+        entries = api.list_dataset_parquet_files(repo_id=dataset_id, config=subset, split=split)
     except RepositoryNotFoundError as e:
         raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except ValueError as e:
         raise CLIError(str(e)) from e
     except HfHubHTTPError as e:
         raise CLIError(str(e)) from e
-    rows: list[list[Union[str, int]]] = [[entry.config, entry.split, entry.url] for entry in entries]
 
-    if format == OutputFormat.table:
-        typer.echo(tabulate(rows=rows, headers=["SUBSET", "SPLIT", "URL"]))
-        return
-
-    if format == OutputFormat.json:
-        typer.echo(
-            json.dumps(
-                [{"subset": entry.config, "split": entry.split, "url": entry.url} for entry in entries],
-                indent=2,
-            )
-        )
-        return
+    results = [{"subset": entry.config, "split": entry.split, "url": entry.url} for entry in entries]
+    print_list_output(results, format=format, quiet=quiet, id_key="url")
 
 
 @datasets_cli.command(
@@ -188,9 +173,8 @@ def datasets_sql(
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
-    api = get_hf_api(token=token)
     try:
-        output = api.execute_raw_sql_query(sql_query=sql, output_format=format.value)
+        result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
     except (ImportError, ValueError) as e:
         raise CLIError(str(e)) from e
-    typer.echo(output)
+    print(format_sql_result(result=result, output_format=format.value))

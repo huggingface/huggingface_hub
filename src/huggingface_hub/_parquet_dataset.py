@@ -15,11 +15,11 @@
 
 
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
-from .. import constants
-from ._headers import build_hf_headers
-from ._http import get_session, hf_raise_for_status
+from . import constants
+from .utils._headers import build_hf_headers
+from .utils._http import get_session, hf_raise_for_status
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class DatasetParquetEntry:
     url: str
 
 
-def list_dataset_parquet_entries(
+def list_dataset_parquet_files_internal(
     repo_id: str,
     token: Union[str, bool, None],
     config: Optional[str] = None,
@@ -37,7 +37,10 @@ def list_dataset_parquet_entries(
     *,
     endpoint: str = constants.ENDPOINT,
 ) -> list[DatasetParquetEntry]:
-    payload = _fetch_json(url=f"{endpoint.rstrip('/')}/api/datasets/{repo_id}/parquet", token=token)
+    url = f"{endpoint.rstrip('/')}/api/datasets/{repo_id}/parquet"
+    response = get_session().get(url, headers=build_hf_headers(token=token), timeout=constants.DEFAULT_REQUEST_TIMEOUT)
+    hf_raise_for_status(response)
+    payload = response.json()
 
     entries: list[DatasetParquetEntry] = []
     if isinstance(payload, dict):
@@ -67,9 +70,3 @@ def list_dataset_parquet_entries(
             + "."
         )
     return entries
-
-
-def _fetch_json(url: str, token: Union[str, bool, None]) -> Any:
-    response = get_session().get(url, headers=build_hf_headers(token=token), timeout=constants.DEFAULT_REQUEST_TIMEOUT)
-    hf_raise_for_status(response)
-    return response.json()

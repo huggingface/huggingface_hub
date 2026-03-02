@@ -22,8 +22,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from .. import constants
-from ._headers import get_token_to_send
+from . import constants
+from .utils._headers import get_token_to_send
 
 
 @dataclass(frozen=True)

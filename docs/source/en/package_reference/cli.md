@@ -1024,6 +1024,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 * `--subset TEXT`: Filter parquet entries by subset/config.
 * `--split TEXT`: Filter parquet entries by split.
 * `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

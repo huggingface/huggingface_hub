@@ -83,6 +83,10 @@ from ._commit_api import (
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._parquet_dataset import (
+    DatasetParquetEntry,
+    list_dataset_parquet_files_internal,
+)
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -134,11 +138,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments
-from .utils._duckdb import execute_raw_sql_query as _execute_raw_sql_query
-from .utils._duckdb import format_sql_result as _format_sql_result
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
-from .utils._parquet import DatasetParquetEntry
-from .utils._parquet import list_dataset_parquet_entries as _list_dataset_parquet_entries
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -2497,7 +2497,7 @@ class HfApi:
             yield DatasetInfo(**item)
 
     @validate_hf_hub_args
-    def list_dataset_parquet_entries(
+    def list_dataset_parquet_files(
         self,
         repo_id: str,
         *,
@@ -2506,29 +2506,13 @@ class HfApi:
         token: Union[bool, str, None] = None,
     ) -> list[DatasetParquetEntry]:
         """List parquet file URLs available for a dataset."""
-        return _list_dataset_parquet_entries(
+        return list_dataset_parquet_files_internal(
             repo_id=repo_id,
             token=self.token if token is None else token,
             config=config,
             split=split,
             endpoint=self.endpoint,
         )
-
-    def execute_raw_sql_query(
-        self,
-        sql_query: str,
-        *,
-        output_format: Literal["table", "json"] = "table",
-        token: Union[bool, str, None] = None,
-    ) -> str:
-        """Execute a raw SQL query with DuckDB."""
-        result = _execute_raw_sql_query(
-            sql_query=sql_query,
-            token=self.token if token is None else token,
-            output_format=output_format,
-            endpoint=self.endpoint,
-        )
-        return _format_sql_result(result=result, output_format=output_format)
 
     @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
