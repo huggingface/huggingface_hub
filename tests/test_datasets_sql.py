@@ -4,6 +4,7 @@ import pytest
 
 from huggingface_hub.utils._duckdb import (
     DatasetSqlQueryResult,
+    _build_duckdb_cli_input,
     _build_duckdb_secret_statements,
     _DuckDBCliConnection,
     _get_duckdb_connection,
@@ -21,6 +22,11 @@ def test_normalize_query_strips_whitespace_and_semicolons() -> None:
 def test_normalize_query_empty_raises() -> None:
     with pytest.raises(ValueError, match="SQL query cannot be empty"):
         _normalize_query(" ; ")
+
+
+def test_build_duckdb_cli_input_rejects_cli_meta_commands() -> None:
+    with pytest.raises(ValueError, match="meta-commands are not allowed"):
+        _build_duckdb_cli_input(setup_statements=[], query="SELECT 1;\n.shell id")
 
 
 def test_format_sql_result_table_returns_duckdb_table() -> None:

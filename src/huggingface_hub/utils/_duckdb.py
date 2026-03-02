@@ -198,7 +198,14 @@ def _run_duckdb_cli(binary_path: str, setup_statements: list[str], query: str, o
     return result.stdout.strip()
 
 
+def _query_contains_duckdb_cli_meta_command(query: str) -> bool:
+    return any(line.lstrip().startswith(".") for line in query.splitlines())
+
+
 def _build_duckdb_cli_input(setup_statements: list[str], query: str) -> str:
+    if _query_contains_duckdb_cli_meta_command(query):
+        raise ValueError("DuckDB CLI meta-commands are not allowed in SQL queries.")
+
     statements: list[str] = []
     if setup_statements:
         statements.append(f".output {os.devnull}")
