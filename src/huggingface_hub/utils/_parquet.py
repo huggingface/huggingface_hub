@@ -56,10 +56,14 @@ def list_dataset_parquet_entries(
                         entries.append(DatasetParquetEntry(config=config_name, split=split_name, url=url))
 
     if not entries:
+        filters = []
+        if config is not None:
+            filters.append(f"config={config!r}")
+        if split is not None:
+            filters.append(f"split={split!r}")
         raise ValueError(
             f"No parquet entries found for dataset '{repo_id}'"
-            + (f" with config={config!r}" if config else "")
-            + (f", split={split!r}" if split else "")
+            + (f" with {', '.join(filters)}" if filters else "")
             + "."
         )
     return entries

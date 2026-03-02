@@ -97,3 +97,35 @@ def test_list_dataset_parquet_entries_no_match_raises(monkeypatch: pytest.Monkey
 
     with pytest.raises(ValueError, match="No parquet entries found"):
         list_dataset_parquet_entries(repo_id="cfahlgren1/hub-stats", token="token", config="models")
+
+
+def test_list_dataset_parquet_entries_no_match_with_split_filter_raises_clear_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "huggingface_hub.utils._parquet._fetch_json",
+        lambda url, token: {
+            "datasets": {"train": ["https://example.com/datasets-train.parquet"]},
+        },
+    )
+
+    with pytest.raises(
+        ValueError, match="No parquet entries found for dataset 'cfahlgren1/hub-stats' with split='test'."
+    ):
+        list_dataset_parquet_entries(repo_id="cfahlgren1/hub-stats", token="token", split="test")
+
+
+def test_list_dataset_parquet_entries_no_match_with_empty_config_filter_includes_filter_in_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "huggingface_hub.utils._parquet._fetch_json",
+        lambda url, token: {
+            "datasets": {"train": ["https://example.com/datasets-train.parquet"]},
+        },
+    )
+
+    with pytest.raises(
+        ValueError, match="No parquet entries found for dataset 'cfahlgren1/hub-stats' with config=''."
+    ):
+        list_dataset_parquet_entries(repo_id="cfahlgren1/hub-stats", token="token", config="")
