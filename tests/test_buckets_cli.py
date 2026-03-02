@@ -876,10 +876,55 @@ def test_cp_download_creates_parent_dirs(bucket_with_files: str, tmp_path: Path)
 # -- Validation error tests --
 
 
-def test_cp_error_remote_to_remote():
-    """Both src and dst are bucket paths."""
+def test_cp_remote_to_remote_same_bucket(api: HfApi, bucket_with_files: str):
+    """Copy a file within the same bucket (remote-to-remote)."""
+    result = cli(
+        f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt hf://buckets/{bucket_with_files}/file_copy.txt"
+    )
+    assert result.exit_code == 0
+    assert "Copied:" in result.output
+
+    files = _remote_files(api, bucket_with_files)
+    assert "file.txt" in files
+    assert "file_copy.txt" in files
+
+
+def test_cp_remote_to_remote_into_subdir(api: HfApi, bucket_with_files: str):
+    """Copy a remote file into a subdirectory using trailing slash."""
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt hf://buckets/{bucket_with_files}/archive/")
+    assert result.exit_code == 0
+    assert "Copied:" in result.output
+
+    files = _remote_files(api, bucket_with_files)
+    assert "file.txt" in files
+    assert "archive/file.txt" in files
+
+
+def test_cp_remote_to_remote_to_bucket_root(api: HfApi, bucket_with_files: str):
+    """Copy a nested remote file to the bucket root (empty prefix on dst)."""
+    result = cli(
+        f"hf buckets cp hf://buckets/{bucket_with_files}/sub/nested.txt"
+        f" hf://buckets/{bucket_with_files}/nested_copy.txt"
+    )
+    assert result.exit_code == 0
+
+    files = _remote_files(api, bucket_with_files)
+    assert "sub/nested.txt" in files
+    assert "nested_copy.txt" in files
+
+
+def test_cp_error_remote_to_remote_cross_bucket():
+    """Cross-bucket copy is not supported."""
     result = cli("hf buckets cp hf://buckets/user/a/file.txt hf://buckets/user/b/file.txt")
     assert result.exit_code != 0
+    assert "Cross-bucket copy is not supported" in result.output
+
+
+def test_cp_error_remote_to_remote_src_no_filename():
+    """Remote-to-remote copy requires a filename in src."""
+    result = cli(f"hf buckets cp hf://buckets/{USER}/some-bucket hf://buckets/{USER}/some-bucket/dest.txt")
+    assert result.exit_code != 0
+    assert "file name" in result.output.lower()
 
 
 def test_cp_error_both_local(tmp_path: Path):

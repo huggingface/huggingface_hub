@@ -924,6 +924,7 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/file.txt hf://buckets/user/my-bucket/copy.txt",
     ],
 )
 def cp(
@@ -934,7 +935,7 @@ def cp(
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Copy a single file to or from a bucket."""
+    """Copy a single file to or from a bucket, or between remote locations in the same bucket."""
     api = get_hf_api(token=token)
 
     src_is_bucket = _is_bucket_path(src)
@@ -943,9 +944,6 @@ def cp(
     dst_is_stdout = dst == "-"
 
     # --- Validation ---
-    if src_is_bucket and dst_is_bucket:
-        raise typer.BadParameter("Remote-to-remote copy not supported.")
-
     if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
         if dst is None:
             raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")
@@ -967,7 +965,31 @@ def cp(
         raise typer.BadParameter("Source must be a file, not a directory. Use `hf buckets sync` for directories.")
 
     # --- Determine direction and execute ---
-    if src_is_bucket:
+    if src_is_bucket and dst_is_bucket:
+        # Remote-to-remote copy within the same bucket
+        assert dst is not None
+        src_bucket_id, src_prefix = _parse_bucket_path(src)
+        dst_bucket_id, dst_prefix = _parse_bucket_path(dst)
+
+        if src_bucket_id != dst_bucket_id:
+            raise typer.BadParameter(
+                f"Cross-bucket copy is not supported. Source bucket '{src_bucket_id}'"
+                f" and destination bucket '{dst_bucket_id}' must be the same."
+            )
+
+        if src_prefix == "" or src_prefix.endswith("/"):
+            raise typer.BadParameter("Source path must include a file name, not just a bucket or directory path.")
+
+        if dst_prefix == "" or dst_prefix.endswith("/"):
+            filename = src_prefix.rsplit("/", 1)[-1]
+            dst_prefix = dst_prefix + filename
+
+        api.batch_bucket_files(src_bucket_id, copy=[(src_prefix, dst_prefix)])
+
+        if not quiet:
+            print(f"Copied: {src} -> {BUCKET_PREFIX}{dst_bucket_id}/{dst_prefix}")
+
+    elif src_is_bucket:
         # Download: remote -> local or stdout
         bucket_id, prefix = _parse_bucket_path(src)
         if prefix == "" or prefix.endswith("/"):

@@ -120,6 +120,18 @@ class _BucketAddFile:
 
 
 @dataclass
+class _BucketCopyFile:
+    src_path: str
+    dest_path: str
+    content_type: Optional[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = mimetypes.guess_type(self.src_path)[0]
+        if self.content_type is None:
+            self.content_type = mimetypes.guess_type(self.dest_path)[0]
+
+
+@dataclass
 class _BucketDeleteFile:
     path: str
 

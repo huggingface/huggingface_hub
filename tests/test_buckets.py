@@ -302,6 +302,36 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
     assert "non_existent_file.txt" in str(exc_info.value)
 
 
+@requires("hf_xet")
+def test_batch_bucket_files_copy(api: HfApi, bucket_read: str, tmp_path):
+    """Test that batch_bucket_files with copy duplicates a remote file."""
+    api.batch_bucket_files(bucket_read, copy=[("file.txt", "file_copy.txt")])
+
+    files = {f.path for f in api.list_bucket_tree(bucket_read)}
+    assert "file.txt" in files
+    assert "file_copy.txt" in files
+
+    # Verify content matches by downloading both
+    api.download_bucket_files(
+        bucket_read,
+        [
+            ("file.txt", str(tmp_path / "original.txt")),
+            ("file_copy.txt", str(tmp_path / "copy.txt")),
+        ],
+    )
+    assert (tmp_path / "original.txt").read_bytes() == (tmp_path / "copy.txt").read_bytes()
+
+
+@requires("hf_xet")
+def test_batch_bucket_files_copy_to_subdir(api: HfApi, bucket_read: str):
+    """Test that batch_bucket_files with copy can copy a file into a subdirectory."""
+    api.batch_bucket_files(bucket_read, copy=[("file.txt", "backups/file.txt")])
+
+    files = {f.path for f in api.list_bucket_tree(bucket_read)}
+    assert "file.txt" in files
+    assert "backups/file.txt" in files
+
+
 @pytest.mark.parametrize(
     "source, destination, expected_content_type",
     [
@@ -332,4 +362,22 @@ def test_bucket_add_file_content_type(source, destination, expected_content_type
         source = str(path)
 
     entry = _BucketAddFile(source=source, destination=destination)
+    assert entry.content_type == expected_content_type
+
+
+@pytest.mark.parametrize(
+    "src_path, dest_path, expected_content_type",
+    [
+        ("photo.jpg", "data/img001", "image/jpeg"),
+        ("document.pdf", "blob", "application/pdf"),
+        ("no_ext", "target.html", "text/html"),
+        ("audio.mp3", "target.wav", "audio/mpeg"),
+        ("no_ext", "no_ext_dest", None),
+    ],
+)
+def test_bucket_copy_file_content_type(src_path, dest_path, expected_content_type):
+    """Test that _BucketCopyFile resolves content_type correctly."""
+    from huggingface_hub._buckets import _BucketCopyFile
+
+    entry = _BucketCopyFile(src_path=src_path, dest_path=dest_path)
     assert entry.content_type == expected_content_type

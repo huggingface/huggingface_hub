@@ -65,6 +65,7 @@ from ._buckets import (
     BucketUrl,
     SyncPlan,
     _BucketAddFile,
+    _BucketCopyFile,
     _BucketDeleteFile,
     _split_bucket_id_and_prefix,
     sync_bucket_internal,
@@ -11727,12 +11728,14 @@ class HfApi:
         bucket_id: str,
         *,
         add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        copy: Optional[list[tuple[str, str]]] = None,
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
     ):
-        """Add and/or delete files in a bucket.
+        """Add, copy and/or delete files in a bucket.
 
-        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded or deleted,
+        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded,
+        copied or deleted.
 
         Args:
             bucket_id (`str`):
@@ -11740,6 +11743,9 @@ class HfApi:
             add (`list` of `tuple`, *optional*):
                 Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
                 file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
+            copy (`list` of `tuple`, *optional*):
+                Files to copy within the bucket. Each element is a `(src_path, dest_path)` tuple where both
+                `src_path` and `dest_path` are remote paths in the bucket.
             delete (`list` of `str`, *optional*):
                 Paths of files to delete from the bucket.
             token (`bool` or `str`, *optional*):
@@ -11761,26 +11767,34 @@ class HfApi:
             ...     ],
             ... )
 
+            # Copy a remote file to another location in the same bucket
+            >>> batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     copy=[("models/model.safetensors", "backups/model.safetensors")],
+            ... )
+
             # Delete files
             >>> batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
 
-            # Upload and delete in one batch
+            # Upload, copy and delete in one batch
             >>> batch_bucket_files(
             ...     "username/my-bucket",
             ...     add=[("./new.txt", "new.txt")],
+            ...     copy=[("new.txt", "archive/new.txt")],
             ...     delete=["old.txt"],
             ... )
             ```
         """
         add = add or []
+        copy = copy or []
         delete = delete or []
 
         # Small batch: do everything in one call
-        if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+        if len(add) + len(copy) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            self._batch_bucket_files(bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token)
             return
 
-        # Large batch: chunk adds first, then deletes
+        # Large batch: chunk adds first, then copies, then deletes
         from .utils._xet_progress_reporting import XetProgressReporter
 
         if add and not are_progress_bars_disabled():
@@ -11791,6 +11805,9 @@ class HfApi:
         try:
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
+
+            for copy_chunk in chunk_iterable(copy, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
@@ -11805,16 +11822,20 @@ class HfApi:
         bucket_id: str,
         *,
         add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        copy: Optional[list[tuple[str, str]]] = None,
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
         _progress: Optional["XetProgressReporter"] = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
-        operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
+        operations: list[Union[_BucketAddFile, _BucketCopyFile, _BucketDeleteFile]] = []
         if add:
             for source, destination in add:
                 operations.append(_BucketAddFile(source=source, destination=destination))
+        if copy:
+            for src_path, dest_path in copy:
+                operations.append(_BucketCopyFile(src_path=src_path, dest_path=dest_path))
         if delete:
             for path in delete:
                 operations.append(_BucketDeleteFile(path=path))
@@ -11919,6 +11940,14 @@ class HfApi:
                         "path": op.destination,
                         "xetHash": op.xet_hash,
                         "mtime": op.mtime,
+                    }
+                    if op.content_type is not None:
+                        payload["contentType"] = op.content_type
+                elif isinstance(op, _BucketCopyFile):
+                    payload = {
+                        "type": "copyFile",
+                        "path": op.dest_path,
+                        "srcPath": op.src_path,
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
