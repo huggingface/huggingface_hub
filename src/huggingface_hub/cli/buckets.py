@@ -950,6 +950,7 @@ def cp(
     src_is_stdin = src == "-"
     dst_is_stdout = dst == "-"
 
+    # Remote to remote copy
     if src_is_hf and dst_is_hf:
         assert dst is not None
         if quiet:
@@ -964,6 +965,7 @@ def cp(
             print(f"Copied: {src} -> {dst}")
         return
 
+    # Local to remote copy
     # --- Validation ---
     if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
         if dst is None:
