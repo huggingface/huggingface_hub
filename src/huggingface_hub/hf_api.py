@@ -11818,7 +11818,7 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
     ) -> None:
-        """Copy files between HF handles.
+        """Copy files on the Hub.
 
         Supported:
         - bucket -> bucket

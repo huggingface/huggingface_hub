@@ -456,14 +456,28 @@ You can also pipe the content of a file directly to `stdout` using `-`:
 >>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
 ```
 
-### Copy between remote HF handles
+### Download a directory with the CLI
 
-Use [`copy_files`] to copy files between HF handles:
+Use `hf buckets sync` to download all files from a bucket to a local directory:
+
+```bash
+# Download bucket contents to a local directory
+>>> hf buckets sync hf://buckets/username/my-bucket ./data
+
+# Download only a specific prefix
+>>> hf buckets sync hf://buckets/username/my-bucket/models ./local-models
+```
+
+See the [Sync directories](#sync-directories) section below for the full set of sync options.
+
+## Copy files to Bucket
+
+Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
 
 ```py
 >>> from huggingface_hub import copy_files
 
-# Bucket to bucket (same bucket or different bucket)
+# Bucket to bucket (same or different bucket)
 >>> copy_files(
 ...     "hf://buckets/username/source-bucket/checkpoints/model.safetensors",
 ...     "hf://buckets/username/destination-bucket/archive/model.safetensors",
@@ -489,23 +503,8 @@ The same is available from the CLI:
 Notes:
 
 - Folder copy requires destination to end with `/`.
-- Bucket-to-repo copy is not supported.
-- For repo sources, files with an available `xet_hash` are copied directly. Regular files without `xet_hash` are downloaded
-  and re-uploaded.
-
-### Download a directory with the CLI
-
-Use `hf buckets sync` to download all files from a bucket to a local directory:
-
-```bash
-# Download bucket contents to a local directory
->>> hf buckets sync hf://buckets/username/my-bucket ./data
-
-# Download only a specific prefix
->>> hf buckets sync hf://buckets/username/my-bucket/models ./local-models
-```
-
-See the [Sync directories](#sync-directories) section below for the full set of sync options.
+- Bucket-to-repo copy is not yet supported.
+- Small text files are not tracked with Xet on repo sources. To copy them to a Bucket, they are downloaded and re-uploaded.
 
 ## Sync directories
 
