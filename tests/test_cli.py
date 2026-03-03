@@ -11,7 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub._parquet_dataset import DatasetParquetEntry
+from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -1511,7 +1511,8 @@ class TestDatasetsParquetCommand:
                 DatasetParquetEntry(
                     config="datasets",
                     split="train",
-                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/datasets/train/0.parquet",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/datasets/train/0.parquet",
+                    size=1234,
                 )
             ]
             result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
@@ -1521,7 +1522,6 @@ class TestDatasetsParquetCommand:
         assert "URL" in result.stdout
         assert "datasets" in result.stdout
         assert "train" in result.stdout
-        assert "https://huggingface.co/api/datas" in result.stdout
 
     def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
@@ -1530,7 +1530,8 @@ class TestDatasetsParquetCommand:
                 DatasetParquetEntry(
                     config="models",
                     split="train",
-                    url="https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                    size=5678,
                 )
             ]
             result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
@@ -1541,26 +1542,24 @@ class TestDatasetsParquetCommand:
             {
                 "subset": "models",
                 "split": "train",
-                "url": "https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet",
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                "size": 5678,
             }
         ]
 
-    def test_datasets_parquet_no_entries_returns_cli_error(self, runner: CliRunner) -> None:
+    def test_datasets_parquet_empty_result(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.list_dataset_parquet_files.side_effect = ValueError(
-                "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
-            )
+            api.list_dataset_parquet_files.return_value = []
             result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
 
-        assert result.exit_code == 1
-        assert isinstance(result.exception, CLIError)
-        assert str(result.exception) == "No parquet entries found for dataset 'cfahlgren1/hub-stats'."
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
 
 
 class TestDatasetsSqlCommand:
     def test_datasets_sql_table_output(self, runner: CliRunner) -> None:
-        from huggingface_hub._sql_dataset import DatasetSqlQueryResult
+        from huggingface_hub._dataset_viewer import DatasetSqlQueryResult
 
         fake_result = DatasetSqlQueryResult(
             columns=(), rows=(), table="┌───────┐\n│ count │\n├───────┤\n│     5 │\n└───────┘"
@@ -1577,7 +1576,7 @@ class TestDatasetsSqlCommand:
         mock_exec.assert_called_once()
 
     def test_datasets_sql_json_output(self, runner: CliRunner) -> None:
-        from huggingface_hub._sql_dataset import DatasetSqlQueryResult
+        from huggingface_hub._dataset_viewer import DatasetSqlQueryResult
 
         fake_result = DatasetSqlQueryResult(
             columns=("subset",), rows=(("models",),), table="", raw_json=json.dumps([{"subset": "models"}], indent=2)

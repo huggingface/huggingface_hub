@@ -80,13 +80,10 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
+from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._parquet_dataset import (
-    DatasetParquetEntry,
-    list_dataset_parquet_files_internal,
-)
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -2501,18 +2498,64 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        config: Optional[str] = None,
-        split: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> list[DatasetParquetEntry]:
-        """List parquet file URLs available for a dataset."""
-        return list_dataset_parquet_files_internal(
-            repo_id=repo_id,
-            token=self.token if token is None else token,
-            config=config,
-            split=split,
-            endpoint=self.endpoint,
-        )
+        """List parquet files available for a dataset on the Hub.
+
+        All datasets hosted on the Hub are auto-converted to Parquet by the
+        [Dataset Viewer](https://huggingface.co/docs/dataset-viewer/parquet).
+        This method returns the list of parquet files with their URLs, configs,
+        splits and sizes.
+
+        Note: this feature is only available on the public Hugging Face Hub,
+        not on third-party endpoints.
+
+        Args:
+            repo_id (`str`):
+                The dataset repository ID (e.g. `"username/dataset-name"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[DatasetParquetEntry]`: a list of [`DatasetParquetEntry`] objects
+            containing config, split, url and size for each parquet file.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> entries = api.list_dataset_parquet_files("lhoestq/demo1")
+            >>> entries[0]
+            DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
+            ```
+        """
+        if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
+            raise ValueError(
+                "The Dataset Viewer is only available on the Hugging Face Hub"
+                " (endpoint='https://huggingface.co'). It is not supported on"
+                " third-party endpoints."
+            )
+
+        url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet?dataset={repo_id}"
+        effective_token = self.token if token is None else token
+        response = get_session().get(url, headers=build_hf_headers(token=effective_token))
+        hf_raise_for_status(response)
+        payload = response.json()
+
+        entries: list[DatasetParquetEntry] = []
+        for file_info in payload.get("parquet_files", []):
+            entries.append(
+                DatasetParquetEntry(
+                    config=file_info["config"],
+                    split=file_info["split"],
+                    url=file_info["url"],
+                    size=file_info["size"],
+                )
+            )
+        return entries
 
     @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args

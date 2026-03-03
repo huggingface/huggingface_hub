@@ -30,8 +30,8 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub._sql_dataset import execute_raw_sql_query, format_sql_result
-from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub._dataset_viewer import DatasetSqlQueryResult, execute_raw_sql_query
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 
 from ._cli_utils import (
@@ -146,17 +146,15 @@ def datasets_parquet(
 ) -> None:
     """List parquet file URLs available for a dataset."""
     api = get_hf_api(token=token)
-
-    try:
-        entries = api.list_dataset_parquet_files(repo_id=dataset_id, config=subset, split=split)
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
-    except ValueError as e:
-        raise CLIError(str(e)) from e
-    except HfHubHTTPError as e:
-        raise CLIError(str(e)) from e
-
-    results = [{"subset": entry.config, "split": entry.split, "url": entry.url} for entry in entries]
+    entries = api.list_dataset_parquet_files(repo_id=dataset_id)
+    filtered = [
+        entry
+        for entry in entries
+        if (subset is None or entry.config == subset) and (split is None or entry.split == split)
+    ]
+    results = [
+        {"subset": entry.config, "split": entry.split, "url": entry.url, "size": entry.size} for entry in filtered
+    ]
     print_list_output(results, format=format, quiet=quiet, id_key="url")
 
 
@@ -177,4 +175,16 @@ def datasets_sql(
         result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
     except (ImportError, ValueError) as e:
         raise CLIError(str(e)) from e
-    print(format_sql_result(result=result, output_format=format.value))
+    print(_format_sql_result(result=result, output_format=format.value))
+
+
+def _format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
+    if output_format == "table":
+        return result.table
+    if result.raw_json is not None:
+        return result.raw_json
+    return json.dumps(
+        [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
+        indent=2,
+        default=str,
+    )

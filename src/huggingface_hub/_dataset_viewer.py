@@ -15,7 +15,6 @@
 
 
 import importlib
-import json
 import os
 import shutil
 import subprocess
@@ -24,6 +23,16 @@ from typing import Any, Optional, Union
 
 from . import constants
 from .utils._headers import get_token_to_send
+
+
+@dataclass(frozen=True)
+class DatasetParquetEntry:
+    """Represents a single parquet file available for a dataset on the Hub."""
+
+    config: str
+    split: str
+    url: str
+    size: int
 
 
 @dataclass(frozen=True)
@@ -73,25 +82,9 @@ def execute_raw_sql_query(
             rows = tuple(tuple(row) for row in relation.fetchall())
             raw_json = None
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table, raw_json=raw_json)
-    except (ImportError, ValueError):
-        raise
-    except Exception as e:
-        raise ValueError(str(e)) from e
     finally:
         if connection is not None:
             connection.close()
-
-
-def format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
-    if output_format == "table":
-        return result.table
-    if result.raw_json is not None:
-        return result.raw_json
-    return json.dumps(
-        [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
-        indent=2,
-        default=str,
-    )
 
 
 def _normalize_query(sql_query: str) -> str:

@@ -347,6 +347,7 @@ FormatOpt = Annotated[
     OutputFormat,
     typer.Option(
         help="Output format (table or json).",
+        case_sensitive=False,
     ),
 ]
 
