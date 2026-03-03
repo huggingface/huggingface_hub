@@ -21,7 +21,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # List all files in a bucket directory
->>> hffs.ls("bucket/my-username/my-bucket/experiment-data", detail=False)
+>>> hffs.ls("buckets/my-username/my-bucket/experiment-data", detail=False)
 ['bucket/my-username/my-bucket/data/train-0000.parquet', 'bucket/my-username/my-bucket/data/train-0001.parquet', ...]
 
 >>> # List all ".csv" files in a dataset repository
@@ -41,7 +41,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ...     f.write("Fantastic movie!,good")
 ```
 
-The optional `revision` argument can be passed to run an operation from a specific commit in a space or dataset repository, such as a branch, tag name, or a commit hash.
+The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash. Note that `revision` is not compatible with Buckets. 
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
 
@@ -57,9 +57,9 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/hf_urls_with_buckets.png"/>
 </div>
 
-The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for spaces, and models don't need a prefix in the URL.
+The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for Spaces, and models don't need a prefix in the URL.
 
-In addition to repositories, the [`HfFileSystem`] also supports Hugging Face buckets which are a generic storage:
+In addition to repositories, the [`HfFileSystem`] also supports Hugging Face Buckets which are a S3-like object storage (see [this guide](./buckets) for more details):
 
 ```
 hf://buckets/<bucket_id>/<path/in/bucket>

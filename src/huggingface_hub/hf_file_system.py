@@ -169,7 +169,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         hf://buckets/<bucket-id>/<path/in/bucket>
         ```
 
-    Note: when using the [`HfFileSystem`] directly, passing the `hf://` protocol prefix in optional in paths.
+    Note: when using the [`HfFileSystem`] directly, passing the `hf://` protocol prefix is optional in paths.
 
     Args:
         endpoint (`str`, *optional*):
