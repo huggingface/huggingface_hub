@@ -2507,9 +2507,6 @@ class HfApi:
         This method returns the list of parquet files with their URLs, configs,
         splits and sizes.
 
-        Note: this feature is only available on the public Hugging Face Hub,
-        not on third-party endpoints.
-
         Args:
             repo_id (`str`):
                 The dataset repository ID (e.g. `"username/dataset-name"`).
