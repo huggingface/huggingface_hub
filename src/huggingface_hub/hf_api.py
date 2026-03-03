@@ -11331,11 +11331,13 @@ class HfApi:
                 remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
                 for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
             )
+            # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
+            quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
             command = [
                 "bash",
                 "-c",
                 """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
-                + f"uv run {' '.join(uv_args)} {script} {' '.join(script_args)}",
+                + f"uv run {' '.join(quoted_parts)}",
             ]
         return command, env, secrets
 
