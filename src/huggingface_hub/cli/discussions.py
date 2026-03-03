@@ -11,33 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with discussions and pull requests on the Hugging Face Hub.
-
-Usage:
-    # list open discussions and PRs on a repo
-    hf discussions list username/my-model
-
-    # list only pull requests
-    hf discussions list username/my-model --kind pull_request
-
-    # view a specific discussion or PR
-    hf discussions view username/my-model 5
-
-    # create a new discussion
-    hf discussions create username/my-model --title "Bug report"
-
-    # create a new pull request
-    hf discussions create username/my-model --title "Fix typo" --pull-request
-
-    # comment on a discussion or PR
-    hf discussions comment username/my-model 5 --body "Thanks for reporting!"
-
-    # merge a pull request
-    hf discussions merge username/my-model 5
-
-    # show the diff of a pull request
-    hf discussions diff username/my-model 5
-"""
+"""Contains commands to interact with discussions and pull requests on the Hugging Face Hub."""
 
 import enum
 import json
