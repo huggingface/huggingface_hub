@@ -2540,8 +2540,7 @@ class HfApi:
             )
 
         url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet?dataset={repo_id}"
-        effective_token = self.token if token is None else token
-        response = get_session().get(url, headers=build_hf_headers(token=effective_token))
+        response = get_session().get(url, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(response)
         payload = response.json()
 
