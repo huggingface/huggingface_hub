@@ -2525,9 +2525,8 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> entries = api.list_dataset_parquet_files("lhoestq/demo1")
+            >>> from huggingface_hub import list_dataset_parquet_files
+            >>> list_dataset_parquet_files("lhoestq/demo1")
             >>> entries[0]
             DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
             ```

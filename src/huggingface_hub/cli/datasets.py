@@ -173,7 +173,7 @@ def datasets_sql(
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
     try:
         result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
-    except (ImportError, ValueError) as e:
+    except ImportError as e:
         raise CLIError(str(e)) from e
     print(_format_sql_result(result=result, output_format=format.value))
 
