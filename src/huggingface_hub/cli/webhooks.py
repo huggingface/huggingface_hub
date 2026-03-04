@@ -154,11 +154,10 @@ def webhooks_info(
     examples=[
         "hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased",
         "hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo",
-        "hf webhooks create --url https://example.com/hook --watch user:julien-c --secret mysecret",
+        "hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c",
     ],
 )
 def webhooks_create(
-    url: Annotated[str, typer.Option(help="URL to send webhook payloads to.")],
     watch: Annotated[
         list[str],
         typer.Option(
@@ -166,6 +165,14 @@ def webhooks_create(
             help="Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.",
         ),
     ],
+    url: Annotated[
+        Optional[str],
+        typer.Option(help="URL to send webhook payloads to. Mutually exclusive with --job-id."),
+    ] = None,
+    job_id: Annotated[
+        Optional[str],
+        typer.Option("--job-id", help="ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url."),
+    ] = None,
     domain: Annotated[
         Optional[list[WebhookDomain]],
         typer.Option(
@@ -179,11 +186,18 @@ def webhooks_create(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    """Create a new webhook."""
+    """Create a new webhook.
+
+    Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+    """
+    if url is not None and job_id is not None:
+        raise typer.BadParameter("Provide either --url or --job-id, not both.")
+    if url is None and job_id is None:
+        raise typer.BadParameter("Provide either --url or --job-id.")
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch)
     domains = [d.value for d in domain] if domain else None
-    webhook = api.create_webhook(url=url, watched=watched_items, domains=domains, secret=secret)
+    webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)
     print(f"Webhook created: {webhook.id}")
     print(json.dumps(api_object_to_dict(webhook), indent=2))
 

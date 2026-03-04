@@ -1930,7 +1930,7 @@ class TestRepoFilesCommand:
 
 class TestJobsCommand:
     def test_run(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -1952,7 +1952,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_run_with_extra_args(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2003,7 +2003,7 @@ class TestJobsCommand:
         )
 
     def test_uv_command(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2028,7 +2028,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_command_with_extra_args(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2055,7 +2055,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_remote_script(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2081,7 +2081,7 @@ class TestJobsCommand:
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
         script_path = tmp_path / "script.py"
         script_path.write_text("print('hello')")
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2114,7 +2114,7 @@ class TestJobsCommand:
         from huggingface_hub._jobs_api import JobOwner
 
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
-        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2357,8 +2357,8 @@ class TestParseNamespaceFromJobId:
         [
             ("my-job-id", None, "my-job-id", None),
             ("my-job-id", "my-username", "my-job-id", "my-username"),
-            ("my-username/my-job-id", None, "my-job-id", "my-username"),
-            ("my-username/my-job-id", "my-username", "my-job-id", "my-username"),
+            ("687f911eaea852de79c4a50a", None, "my-job-id", "my-username"),
+            ("687f911eaea852de79c4a50a", "my-username", "my-job-id", "my-username"),
         ],
     )
     def test_parse_namespace_from_job_id(
@@ -2375,7 +2375,7 @@ class TestParseNamespaceFromJobId:
     @pytest.mark.parametrize(
         "input_job_id, input_namespace",
         [
-            ("my-username/my-job-id", "other-user"),  # conflicting namespace
+            ("687f911eaea852de79c4a50a", "other-user"),  # conflicting namespace
             ("", None),
             ("/", None),
             ("alice/", None),
@@ -2460,6 +2460,7 @@ class TestWebhooksCommand:
 
         api_cls.return_value.create_webhook.assert_called_once_with(
             url="https://example.com/hook",
+            job_id=None,
             watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
             domains=None,
             secret=None,
@@ -2489,10 +2490,45 @@ class TestWebhooksCommand:
 
         api_cls.return_value.create_webhook.assert_called_once_with(
             url="https://example.com/hook",
+            job_id=None,
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
             domains=["repo"],
             secret="mysecret",
         )
+
+    def test_create_with_job_id(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "create", "--job-id", "687f911eaea852de79c4a50a", "--watch", "user:julien-c"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook created" in result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url=None,
+            job_id="687f911eaea852de79c4a50a",
+            watched=[WebhookWatchedItem(type="user", name="julien-c")],
+            domains=None,
+            secret=None,
+        )
+
+    def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--job-id", "some-job", "--watch", "user:me"],
+        )
+        assert result.exit_code != 0
+
+    def test_create_requires_url_or_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--watch", "user:me"],
+        )
+        assert result.exit_code != 0
 
     def test_create_bad_watch_format(self, runner: CliRunner) -> None:
         result = runner.invoke(
