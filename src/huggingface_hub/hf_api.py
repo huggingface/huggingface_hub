@@ -80,6 +80,7 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
+from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
@@ -133,7 +134,6 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_arguments
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -2079,7 +2079,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2098,7 +2097,6 @@ class HfApi:
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
         sort: Optional[ModelSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandModelProperty_T]] = None,
@@ -2145,8 +2143,6 @@ class HfApi:
             sort (`ModelSort_T`, *optional*):
                 The key with which to sort the resulting models. Possible values are "created_at", "downloads",
                 "last_modified", "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
@@ -2253,8 +2249,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
 
@@ -2279,7 +2273,6 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2299,7 +2292,6 @@ class HfApi:
         search: Optional[str] = None,
         # Sorting and pagination parameters
         sort: Optional[DatasetSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandDatasetProperty_T]] = None,
@@ -2353,8 +2345,6 @@ class HfApi:
             sort (`DatasetSort_T`, *optional*):
                 The key with which to sort the resulting datasets. Possible values are "created_at", "downloads",
                 "last_modified", "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
@@ -2473,8 +2463,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
 
@@ -2492,7 +2480,70 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
+    @validate_hf_hub_args
+    def list_dataset_parquet_files(
+        self,
+        repo_id: str,
+        *,
+        config: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> list[DatasetParquetEntry]:
+        """List parquet files available for a dataset on the Hub.
+
+        All datasets hosted on the Hub are auto-converted to Parquet by the
+        [Dataset Viewer](https://huggingface.co/docs/dataset-viewer/parquet).
+        This method returns the list of parquet files with their URLs, configs,
+        splits and sizes.
+
+        Args:
+            repo_id (`str`):
+                The dataset repository ID (e.g. `"username/dataset-name"`).
+            config (`str`, *optional*):
+                Filter by a specific config/subset name. When provided, only
+                parquet files for that config are returned.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[DatasetParquetEntry]`: a list of [`DatasetParquetEntry`] objects
+            containing config, split, url and size for each parquet file.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import list_dataset_parquet_files
+            >>> list_dataset_parquet_files("lhoestq/demo1")
+            >>> entries[0]
+            DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
+            ```
+        """
+        if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
+            raise ValueError(
+                "The Dataset Viewer is only available on the Hugging Face Hub"
+                f" (endpoint='{constants._HF_DEFAULT_ENDPOINT}'). It is not supported on"
+                f" third-party endpoints. (endpoint={self.endpoint})"
+            )
+
+        url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet"
+        params: dict[str, str] = {"dataset": repo_id}
+        if config is not None:
+            params["config"] = config
+        response = get_session().get(url, params=params, headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+        payload = response.json()
+
+        return [
+            DatasetParquetEntry(
+                config=file_info["config"],
+                split=file_info["split"],
+                url=file_info["url"],
+                size=file_info["size"],
+            )
+            for file_info in payload.get("parquet_files", [])
+        ]
+
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2506,7 +2557,6 @@ class HfApi:
         linked: bool = False,
         # Sorting and pagination parameters
         sort: Optional[SpaceSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandSpaceProperty_T]] = None,
@@ -2534,8 +2584,6 @@ class HfApi:
             sort (`SpaceSort_T`, *optional*):
                 The key with which to sort the resulting spaces. Possible values are "created_at", "last_modified",
                 "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
@@ -2577,8 +2625,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
         if linked:
@@ -12443,6 +12489,7 @@ list_models = api.list_models
 model_info = api.model_info
 
 list_datasets = api.list_datasets
+list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
 
 list_spaces = api.list_spaces

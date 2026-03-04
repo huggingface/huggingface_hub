@@ -143,3 +143,6 @@ tmp*
 
 # Claude Code
 CLAUDE.md
+
+# Release notes generation output
+.release-notes/
