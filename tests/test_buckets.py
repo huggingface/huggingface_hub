@@ -302,6 +302,81 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
     assert "non_existent_file.txt" in str(exc_info.value)
 
 
+@requires("hf_xet")
+def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str):
+    api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{bucket_write}/copied.txt",
+    )
+
+    files = {entry.path for entry in api.list_bucket_tree(bucket_write)}
+    assert files >= {"source.txt", "copied.txt"}
+
+
+@requires("hf_xet")
+def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: str):
+    source_bucket = bucket_write
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(source_bucket, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{source_bucket}/logs",
+        f"hf://buckets/{destination_bucket}/backup/",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert destination_files >= {"backup/a.txt", "backup/sub/b.txt"}
+    assert "backup/c.txt" not in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, tmp_path):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files")).repo_id
+    branch = "copy-files-branch"
+    try:
+        api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
+        api.create_branch(repo_id=repo_id, branch=branch)
+        api.upload_file(
+            repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch
+        )
+
+        api.copy_files(
+            f"hf://{repo_id}@{branch}/nested/from-branch.txt",
+            f"hf://buckets/{bucket_write}/from-repo.txt",
+        )
+
+        output_path = tmp_path / "from-repo.txt"
+        api.download_bucket_files(bucket_write, [("from-repo.txt", output_path)])
+        assert output_path.read_bytes() == b"branch"
+    finally:
+        api.delete_repo(repo_id=repo_id)
+
+
+@requires("hf_xet")
+def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
+    try:
+        api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
+        with pytest.raises(ValueError, match="Destination must be a bucket"):
+            api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")
+    finally:
+        api.delete_repo(repo_id=repo_id)
+
+
+@requires("hf_xet")
+def test_copy_files_folder_requires_destination_suffix(api: HfApi, bucket_write: str):
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"x", "folder/x.txt")])
+
+    with pytest.raises(ValueError, match="destination to end with '/'"):
+        api.copy_files(
+            f"hf://buckets/{bucket_write}/folder",
+            f"hf://buckets/{destination_bucket}/target-folder",
+        )
+
+
 @pytest.mark.parametrize(
     "source, destination, expected_content_type",
     [
