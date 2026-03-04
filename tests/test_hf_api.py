@@ -14,6 +14,7 @@
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -2804,12 +2805,22 @@ class HfLargefilesTest(HfApiCommonTest):
         scheme = urlparse(self.repo_url).scheme
         repo_url_auth = self.repo_url.replace(f"{scheme}://", f"{scheme}://user:{TOKEN}@")
 
-        subprocess.run(
-            ["git", "clone", repo_url_auth, str(self.cache_dir)],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        # Retry clone with backoff: the git server may not have the repo available
+        # immediately after the API returns from create_repo.
+        for attempt in range(5):
+            result = subprocess.run(
+                ["git", "clone", repo_url_auth, str(self.cache_dir)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if result.returncode == 0:
+                break
+            if self.cache_dir.exists():
+                shutil.rmtree(self.cache_dir)
+            time.sleep(2**attempt)
+        else:
+            result.check_returncode()
+
         subprocess.run(["git", "lfs", "track", "*.pdf"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
 
