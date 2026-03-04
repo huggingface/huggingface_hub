@@ -2793,6 +2793,10 @@ class UploadFolderMockedTest(unittest.TestCase):
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
 
+@pytest.mark.skip(
+    # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
+    reason="Skipping git clone test on CI."
+)
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path
