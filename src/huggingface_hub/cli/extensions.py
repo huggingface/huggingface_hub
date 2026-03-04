@@ -205,6 +205,27 @@ def extension_remove(
 ### HELPER FUNCTIONS
 
 
+def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    root_dir = EXTENSIONS_ROOT.expanduser()
+    if not root_dir.is_dir():
+        return []
+    entries = []
+    for extension_dir in sorted(root_dir.iterdir()):
+        if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
+            continue
+        short_name = extension_dir.name[3:]
+        repo_id = ""
+        try:
+            manifest_path = extension_dir / MANIFEST_FILENAME
+            if manifest_path.is_file():
+                repo_id = str(json.loads(manifest_path.read_text(encoding="utf-8")).get("repo_id", ""))
+        except Exception:
+            pass
+        help_text = f"[extension] {repo_id}" if repo_id else "[extension]"
+        entries.append((short_name, help_text))
+    return entries
+
+
 def _dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
     if not args:
         return None

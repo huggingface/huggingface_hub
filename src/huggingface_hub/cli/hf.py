@@ -28,7 +28,11 @@ from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.discussions import discussions_cli
 from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
-from huggingface_hub.cli.extensions import _dispatch_unknown_top_level_extension, extensions_cli
+from huggingface_hub.cli.extensions import (
+    _dispatch_unknown_top_level_extension,
+    _list_installed_extensions_for_help,
+    extensions_cli,
+)
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -47,7 +51,10 @@ from huggingface_hub.utils import ANSI, logging
 
 app = typer_factory(
     help="Hugging Face Hub CLI",
-    cls=fallback_typer_group_factory(_dispatch_unknown_top_level_extension),
+    cls=fallback_typer_group_factory(
+        _dispatch_unknown_top_level_extension,
+        extra_commands_provider=_list_installed_extensions_for_help,
+    ),
 )
 
 
