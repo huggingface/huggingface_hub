@@ -9627,9 +9627,17 @@ class HfApi:
             watched = []
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
+        update_json: dict = {"watched": watched_dicts}
+        if url is not None:
+            update_json["url"] = url
+        if domains is not None:
+            update_json["domains"] = domains
+        if secret is not None:
+            update_json["secret"] = secret
+
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
-            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
+            json=update_json,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
