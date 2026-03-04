@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -28,7 +29,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
-from .testing_utils import DUMMY_MODEL_ID
+from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
 @pytest.fixture
@@ -1500,6 +1501,85 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestDatasetsParquetCommand:
+    def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="datasets",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/datasets/train/0.parquet",
+                    size=1234,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "SUBSET" in result.stdout
+        assert "URL" in result.stdout
+        assert "datasets" in result.stdout
+        assert "train" in result.stdout
+
+    def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="models",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                    size=5678,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [
+            {
+                "subset": "models",
+                "split": "train",
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                "size": 5678,
+            }
+        ]
+
+    def test_datasets_parquet_empty_result(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = []
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+
+
+class TestDatasetsSqlCommand:
+    # count number of rows by sector in the GDPVAL dataset train split
+    # https://huggingface.co/datasets/openai/gdpval
+    SQL_QUERY = "SELECT sector, COUNT(*) AS count FROM read_parquet('https://huggingface.co/api/datasets/openai/gdpval/parquet/default/train/0.parquet') GROUP BY sector ORDER BY count DESC"
+
+    @with_production_testing
+    def test_datasets_sql_table(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
+
+        assert result.exit_code == 0
+        assert "SECTOR" in result.stdout
+        assert "COUNT" in result.stdout
+
+    @with_production_testing
+    def test_datasets_sql_json(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY, "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert len(payload) > 0
+        for item in payload:
+            assert isinstance(item["sector"], str)
+            assert isinstance(item["count"], int)
 
 
 class TestSpacesLsCommand:

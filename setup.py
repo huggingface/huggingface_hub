@@ -14,7 +14,7 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.3.1,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.3.2,<2.0.0"
 
 install_requires = [
     "filelock>=3.10.0",
@@ -68,6 +68,7 @@ extras["testing"] = (
         "soundfile",
         "Pillow",
         "numpy",  # for embeddings
+        "duckdb",  # for datasets SQL end-to-end tests
         "fastapi",  # To build the documentation
     ]
 )

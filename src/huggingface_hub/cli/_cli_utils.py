@@ -444,7 +444,7 @@ def print_list_output(
         return
 
     if format == OutputFormat.json:
-        print(json.dumps(list(items), indent=2))
+        print(json.dumps(list(items), indent=2, default=str))
         return
 
     if headers is None:

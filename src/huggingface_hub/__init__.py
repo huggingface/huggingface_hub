@@ -262,6 +262,7 @@ _SUBMOD_ATTRS = {
         "list_buckets",
         "list_collections",
         "list_daily_papers",
+        "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
@@ -969,6 +970,7 @@ __all__ = [
     "list_buckets",
     "list_collections",
     "list_daily_papers",
+    "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
@@ -1366,6 +1368,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_buckets,  # noqa: F401
         list_collections,  # noqa: F401
         list_daily_papers,  # noqa: F401
+        list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
