@@ -966,7 +966,7 @@ Use `hf cache` to manage your local Hugging Face cache directory. The cache stor
 >>> hf cache verify gpt2
 ```
 
-## hf cache ls
+### hf cache ls
 
 Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. By default it aggregates information by repository:
 
@@ -1007,7 +1007,7 @@ Cache deletion done. Saved 5.31G.
 Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 ```
 
-## hf cache rm
+### hf cache rm
 
 `hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
 
@@ -1033,7 +1033,7 @@ Dry run: no files were deleted.
 
 When working outside the default cache location, pair the command with `--cache-dir PATH`.
 
-## hf cache prune
+### hf cache prune
 
 `hf cache prune` is a convenience shortcut that deletes every detached (unreferenced) revision in your cache. This keeps only revisions that are still reachable through a branch or tag:
 
@@ -1051,7 +1051,7 @@ Deleted 3 unreferenced revision(s); freed 2.4G.
 
 As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
 
-## hf cache verify
+### hf cache verify
 
 Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
 
