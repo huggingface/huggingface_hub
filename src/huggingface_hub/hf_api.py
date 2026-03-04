@@ -2539,10 +2539,11 @@ class HfApi:
                 " third-party endpoints."
             )
 
-        url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet?dataset={repo_id}"
+        url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet"
+        params: dict[str, str] = {"dataset": repo_id}
         if config is not None:
-            url += f"&config={config}"
-        response = get_session().get(url, headers=self._build_hf_headers(token=token))
+            params["config"] = config
+        response = get_session().get(url, params=params, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(response)
         payload = response.json()
 
