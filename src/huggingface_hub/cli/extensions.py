@@ -23,7 +23,6 @@ import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Annotated, Any, Optional
 
 import typer
@@ -244,30 +243,33 @@ def _install_binary_extension(
             f"Failed while probing for a root executable '{executable_name}' in '{owner}/{repo_name}': {e}"
         ) from e
 
-    manifest = ExtensionManifest(
-        owner=owner,
-        repo=repo_name,
-        repo_id=f"{owner}/{repo_name}",
-        short_name=short_name,
-        executable_name=executable_name,
-        executable_path=str(extension_dir / executable_name),
-        type="binary",
-        installed_at=datetime.now(timezone.utc).isoformat(),
-        source=f"https://github.com/{owner}/{repo_name}",
-    )
-
-    with TemporaryDirectory() as tmp_dir:
-        tmp_executable = Path(tmp_dir) / executable_name
-        tmp_executable.write_bytes(response.content)
+    installed = False
+    try:
+        extension_dir.mkdir(parents=True, exist_ok=False)
+        executable_path = extension_dir / executable_name
+        executable_path.write_bytes(response.content)
         if os.name != "nt":
-            os.chmod(tmp_executable, 0o755)
-        _persist_installed_extension(
-            extension_dir=extension_dir,
-            source_executable=tmp_executable,
-            manifest=manifest,
-        )
+            os.chmod(executable_path, 0o755)
 
-    return manifest
+        manifest = ExtensionManifest(
+            owner=owner,
+            repo=repo_name,
+            repo_id=f"{owner}/{repo_name}",
+            short_name=short_name,
+            executable_name=executable_name,
+            executable_path=str(executable_path),
+            type="binary",
+            installed_at=datetime.now(timezone.utc).isoformat(),
+            source=f"https://github.com/{owner}/{repo_name}",
+        )
+        (extension_dir / MANIFEST_FILENAME).write_text(
+            json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        installed = True
+        return manifest
+    finally:
+        if not installed:
+            shutil.rmtree(extension_dir, ignore_errors=True)
 
 
 def _install_python_extension(
@@ -317,7 +319,9 @@ def _install_python_extension(
             installed_at=datetime.now(timezone.utc).isoformat(),
             source=f"https://github.com/{owner}/{repo_name}",
         )
-        _write_extension_manifest(extension_dir, manifest)
+        (extension_dir / MANIFEST_FILENAME).write_text(
+            json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         installed = True
         return manifest
     except CLIError:
@@ -337,25 +341,6 @@ def _install_python_extension(
     finally:
         if not installed:
             shutil.rmtree(extension_dir, ignore_errors=True)
-
-
-def _persist_installed_extension(extension_dir: Path, source_executable: Path, manifest: ExtensionManifest) -> None:
-    executable_path = extension_dir / manifest.executable_name
-
-    try:
-        extension_dir.mkdir(parents=True, exist_ok=False)
-        shutil.copy2(source_executable, executable_path)
-        if os.name != "nt":
-            os.chmod(executable_path, 0o755)
-        _write_extension_manifest(extension_dir, manifest)
-    except Exception:
-        shutil.rmtree(extension_dir, ignore_errors=True)
-        raise
-
-
-def _write_extension_manifest(extension_dir: Path, manifest: ExtensionManifest) -> None:
-    manifest_path = extension_dir / MANIFEST_FILENAME
-    manifest_path.write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _load_extension_manifest(extension_dir: Path, short_name: str) -> Optional[dict[str, Any]]:
