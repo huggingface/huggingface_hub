@@ -7497,14 +7497,17 @@ class HfApi:
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
             headers=self._build_hf_headers(token=token),
-            json={"enabled": False},
+            json={"enabled": True},
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
     def disable_space_dev_mode(
-        self, repo_id: str, *, token: Union[bool, str, None] = None, factory_reboot: bool = False
+        self,
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
     ) -> SpaceRuntime:
         """Disable dev mode on a Space.
 
