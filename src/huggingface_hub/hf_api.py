@@ -7375,7 +7375,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def enable_space_dev_mode(
-        self, repo_id: str, *, token: Union[bool, str, None] = None, factory_reboot: bool = False
+        self, repo_id: str, *, token: Union[bool, str, None] = None
     ) -> SpaceRuntime:
         """Enable dev mode on a Space.
 
@@ -7402,11 +7402,10 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        json = {"enabled": True}
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
             headers=self._build_hf_headers(token=token),
-            json=json,
+            json={"enabled": False},
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -7440,11 +7439,10 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        json = {"enabled": False}
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
             headers=self._build_hf_headers(token=token),
-            json=json,
+            json={"enabled": False},
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
