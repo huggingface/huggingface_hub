@@ -43,9 +43,9 @@ EXTENSIONS_HELP = (
     "Install only from sources you trust."
 )
 extensions_cli = typer_factory(help=EXTENSIONS_HELP)
-EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
-EXTENSIONS_DOWNLOAD_TIMEOUT = 10
-EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
+_EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
+_EXTENSIONS_DOWNLOAD_TIMEOUT = 10
+_EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 
 
 @dataclass
@@ -228,7 +228,7 @@ def _install_binary_extension(
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
 
     try:
-        response = get_session().get(raw_url, follow_redirects=True, timeout=EXTENSIONS_DOWNLOAD_TIMEOUT)
+        response = get_session().get(raw_url, follow_redirects=True, timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT)
     except Exception as e:
         raise CLIError(
             f"Failed while probing for a root executable '{executable_name}' in '{owner}/{repo_name}': {e}"
@@ -278,8 +278,6 @@ def _install_python_extension(
     installed = False
 
     try:
-        # Binary-probe fallback should usually receive a clean path, but this keeps
-        # Python install independent from binary installer internals.
         if extension_dir.exists():
             shutil.rmtree(extension_dir, ignore_errors=True)
         extension_dir.mkdir(parents=True, exist_ok=False)
@@ -297,7 +295,7 @@ def _install_python_extension(
                 source_url,
             ],
             check=True,
-            timeout=EXTENSIONS_PIP_INSTALL_TIMEOUT,
+            timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
         )
 
         executable_name = _get_executable_name(short_name)
@@ -326,7 +324,7 @@ def _install_python_extension(
         raise
     except subprocess.TimeoutExpired as e:
         raise CLIError(
-            f"Pip install timed out after {EXTENSIONS_PIP_INSTALL_TIMEOUT}s for '{owner}/{repo_name}'. "
+            f"Pip install timed out after {_EXTENSIONS_PIP_INSTALL_TIMEOUT}s for '{owner}/{repo_name}'. "
             "See pip output above for details."
         ) from e
     except subprocess.CalledProcessError as e:
@@ -389,20 +387,16 @@ def _get_extension_dir(short_name: str) -> Path:
 
 
 def _resolve_github_default_branch(owner: str, repo_name: str) -> str:
-    """Resolve the default branch of a GitHub repository via the GitHub API."""
-    api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
     try:
-        response = get_session().get(api_url, follow_redirects=True, timeout=EXTENSIONS_DOWNLOAD_TIMEOUT)
+        response = get_session().get(
+            f"https://api.github.com/repos/{owner}/{repo_name}",
+            follow_redirects=True,
+            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        )
         response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            return EXTENSIONS_DEFAULT_BRANCH
-        branch = payload.get("default_branch")
-        if not isinstance(branch, str) or not branch.strip():
-            return EXTENSIONS_DEFAULT_BRANCH
-        return branch
+        return response.json()["default_branch"]
     except Exception:
-        return EXTENSIONS_DEFAULT_BRANCH
+        return _EXTENSIONS_DEFAULT_BRANCH
 
 
 def _get_executable_name(short_name: str) -> str:
