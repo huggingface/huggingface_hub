@@ -1811,7 +1811,7 @@ $ hf env [OPTIONS]
 
 Manage hf CLI extensions. [alias: ext]
 
-Security Warning: extensions are third-party executables. Install only from sources you trust.
+Security Warning: extensions are third-party executables or Python packages. Install only from sources you trust.
 
 **Usage**:
 
@@ -1861,7 +1861,8 @@ Learn more
 
 Install an extension from a public GitHub repository.
 
-Security warning: this installs a third-party executable. Install only from sources you trust.
+Security warning: this installs a third-party executable or Python package.
+Install only from sources you trust.
 
 **Usage**:
 
@@ -1881,6 +1882,7 @@ $ hf extensions install [OPTIONS] REPO_ID
 Examples
   $ hf extensions install hf-claude
   $ hf extensions install hanouticelina/hf-claude
+  $ hf extensions install alvarobartt/hf-mem
 
 Learn more
   Use `hf <command> --help` for more information about a command.
