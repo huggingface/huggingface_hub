@@ -2547,17 +2547,15 @@ class HfApi:
         hf_raise_for_status(response)
         payload = response.json()
 
-        entries: list[DatasetParquetEntry] = []
-        for file_info in payload.get("parquet_files", []):
-            entries.append(
-                DatasetParquetEntry(
-                    config=file_info["config"],
-                    split=file_info["split"],
-                    url=file_info["url"],
-                    size=file_info["size"],
-                )
+        return [
+            DatasetParquetEntry(
+                config=file_info["config"],
+                split=file_info["split"],
+                url=file_info["url"],
+                size=file_info["size"],
             )
-        return entries
+            for file_info in payload.get("parquet_files", [])
+        ]
 
     @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
