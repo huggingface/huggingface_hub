@@ -83,10 +83,6 @@ def execute_raw_sql_query(
             rows = tuple(tuple(row) for row in relation.fetchall())
             raw_json = None
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table, raw_json=raw_json)
-    except (ImportError, ValueError):
-        raise
-    except Exception as e:
-        raise ValueError(str(e)) from e
     finally:
         if connection is not None:
             connection.close()
