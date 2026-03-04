@@ -874,6 +874,110 @@ Use `hf papers` to list daily papers on the Hub.
 >>> hf papers ls --sort=trending --limit=5
 ```
 
+## hf discussions
+
+Use `hf discussions` to manage discussions and pull requests on Hub repositories directly from your terminal. You can list, view, create, comment on, close, reopen, and merge both discussions and PRs. For a full guide on how the Hub's community features work, see the [Discussions and Pull Requests guide](./community).
+
+### List discussions
+
+To list open discussions and PRs on a repository, pass the repo ID to `hf discussions list` (or its shorthand `hf discussions ls`):
+
+```bash
+>>> hf discussions list username/my-model
+```
+
+You can narrow the results by kind (`discussion` or `pull_request`), status (`open`, `closed`, `merged`, or `all`), or author:
+
+```bash
+>>> hf discussions list username/my-model --kind pull_request --status merged
+>>> hf discussions list username/my-model --author alice
+```
+
+For scripting, use `--format json` to get structured output, or `--quiet` to print only discussion numbers (one per line):
+
+```bash
+>>> hf discussions list username/my-model --format json
+>>> hf discussions ls username/my-model --quiet
+```
+
+### View a discussion or PR
+
+To inspect a specific discussion or PR, pass the repo ID and the discussion number:
+
+```bash
+>>> hf discussions view username/my-model 5
+```
+
+By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
+
+```bash
+>>> hf discussions view username/my-model 5 --comments
+>>> hf discussions view username/my-model 5 --diff
+```
+
+Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
+
+### Create a discussion or PR
+
+To open a new discussion, provide a title with `--title`. You can optionally include a description inline with `--body`, or load it from a file with `--body-file`:
+
+```bash
+>>> hf discussions create username/my-model --title "Bug report"
+>>> hf discussions create username/my-model --title "Feature request" --body "Please add X"
+>>> hf discussions create username/my-model --title "Report" --body-file report.md
+```
+
+To create a pull request instead of a plain discussion, add the `--pull-request` flag:
+
+```bash
+>>> hf discussions create username/my-model --title "Fix typo" --pull-request
+```
+
+### Comment on a discussion or PR
+
+Add a comment to an existing discussion or PR by specifying its number. The comment body can be passed inline with `--body`, read from a file with `--body-file`, or piped from stdin using `--body-file -`:
+
+```bash
+>>> hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+>>> hf discussions comment username/my-model 5 --body-file review.md
+>>> echo "LGTM" | hf discussions comment username/my-model 5 --body-file -
+```
+
+### Close, reopen, and merge
+
+You can close a discussion or PR with `hf discussions close`. By default, you will be prompted for confirmation. Pass `--yes` to skip the prompt, and `--comment` to leave a closing message:
+
+```bash
+>>> hf discussions close username/my-model 5
+>>> hf discussions close username/my-model 5 --yes --comment "Resolved"
+```
+
+To reopen a previously closed discussion, use `hf discussions reopen`:
+
+```bash
+>>> hf discussions reopen username/my-model 5 --yes
+```
+
+To merge a pull request, use `hf discussions merge`:
+
+```bash
+>>> hf discussions merge username/my-model 5 --yes
+```
+
+### Rename and diff
+
+You can rename a discussion by providing the new title:
+
+```bash
+>>> hf discussions rename username/my-model 5 "Updated title"
+```
+
+To view the diff of a pull request directly in your terminal, use `hf discussions diff`:
+
+```bash
+>>> hf discussions diff username/my-model 5
+```
+
 ## hf repos
 
 `hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
@@ -962,7 +1066,7 @@ To delete files from a repo you must be authenticated and authorized. By default
 >>> hf repos delete-files --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf repos branch
+### hf repos branch
 
 Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
@@ -1001,7 +1105,7 @@ Use `hf cache` to manage your local Hugging Face cache directory. The cache stor
 >>> hf cache verify gpt2
 ```
 
-## hf cache ls
+### hf cache ls
 
 Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. By default it aggregates information by repository:
 
@@ -1042,7 +1146,7 @@ Cache deletion done. Saved 5.31G.
 Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 ```
 
-## hf cache rm
+### hf cache rm
 
 `hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
 
@@ -1068,7 +1172,7 @@ Dry run: no files were deleted.
 
 When working outside the default cache location, pair the command with `--cache-dir PATH`.
 
-## hf cache prune
+### hf cache prune
 
 `hf cache prune` is a convenience shortcut that deletes every detached (unreferenced) revision in your cache. This keeps only revisions that are still reachable through a branch or tag:
 
@@ -1086,7 +1190,7 @@ Deleted 3 unreferenced revision(s); freed 2.4G.
 
 As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
 
-## hf cache verify
+### hf cache verify
 
 Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
 
@@ -1125,7 +1229,7 @@ On success, you will see a summary:
 
 If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
-## hf repos tag
+### hf repos tag
 
 Use `hf repos tag` to create, list, and delete tags for repositories on the Hub.
 
@@ -1476,7 +1580,7 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
 
-## hf jobs scheduled
+### hf jobs scheduled
 
 Schedule and manage jobs that will run on HF infrastructure.
 
@@ -1549,7 +1653,7 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
 
-## hf endpoints catalog
+### hf endpoints catalog
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
 

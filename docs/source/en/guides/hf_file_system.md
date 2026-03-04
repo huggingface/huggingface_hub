@@ -8,7 +8,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 
 > [!WARNING]
 > [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
->   Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
+>   Hugging Face datasets and buckets directly with `pandas`). However, it introduces additional overhead due to this compatibility
 >   layer. For better performance and reliability, it's recommended to use [`HfApi`] methods when possible.
 
 ## Usage
@@ -16,11 +16,15 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ```python
 >>> from huggingface_hub import hffs
 
->>> # List all files in a directory
+>>> # List all files in a dataset directory
 >>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # List all ".csv" files in a repo
+>>> # List all files in a bucket directory
+>>> hffs.ls("buckets/my-username/my-bucket/experiment-data", detail=False)
+['bucket/my-username/my-bucket/data/train-0000.parquet', 'bucket/my-username/my-bucket/data/train-0001.parquet', ...]
+
+>>> # List all ".csv" files in a dataset repository
 >>> hffs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
@@ -37,7 +41,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ...     f.write("Fantastic movie!,good")
 ```
 
-The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash.
+The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash. Note that `revision` is not compatible with Buckets. 
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
 
@@ -50,10 +54,16 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
 <div class="flex justify-center">
-<img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/hf_urls.png"/>
+<img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/hf_urls_with_buckets.png"/>
 </div>
 
-The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for spaces, and models don't need a prefix in the URL.
+The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for Spaces, and models don't need a prefix in the URL.
+
+In addition to repositories, the [`HfFileSystem`] also supports Hugging Face Buckets which are a S3-like object storage (see [this guide](./buckets) for more details):
+
+```
+hf://buckets/<bucket_id>/<path/in/bucket>
+```
 
 Some interesting integrations where [`HfFileSystem`] simplifies interacting with the Hub are listed below:
 
@@ -64,9 +74,11 @@ Some interesting integrations where [`HfFileSystem`] simplifies interacting with
 
   >>> # Read a remote CSV file into a dataframe
   >>> df = pd.read_csv("hf://datasets/my-username/my-dataset-repo/train.csv")
+  >>> df = pd.read_csv("hf://buckets/my-username/my-bucket/train.csv")
 
   >>> # Write a dataframe to a remote CSV file
   >>> df.to_csv("hf://datasets/my-username/my-dataset-repo/test.csv")
+  >>> df.to_csv("hf://buckets/my-username/my-bucket/test.csv")
   ```
 
 The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html) DataFrames.
