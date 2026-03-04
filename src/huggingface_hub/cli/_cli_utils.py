@@ -336,6 +336,25 @@ SearchOpt = Annotated[
 ]
 
 
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
+    ),
+]
+
+
 class OutputFormat(str, Enum):
     """Output format for CLI list commands."""
 

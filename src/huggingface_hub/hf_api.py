@@ -7468,9 +7468,7 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def enable_space_dev_mode(
-        self, repo_id: str, *, token: Union[bool, str, None] = None
-    ) -> SpaceRuntime:
+    def enable_space_dev_mode(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
         """Enable dev mode on a Space.
 
         Args:

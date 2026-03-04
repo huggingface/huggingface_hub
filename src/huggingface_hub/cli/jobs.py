@@ -83,8 +83,10 @@ from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
+    EnvOpt,
     OutputFormat,
     QuietOpt,
+    SecretsOpt,
     TokenOpt,
     _format_cell,
     api_object_to_dict,
@@ -147,24 +149,6 @@ FlavorOpt = Annotated[
     Optional[SpaceHardware],
     typer.Option(
         help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
-    ),
-]
-
-EnvOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-e",
-        "--env",
-        help="Set environment variables. E.g. --env ENV=value",
-    ),
-]
-
-SecretsOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-s",
-        "--secrets",
-        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
     ),
 ]
 

@@ -43,6 +43,7 @@ from typing_extensions import assert_never
 from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
+from huggingface_hub._space_api import SpaceStage
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
@@ -51,6 +52,7 @@ from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
     AuthorOpt,
+    EnvOpt,
     FilterOpt,
     FormatOpt,
     LimitOpt,
@@ -58,6 +60,7 @@ from ._cli_utils import (
     QuietOpt,
     RevisionOpt,
     SearchOpt,
+    SecretsOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -83,28 +86,10 @@ ExpandOpt = Annotated[
     ),
 ]
 
-EnvOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-e",
-        "--env",
-        help="Set environment variables. E.g. --env ENV=value",
-    ),
-]
-
-SecretsOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-s",
-        "--secrets",
-        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-    ),
-]
-
 FlavorOpt = Annotated[
     Optional[SpaceHardware],
     typer.Option(
-        help="Flavor for the hardware, as in HF Spaces. Defaults to `cpu-basic`.",
+        help="Flavor for the hardware in HF Spaces. Defaults to `cpu-basic`.",
     ),
 ]
 
@@ -239,10 +224,10 @@ def dev_mode(
     folder_query_param = f"folder={folder}" if folder else ""
     print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
     intermediate_statuses_and_messages = {
-        "BUILDING": "building...",
-        "RUNNING_BUILDING": "building...",
-        "APP_STARTING": "app starting...",
-        "RUNNING_APP_STARTING": "app starting...",
+        SpaceStage.BUILDING: "building...",
+        SpaceStage.RUNNING_BUILDING: "building...",
+        SpaceStage.APP_STARTING: "app starting...",
+        SpaceStage.RUNNING_APP_STARTING: "app starting...",
     }
     prev_msg = None
     while True:
