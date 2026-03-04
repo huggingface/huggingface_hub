@@ -12644,6 +12644,8 @@ restart_space = api.restart_space
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+enable_space_dev_mode = api.enable_space_dev_mode
+disable_space_dev_mode = api.disable_space_dev_mode
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints
