@@ -2498,6 +2498,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
+        config: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> list[DatasetParquetEntry]:
         """List parquet files available for a dataset on the Hub.
@@ -2510,6 +2511,9 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The dataset repository ID (e.g. `"username/dataset-name"`).
+            config (`str`, *optional*):
+                Filter by a specific config/subset name. When provided, only
+                parquet files for that config are returned.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2536,6 +2540,8 @@ class HfApi:
             )
 
         url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet?dataset={repo_id}"
+        if config is not None:
+            url += f"&config={config}"
         response = get_session().get(url, headers=self._build_hf_headers(token=token))
         hf_raise_for_status(response)
         payload = response.json()

@@ -146,12 +146,8 @@ def datasets_parquet(
 ) -> None:
     """List parquet file URLs available for a dataset."""
     api = get_hf_api(token=token)
-    entries = api.list_dataset_parquet_files(repo_id=dataset_id)
-    filtered = [
-        entry
-        for entry in entries
-        if (subset is None or entry.config == subset) and (split is None or entry.split == split)
-    ]
+    entries = api.list_dataset_parquet_files(repo_id=dataset_id, config=subset)
+    filtered = [entry for entry in entries if split is None or entry.split == split]
     results = [
         {"subset": entry.config, "split": entry.split, "url": entry.url, "size": entry.size} for entry in filtered
     ]

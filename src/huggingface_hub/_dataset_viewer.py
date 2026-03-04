@@ -82,6 +82,10 @@ def execute_raw_sql_query(
             rows = tuple(tuple(row) for row in relation.fetchall())
             raw_json = None
         return DatasetSqlQueryResult(columns=columns, rows=rows, table=table, raw_json=raw_json)
+    except (ImportError, ValueError):
+        raise
+    except Exception as e:
+        raise ValueError(str(e)) from e
     finally:
         if connection is not None:
             connection.close()
@@ -205,6 +209,6 @@ def _build_duckdb_cli_input(setup_statements: list[str], query: str) -> str:
     if setup_statements:
         statements.append(f".output {os.devnull}")
         statements.extend(f"{statement};" for statement in setup_statements)
-        statements.append(".output stdout")
+        statements.append(".output")
     statements.append(f"{query};")
     return "\n".join(statements)
