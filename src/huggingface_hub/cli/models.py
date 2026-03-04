@@ -95,7 +95,12 @@ def models_ls(
     results = [
         api_object_to_dict(model_info)
         for model_info in api.list_models(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
