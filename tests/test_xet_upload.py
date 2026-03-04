@@ -27,7 +27,7 @@ from huggingface_hub.file_download import (
     hf_hub_download,
     hf_hub_url,
 )
-from huggingface_hub.utils import build_hf_headers, refresh_xet_connection_info
+from huggingface_hub.utils import XetConnectionInfo, build_hf_headers, refresh_xet_connection_info
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name, requires
@@ -225,6 +225,70 @@ class TestXetUpload:
             assert mock_batch.call_count == 1
             mock_xet.assert_not_called()
             mock_lfs.assert_called_once()
+
+    def test_request_headers_passed_to_upload_files(self, tmp_path):
+        """Test that headers (minus authorization) are passed as request_headers to hf_xet.upload_files."""
+        headers = {
+            "authorization": "Bearer my_token",
+            "x-custom-header": "custom_value",
+            "user-agent": "test-agent",
+        }
+
+        test_file = tmp_path / "test_file.bin"
+        test_file.write_bytes(b"test content")
+        addition = CommitOperationAdd(path_in_repo="test_file.bin", path_or_fileobj=test_file)
+
+        with patch("huggingface_hub._commit_api.fetch_xet_connection_info_from_repo_info") as mock_fetch:
+            mock_fetch.return_value = XetConnectionInfo(
+                endpoint="mock_endpoint",
+                access_token="mock_token",
+                expiration_unix_epoch=9999999999,
+            )
+            with patch("hf_xet.upload_files") as mock_upload_files:
+                with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+                    _upload_xet_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="test/repo",
+                        headers=headers,
+                    )
+
+                    mock_upload_files.assert_called_once()
+                    request_headers = mock_upload_files.call_args.kwargs["request_headers"]
+                    assert request_headers.get("x-custom-header") == "custom_value"
+                    assert request_headers.get("user-agent") == "test-agent"
+                    assert "authorization" not in request_headers
+
+    def test_request_headers_passed_to_upload_bytes(self):
+        """Test that headers (minus authorization) are passed as request_headers to hf_xet.upload_bytes."""
+        headers = {
+            "authorization": "Bearer my_token",
+            "x-custom-header": "custom_value",
+            "user-agent": "test-agent",
+        }
+
+        addition = CommitOperationAdd(path_in_repo="test_file.bin", path_or_fileobj=b"test content")
+
+        with patch("huggingface_hub._commit_api.fetch_xet_connection_info_from_repo_info") as mock_fetch:
+            mock_fetch.return_value = XetConnectionInfo(
+                endpoint="mock_endpoint",
+                access_token="mock_token",
+                expiration_unix_epoch=9999999999,
+            )
+            with patch("hf_xet.upload_bytes") as mock_upload_bytes:
+                with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+                    _upload_xet_files(
+                        additions=[addition],
+                        repo_type="model",
+                        repo_id="test/repo",
+                        headers=headers,
+                    )
+
+                    mock_upload_bytes.assert_called_once()
+                    request_headers = mock_upload_bytes.call_args.kwargs["request_headers"]
+                    assert request_headers.get("x-custom-header") == "custom_value"
+                    assert request_headers.get("user-agent") == "test-agent"
+                    assert "authorization" not in request_headers
 
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id

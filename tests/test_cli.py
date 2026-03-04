@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -28,7 +29,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
-from .testing_utils import DUMMY_MODEL_ID
+from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
 @pytest.fixture
@@ -872,6 +873,26 @@ class TestDownloadCommand:
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
 
+    def test_download_subfolder_via_cli(self, runner: CliRunner) -> None:
+        """Test that `hf download repo_id subfolder/` works via CLI."""
+        with (
+            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
+            patch("huggingface_hub.cli.download.hf_hub_download") as download_mock,
+        ):
+            result = runner.invoke(
+                app,
+                ["download", DUMMY_MODEL_ID, "art/", "--repo-type", "dataset"],
+            )
+        assert result.exit_code == 0
+        assert "path" in result.stdout
+        download_mock.assert_not_called()
+        snapshot_mock.assert_called_once()
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["repo_type"] == "dataset"
+        assert kwargs["allow_patterns"] == ["art/**"]
+        assert kwargs["ignore_patterns"] is None
+
 
 class TestDownloadImpl:
     @patch("huggingface_hub.cli.download.snapshot_download")
@@ -994,10 +1015,119 @@ class TestDownloadImpl:
             dry_run=False,
         )
 
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_subfolder(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test that a subfolder path (ending with /) is converted to an include pattern."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/dataset",
+                filenames=["art/"],
+                repo_type=RepoType.dataset,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/dataset",
+            repo_type="dataset",
+            revision=None,
+            allow_patterns=["art/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_subfolder_with_files(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test downloading a subfolder along with specific files."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["art/", "config.json"],
+                repo_type=RepoType.model,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            allow_patterns=["config.json", "art/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_multiple_subfolders(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test downloading multiple subfolders at once."""
+        mock_snapshot.return_value = "folder-path"
+        with patch("builtins.print") as print_mock:
+            download(
+                repo_id="author/model",
+                filenames=["art/", "data/images/"],
+                repo_type=RepoType.model,
+                quiet=True,
+            )
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            allow_patterns=["art/**", "data/images/**"],
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=8,
+            dry_run=False,
+        )
+
+    def test_download_subfolder_with_include_raises_error(self) -> None:
+        """Test that combining subfolder with --include raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                include=["*.json"],
+                quiet=True,
+            )
+
+    def test_download_subfolder_with_exclude_raises_error(self) -> None:
+        """Test that combining subfolder with --exclude raises an error."""
+        with pytest.raises(CLIError, match="Cannot combine subfolder argument"):
+            download(
+                repo_id="author/model",
+                filenames=["art/"],
+                repo_type=RepoType.model,
+                exclude=["*.bin"],
+                quiet=True,
+            )
+
 
 class TestTagCommands:
     def test_tag_create_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1014,7 +1144,7 @@ class TestTagCommands:
         )
 
     def test_tag_create_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1046,7 +1176,7 @@ class TestTagCommands:
 
     def test_tag_list_basic(self, runner: CliRunner) -> None:
         refs = Mock(tags=[Mock(name="v1")])
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_repo_refs.return_value = refs
             result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
@@ -1055,7 +1185,7 @@ class TestTagCommands:
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
 
     def test_tag_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1069,7 +1199,7 @@ class TestTagCommands:
 
 class TestBranchCommands:
     def test_branch_create_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "branch", "create", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
@@ -1083,7 +1213,7 @@ class TestBranchCommands:
         )
 
     def test_branch_create_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1113,7 +1243,7 @@ class TestBranchCommands:
         )
 
     def test_branch_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "branch", "delete", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
@@ -1125,7 +1255,7 @@ class TestBranchCommands:
         )
 
     def test_branch_delete_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1152,7 +1282,7 @@ class TestBranchCommands:
 
 class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "move", DUMMY_MODEL_ID, "new-id"])
         assert result.exit_code == 0
@@ -1164,7 +1294,7 @@ class TestRepoMoveCommand:
         )
 
     def test_repo_move_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1190,7 +1320,7 @@ class TestRepoMoveCommand:
 
 class TestRepoSettingsCommand:
     def test_repo_settings_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "settings", DUMMY_MODEL_ID])
         assert result.exit_code == 0
@@ -1203,7 +1333,7 @@ class TestRepoSettingsCommand:
         )
 
     def test_repo_settings_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1231,7 +1361,7 @@ class TestRepoSettingsCommand:
 
 class TestRepoDeleteCommand:
     def test_repo_delete_basic(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID])
         assert result.exit_code == 0
@@ -1243,7 +1373,7 @@ class TestRepoDeleteCommand:
         )
 
     def test_repo_delete_with_all_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo.get_hf_api") as api_cls:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
@@ -1371,6 +1501,85 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestDatasetsParquetCommand:
+    def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="datasets",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/datasets/train/0.parquet",
+                    size=1234,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "SUBSET" in result.stdout
+        assert "URL" in result.stdout
+        assert "datasets" in result.stdout
+        assert "train" in result.stdout
+
+    def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="models",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                    size=5678,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [
+            {
+                "subset": "models",
+                "split": "train",
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                "size": 5678,
+            }
+        ]
+
+    def test_datasets_parquet_empty_result(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = []
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+
+
+class TestDatasetsSqlCommand:
+    # count number of rows by sector in the GDPVAL dataset train split
+    # https://huggingface.co/datasets/openai/gdpval
+    SQL_QUERY = "SELECT sector, COUNT(*) AS count FROM read_parquet('https://huggingface.co/api/datasets/openai/gdpval/parquet/default/train/0.parquet') GROUP BY sector ORDER BY count DESC"
+
+    @with_production_testing
+    def test_datasets_sql_table(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
+
+        assert result.exit_code == 0
+        assert "SECTOR" in result.stdout
+        assert "COUNT" in result.stdout
+
+    @with_production_testing
+    def test_datasets_sql_json(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY, "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert len(payload) > 0
+        for item in payload:
+            assert isinstance(item["sector"], str)
+            assert isinstance(item["count"], int)
 
 
 class TestSpacesLsCommand:
@@ -1657,12 +1866,14 @@ def tmp_current_directory() -> Generator[str, None, None]:
             os.chdir(cwd)
 
 
-class TestRepoFilesCommand:
+class TestRepoDeleteFilesCommand:
+    """Tests for `hf repos delete-files` (the new primary command)."""
+
     @pytest.mark.parametrize(
         "cli_args, expected_kwargs",
         [
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "*"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "*"],
                 {
                     "delete_patterns": ["*"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1674,7 +1885,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file.txt"],
                 {
                     "delete_patterns": ["file.txt"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1686,7 +1897,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "folder/"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "folder/"],
                 {
                     "delete_patterns": ["folder/"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -1698,7 +1909,7 @@ class TestRepoFilesCommand:
                 },
             ),
             (
-                ["repo-files", "delete", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
+                ["repo", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
                 {
                     "delete_patterns": [
                         "file1.txt",
@@ -1715,8 +1926,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "*.json",
@@ -1738,8 +1949,8 @@ class TestRepoFilesCommand:
             ),
             (
                 [
-                    "repo-files",
-                    "delete",
+                    "repo",
+                    "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
                     "--revision",
@@ -1764,12 +1975,37 @@ class TestRepoFilesCommand:
             ),
         ],
     )
-    def test_delete(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+    def test_delete_files(self, runner: CliRunner, cli_args: list[str], expected_kwargs: dict[str, object]) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
         api.delete_files.assert_called_once_with(**expected_kwargs)
+
+
+class TestRepoFilesCommand:
+    """Tests for legacy `hf repo-files delete` (deprecated, kept for backward compatibility)."""
+
+    def test_legacy_delete_still_works(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        api.delete_files.assert_called_once_with(
+            delete_patterns=["file.txt"],
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            commit_message=None,
+            commit_description=None,
+            create_pr=False,
+        )
+
+    def test_legacy_delete_emits_deprecation_warning(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repo_files.get_hf_api"):
+            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
+        assert result.exit_code == 0
+        assert "hf repos delete-files" in result.output
 
 
 class TestJobsCommand:
@@ -2159,6 +2395,38 @@ class TestJobsCommand:
         assert result.exit_code == 0
         assert "abc123def456 RUNNING" in result.output
         assert "xyz789ghi012 COMPLETED" in result.output
+
+
+class TestCreateUvCommandQuoting:
+    """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
+
+    def test_dependencies_with_version_specifiers_are_quoted(self, tmp_path: Path) -> None:
+        """Regression test: --with 'torch>=2.1' must be quoted so bash doesn't interpret '>' as redirection."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        api = HfApi()
+        command, env, secrets = api._create_uv_command_env_and_secrets(
+            script=str(script_path),
+            script_args=None,
+            dependencies=["torch>=2.1", "numpy"],
+            python=None,
+            env=None,
+            secrets=None,
+            namespace="test-user",
+            token=None,
+        )
+
+        assert command[0] == "bash"
+        assert command[1] == "-c"
+        bash_script = command[2]
+        # The version specifier must be quoted to prevent shell redirection
+        assert "'torch>=2.1'" in bash_script
+        assert "'numpy'" in bash_script
+        # The script name must also be quoted
+        assert "'train.py'" in bash_script
 
 
 class TestParseNamespaceFromJobId:

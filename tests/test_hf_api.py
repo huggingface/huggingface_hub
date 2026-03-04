@@ -2092,6 +2092,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    def test_list_dataset_parquet_files(self):
+        entries = self._api.list_dataset_parquet_files(
+            repo_id="nvidia/Llama-Nemotron-Post-Training-Dataset", token=False
+        )
+        assert len(entries) > 0
+        assert entries[0].config
+        assert entries[0].split
+        assert entries[0].url.endswith(".parquet")
+        assert entries[0].size > 0
+
     def test_filter_datasets_by_author_and_name(self):
         datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
         assert len(datasets) > 0
@@ -2563,7 +2573,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_inference_provider_mapping_list_models(self):
         models = list(
-            self._api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference="warm")
+            self._api.list_models(
+                author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference_provider="all"
+            )
         )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
@@ -2781,6 +2793,10 @@ class UploadFolderMockedTest(unittest.TestCase):
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
 
+@pytest.mark.skip(
+    # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
+    reason="Skipping git clone test on CI."
+)
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path

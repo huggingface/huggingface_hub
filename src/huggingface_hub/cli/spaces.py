@@ -139,7 +139,12 @@ def spaces_ls(
     results = [
         api_object_to_dict(space_info)
         for space_info in api.list_spaces(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
@@ -271,7 +276,14 @@ def dev_mode(
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
 
 
-@spaces_cli.command("hot-reload")
+@spaces_cli.command(
+    "hot-reload",
+    examples=[
+        "hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file",
+        "hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo",
+        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo",
+    ],
+)
 def spaces_hot_reload(
     space_id: Annotated[
         str,
@@ -308,13 +320,6 @@ def spaces_hot_reload(
     This command patches the live Python process using https://github.com/breuleux/jurigged
     (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
     (meaning that Gradio demo object changes are reflected in the UI)
-
-    Usage examples:
-
-        \b
-        hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
-        hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
-        hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)

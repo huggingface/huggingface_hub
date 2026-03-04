@@ -41,7 +41,6 @@ Commands:
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
   repo                 Manage repos on the Hub.
-  repo-files           Manage files in a repo on the Hub.
   spaces               Interact with spaces on the Hub.
   upload               Upload a file or a folder to the Hub.
   upload-large-folder  Upload a large folder to the Hub.
@@ -504,7 +503,6 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_DISABLE_SYMLINKS_WARNING: False
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
-- HF_HUB_ENABLE_HF_TRANSFER: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```

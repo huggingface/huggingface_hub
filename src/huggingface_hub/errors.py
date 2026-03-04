@@ -185,6 +185,28 @@ class FileMetadataError(OSError):
     """
 
 
+# BUCKET ERRORS
+
+
+class BucketNotFoundError(HfHubHTTPError):
+    """
+    Raised when trying to access a bucket that does not exist.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import bucket_info
+    >>> bucket_info("<non_existent_bucket>")
+    (...)
+    huggingface_hub.errors.BucketNotFoundError: 404 Client Error. (Request ID: XXX)
+
+    Bucket Not Found for url: https://huggingface.co/api/buckets/namespace/name.
+    Please make sure you specified the correct bucket id (namespace/name).
+    If the bucket is private, make sure you are authenticated.
+    ```
+    """
+
+
 # REPOSITORY ERRORS
 
 

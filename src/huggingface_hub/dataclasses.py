@@ -225,7 +225,8 @@ def strict(
                 # Combine both representations
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
-            cls.__repr__ = __repr__  # type: ignore [method-assign]
+            if cls.__dataclass_params__.repr is True:  # type: ignore [attr-defined]
+                cls.__repr__ = __repr__  # type: ignore [method-assign]
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
