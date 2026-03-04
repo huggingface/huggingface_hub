@@ -71,6 +71,8 @@ if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
+DATASETS_SERVER_ENDPOINT = "https://datasets-server.huggingface.co"
+
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
