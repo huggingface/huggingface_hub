@@ -12,17 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
-import importlib
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from . import constants
 from .utils._headers import get_token_to_send
+
+
+if TYPE_CHECKING:
+    import duckdb
 
 
 @dataclass(frozen=True)
@@ -98,10 +99,12 @@ def _normalize_query(sql_query: str) -> str:
     return normalized_query
 
 
-def _get_duckdb_connection(token: Union[str, bool, None], endpoint: str = constants.ENDPOINT):
+def _get_duckdb_connection(
+    token: Union[str, bool, None], endpoint: str = constants.ENDPOINT
+) -> Union["duckdb.DuckDBPyConnection", "_DuckDBCliConnection"]:
     try:
-        duckdb = importlib.import_module("duckdb")
-    except ModuleNotFoundError as error:
+        import duckdb
+    except ImportError as error:
         duckdb_binary = shutil.which("duckdb")
         if duckdb_binary is None:
             raise ImportError(
