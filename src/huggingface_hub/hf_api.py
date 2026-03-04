@@ -7773,9 +7773,11 @@ class HfApi:
 
         </Deprecated>
         """
+        kwargs: dict[str, Any] = {}
+        if to_id is not None:
+            kwargs["to_id"] = to_id
         return self.duplicate_repo(
             from_id=from_id,
-            to_id=to_id,
             repo_type="space",
             private=private,
             token=token,
@@ -7785,6 +7787,7 @@ class HfApi:
             space_sleep_time=sleep_time,
             space_secrets=secrets,
             space_variables=variables,
+            **kwargs,
         )
 
     @validate_hf_hub_args
