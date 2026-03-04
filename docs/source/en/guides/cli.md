@@ -927,7 +927,7 @@ To delete files from a repo you must be authenticated and authorized. By default
 >>> hf repos delete-files --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf repos branch
+### hf repos branch
 
 Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
@@ -1090,7 +1090,7 @@ On success, you will see a summary:
 
 If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
 
-## hf repos tag
+### hf repos tag
 
 Use `hf repos tag` to create, list, and delete tags for repositories on the Hub.
 
@@ -1441,7 +1441,7 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
 
-## hf jobs scheduled
+### hf jobs scheduled
 
 Schedule and manage jobs that will run on HF infrastructure.
 
@@ -1514,7 +1514,7 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
 
-## hf endpoints catalog
+### hf endpoints catalog
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
 
