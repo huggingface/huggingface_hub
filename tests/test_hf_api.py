@@ -2092,6 +2092,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    def test_list_dataset_parquet_files(self):
+        entries = self._api.list_dataset_parquet_files(
+            repo_id="nvidia/Llama-Nemotron-Post-Training-Dataset", token=False
+        )
+        assert len(entries) > 0
+        assert entries[0].config
+        assert entries[0].split
+        assert entries[0].url.endswith(".parquet")
+        assert entries[0].size > 0
+
     def test_filter_datasets_by_author_and_name(self):
         datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
         assert len(datasets) > 0

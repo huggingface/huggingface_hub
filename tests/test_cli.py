@@ -1598,7 +1598,7 @@ class TestDatasetsSqlCommand:
         assert payload == [{"subset": "models"}]
         mock_exec.assert_called_once()
 
-    def test_datasets_sql_error_is_cli_error(self, runner: CliRunner) -> None:
+    def test_datasets_sql_value_error_bubbles_up(self, runner: CliRunner) -> None:
         with patch(
             "huggingface_hub.cli.datasets.execute_raw_sql_query",
             side_effect=ValueError("SQL query cannot be empty."),
@@ -1606,7 +1606,7 @@ class TestDatasetsSqlCommand:
             result = runner.invoke(app, ["datasets", "sql", " "])
 
         assert result.exit_code == 1
-        assert isinstance(result.exception, CLIError)
+        assert isinstance(result.exception, ValueError)
         assert str(result.exception) == "SQL query cannot be empty."
 
 

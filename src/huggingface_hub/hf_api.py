@@ -12499,6 +12499,7 @@ list_models = api.list_models
 model_info = api.model_info
 
 list_datasets = api.list_datasets
+list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
 
 list_spaces = api.list_spaces
