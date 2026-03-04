@@ -214,14 +214,14 @@ def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
         if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
             continue
         short_name = extension_dir.name[3:]
-        repo_id = ""
+        repo_id = None
         try:
             manifest_path = extension_dir / MANIFEST_FILENAME
             if manifest_path.is_file():
-                repo_id = str(json.loads(manifest_path.read_text(encoding="utf-8")).get("repo_id", ""))
+                repo_id = json.loads(manifest_path.read_text(encoding="utf-8")).get("repo_id")
         except Exception:
             pass
-        help_text = f"[extension] {repo_id}" if repo_id else "[extension]"
+        help_text = f"[extension] {repo_id}" if isinstance(repo_id, str) and repo_id else "[extension]"
         entries.append((short_name, help_text))
     return entries
 
