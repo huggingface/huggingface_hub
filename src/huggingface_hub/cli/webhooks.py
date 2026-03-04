@@ -100,7 +100,7 @@ webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
 
 
 @webhooks_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf webhooks ls",
         "hf webhooks ls --format json",
