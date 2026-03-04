@@ -244,13 +244,16 @@ def _install_binary_extension(
             f"Failed while probing for a root executable '{executable_name}' in '{owner}/{repo_name}': {e}"
         ) from e
 
-    manifest = _build_extension_manifest(
+    manifest = ExtensionManifest(
         owner=owner,
-        repo_name=repo_name,
+        repo=repo_name,
+        repo_id=f"{owner}/{repo_name}",
         short_name=short_name,
         executable_name=executable_name,
-        executable_path=extension_dir / executable_name,
-        extension_type="binary",
+        executable_path=str(extension_dir / executable_name),
+        type="binary",
+        installed_at=datetime.now(timezone.utc).isoformat(),
+        source=f"https://github.com/{owner}/{repo_name}",
     )
 
     with TemporaryDirectory() as tmp_dir:
@@ -305,13 +308,16 @@ def _install_python_extension(
                 f"'{executable_name}'."
             )
 
-        manifest = _build_extension_manifest(
+        manifest = ExtensionManifest(
             owner=owner,
-            repo_name=repo_name,
+            repo=repo_name,
+            repo_id=f"{owner}/{repo_name}",
             short_name=short_name,
             executable_name=executable_name,
-            executable_path=venv_executable.resolve(),
-            extension_type="python",
+            executable_path=str(venv_executable.resolve()),
+            type="python",
+            installed_at=datetime.now(timezone.utc).isoformat(),
+            source=f"https://github.com/{owner}/{repo_name}",
         )
         _write_extension_manifest(extension_dir, manifest)
         installed = True
@@ -347,28 +353,6 @@ def _persist_installed_extension(extension_dir: Path, source_executable: Path, m
     except Exception:
         shutil.rmtree(extension_dir, ignore_errors=True)
         raise
-
-
-def _build_extension_manifest(
-    *,
-    owner: str,
-    repo_name: str,
-    short_name: str,
-    executable_name: str,
-    executable_path: Path,
-    extension_type: str,
-) -> ExtensionManifest:
-    return ExtensionManifest(
-        owner=owner,
-        repo=repo_name,
-        repo_id=f"{owner}/{repo_name}",
-        short_name=short_name,
-        executable_name=executable_name,
-        executable_path=str(executable_path),
-        type=extension_type,
-        installed_at=datetime.now(timezone.utc).isoformat(),
-        source=f"https://github.com/{owner}/{repo_name}",
-    )
 
 
 def _write_extension_manifest(extension_dir: Path, manifest: ExtensionManifest) -> None:
