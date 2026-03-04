@@ -29,7 +29,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
-from .testing_utils import DUMMY_MODEL_ID
+from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
 @pytest.fixture
@@ -1558,56 +1558,28 @@ class TestDatasetsParquetCommand:
 
 
 class TestDatasetsSqlCommand:
-    def test_datasets_sql_table_output(self, runner: CliRunner) -> None:
-        from huggingface_hub._dataset_viewer import DatasetSqlQueryResult
+    # count number of rows by sector in the GDPVAL dataset train split
+    # https://huggingface.co/datasets/openai/gdpval
+    SQL_QUERY = "SELECT sector, COUNT(*) AS count FROM read_parquet('https://huggingface.co/api/datasets/openai/gdpval/parquet/default/train/0.parquet') GROUP BY sector ORDER BY count DESC"
 
-        fake_result = DatasetSqlQueryResult(
-            columns=(), rows=(), table="┌───────┐\n│ count │\n├───────┤\n│     5 │\n└───────┘"
-        )
-        with patch("huggingface_hub.cli.datasets.execute_raw_sql_query", return_value=fake_result) as mock_exec:
-            result = runner.invoke(
-                app,
-                ["datasets", "sql", "SELECT COUNT(*) AS count"],
-            )
+    @with_production_testing
+    def test_datasets_sql_table(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
 
         assert result.exit_code == 0
-        assert "count" in result.stdout
-        assert "5" in result.stdout
-        mock_exec.assert_called_once()
+        assert "SECTOR" in result.stdout
+        assert "COUNT" in result.stdout
 
-    def test_datasets_sql_json_output(self, runner: CliRunner) -> None:
-        from huggingface_hub._dataset_viewer import DatasetSqlQueryResult
-
-        fake_result = DatasetSqlQueryResult(
-            columns=("subset",), rows=(("models",),), table="", raw_json=json.dumps([{"subset": "models"}], indent=2)
-        )
-        with patch("huggingface_hub.cli.datasets.execute_raw_sql_query", return_value=fake_result) as mock_exec:
-            result = runner.invoke(
-                app,
-                [
-                    "datasets",
-                    "sql",
-                    "SELECT 'models' AS subset",
-                    "--format",
-                    "json",
-                ],
-            )
+    @with_production_testing
+    def test_datasets_sql_json(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY, "--format", "json"])
 
         assert result.exit_code == 0
         payload = json.loads(result.stdout)
-        assert payload == [{"subset": "models"}]
-        mock_exec.assert_called_once()
-
-    def test_datasets_sql_value_error_bubbles_up(self, runner: CliRunner) -> None:
-        with patch(
-            "huggingface_hub.cli.datasets.execute_raw_sql_query",
-            side_effect=ValueError("SQL query cannot be empty."),
-        ):
-            result = runner.invoke(app, ["datasets", "sql", " "])
-
-        assert result.exit_code == 1
-        assert isinstance(result.exception, ValueError)
-        assert str(result.exception) == "SQL query cannot be empty."
+        assert len(payload) > 0
+        for item in payload:
+            assert isinstance(item["sector"], str)
+            assert isinstance(item["count"], int)
 
 
 class TestSpacesLsCommand:

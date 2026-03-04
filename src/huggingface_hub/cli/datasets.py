@@ -30,7 +30,7 @@ from typing import Annotated, Optional, get_args
 
 import typer
 
-from huggingface_hub._dataset_viewer import DatasetSqlQueryResult, execute_raw_sql_query
+from huggingface_hub._dataset_viewer import execute_raw_sql_query
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 
@@ -168,19 +168,8 @@ def datasets_sql(
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
     try:
-        result = execute_raw_sql_query(sql_query=sql, token=token, output_format=format.value)
+        result = execute_raw_sql_query(sql_query=sql, token=token)
     except ImportError as e:
         raise CLIError(str(e)) from e
-    print(_format_sql_result(result=result, output_format=format.value))
 
-
-def _format_sql_result(result: DatasetSqlQueryResult, output_format: str) -> str:
-    if output_format == "table":
-        return result.table
-    if result.raw_json is not None:
-        return result.raw_json
-    return json.dumps(
-        [{column: value for column, value in zip(result.columns, row)} for row in result.rows],
-        indent=2,
-        default=str,
-    )
+    print_list_output(result, format=format, quiet=False)
