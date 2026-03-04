@@ -28,6 +28,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
 * `datasets`: Interact with datasets on the Hub.
+* `discussions`: Manage discussions and pull requests on...
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
@@ -997,6 +998,327 @@ Examples
   $ hf datasets ls
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf discussions`
+
+Manage discussions and pull requests on the Hub.
+
+**Usage**:
+
+```console
+$ hf discussions [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `close`: Close a discussion or pull request.
+* `comment`: Comment on a discussion or pull request.
+* `create`: Create a new discussion or pull request on...
+* `diff`: Show the diff of a pull request.
+* `list`: List discussions and pull requests on a repo. [alias: ls]
+* `merge`: Merge a pull request.
+* `rename`: Rename a discussion or pull request.
+* `reopen`: Reopen a closed discussion or pull request.
+* `view`: View a discussion or pull request.
+
+### `hf discussions close`
+
+Close a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions close [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when closing.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions close username/my-model 5
+  $ hf discussions close username/my-model 5 --comment "Closing as resolved."
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions comment`
+
+Comment on a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions comment [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--body TEXT`: The comment text (supports Markdown).
+* `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+  $ hf discussions comment username/my-model 5 --body "LGTM!"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions create`
+
+Create a new discussion or pull request on a repo.
+
+**Usage**:
+
+```console
+$ hf discussions create [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--title TEXT`: The title of the discussion or pull request.  [required]
+* `--body TEXT`: The description (supports Markdown).
+* `--body-file PATH`: Read the description from a file. Use '-' for stdin.
+* `--pull-request, --pr`: Create a pull request instead of a discussion.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions create username/my-model --title "Bug report"
+  $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
+  $ hf discussions create username/my-model --title "Fix typo" --pull-request
+  $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions diff`
+
+Show the diff of a pull request.
+
+**Usage**:
+
+```console
+$ hf discussions diff [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions diff username/my-model 5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions list`
+
+List discussions and pull requests on a repo. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf discussions list [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-s, --status [open|closed|merged|draft|all]`: Filter by status (open, closed, merged, draft, all).  [default: open]
+* `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
+* `--author TEXT`: Filter by author or organization.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions list username/my-model
+  $ hf discussions list username/my-model --kind pull_request --status merged
+  $ hf discussions list username/my-dataset --type dataset --status closed
+  $ hf discussions list username/my-model --author alice --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions merge`
+
+Merge a pull request.
+
+**Usage**:
+
+```console
+$ hf discussions merge [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when merging.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions merge username/my-model 5
+  $ hf discussions merge username/my-model 5 --comment "Merging, thanks!"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions rename`
+
+Rename a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+* `NEW_TITLE`: The new title.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions rename username/my-model 5 "Updated title"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions reopen`
+
+Reopen a closed discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions reopen [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when reopening.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions reopen username/my-model 5
+  $ hf discussions reopen username/my-model 5 --comment "Reopening for further investigation."
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions view`
+
+View a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions view [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comments`: Show all comments.
+* `--diff`: Show the diff (for pull requests).
+* `--no-color`: Disable colored output.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--format [text|json]`: Output format (text or json).  [default: text]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions view username/my-model 5
+  $ hf discussions view username/my-model 5 --comments
+  $ hf discussions view username/my-model 5 --diff
+  $ hf discussions view username/my-model 5 --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
