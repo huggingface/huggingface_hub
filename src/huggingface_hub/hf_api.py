@@ -134,7 +134,7 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_arguments
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -7533,6 +7533,166 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
+    def duplicate_repo(
+        self,
+        from_id: str,
+        to_id: Optional[str] = None,
+        *,
+        repo_type: Optional[str] = None,
+        private: Optional[bool] = None,
+        token: Union[bool, str, None] = None,
+        exist_ok: bool = False,
+        space_hardware: Optional[SpaceHardware] = None,
+        space_storage: Optional[SpaceStorage] = None,
+        space_sleep_time: Optional[int] = None,
+        space_secrets: Optional[list[dict[str, str]]] = None,
+        space_variables: Optional[list[dict[str, str]]] = None,
+    ) -> RepoUrl:
+        """Duplicate a repo on the Hub (model, dataset, or Space).
+
+        This performs a server-side copy that preserves full git history and LFS objects
+        without requiring a local download/upload round-trip.
+
+        Args:
+            from_id (`str`):
+                ID of the repo to duplicate. Example: `"openai/gdpval"`.
+            to_id (`str`, *optional*):
+                ID of the new repo. Example: `"myorg/my-gdpval"`. If not provided, the new
+                repo will have the same name as the original repo, but in your account.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if duplicating a dataset or Space,
+                `None` or `"model"` if duplicating a model. Default is `None`.
+            private (`bool`, *optional*):
+                Whether the new repo should be private or not. Defaults to the same
+                privacy as the original repo.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo already exists.
+            space_hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
+                [`SpaceHardware`] for a complete list.
+            space_storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier if repo_type is "space". Example:
+                `"small"`. See [`SpaceStorage`] for a complete list.
+            space_sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep.
+                Set to `-1` if you don't want your Space to sleep (default behavior for
+                upgraded hardware). For free hardware, you can't configure the sleep time
+                (value is fixed to 48 hours of inactivity). Only applicable if repo_type is "space".
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            space_secrets (`list[dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form
+                `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                Only applicable if repo_type is "space".
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            space_variables (`list[dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in
+                the form `{"key": ..., "value": ..., "description": ...}` where description
+                is optional. Only applicable if repo_type is "space".
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+
+        Returns:
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+              If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            [`HfHubHTTPError`]:
+              If the HuggingFace API returned an error
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_repo
+
+        # Duplicate a model to your account
+        >>> duplicate_repo("google/gemma-7b")
+        RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+
+        # Duplicate a dataset with a custom name
+        >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
+        RepoUrl('https://huggingface.co/datasets/myorg/my-gdpval',...)
+
+        # Duplicate a Space with custom hardware
+        >>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", space_hardware="t4-medium")
+        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+        ```
+        """
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        # Map repo_type to API path segment
+        api_prefix = {
+            None: "models",
+            constants.REPO_TYPE_MODEL: "models",
+            constants.REPO_TYPE_DATASET: "datasets",
+            constants.REPO_TYPE_SPACE: "spaces",
+        }[repo_type]
+
+        # Parse to_id if provided
+        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
+
+        # Infer target repo_id
+        to_namespace = (
+            parsed_to_id.namespace
+            if parsed_to_id is not None and parsed_to_id.namespace is not None
+            else self.whoami(token)["name"]
+        )
+        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+
+        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+
+        if private is not None:
+            payload["private"] = private
+
+        # Space-specific options
+        function_args = [
+            "space_hardware",
+            "space_storage",
+            "space_sleep_time",
+            "space_secrets",
+            "space_variables",
+        ]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+
+        if repo_type == "space":
+            payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
+                warnings.warn(
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                    UserWarning,
+                )
+        else:
+            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
+            if provided_space_args:
+                warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
+
+        r = get_session().post(
+            f"{self.endpoint}/api/{api_prefix}/{from_id}/duplicate",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+
+        try:
+            hf_raise_for_status(r)
+        except HfHubHTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                pass
+            else:
+                raise
+
+        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+
+    @_deprecate_method(version="2.0", message="Use `duplicate_repo` instead.")
+    @validate_hf_hub_args
     def duplicate_space(
         self,
         from_id: str,
@@ -7606,49 +7766,26 @@ class HfApi:
         >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
+
+        <Deprecated version="2.0">
+
+        Use [`~HfApi.duplicate_repo`] instead.
+
+        </Deprecated>
         """
-        # Parse to_id if provided
-        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
-
-        # Infer target repo_id
-        to_namespace = (  # set namespace manually or default to username
-            parsed_to_id.namespace
-            if parsed_to_id is not None and parsed_to_id.namespace is not None
-            else self.whoami(token)["name"]
+        return self.duplicate_repo(
+            from_id=from_id,
+            to_id=to_id,
+            repo_type="space",
+            private=private,
+            token=token,
+            exist_ok=exist_ok,
+            space_hardware=hardware,
+            space_storage=storage,
+            space_sleep_time=sleep_time,
+            space_secrets=secrets,
+            space_variables=variables,
         )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
-
-        # repository must be a valid repo_id (namespace/repo_name).
-        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
-
-        keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [private, hardware, storage, sleep_time, secrets, variables]
-        payload.update({k: v for k, v in zip(keys, values) if v is not None})
-
-        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
-            warnings.warn(
-                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
-                UserWarning,
-            )
-
-        r = get_session().post(
-            f"{self.endpoint}/api/spaces/{from_id}/duplicate",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
-
-        try:
-            hf_raise_for_status(r)
-        except HfHubHTTPError as err:
-            if exist_ok and err.response.status_code == 409:
-                # Repo already exists and `exist_ok=True`
-                pass
-            else:
-                raise
-
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def request_space_storage(
@@ -12585,6 +12722,7 @@ request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
+duplicate_repo = api.duplicate_repo
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage

@@ -2679,6 +2679,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
+* `duplicate`: Duplicate a repo on the Hub (model,...
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -2854,6 +2855,38 @@ Examples
   $ hf repos delete-files my-model file.txt
   $ hf repos delete-files my-model "*.json"
   $ hf repos delete-files my-model folder/
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos | repo duplicate`
+
+Duplicate a repo on the Hub (model, dataset, or Space).
+
+**Usage**:
+
+```console
+$ hf repos duplicate [OPTIONS] FROM_ID
+```
+
+**Arguments**:
+
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--to-id TEXT`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos duplicate openai/gdpval --type dataset
+  $ hf repos duplicate multimodalart/dreambooth-training --type space --to-id my-dreambooth --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
