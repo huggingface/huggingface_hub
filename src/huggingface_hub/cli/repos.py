@@ -119,18 +119,18 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate multimodalart/dreambooth-training --type space --to-id my-dreambooth --private",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
     ],
 )
 def repo_duplicate(
     from_id: RepoIdArg,
-    repo_type: RepoTypeOpt = RepoType.model,
     to_id: Annotated[
         Optional[str],
-        typer.Option(
+        typer.Argument(
             help="Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.",
         ),
     ] = None,
+    repo_type: RepoTypeOpt = RepoType.model,
     private: PrivateOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[

@@ -2868,17 +2868,17 @@ Duplicate a repo on the Hub (model, dataset, or Space).
 **Usage**:
 
 ```console
-$ hf repos duplicate [OPTIONS] FROM_ID
+$ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 ```
 
 **Arguments**:
 
 * `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `[TO_ID]`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
 
 **Options**:
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--to-id TEXT`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
@@ -2886,7 +2886,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
-  $ hf repos duplicate multimodalart/dreambooth-training --type space --to-id my-dreambooth --private
+  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.

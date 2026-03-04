@@ -7767,11 +7767,8 @@ class HfApi:
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
 
-        <Deprecated version="2.0">
-
-        Use [`~HfApi.duplicate_repo`] instead.
-
-        </Deprecated>
+        > [!WARNING]
+        > `duplicate_space` is deprecated and will be removed in version 2.0. Use [`~HfApi.duplicate_repo`] instead.
         """
         kwargs: dict[str, Any] = {}
         if to_id is not None:
