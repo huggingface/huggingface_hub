@@ -1,0 +1,69 @@
+name: Sync HF CLI Skill
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/huggingface_hub/cli/**'
+  workflow_dispatch:
+
+jobs:
+  sync-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install typer
+
+      - name: Generate skill docs
+        run: python -c "from pathlib import Path; from huggingface_hub.cli.skills import build_skill_md; Path('/tmp/hf-cli-skill').mkdir(parents=True, exist_ok=True); Path('/tmp/hf-cli-skill/SKILL.md').write_text(build_skill_md())"
+
+      - name: Checkout skills repo
+        uses: actions/checkout@v4
+        with:
+          repository: huggingface/skills
+          token: ${{ secrets.SKILLS_REPO_PAT }}
+          path: skills-repo
+
+      - name: Copy generated files
+        run: |
+          rm -rf skills-repo/skills/hugging-face-cli/references
+          mkdir -p skills-repo/skills/hugging-face-cli
+          cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hugging-face-cli/
+
+      - name: Check for changes
+        id: check_changes
+        working-directory: skills-repo
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.SKILLS_REPO_PAT }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: "Sync HF CLI Skill"
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
+
+            Triggered by changes to `src/huggingface_hub/cli/`
+
+            ---
+            This PR was created automatically by the [sync-hf-cli-skill](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/sync-hf-cli-skill.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          labels: |
+            automated
+            cli-sync
