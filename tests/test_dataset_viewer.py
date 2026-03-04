@@ -2,11 +2,13 @@ import json
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import execute_raw_sql_query
-from huggingface_hub.constants import _HF_DEFAULT_ENDPOINT
+
+from .testing_utils import with_production_testing
 
 
+@with_production_testing
 def test_execute_raw_sql_query_with_duckdb_on_public_parquet() -> None:
-    entries = HfApi(endpoint=_HF_DEFAULT_ENDPOINT).list_dataset_parquet_files(
+    entries = HfApi().list_dataset_parquet_files(
         repo_id="nvidia/Llama-Nemotron-Post-Training-Dataset",
         token=False,
     )

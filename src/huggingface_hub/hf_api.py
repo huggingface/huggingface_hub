@@ -2535,8 +2535,8 @@ class HfApi:
         if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
             raise ValueError(
                 "The Dataset Viewer is only available on the Hugging Face Hub"
-                " (endpoint='https://huggingface.co'). It is not supported on"
-                " third-party endpoints."
+                f" (endpoint='{constants._HF_DEFAULT_ENDPOINT}'). It is not supported on"
+                f" third-party endpoints. (endpoint={self.endpoint})"
             )
 
         url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet"
