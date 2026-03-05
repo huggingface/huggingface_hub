@@ -2437,8 +2437,8 @@ class TestParseNamespaceFromJobId:
         [
             ("my-job-id", None, "my-job-id", None),
             ("my-job-id", "my-username", "my-job-id", "my-username"),
-            ("687f911eaea852de79c4a50a", None, "my-job-id", "my-username"),
-            ("687f911eaea852de79c4a50a", "my-username", "my-job-id", "my-username"),
+            ("my-username/my-job-id", None, "my-job-id", "my-username"),
+            ("my-username/my-job-id", "my-username", "my-job-id", "my-username"),
         ],
     )
     def test_parse_namespace_from_job_id(
@@ -2455,7 +2455,7 @@ class TestParseNamespaceFromJobId:
     @pytest.mark.parametrize(
         "input_job_id, input_namespace",
         [
-            ("687f911eaea852de79c4a50a", "other-user"),  # conflicting namespace
+            ("my-username/my-job-id", "other-user"),  # conflicting namespace
             ("", None),
             ("/", None),
             ("alice/", None),
