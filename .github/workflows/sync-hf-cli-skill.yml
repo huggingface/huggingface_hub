@@ -27,11 +27,19 @@ jobs:
       - name: Generate skill docs
         run: python -c "from pathlib import Path; from huggingface_hub.cli.skills import build_skill_md; Path('/tmp/hf-cli-skill').mkdir(parents=True, exist_ok=True); Path('/tmp/hf-cli-skill/SKILL.md').write_text(build_skill_md())"
 
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
       - name: Checkout skills repo
         uses: actions/checkout@v4
         with:
           repository: huggingface/skills
-          token: ${{ secrets.SKILLS_REPO_PAT }}
+          token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
 
       - name: Copy generated files
@@ -50,7 +58,7 @@ jobs:
         if: steps.check_changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.SKILLS_REPO_PAT }}
+          token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
           branch: sync/hf-cli-${{ github.run_id }}
           delete-branch: true
