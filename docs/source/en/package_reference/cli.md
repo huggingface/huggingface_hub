@@ -45,6 +45,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
+* `webhooks`: Manage webhooks on the Hub.
 
 ## `hf auth`
 
@@ -3346,3 +3347,228 @@ $ hf version [OPTIONS]
 **Options**:
 
 * `--help`: Show this message and exit.
+
+## `hf webhooks`
+
+Manage webhooks on the Hub.
+
+**Usage**:
+
+```console
+$ hf webhooks [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a new webhook.
+* `delete`: Delete a webhook permanently.
+* `disable`: Disable an active webhook.
+* `enable`: Enable a disabled webhook.
+* `info`: Show full details for a single webhook as...
+* `list`: List all webhooks for the current user. [alias: ls]
+* `update`: Update an existing webhook.
+
+### `hf webhooks create`
+
+Create a new webhook.
+
+Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+
+**Usage**:
+
+```console
+$ hf webhooks create [OPTIONS]
+```
+
+**Options**:
+
+* `--watch TEXT`: Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.  [required]
+* `--url TEXT`: URL to send webhook payloads to. Mutually exclusive with --job-id.
+* `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
+* `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
+* `--secret TEXT`: Optional secret used to sign webhook payloads.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
+  $ hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
+  $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks delete`
+
+Delete a webhook permanently.
+
+**Usage**:
+
+```console
+$ hf webhooks delete [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks delete abc123
+  $ hf webhooks delete abc123 --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks disable`
+
+Disable an active webhook.
+
+**Usage**:
+
+```console
+$ hf webhooks disable [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to disable.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks disable abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks enable`
+
+Enable a disabled webhook.
+
+**Usage**:
+
+```console
+$ hf webhooks enable [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to enable.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks enable abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks info`
+
+Show full details for a single webhook as JSON.
+
+**Usage**:
+
+```console
+$ hf webhooks info [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks info abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks list`
+
+List all webhooks for the current user. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf webhooks list [OPTIONS]
+```
+
+**Options**:
+
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks ls
+  $ hf webhooks ls --format json
+  $ hf webhooks ls -q
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks update`
+
+Update an existing webhook. Only provided options are changed.
+
+**Usage**:
+
+```console
+$ hf webhooks update [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to update.  [required]
+
+**Options**:
+
+* `--url TEXT`: New URL to send webhook payloads to.
+* `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
+* `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
+* `--secret TEXT`: New secret used to sign webhook payloads.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks update abc123 --url https://new-url.com/hook
+  $ hf webhooks update abc123 --watch model:gpt2 --domain repo
+  $ hf webhooks update abc123 --secret newsecret
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
