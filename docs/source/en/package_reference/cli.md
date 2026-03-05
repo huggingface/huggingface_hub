@@ -3130,9 +3130,44 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
+
+### `hf spaces dev-mode`
+
+Enable or disable dev mode on a Space.
+
+Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+restart your application without stopping the Space container itself. This feature is available as part of a PRO
+or Team & Enterprise plan.
+
+See docs: https://huggingface.co/docs/hub/spaces-dev-mode
+
+**Usage**:
+
+```console
+$ hf spaces dev-mode [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--stop / --no-stop`: Stop dev mode.  [default: no-stop]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces dev-mode my-user-name/deepsite
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf spaces hot-reload`
 
