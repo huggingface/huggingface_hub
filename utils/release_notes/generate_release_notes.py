@@ -15,13 +15,14 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .fetch_prs import fetch_prs_since_tag
 from .validate_notes import validate_release_notes
 
 
-OUTPUT_DIR = Path(".release-notes")
+OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 TMP_DIR = OUTPUT_DIR / "tmp"
 
 
@@ -124,6 +125,8 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
+    t_total_start = time.monotonic()
+
     # 1. Clean up and setup directories
     if OUTPUT_DIR.exists():
         print("Cleaning up previous release notes...")
@@ -137,11 +140,13 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
 
     # 3. Fetch all PRs since tag
     print(f"\nFetching PRs since {since_tag}...")
+    t_fetch_start = time.monotonic()
     try:
         pr_numbers = fetch_prs_since_tag(since_tag)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+    t_fetch = time.monotonic() - t_fetch_start
 
     if not pr_numbers:
         print("No PRs found since the specified tag")
@@ -151,12 +156,18 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
 
     # 4. Generate initial draft with OpenCode
     print("\nGenerating release notes with OpenCode...")
+    t_agent_start = time.monotonic()
+    agent_calls = 0
     if not run_opencode_skill("hf-release-notes", version):
         print("Failed to generate initial release notes", file=sys.stderr)
         return 1
+    agent_calls += 1
 
     # 5. Validation loop
+    validation_iterations = 0
+    missing_at_end = []
     for i in range(max_iterations):
+        validation_iterations += 1
         print(f"\nValidation iteration {i + 1}/{max_iterations}...")
         missing = validate_release_notes(version)
 
@@ -170,15 +181,37 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
             print("Running validation skill to add missing PRs...")
             if not run_opencode_skill("hf-release-notes:validate", version, missing):
                 print("Warning: Validation skill failed", file=sys.stderr)
+            agent_calls += 1
     else:
         # Loop completed without all PRs included
         missing = validate_release_notes(version)
         if missing:
+            missing_at_end = missing
             print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
             print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+    t_agent = time.monotonic() - t_agent_start
 
     # 6. Final output
     output_file = OUTPUT_DIR / f"RELEASE_NOTES_{version}.md"
+    output_size = output_file.stat().st_size if output_file.exists() else 0
+    t_total = time.monotonic() - t_total_start
+
+    # 7. Print summary
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+    print(f"  Version:              {version} ({bump_type} bump from {since_tag})")
+    print(f"  PRs fetched:          {len(pr_numbers)}")
+    print(f"  PRs missing:          {len(missing_at_end)}")
+    print(f"  Agent calls:          {agent_calls}")
+    print(f"  Validation iterations:{validation_iterations}")
+    print(f"  Fetch time:           {t_fetch:.1f}s")
+    print(f"  Agent time:           {t_agent:.1f}s")
+    print(f"  Total time:           {t_total:.1f}s")
+    print(f"  Output file:          {output_file}")
+    print(f"  Output size:          {output_size:,} bytes")
+    print("=" * 60)
+
     print(f"\nRelease notes saved to {output_file}")
     return 0
 
