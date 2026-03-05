@@ -82,23 +82,23 @@ class TestFormatEntryNotFound:
     def test_with_repo_id_and_type(self):
         err = _make_error(RemoteEntryNotFoundError, repo_id="user/repo", repo_type="dataset")
         msg = _format_entry_not_found(err)
-        assert "File not found in Dataset 'user/repo'." in msg
+        assert "File not found in dataset 'user/repo'." in msg
 
     def test_with_repo_id_no_type(self):
         err = _make_error(RemoteEntryNotFoundError, repo_id="user/repo", repo_type=None)
         msg = _format_entry_not_found(err)
-        assert "File not found in Repository 'user/repo'." in msg
+        assert "File not found in repository 'user/repo'." in msg
 
     def test_without_repo_id(self):
         err = _make_error(RemoteEntryNotFoundError, repo_id=None, repo_type=None)
         msg = _format_entry_not_found(err)
-        assert "File not found in Repository." in msg
+        assert "File not found in repository." in msg
 
     def test_includes_url(self):
         err = _make_error(RemoteEntryNotFoundError, repo_id="user/repo", repo_type="model")
         err.response.url = "https://huggingface.co/api/models/user/repo/resolve/main/missing.bin"
         msg = _format_entry_not_found(err)
-        assert "File not found in Model 'user/repo'." in msg
+        assert "File not found in model 'user/repo'." in msg
         assert "URL: https://huggingface.co/api/models/user/repo/resolve/main/missing.bin" in msg
 
 
