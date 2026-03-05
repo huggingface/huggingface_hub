@@ -9623,10 +9623,11 @@ class HfApi:
                 disabled=False,
             ```
         """
-        update_json: dict = {}
-        if watched is not None:
-            watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
-            update_json["watched"] = watched_dicts
+        if watched is None:
+            watched = []
+        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
+        update_json: dict = {"watched": watched_dicts}
         if url is not None:
             update_json["url"] = url
         if domains is not None:
