@@ -10,6 +10,7 @@ Uses PyGithub to:
 import json
 import os
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -140,9 +141,18 @@ def fetch_prs_since_tag(tag_name: str, repo_name: str = "huggingface/huggingface
     pr_numbers = list(set(pr_numbers))  # Deduplicate
     print(f"Found {len(pr_numbers)} unique PRs")
 
-    # Fetch and save PR details concurrently
+    # Fetch and save PR details concurrently (one GitHub client per thread for thread safety)
+    _thread_local = threading.local()
+
+    def _get_thread_repo():
+        """Get a thread-local GitHub repo instance."""
+        if not hasattr(_thread_local, "repo"):
+            _thread_local.repo = get_github_client().get_repo(repo_name)
+        return _thread_local.repo
+
     def _fetch_and_save(pr_num: int) -> int:
-        pr_data = fetch_pr_details(repo, pr_num)
+        thread_repo = _get_thread_repo()
+        pr_data = fetch_pr_details(thread_repo, pr_num)
         save_pr_json(pr_data, TMP_DIR)
         return pr_num
 
