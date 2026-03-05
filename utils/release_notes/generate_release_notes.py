@@ -10,6 +10,7 @@ This script:
 """
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -94,7 +95,11 @@ def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | N
         return False
 
     # Run opencode non-interactively
-    cmd = [opencode_cmd, "run", prompt]
+    cmd = [opencode_cmd]
+    model = os.environ.get("RELEASE_NOTES_MODEL")
+    if model:
+        cmd.extend(["--model", model])
+    cmd.extend(["run", prompt])
     print(f"Running: {' '.join(cmd)}")
 
     try:
@@ -119,7 +124,10 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    # 1. Setup directories
+    # 1. Clean up and setup directories
+    if OUTPUT_DIR.exists():
+        print("Cleaning up previous release notes...")
+        shutil.rmtree(OUTPUT_DIR)
     print("Setting up directories...")
     setup_directories()
 
