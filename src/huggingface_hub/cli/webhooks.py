@@ -89,9 +89,7 @@ def _parse_watch(values: list[str]) -> list[WebhookWatchedItem]:
             )
         kind, name = v.split(":", 1)
         if kind not in valid_types:
-            raise typer.BadParameter(
-                f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}."
-            )
+            raise typer.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
         items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore[arg-type]
     return items
 
@@ -126,8 +124,7 @@ def webhooks_ls(
             str(item.get("disabled", False)),
             ", ".join(item.get("domains") or []),
             ", ".join(
-                f"{w['type']}:{w['name']}" if isinstance(w, dict) else str(w)
-                for w in (item.get("watched") or [])
+                f"{w['type']}:{w['name']}" if isinstance(w, dict) else str(w) for w in (item.get("watched") or [])
             ),
         ],
     )
@@ -171,7 +168,10 @@ def webhooks_create(
     ] = None,
     job_id: Annotated[
         Optional[str],
-        typer.Option("--job-id", help="ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url."),
+        typer.Option(
+            "--job-id",
+            help="ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.",
+        ),
     ] = None,
     domain: Annotated[
         Optional[list[WebhookDomain]],
