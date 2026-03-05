@@ -774,26 +774,26 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
 
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
-            err = _format(RevisionNotFoundError, message, response)
-            err.repo_type = repo_type
-            err.repo_id = repo_id
-            raise err from e
+            revision_err = _format(RevisionNotFoundError, message, response)
+            revision_err.repo_type = repo_type
+            revision_err.repo_id = repo_id
+            raise revision_err from e
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            err = _format(RemoteEntryNotFoundError, message, response)
-            err.repo_type = repo_type
-            err.repo_id = repo_id
-            raise err from e
+            entry_err = _format(RemoteEntryNotFoundError, message, response)
+            entry_err.repo_type = repo_type
+            entry_err.repo_id = repo_id
+            raise entry_err from e
 
         elif error_code == "GatedRepo":
             message = (
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
-            err = _format(GatedRepoError, message, response)
-            err.repo_type = repo_type
-            err.repo_id = repo_id
-            raise err from e
+            gated_err = _format(GatedRepoError, message, response)
+            gated_err.repo_type = repo_type
+            gated_err.repo_id = repo_id
+            raise gated_err from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
@@ -817,9 +817,9 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + "\nPlease make sure you specified the correct bucket id (namespace/name)."
                 + "\nIf the bucket is private, make sure you are authenticated."
             )
-            err = _format(BucketNotFoundError, message, response)
-            err.bucket_id = _parse_bucket_id_from_url(request_url)
-            raise err from e
+            bucket_err = _format(BucketNotFoundError, message, response)
+            bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
+            raise bucket_err from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
@@ -841,10 +841,10 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 " make sure you are authenticated. For more details, see"
                 " https://huggingface.co/docs/huggingface_hub/authentication"
             )
-            err = _format(RepositoryNotFoundError, message, response)
-            err.repo_type = repo_type
-            err.repo_id = repo_id
-            raise err from e
+            repo_err = _format(RepositoryNotFoundError, message, response)
+            repo_err.repo_type = repo_type
+            repo_err.repo_id = repo_id
+            raise repo_err from e
 
         elif response.status_code == 400:
             message = (
