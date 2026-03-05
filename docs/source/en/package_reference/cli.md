@@ -1089,11 +1089,11 @@ $ hf discussions [OPTIONS] COMMAND [ARGS]...
 * `comment`: Comment on a discussion or pull request.
 * `create`: Create a new discussion or pull request on...
 * `diff`: Show the diff of a pull request.
+* `info`: Get info about a discussion or pull request.
 * `list`: List discussions and pull requests on a repo. [alias: ls]
 * `merge`: Merge a pull request.
 * `rename`: Rename a discussion or pull request.
 * `reopen`: Reopen a closed discussion or pull request.
-* `view`: View a discussion or pull request.
 
 ### `hf discussions close`
 
@@ -1217,6 +1217,42 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 Examples
   $ hf discussions diff username/my-model 5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions info`
+
+Get info about a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions info [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comments`: Show all comments.
+* `--diff`: Show the diff (for pull requests).
+* `--no-color`: Disable colored output.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--format [text|json]`: Output format (text or json).  [default: text]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions info username/my-model 5
+  $ hf discussions info username/my-model 5 --comments
+  $ hf discussions info username/my-model 5 --diff
+  $ hf discussions info username/my-model 5 --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1348,42 +1384,6 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 Examples
   $ hf discussions reopen username/my-model 5
   $ hf discussions reopen username/my-model 5 --comment "Reopening for further investigation."
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf discussions view`
-
-View a discussion or pull request.
-
-**Usage**:
-
-```console
-$ hf discussions view [OPTIONS] REPO_ID NUM
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
-
-**Options**:
-
-* `--comments`: Show all comments.
-* `--diff`: Show the diff (for pull requests).
-* `--no-color`: Disable colored output.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--format [text|json]`: Output format (text or json).  [default: text]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf discussions view username/my-model 5
-  $ hf discussions view username/my-model 5 --comments
-  $ hf discussions view username/my-model 5 --diff
-  $ hf discussions view username/my-model 5 --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
