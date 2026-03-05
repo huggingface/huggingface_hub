@@ -170,7 +170,10 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         return sorted(primary_names)
 
 
-def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFCliTyperGroup]:
+def fallback_typer_group_factory(
+    fallback_handler: FallbackHandlerT,
+    extra_commands_provider: Optional[Callable[[], list[tuple[str, str]]]] = None,
+) -> type[HFCliTyperGroup]:
     """Return a Typer group class that runs a fallback handler before command resolution."""
 
     class FallbackTyperGroup(HFCliTyperGroup):
@@ -179,6 +182,14 @@ def fallback_typer_group_factory(fallback_handler: FallbackHandlerT) -> type[HFC
             if fallback_exit_code is not None:
                 raise SystemExit(fallback_exit_code)
             return super().resolve_command(ctx, args)
+
+        def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+            super().format_commands(ctx, formatter)
+            if extra_commands_provider is not None:
+                entries = extra_commands_provider()
+                if entries:
+                    with formatter.section("Extension commands"):
+                        formatter.write_dl(entries)
 
     return FallbackTyperGroup
 
