@@ -97,16 +97,22 @@ Or via CLI:
 >>> hf repos delete lysandre/my-corrupted-dataset --repo-type dataset
 ```
 
-### Duplicate a repository (only for Spaces)
+### Duplicate a repository
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
-This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
-You will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
+This is possible using the [`duplicate_repo`] method. It will duplicate the whole repository, preserving the full git history.
+This works for models, datasets, and Spaces. For Spaces, you will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
 
 ```py
->>> from huggingface_hub import duplicate_space
->>> duplicate_space("multimodalart/dreambooth-training", private=False)
+>>> from huggingface_hub import duplicate_repo
+
+# Duplicate a Space
+>>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", private=False)
 RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+# Duplicate a dataset
+>>> duplicate_repo("openai/gdpval", repo_type="dataset")
+RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
 ## Upload and download files
