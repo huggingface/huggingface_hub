@@ -40,7 +40,6 @@ import typer
 from packaging import version
 from typing_extensions import assert_never
 
-from huggingface_hub import SpaceHardware
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
@@ -48,11 +47,9 @@ from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNo
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
-from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
     AuthorOpt,
-    EnvOpt,
     FilterOpt,
     FormatOpt,
     LimitOpt,
@@ -60,10 +57,8 @@ from ._cli_utils import (
     QuietOpt,
     RevisionOpt,
     SearchOpt,
-    SecretsOpt,
     TokenOpt,
     api_object_to_dict,
-    get_extended_environ,
     get_hf_api,
     make_expand_properties_parser,
     print_list_output,
@@ -86,14 +81,6 @@ ExpandOpt = Annotated[
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
-
-FlavorOpt = Annotated[
-    Optional[SpaceHardware],
-    typer.Option(
-        help="Flavor for the hardware in HF Spaces. Defaults to `cpu-basic`.",
-    ),
-]
-
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
@@ -158,44 +145,6 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
-
-
-@spaces_cli.command(
-    "duplicate",
-    examples=[
-        "hf spaces duplicate enzostvs/deepsite my-user-name/deepsite",
-    ],
-)
-def spaces_duplicate(
-    from_id: Annotated[str, typer.Argument(help="The space ID to duplicate (e.g. `username/src-repo-name`).")],
-    to_id: Annotated[str, typer.Argument(help="The space ID of the new space (e.g. `username/dst-repo-name`).")],
-    private: Annotated[bool, typer.Option(help="Set the new Space private.")] = False,
-    env: EnvOpt = None,
-    secrets: SecretsOpt = None,
-    flavor: FlavorOpt = SpaceHardware.CPU_BASIC,
-    token: TokenOpt = None,
-) -> None:
-    """Duplicate a Space."""
-    api = get_hf_api(token=token)
-    env_map: dict[str, str] = {}
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, str] = {}
-    extended_environ = get_extended_environ()
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
-    try:
-        repo_url = api.duplicate_space(
-            from_id=from_id,
-            to_id=to_id,
-            private=private,
-            secrets=[{"key": key, "value": value} for key, value in secrets_map.items()],
-            variables=[{"key": key, "value": value} for key, value in env_map.items()],
-            hardware=flavor,
-        )
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Space '{from_id}' not found.") from e
-    print(f"Space '{from_id}' duplicated at {repo_url.url}")
 
 
 @spaces_cli.command(
