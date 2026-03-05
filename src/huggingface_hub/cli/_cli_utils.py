@@ -355,6 +355,16 @@ SecretsOpt = Annotated[
 ]
 
 
+def get_extended_environ() -> dict[str, str]:
+    """Return a copy of os.environ with HF_TOKEN injected if available."""
+    from huggingface_hub import get_token
+
+    extended_environ = os.environ.copy()
+    if (token := get_token()) is not None:
+        extended_environ["HF_TOKEN"] = token
+    return extended_environ
+
+
 class OutputFormat(str, Enum):
     """Output format for CLI list commands."""
 

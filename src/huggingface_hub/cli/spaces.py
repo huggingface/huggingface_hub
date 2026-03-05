@@ -34,13 +34,13 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Annotated, Dict, Literal, Optional, Union, get_args
+from typing import Annotated, Literal, Optional, Union, get_args
 
 import typer
 from packaging import version
 from typing_extensions import assert_never
 
-from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub import SpaceHardware
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
@@ -63,6 +63,7 @@ from ._cli_utils import (
     SecretsOpt,
     TokenOpt,
     api_object_to_dict,
+    get_extended_environ,
     get_hf_api,
     make_expand_properties_parser,
     print_list_output,
@@ -180,7 +181,7 @@ def spaces_duplicate(
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
     secrets_map: dict[str, str] = {}
-    extended_environ = _get_extended_environ()
+    extended_environ = get_extended_environ()
     for secret in secrets or []:
         secrets_map.update(load_dotenv(secret, environ=extended_environ))
     try:
@@ -249,14 +250,18 @@ def dev_mode(
     print("Connect to dev environment:")
     print("")
     print("Web:")
-    print(f"  * VSCode: https://huggingface.co/spaces/{info.id}/dev-mode/vscode-web?{folder_query_param}".rstrip("?"))
+    vscode_web_url = f"https://huggingface.co/spaces/{info.id}/dev-mode/vscode-web"
+    if folder_query_param:
+        vscode_web_url += f"?{folder_query_param}"
+    ssh_host = f"{info.subdomain}@ssh.hf.space"
+    print(f"  * VSCode: {vscode_web_url}")
     print("")
     print("Local:")
     print("1. Add your SSH key to https://huggingface.co/settings/keys")
-    print(f"2. SSH with `ssh -i <your_key> {info.subdomain}@ssh.hf.space`")
+    print(f"2. SSH with `ssh -i <your_key> {ssh_host}`")
     print("   Or open")
-    print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{info.subdomain}@ssh.hf.space/{folder}".rstrip("/"))
-    print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{info.subdomain}@ssh.hf.space/{folder}".rstrip("/"))
+    print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{ssh_host}{folder}")
+    print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
 
@@ -479,10 +484,3 @@ def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
     command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
-
-
-def _get_extended_environ() -> Dict[str, str]:
-    extended_environ = os.environ.copy()
-    if (token := get_token()) is not None:
-        extended_environ["HF_TOKEN"] = token
-    return extended_environ
