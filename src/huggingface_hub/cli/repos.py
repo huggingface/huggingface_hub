@@ -25,6 +25,7 @@ Usage:
 """
 
 import enum
+import os
 import sys
 from typing import Annotated, Optional
 
@@ -69,11 +70,80 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
+def _parse_key_value_pairs(items: Optional[list[str]]) -> Optional[list[dict[str, str]]]:
+    """Parse a list of KEY=VALUE strings into dicts for the Hub API.
+
+    If only KEY is given (no '='), the value is read from the corresponding
+    local environment variable.  Returns ``None`` when *items* is ``None``
+    or empty so callers can forward the result directly to the API.
+    """
+    if not items:
+        return None
+    result: list[dict[str, str]] = []
+    for item in items:
+        if "=" in item:
+            key, value = item.split("=", 1)
+        else:
+            key = item
+            value = os.environ.get(key, "")
+            if not value:
+                raise CLIError(
+                    f"Environment variable '{key}' is not set. Use '{key}=<value>' to provide the value explicitly."
+                )
+        result.append({"key": key, "value": value})
+    return result
+
+
+SpaceHardwareOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--hardware",
+        "--flavor",
+        help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
+    ),
+]
+
+SpaceStorageOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--storage",
+        help="Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
+    ),
+]
+
+SpaceSleepTimeOpt = Annotated[
+    Optional[int],
+    typer.Option(
+        "--sleep-time",
+        help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
+    ),
+]
+
+SpaceSecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secret",
+        help="Secret to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.",
+    ),
+]
+
+SpaceVariablesOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Public environment variable to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.",
+    ),
+]
+
+
 @repos_cli.command(
     "create",
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
+        "hf repos create my-space --type space --space-sdk gradio --hardware t4-medium -s HF_TOKEN -e THEME=dark",
     ],
 )
 def repo_create(
@@ -99,6 +169,11 @@ def repo_create(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
     ] = None,
+    hardware: SpaceHardwareOpt = None,
+    storage: SpaceStorageOpt = None,
+    sleep_time: SpaceSleepTimeOpt = None,
+    secrets: SpaceSecretsOpt = None,
+    env: SpaceVariablesOpt = None,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
@@ -110,6 +185,11 @@ def repo_create(
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
         space_sdk=space_sdk,
+        space_hardware=hardware,  # type: ignore[arg-type]
+        space_storage=storage,  # type: ignore[arg-type]
+        space_sleep_time=sleep_time,
+        space_secrets=_parse_key_value_pairs(secrets),
+        space_variables=_parse_key_value_pairs(env),
     )
     print(f"Successfully created {ANSI.bold(repo_url.repo_id)} on the Hub.")
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
@@ -119,7 +199,7 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
+        "hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 -s HF_TOKEN --private",
     ],
 )
 def repo_duplicate(
@@ -139,6 +219,11 @@ def repo_duplicate(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
+    hardware: SpaceHardwareOpt = None,
+    storage: SpaceStorageOpt = None,
+    sleep_time: SpaceSleepTimeOpt = None,
+    secrets: SpaceSecretsOpt = None,
+    env: SpaceVariablesOpt = None,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
     api = get_hf_api(token=token)
@@ -149,6 +234,11 @@ def repo_duplicate(
         private=private,
         token=token,
         exist_ok=exist_ok,
+        space_hardware=hardware,  # type: ignore[arg-type]
+        space_storage=storage,  # type: ignore[arg-type]
+        space_sleep_time=sleep_time,
+        space_secrets=_parse_key_value_pairs(secrets),
+        space_variables=_parse_key_value_pairs(env),
     )
     print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")

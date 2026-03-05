@@ -2787,11 +2787,17 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
+* `--hardware, --flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
+* `-s, --secret TEXT`: Secret to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
+* `-e, --env TEXT`: Public environment variable to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
+  $ hf repos create my-space --type space --space-sdk gradio --hardware t4-medium -s HF_TOKEN -e THEME=dark
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2883,11 +2889,16 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--hardware, --flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
+* `-s, --secret TEXT`: Secret to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
+* `-e, --env TEXT`: Public environment variable to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
-  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private
+  $ hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 -s HF_TOKEN --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
