@@ -35,6 +35,7 @@ class TestRepoIdValidator(unittest.TestCase):
         "foo",
         "foo/bar",
         "Foo-BAR_foo.bar123",
+        None,
     )
     NOT_VALID_VALUES = (
         Path("foo/bar"),  # Must be a string
