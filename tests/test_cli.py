@@ -1280,6 +1280,54 @@ class TestBranchCommands:
         )
 
 
+class TestRepoDuplicateCommand:
+    def test_repo_duplicate_implicit_namespace(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="user/my-model")
+            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.duplicate_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id=None,
+            repo_type="dataset",
+            private=None,
+            token=None,
+            exist_ok=False,
+        )
+
+    def test_repo_duplicate_explicit_namespace(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="myorg/my-copy")
+            result = runner.invoke(
+                app,
+                [
+                    "repos",
+                    "duplicate",
+                    DUMMY_MODEL_ID,
+                    "myorg/my-copy",
+                    "--type",
+                    "space",
+                    "--private",
+                    "--exist-ok",
+                    "--token",
+                    "my-token",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.duplicate_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id="myorg/my-copy",
+            repo_type="space",
+            private=True,
+            token="my-token",
+            exist_ok=True,
+        )
+
+
 class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:

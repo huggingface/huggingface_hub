@@ -115,6 +115,45 @@ def repo_create(
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
 
 
+@repos_cli.command(
+    "duplicate",
+    examples=[
+        "hf repos duplicate openai/gdpval --type dataset",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
+    ],
+)
+def repo_duplicate(
+    from_id: RepoIdArg,
+    to_id: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.",
+        ),
+    ] = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+    private: PrivateOpt = None,
+    token: TokenOpt = None,
+    exist_ok: Annotated[
+        bool,
+        typer.Option(
+            help="Do not raise an error if repo already exists.",
+        ),
+    ] = False,
+) -> None:
+    """Duplicate a repo on the Hub (model, dataset, or Space)."""
+    api = get_hf_api(token=token)
+    repo_url = api.duplicate_repo(
+        from_id=from_id,
+        to_id=to_id,
+        repo_type=repo_type.value,
+        private=private,
+        token=token,
+        exist_ok=exist_ok,
+    )
+    print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
+    print(f"Your repo is now available at {ANSI.bold(repo_url)}")
+
+
 @repos_cli.command("delete", examples=["hf repos delete my-model"])
 def repo_delete(
     repo_id: RepoIdArg,
