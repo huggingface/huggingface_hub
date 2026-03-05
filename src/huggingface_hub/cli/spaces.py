@@ -46,7 +46,7 @@ from huggingface_hub._space_api import SpaceStage
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
-from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
@@ -154,21 +154,25 @@ def spaces_info(
     ],
 )
 def dev_mode(
-    space_id: Annotated[str, typer.Argument(help="The space ID to duplicate (e.g. `username/src-repo-name`).")],
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     stop: Annotated[bool, typer.Option(help="Stop dev mode.")] = False,
     token: TokenOpt = None,
 ):
-    """Enable or disable dev mode."""
+    """
+    Enable or disable dev mode on a Space.
+
+    Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+    restart your application without stopping the Space container itself. This feature is available as part of a PRO
+    or Team & Enterprise plan.
+
+    See docs: https://huggingface.co/docs/hub/spaces-dev-mode
+    """
     api = get_hf_api(token=token)
-    try:
-        if stop:
-            api.disable_space_dev_mode(space_id)
-            print(f"Dev mode disabled for '{space_id}'")
-            return
-        else:
-            api.enable_space_dev_mode(space_id)
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Space '{space_id}' not found.") from e
+    if stop:
+        api.disable_space_dev_mode(space_id)
+        print(f"Dev mode disabled for '{space_id}'")
+        return
+    api.enable_space_dev_mode(space_id)
     info = api.space_info(space_id)
     folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
     folder_query_param = f"folder={folder}" if folder else ""
@@ -179,7 +183,7 @@ def dev_mode(
         SpaceStage.APP_STARTING: "app starting...",
         SpaceStage.RUNNING_APP_STARTING: "app starting...",
     }
-    prev_msg = None
+    status = StatusLine()
     while True:
         info = api.space_info(space_id)
         if info.runtime is None:
@@ -187,15 +191,12 @@ def dev_mode(
             return
         if info.runtime.stage not in intermediate_statuses_and_messages:
             break
-        msg = intermediate_statuses_and_messages[info.runtime.stage]
-        if prev_msg != msg:
-            print(msg)
-        prev_msg = msg
-        time.sleep(10)
+        status.update(intermediate_statuses_and_messages[info.runtime.stage])
+        time.sleep(1)
     if info.runtime.stage != SpaceStage.RUNNING:
-        print(f"Dev mode is not ready (stage='{info.runtime.stage}')")
+        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
         return
-    print("Dev mode ready !")
+    status.done("Dev mode ready!")
     print("Connect to dev environment:")
     print("")
     print("Web:")

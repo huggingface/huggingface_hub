@@ -7471,6 +7471,10 @@ class HfApi:
     def enable_space_dev_mode(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
         """Enable dev mode on a Space.
 
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+
         Args:
             repo_id (`str`):
                 ID of the Space to enable dev mode. Example: `"Salesforce/BLIP2"`.
@@ -7510,6 +7514,10 @@ class HfApi:
         token: Union[bool, str, None] = None,
     ) -> SpaceRuntime:
         """Disable dev mode on a Space.
+
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
 
         Args:
             repo_id (`str`):

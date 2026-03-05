@@ -3097,14 +3097,20 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `dev-mode`: Enable or disable dev mode.
+* `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `ls`: List spaces on the Hub.
 
 ### `hf spaces dev-mode`
 
-Enable or disable dev mode.
+Enable or disable dev mode on a Space.
+
+Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+restart your application without stopping the Space container itself. This feature is available as part of a PRO
+or Team & Enterprise plan.
+
+See docs: https://huggingface.co/docs/hub/spaces-dev-mode
 
 **Usage**:
 
@@ -3114,7 +3120,7 @@ $ hf spaces dev-mode [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID to duplicate (e.g. `username/src-repo-name`).  [required]
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
 
 **Options**:
 
