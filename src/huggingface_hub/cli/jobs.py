@@ -72,25 +72,22 @@ from dataclasses import asdict
 from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Annotated, Any, Callable, Iterable, Optional, TypeVar, Union
+from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
 
 import typer
 
-from huggingface_hub import SpaceHardware
+from huggingface_hub import SpaceHardware, get_token
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
-    EnvOpt,
     OutputFormat,
     QuietOpt,
-    SecretsOpt,
     TokenOpt,
     _format_cell,
     api_object_to_dict,
-    get_extended_environ,
     get_hf_api,
     print_list_output,
     typer_factory,
@@ -150,6 +147,24 @@ FlavorOpt = Annotated[
     Optional[SpaceHardware],
     typer.Option(
         help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
+    ),
+]
+
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
     ),
 ]
 
@@ -315,7 +330,7 @@ def jobs_run(
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
 
     secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = get_extended_environ()
+    extended_environ = _get_extended_environ()
     if secrets_file:
         secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
     for secret in secrets or []:
@@ -791,7 +806,7 @@ def jobs_uv_run(
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
     secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = get_extended_environ()
+    extended_environ = _get_extended_environ()
     if secrets_file:
         secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
     for secret in secrets or []:
@@ -853,7 +868,7 @@ def scheduled_run(
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
     secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = get_extended_environ()
+    extended_environ = _get_extended_environ()
     if secrets_file:
         secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
     for secret in secrets or []:
@@ -1087,7 +1102,7 @@ def scheduled_uv_run(
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
     secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = get_extended_environ()
+    extended_environ = _get_extended_environ()
     if secrets_file:
         secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
     for secret in secrets or []:
@@ -1159,6 +1174,13 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
         ]
         lines.append(row_format.format(*row_format_args))
     return "\n".join(lines)
+
+
+def _get_extended_environ() -> Dict[str, str]:
+    extended_environ = os.environ.copy()
+    if (token := get_token()) is not None:
+        extended_environ["HF_TOKEN"] = token
+    return extended_environ
 
 
 T = TypeVar("T")

@@ -347,35 +347,6 @@ SearchOpt = Annotated[
 ]
 
 
-EnvOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-e",
-        "--env",
-        help="Set environment variables. E.g. --env ENV=value",
-    ),
-]
-
-SecretsOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-s",
-        "--secrets",
-        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-    ),
-]
-
-
-def get_extended_environ() -> dict[str, str]:
-    """Return a copy of os.environ with HF_TOKEN injected if available."""
-    from huggingface_hub import get_token
-
-    extended_environ = os.environ.copy()
-    if (token := get_token()) is not None:
-        extended_environ["HF_TOKEN"] = token
-    return extended_environ
-
-
 class OutputFormat(str, Enum):
     """Output format for CLI list commands."""
 
