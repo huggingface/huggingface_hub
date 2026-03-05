@@ -1282,7 +1282,10 @@ class TestBranchCommands:
 
 class TestRepoCreateCommand:
     def test_repo_create_with_space_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+        with (
+            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
             api = api_cls.return_value
             api.create_repo.return_value = Mock(repo_id="user/my-space")
             result = runner.invoke(
@@ -1301,7 +1304,7 @@ class TestRepoCreateCommand:
                     "small",
                     "--sleep-time",
                     "3600",
-                    "-s",
+                    "--secrets",
                     "HF_TOKEN=secret_val",
                     "-e",
                     "THEME=dark",
@@ -1406,7 +1409,10 @@ class TestRepoDuplicateCommand:
         )
 
     def test_repo_duplicate_with_space_options(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+        with (
+            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
             api = api_cls.return_value
             api.duplicate_repo.return_value = Mock(repo_id="myorg/dev")
             result = runner.invoke(
@@ -1424,7 +1430,7 @@ class TestRepoDuplicateCommand:
                     "small",
                     "--sleep-time",
                     "3600",
-                    "-s",
+                    "--secrets",
                     "HF_TOKEN=hf_secret123",
                     "-e",
                     "THEME=dark",
@@ -1449,7 +1455,10 @@ class TestRepoDuplicateCommand:
     def test_repo_duplicate_secret_from_env(self, runner: CliRunner) -> None:
         with (
             patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
-            patch.dict(os.environ, {"MY_SECRET": "env_value"}),
+            patch(
+                "huggingface_hub.cli._cli_utils._get_extended_environ",
+                return_value={"MY_SECRET": "env_value"},
+            ),
         ):
             api = api_cls.return_value
             api.duplicate_repo.return_value = Mock(repo_id="user/copy")
@@ -1461,7 +1470,7 @@ class TestRepoDuplicateCommand:
                     "owner/repo",
                     "--type",
                     "space",
-                    "-s",
+                    "--secrets",
                     "MY_SECRET",
                 ],
             )
@@ -1479,24 +1488,6 @@ class TestRepoDuplicateCommand:
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
             space_variables=None,
         )
-
-    def test_repo_duplicate_secret_from_env_missing(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls, patch.dict(os.environ, {}, clear=True):
-            api = api_cls.return_value
-            api.duplicate_repo.return_value = Mock(repo_id="user/copy")
-            result = runner.invoke(
-                app,
-                [
-                    "repos",
-                    "duplicate",
-                    "owner/repo",
-                    "--type",
-                    "space",
-                    "-s",
-                    "MISSING_VAR",
-                ],
-            )
-        assert result.exit_code != 0
 
 
 class TestRepoMoveCommand:
@@ -2232,7 +2223,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job
@@ -2254,7 +2245,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job
@@ -2278,7 +2269,7 @@ class TestJobsCommand:
         scheduled_job = Mock(id="my-job-id")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.create_scheduled_job.return_value = scheduled_job
@@ -2305,7 +2296,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2330,7 +2321,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2357,7 +2348,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2383,8 +2374,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
-            patch("huggingface_hub.cli.jobs.get_token", return_value="hf_xxx"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2416,7 +2406,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job

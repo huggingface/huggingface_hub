@@ -2790,14 +2790,16 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secret TEXT`: Secret to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
-* `-e, --env TEXT`: Public environment variable to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
-  $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium -s HF_TOKEN -e THEME=dark
+  $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2892,13 +2894,15 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secret TEXT`: Secret to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
-* `-e, --env TEXT`: Public environment variable to set (KEY=VALUE or KEY to read from local env). Can be repeated. Only for Spaces.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
-  $ hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 -s HF_TOKEN --private
+  $ hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 --secrets HF_TOKEN --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
