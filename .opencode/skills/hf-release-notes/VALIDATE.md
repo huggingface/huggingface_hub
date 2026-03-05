@@ -9,7 +9,7 @@ description: Validate and fix release notes by adding missing PRs. Use when PRs 
 
 This skill validates that all PRs are included in the release notes and adds any missing ones to the appropriate sections.
 
-**Output directory:** The prompt will specify the actual output directory (`<output_dir>`). It defaults to `.release-notes/` but can be overridden via the `RELEASE_NOTES_OUTPUT_DIR` env var.
+**Output directory:** The prompt will specify the output directory as `<output_dir>`. All paths below use this placeholder.
 
 ## Workflow
 

@@ -9,7 +9,7 @@ description: Generate Hugging Face Hub (huggingface_hub) release notes from cach
 
 Generate release notes for huggingface_hub from cached PR JSON files. This skill reads PR metadata, categorizes entries, and produces a formatted markdown release notes document.
 
-**Output directory:** The prompt will specify the actual output directory (`<output_dir>`). It defaults to `.release-notes/` but can be overridden via the `RELEASE_NOTES_OUTPUT_DIR` env var. All paths below use `<output_dir>` as a placeholder.
+**Output directory:** The prompt will specify the output directory as `<output_dir>`. All paths below use this placeholder.
 
 ## Workflow
 
