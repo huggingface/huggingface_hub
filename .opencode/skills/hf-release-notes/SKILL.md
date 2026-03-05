@@ -1,19 +1,21 @@
 ---
 name: hf-release-notes
-description: Generate Hugging Face Hub (huggingface_hub) release notes from cached PR JSON files. Use when asked to draft release notes from .release-notes/tmp/ PR files.
+description: Generate Hugging Face Hub (huggingface_hub) release notes from cached PR JSON files. Use when asked to draft release notes from PR files.
 ---
 
 # HF Release Notes
 
 ## Overview
 
-Generate release notes for huggingface_hub from cached PR JSON files in `.release-notes/tmp/`. This skill reads PR metadata, categorizes entries, and produces a formatted markdown release notes document.
+Generate release notes for huggingface_hub from cached PR JSON files. This skill reads PR metadata, categorizes entries, and produces a formatted markdown release notes document.
+
+**Output directory:** The prompt will specify the actual output directory (`<output_dir>`). It defaults to `.release-notes/` but can be overridden via the `RELEASE_NOTES_OUTPUT_DIR` env var. All paths below use `<output_dir>` as a placeholder.
 
 ## Workflow
 
 ### 1. Read PR data
 
-Read all PR JSON files from `.release-notes/tmp/pr_*.json`. Each file contains:
+Read all PR JSON files from `<output_dir>/tmp/pr_*.json`. Each file contains:
 
 ```json
 {
@@ -96,7 +98,7 @@ For highlighted PRs and other PRs that introduce new features, commands, or APIs
 
 ### 5. Generate release notes
 
-Output to `.release-notes/RELEASE_NOTES_<version>.md` using the structure from `references/release-notes-template.md`:
+Output to `<output_dir>/RELEASE_NOTES_<version>.md` using the structure from `references/release-notes-template.md`:
 
 - Title: `# vX.Y.Z: <tagline>` (derive tagline from main highlights)
 - One section per highlight with emoji header and narrative
@@ -105,7 +107,7 @@ Output to `.release-notes/RELEASE_NOTES_<version>.md` using the structure from `
 ### 6. Quality checks
 
 Before finishing:
-- Verify every PR from `.release-notes/tmp/` appears exactly once
+- Verify every PR from `<output_dir>/tmp/` appears exactly once
 - No empty sections
 - Consistent emoji headings
 - Every item ends with attribution: `by @author in #1234`
@@ -114,11 +116,11 @@ Before finishing:
 ## Input
 
 - Version string (e.g., "v1.3.8")
-- PR JSON files in `.release-notes/tmp/`
+- PR JSON files in `<output_dir>/tmp/`
 
 ## Output
 
-- Release notes markdown at `.release-notes/RELEASE_NOTES_<version>.md`
+- Release notes markdown at `<output_dir>/RELEASE_NOTES_<version>.md`
 
 ## Resources
 

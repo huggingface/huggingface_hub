@@ -21,7 +21,7 @@ from github import Github
 # Format: "PR title (#1234)"
 PR_NUMBER_PATTERN = re.compile(r"\(#(\d+)\)$")
 
-OUTPUT_DIR = Path(".release-notes")
+OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 TMP_DIR = OUTPUT_DIR / "tmp"
 
 

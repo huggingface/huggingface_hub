@@ -76,16 +76,16 @@ def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | N
         # Validation skill - add missing PRs
         prompt = (
             f"Run the {skill_name} skill. "
-            f"Add the following missing PRs to the release notes at .release-notes/RELEASE_NOTES_{version}.md: "
+            f"Add the following missing PRs to the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md: "
             f"{', '.join(f'#{pr}' for pr in missing_prs)}. "
-            f"Read their details from .release-notes/tmp/pr_<number>.json files."
+            f"Read their details from {TMP_DIR}/pr_<number>.json files."
         )
     else:
         # Main generation skill
         prompt = (
             f"Run the {skill_name} skill. "
-            f"Generate release notes for {version} from PR files in .release-notes/tmp/. "
-            f"Output to .release-notes/RELEASE_NOTES_{version}.md"
+            f"Generate release notes for {version} from PR files in {TMP_DIR}/. "
+            f"Output to {OUTPUT_DIR}/RELEASE_NOTES_{version}.md"
         )
 
     # Check if opencode is available
