@@ -197,7 +197,7 @@ def webhooks_create(
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch)
     domains = [d.value for d in domain] if domain else None
-    webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)
+    webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)  # type: ignore
     print(f"Webhook created: {webhook.id}")
     print(json.dumps(api_object_to_dict(webhook), indent=2))
 
@@ -243,7 +243,7 @@ def webhooks_update(
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch) if watch else None
     domains = [d.value for d in domain] if domain else None
-    webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)
+    webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)  # type: ignore
     print(f"Webhook updated: {webhook.id}")
     print(json.dumps(api_object_to_dict(webhook), indent=2))
 
