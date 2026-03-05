@@ -243,7 +243,7 @@ def dev_mode(
             print(msg)
         prev_msg = msg
         time.sleep(10)
-    if info.runtime.stage != "RUNNING":
+    if info.runtime.stage != SpaceStage.RUNNING:
         print(f"Dev mode is not ready (stage='{info.runtime.stage}')")
         return
     print("Dev mode ready !")
