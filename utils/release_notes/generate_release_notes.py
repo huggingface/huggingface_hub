@@ -201,6 +201,8 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     print("SUMMARY")
     print("=" * 60)
     print(f"  Version:              {version} ({bump_type} bump from {since_tag})")
+    print(f"  Output dir:           {OUTPUT_DIR}")
+    print(f"  Model:                {os.environ.get('RELEASE_NOTES_MODEL', '(default)')}")
     print(f"  PRs fetched:          {len(pr_numbers)}")
     print(f"  PRs missing:          {len(missing_at_end)}")
     print(f"  Agent calls:          {agent_calls}")
