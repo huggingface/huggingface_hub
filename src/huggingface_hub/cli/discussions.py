@@ -57,8 +57,8 @@ class DiscussionKind(str, enum.Enum):
     pull_request = "pull_request"
 
 
-class ViewFormat(str, enum.Enum):
-    """Output format for the view command."""
+class InfoFormat(str, enum.Enum):
+    """Output format for the info command."""
 
     text = "text"
     json = "json"
@@ -103,7 +103,7 @@ def _read_body(body: Optional[str], body_file: Optional[Path]) -> Optional[str]:
     return body
 
 
-def _print_discussion_view(details: DiscussionWithDetails, show_comments: bool = False) -> None:
+def _print_discussion_info(details: DiscussionWithDetails, show_comments: bool = False) -> None:
     kind = "Pull Request" if details.is_pull_request else "Discussion"
 
     print(f"{ANSI.bold(details.title)} {ANSI.gray(f'#{details.num}')}")
@@ -235,15 +235,15 @@ def discussion_list(
 
 
 @discussions_cli.command(
-    "view",
+    "info",
     examples=[
-        "hf discussions view username/my-model 5",
-        "hf discussions view username/my-model 5 --comments",
-        "hf discussions view username/my-model 5 --diff",
-        "hf discussions view username/my-model 5 --format json",
+        "hf discussions info username/my-model 5",
+        "hf discussions info username/my-model 5 --comments",
+        "hf discussions info username/my-model 5 --diff",
+        "hf discussions info username/my-model 5 --format json",
     ],
 )
-def discussion_view(
+def discussion_info(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comments: Annotated[
@@ -269,14 +269,14 @@ def discussion_view(
     ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
     format: Annotated[
-        ViewFormat,
+        InfoFormat,
         typer.Option(
             help="Output format (text or json).",
         ),
-    ] = ViewFormat.text,
+    ] = InfoFormat.text,
     token: TokenOpt = None,
 ) -> None:
-    """View a discussion or pull request."""
+    """Get info about a discussion or pull request."""
     import os
 
     if no_color:
@@ -289,14 +289,14 @@ def discussion_view(
         repo_type=repo_type.value,
     )
 
-    if format == ViewFormat.json:
+    if format == InfoFormat.json:
         result = api_object_to_dict(details)
         if not diff:
             result.pop("diff", None)
         print(json.dumps(result, indent=2))
         return
 
-    _print_discussion_view(details, show_comments=comments)
+    _print_discussion_info(details, show_comments=comments)
 
     if diff and details.diff:
         print()

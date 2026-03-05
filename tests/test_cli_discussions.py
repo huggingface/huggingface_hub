@@ -132,39 +132,39 @@ def test_list_filter_status_closed(repo_with_discussion: tuple):
 
 
 # =============================================================================
-# View
+# Info
 # =============================================================================
 
 
-def test_view_discussion(repo_with_discussion: tuple):
+def test_info_discussion(repo_with_discussion: tuple):
     repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions view {repo_id} {disc_num}")
+    result = cli(f"hf discussions info {repo_id} {disc_num}")
     assert result.exit_code == 0, result.output
     assert "Test discussion" in result.output
     assert f"#{disc_num}" in result.output
     assert "View on Hub:" in result.output
 
 
-def test_view_pr(repo_with_discussion: tuple):
+def test_info_pr(repo_with_discussion: tuple):
     repo_id, _, pr_num = repo_with_discussion
-    result = cli(f"hf discussions view {repo_id} {pr_num}")
+    result = cli(f"hf discussions info {repo_id} {pr_num}")
     assert result.exit_code == 0, result.output
     assert "Test PR" in result.output
     assert "Pull Request" in result.output
 
 
-def test_view_json(repo_with_discussion: tuple):
+def test_info_json(repo_with_discussion: tuple):
     repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions view {repo_id} {disc_num} --format json")
+    result = cli(f"hf discussions info {repo_id} {disc_num} --format json")
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["num"] == disc_num
     assert data["title"] == "Test discussion"
 
 
-def test_view_no_color(repo_with_discussion: tuple):
+def test_info_no_color(repo_with_discussion: tuple):
     repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions view {repo_id} {disc_num} --no-color")
+    result = cli(f"hf discussions info {repo_id} {disc_num} --no-color")
     assert result.exit_code == 0, result.output
     assert "\u001b[" not in result.output
 

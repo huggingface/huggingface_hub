@@ -1111,11 +1111,11 @@ Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. 
 
 ```bash
 >>> hf cache ls
-ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS        
---------------------------- -------- ------------- ------------- ----------- 
-dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script 
-model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main        
-model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main  
+ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS
+--------------------------- -------- ------------- ------------- -----------
+dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script
+model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main
+model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main
 
 Found 3 repo(s) for a total of 5 revision(s) and 35.5G on disk.
 ```
@@ -1124,9 +1124,9 @@ Add `--revisions` to drill down to specific snapshots, and chain filters to focu
 
 ```bash
 >>> hf cache ls --filter "size>30g" --revisions
-ID                        REVISION                                 SIZE     LAST_MODIFIED REFS 
-------------------------- ---------------------------------------- -------- ------------- ---- 
-model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 days ago    main 
+ID                        REVISION                                 SIZE     LAST_MODIFIED REFS
+------------------------- ---------------------------------------- -------- ------------- ----
+model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 days ago    main
 
 Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
 ```
@@ -1446,7 +1446,7 @@ That's it! You're now running code on Hugging Face's infrastructure.
 
 ### Pass Environment variables and Secrets
 
-You can pass environment variables to your job using 
+You can pass environment variables to your job using
 
 ```bash
 # Pass environment variables
@@ -1622,6 +1622,84 @@ Manage scheduled jobs using
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```
 
+## hf webhooks
+
+`hf webhooks` lets you manage webhooks on the Hugging Face Hub directly from the terminal. Webhooks allow you to listen for events (pushes, discussions, etc.) on repos, users, or organizations and trigger actions — either by pinging a remote URL or by running a Job on Hugging Face infrastructure.
+
+### List webhooks
+
+```bash
+>>> hf webhooks ls
+ID           URL                                DISABLED  DOMAINS  WATCHED
+wh-abc123    https://example.com/hook            False     repo     model:bert-base-uncased
+wh-def456    https://example.com/other-hook      False     repo     org:HuggingFace
+```
+
+Use `--format json` for machine-readable output, or `-q` to print only IDs:
+
+```bash
+>>> hf webhooks ls --format json
+>>> hf webhooks ls -q
+```
+
+### Get webhook info
+
+```bash
+>>> hf webhooks info wh-abc123
+```
+
+Prints full webhook details as JSON.
+
+### Create a webhook
+
+Create a webhook that sends payloads to a URL:
+
+```bash
+>>> hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
+>>> hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
+```
+
+Or create a webhook that triggers a Job instead:
+
+```bash
+>>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+```
+
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
+
+### Update a webhook
+
+```bash
+>>> hf webhooks update wh-abc123 --url https://new-url.com/hook
+>>> hf webhooks update wh-abc123 --watch model:gpt2 --domain repo
+```
+
+Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+
+### Enable / disable a webhook
+
+```bash
+>>> hf webhooks enable wh-abc123
+>>> hf webhooks disable wh-abc123
+```
+
+### Delete a webhook
+
+```bash
+>>> hf webhooks delete wh-abc123
+Are you sure you want to delete webhook 'wh-abc123'? [y/N]: y
+Webhook deleted: wh-abc123
+```
+
+Use `--yes` to skip the confirmation prompt:
+
+```bash
+>>> hf webhooks delete wh-abc123 --yes
+```
+
+> [!TIP]
+> All commands accept `--token` to override authentication. Use `--help` on any command to see all options.
+
 ## hf endpoints
 
 Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
@@ -1634,7 +1712,7 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Deploy an endpoint from Model Catalog
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
-# Deploy an endpoint from the Hugging Face Hub 
+# Deploy an endpoint from the Hugging Face Hub
 >>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
 
 # List catalog entries
