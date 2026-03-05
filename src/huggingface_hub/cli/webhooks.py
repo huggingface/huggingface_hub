@@ -58,10 +58,10 @@ from ._cli_utils import (
 )
 
 
-# Extract valid watched-item types from the dataclass annotation to avoid duplication
+# Build enums dynamically from Literal types to avoid duplication
 _WATCHED_TYPES = get_args(get_type_hints(WebhookWatchedItem)["type"])
+WatchedItemType = enum.Enum("WatchedItemType", {t: t for t in _WATCHED_TYPES}, type=str)  # type: ignore[misc]
 
-# Build enum dynamically from Literal type for use as a Typer option choice
 _DOMAIN_TYPES = get_args(WEBHOOK_DOMAIN_T)
 WebhookDomain = enum.Enum("WebhookDomain", {d: d for d in _DOMAIN_TYPES}, type=str)  # type: ignore[misc]
 
