@@ -1295,7 +1295,7 @@ class TestRepoCreateCommand:
                     "space",
                     "--space-sdk",
                     "gradio",
-                    "--hardware",
+                    "--flavor",
                     "t4-medium",
                     "--storage",
                     "small",

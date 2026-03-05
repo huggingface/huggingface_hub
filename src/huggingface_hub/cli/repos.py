@@ -97,7 +97,6 @@ def _parse_key_value_pairs(items: Optional[list[str]]) -> Optional[list[dict[str
 SpaceHardwareOpt = Annotated[
     Optional[str],
     typer.Option(
-        "--hardware",
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
     ),
@@ -143,7 +142,7 @@ SpaceVariablesOpt = Annotated[
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
-        "hf repos create my-space --type space --space-sdk gradio --hardware t4-medium -s HF_TOKEN -e THEME=dark",
+        "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium -s HF_TOKEN -e THEME=dark",
     ],
 )
 def repo_create(
