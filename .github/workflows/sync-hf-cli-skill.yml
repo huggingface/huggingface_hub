@@ -2,9 +2,8 @@ name: Sync HF CLI Skill
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'src/huggingface_hub/cli/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
