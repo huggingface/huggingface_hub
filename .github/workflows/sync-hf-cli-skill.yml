@@ -21,12 +21,21 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: |
-          pip install -e .
-          pip install typer
+        run: pip install -e .
 
       - name: Generate skill docs
-        run: python -c "from pathlib import Path; from huggingface_hub.cli.skills import build_skill_md; Path('/tmp/hf-cli-skill').mkdir(parents=True, exist_ok=True); Path('/tmp/hf-cli-skill/SKILL.md').write_text(build_skill_md())"
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Determine PR title
+        id: pr_title
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            echo "title=Sync HF CLI Skill (${{ github.ref_name }})" >> $GITHUB_OUTPUT
+          else
+            echo "title=Sync HF CLI Skill (manual trigger)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create GitHub App token
         id: app_token
@@ -63,7 +72,7 @@ jobs:
           path: skills-repo
           branch: sync/hf-cli-${{ github.run_id }}
           delete-branch: true
-          title: "Sync HF CLI Skill"
+          title: ${{ steps.pr_title.outputs.title }}
           reviewers: hanouticelina
           body: |
             Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})

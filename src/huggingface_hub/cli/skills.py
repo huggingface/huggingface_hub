@@ -191,6 +191,12 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     return link_path
 
 
+@skills_cli.command("preview")
+def skills_preview() -> None:
+    """Print the generated SKILL.md to stdout."""
+    print(build_skill_md())
+
+
 @skills_cli.command(
     "add",
     examples=[
