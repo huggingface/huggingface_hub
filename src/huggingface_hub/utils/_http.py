@@ -25,7 +25,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
-from typing import Any, Callable, Generator, Mapping, Optional, Union
+from typing import Any, Callable, Generator, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 import httpx
@@ -916,7 +916,10 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
                 logger.warning(message)
 
 
-def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
+_HfHubHTTPErrorT = TypeVar("_HfHubHTTPErrorT", bound=HfHubHTTPError)
+
+
+def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response) -> _HfHubHTTPErrorT:
     server_errors = []
 
     # Retrieve server error from header
