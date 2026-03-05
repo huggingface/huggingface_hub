@@ -55,6 +55,7 @@ class ExtensionManifest:
     type: str  # "binary" (future: "python"?), not sure yet how to handle different types of extensions
     installed_at: str
     source: str
+    description: str = ""
 
 
 @extensions_cli.command(
@@ -90,6 +91,8 @@ def extension_install(
             raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
         shutil.rmtree(extension_dir)
 
+    remote_manifest = _fetch_remote_manifest(owner, repo_name)
+
     executable_name = _get_executable_name(short_name)
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/main/{executable_name}"
     try:
@@ -114,6 +117,7 @@ def extension_install(
             type="binary",
             installed_at=datetime.now(timezone.utc).isoformat(),
             source=f"https://github.com/{owner}/{repo_name}",
+            description=str(remote_manifest.get("description", "")),
         )
         _persist_installed_extension(
             extension_dir=extension_dir,
@@ -166,16 +170,8 @@ def extension_list() -> None:
             continue
 
         short_name = extension_dir.name[3:]
-        manifest_path = extension_dir / MANIFEST_FILENAME
-
-        repository = ""
-        installed_at = ""
-        if manifest_path.is_file():
-            data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            repository = str(data.get("repo_id", ""))
-            installed_at = str(data.get("installed_at", ""))
-
-        rows.append([f"hf {short_name}", repository, installed_at])
+        data = _read_local_manifest(extension_dir)
+        rows.append([f"hf {short_name}", str(data.get("repo_id", "")), str(data.get("installed_at", ""))])
 
     if not rows:
         print("No extensions installed.")
@@ -214,16 +210,35 @@ def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
         if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
             continue
         short_name = extension_dir.name[3:]
-        repo_id = None
-        try:
-            manifest_path = extension_dir / MANIFEST_FILENAME
-            if manifest_path.is_file():
-                repo_id = json.loads(manifest_path.read_text(encoding="utf-8")).get("repo_id")
-        except Exception:
-            pass
-        help_text = f"[extension] {repo_id}" if isinstance(repo_id, str) and repo_id else "[extension]"
+        data = _read_local_manifest(extension_dir)
+        description = data.get("description", "")
+        repo_id = data.get("repo_id", "")
+        tag = f" [extension {repo_id}]" if isinstance(repo_id, str) and repo_id else " [extension]"
+        help_text = f"{description}{tag}" if isinstance(description, str) and description else tag.lstrip()
         entries.append((short_name, help_text))
     return entries
+
+
+def _read_local_manifest(extension_dir: Path) -> dict:
+    try:
+        manifest_path = extension_dir / MANIFEST_FILENAME
+        if manifest_path.is_file():
+            data = json.loads(manifest_path.read_text())
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _fetch_remote_manifest(owner: str, repo_name: str) -> dict:
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/main/{MANIFEST_FILENAME}"
+    try:
+        response = get_session().get(raw_url, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return {}
 
 
 def _dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
