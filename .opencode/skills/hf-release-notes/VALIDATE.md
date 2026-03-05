@@ -19,6 +19,7 @@ Read the existing release notes from `.release-notes/RELEASE_NOTES_<version>.md`
 
 You will be provided with a list of missing PR numbers. For each missing PR:
 - Read the PR details from `.release-notes/tmp/pr_<number>.json`
+- Check `doc_diffs` for documentation changes that can inform the summary
 - Determine the appropriate section based on labels and title
 
 ### 3. Add missing PRs

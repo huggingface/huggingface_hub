@@ -23,17 +23,38 @@ Read all PR JSON files from `.release-notes/tmp/pr_*.json`. Each file contains:
   "merged_at": "2026-01-15T10:30:00Z",
   "body": "...",
   "labels": ["highlight", "cli"],
-  "url": "https://github.com/huggingface/huggingface_hub/pull/1234"
+  "url": "https://github.com/huggingface/huggingface_hub/pull/1234",
+  "doc_diffs": [
+    {
+      "filename": "docs/source/en/guides/cli.md",
+      "status": "modified",
+      "patch": "@@ -10,6 +10,10 @@ ..."
+    }
+  ]
 }
 ```
 
+The `doc_diffs` field contains unified diffs for any `.md` files under `docs/` that were
+changed in the PR. This is empty (`[]`) for PRs with no documentation changes.
+
 ### 2. Identify highlights
 
-PRs with the `"highlight"` label should get detailed sections with:
-- An emoji header
-- A 2-5 sentence summary of the user-visible change
-- Code examples if the PR introduces new commands or APIs
-- The PR attribution line
+A PR should be highlighted if:
+- It has the `"highlight"` label on GitHub, **or**
+- You judge it significant enough to deserve a detailed section (e.g., a major new
+  feature, a meaningful UX improvement, or a notable breaking change) even without the label.
+
+Use your judgment — not every feature PR needs a highlight, but don't limit highlights
+to only labeled PRs. Each highlight section follows this structure:
+
+1. **Emoji header** — e.g., `## 🖥️ New CLI commands`
+2. **Prose summary** — 2-5 sentences describing the user-visible change in flowing text.
+   Avoid bullet points here; write natural sentences. Only use bullets if the content
+   truly calls for a list (e.g., enumerating 4+ distinct sub-features).
+3. **Code examples** — if the PR introduces new commands or APIs, include a fenced code
+   block with a concrete usage example (cherry-pick from doc diffs when available).
+4. **PR attribution lines** — one bullet per PR that contributed to this highlight:
+   `- PR title by @author in #1234`
 
 ### 3. Classify standard items
 
@@ -42,12 +63,19 @@ For non-highlight PRs, classify into sections using `references/sections.md` heu
 - PR title keywords
 - PR body content
 
-### 4. Fetch relevant documentation
+### 4. Use doc diffs and fetch relevant documentation
 
-For highlighted PRs and other PRs that introduce new features, commands, or APIs, check
-if there is related documentation on the huggingface_hub docs site.
+For highlighted PRs and other PRs that introduce new features, commands, or APIs:
 
-**How to check:**
+**Use doc diffs first:**
+- Check the `doc_diffs` field in the PR JSON. If present, these contain the actual
+  documentation changes made in the PR (unified diff format).
+- Use these diffs to understand what was documented, extract code examples, and write
+  more accurate summaries. The diffs show exactly what the PR author wrote in the docs.
+- The `filename` field maps to a docs page URL. For example,
+  `docs/source/en/guides/cli.md` → `https://huggingface.co/docs/huggingface_hub/main/en/guides/cli`
+
+**Fetch full doc pages when needed:**
 1. Start by fetching the docs index page to discover the site structure:
    `https://huggingface.co/docs/huggingface_hub/main/en/index`
 2. Based on the PR content (title, body, labels), identify which doc pages might be
