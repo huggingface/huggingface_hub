@@ -933,7 +933,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path:
             # Path is the root directory
-            out = {
+            out: dict[str, Any] = {
                 "name": path,
                 "size": 0,
                 "type": "directory",

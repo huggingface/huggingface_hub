@@ -641,7 +641,7 @@ def _is_required_or_notrequired(type_hint: Any) -> bool:
     return type_hint in (Required, NotRequired) or (get_origin(type_hint) in (Required, NotRequired))
 
 
-_BASIC_TYPE_VALIDATORS = {
+_BASIC_TYPE_VALIDATORS: dict[Any, Callable[[str, Any, tuple[Any, ...]], None]] = {
     Union: _validate_union,
     Literal: _validate_literal,
     list: _validate_list,
