@@ -25,7 +25,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
-from typing import Any, Callable, Generator, Mapping, Optional, Union
+from typing import Any, Callable, Generator, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 import httpx
@@ -168,6 +168,47 @@ BUCKET_API_REGEX = re.compile(
     """,
     flags=re.VERBOSE,
 )
+
+# Regex to extract repo_type and repo_id from API URLs.
+# Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
+_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
+
+# Regex to extract bucket_id (namespace/name) from bucket API URLs.
+_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/]+/[^/]+)")
+
+# Sub-paths that follow a repo_id in API URLs (not part of the repo name).
+_REPO_URL_SUBPATHS = {"resolve", "tree", "blob", "raw", "refs", "commit", "discussions", "settings", "revision"}
+
+
+def _parse_repo_info_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
+    """Extract (repo_type, repo_id) from an API URL.
+
+    Returns canonical repo_type values: "model", "dataset", "space" (or None).
+
+    Examples:
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo")
+        ("model", "user/repo")
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/resolve/main/data.csv")
+        ("dataset", "user/repo")
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json")
+        ("model", "bert-base-cased")
+    """
+    match = _REPO_ID_FROM_URL_REGEX.search(url)
+    if not match:
+        return None, None
+    repo_type = constants.REPO_TYPES_MAPPING.get(match.group(1))
+    first, second = match.group(2), match.group(3)
+    if second and second not in _REPO_URL_SUBPATHS:
+        repo_id = f"{first}/{second}"
+    else:
+        repo_id = first
+    return repo_type, repo_id
+
+
+def _parse_bucket_id_from_url(url: str) -> Optional[str]:
+    """Extract bucket_id (namespace/name) from a bucket API URL."""
+    match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    return match.group(1) if match else None
 
 
 def hf_request_event_hook(request: httpx.Request) -> None:
@@ -725,19 +766,34 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         error_code = response.headers.get("X-Error-Code")
         error_message = response.headers.get("X-Error-Message")
 
+        # Parse repo info from request URL (used to enrich errors below)
+        request_url = (
+            str(response.request.url) if response.request is not None and response.request.url is not None else None
+        )
+        repo_type, repo_id = _parse_repo_info_from_url(request_url) if request_url else (None, None)
+
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
-            raise _format(RevisionNotFoundError, message, response) from e
+            revision_err = _format(RevisionNotFoundError, message, response)
+            revision_err.repo_type = repo_type
+            revision_err.repo_id = repo_id
+            raise revision_err from e
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            raise _format(RemoteEntryNotFoundError, message, response) from e
+            entry_err = _format(RemoteEntryNotFoundError, message, response)
+            entry_err.repo_type = repo_type
+            entry_err.repo_id = repo_id
+            raise entry_err from e
 
         elif error_code == "GatedRepo":
             message = (
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
-            raise _format(GatedRepoError, message, response) from e
+            gated_err = _format(GatedRepoError, message, response)
+            gated_err.repo_type = repo_type
+            gated_err.repo_id = repo_id
+            raise gated_err from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
@@ -751,9 +807,8 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
 
         elif (
             error_code == "RepoNotFound"
-            and response.request is not None
-            and response.request.url is not None
-            and BUCKET_API_REGEX.search(str(response.request.url)) is not None
+            and request_url is not None
+            and BUCKET_API_REGEX.search(request_url) is not None
         ):
             message = (
                 f"{response.status_code} Client Error."
@@ -762,14 +817,15 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + "\nPlease make sure you specified the correct bucket id (namespace/name)."
                 + "\nIf the bucket is private, make sure you are authenticated."
             )
-            raise _format(BucketNotFoundError, message, response) from e
+            bucket_err = _format(BucketNotFoundError, message, response)
+            bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
+            raise bucket_err from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
             and error_message != "Invalid credentials in Authorization header"
-            and response.request is not None
-            and response.request.url is not None
-            and REPO_API_REGEX.search(str(response.request.url)) is not None
+            and request_url is not None
+            and REPO_API_REGEX.search(request_url) is not None
         ):
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated
@@ -785,7 +841,10 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 " make sure you are authenticated. For more details, see"
                 " https://huggingface.co/docs/huggingface_hub/authentication"
             )
-            raise _format(RepositoryNotFoundError, message, response) from e
+            repo_err = _format(RepositoryNotFoundError, message, response)
+            repo_err.repo_type = repo_type
+            repo_err.repo_id = repo_id
+            raise repo_err from e
 
         elif response.status_code == 400:
             message = (
@@ -857,7 +916,10 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
                 logger.warning(message)
 
 
-def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
+_HfHubHTTPErrorT = TypeVar("_HfHubHTTPErrorT", bound=HfHubHTTPError)
+
+
+def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response) -> _HfHubHTTPErrorT:
     server_errors = []
 
     # Retrieve server error from header
