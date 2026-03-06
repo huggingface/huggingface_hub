@@ -229,10 +229,13 @@ _SUBMOD_ATTRS = {
         "delete_space_variable",
         "delete_tag",
         "delete_webhook",
+        "disable_space_dev_mode",
         "disable_webhook",
         "download_bucket_files",
+        "duplicate_repo",
         "duplicate_space",
         "edit_discussion_comment",
+        "enable_space_dev_mode",
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
@@ -920,11 +923,14 @@ __all__ = [
     "delete_space_variable",
     "delete_tag",
     "delete_webhook",
+    "disable_space_dev_mode",
     "disable_webhook",
     "download_bucket_files",
     "dump_environment_info",
+    "duplicate_repo",
     "duplicate_space",
     "edit_discussion_comment",
+    "enable_space_dev_mode",
     "enable_webhook",
     "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
@@ -1335,10 +1341,13 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
+        disable_space_dev_mode,  # noqa: F401
         disable_webhook,  # noqa: F401
         download_bucket_files,  # noqa: F401
+        duplicate_repo,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401

@@ -58,6 +58,7 @@ class ExtensionManifest:
     type: str  # "binary" or "python"
     installed_at: str
     source: str
+    description: str = ""
 
 
 @extensions_cli.command(
@@ -160,8 +161,7 @@ def extension_list() -> None:
             continue
 
         short_name = extension_dir.name[3:]
-
-        data = _load_extension_manifest(extension_dir=extension_dir, short_name=short_name) or {}
+        data = _read_local_manifest(extension_dir)
         rows.append(
             [
                 f"hf {short_name}",
@@ -197,6 +197,46 @@ def extension_remove(
 
 
 ### HELPER FUNCTIONS
+
+
+def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    root_dir = EXTENSIONS_ROOT.expanduser()
+    if not root_dir.is_dir():
+        return []
+    entries = []
+    for extension_dir in sorted(root_dir.iterdir()):
+        if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
+            continue
+        short_name = extension_dir.name[3:]
+        data = _read_local_manifest(extension_dir)
+        description = data.get("description", "")
+        repo_id = data.get("repo_id", "")
+        tag = f" [extension {repo_id}]" if isinstance(repo_id, str) and repo_id else " [extension]"
+        help_text = f"{description}{tag}" if isinstance(description, str) and description else tag.lstrip()
+        entries.append((short_name, help_text))
+    return entries
+
+
+def _read_local_manifest(extension_dir: Path) -> dict:
+    try:
+        manifest_path = extension_dir / MANIFEST_FILENAME
+        if manifest_path.is_file():
+            data = json.loads(manifest_path.read_text())
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _fetch_remote_manifest(owner: str, repo_name: str) -> dict:
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/main/{MANIFEST_FILENAME}"
+    try:
+        response = get_session().get(raw_url, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return {}
 
 
 def _dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
