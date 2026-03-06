@@ -11,12 +11,13 @@ Exit codes:
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 
-OUTPUT_DIR = Path(".release-notes")
+OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 
 # Pattern to find PR references in markdown (#1234)
 PR_REFERENCE_PATTERN = re.compile(r"#(\d+)")

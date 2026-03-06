@@ -43,6 +43,8 @@ class SpaceStage(str, Enum):
     DELETING = "DELETING"
     STOPPED = "STOPPED"
     PAUSED = "PAUSED"
+    APP_STARTING = "APP_STARTING"
+    RUNNING_APP_STARTING = "RUNNING_APP_STARTING"
 
 
 class SpaceHardware(str, Enum):

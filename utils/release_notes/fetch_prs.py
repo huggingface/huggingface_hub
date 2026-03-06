@@ -10,6 +10,8 @@ Uses PyGithub to:
 import json
 import os
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from github import Github
@@ -19,15 +21,15 @@ from github import Github
 # Format: "PR title (#1234)"
 PR_NUMBER_PATTERN = re.compile(r"\(#(\d+)\)$")
 
-OUTPUT_DIR = Path(".release-notes")
+OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 TMP_DIR = OUTPUT_DIR / "tmp"
 
 
 def get_github_client() -> Github:
     """Get authenticated GitHub client."""
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GITHUB_TOKEN_RELEASE_NOTES") or os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise ValueError("GITHUB_TOKEN environment variable is required")
+        raise ValueError("GITHUB_TOKEN_RELEASE_NOTES or GITHUB_TOKEN environment variable is required")
     return Github(token)
 
 
@@ -56,8 +58,26 @@ def extract_pr_number(commit_message: str) -> int | None:
     return None
 
 
+def fetch_doc_diffs(pr) -> list[dict]:
+    """Extract diffs for .md files under docs/ from a PR.
+
+    Returns a list of dicts with filename, status, and patch for each changed doc file.
+    """
+    doc_diffs = []
+    for f in pr.get_files():
+        if f.filename.startswith("docs/") and f.filename.endswith(".md") and f.patch:
+            doc_diffs.append(
+                {
+                    "filename": f.filename,
+                    "status": f.status,
+                    "patch": f.patch,
+                }
+            )
+    return doc_diffs
+
+
 def fetch_pr_details(repo, pr_number: int) -> dict:
-    """Fetch full details for a PR."""
+    """Fetch full details for a PR, including doc diffs."""
     pr = repo.get_pull(pr_number)
     return {
         "number": pr.number,
@@ -67,6 +87,7 @@ def fetch_pr_details(repo, pr_number: int) -> dict:
         "body": pr.body or "",
         "labels": [label.name for label in pr.labels],
         "url": pr.html_url,
+        "doc_diffs": fetch_doc_diffs(pr),
     }
 
 
@@ -120,14 +141,30 @@ def fetch_prs_since_tag(tag_name: str, repo_name: str = "huggingface/huggingface
     pr_numbers = list(set(pr_numbers))  # Deduplicate
     print(f"Found {len(pr_numbers)} unique PRs")
 
-    # Fetch and save PR details
-    for i, pr_num in enumerate(pr_numbers, 1):
-        print(f"  [{i}/{len(pr_numbers)}] Fetching PR #{pr_num}...")
-        try:
-            pr_data = fetch_pr_details(repo, pr_num)
-            save_pr_json(pr_data, TMP_DIR)
-        except Exception as e:
-            print(f"    Warning: Failed to fetch PR #{pr_num}: {e}")
+    # Fetch and save PR details concurrently (one GitHub client per thread for thread safety)
+    _thread_local = threading.local()
+
+    def _get_thread_repo():
+        """Get a thread-local GitHub repo instance."""
+        if not hasattr(_thread_local, "repo"):
+            _thread_local.repo = get_github_client().get_repo(repo_name)
+        return _thread_local.repo
+
+    def _fetch_and_save(pr_num: int) -> int:
+        thread_repo = _get_thread_repo()
+        pr_data = fetch_pr_details(thread_repo, pr_num)
+        save_pr_json(pr_data, TMP_DIR)
+        return pr_num
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch_and_save, pr_num): pr_num for pr_num in pr_numbers}
+        for i, future in enumerate(as_completed(futures), 1):
+            pr_num = futures[future]
+            try:
+                future.result()
+                print(f"  [{i}/{len(pr_numbers)}] Fetched PR #{pr_num}")
+            except Exception as e:
+                print(f"  [{i}/{len(pr_numbers)}] Warning: Failed to fetch PR #{pr_num}: {e}")
 
     # Save manifest
     save_manifest(pr_numbers, OUTPUT_DIR)

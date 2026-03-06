@@ -7469,6 +7469,89 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
+    def enable_space_dev_mode(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
+        """Enable dev mode on a Space.
+
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to enable dev mode. Example: `"Salesforce/BLIP2"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can set dev mode. If you want to handle a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
+            headers=self._build_hf_headers(token=token),
+            json={"enabled": True},
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def disable_space_dev_mode(
+        self,
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> SpaceRuntime:
+        """Disable dev mode on a Space.
+
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to disable dev mode. Example: `"Salesforce/BLIP2"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can set dev mode. If you want to handle a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
+            headers=self._build_hf_headers(token=token),
+            json={"enabled": False},
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
     def restart_space(
         self, repo_id: str, *, token: Union[bool, str, None] = None, factory_reboot: bool = False
     ) -> SpaceRuntime:
@@ -12720,6 +12803,8 @@ duplicate_repo = api.duplicate_repo
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+enable_space_dev_mode = api.enable_space_dev_mode
+disable_space_dev_mode = api.disable_space_dev_mode
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints

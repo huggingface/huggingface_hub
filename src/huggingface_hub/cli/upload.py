@@ -173,6 +173,8 @@ def upload(
 
         # Schedule commits if `every` is set
         if every is not None:
+            allow_patterns: Optional[list[str]]
+            ignore_patterns: Optional[list[str]]
             if os.path.isfile(resolved_local_path):
                 # If file => watch entire folder + use allow_patterns
                 folder_path = os.path.dirname(resolved_local_path)
@@ -182,18 +184,12 @@ def upload(
                     else resolved_path_in_repo
                 )
                 allow_patterns = [resolved_local_path]
-                ignore_patterns: Optional[list[str]] = []
+                ignore_patterns = []
             else:
                 folder_path = resolved_local_path
                 pi = resolved_path_in_repo
-                allow_patterns = (
-                    resolved_include or []
-                    if isinstance(resolved_include, list)
-                    else [resolved_include]
-                    if isinstance(resolved_include, str)
-                    else []
-                )
-                ignore_patterns = exclude or []
+                allow_patterns = resolved_include
+                ignore_patterns = exclude
                 if delete is not None and len(delete) > 0:
                     warnings.warn("Ignoring --delete when uploading with scheduled commits.")
 
@@ -262,13 +258,7 @@ def upload(
             commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
-            allow_patterns=(
-                resolved_include
-                if isinstance(resolved_include, list)
-                else [resolved_include]
-                if isinstance(resolved_include, str)
-                else None
-            ),
+            allow_patterns=resolved_include,
             ignore_patterns=exclude,
             delete_patterns=delete,
         )
