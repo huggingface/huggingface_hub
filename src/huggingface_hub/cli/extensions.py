@@ -235,7 +235,11 @@ def list_installed_extensions_for_help() -> list[tuple[str, str]]:
             continue
         short_name = extension_dir.name[3:]
 
-        manifest = ExtensionManifest.load(extension_dir)
+        try:
+            manifest = ExtensionManifest.load(extension_dir)
+        except Exception:
+            continue  # failed => likely corrupted => skip
+
         description = manifest.description
         tag = f"[extension {manifest.repo_id}]"
         help_text = f"{description} {tag}" if description is not None else tag
