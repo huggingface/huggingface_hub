@@ -29,9 +29,9 @@ from huggingface_hub.cli.datasets import datasets_cli
 from huggingface_hub.cli.discussions import discussions_cli
 from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
 from huggingface_hub.cli.extensions import (
-    _dispatch_unknown_top_level_extension,
-    _list_installed_extensions_for_help,
+    dispatch_unknown_top_level_extension,
     extensions_cli,
+    list_installed_extensions_for_help,
 )
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
@@ -46,15 +46,14 @@ from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.cli.webhooks import webhooks_cli
-from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
 
 app = typer_factory(
     help="Hugging Face Hub CLI",
     cls=fallback_typer_group_factory(
-        _dispatch_unknown_top_level_extension,
-        extra_commands_provider=_list_installed_extensions_for_help,
+        dispatch_unknown_top_level_extension,
+        extra_commands_provider=list_installed_extensions_for_help,
     ),
 )
 
@@ -112,13 +111,6 @@ def main():
 
     try:
         app()
-    except CLIError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        if constants.HF_DEBUG:
-            traceback.print_exc()
-        else:
-            print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
-        sys.exit(1)
     except Exception as e:
         message = format_known_exception(e)
         if message:

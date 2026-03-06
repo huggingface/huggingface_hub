@@ -13,10 +13,13 @@
 # limitations under the License.
 """CLI error handling utilities."""
 
+import traceback
 from typing import Callable, Optional
 
 from huggingface_hub.errors import (
     BucketNotFoundError,
+    CLIError,
+    CLIExtensionInstallError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -26,7 +29,21 @@ from huggingface_hub.errors import (
 )
 
 
-CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
+def _format_cli_error(error: CLIError) -> str:
+    return f"Error: {error}"
+
+
+def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
+    """Format a CLI extension installation error.
+
+    The error is likely to be a tricky subprocess error to investigate. In this specific case we want to format the
+    traceback of the root cause while keeping the "nicely formatted" error message of the CLIExtensionInstallError
+    as a 1-line message.
+    """
+    return f"{''.join(traceback.format_exception(error.__cause__))}\n{error}"
+
+
+CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {  # type: ignore
     BucketNotFoundError: lambda e: (
         "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated."
     ),
@@ -39,6 +56,8 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {
     RemoteEntryNotFoundError: lambda e: "File not found in repository.",
     HfHubHTTPError: lambda e: str(e),
     ValueError: lambda e: f"Invalid value. {e}",
+    CLIExtensionInstallError: _format_cli_extension_install_error,
+    CLIError: _format_cli_error,
 }
 
 

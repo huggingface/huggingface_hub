@@ -1828,8 +1828,8 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 
 * `exec`: Execute an installed extension.
 * `install`: Install an extension from a public GitHub...
-* `list`: List installed extension commands.
-* `remove`: Remove an installed extension.
+* `list`: List installed extension commands. [alias: ls]
+* `remove`: Remove an installed extension. [alias: rm]
 
 ### `hf extensions | ext exec`
 
@@ -1890,18 +1890,20 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext list`
+### `hf extensions | ext list | ls`
 
 List installed extension commands.
 
 **Usage**:
 
 ```console
-$ hf extensions list [OPTIONS]
+$ hf extensions list | ls [OPTIONS]
 ```
 
 **Options**:
 
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1912,14 +1914,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext remove`
+### `hf extensions | ext remove | rm`
 
 Remove an installed extension.
 
 **Usage**:
 
 ```console
-$ hf extensions remove [OPTIONS] NAME
+$ hf extensions remove | rm [OPTIONS] NAME
 ```
 
 **Arguments**:
