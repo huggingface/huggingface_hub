@@ -54,10 +54,7 @@ jobs:
           path: skills-repo
 
       - name: Copy generated files
-        run: |
-          rm -rf skills-repo/skills/hugging-face-cli/references
-          mkdir -p skills-repo/skills/hugging-face-cli
-          cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hugging-face-cli/
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
 
       - name: Check for changes
         id: check_changes
