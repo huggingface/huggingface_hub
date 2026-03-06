@@ -113,7 +113,7 @@ def extension_install(
     if extension_exists and not force:
         raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
 
-    branch = _resolve_github_default_branch(owner=owner, repo_name=repo_name)
+    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
 
     if extension_exists:
         shutil.rmtree(extension_dir)
@@ -147,7 +147,9 @@ def extension_install(
         print(f"Python extension installed successfully from {owner}/{repo_name}.")
 
     # Try to fetch a description from repo and save
-    description = _try_fetch_remote_description(owner=owner, repo_name=repo_name, branch=branch)
+    description = _try_fetch_remote_description(
+        owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
+    )
     manifest.description = description
     manifest.save(extension_dir)
 
@@ -240,7 +242,7 @@ def list_installed_extensions_for_help() -> list[tuple[str, str]]:
 
         try:
             manifest = ExtensionManifest.load(extension_dir)
-        except Exception:
+        except Exception as e:
             logger.debug(f"Failed to load manifest for extension '{short_name}': {e}")
             continue  # failed => likely corrupted => skip
 
@@ -384,10 +386,11 @@ def _install_python_extension(
             shutil.rmtree(extension_dir, ignore_errors=True)
 
 
-def _try_fetch_remote_description(owner: str, repo_name: str, branch: str) -> Optional[str]:
+def _try_fetch_remote_description(
+    owner: str, repo_name: str, branch: str, candidate_description: Optional[str]
+) -> Optional[str]:
     """Try to fetch project description either from:
     - manifest.json
-    - repo description on Github
     - pyproject.toml
 
     Only best effort, no error handling.
@@ -398,17 +401,6 @@ def _try_fetch_remote_description(owner: str, repo_name: str, branch: str) -> Op
             f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{MANIFEST_FILENAME}",
             follow_redirects=True,
         )
-        response.raise_for_status()
-        data = response.json()
-        description = data.get("description")
-        if isinstance(description, str):
-            return description
-    except Exception:
-        pass
-
-    # from repo description on Github
-    try:
-        response = get_session().get(f"https://api.github.com/repos/{owner}/{repo_name}", follow_redirects=True)
         response.raise_for_status()
         data = response.json()
         description = data.get("description")
@@ -434,6 +426,9 @@ def _try_fetch_remote_description(owner: str, repo_name: str, branch: str) -> Op
     except Exception:
         pass
 
+    # fallback to value fetched from GH API directly
+    return candidate_description
+
 
 def _get_extensions_root() -> Path:
     root_dir = EXTENSIONS_ROOT.expanduser()
@@ -450,7 +445,7 @@ def _get_extension_dir(short_name: str) -> Path:
     return target
 
 
-def _resolve_github_default_branch(owner: str, repo_name: str) -> str:
+def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, Optional[str]]:
     try:
         response = get_session().get(
             f"https://api.github.com/repos/{owner}/{repo_name}",
@@ -458,9 +453,10 @@ def _resolve_github_default_branch(owner: str, repo_name: str) -> str:
             timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
         )
         response.raise_for_status()
-        return response.json()["default_branch"]
+        data = response.json()
+        return data["default_branch"], data.get("description")
     except Exception:
-        return _EXTENSIONS_DEFAULT_BRANCH
+        return _EXTENSIONS_DEFAULT_BRANCH, None
 
 
 def _get_executable_name(short_name: str) -> str:
