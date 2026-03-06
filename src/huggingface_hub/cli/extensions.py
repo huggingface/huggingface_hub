@@ -233,8 +233,7 @@ def list_installed_extensions_for_help() -> list[tuple[str, str]]:
 
         manifest = ExtensionManifest.load(extension_dir)
         description = manifest.description
-        repo_id = manifest.repo_id
-        tag = f"[extension {repo_id}]"
+        tag = f"[extension {manifest.repo_id}]"
         help_text = f"{description} {tag}" if description is not None else tag
         entries.append((short_name, help_text))
     return entries
