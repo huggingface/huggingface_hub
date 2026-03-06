@@ -468,3 +468,7 @@ class XetDownloadError(Exception):
 
 class CLIError(Exception):
     """CLI error with clean message (no traceback by default)."""
+
+
+class CLIExtensionInstallError(CLIError):
+    """Error during CLI extension installation."""

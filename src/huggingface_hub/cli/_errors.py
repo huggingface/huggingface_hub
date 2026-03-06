@@ -13,10 +13,13 @@
 # limitations under the License.
 """CLI error handling utilities."""
 
+import traceback
 from typing import Callable, Optional
 
 from huggingface_hub.errors import (
     BucketNotFoundError,
+    CLIError,
+    CLIExtensionInstallError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -68,16 +71,38 @@ def _format_revision_not_found(error: RevisionNotFoundError) -> str:
     return f"Revision not found in {label}. Check the revision parameter."
 
 
-CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {  # type: ignore
+def _format_cli_error(error: CLIError) -> str:
+    """No traceback, just the error message."""
+    return str(error)
+
+
+def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
+    """Format a CLI extension installation error.
+
+    The error is likely to be a tricky subprocess error to investigate. In this specific case we want to format the
+    traceback of the root cause while keeping the "nicely formatted" error message of the CLIExtensionInstallError
+    as a 1-line message.
+    """
+    cause_tb = (
+        "".join(traceback.format_exception(type(error.__cause__), error.__cause__, error.__cause__.__traceback__))
+        if error.__cause__ is not None
+        else ""
+    )
+    return f"{cause_tb}\n{error}"
+
+
+CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     # GatedRepoError must come before RepositoryNotFoundError (it's a subclass).
-    GatedRepoError: _format_gated_repo,  # type: ignore[dict-item]
-    BucketNotFoundError: _format_bucket_not_found,  # type: ignore[dict-item]
-    RepositoryNotFoundError: _format_repo_not_found,  # type: ignore[dict-item]
-    RevisionNotFoundError: _format_revision_not_found,  # type: ignore[dict-item]
+    GatedRepoError: _format_gated_repo,
+    BucketNotFoundError: _format_bucket_not_found,
+    RepositoryNotFoundError: _format_repo_not_found,
+    RevisionNotFoundError: _format_revision_not_found,
     LocalTokenNotFoundError: lambda _: "Not logged in. Run 'hf auth login' first.",
-    RemoteEntryNotFoundError: _format_entry_not_found,  # type: ignore[dict-item]
+    RemoteEntryNotFoundError: _format_entry_not_found,
     HfHubHTTPError: lambda error: str(error),
     ValueError: lambda error: f"Invalid value. {error}",
+    CLIExtensionInstallError: _format_cli_extension_install_error,
+    CLIError: _format_cli_error,
 }
 
 
