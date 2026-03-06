@@ -41,7 +41,11 @@ def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
     traceback of the root cause while keeping the "nicely formatted" error message of the CLIExtensionInstallError
     as a 1-line message.
     """
-    cause_tb = "".join(traceback.format_exception(error.__cause__)) if error.__cause__ is not None else ""  # type: ignore
+    cause_tb = (
+        "".join(traceback.format_exception(type(error.__cause__), error.__cause__, error.__cause__.__traceback__))
+        if error.__cause__ is not None
+        else ""
+    )
     return f"{cause_tb}\n{error}"
 
 

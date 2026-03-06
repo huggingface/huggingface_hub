@@ -67,7 +67,7 @@ class ExtensionManifest:
         manifest_path = path / MANIFEST_FILENAME
         if not manifest_path.is_file():
             raise CLIError(f"Manifest file not found at {manifest_path}. Your extension may be corrupted.")
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data = json.loads(manifest_path.read_text())
         data["installed_at"] = datetime.fromisoformat(data["installed_at"])
         return ExtensionManifest(**data)
 
