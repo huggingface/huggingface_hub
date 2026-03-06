@@ -186,7 +186,11 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
         if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
             continue
 
-        manifest = ExtensionManifest.load(extension_dir)
+        try:
+            manifest = ExtensionManifest.load(extension_dir)
+        except Exception:
+            continue
+
         rows.append(
             {
                 "command": f"hf {manifest.short_name}",
