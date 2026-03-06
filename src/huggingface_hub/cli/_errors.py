@@ -45,7 +45,7 @@ def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
     return f"{cause_tb}\n{error}"
 
 
-CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[[Exception], str]] = {  # type: ignore
+CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     BucketNotFoundError: lambda e: (
         "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated."
     ),
