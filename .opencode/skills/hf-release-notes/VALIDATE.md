@@ -9,16 +9,19 @@ description: Validate and fix release notes by adding missing PRs. Use when PRs 
 
 This skill validates that all PRs are included in the release notes and adds any missing ones to the appropriate sections.
 
+**Output directory:** The prompt will specify the output directory as `<output_dir>`. All paths below use this placeholder.
+
 ## Workflow
 
 ### 1. Read current release notes
 
-Read the existing release notes from `.release-notes/RELEASE_NOTES_<version>.md`.
+Read the existing release notes from `<output_dir>/RELEASE_NOTES_<version>.md`.
 
 ### 2. Identify missing PRs
 
 You will be provided with a list of missing PR numbers. For each missing PR:
-- Read the PR details from `.release-notes/tmp/pr_<number>.json`
+- Read the PR details from `<output_dir>/tmp/pr_<number>.json`
+- Check `doc_diffs` for documentation changes that can inform the summary
 - Determine the appropriate section based on labels and title
 
 ### 3. Add missing PRs
@@ -38,7 +41,7 @@ For each missing PR:
 
 ### 4. Update the file
 
-Write the updated release notes back to `.release-notes/RELEASE_NOTES_<version>.md`.
+Write the updated release notes back to `<output_dir>/RELEASE_NOTES_<version>.md`.
 
 ### 5. Verify
 
@@ -48,11 +51,11 @@ After updating, confirm that all previously missing PRs now appear in the docume
 
 - Version string (e.g., "v1.3.8")
 - List of missing PR numbers
-- PR JSON files in `.release-notes/tmp/`
+- PR JSON files in `<output_dir>/tmp/`
 
 ## Output
 
-- Updated release notes at `.release-notes/RELEASE_NOTES_<version>.md`
+- Updated release notes at `<output_dir>/RELEASE_NOTES_<version>.md`
 
 ## Resources
 
