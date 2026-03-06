@@ -28,7 +28,7 @@ from typing import Annotated, Literal, Optional
 import typer
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError
-from huggingface_hub.utils import StatusLine, get_session
+from huggingface_hub.utils import StatusLine, get_session, logging
 
 from ._cli_utils import FormatOpt, OutputFormat, QuietOpt, print_list_output, typer_factory
 
@@ -45,6 +45,8 @@ extensions_cli = typer_factory(help=EXTENSIONS_HELP)
 _EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
 _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -188,7 +190,8 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
 
         try:
             manifest = ExtensionManifest.load(extension_dir)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to load manifest for extension '{extension_dir.name}': {e}")
             continue
 
         rows.append(
@@ -238,6 +241,7 @@ def list_installed_extensions_for_help() -> list[tuple[str, str]]:
         try:
             manifest = ExtensionManifest.load(extension_dir)
         except Exception:
+            logger.debug(f"Failed to load manifest for extension '{short_name}': {e}")
             continue  # failed => likely corrupted => skip
 
         description = manifest.description
