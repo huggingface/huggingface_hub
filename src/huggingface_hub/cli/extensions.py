@@ -197,7 +197,7 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
             }
         )
 
-    print_list_output(rows, format=format, quiet=quiet)
+    print_list_output(rows, format=format, quiet=quiet, id_key="command")
 
 
 @extensions_cli.command("remove | rm", examples=["hf extensions remove claude"])
