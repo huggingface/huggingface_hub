@@ -347,6 +347,93 @@ SearchOpt = Annotated[
 ]
 
 
+# --- Env / Secrets shared options and parsing helpers (used by jobs, repos, etc.) ---
+
+EnvOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-e",
+        "--env",
+        help="Set environment variables. E.g. --env ENV=value",
+    ),
+]
+
+SecretsOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-s",
+        "--secrets",
+        help=(
+            "Set secret environment variables. E.g. --secrets SECRET=value"
+            " or `--secrets HF_TOKEN` to pass your Hugging Face token."
+        ),
+    ),
+]
+
+EnvFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--env-file",
+        help="Read in a file of environment variables.",
+    ),
+]
+
+SecretsFileOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help="Read in a file of secret environment variables.",
+    ),
+]
+
+
+def _get_extended_environ() -> dict[str, str]:
+    """Return a copy of ``os.environ`` with the user's HF token injected (if available)."""
+    from huggingface_hub import get_token
+
+    extended_environ = os.environ.copy()
+    if (token := get_token()) is not None:
+        extended_environ["HF_TOKEN"] = token
+    return extended_environ
+
+
+def parse_env_map(
+    env: Optional[list[str]] = None,
+    env_file: Optional[str] = None,
+) -> dict[str, Optional[str]]:
+    """Parse ``-e``/``--env`` and ``--env-file`` CLI args into a dict."""
+    from huggingface_hub.utils._dotenv import load_dotenv
+
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+    return env_map
+
+
+def parse_secrets_map(
+    secrets: Optional[list[str]] = None,
+    secrets_file: Optional[str] = None,
+) -> dict[str, Optional[str]]:
+    """Parse ``-s``/``--secrets`` and ``--secrets-file`` CLI args into a dict."""
+    from huggingface_hub.utils._dotenv import load_dotenv
+
+    secrets_map: dict[str, Optional[str]] = {}
+    extended_environ = _get_extended_environ()
+    if secrets_file:
+        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
+    for secret in secrets or []:
+        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    return secrets_map
+
+
+def env_map_to_key_value_list(env_map: dict[str, Optional[str]]) -> Optional[list[dict[str, str]]]:
+    """Convert an env/secrets dict to the ``[{"key": ..., "value": ...}]`` format used by the Hub API."""
+    if not env_map:
+        return None
+    return [{"key": k, "value": v or ""} for k, v in env_map.items()]
+
+
 class OutputFormat(str, Enum):
     """Output format for CLI list commands."""
 
