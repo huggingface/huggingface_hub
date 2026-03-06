@@ -931,9 +931,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         expand_info = kwargs.get(
             "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
+        out: Optional[dict[str, Any]]
         if not resolved_path.path:
             # Path is the root directory
-            out: dict[str, Any] = {
+            out = {
                 "name": path,
                 "size": 0,
                 "type": "directory",
