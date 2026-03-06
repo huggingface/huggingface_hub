@@ -23,7 +23,7 @@ import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Literal, Optional
 
 import typer
 
@@ -421,19 +421,6 @@ def _try_fetch_remote_description(owner: str, repo_name: str, branch: str) -> Op
                 return value.strip().strip("\"'")
     except Exception:
         pass
-
-
-def _load_extension_manifest(extension_dir: Path, short_name: str) -> Optional[dict[str, Any]]:
-    manifest_path = extension_dir / MANIFEST_FILENAME
-    if not manifest_path.is_file():
-        return None
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        raise CLIError(f"Invalid manifest for extension '{short_name}': {e}") from e
-    if not isinstance(payload, dict):
-        raise CLIError(f"Invalid manifest for extension '{short_name}'.")
-    return payload
 
 
 def _get_extensions_root() -> Path:
