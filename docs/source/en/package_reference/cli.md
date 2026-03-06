@@ -3085,6 +3085,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `add`: Download a skill and install it for an AI...
+* `preview`: Print the generated SKILL.md to stdout.
 
 ### `hf skills add`
 
@@ -3117,6 +3118,20 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
+
+### `hf skills preview`
+
+Print the generated SKILL.md to stdout.
+
+**Usage**:
+
+```console
+$ hf skills preview [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
 
 ## `hf spaces`
 
