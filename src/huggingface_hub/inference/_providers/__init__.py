@@ -37,6 +37,7 @@ from .nebius import (
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
+from .nvidia import NvidiaConversationalTask
 from .openai import OpenAIConversationalTask
 from .ovhcloud import OVHcloudConversationalTask
 from .publicai import PublicAIConversationalTask
@@ -76,6 +77,7 @@ PROVIDER_T = Literal[
     "nebius",
     "novita",
     "nscale",
+    "nvidia",
     "openai",
     "ovhcloud",
     "publicai",
@@ -170,6 +172,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "nscale": {
         "conversational": NscaleConversationalTask(),
         "text-to-image": NscaleTextToImageTask(),
+    },
+    "nvidia": {
+        "conversational": NvidiaConversationalTask(),
     },
     "openai": {
         "conversational": OpenAIConversationalTask(),

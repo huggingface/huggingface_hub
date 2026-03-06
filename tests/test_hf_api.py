@@ -99,6 +99,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -3620,6 +3621,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("duplicate_space")
     def test_duplicate_space(self) -> None:
         self.api.duplicate_space(
             self.repo_id,
@@ -3972,6 +3974,7 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
+    @expect_deprecation("duplicate_space")
     @unittest.skip("Duplicating Space doesn't work on staging.")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
@@ -4007,6 +4010,7 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
         self._api.delete_repo(repo_id=to_repo_id, repo_type="space")
 
+    @expect_deprecation("duplicate_space")
     def test_duplicate_space_from_missing_repo(self) -> None:
         """Check `duplicate_space` fails when the from_repo doesn't exist."""
 

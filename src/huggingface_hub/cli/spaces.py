@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Annotated, Literal, Optional, Union, get_args
 
 import typer
@@ -41,10 +42,11 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
+from huggingface_hub._space_api import SpaceStage
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
-from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
@@ -79,7 +81,6 @@ ExpandOpt = Annotated[
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
-
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
@@ -144,6 +145,75 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     print(json.dumps(api_object_to_dict(info), indent=2))
+
+
+@spaces_cli.command(
+    "dev-mode",
+    examples=[
+        "hf spaces dev-mode my-user-name/deepsite",
+    ],
+)
+def dev_mode(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    stop: Annotated[bool, typer.Option(help="Stop dev mode.")] = False,
+    token: TokenOpt = None,
+):
+    """
+    Enable or disable dev mode on a Space.
+
+    Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+    restart your application without stopping the Space container itself. This feature is available as part of a PRO
+    or Team & Enterprise plan.
+
+    See docs: https://huggingface.co/docs/hub/spaces-dev-mode
+    """
+    api = get_hf_api(token=token)
+    if stop:
+        api.disable_space_dev_mode(space_id)
+        print(f"Dev mode disabled for '{space_id}'")
+        return
+    api.enable_space_dev_mode(space_id)
+    info = api.space_info(space_id)
+    folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
+    folder_query_param = f"folder={folder}" if folder else ""
+    print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
+    intermediate_statuses_and_messages = {
+        SpaceStage.BUILDING: "building...",
+        SpaceStage.RUNNING_BUILDING: "building...",
+        SpaceStage.APP_STARTING: "app starting...",
+        SpaceStage.RUNNING_APP_STARTING: "app starting...",
+    }
+    status = StatusLine()
+    while True:
+        info = api.space_info(space_id)
+        if info.runtime is None:
+            print("Runtime of the space unavailable")
+            return
+        if info.runtime.stage not in intermediate_statuses_and_messages:
+            break
+        status.update(intermediate_statuses_and_messages[info.runtime.stage])
+        time.sleep(1)
+    if info.runtime.stage != SpaceStage.RUNNING:
+        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
+        return
+    status.done("Dev mode ready!")
+    print("Connect to dev environment:")
+    print("")
+    print("Web:")
+    vscode_web_url = f"https://huggingface.co/spaces/{info.id}/dev-mode/vscode-web"
+    if folder_query_param:
+        vscode_web_url += f"?{folder_query_param}"
+    ssh_host = f"{info.subdomain}@ssh.hf.space"
+    print(f"  * VSCode: {vscode_web_url}")
+    print("")
+    print("Local:")
+    print("1. Add your SSH key to https://huggingface.co/settings/keys")
+    print(f"2. SSH with `ssh -i <your_key> {ssh_host}`")
+    print("   Or open")
+    print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{ssh_host}{folder}")
+    print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
+    print("")
+    print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
 
 
 @spaces_cli.command(
