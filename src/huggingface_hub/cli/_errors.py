@@ -30,7 +30,8 @@ from huggingface_hub.errors import (
 
 
 def _format_cli_error(error: CLIError) -> str:
-    return f"Error: {error}"
+    """No traceback, just the error message."""
+    return str(error)
 
 
 def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
