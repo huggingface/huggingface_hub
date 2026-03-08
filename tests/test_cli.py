@@ -1533,6 +1533,16 @@ class TestModelsLsCommand:
         assert kwargs["filter"] == ["text-classification"]
         assert kwargs["limit"] == 5
 
+    def test_models_ls_with_num_parameters(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.models.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+            result = runner.invoke(app, ["models", "ls", "--num-parameters", "min:6B,max:128B"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["num_parameters"] == "min:6B,max:128B"
+
     def test_models_ls_invalid_sort_key(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "--sort", "invalid_key"])
         assert result.exit_code == 2

@@ -2601,6 +2601,7 @@ $ hf models ls [OPTIONS]
 * `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
@@ -2612,6 +2613,7 @@ $ hf models ls [OPTIONS]
 Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
+  $ hf models ls --num-parameters min:6B,max:128B --sort likes
 
 Learn more
   Use `hf <command> --help` for more information about a command.

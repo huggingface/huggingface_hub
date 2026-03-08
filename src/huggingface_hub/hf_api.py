@@ -2095,6 +2095,7 @@ class HfApi:
         trained_dataset: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
+        num_parameters: Optional[str] = None,
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
         sort: Optional[ModelSort_T] = None,
@@ -2138,6 +2139,9 @@ class HfApi:
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
                 A string pipeline tag to filter models on the Hub by, such as `summarization`.
+            num_parameters (`str`, *optional*):
+                Filter models by parameter count. Accepts the same range syntax as the Hub UI and API, for example
+                `"min:6B,max:128B"`, `"min:6B"` or `"max:128B"`.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
@@ -2196,6 +2200,9 @@ class HfApi:
 
         # List models with "bert" in their name and pushed by google
         >>> api.list_models(search="bert", author="google")
+
+        # List models with 6B to 128B parameters
+        >>> api.list_models(num_parameters="min:6B,max:128B", sort="likes")
         ```
         """
         if expand and (full or cardData or fetch_config):
@@ -2233,6 +2240,8 @@ class HfApi:
             params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
+        if num_parameters is not None:
+            params["num_parameters"] = num_parameters
         search_list = []
         if model_name:
             search_list.append(model_name)
