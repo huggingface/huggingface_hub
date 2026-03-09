@@ -81,7 +81,7 @@ def models_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     num_parameters: Annotated[
-        str | None,
+        Optional[str],
         typer.Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
     ] = None,
     sort: Annotated[
