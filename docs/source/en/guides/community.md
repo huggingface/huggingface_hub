@@ -167,9 +167,9 @@ hf discussions merge username/repo-name 5 --yes
 # Show the diff of a pull request
 hf discussions diff username/repo-name 5
 
-# Target a dataset or Space repo with --repo_type
-hf discussions list username/my-dataset --repo_type dataset
-hf discussions view username/my-space 3 --repo_type space --comments
+# Target a dataset or Space repo with --type
+hf discussions list username/my-dataset --type dataset --status closed
+hf discussions create username/my-dataset --type dataset --title "Data quality issue"
 ```
 
 For the full list of options, run `hf discussions --help` or see the [CLI reference](./cli#hf-discussions).
