@@ -903,19 +903,19 @@ For scripting, use `--format json` to get structured output, or `--quiet` to pri
 >>> hf discussions ls username/my-model --quiet
 ```
 
-### View a discussion or PR
+### Get info for a discussion or PR
 
 To inspect a specific discussion or PR, pass the repo ID and the discussion number:
 
 ```bash
->>> hf discussions view username/my-model 5
+>>> hf discussions info username/my-model 5
 ```
 
 By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
 
 ```bash
->>> hf discussions view username/my-model 5 --comments
->>> hf discussions view username/my-model 5 --diff
+>>> hf discussions info username/my-model 5 --comments
+>>> hf discussions info username/my-model 5 --diff
 ```
 
 Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
