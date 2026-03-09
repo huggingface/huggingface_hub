@@ -758,6 +758,9 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 # Filter by author
 >>> hf models ls --author Qwen
 
+# Filter by parameter count
+>>> hf models ls --num-parameters min:6B,max:128B
+
 # Sort by downloads
 >>> hf models ls --sort downloads --limit 10
 ```

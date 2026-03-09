@@ -1871,6 +1871,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             assert "bert" in model.id.lower()
 
+    def test_list_models_num_parameters(self):
+        models = list(self._api.list_models(num_parameters="min:6B,max:128B", limit=5))
+        assert len(models) == 5
+        assert all(isinstance(model, ModelInfo) for model in models)
+
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -2125,6 +2130,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert mock_paginate.call_count == 2
         assert mock_paginate.call_args_list[0][1]["params"] == {"filter": ["benchmark:official"]}
         assert mock_paginate.call_args_list[1][1]["params"] == {"filter": ["benchmark:official"]}
+
+    def test_list_models_num_parameters_are_forwarded(self):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_models(num_parameters="min:6B,max:128B"))
+
+        assert mock_paginate.call_count == 1
+        assert mock_paginate.call_args[1]["params"] == {"num_parameters": "min:6B,max:128B"}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
