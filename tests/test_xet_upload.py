@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
@@ -345,6 +346,9 @@ class TestBucketXetUploadSkipSha256:
         """Upload from both filepath and bytes to a real bucket, verifying skip_sha256=True is passed."""
         from hf_xet import upload_bytes as real_upload_bytes
         from hf_xet import upload_files as real_upload_files
+
+        if "skip_sha256" not in inspect.signature(real_upload_files).parameters:
+            pytest.skip("hf_xet does not support skip_sha256 yet")
 
         bucket_url = api.create_bucket(repo_name(prefix="bucket"))
         bucket_id = bucket_url.bucket_id
