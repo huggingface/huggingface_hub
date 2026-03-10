@@ -347,7 +347,11 @@ class TestBucketXetUploadSkipSha256:
         from hf_xet import upload_bytes as real_upload_bytes
         from hf_xet import upload_files as real_upload_files
 
-        if "skip_sha256" not in inspect.signature(real_upload_files).parameters:
+        try:
+            has_skip_sha256 = "skip_sha256" in inspect.signature(real_upload_files).parameters
+        except ValueError:
+            has_skip_sha256 = False
+        if not has_skip_sha256:
             pytest.skip("hf_xet does not support skip_sha256 yet")
 
         bucket_url = api.create_bucket(repo_name(prefix="bucket"))
