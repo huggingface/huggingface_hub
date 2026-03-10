@@ -859,6 +859,8 @@ class ModelInfo:
             Transformers-specific info (auto class, processor, etc.) associated with the model.
         trending_score (`int`, *optional*):
             Trending score of the model.
+        used_storage (`int`, *optional*):
+            Size in bytes of the model on the Hub.
         card_data (`ModelCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
         siblings (`list[RepoSibling]`):
@@ -897,6 +899,7 @@ class ModelInfo:
     config: Optional[dict]
     transformers_info: Optional[TransformersInfo]
     trending_score: Optional[int]
+    used_storage: Optional[int]
     siblings: Optional[list[RepoSibling]]
     spaces: Optional[list[str]]
     safetensors: Optional[SafeTensorsInfo]
@@ -945,6 +948,7 @@ class ModelInfo:
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
@@ -1043,6 +1047,8 @@ class DatasetInfo:
             Papers with code ID of the dataset.
         trending_score (`int`, *optional*):
             Trending score of the dataset.
+        used_storage (`int`, *optional*):
+            Size in bytes of the dataset on the Hub.
     """
 
     id: str
@@ -1059,6 +1065,7 @@ class DatasetInfo:
     paperswithcode_id: Optional[str]
     tags: Optional[list[str]]
     trending_score: Optional[int]
+    used_storage: Optional[int]
     card_data: Optional[DatasetCardData]
     siblings: Optional[list[RepoSibling]]
 
@@ -1079,6 +1086,7 @@ class DatasetInfo:
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
@@ -1163,6 +1171,8 @@ class SpaceInfo:
             List of datasets used by the Space.
         trending_score (`int`, *optional*):
             Trending score of the Space.
+        used_storage (`int`, *optional*):
+            Size in bytes of the Space on the Hub.
     """
 
     id: str
@@ -1180,6 +1190,7 @@ class SpaceInfo:
     tags: Optional[list[str]]
     siblings: Optional[list[RepoSibling]]
     trending_score: Optional[int]
+    used_storage: Optional[int]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
     models: Optional[list[str]]
@@ -1202,6 +1213,7 @@ class SpaceInfo:
         self.sdk = kwargs.pop("sdk", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
