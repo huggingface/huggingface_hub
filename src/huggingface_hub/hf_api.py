@@ -12171,6 +12171,7 @@ class HfApi:
                     token_refresher,
                     progress_callback,
                     "bucket",
+                    skip_sha256=True,
                 )
                 for upload_info, op in zip(xet_upload_infos, add_path_operations):
                     op.xet_hash = upload_info.hash
@@ -12187,6 +12188,7 @@ class HfApi:
                     token_refresher,
                     progress_callback,
                     "bucket",
+                    skip_sha256=True,
                 )
                 for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
                     op.xet_hash = upload_info.hash
