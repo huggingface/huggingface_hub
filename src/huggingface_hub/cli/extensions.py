@@ -43,6 +43,7 @@ EXTENSIONS_HELP = (
 )
 extensions_cli = typer_factory(help=EXTENSIONS_HELP)
 _EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
+_EXTENSIONS_GITHUB_TOPIC = "hf-extension"
 _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 
@@ -207,6 +208,42 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
         )
 
     print_list_output(rows, format=format, quiet=quiet, id_key="command")
+
+
+@extensions_cli.command("find", examples=["hf extensions find"])
+def extension_find(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
+    """Find extensions available on GitHub (tagged with 'hf-extension' topic)."""
+    response = get_session().get(
+        "https://api.github.com/search/repositories",
+        params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
+        follow_redirects=True,
+        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    installed = set()
+    root_dir = EXTENSIONS_ROOT.expanduser()
+    if root_dir.is_dir():
+        for d in root_dir.iterdir():
+            if d.is_dir() and d.name.startswith("hf-"):
+                installed.add(d.name[3:])
+
+    rows = []
+    for repo in data.get("items", []):
+        repo_name = repo["name"]
+        short_name = repo_name[3:] if repo_name.startswith("hf-") else repo_name
+        rows.append(
+            {
+                "name": short_name,
+                "repo": repo["full_name"],
+                "stars": repo.get("stargazers_count", 0),
+                "description": repo.get("description") or "",
+                "installed": "yes" if short_name in installed else "",
+            }
+        )
+
+    print_list_output(rows, format=format, quiet=quiet, id_key="repo", alignments={"stars": "right"})
 
 
 @extensions_cli.command("remove | rm", examples=["hf extensions remove claude"])
