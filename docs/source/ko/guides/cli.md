@@ -83,7 +83,7 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 >>> brew install hf
 ```
 
-Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 확인할 수 있습니다.
+Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/hf)에서 확인할 수 있습니다.
 
 ## hf auth login [[hf-login]]
 

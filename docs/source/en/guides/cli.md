@@ -103,7 +103,7 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 >>> brew install hf
 ```
 
-Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
 ## hf auth login
 
