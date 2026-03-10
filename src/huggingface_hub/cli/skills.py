@@ -235,7 +235,7 @@ def skills_add(
 ) -> None:
     """Download a skill and install it for an AI assistant."""
     if not (claude or codex or cursor or opencode or dest):
-        raise CLIError("Pick a destination via --claude, --codex, --cursor, --opencode, or --dest.")
+        raise CLIError("Pick a destination via --claude, --codex, --cursor, --opencode, --global or --dest.")
 
     if dest:
         if claude or codex or cursor or opencode or global_:
