@@ -1827,6 +1827,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `exec`: Execute an installed extension.
+* `find`: Find extensions available on GitHub...
 * `install`: Install an extension from a public GitHub...
 * `list`: List installed extension commands. [alias: ls]
 * `remove`: Remove an installed extension. [alias: rm]
@@ -1852,6 +1853,30 @@ $ hf extensions exec [OPTIONS] NAME
 Examples
   $ hf extensions exec claude -- --help
   $ hf extensions exec claude --model zai-org/GLM-5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions | ext find`
+
+Find extensions available on GitHub (tagged with 'hf-extension' topic).
+
+**Usage**:
+
+```console
+$ hf extensions find [OPTIONS]
+```
+
+**Options**:
+
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions find
 
 Learn more
   Use `hf <command> --help` for more information about a command.
