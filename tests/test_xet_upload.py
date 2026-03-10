@@ -337,62 +337,40 @@ class TestXetUpload:
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
 
+@requires("hf_xet")
 class TestBucketXetUploadSkipSha256:
     """Test that bucket uploads pass skip_sha256=True to hf_xet."""
 
-    def test_skip_sha256_passed_to_upload_files(self, tmp_path):
-        """Test that skip_sha256=True is passed to hf_xet.upload_files for bucket uploads."""
-        api = HfApi(endpoint="https://huggingface.co")
+    def test_skip_sha256_passed_for_bucket_uploads(self, api, tmp_path):
+        """Upload from both filepath and bytes to a real bucket, verifying skip_sha256=True is passed."""
+        from hf_xet import upload_bytes as real_upload_bytes
+        from hf_xet import upload_files as real_upload_files
+
+        bucket_url = api.create_bucket(repo_name(prefix="bucket"))
+        bucket_id = bucket_url.bucket_id
+
         test_file = tmp_path / "test_file.bin"
-        test_file.write_bytes(b"test content")
+        test_file.write_bytes(b"file content for bucket test")
 
-        mock_upload_info = MagicMock()
-        mock_upload_info.hash = "fake_hash"
-        mock_upload_info.filesize = 12
+        with patch("hf_xet.upload_files", wraps=real_upload_files) as spy_upload_files:
+            with patch("hf_xet.upload_bytes", wraps=real_upload_bytes) as spy_upload_bytes:
+                api.batch_bucket_files(
+                    bucket_id,
+                    add=[
+                        (str(test_file), "from_path.bin"),
+                        (b"bytes content for bucket test", "from_bytes.bin"),
+                    ],
+                )
 
-        with patch("huggingface_hub.hf_api.fetch_xet_connection_info_from_repo_info") as mock_fetch:
-            mock_fetch.return_value = XetConnectionInfo(
-                endpoint="mock_endpoint",
-                access_token="mock_token",
-                expiration_unix_epoch=9999999999,
-            )
-            with patch("hf_xet.upload_files", return_value=[mock_upload_info]) as mock_upload_files:
-                with patch("hf_xet.upload_bytes"):
-                    with patch("huggingface_hub.hf_api.are_progress_bars_disabled", return_value=True):
-                        with patch("huggingface_hub.hf_api.http_backoff"):
-                            api._batch_bucket_files(
-                                "test/bucket",
-                                add=[(str(test_file), "dest.bin")],
-                            )
+                spy_upload_files.assert_called_once()
+                assert spy_upload_files.call_args.kwargs["skip_sha256"] is True
 
-                            mock_upload_files.assert_called_once()
-                            assert mock_upload_files.call_args.kwargs["skip_sha256"] is True
+                spy_upload_bytes.assert_called_once()
+                assert spy_upload_bytes.call_args.kwargs["skip_sha256"] is True
 
-    def test_skip_sha256_passed_to_upload_bytes(self):
-        """Test that skip_sha256=True is passed to hf_xet.upload_bytes for bucket uploads."""
-        api = HfApi(endpoint="https://huggingface.co")
-
-        mock_upload_info = MagicMock()
-        mock_upload_info.hash = "fake_hash"
-        mock_upload_info.filesize = 5
-
-        with patch("huggingface_hub.hf_api.fetch_xet_connection_info_from_repo_info") as mock_fetch:
-            mock_fetch.return_value = XetConnectionInfo(
-                endpoint="mock_endpoint",
-                access_token="mock_token",
-                expiration_unix_epoch=9999999999,
-            )
-            with patch("hf_xet.upload_files"):
-                with patch("hf_xet.upload_bytes", return_value=[mock_upload_info]) as mock_upload_bytes:
-                    with patch("huggingface_hub.hf_api.are_progress_bars_disabled", return_value=True):
-                        with patch("huggingface_hub.hf_api.http_backoff"):
-                            api._batch_bucket_files(
-                                "test/bucket",
-                                add=[(b"hello", "dest.bin")],
-                            )
-
-                            mock_upload_bytes.assert_called_once()
-                            assert mock_upload_bytes.call_args.kwargs["skip_sha256"] is True
+        uploaded = {e.path for e in api.list_bucket_tree(bucket_id)}
+        assert "from_path.bin" in uploaded
+        assert "from_bytes.bin" in uploaded
 
 
 @requires("hf_xet")
