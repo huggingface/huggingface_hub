@@ -2653,8 +2653,6 @@ $ hf papers ls [OPTIONS]
 * `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
 * `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2662,7 +2660,6 @@ Examples
   $ hf papers ls
   $ hf papers ls --sort trending
   $ hf papers ls --date 2025-01-23
-  $ hf papers ls --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
