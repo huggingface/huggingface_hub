@@ -363,7 +363,7 @@ FormatOpt = Annotated[
 
 JsonOpt = Annotated[
     bool,
-    typer.Option("--json", help="Output as JSON (alias for --format json)."),
+    typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json)."),
 ]
 
 
