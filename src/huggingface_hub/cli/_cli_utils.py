@@ -361,6 +361,18 @@ FormatOpt = Annotated[
     ),
 ]
 
+JsonOpt = Annotated[
+    bool,
+    typer.Option("--json", help="Output as JSON (alias for --format json)."),
+]
+
+
+def resolve_format(format: OutputFormat, json: bool) -> OutputFormat:
+    """Resolve --json flag into OutputFormat, giving --json precedence."""
+    if json:
+        return OutputFormat.json
+    return format
+
 QuietOpt = Annotated[
     bool,
     typer.Option(

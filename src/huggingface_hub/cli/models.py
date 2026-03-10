@@ -37,6 +37,7 @@ from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
     FormatOpt,
+    JsonOpt,
     LimitOpt,
     OutputFormat,
     QuietOpt,
@@ -47,6 +48,7 @@ from ._cli_utils import (
     get_hf_api,
     make_expand_properties_parser,
     print_list_output,
+    resolve_format,
     typer_factory,
 )
 
@@ -91,10 +93,12 @@ def models_ls(
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
     format: FormatOpt = OutputFormat.table,
+    json: JsonOpt = False,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""
+    format = resolve_format(format, json)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
