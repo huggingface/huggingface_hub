@@ -12164,15 +12164,18 @@ class HfApi:
 
             try:
                 # 2.a. Upload path files
-                xet_upload_infos = upload_files(
+                upload_files_args = (
                     [str(op.source) for op in add_path_operations],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
                     progress_callback,
                     "bucket",
-                    skip_sha256=True,
                 )
+                try:
+                    xet_upload_infos = upload_files(*upload_files_args, skip_sha256=True)
+                except TypeError:
+                    xet_upload_infos = upload_files(*upload_files_args)
                 for upload_info, op in zip(xet_upload_infos, add_path_operations):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
@@ -12181,15 +12184,18 @@ class HfApi:
                     progress.notify_upload_complete()
 
                 # 2.b. Upload bytes files
-                xet_upload_infos = upload_bytes(
+                upload_bytes_args = (
                     [op.source for op in add_bytes_operations],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
                     progress_callback,
                     "bucket",
-                    skip_sha256=True,
                 )
+                try:
+                    xet_upload_infos = upload_bytes(*upload_bytes_args, skip_sha256=True)
+                except TypeError:
+                    xet_upload_infos = upload_bytes(*upload_bytes_args)
                 for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
