@@ -186,27 +186,16 @@ def extension_exec(
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
 def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
     """List installed extension commands."""
-    rows = []
-    for extension_dir in sorted(_get_extensions_root().iterdir()):
-        if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
-            continue
-
-        try:
-            manifest = ExtensionManifest.load(extension_dir)
-        except Exception as e:
-            logger.debug(f"Failed to load manifest for extension '{extension_dir.name}': {e}")
-            continue
-
-        rows.append(
-            {
-                "command": f"hf {manifest.short_name}",
-                "source": str(manifest.repo_id),
-                "type": str(manifest.type),
-                "installed": manifest.installed_at.strftime("%Y-%m-%d"),
-                "description": manifest.description,
-            }
-        )
-
+    rows = [
+        {
+            "command": f"hf {manifest.short_name}",
+            "source": str(manifest.repo_id),
+            "type": str(manifest.type),
+            "installed": manifest.installed_at.strftime("%Y-%m-%d"),
+            "description": manifest.description,
+        }
+        for manifest in _list_installed_extensions()
+    ]
     print_list_output(rows, format=format, quiet=quiet, id_key="command")
 
 
@@ -222,12 +211,7 @@ def extension_find(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
     response.raise_for_status()
     data = response.json()
 
-    installed = set()
-    root_dir = EXTENSIONS_ROOT.expanduser()
-    if root_dir.is_dir():
-        for d in root_dir.iterdir():
-            if d.is_dir() and d.name.startswith("hf-"):
-                installed.add(d.name[3:])
+    installed = {m.short_name for m in _list_installed_extensions()}
 
     rows = []
     for repo in data.get("items", []):
@@ -267,26 +251,29 @@ def extension_remove(
 ### HELPER FUNCTIONS
 
 
-def list_installed_extensions_for_help() -> list[tuple[str, str]]:
+def _list_installed_extensions() -> list[ExtensionManifest]:
+    """Return manifests for all validly-installed extensions, sorted by directory name."""
     root_dir = EXTENSIONS_ROOT.expanduser()
     if not root_dir.is_dir():
         return []
-    entries = []
+    manifests = []
     for extension_dir in sorted(root_dir.iterdir()):
         if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
             continue
-        short_name = extension_dir.name[3:]
-
         try:
-            manifest = ExtensionManifest.load(extension_dir)
+            manifests.append(ExtensionManifest.load(extension_dir))
         except Exception as e:
-            logger.debug(f"Failed to load manifest for extension '{short_name}': {e}")
-            continue  # failed => likely corrupted => skip
+            logger.debug(f"Failed to load manifest for extension '{extension_dir.name}': {e}")
+            continue
+    return manifests
 
-        description = manifest.description
+
+def list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    entries = []
+    for manifest in _list_installed_extensions():
         tag = f"[extension {manifest.repo_id}]"
-        help_text = f"{description} {tag}" if description is not None else tag
-        entries.append((short_name, help_text))
+        help_text = f"{manifest.description} {tag}" if manifest.description is not None else tag
+        entries.append((manifest.short_name, help_text))
     return entries
 
 
