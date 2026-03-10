@@ -84,7 +84,8 @@ def _normalize_command_aliases(content: str) -> str:
     )
 
     # Transform section headers: `## `hf cmd | alias`` or `### `hf parent cmd | alias``
-    # and add alias info to the description on the next non-empty line
+    # and add alias info to the description on the next non-empty line.
+    # Match the *last* aliased segment so parent aliases (e.g. `repos | repo`) are preserved.
     def _transform_section(match: re.Match) -> str:
         hashes = match.group(1)  # "##" or "###"
         prefix = match.group(2)  # "hf" or "hf parent"
@@ -104,13 +105,14 @@ def _normalize_command_aliases(content: str) -> str:
         return f"{new_header}{whitespace}{new_description}"
 
     content = re.sub(
-        r"^(#{2,}) `(hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
+        r"^(#{2,}) `(hf(?: [\w-]+(?: \| [\w-]+)?)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
         _transform_section,
         content,
         flags=re.MULTILINE,
     )
 
-    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`
+    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`.
+    # Match the *last* aliased segment so parent aliases don't consume the regex.
     def _transform_usage(match: re.Match) -> str:
         prefix = match.group(1)  # "$ hf" or "$ hf parent"
         full_name = match.group(2)  # "cmd | alias"
@@ -121,7 +123,7 @@ def _normalize_command_aliases(content: str) -> str:
         return f"{prefix} {primary}{suffix}"
 
     content = re.sub(
-        r"^(\$ hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)( .*)$",
+        r"^(\$ hf(?: [\w-]+(?: \| [\w-]+)?)*) ([\w-]+(?: \| [\w-]+)+)( .*)$",
         _transform_usage,
         content,
         flags=re.MULTILINE,

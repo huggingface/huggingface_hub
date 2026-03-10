@@ -1890,14 +1890,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext list | ls`
+### `hf extensions | ext list`
 
-List installed extension commands.
+List installed extension commands. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf extensions list | ls [OPTIONS]
+$ hf extensions | ext list [OPTIONS]
 ```
 
 **Options**:
@@ -1914,14 +1914,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext remove | rm`
+### `hf extensions | ext remove`
 
-Remove an installed extension.
+Remove an installed extension. [alias: rm]
 
 **Usage**:
 
 ```console
-$ hf extensions remove | rm [OPTIONS] NAME
+$ hf extensions | ext remove [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -3042,14 +3042,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo tag list | ls`
+#### `hf repos | repo tag list`
 
-List tags for a repo.
+List tags for a repo. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf repos tag list | ls [OPTIONS] REPO_ID
+$ hf repos | repo tag list [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
