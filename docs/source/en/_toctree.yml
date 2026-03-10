@@ -18,6 +18,8 @@
       title: Buckets
     - local: guides/cli
       title: Use the CLI
+    - local: guides/extensions
+      title: Build a CLI extension
     - local: guides/hf_file_system
       title: HfFileSystem
     - local: guides/repository
