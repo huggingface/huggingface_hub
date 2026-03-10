@@ -290,17 +290,46 @@ class RepoType(str, Enum):
 RepoIdArg = Annotated[
     str,
     typer.Argument(
-        help="The ID of the repo (e.g. `username/repo-name`).",
+        help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
 
+# Mapping from URL-style plural prefixes to repo type values
+_REPO_TYPE_PREFIXES = {
+    "spaces": "space",
+    "datasets": "dataset",
+    "models": "model",
+}
+
+
+def resolve_repo_id_and_type(repo_id: str, repo_type: Optional[RepoType] = None) -> tuple[str, str]:
+    """Parse an optional type prefix from a repo_id.
+
+    Accepts repo IDs like ``spaces/org/repo`` as shorthand for
+    ``org/repo --type space``.
+
+    Raises :class:`typer.BadParameter` when both a prefix *and* an
+    explicit ``--type`` flag are provided (ambiguous).
+
+    Returns ``(repo_id, repo_type_value)`` ready for API calls.
+    """
+    parts = repo_id.split("/", 2)
+    if len(parts) == 3 and parts[0] in _REPO_TYPE_PREFIXES:
+        if repo_type is not None:
+            raise typer.BadParameter(
+                f"Ambiguous repo type: got prefix '{parts[0]}/' in repo ID"
+                f" and --type {repo_type.value}. Use one or the other."
+            )
+        return f"{parts[1]}/{parts[2]}", _REPO_TYPE_PREFIXES[parts[0]]
+    return repo_id, (repo_type or RepoType.model).value
+
 
 RepoTypeOpt = Annotated[
-    RepoType,
+    Optional[RepoType],
     typer.Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, or space). Inferred from repo ID prefix (e.g. spaces/) when omitted.",
     ),
 ]
 

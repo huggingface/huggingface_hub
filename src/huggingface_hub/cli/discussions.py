@@ -32,13 +32,13 @@ from ._cli_utils import (
     OutputFormat,
     QuietOpt,
     RepoIdArg,
-    RepoType,
     RepoTypeOpt,
     TokenOpt,
     _format_cell,
     api_object_to_dict,
     get_hf_api,
     print_list_output,
+    resolve_repo_id_and_type,
     typer_factory,
 )
 
@@ -153,8 +153,8 @@ discussions_cli = typer_factory(help="Manage discussions and pull requests on th
     "list | ls",
     examples=[
         "hf discussions list username/my-model",
+        "hf discussions list datasets/username/my-dataset --status closed",
         "hf discussions list username/my-model --kind pull_request --status merged",
-        "hf discussions list username/my-dataset --type dataset --status closed",
         "hf discussions list username/my-model --author alice --format json",
     ],
 )
@@ -178,12 +178,13 @@ def discussion_list(
     ] = DiscussionKind.all,
     author: AuthorOpt = None,
     limit: LimitOpt = 30,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List discussions and pull requests on a repo."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     api = get_hf_api(token=token)
 
     api_status: Optional[constants.DiscussionStatusFilter]
@@ -206,7 +207,7 @@ def discussion_list(
         author=author,
         discussion_type=api_discussion_type,
         discussion_status=api_status,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     ):
         if status.value in _CLIENT_SIDE_STATUSES and d.status != status.value:
             continue
@@ -238,8 +239,8 @@ def discussion_list(
     "info",
     examples=[
         "hf discussions info username/my-model 5",
+        "hf discussions info spaces/username/my-space 5",
         "hf discussions info username/my-model 5 --comments",
-        "hf discussions info username/my-model 5 --diff",
         "hf discussions info username/my-model 5 --format json",
     ],
 )
@@ -267,7 +268,7 @@ def discussion_info(
             help="Disable colored output.",
         ),
     ] = False,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     format: Annotated[
         InfoFormat,
         typer.Option(
@@ -279,6 +280,8 @@ def discussion_info(
     """Get info about a discussion or pull request."""
     import os
 
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
+
     if no_color:
         os.environ["NO_COLOR"] = "1"
 
@@ -286,7 +289,7 @@ def discussion_info(
     details = api.get_discussion_details(
         repo_id=repo_id,
         discussion_num=num,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
 
     if format == InfoFormat.json:
@@ -310,7 +313,7 @@ def discussion_info(
         'hf discussions create username/my-model --title "Bug report"',
         'hf discussions create username/my-model --title "Feature request" --body "Please add X"',
         'hf discussions create username/my-model --title "Fix typo" --pull-request',
-        'hf discussions create username/my-dataset --type dataset --title "Data quality issue"',
+        'hf discussions create datasets/username/my-dataset --title "Data quality issue"',
     ],
 )
 def discussion_create(
@@ -344,17 +347,18 @@ def discussion_create(
             help="Create a pull request instead of a discussion.",
         ),
     ] = False,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Create a new discussion or pull request on a repo."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     description = _read_body(body, body_file)
     api = get_hf_api(token=token)
     discussion = api.create_discussion(
         repo_id=repo_id,
         title=title,
         description=description,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
         pull_request=pull_request,
     )
     kind = "pull request" if pull_request else "discussion"
@@ -388,10 +392,11 @@ def discussion_comment(
             help="Read the comment from a file. Use '-' for stdin.",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Comment on a discussion or pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     comment = _read_body(body, body_file)
     if comment is None:
         raise typer.BadParameter("Either --body or --body-file is required.")
@@ -400,7 +405,7 @@ def discussion_comment(
         repo_id=repo_id,
         discussion_num=num,
         comment=comment,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     print(f"Commented on #{num} in {ANSI.bold(repo_id)}")
 
@@ -430,10 +435,11 @@ def discussion_close(
             help="Skip confirmation prompt.",
         ),
     ] = False,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Close a discussion or pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     if not yes:
         confirm = typer.confirm(f"Close #{num} on '{repo_id}'?")
         if not confirm:
@@ -445,7 +451,7 @@ def discussion_close(
         discussion_num=num,
         new_status="closed",
         comment=comment,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     print(f"Closed #{num} in {ANSI.bold(repo_id)}")
 
@@ -475,10 +481,11 @@ def discussion_reopen(
             help="Skip confirmation prompt.",
         ),
     ] = False,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Reopen a closed discussion or pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     if not yes:
         confirm = typer.confirm(f"Reopen #{num} on '{repo_id}'?")
         if not confirm:
@@ -490,7 +497,7 @@ def discussion_reopen(
         discussion_num=num,
         new_status="open",
         comment=comment,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     print(f"Reopened #{num} in {ANSI.bold(repo_id)}")
 
@@ -510,16 +517,17 @@ def discussion_rename(
             help="The new title.",
         ),
     ],
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Rename a discussion or pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     api = get_hf_api(token=token)
     api.rename_discussion(
         repo_id=repo_id,
         discussion_num=num,
         new_title=new_title,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     print(f"Renamed #{num} to {ANSI.bold(new_title)} in {ANSI.bold(repo_id)}")
 
@@ -549,10 +557,11 @@ def discussion_merge(
             help="Skip confirmation prompt.",
         ),
     ] = False,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Merge a pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     if not yes:
         confirm = typer.confirm(f"Merge #{num} on '{repo_id}'?")
         if not confirm:
@@ -563,7 +572,7 @@ def discussion_merge(
         repo_id=repo_id,
         discussion_num=num,
         comment=comment,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     print(f"Merged #{num} in {ANSI.bold(repo_id)}")
 
@@ -577,15 +586,16 @@ def discussion_merge(
 def discussion_diff(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Show the diff of a pull request."""
+    repo_id, repo_type_str = resolve_repo_id_and_type(repo_id, repo_type)
     api = get_hf_api(token=token)
     details = api.get_discussion_details(
         repo_id=repo_id,
         discussion_num=num,
-        repo_type=repo_type.value,
+        repo_type=repo_type_str,
     )
     if details.diff:
         print(details.diff)

@@ -50,7 +50,7 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt
 
 
 DOWNLOAD_EXAMPLES = [
@@ -73,7 +73,7 @@ def download(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
     include: Annotated[
         Optional[list[str]],
