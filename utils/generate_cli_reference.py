@@ -112,18 +112,22 @@ def _normalize_command_aliases(content: str) -> str:
     )
 
     # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`.
-    # Match the *last* aliased segment so parent aliases don't consume the regex.
-    def _transform_usage(match: re.Match) -> str:
-        prefix = match.group(1)  # "$ hf" or "$ hf parent"
-        full_name = match.group(2)  # "cmd | alias"
-        suffix = match.group(3)  # " [OPTIONS]..." or similar
+    # Strip aliases from all command segments (e.g. `repos | repo tag list | ls` -> `repos tag list`).
+    def _strip_usage_aliases(command: str) -> str:
+        previous = ""
+        normalized = command
+        while normalized != previous:
+            previous = normalized
+            normalized = re.sub(r"\b([\w-]+)\s+\|\s+[\w-]+\b", r"\1", normalized)
+        return re.sub(r" +", " ", normalized).strip()
 
-        parts = [p.strip() for p in full_name.split("|")]
-        primary = parts[0]
-        return f"{prefix} {primary}{suffix}"
+    def _transform_usage(match: re.Match) -> str:
+        command = match.group(1)  # "$ hf ...", potentially with aliases
+        suffix = match.group(2)  # " [OPTIONS]..." or " <ARG>..."
+        return f"{_strip_usage_aliases(command)}{suffix}"
 
     content = re.sub(
-        r"^(\$ hf(?: [\w-]+(?: \| [\w-]+)?)*) ([\w-]+(?: \| [\w-]+)+)( .*)$",
+        r"^(\$ hf(?: [\w-]+(?: \| [\w-]+)?)*)((?: (?:\[|<).*)?)$",
         _transform_usage,
         content,
         flags=re.MULTILINE,

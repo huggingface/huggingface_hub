@@ -1897,7 +1897,7 @@ List installed extension commands. [alias: ls]
 **Usage**:
 
 ```console
-$ hf extensions | ext list [OPTIONS]
+$ hf extensions list [OPTIONS]
 ```
 
 **Options**:
@@ -1921,7 +1921,7 @@ Remove an installed extension. [alias: rm]
 **Usage**:
 
 ```console
-$ hf extensions | ext remove [OPTIONS] NAME
+$ hf extensions remove [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -3049,7 +3049,7 @@ List tags for a repo. [alias: ls]
 **Usage**:
 
 ```console
-$ hf repos | repo tag list [OPTIONS] REPO_ID
+$ hf repos tag list [OPTIONS] REPO_ID
 ```
 
 **Arguments**:
