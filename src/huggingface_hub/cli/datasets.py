@@ -70,7 +70,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
 @datasets_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",

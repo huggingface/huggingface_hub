@@ -86,7 +86,7 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
 @spaces_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',

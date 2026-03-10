@@ -62,7 +62,7 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
 
 
 @papers_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf papers ls",
         "hf papers ls --sort trending",

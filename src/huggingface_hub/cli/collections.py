@@ -66,7 +66,7 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 
 
 @collections_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf collections ls",
         "hf collections ls --owner nvidia",

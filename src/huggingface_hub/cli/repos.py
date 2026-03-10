@@ -383,7 +383,7 @@ def tag_create(
     print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
 
 
-@tag_cli.command("list", examples=["hf repos tag list my-model"])
+@tag_cli.command("list | ls", examples=["hf repos tag list my-model"])
 def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,

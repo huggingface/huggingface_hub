@@ -134,7 +134,7 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("list", examples=["hf auth list"])
+@auth_cli.command("list | ls", examples=["hf auth list"])
 def auth_list_cmd() -> None:
     """List all stored access tokens."""
     auth_list()
