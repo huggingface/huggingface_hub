@@ -14,6 +14,10 @@
 """Contains commands to manage skills for AI assistants.
 
 Usage:
+    # install the hf-cli skill in common .agents/skills directory (either in current directory or user-level)
+    hf skills add
+    hf skills add --global
+
     # install the hf-cli skill for Claude (project-level, in current directory)
     hf skills add --claude
 
@@ -41,8 +45,6 @@ from typing import Annotated, Optional
 import typer
 from click import Context, Group
 from typer.main import get_command
-
-from huggingface_hub.errors import CLIError
 
 from ._cli_utils import typer_factory
 
@@ -200,10 +202,10 @@ def skills_preview() -> None:
 @skills_cli.command(
     "add",
     examples=[
-        "hf skills add --claude",
-        "hf skills add --cursor",
-        "hf skills add --claude --global",
-        "hf skills add --codex --opencode --cursor",
+        "hf skills add",
+        "hf skills add --global",
+        "hf skills add --claude --cursor",
+        "hf skills add --codex --opencode --cursor --global",
     ],
 )
 def skills_add(
@@ -233,10 +235,11 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a skill and install it for an AI assistant."""
-    if not (claude or codex or cursor or opencode or dest):
-        raise CLIError("Pick a destination via --claude, --codex, --cursor, --opencode, or --dest.")
+    """Download a skill and install it for an AI assistant.
 
+    Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
+    If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+    """
     if dest:
         if claude or codex or cursor or opencode or global_:
             print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
@@ -245,6 +248,12 @@ def skills_add(
         print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
         return
 
+    # Install to central location
+    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+    central_skill_path = _install_to(central_path, force)
+    print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
+
+    # Create symlinks in agent directories
     targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
     agent_targets: list[Path] = []
     if claude:
@@ -255,10 +264,6 @@ def skills_add(
         agent_targets.append(targets_dict["cursor"])
     if opencode:
         agent_targets.append(targets_dict["opencode"])
-
-    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-    central_skill_path = _install_to(central_path, force)
-    print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
 
     for agent_target in agent_targets:
         link_path = _create_symlink(agent_target, central_skill_path, force)
