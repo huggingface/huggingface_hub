@@ -246,7 +246,7 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
         skip_if_logged_in (`bool`, defaults to `False`):
             If `True`, do not prompt for token if user is already logged in.
     """
-    if not skip_if_logged_in and get_token() is not None:
+    if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
 
@@ -316,7 +316,7 @@ def notebook_login(*, skip_if_logged_in: bool = False) -> None:
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not skip_if_logged_in and get_token() is not None:
+    if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in.")
         return
 
