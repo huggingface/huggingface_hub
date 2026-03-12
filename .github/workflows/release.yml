@@ -112,7 +112,7 @@ jobs:
                 # Read dev version from __init__.py to scope the RC lookup to this minor version
                 DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
                 BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/.dev0//')
-                LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1)
+                LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
                 if [[ -z "$LATEST_RC" ]]; then
                   echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
                   exit 1
@@ -122,7 +122,7 @@ jobs:
                 ;;
               patch-release)
                 # Find the latest stable (non-RC) release tag
-                LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+                LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
                 if [[ -z "$LATEST_RELEASE" ]]; then
                   echo "::error::No release tag found."
                   exit 1
@@ -149,11 +149,11 @@ jobs:
           # Determine since_tag (for release notes) and bump_type
           if [[ "$RELEASE_TYPE" == "patch-release" ]]; then
             # Patch: PRs since the latest tag on this branch
-            SINCE_TAG=$(git tag --sort=-v:refname | grep -E "^v${MINOR}\.[0-9]+$" | head -1)
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E "^v${MINOR}\.[0-9]+$" | head -1 || echo "")
             BUMP_TYPE="patch"
           else
             # Prerelease or release: PRs since the last stable release
-            SINCE_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
             BUMP_TYPE="minor"
           fi
 
