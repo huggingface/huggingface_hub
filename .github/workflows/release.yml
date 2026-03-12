@@ -96,7 +96,7 @@ jobs:
               minor-prerelease)
                 # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
                 DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/.dev0//')
+                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
 
                 # Find existing RC tags for this base version to determine next RC number
                 LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
@@ -112,7 +112,7 @@ jobs:
               minor-release)
                 # Read dev version from __init__.py to scope the RC lookup to this minor version
                 DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/.dev0//')
+                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
                 LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
                 if [[ -z "$LATEST_RC" ]]; then
                   echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
@@ -563,6 +563,14 @@ jobs:
           MINOR=$(echo "$VERSION" | cut -d. -f2)
           NEXT_MINOR=$((MINOR + 1))
           DEV_VERSION="${MAJOR}.${NEXT_MINOR}.0.dev0"
+
+          # Guard: skip if main already has an equal or higher version (e.g. version_override for older minor)
+          CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          if [[ "$CURRENT_MINOR" -ge "$NEXT_MINOR" ]]; then
+            echo "::warning::main is already at ${CURRENT_VERSION} (>= ${DEV_VERSION}). Skipping version bump."
+            exit 0
+          fi
 
           PR_BRANCH="post-release-v${VERSION}"
           git checkout -b "$PR_BRANCH"
