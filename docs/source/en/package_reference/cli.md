@@ -63,7 +63,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `list`: List all stored access tokens.
+* `list`: List all stored access tokens. [alias: ls]
 * `login`: Login using a token from...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
@@ -71,7 +71,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 
 ### `hf auth list`
 
-List all stored access tokens.
+List all stored access tokens. [alias: ls]
 
 **Usage**:
 
@@ -523,19 +523,19 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `ls`: List cached repositories or revisions.
+* `list`: List cached repositories or revisions. [alias: ls]
 * `prune`: Remove detached revisions from the cache.
 * `rm`: Remove cached repositories or revisions.
 * `verify`: Verify checksums for a single repo...
 
-### `hf cache ls`
+### `hf cache list`
 
-List cached repositories or revisions.
+List cached repositories or revisions. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf cache ls [OPTIONS]
+$ hf cache list [OPTIONS]
 ```
 
 **Options**:
@@ -680,7 +680,7 @@ $ hf collections [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a collection from the Hub.
 * `delete-item`: Delete an item from a collection.
 * `info`: Get info about a collection on the Hub.
-* `ls`: List collections on the Hub.
+* `list`: List collections on the Hub. [alias: ls]
 * `update`: Update a collection's metadata on the Hub.
 * `update-item`: Update an item in a collection.
 
@@ -827,14 +827,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf collections ls`
+### `hf collections list`
 
-List collections on the Hub.
+List collections on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf collections ls [OPTIONS]
+$ hf collections list [OPTIONS]
 ```
 
 **Options**:
@@ -940,7 +940,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a dataset on the Hub.
-* `ls`: List datasets on the Hub.
+* `list`: List datasets on the Hub. [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
 
@@ -974,14 +974,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf datasets ls`
+### `hf datasets list`
 
-List datasets on the Hub.
+List datasets on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf datasets ls [OPTIONS]
+$ hf datasets list [OPTIONS]
 ```
 
 **Options**:
@@ -1453,8 +1453,8 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete an Inference Endpoint permanently.
 * `deploy`: Deploy an Inference Endpoint from a Hub...
 * `describe`: Get information about an existing endpoint.
+* `list`: Lists all Inference Endpoints for the... [alias: ls]
 * `list-catalog`: List available Catalog models.
-* `ls`: Lists all Inference Endpoints for the...
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1477,7 +1477,7 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `deploy`: Deploy an Inference Endpoint from the...
-* `ls`: List available Catalog models.
+* `list`: List available Catalog models. [alias: ls]
 
 #### `hf endpoints catalog deploy`
 
@@ -1506,14 +1506,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf endpoints catalog ls`
+#### `hf endpoints catalog list`
 
-List available Catalog models.
+List available Catalog models. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf endpoints catalog ls [OPTIONS]
+$ hf endpoints catalog list [OPTIONS]
 ```
 
 **Options**:
@@ -1627,29 +1627,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf endpoints list-catalog`
+### `hf endpoints list`
 
-List available Catalog models.
-
-**Usage**:
-
-```console
-$ hf endpoints list-catalog [OPTIONS]
-```
-
-**Options**:
-
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf endpoints ls`
-
-Lists all Inference Endpoints for the given namespace.
+Lists all Inference Endpoints for the given namespace. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf endpoints ls [OPTIONS]
+$ hf endpoints list [OPTIONS]
 ```
 
 **Options**:
@@ -1668,6 +1653,21 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
+
+### `hf endpoints list-catalog`
+
+List available Catalog models.
+
+**Usage**:
+
+```console
+$ hf endpoints list-catalog [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ### `hf endpoints pause`
 
@@ -1891,14 +1891,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext list | ls`
+### `hf extensions | ext list`
 
-List installed extension commands.
+List installed extension commands. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf extensions list | ls [OPTIONS]
+$ hf extensions list [OPTIONS]
 ```
 
 **Options**:
@@ -1915,14 +1915,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext remove | rm`
+### `hf extensions | ext remove`
 
-Remove an installed extension.
+Remove an installed extension. [alias: rm]
 
 **Usage**:
 
 ```console
-$ hf extensions remove | rm [OPTIONS] NAME
+$ hf extensions remove [OPTIONS] NAME
 ```
 
 **Arguments**:
@@ -2579,7 +2579,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a model on the Hub.
-* `ls`: List models on the Hub.
+* `list`: List models on the Hub. [alias: ls]
 
 ### `hf models info`
 
@@ -2611,14 +2611,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf models ls`
+### `hf models list`
 
-List models on the Hub.
+List models on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf models ls [OPTIONS]
+$ hf models list [OPTIONS]
 ```
 
 **Options**:
@@ -2661,16 +2661,16 @@ $ hf papers [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `ls`: List daily papers on the Hub.
+* `list`: List daily papers on the Hub. [alias: ls]
 
-### `hf papers ls`
+### `hf papers list`
 
-List daily papers on the Hub.
+List daily papers on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf papers ls [OPTIONS]
+$ hf papers list [OPTIONS]
 ```
 
 **Options**:
@@ -3006,7 +3006,7 @@ $ hf repos tag [OPTIONS] COMMAND [ARGS]...
 
 * `create`: Create a tag for a repo.
 * `delete`: Delete a tag for a repo.
-* `list`: List tags for a repo.
+* `list`: List tags for a repo. [alias: ls]
 
 #### `hf repos | repo tag create`
 
@@ -3072,7 +3072,7 @@ Learn more
 
 #### `hf repos | repo tag list`
 
-List tags for a repo.
+List tags for a repo. [alias: ls]
 
 **Usage**:
 
@@ -3182,7 +3182,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
-* `ls`: List spaces on the Hub.
+* `list`: List spaces on the Hub. [alias: ls]
 
 ### `hf spaces dev-mode`
 
@@ -3290,14 +3290,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf spaces ls`
+### `hf spaces list`
 
-List spaces on the Hub.
+List spaces on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf spaces ls [OPTIONS]
+$ hf spaces list [OPTIONS]
 ```
 
 **Options**:
