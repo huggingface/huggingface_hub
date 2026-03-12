@@ -109,10 +109,12 @@ jobs:
                 VERSION="${BASE_VERSION}.rc${RC_NUM}"
                 ;;
               minor-release)
-                # Find the latest RC tag
-                LATEST_RC=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.rc[0-9]+$' | head -1)
+                # Read dev version from __init__.py to scope the RC lookup to this minor version
+                DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/.dev0//')
+                LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1)
                 if [[ -z "$LATEST_RC" ]]; then
-                  echo "::error::No RC tag found. Run a prerelease first."
+                  echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
                   exit 1
                 fi
                 # v1.6.0.rc0 → 1.6.0
@@ -377,7 +379,7 @@ jobs:
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
-          GITHUB_TOKEN_RELEASES: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
         run: |
           python -m utils.release_notes.generate_release_notes \
