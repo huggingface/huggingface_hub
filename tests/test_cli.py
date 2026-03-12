@@ -2739,3 +2739,32 @@ class TestWebhooksCommand:
         assert result.exit_code != 0
         assert "Aborted" in result.output
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestJsonShorthand:
+    """Test the hidden --json shorthand that rewrites to --format json."""
+
+    @with_production_testing
+    def test_json_flag_produces_json_output(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert isinstance(output, list)
+        assert len(output) <= 3
+
+    @with_production_testing
+    def test_json_flag_equivalent_to_format_json(self, runner: CliRunner) -> None:
+        result_json_flag = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
+        result_format_json = runner.invoke(app, ["models", "ls", "--format", "json", "--limit", "3"])
+        assert result_json_flag.exit_code == 0
+        assert result_format_json.exit_code == 0
+        assert json.loads(result_json_flag.stdout) == json.loads(result_format_json.stdout)
+
+    def test_json_and_format_mutually_exclusive(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--json", "--format", "table"])
+        assert result.exit_code != 0
+        assert "mutually exclusive" in result.output
+
+    def test_json_on_command_without_format(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["download", "--json", DUMMY_MODEL_ID])
+        assert result.exit_code != 0

@@ -98,6 +98,15 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     """
 
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+        # Rewrite hidden --json shorthand to --format json
+        if "--json" in args:
+            if any(a == "--format" or a.startswith("--format=") for a in args):
+                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+            idx = args.index("--json")
+            args[idx : idx + 1] = ["--format", "json"]
+        return super().resolve_command(ctx, args)
+
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
         cmd = super().get_command(ctx, cmd_name)
