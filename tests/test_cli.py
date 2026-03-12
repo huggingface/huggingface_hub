@@ -2768,3 +2768,19 @@ class TestJsonShorthand:
     def test_json_on_command_without_format(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["download", "--json", DUMMY_MODEL_ID])
         assert result.exit_code != 0
+
+    def test_json_not_rewritten_for_extensions_exec(self, runner: CliRunner) -> None:
+        """--json must NOT be rewritten to --format json for `extensions exec` (pass-through to external binary)."""
+        fake_path = Mock()
+        fake_path.is_file.return_value = True
+        with (
+            patch("huggingface_hub.cli.extensions._resolve_installed_executable_path", return_value=fake_path),
+            patch("huggingface_hub.cli.extensions._execute_extension_binary") as mock_exec,
+        ):
+            mock_exec.return_value = 0
+            result = runner.invoke(app, ["extensions", "exec", "test", "--json"])
+            assert result.exit_code == 0, result.output
+            mock_exec.assert_called_once()
+            passed_args = mock_exec.call_args[1].get("args") or mock_exec.call_args[0][1]
+            assert "--json" in passed_args, f"Expected --json to be passed through, got {passed_args}"
+            assert "--format" not in passed_args, f"--json was rewritten to --format: {passed_args}"

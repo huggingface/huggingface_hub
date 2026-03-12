@@ -89,6 +89,9 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
+_SKIP_JSON_REWRITE_COMMANDS = {"extensions", "exec"}
+
+
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
     Typer Group that:
@@ -99,8 +102,11 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        # Rewrite hidden --json shorthand to --format json
-        if "--json" in args:
+        # Rewrite hidden --json shorthand to --format json.
+        # Skip for commands that pass args through to external binaries (e.g. `hf extensions exec`)
+        # to avoid silently rewriting `--json` that the extension binary may handle natively.
+        cmd_name = args[0] if args and not args[0].startswith("-") else None
+        if cmd_name not in _SKIP_JSON_REWRITE_COMMANDS and "--json" in args:
             if any(a == "--format" or a.startswith("--format=") for a in args):
                 raise click.UsageError("'--json' and '--format' are mutually exclusive.")
             idx = args.index("--json")
