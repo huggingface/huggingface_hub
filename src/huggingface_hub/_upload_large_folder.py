@@ -274,14 +274,14 @@ def upload_large_folder_internal(
                 _print_overwrite(status.current_report())
             last_report_ts = time.time()
         if status.is_done():
-            logging.info("Is done: exiting main loop")
+            logger.info("Is done: exiting main loop")
             break
 
     for thread in threads:
         thread.join()
 
     logger.info(status.current_report())
-    logging.info("Upload is complete!")
+    logger.info("Upload is complete!")
 
 
 ####################
