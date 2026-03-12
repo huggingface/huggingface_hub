@@ -73,12 +73,17 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
     examples=[
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',
+        "hf models ls --num-parameters min:6B,max:128B --sort likes",
     ],
 )
 def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    num_parameters: Annotated[
+        Optional[str],
+        typer.Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
+    ] = None,
     sort: Annotated[
         Optional[ModelSortEnum],
         typer.Option(help="Sort results."),
@@ -95,7 +100,13 @@ def models_ls(
     results = [
         api_object_to_dict(model_info)
         for model_info in api.list_models(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            num_parameters=num_parameters,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
         )
     ]
     print_list_output(results, format=format, quiet=quiet)

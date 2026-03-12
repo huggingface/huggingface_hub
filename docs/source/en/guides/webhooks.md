@@ -102,6 +102,36 @@ from huggingface_hub import delete_webhook
 delete_webhook("your-webhook-id")
 ```
 
+### Managing Webhooks from the CLI
+
+All of the above operations are also available from the `hf` command-line interface. This is especially useful for scripting and agentic workflows.
+
+```bash
+# List all webhooks
+>>> hf webhooks ls
+
+# Get details about a specific webhook
+>>> hf webhooks info <webhook_id>
+
+# Create a webhook that pings a URL
+>>> hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased --domain repo
+
+# Create a webhook that triggers a Job
+>>> hf webhooks create --job-id <job_id> --watch user:julien-c
+
+# Update an existing webhook
+>>> hf webhooks update <webhook_id> --url https://new-url.com/hook
+
+# Enable / disable a webhook
+>>> hf webhooks enable <webhook_id>
+>>> hf webhooks disable <webhook_id>
+
+# Delete a webhook (with confirmation prompt)
+>>> hf webhooks delete <webhook_id>
+```
+
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. For the full list of options, run `hf webhooks <command> --help`. For more details, see the [CLI guide](./cli#hf-webhooks).
+
 ## Webhooks Server
 
 The base class that we will use in this guides section is [`WebhooksServer`]. It is a class for easily configuring a server that

@@ -153,6 +153,24 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     >     Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
     >     layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
 
+    The file system supports paths for the `hf://` protocol, which follows those URL schemes:
+
+    * Models, Datasets and Spaces repositories:
+
+        ```
+        hf://<repo-id>[@<revision>]/<path/in/repo>
+        hf://datasets/<repo-id>[@<revision>]/<path/in/repo>
+        hf://spaces/<repo-id>[@<revision>]/<path/in/repo>
+        ```
+
+    * Buckets (generic storage):
+
+        ```
+        hf://buckets/<bucket-id>/<path/in/bucket>
+        ```
+
+    Note: when using the [`HfFileSystem`] directly, passing the `hf://` protocol prefix is optional in paths.
+
     Args:
         endpoint (`str`, *optional*):
                 Endpoint of the Hub. Defaults to <https://huggingface.co>.
@@ -913,6 +931,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         expand_info = kwargs.get(
             "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
+        out: Optional[dict[str, Any]]
         if not resolved_path.path:
             # Path is the root directory
             out = {

@@ -192,6 +192,10 @@ class BucketNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a bucket that does not exist.
 
+    Attributes:
+        bucket_id (`str` or `None`):
+            The bucket id (namespace/name) that was not found, if it could be determined from the request URL.
+
     Example:
 
     ```py
@@ -206,6 +210,8 @@ class BucketNotFoundError(HfHubHTTPError):
     ```
     """
 
+    bucket_id: Optional[str] = None
+
 
 # REPOSITORY ERRORS
 
@@ -214,6 +220,12 @@ class RepositoryNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with an invalid repository name, or
     with a private repo name the user does not have access to.
+
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id that was not found, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
 
     Example:
 
@@ -229,6 +241,9 @@ class RepositoryNotFoundError(HfHubHTTPError):
     Invalid username or password.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 class GatedRepoError(RepositoryNotFoundError):
@@ -279,6 +294,12 @@ class RevisionNotFoundError(HfHubHTTPError):
     Raised when trying to access a hf.co URL with a valid repository but an invalid
     revision.
 
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
+
     Example:
 
     ```py
@@ -290,6 +311,9 @@ class RevisionNotFoundError(HfHubHTTPError):
     Revision Not Found for url: https://huggingface.co/bert-base-cased/resolve/%3Cnon-existent-revision%3E/config.json.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 # ENTRY ERRORS
@@ -316,6 +340,12 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     Raised when trying to access a hf.co URL with a valid repository and revision
     but an invalid filename.
 
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
+
     Example:
 
     ```py
@@ -327,6 +357,9 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     Entry Not Found for url: https://huggingface.co/bert-base-cased/resolve/main/%3Cnon-existent-file%3E.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
@@ -435,3 +468,7 @@ class XetDownloadError(Exception):
 
 class CLIError(Exception):
     """CLI error with clean message (no traceback by default)."""
+
+
+class CLIExtensionInstallError(CLIError):
+    """Error during CLI extension installation."""

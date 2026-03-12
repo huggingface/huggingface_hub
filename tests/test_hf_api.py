@@ -99,6 +99,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -1870,6 +1871,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             assert "bert" in model.id.lower()
 
+    def test_list_models_num_parameters(self):
+        models = list(self._api.list_models(num_parameters="min:6B,max:128B", limit=5))
+        assert len(models) == 5
+        assert all(isinstance(model, ModelInfo) for model in models)
+
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -2092,6 +2098,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    def test_list_dataset_parquet_files(self):
+        entries = self._api.list_dataset_parquet_files(
+            repo_id="nvidia/Llama-Nemotron-Post-Training-Dataset", token=False
+        )
+        assert len(entries) > 0
+        assert entries[0].config
+        assert entries[0].split
+        assert entries[0].url.endswith(".parquet")
+        assert entries[0].size > 0
+
     def test_filter_datasets_by_author_and_name(self):
         datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
         assert len(datasets) > 0
@@ -2114,6 +2130,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert mock_paginate.call_count == 2
         assert mock_paginate.call_args_list[0][1]["params"] == {"filter": ["benchmark:official"]}
         assert mock_paginate.call_args_list[1][1]["params"] == {"filter": ["benchmark:official"]}
+
+    def test_list_models_num_parameters_are_forwarded(self):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_models(num_parameters="min:6B,max:128B"))
+
+        assert mock_paginate.call_count == 1
+        assert mock_paginate.call_args[1]["params"] == {"num_parameters": "min:6B,max:128B"}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
@@ -2783,6 +2807,10 @@ class UploadFolderMockedTest(unittest.TestCase):
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
 
+@pytest.mark.skip(
+    # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
+    reason="Skipping git clone test on CI."
+)
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path
@@ -3606,6 +3634,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("duplicate_space")
     def test_duplicate_space(self) -> None:
         self.api.duplicate_space(
             self.repo_id,
@@ -3958,6 +3987,7 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
+    @expect_deprecation("duplicate_space")
     @unittest.skip("Duplicating Space doesn't work on staging.")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
@@ -3993,6 +4023,7 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
         self._api.delete_repo(repo_id=to_repo_id, repo_type="space")
 
+    @expect_deprecation("duplicate_space")
     def test_duplicate_space_from_missing_repo(self) -> None:
         """Check `duplicate_space` fails when the from_repo doesn't exist."""
 

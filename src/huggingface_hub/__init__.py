@@ -229,10 +229,13 @@ _SUBMOD_ATTRS = {
         "delete_space_variable",
         "delete_tag",
         "delete_webhook",
+        "disable_space_dev_mode",
         "disable_webhook",
         "download_bucket_files",
+        "duplicate_repo",
         "duplicate_space",
         "edit_discussion_comment",
+        "enable_space_dev_mode",
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
@@ -262,6 +265,7 @@ _SUBMOD_ATTRS = {
         "list_buckets",
         "list_collections",
         "list_daily_papers",
+        "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
@@ -919,11 +923,14 @@ __all__ = [
     "delete_space_variable",
     "delete_tag",
     "delete_webhook",
+    "disable_space_dev_mode",
     "disable_webhook",
     "download_bucket_files",
     "dump_environment_info",
+    "duplicate_repo",
     "duplicate_space",
     "edit_discussion_comment",
+    "enable_space_dev_mode",
     "enable_webhook",
     "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
@@ -969,6 +976,7 @@ __all__ = [
     "list_buckets",
     "list_collections",
     "list_daily_papers",
+    "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
@@ -1333,10 +1341,13 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
+        disable_space_dev_mode,  # noqa: F401
         disable_webhook,  # noqa: F401
         download_bucket_files,  # noqa: F401
+        duplicate_repo,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
@@ -1366,6 +1377,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_buckets,  # noqa: F401
         list_collections,  # noqa: F401
         list_daily_papers,  # noqa: F401
+        list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401

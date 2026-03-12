@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -28,7 +29,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
-from .testing_utils import DUMMY_MODEL_ID
+from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
 @pytest.fixture
@@ -1279,6 +1280,54 @@ class TestBranchCommands:
         )
 
 
+class TestRepoDuplicateCommand:
+    def test_repo_duplicate_implicit_namespace(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="user/my-model")
+            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.duplicate_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id=None,
+            repo_type="dataset",
+            private=None,
+            token=None,
+            exist_ok=False,
+        )
+
+    def test_repo_duplicate_explicit_namespace(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="myorg/my-copy")
+            result = runner.invoke(
+                app,
+                [
+                    "repos",
+                    "duplicate",
+                    DUMMY_MODEL_ID,
+                    "myorg/my-copy",
+                    "--type",
+                    "space",
+                    "--private",
+                    "--exist-ok",
+                    "--token",
+                    "my-token",
+                ],
+            )
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token="my-token")
+        api.duplicate_repo.assert_called_once_with(
+            from_id=DUMMY_MODEL_ID,
+            to_id="myorg/my-copy",
+            repo_type="space",
+            private=True,
+            token="my-token",
+            exist_ok=True,
+        )
+
+
 class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
@@ -1484,6 +1533,16 @@ class TestModelsLsCommand:
         assert kwargs["filter"] == ["text-classification"]
         assert kwargs["limit"] == 5
 
+    def test_models_ls_with_num_parameters(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.models.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_models.return_value = iter([])
+            result = runner.invoke(app, ["models", "ls", "--num-parameters", "min:6B,max:128B"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_models.call_args
+        assert kwargs["num_parameters"] == "min:6B,max:128B"
+
     def test_models_ls_invalid_sort_key(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "--sort", "invalid_key"])
         assert result.exit_code == 2
@@ -1500,6 +1559,85 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestDatasetsParquetCommand:
+    def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="datasets",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/datasets/train/0.parquet",
+                    size=1234,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "SUBSET" in result.stdout
+        assert "URL" in result.stdout
+        assert "datasets" in result.stdout
+        assert "train" in result.stdout
+
+    def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = [
+                DatasetParquetEntry(
+                    config="models",
+                    split="train",
+                    url="https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                    size=5678,
+                )
+            ]
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload == [
+            {
+                "subset": "models",
+                "split": "train",
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
+                "size": 5678,
+            }
+        ]
+
+    def test_datasets_parquet_empty_result(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_dataset_parquet_files.return_value = []
+            result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
+
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+
+
+class TestDatasetsSqlCommand:
+    # count number of rows by sector in the GDPVAL dataset train split
+    # https://huggingface.co/datasets/openai/gdpval
+    SQL_QUERY = "SELECT sector, COUNT(*) AS count FROM read_parquet('https://huggingface.co/api/datasets/openai/gdpval/parquet/default/train/0.parquet') GROUP BY sector ORDER BY count DESC"
+
+    @with_production_testing
+    def test_datasets_sql_table(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
+
+        assert result.exit_code == 0
+        assert "SECTOR" in result.stdout
+        assert "COUNT" in result.stdout
+
+    @with_production_testing
+    def test_datasets_sql_json(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY, "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert len(payload) > 0
+        for item in payload:
+            assert isinstance(item["sector"], str)
+            assert isinstance(item["count"], int)
 
 
 class TestSpacesLsCommand:
@@ -1930,7 +2068,7 @@ class TestRepoFilesCommand:
 
 class TestJobsCommand:
     def test_run(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -1952,7 +2090,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_run_with_extra_args(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2003,7 +2141,7 @@ class TestJobsCommand:
         )
 
     def test_uv_command(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2028,7 +2166,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_command_with_extra_args(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2055,7 +2193,7 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_remote_script(self, runner: CliRunner) -> None:
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2081,7 +2219,7 @@ class TestJobsCommand:
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
         script_path = tmp_path / "script.py"
         script_path.write_text("print('hello')")
-        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2114,7 +2252,7 @@ class TestJobsCommand:
         from huggingface_hub._jobs_api import JobOwner
 
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
-        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/my-username/my-job-id")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
@@ -2386,3 +2524,218 @@ class TestParseNamespaceFromJobId:
     def test_parse_namespace_from_job_id_errors(self, input_job_id: str, input_namespace: Optional[str]) -> None:
         with pytest.raises(CLIError):
             _parse_namespace_from_job_id(input_job_id, input_namespace)
+
+
+class TestWebhooksCommand:
+    def _make_webhook(self, **kwargs):
+        from huggingface_hub.hf_api import WebhookInfo, WebhookWatchedItem
+
+        defaults = dict(
+            id="wh-abc123",
+            url="https://example.com/hook",
+            job=None,
+            watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
+            domains=["repo"],
+            secret=None,
+            disabled=False,
+        )
+        return WebhookInfo(**{**defaults, **kwargs})
+
+    def test_ls(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls"])
+        assert result.exit_code == 0, result.output
+        assert "wh-abc123" in result.output
+
+    def test_ls_json(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls", "--format", "json"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert data[0]["id"] == "wh-abc123"
+
+    def test_ls_quiet(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = [webhook]
+            result = runner.invoke(app, ["webhooks", "ls", "-q"])
+        assert result.exit_code == 0, result.output
+        assert result.output.strip() == "wh-abc123"
+
+    def test_ls_empty(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.list_webhooks.return_value = []
+            result = runner.invoke(app, ["webhooks", "ls"])
+        assert result.exit_code == 0, result.output
+        assert "No results found" in result.output
+
+    def test_info(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.get_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "info", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["id"] == "wh-abc123"
+        api_cls.return_value.get_webhook.assert_called_once_with("wh-abc123")
+
+    def test_create(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "model:bert-base-uncased"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook created: wh-abc123" in result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url="https://example.com/hook",
+            job_id=None,
+            watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
+            domains=None,
+            secret=None,
+        )
+
+    def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook()
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--url",
+                    "https://example.com/hook",
+                    "--watch",
+                    "org:HuggingFace",
+                    "--domain",
+                    "repo",
+                    "--secret",
+                    "mysecret",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url="https://example.com/hook",
+            job_id=None,
+            watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
+            domains=["repo"],
+            secret="mysecret",
+        )
+
+    def test_create_with_job_id(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "create", "--job-id", "687f911eaea852de79c4a50a", "--watch", "user:julien-c"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook created" in result.output
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
+        api_cls.return_value.create_webhook.assert_called_once_with(
+            url=None,
+            job_id="687f911eaea852de79c4a50a",
+            watched=[WebhookWatchedItem(type="user", name="julien-c")],
+            domains=None,
+            secret=None,
+        )
+
+    def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--job-id", "some-job", "--watch", "user:me"],
+        )
+        assert result.exit_code != 0
+
+    def test_create_requires_url_or_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--watch", "user:me"],
+        )
+        assert result.exit_code != 0
+
+    def test_create_bad_watch_format(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "bad-format"],
+        )
+        assert result.exit_code != 0
+
+    def test_create_bad_watch_type(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "badtype:name"],
+        )
+        assert result.exit_code != 0
+
+    def test_update(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url="https://new.example.com/hook")
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--url", "https://new.example.com/hook"],
+            )
+        assert result.exit_code == 0, result.output
+        assert "Webhook updated: wh-abc123" in result.output
+        api_cls.return_value.update_webhook.assert_called_once_with(
+            "wh-abc123",
+            url="https://new.example.com/hook",
+            watched=None,
+            domains=None,
+            secret=None,
+        )
+
+    def test_enable(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(disabled=False)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.enable_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "enable", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook enabled: wh-abc123" in result.output
+        api_cls.return_value.enable_webhook.assert_called_once_with("wh-abc123")
+
+    def test_disable(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(disabled=True)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.disable_webhook.return_value = webhook
+            result = runner.invoke(app, ["webhooks", "disable", "wh-abc123"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook disabled: wh-abc123" in result.output
+        api_cls.return_value.disable_webhook.assert_called_once_with("wh-abc123")
+
+    def test_delete_with_yes(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.delete_webhook.return_value = None
+            result = runner.invoke(app, ["webhooks", "delete", "wh-abc123", "--yes"])
+        assert result.exit_code == 0, result.output
+        assert "Webhook deleted: wh-abc123" in result.output
+        api_cls.return_value.delete_webhook.assert_called_once_with("wh-abc123")
+
+    def test_delete_confirm_yes(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.delete_webhook.return_value = None
+            result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="y\n")
+        assert result.exit_code == 0, result.output
+        assert "Webhook deleted: wh-abc123" in result.output
+
+    def test_delete_confirm_no(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
+        assert result.exit_code != 0
+        assert "Aborted" in result.output
+        api_cls.return_value.delete_webhook.assert_not_called()

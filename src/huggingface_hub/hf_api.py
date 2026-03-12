@@ -80,6 +80,7 @@ from ._commit_api import (
     _upload_files,
     _warn_on_overwriting_operations,
 )
+from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
@@ -133,7 +134,7 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_arguments
+from .utils._deprecation import _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -2079,7 +2080,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2095,10 +2095,10 @@ class HfApi:
         trained_dataset: Optional[Union[str, list[str]]] = None,
         search: Optional[str] = None,
         pipeline_tag: Optional[str] = None,
+        num_parameters: Optional[str] = None,
         emissions_thresholds: Optional[tuple[float, float]] = None,
         # Sorting and pagination parameters
         sort: Optional[ModelSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandModelProperty_T]] = None,
@@ -2139,14 +2139,15 @@ class HfApi:
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
                 A string pipeline tag to filter models on the Hub by, such as `summarization`.
+            num_parameters (`str`, *optional*):
+                Filter models by parameter count. Accepts the same range syntax as the Hub UI and API, for example
+                `"min:6B,max:128B"`, `"min:6B"` or `"max:128B"`.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
             sort (`ModelSort_T`, *optional*):
                 The key with which to sort the resulting models. Possible values are "created_at", "downloads",
                 "last_modified", "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
@@ -2199,6 +2200,9 @@ class HfApi:
 
         # List models with "bert" in their name and pushed by google
         >>> api.list_models(search="bert", author="google")
+
+        # List models with 6B to 128B parameters
+        >>> api.list_models(num_parameters="min:6B,max:128B", sort="likes")
         ```
         """
         if expand and (full or cardData or fetch_config):
@@ -2236,6 +2240,8 @@ class HfApi:
             params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
+        if num_parameters is not None:
+            params["num_parameters"] = num_parameters
         search_list = []
         if model_name:
             search_list.append(model_name)
@@ -2253,8 +2259,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
 
@@ -2279,7 +2283,6 @@ class HfApi:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -2299,7 +2302,6 @@ class HfApi:
         search: Optional[str] = None,
         # Sorting and pagination parameters
         sort: Optional[DatasetSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandDatasetProperty_T]] = None,
@@ -2353,8 +2355,6 @@ class HfApi:
             sort (`DatasetSort_T`, *optional*):
                 The key with which to sort the resulting datasets. Possible values are "created_at", "downloads",
                 "last_modified", "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
@@ -2473,8 +2473,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
 
@@ -2492,7 +2490,70 @@ class HfApi:
                 item["siblings"] = None
             yield DatasetInfo(**item)
 
-    @_deprecate_arguments(version="1.5", deprecated_args=["direction"], custom_message="Sorting is always descending.")
+    @validate_hf_hub_args
+    def list_dataset_parquet_files(
+        self,
+        repo_id: str,
+        *,
+        config: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> list[DatasetParquetEntry]:
+        """List parquet files available for a dataset on the Hub.
+
+        All datasets hosted on the Hub are auto-converted to Parquet by the
+        [Dataset Viewer](https://huggingface.co/docs/dataset-viewer/parquet).
+        This method returns the list of parquet files with their URLs, configs,
+        splits and sizes.
+
+        Args:
+            repo_id (`str`):
+                The dataset repository ID (e.g. `"username/dataset-name"`).
+            config (`str`, *optional*):
+                Filter by a specific config/subset name. When provided, only
+                parquet files for that config are returned.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[DatasetParquetEntry]`: a list of [`DatasetParquetEntry`] objects
+            containing config, split, url and size for each parquet file.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import list_dataset_parquet_files
+            >>> list_dataset_parquet_files("lhoestq/demo1")
+            >>> entries[0]
+            DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
+            ```
+        """
+        if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
+            raise ValueError(
+                "The Dataset Viewer is only available on the Hugging Face Hub"
+                f" (endpoint='{constants._HF_DEFAULT_ENDPOINT}'). It is not supported on"
+                f" third-party endpoints. (endpoint={self.endpoint})"
+            )
+
+        url = f"{constants.DATASETS_SERVER_ENDPOINT}/parquet"
+        params: dict[str, str] = {"dataset": repo_id}
+        if config is not None:
+            params["config"] = config
+        response = get_session().get(url, params=params, headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+        payload = response.json()
+
+        return [
+            DatasetParquetEntry(
+                config=file_info["config"],
+                split=file_info["split"],
+                url=file_info["url"],
+                size=file_info["size"],
+            )
+            for file_info in payload.get("parquet_files", [])
+        ]
+
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -2506,7 +2567,6 @@ class HfApi:
         linked: bool = False,
         # Sorting and pagination parameters
         sort: Optional[SpaceSort_T] = None,
-        direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         # Additional data to fetch
         expand: Optional[list[ExpandSpaceProperty_T]] = None,
@@ -2534,8 +2594,6 @@ class HfApi:
             sort (`SpaceSort_T`, *optional*):
                 The key with which to sort the resulting spaces. Possible values are "created_at", "last_modified",
                 "likes" and "trending_score".
-            direction (`Literal[-1]` or `int`, *optional*):
-                Deprecated. This parameter is not used and will be removed in version 1.5.
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
@@ -2577,8 +2635,6 @@ class HfApi:
                 if sort == "created_at"
                 else sort
             )
-        if direction is not None:
-            params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
         if linked:
@@ -7422,6 +7478,89 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
+    def enable_space_dev_mode(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
+        """Enable dev mode on a Space.
+
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to enable dev mode. Example: `"Salesforce/BLIP2"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can set dev mode. If you want to handle a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
+            headers=self._build_hf_headers(token=token),
+            json={"enabled": True},
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def disable_space_dev_mode(
+        self,
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+    ) -> SpaceRuntime:
+        """Disable dev mode on a Space.
+
+        Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
+        to restart your application without stopping the Space container itself. This feature is available as part of
+        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to disable dev mode. Example: `"Salesforce/BLIP2"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can set dev mode. If you want to handle a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/dev-mode",
+            headers=self._build_hf_headers(token=token),
+            json={"enabled": False},
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
     def restart_space(
         self, repo_id: str, *, token: Union[bool, str, None] = None, factory_reboot: bool = False
     ) -> SpaceRuntime:
@@ -7467,6 +7606,166 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    @validate_hf_hub_args
+    def duplicate_repo(
+        self,
+        from_id: str,
+        to_id: Optional[str] = None,
+        *,
+        repo_type: Optional[str] = None,
+        private: Optional[bool] = None,
+        token: Union[bool, str, None] = None,
+        exist_ok: bool = False,
+        space_hardware: Optional[SpaceHardware] = None,
+        space_storage: Optional[SpaceStorage] = None,
+        space_sleep_time: Optional[int] = None,
+        space_secrets: Optional[list[dict[str, str]]] = None,
+        space_variables: Optional[list[dict[str, str]]] = None,
+    ) -> RepoUrl:
+        """Duplicate a repo on the Hub (model, dataset, or Space).
+
+        This performs a server-side copy that preserves full git history and LFS objects
+        without requiring a local download/upload round-trip.
+
+        Args:
+            from_id (`str`):
+                ID of the repo to duplicate. Example: `"openai/gdpval"`.
+            to_id (`str`, *optional*):
+                ID of the new repo. Example: `"myorg/my-gdpval"`. If not provided, the new
+                repo will have the same name as the original repo, but in your account.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if duplicating a dataset or Space,
+                `None` or `"model"` if duplicating a model. Default is `None`.
+            private (`bool`, *optional*):
+                Whether the new repo should be private or not. Defaults to the same
+                privacy as the original repo.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo already exists.
+            space_hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
+                [`SpaceHardware`] for a complete list.
+            space_storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier if repo_type is "space". Example:
+                `"small"`. See [`SpaceStorage`] for a complete list.
+            space_sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep.
+                Set to `-1` if you don't want your Space to sleep (default behavior for
+                upgraded hardware). For free hardware, you can't configure the sleep time
+                (value is fixed to 48 hours of inactivity). Only applicable if repo_type is "space".
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            space_secrets (`list[dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form
+                `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                Only applicable if repo_type is "space".
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            space_variables (`list[dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in
+                the form `{"key": ..., "value": ..., "description": ...}` where description
+                is optional. Only applicable if repo_type is "space".
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+
+        Returns:
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+              If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            [`HfHubHTTPError`]:
+              If the HuggingFace API returned an error
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_repo
+
+        # Duplicate a model to your account
+        >>> duplicate_repo("google/gemma-7b")
+        RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+
+        # Duplicate a dataset with a custom name
+        >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
+        RepoUrl('https://huggingface.co/datasets/myorg/my-gdpval',...)
+
+        # Duplicate a Space with custom hardware
+        >>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", space_hardware="t4-medium")
+        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+        ```
+        """
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        # Map repo_type to API path segment
+        api_prefix = {
+            None: "models",
+            constants.REPO_TYPE_MODEL: "models",
+            constants.REPO_TYPE_DATASET: "datasets",
+            constants.REPO_TYPE_SPACE: "spaces",
+        }[repo_type]
+
+        # Parse to_id if provided
+        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
+
+        # Infer target repo_id
+        to_namespace = (
+            parsed_to_id.namespace
+            if parsed_to_id is not None and parsed_to_id.namespace is not None
+            else self.whoami(token)["name"]
+        )
+        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+
+        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+
+        if private is not None:
+            payload["private"] = private
+
+        # Space-specific options
+        function_args = [
+            "space_hardware",
+            "space_storage",
+            "space_sleep_time",
+            "space_secrets",
+            "space_variables",
+        ]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+
+        if repo_type == "space":
+            payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
+                warnings.warn(
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                    UserWarning,
+                )
+        else:
+            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
+            if provided_space_args:
+                warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
+
+        r = get_session().post(
+            f"{self.endpoint}/api/{api_prefix}/{from_id}/duplicate",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+
+        try:
+            hf_raise_for_status(r)
+        except HfHubHTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                pass
+            else:
+                raise
+
+        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+
+    @_deprecate_method(version="2.0", message="Use `duplicate_repo` instead.")
     @validate_hf_hub_args
     def duplicate_space(
         self,
@@ -7541,49 +7840,26 @@ class HfApi:
         >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
+
+        > [!WARNING]
+        > `duplicate_space` is deprecated and will be removed in version 2.0. Use [`~HfApi.duplicate_repo`] instead.
         """
-        # Parse to_id if provided
-        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
-
-        # Infer target repo_id
-        to_namespace = (  # set namespace manually or default to username
-            parsed_to_id.namespace
-            if parsed_to_id is not None and parsed_to_id.namespace is not None
-            else self.whoami(token)["name"]
+        kwargs: dict[str, Any] = {}
+        if to_id is not None:
+            kwargs["to_id"] = to_id
+        return self.duplicate_repo(
+            from_id=from_id,
+            repo_type="space",
+            private=private,
+            token=token,
+            exist_ok=exist_ok,
+            space_hardware=hardware,
+            space_storage=storage,
+            space_sleep_time=sleep_time,
+            space_secrets=secrets,
+            space_variables=variables,
+            **kwargs,
         )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
-
-        # repository must be a valid repo_id (namespace/repo_name).
-        payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
-
-        keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [private, hardware, storage, sleep_time, secrets, variables]
-        payload.update({k: v for k, v in zip(keys, values) if v is not None})
-
-        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
-            warnings.warn(
-                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
-                UserWarning,
-            )
-
-        r = get_session().post(
-            f"{self.endpoint}/api/spaces/{from_id}/duplicate",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
-
-        try:
-            hf_raise_for_status(r)
-        except HfHubHTTPError as err:
-            if exist_ok and err.response.status_code == 409:
-                # Repo already exists and `exist_ok=True`
-                pass
-            else:
-                raise
-
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def request_space_storage(
@@ -9487,7 +9763,11 @@ class HfApi:
         """
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        post_webhooks_json = {"watched": watched_dicts, "domains": domains, "secret": secret}
+        post_webhooks_json: dict = {"watched": watched_dicts}
+        if domains is not None:
+            post_webhooks_json["domains"] = domains
+        if secret is not None:
+            post_webhooks_json["secret"] = secret
         if url is not None and job_id is not None:
             raise ValueError("Set `url` or `job_id` but not both.")
         elif url is not None:
@@ -9577,9 +9857,17 @@ class HfApi:
             watched = []
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
+        update_json: dict = {"watched": watched_dicts}
+        if url is not None:
+            update_json["url"] = url
+        if domains is not None:
+            update_json["domains"] = domains
+        if secret is not None:
+            update_json["secret"] = secret
+
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
-            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
+            json=update_json,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -12439,6 +12727,7 @@ list_models = api.list_models
 model_info = api.model_info
 
 list_datasets = api.list_datasets
+list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
 
 list_spaces = api.list_spaces
@@ -12519,9 +12808,12 @@ request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
+duplicate_repo = api.duplicate_repo
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+enable_space_dev_mode = api.enable_space_dev_mode
+disable_space_dev_mode = api.disable_space_dev_mode
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints
