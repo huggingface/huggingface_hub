@@ -73,6 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Configure Git
@@ -354,7 +355,7 @@ jobs:
           MINOR=$(echo "${{ needs.prepare.outputs.version }}" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
           # Look for any existing GitHub release (draft or published) matching this minor version
           EXISTING=$(gh release list --json tagName,isDraft --limit 100 \
-            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}\")) | .tagName" | head -1)
+            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
           if [[ -n "$EXISTING" ]]; then
             echo "Draft release already exists for v${MINOR}: $EXISTING — skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
@@ -432,7 +433,7 @@ jobs:
 
           # Find the existing draft release for this minor version
           EXISTING_TAG=$(gh release list --json tagName,isDraft --limit 100 \
-            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}\")) | .tagName" | head -1)
+            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
 
           if [[ -n "$EXISTING_TAG" ]]; then
             echo "Updating existing draft release from $EXISTING_TAG to $TAG"
