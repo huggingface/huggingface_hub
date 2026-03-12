@@ -115,7 +115,13 @@ Once you have your token, run the following command in your terminal:
 >>> hf auth login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press _Enter_. Then, you'll be asked if the token should also be saved as a git credential. Press _Enter_ again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+If you are already logged in, this command will skip the prompt and display a message. To force re-login (e.g. to switch tokens), use `--force`:
+
+```bash
+>>> hf auth login --force
+```
+
+If you are not logged in, the command will prompt you for a token. Copy-paste yours and press _Enter_. Then, you'll be asked if the token should also be saved as a git credential. Press _Enter_ again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|

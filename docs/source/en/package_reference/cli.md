@@ -105,12 +105,14 @@ $ hf auth login [OPTIONS]
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
+* `--force / --no-force`: Force re-login even if already logged in.  [default: no-force]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf auth login
   $ hf auth login --token $HF_TOKEN
   $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth login --force
 
 Learn more
   Use `hf <command> --help` for more information about a command.

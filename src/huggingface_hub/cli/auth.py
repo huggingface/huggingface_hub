@@ -54,6 +54,7 @@ auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
         "hf auth login",
         "hf auth login --token $HF_TOKEN",
         "hf auth login --token $HF_TOKEN --add-to-git-credential",
+        "hf auth login --force",
     ],
 )
 def auth_login(
@@ -64,9 +65,15 @@ def auth_login(
             help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            help="Force re-login even if already logged in.",
+        ),
+    ] = False,
 ) -> None:
     """Login using a token from huggingface.co/settings/tokens."""
-    login(token=token, add_to_git_credential=add_to_git_credential)
+    login(token=token, add_to_git_credential=add_to_git_credential, force=force)
 
 
 @auth_cli.command(
