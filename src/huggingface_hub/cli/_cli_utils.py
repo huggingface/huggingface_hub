@@ -96,6 +96,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
+    - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
