@@ -126,7 +126,9 @@ from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
+    get_progress_format,
     is_tqdm_disabled,
+    set_progress_format,
     tqdm,
     tqdm_stream_file,
 )
