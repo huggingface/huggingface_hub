@@ -61,7 +61,6 @@ def login(
     *,
     add_to_git_credential: bool = False,
     skip_if_logged_in: bool = True,
-    force: bool = False,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -93,9 +92,7 @@ def login(
             to the end user.
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
-        force (`bool`, defaults to `False`):
-            If `True`, force re-login even if user is already logged in.
-            Overrides `skip_if_logged_in`.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -115,9 +112,9 @@ def login(
             )
         _login(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
-        notebook_login(skip_if_logged_in=skip_if_logged_in, force=force)
+        notebook_login(skip_if_logged_in=skip_if_logged_in)
     else:
-        interpreter_login(skip_if_logged_in=skip_if_logged_in, force=force)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
 def logout(token_name: Optional[str] = None) -> None:
@@ -236,7 +233,7 @@ def auth_list() -> None:
 ###
 
 
-def interpreter_login(*, skip_if_logged_in: bool = True, force: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -249,12 +246,10 @@ def interpreter_login(*, skip_if_logged_in: bool = True, force: bool = False) ->
     Args:
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
-        force (`bool`, defaults to `False`):
-            If `True`, force re-login even if user is already logged in.
-            Overrides `skip_if_logged_in`.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
-    if skip_if_logged_in and not force and get_token() is not None:
-        logger.info("User is already logged in. Use `force=True` (or `--force` in CLI) to re-login.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     print(_HF_LOGO_ASCII)
@@ -301,7 +296,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login(*, skip_if_logged_in: bool = True, force: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -314,9 +309,7 @@ def notebook_login(*, skip_if_logged_in: bool = True, force: bool = False) -> No
     Args:
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
-        force (`bool`, defaults to `False`):
-            If `True`, force re-login even if user is already logged in.
-            Overrides `skip_if_logged_in`.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -326,8 +319,8 @@ def notebook_login(*, skip_if_logged_in: bool = True, force: bool = False) -> No
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if skip_if_logged_in and not force and get_token() is not None:
-        logger.info("User is already logged in. Use `force=True` (or `--force` in CLI) to re-login.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")

@@ -73,7 +73,7 @@ def auth_login(
     ] = False,
 ) -> None:
     """Login using a token from huggingface.co/settings/tokens."""
-    login(token=token, add_to_git_credential=add_to_git_credential, force=force)
+    login(token=token, add_to_git_credential=add_to_git_credential, skip_if_logged_in=not force)
 
 
 @auth_cli.command(
