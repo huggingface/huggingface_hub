@@ -199,9 +199,9 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
     print_list_output(rows, format=format, quiet=quiet, id_key="command")
 
 
-@extensions_cli.command("find", examples=["hf extensions find"])
-def extension_find(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
-    """Find extensions available on GitHub (tagged with 'hf-extension' topic)."""
+@extensions_cli.command("search", examples=["hf extensions search"])
+def extension_search(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
+    """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
     response = get_session().get(
         "https://api.github.com/search/repositories",
         params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
