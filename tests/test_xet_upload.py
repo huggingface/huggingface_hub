@@ -369,6 +369,8 @@ class TestBucketXetUploadSkipSha256:
         assert "from_path.bin" in uploaded
         assert "from_bytes.bin" in uploaded
 
+        api.delete_bucket(bucket_id)
+
 
 @requires("hf_xet")
 class TestXetLargeUpload:
