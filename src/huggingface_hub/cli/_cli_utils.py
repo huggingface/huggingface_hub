@@ -89,7 +89,7 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-_SKIP_JSON_REWRITE_COMMANDS = {"extensions", "exec"}
+_SKIP_JSON_REWRITE_COMMANDS = {"extensions", "ext", "exec"}
 
 
 class HFCliTyperGroup(typer.core.TyperGroup):
