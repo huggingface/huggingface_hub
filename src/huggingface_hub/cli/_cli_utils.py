@@ -89,9 +89,6 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-_SKIP_JSON_REWRITE_COMMANDS = {"extensions", "ext", "exec"}
-
-
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
     Typer Group that:
@@ -102,15 +99,20 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        # Rewrite hidden --json shorthand to --format json.
-        # Skip for commands that pass args through to external binaries (e.g. `hf extensions exec`)
-        # to avoid silently rewriting `--json` that the extension binary may handle natively.
-        cmd_name = args[0] if args and not args[0].startswith("-") else None
-        if cmd_name not in _SKIP_JSON_REWRITE_COMMANDS and "--json" in args:
-            if any(a == "--format" or a.startswith("--format=") for a in args):
-                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-            idx = args.index("--json")
-            args[idx : idx + 1] = ["--format", "json"]
+        # Rewrite hidden --json shorthand to --format json, but only for commands that accept --format.
+        # This avoids rewriting `--json` for commands that pass args through to external binaries
+        # (e.g. `hf extensions exec`) or that simply don't support `--format`.
+        if "--json" in args:
+            cmd_name = args[0] if args and not args[0].startswith("-") else None
+            cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+            has_format_option = cmd is not None and any(
+                isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
+            )
+            if has_format_option:
+                if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                    raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+                idx = args.index("--json")
+                args[idx : idx + 1] = ["--format", "json"]
         return super().resolve_command(ctx, args)
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
