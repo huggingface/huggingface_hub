@@ -108,6 +108,7 @@ Output to `<output_dir>/RELEASE_NOTES_<version>.md` using the structure from `re
 
 Before finishing:
 - Verify every PR from `<output_dir>/tmp/` appears exactly once
+- **Do NOT include any PR that does not have a corresponding file in `<output_dir>/tmp/`** — those PRs belong to a different release and must not appear in these notes
 - No empty sections
 - Consistent emoji headings
 - Every item ends with attribution: `by @author in #1234`
