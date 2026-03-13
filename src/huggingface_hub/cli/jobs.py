@@ -91,7 +91,6 @@ from ._cli_utils import (
     api_object_to_dict,
     get_hf_api,
     parse_env_map,
-    parse_secrets_map,
     print_list_output,
     typer_factory,
 )
@@ -294,7 +293,7 @@ def jobs_run(
 ) -> None:
     """Run a Job."""
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_secrets_map(secrets, secrets_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_job(
@@ -755,7 +754,7 @@ def jobs_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_secrets_map(secrets, secrets_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_uv_job(
@@ -808,7 +807,7 @@ def scheduled_run(
 ) -> None:
     """Schedule a Job."""
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_secrets_map(secrets, secrets_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
@@ -1027,7 +1026,7 @@ def scheduled_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_secrets_map(secrets, secrets_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(

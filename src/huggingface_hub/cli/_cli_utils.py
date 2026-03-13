@@ -418,31 +418,20 @@ def parse_env_map(
     env: Optional[list[str]] = None,
     env_file: Optional[str] = None,
 ) -> dict[str, Optional[str]]:
-    """Parse ``-e``/``--env`` and ``--env-file`` CLI args into a dict."""
+    """Parse ``-e``/``--env``/``-s``/``--secrets`` and ``--env-file``/``--secrets-file`` CLI args into a dict.
+
+    Uses an extended environment that includes the user's HF token so that
+    bare ``--secrets HF_TOKEN`` resolves correctly.
+    """
     from huggingface_hub.utils._dotenv import load_dotenv
 
+    extended_environ = _get_extended_environ()
     env_map: dict[str, Optional[str]] = {}
     if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=extended_environ))
     for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
+        env_map.update(load_dotenv(env_value, environ=extended_environ))
     return env_map
-
-
-def parse_secrets_map(
-    secrets: Optional[list[str]] = None,
-    secrets_file: Optional[str] = None,
-) -> dict[str, Optional[str]]:
-    """Parse ``-s``/``--secrets`` and ``--secrets-file`` CLI args into a dict."""
-    from huggingface_hub.utils._dotenv import load_dotenv
-
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
-    return secrets_map
 
 
 def env_map_to_key_value_list(env_map: dict[str, Optional[str]]) -> Optional[list[dict[str, str]]]:
