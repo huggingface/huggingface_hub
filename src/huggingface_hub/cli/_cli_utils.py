@@ -29,6 +29,7 @@ import typer
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
+from huggingface_hub.utils._dotenv import load_dotenv
 
 
 logger = logging.get_logger()
@@ -423,8 +424,6 @@ def parse_env_map(
     Uses an extended environment that includes the user's HF token so that
     bare ``--secrets HF_TOKEN`` resolves correctly.
     """
-    from huggingface_hub.utils._dotenv import load_dotenv
-
     extended_environ = _get_extended_environ()
     env_map: dict[str, Optional[str]] = {}
     if env_file:
