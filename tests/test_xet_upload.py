@@ -340,6 +340,41 @@ class TestXetUpload:
 
 
 @requires("hf_xet")
+class TestBucketXetUploadSkipSha256:
+    """Test that bucket uploads pass skip_sha256=True to hf_xet."""
+
+    def test_skip_sha256_passed_for_bucket_uploads(self, api, tmp_path):
+        """Upload from both filepath and bytes to a real bucket, verifying skip_sha256=True is passed."""
+        from hf_xet import upload_bytes as real_upload_bytes
+        from hf_xet import upload_files as real_upload_files
+
+        bucket_url = api.create_bucket(repo_name(prefix="bucket"))
+        bucket_id = bucket_url.bucket_id
+
+        test_file = tmp_path / "test_file.bin"
+        test_file.write_bytes(b"file content for bucket test")
+
+        with patch("hf_xet.upload_files", wraps=real_upload_files) as spy_upload_files:
+            with patch("hf_xet.upload_bytes", wraps=real_upload_bytes) as spy_upload_bytes:
+                api.batch_bucket_files(
+                    bucket_id,
+                    add=[
+                        (str(test_file), "from_path.bin"),
+                        (b"bytes content for bucket test", "from_bytes.bin"),
+                    ],
+                )
+
+                assert spy_upload_files.call_args_list[0].kwargs.get("skip_sha256") is True
+                assert spy_upload_bytes.call_args_list[0].kwargs.get("skip_sha256") is True
+
+        uploaded = {e.path for e in api.list_bucket_tree(bucket_id)}
+        assert "from_path.bin" in uploaded
+        assert "from_bytes.bin" in uploaded
+
+        api.delete_bucket(bucket_id)
+
+
+@requires("hf_xet")
 class TestXetLargeUpload:
     def test_upload_large_folder(self, api, tmp_path, repo_url: RepoUrl) -> None:
         N_FILES_PER_FOLDER = 4
