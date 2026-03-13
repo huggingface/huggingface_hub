@@ -41,6 +41,7 @@ from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import (
     OutputFormat,
     RepoIdArg,
+    RepoType,
     RepoTypeOpt,
     RevisionOpt,
     TokenOpt,
@@ -712,7 +713,7 @@ def prune(
 )
 def verify(
     repo_id: RepoIdArg,
-    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
     cache_dir: Annotated[
         Optional[str],
