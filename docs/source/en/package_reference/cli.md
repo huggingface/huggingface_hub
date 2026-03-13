@@ -105,12 +105,14 @@ $ hf auth login [OPTIONS]
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
+* `--force / --no-force`: Force re-login even if already logged in.  [default: no-force]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf auth login
   $ hf auth login --token $HF_TOKEN
   $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth login --force
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3121,6 +3123,9 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 Download a skill and install it for an AI assistant.
 
+Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
+If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+
 **Usage**:
 
 ```console
@@ -3139,10 +3144,10 @@ $ hf skills add [OPTIONS]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf skills add --claude
-  $ hf skills add --cursor
-  $ hf skills add --claude --global
-  $ hf skills add --codex --opencode --cursor
+  $ hf skills add
+  $ hf skills add --global
+  $ hf skills add --claude --cursor
+  $ hf skills add --codex --opencode --cursor --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.

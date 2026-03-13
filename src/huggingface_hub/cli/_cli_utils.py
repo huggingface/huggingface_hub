@@ -96,7 +96,25 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
+    - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     """
+
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+        # Rewrite hidden --json shorthand to --format json, but only for commands that accept --format.
+        # This avoids rewriting `--json` for commands that pass args through to external binaries
+        # (e.g. `hf extensions exec`) or that simply don't support `--format`.
+        if "--json" in args:
+            cmd_name = args[0] if args and not args[0].startswith("-") else None
+            cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+            has_format_option = cmd is not None and any(
+                isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
+            )
+            if has_format_option:
+                if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                    raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+                idx = args.index("--json")
+                args[idx : idx + 1] = ["--format", "json"]
+        return super().resolve_command(ctx, args)
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first

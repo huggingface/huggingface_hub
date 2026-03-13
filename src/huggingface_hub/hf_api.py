@@ -2091,7 +2091,9 @@ class HfApi:
                         "Note that HF_TOKEN takes precedence over `hf auth login`."
                     )
                 elif token == _get_token_from_file():
-                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                    error_message += (
+                        " The token stored is invalid. Please run `hf auth login --force` to set a new token."
+                    )
                 raise HfHubHTTPError(error_message, response=e.response) from e
             if e.response.status_code == 429:
                 error_message = (

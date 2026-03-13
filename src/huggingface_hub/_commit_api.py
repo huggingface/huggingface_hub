@@ -641,6 +641,7 @@ def _upload_xet_files(
 
         if len(all_paths_ops) > 0:
             all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
+            all_sha256s = [op.upload_info.sha256.hex() for op in all_paths_ops]
             upload_files(
                 all_paths,
                 xet_endpoint,
@@ -649,10 +650,12 @@ def _upload_xet_files(
                 progress_callback,
                 repo_type,
                 request_headers=xet_headers,
+                sha256s=all_sha256s,
             )
 
         if len(all_bytes_ops) > 0:
             all_bytes = [op.path_or_fileobj for op in all_bytes_ops]
+            all_sha256s = [op.upload_info.sha256.hex() for op in all_bytes_ops]
             upload_bytes(
                 all_bytes,
                 xet_endpoint,
@@ -661,6 +664,7 @@ def _upload_xet_files(
                 progress_callback,
                 repo_type,
                 request_headers=xet_headers,
+                sha256s=all_sha256s,
             )
 
     finally:
