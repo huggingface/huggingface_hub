@@ -163,7 +163,7 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 --secrets HF_TOKEN --private",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private",
     ],
 )
 def repo_duplicate(
