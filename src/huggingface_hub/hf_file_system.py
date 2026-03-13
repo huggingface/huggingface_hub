@@ -1036,7 +1036,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
             self.info(path, **kwargs)
             return True
-        except OSError:  # noqa: E722
+        except OSError:
             return False
 
     def isdir(self, path):
@@ -1072,7 +1072,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         try:
             return self.info(path)["type"] == "file"
-        except OSError:  # noqa: E722
+        except OSError:
             return False
 
     def url(self, path: str) -> str:
