@@ -814,21 +814,25 @@ class ModelInfo:
             ID of model.
         author (`str`, *optional*):
             Author of the model.
-        sha (`str`, *optional*):
-            Repo SHA at this particular revision.
+        base_models (`list[str]`, *optional*):
+            List of base models this model is derived from.
+        card_data (`ModelCardData`, *optional*):
+            Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
+        children_model_count (`int`, *optional*):
+            Number of children models derived from this model.
+        config (`dict`, *optional*):
+            Model configuration.
         created_at (`datetime`, *optional*):
             Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
             corresponding to the date when we began to store creation dates.
-        last_modified (`datetime`, *optional*):
-            Date of last commit to the repo.
-        private (`bool`):
-            Is the repo private.
         disabled (`bool`, *optional*):
             Is the repo disabled.
         downloads (`int`):
             Number of downloads of the model over the last 30 days.
         downloads_all_time (`int`):
             Cumulated number of downloads of the model since its creation.
+        eval_results (`list[EvalResultEntry]`, *optional*):
+            Model's evaluation results.
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
@@ -838,70 +842,78 @@ class ModelInfo:
             Status of the model on Inference Providers. Warm if the model is served by at least one provider.
         inference_provider_mapping (`list[InferenceProviderMapping]`, *optional*):
             A list of [`InferenceProviderMapping`] ordered after the user's provider order.
-        likes (`int`):
-            Number of likes of the model.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
         library_name (`str`, *optional*):
             Library associated with the model.
-        tags (`list[str]`):
-            List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
-            (e.g. supported libraries, model's arXiv).
-        pipeline_tag (`str`, *optional*):
-            Pipeline tag associated with the model.
+        likes (`int`):
+            Number of likes of the model.
         mask_token (`str`, *optional*):
             Mask token used by the model.
-        widget_data (`Any`, *optional*):
-            Widget data associated with the model.
         model_index (`dict`, *optional*):
             Model index for evaluation.
-        config (`dict`, *optional*):
-            Model configuration.
-        transformers_info (`TransformersInfo`, *optional*):
-            Transformers-specific info (auto class, processor, etc.) associated with the model.
-        trending_score (`int`, *optional*):
-            Trending score of the model.
-        card_data (`ModelCardData`, *optional*):
-            Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
-        siblings (`list[RepoSibling]`):
-            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
-        spaces (`list[str]`, *optional*):
-            List of spaces using the model.
+        pipeline_tag (`str`, *optional*):
+            Pipeline tag associated with the model.
+        private (`bool`):
+            Is the repo private.
+        resource_group (`dict`, *optional*):
+            Resource group information for the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
         security_repo_status (`dict`, *optional*):
             Model's security scan status.
-        eval_results (`list[EvalResultEntry]`, *optional*):
-            Model's evaluation results.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+        siblings (`list[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
+        spaces (`list[str]`, *optional*):
+            List of spaces using the model.
+        tags (`list[str]`):
+            List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
+            (e.g. supported libraries, model's arXiv).
+        transformers_info (`TransformersInfo`, *optional*):
+            Transformers-specific info (auto class, processor, etc.) associated with the model.
+        trending_score (`int`, *optional*):
+            Trending score of the model.
+        used_storage (`int`, *optional*):
+            Size in bytes of the model on the Hub.
+        widget_data (`Any`, *optional*):
+            Widget data associated with the model.
     """
 
     id: str
     author: Optional[str]
-    sha: Optional[str]
+    base_models: Optional[list[str]]
+    card_data: Optional[ModelCardData]
+    children_model_count: Optional[int]
+    config: Optional[dict]
     created_at: Optional[datetime]
-    last_modified: Optional[datetime]
-    private: Optional[bool]
     disabled: Optional[bool]
     downloads: Optional[int]
     downloads_all_time: Optional[int]
+    eval_results: Optional[list[EvalResultEntry]]
     gated: Optional[Literal["auto", "manual", False]]
     gguf: Optional[dict]
     inference: Optional[Literal["warm"]]
     inference_provider_mapping: Optional[list[InferenceProviderMapping]]
-    likes: Optional[int]
+    last_modified: Optional[datetime]
     library_name: Optional[str]
-    tags: Optional[list[str]]
-    pipeline_tag: Optional[str]
+    likes: Optional[int]
     mask_token: Optional[str]
-    card_data: Optional[ModelCardData]
-    widget_data: Optional[Any]
     model_index: Optional[dict]
-    config: Optional[dict]
-    transformers_info: Optional[TransformersInfo]
-    trending_score: Optional[int]
-    siblings: Optional[list[RepoSibling]]
-    spaces: Optional[list[str]]
+    pipeline_tag: Optional[str]
+    private: Optional[bool]
+    resource_group: Optional[dict]
     safetensors: Optional[SafeTensorsInfo]
     security_repo_status: Optional[dict]
-    eval_results: Optional[list[EvalResultEntry]]
+    sha: Optional[str]
+    siblings: Optional[list[RepoSibling]]
+    spaces: Optional[list[str]]
+    tags: Optional[list[str]]
+    transformers_info: Optional[TransformersInfo]
+    trending_score: Optional[int]
+    used_storage: Optional[int]
+    widget_data: Optional[Any]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -945,6 +957,7 @@ class ModelInfo:
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
@@ -991,6 +1004,9 @@ class ModelInfo:
         self.security_repo_status = kwargs.pop("securityRepoStatus", None)
         eval_results = kwargs.pop("evalResults", None)
         self.eval_results = parse_eval_result_entries(eval_results) if eval_results else None
+        self.base_models = kwargs.pop("baseModels", None)
+        self.children_model_count = kwargs.pop("childrenModelCount", None)
+        self.resource_group = kwargs.pop("resourceGroup", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1013,54 +1029,66 @@ class DatasetInfo:
             ID of dataset.
         author (`str`):
             Author of the dataset.
-        sha (`str`):
-            Repo SHA at this particular revision.
+        card_data (`DatasetCardData`, *optional*):
+            Dataset Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
+        citation (`str`, *optional*):
+            Citation information for the dataset.
         created_at (`datetime`, *optional*):
             Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
             corresponding to the date when we began to store creation dates.
-        last_modified (`datetime`, *optional*):
-            Date of last commit to the repo.
-        private (`bool`):
-            Is the repo private.
+        description (`str`, *optional*):
+            Description of the dataset.
         disabled (`bool`, *optional*):
             Is the repo disabled.
-        gated (`Literal["auto", "manual", False]`, *optional*):
-            Is the repo gated.
-            If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset over the last 30 days.
         downloads_all_time (`int`):
-            Cumulated number of downloads of the model since its creation.
+            Cumulated number of downloads of the dataset since its creation.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated.
+            If so, whether there is manual or automatic approval.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
         likes (`int`):
             Number of likes of the dataset.
-        tags (`list[str]`):
-            List of tags of the dataset.
-        card_data (`DatasetCardData`, *optional*):
-            Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
-        siblings (`list[RepoSibling]`):
-            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
+        private (`bool`):
+            Is the repo private.
+        resource_group (`dict`, *optional*):
+            Resource group information for the dataset.
+        sha (`str`):
+            Repo SHA at this particular revision.
+        siblings (`list[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
+        tags (`list[str]`):
+            List of tags of the dataset.
         trending_score (`int`, *optional*):
             Trending score of the dataset.
+        used_storage (`int`, *optional*):
+            Size in bytes of the dataset on the Hub.
     """
 
     id: str
     author: Optional[str]
-    sha: Optional[str]
+    card_data: Optional[DatasetCardData]
+    citation: Optional[str]
     created_at: Optional[datetime]
-    last_modified: Optional[datetime]
-    private: Optional[bool]
-    gated: Optional[Literal["auto", "manual", False]]
+    description: Optional[str]
     disabled: Optional[bool]
     downloads: Optional[int]
     downloads_all_time: Optional[int]
+    gated: Optional[Literal["auto", "manual", False]]
+    last_modified: Optional[datetime]
     likes: Optional[int]
     paperswithcode_id: Optional[str]
+    private: Optional[bool]
+    resource_group: Optional[dict]
+    sha: Optional[str]
+    siblings: Optional[list[RepoSibling]]
     tags: Optional[list[str]]
     trending_score: Optional[int]
-    card_data: Optional[DatasetCardData]
-    siblings: Optional[list[RepoSibling]]
+    used_storage: Optional[int]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1079,6 +1107,7 @@ class DatasetInfo:
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
@@ -1106,6 +1135,9 @@ class DatasetInfo:
             if siblings is not None
             else None
         )
+        self.citation = kwargs.pop("citation", None)
+        self.description = kwargs.pop("description", None)
+        self.resource_group = kwargs.pop("resourceGroup", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1127,63 +1159,69 @@ class SpaceInfo:
             ID of the Space.
         author (`str`, *optional*):
             Author of the Space.
-        sha (`str`, *optional*):
-            Repo SHA at this particular revision.
+        card_data (`SpaceCardData`, *optional*):
+            Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
         created_at (`datetime`, *optional*):
             Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
             corresponding to the date when we began to store creation dates.
-        last_modified (`datetime`, *optional*):
-            Date of last commit to the repo.
-        private (`bool`):
-            Is the repo private.
+        datasets (`list[str]`, *optional*):
+            List of datasets used by the Space.
+        disabled (`bool`, *optional*):
+            Is the Space disabled.
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
-        disabled (`bool`, *optional*):
-            Is the Space disabled.
         host (`str`, *optional*):
             Host URL of the Space.
-        subdomain (`str`, *optional*):
-            Subdomain of the Space.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
         likes (`int`):
             Number of likes of the Space.
-        tags (`list[str]`):
-            List of tags of the Space.
-        siblings (`list[RepoSibling]`):
-            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
-        card_data (`SpaceCardData`, *optional*):
-            Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
+        models (`list[str]`, *optional*):
+            List of models used by the Space.
+        private (`bool`):
+            Is the repo private.
+        resource_group (`dict`, *optional*):
+            Resource group information for the Space.
         runtime (`SpaceRuntime`, *optional*):
             Space runtime information as a [`huggingface_hub.hf_api.SpaceRuntime`] object.
         sdk (`str`, *optional*):
             SDK used by the Space.
-        models (`list[str]`, *optional*):
-            List of models used by the Space.
-        datasets (`list[str]`, *optional*):
-            List of datasets used by the Space.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+        siblings (`list[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
+        subdomain (`str`, *optional*):
+            Subdomain of the Space.
+        tags (`list[str]`):
+            List of tags of the Space.
         trending_score (`int`, *optional*):
             Trending score of the Space.
+        used_storage (`int`, *optional*):
+            Size in bytes of the Space on the Hub.
     """
 
     id: str
     author: Optional[str]
-    sha: Optional[str]
-    created_at: Optional[datetime]
-    last_modified: Optional[datetime]
-    private: Optional[bool]
-    gated: Optional[Literal["auto", "manual", False]]
-    disabled: Optional[bool]
-    host: Optional[str]
-    subdomain: Optional[str]
-    likes: Optional[int]
-    sdk: Optional[str]
-    tags: Optional[list[str]]
-    siblings: Optional[list[RepoSibling]]
-    trending_score: Optional[int]
     card_data: Optional[SpaceCardData]
-    runtime: Optional[SpaceRuntime]
-    models: Optional[list[str]]
+    created_at: Optional[datetime]
     datasets: Optional[list[str]]
+    disabled: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
+    host: Optional[str]
+    last_modified: Optional[datetime]
+    likes: Optional[int]
+    models: Optional[list[str]]
+    private: Optional[bool]
+    resource_group: Optional[dict]
+    runtime: Optional[SpaceRuntime]
+    sdk: Optional[str]
+    sha: Optional[str]
+    siblings: Optional[list[RepoSibling]]
+    subdomain: Optional[str]
+    tags: Optional[list[str]]
+    trending_score: Optional[int]
+    used_storage: Optional[int]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1202,6 +1240,7 @@ class SpaceInfo:
         self.sdk = kwargs.pop("sdk", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
+        self.used_storage = kwargs.pop("usedStorage", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1232,6 +1271,7 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
+        self.resource_group = kwargs.pop("resourceGroup", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -2051,7 +2091,9 @@ class HfApi:
                         "Note that HF_TOKEN takes precedence over `hf auth login`."
                     )
                 elif token == _get_token_from_file():
-                    error_message += " The token stored is invalid. Please run `hf auth login` to update it."
+                    error_message += (
+                        " The token stored is invalid. Please run `hf auth login --force` to set a new token."
+                    )
                 raise HfHubHTTPError(error_message, response=e.response) from e
             if e.response.status_code == 429:
                 error_message = (

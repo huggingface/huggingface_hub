@@ -450,6 +450,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 
 
 @cache_cli.command(
+    "list | ls",
     examples=[
         "hf cache ls",
         "hf cache ls --revisions",

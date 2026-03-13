@@ -69,7 +69,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
 @models_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',

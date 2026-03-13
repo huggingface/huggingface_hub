@@ -45,7 +45,7 @@ def _print_endpoint(endpoint: InferenceEndpoint) -> None:
     typer.echo(json.dumps(endpoint.raw, indent=2, sort_keys=True))
 
 
-@ie_cli.command(examples=["hf endpoints ls", "hf endpoints ls --namespace my-org"])
+@ie_cli.command("list | ls", examples=["hf endpoints ls", "hf endpoints ls --namespace my-org"])
 def ls(
     namespace: NamespaceOpt = None,
     format: FormatOpt = OutputFormat.table,
@@ -246,7 +246,7 @@ def list_catalog(
     typer.echo(json.dumps({"models": models}, indent=2, sort_keys=True))
 
 
-catalog_app.command(name="ls", examples=["hf endpoints catalog ls"])(list_catalog)
+catalog_app.command(name="list | ls", examples=["hf endpoints catalog ls"])(list_catalog)
 ie_cli.command(name="list-catalog", hidden=True)(list_catalog)
 
 

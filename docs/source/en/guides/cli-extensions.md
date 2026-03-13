@@ -189,6 +189,20 @@ To help users find your extension, add the **`hf-extension`** topic to your GitH
 This is a community convention that makes it easy to browse all available extensions on the
 [hf-extension topic page](https://github.com/topics/hf-extension).
 
+Users can then discover your extension directly from the CLI with `hf extensions search`, which lists
+all GitHub repositories tagged with the `hf-extension` topic, sorted by stars:
+
+```bash
+>>> hf extensions search
+NAME   REPO                    STARS DESCRIPTION                         INSTALLED
+------ ----------------------- ----- ----------------------------------- ---------
+claude hanouticelina/hf-claude     2 Extension for `hf` CLI to launch... yes
+agents hanouticelina/hf-agents       HF extension to run local coding...
+```
+
+The `INSTALLED` column shows which extensions are already installed locally. From there, users can
+install any listed extension with `hf extensions install <repo>`.
+
 ## Test your extension
 
 During development, you can install your extension directly from your GitHub repository:
