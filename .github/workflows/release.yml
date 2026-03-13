@@ -9,20 +9,19 @@
 # draft GitHub release with AI-generated notes, and opens test branches in downstream repositories (transformers,
 # datasets, diffusers, sentence-transformers). Subsequent prereleases for the same minor version reuse the existing
 # draft release (no duplicate). Once the RC has been validated MANUALLY, trigger a "minor-release" run. This promotes
-# the version to the final release (e.g., 1.6.0), publishes to both PyPI and Conda, updates the existing draft release
+# the version to the final release (e.g., 1.6.0), publishes to PyPI, updates the existing draft release
 # to point to the final tag, and opens a PR to bump main to the next dev version (e.g., 1.7.0.dev0).
 #
 # For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
-# the patch version (e.g., 1.6.1), publishes to PyPI and Conda, and creates a GitHub release.
+# the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release.
 #
 # The workflow uses GITHUB_TOKEN for all git operations (branch creation, tag push, PR creation). Since events triggered
-# by GITHUB_TOKEN do not cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml,
-# release-conda.yml) will not fire and can serve as a manual fallback if needed.
+# by GITHUB_TOKEN do not cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml)
+# will not fire and can serve as a manual fallback if needed.
 #
 # Required secrets:
 # - PYPI_TOKEN_DIST_HUGGINGFACE_HUB      : publish `huggingface_hub` package to PyPI
 # - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
-# - ANACONDA_API_TOKEN                   : publish `huggingface_hub` package to Anaconda
 # - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
 # - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
 # - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
@@ -283,38 +282,7 @@ jobs:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HF }}
 
   # ============================================================
-  # 4. PUBLISH — Conda (skip for prereleases)
-  # ============================================================
-  publish-conda:
-    needs: prepare
-    if: ${{ !inputs.dry_run && needs.prepare.outputs.is_prerelease != 'true' }}
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -l {0}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.tag }}
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          auto-activate-base: false
-          python-version: 3.9
-          activate-environment: "build-hub"
-      - name: Install conda build tools
-        run: conda install -c defaults anaconda-client conda-build
-      - name: Set version env
-        run: echo "HUB_VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-      - name: Build conda package
-        run: conda-build .github/conda
-      - name: Upload to Anaconda
-        run: anaconda upload `conda-build .github/conda --output` --force
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
-
-  # ============================================================
-  # 5. RELEASE NOTES — manage GitHub releases
+  # 4. RELEASE NOTES — manage GitHub releases
   #
   # Strategy per release type (one GitHub release per minor version):
   #   - patch-release:    create a new draft release with GitHub auto-generated notes.
@@ -450,7 +418,7 @@ jobs:
           fi
 
   # ============================================================
-  # 6. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
+  # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
   # ============================================================
   test-downstream:
     needs: [prepare, publish-pypi]
@@ -538,7 +506,7 @@ jobs:
           echo "- [Compare](https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME})" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================
-  # 7. POST-RELEASE — open PR to bump main to next dev version
+  # 6. POST-RELEASE — open PR to bump main to next dev version
   # ============================================================
   post-release:
     needs: [prepare, publish-pypi]
@@ -586,7 +554,7 @@ jobs:
             --base main
 
   # ============================================================
-  # 8. SYNC HF CLI SKILL — update skill docs in skills repo
+  # 7. SYNC HF CLI SKILL — update skill docs in skills repo
   # ============================================================
   sync-hf-cli-skill:
     needs: prepare
