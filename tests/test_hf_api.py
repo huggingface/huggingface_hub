@@ -1871,6 +1871,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             assert "bert" in model.id.lower()
 
+    def test_list_models_num_parameters(self):
+        models = list(self._api.list_models(num_parameters="min:6B,max:128B", limit=5))
+        assert len(models) == 5
+        assert all(isinstance(model, ModelInfo) for model in models)
+
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -2067,6 +2072,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["foo"])
         assert cm.exception.response.status_code == 400
 
+    def test_model_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official ModelInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandModelProperty_T))
+
+        dataclass_fields = {f.name for f in ModelInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official ModelInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
+
     def test_model_info_expand_cannot_be_used_with_other_params(self):
         # `expand` cannot be used with other params
         with self.assertRaises(ValueError):
@@ -2125,6 +2145,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert mock_paginate.call_count == 2
         assert mock_paginate.call_args_list[0][1]["params"] == {"filter": ["benchmark:official"]}
         assert mock_paginate.call_args_list[1][1]["params"] == {"filter": ["benchmark:official"]}
+
+    def test_list_models_num_parameters_are_forwarded(self):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_models(num_parameters="min:6B,max:128B"))
+
+        assert mock_paginate.call_count == 1
+        assert mock_paginate.call_args[1]["params"] == {"num_parameters": "min:6B,max:128B"}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
@@ -2277,6 +2305,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self._api.dataset_info("HuggingFaceH4/no_robots", expand=["foo"])
         assert cm.exception.response.status_code == 400
 
+    def test_dataset_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official DatasetInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandDatasetProperty_T))
+
+        dataclass_fields = {f.name for f in DatasetInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official DatasetInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
+
     def test_dataset_info_expand_cannot_be_used_with_files_metadata(self):
         # `expand` cannot be used with other `files_metadata`
         with self.assertRaises(ValueError):
@@ -2308,6 +2351,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
         with self.assertRaises(HfHubHTTPError) as cm:
             self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["foo"])
         assert cm.exception.response.status_code == 400
+
+    def test_space_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official SpaceInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandSpaceProperty_T))
+
+        dataclass_fields = {f.name for f in SpaceInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official SpaceInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
 
     def test_space_info_expand_cannot_be_used_with_files_metadata(self):
         # `expand` cannot be used with other files_metadata
@@ -4809,3 +4867,10 @@ class HfApiVerifyChecksumsTest(HfApiCommonTest):
 
         res = self._api.verify_repo_checksums(repo_id=repo_id, revision=commit, cache_dir=storage.parent)
         assert res.revision == commit and res.checked_count == 1 and not res.mismatches
+
+
+def _to_snake_case(name: str) -> str:
+    """Convert camelCase to snake_case (e.g. 'downloadsAllTime' -> 'downloads_all_time', 'model-index' -> 'model_index')."""
+    import re
+
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).replace("-", "_").lower()

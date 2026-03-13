@@ -63,7 +63,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `list`: List all stored access tokens.
+* `list`: List all stored access tokens. [alias: ls]
 * `login`: Login using a token from...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
@@ -71,7 +71,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 
 ### `hf auth list`
 
-List all stored access tokens.
+List all stored access tokens. [alias: ls]
 
 **Usage**:
 
@@ -105,12 +105,14 @@ $ hf auth login [OPTIONS]
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
+* `--force / --no-force`: Force re-login even if already logged in.  [default: no-force]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf auth login
   $ hf auth login --token $HF_TOKEN
   $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth login --force
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -523,19 +525,19 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `ls`: List cached repositories or revisions.
+* `list`: List cached repositories or revisions. [alias: ls]
 * `prune`: Remove detached revisions from the cache.
 * `rm`: Remove cached repositories or revisions.
 * `verify`: Verify checksums for a single repo...
 
-### `hf cache ls`
+### `hf cache list`
 
-List cached repositories or revisions.
+List cached repositories or revisions. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf cache ls [OPTIONS]
+$ hf cache list [OPTIONS]
 ```
 
 **Options**:
@@ -680,7 +682,7 @@ $ hf collections [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a collection from the Hub.
 * `delete-item`: Delete an item from a collection.
 * `info`: Get info about a collection on the Hub.
-* `ls`: List collections on the Hub.
+* `list`: List collections on the Hub. [alias: ls]
 * `update`: Update a collection's metadata on the Hub.
 * `update-item`: Update an item in a collection.
 
@@ -827,14 +829,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf collections ls`
+### `hf collections list`
 
-List collections on the Hub.
+List collections on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf collections ls [OPTIONS]
+$ hf collections list [OPTIONS]
 ```
 
 **Options**:
@@ -940,7 +942,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a dataset on the Hub.
-* `ls`: List datasets on the Hub.
+* `list`: List datasets on the Hub. [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
 
@@ -974,14 +976,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf datasets ls`
+### `hf datasets list`
 
-List datasets on the Hub.
+List datasets on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf datasets ls [OPTIONS]
+$ hf datasets list [OPTIONS]
 ```
 
 **Options**:
@@ -1453,8 +1455,8 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete an Inference Endpoint permanently.
 * `deploy`: Deploy an Inference Endpoint from a Hub...
 * `describe`: Get information about an existing endpoint.
+* `list`: Lists all Inference Endpoints for the... [alias: ls]
 * `list-catalog`: List available Catalog models.
-* `ls`: Lists all Inference Endpoints for the...
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1477,7 +1479,7 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `deploy`: Deploy an Inference Endpoint from the...
-* `ls`: List available Catalog models.
+* `list`: List available Catalog models. [alias: ls]
 
 #### `hf endpoints catalog deploy`
 
@@ -1506,14 +1508,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf endpoints catalog ls`
+#### `hf endpoints catalog list`
 
-List available Catalog models.
+List available Catalog models. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf endpoints catalog ls [OPTIONS]
+$ hf endpoints catalog list [OPTIONS]
 ```
 
 **Options**:
@@ -1627,29 +1629,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf endpoints list-catalog`
+### `hf endpoints list`
 
-List available Catalog models.
-
-**Usage**:
-
-```console
-$ hf endpoints list-catalog [OPTIONS]
-```
-
-**Options**:
-
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-### `hf endpoints ls`
-
-Lists all Inference Endpoints for the given namespace.
+Lists all Inference Endpoints for the given namespace. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf endpoints ls [OPTIONS]
+$ hf endpoints list [OPTIONS]
 ```
 
 **Options**:
@@ -1668,6 +1655,21 @@ Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
+
+### `hf endpoints list-catalog`
+
+List available Catalog models.
+
+**Usage**:
+
+```console
+$ hf endpoints list-catalog [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
 
 ### `hf endpoints pause`
 
@@ -1812,7 +1814,7 @@ $ hf env [OPTIONS]
 
 Manage hf CLI extensions. [alias: ext]
 
-Security Warning: extensions are third-party executables. Install only from sources you trust.
+Security Warning: extensions are third-party executables or Python packages. Install only from sources you trust.
 
 **Usage**:
 
@@ -1828,8 +1830,9 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 
 * `exec`: Execute an installed extension.
 * `install`: Install an extension from a public GitHub...
-* `list`: List installed extension commands.
-* `remove`: Remove an installed extension.
+* `list`: List installed extension commands. [alias: ls]
+* `remove`: Remove an installed extension. [alias: rm]
+* `search`: Search extensions available on GitHub...
 
 ### `hf extensions | ext exec`
 
@@ -1862,7 +1865,8 @@ Learn more
 
 Install an extension from a public GitHub repository.
 
-Security warning: this installs a third-party executable. Install only from sources you trust.
+Security warning: this installs a third-party executable or Python package.
+Install only from sources you trust.
 
 **Usage**:
 
@@ -1882,6 +1886,7 @@ $ hf extensions install [OPTIONS] REPO_ID
 Examples
   $ hf extensions install hf-claude
   $ hf extensions install hanouticelina/hf-claude
+  $ hf extensions install alvarobartt/hf-mem
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1890,7 +1895,7 @@ Learn more
 
 ### `hf extensions | ext list`
 
-List installed extension commands.
+List installed extension commands. [alias: ls]
 
 **Usage**:
 
@@ -1900,6 +1905,8 @@ $ hf extensions list [OPTIONS]
 
 **Options**:
 
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1912,7 +1919,7 @@ Learn more
 
 ### `hf extensions | ext remove`
 
-Remove an installed extension.
+Remove an installed extension. [alias: rm]
 
 **Usage**:
 
@@ -1930,6 +1937,30 @@ $ hf extensions remove [OPTIONS] NAME
 
 Examples
   $ hf extensions remove claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions | ext search`
+
+Search extensions available on GitHub (tagged with 'hf-extension' topic).
+
+**Usage**:
+
+```console
+$ hf extensions search [OPTIONS]
+```
+
+**Options**:
+
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions search
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2550,7 +2581,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `info`: Get info about a model on the Hub.
-* `ls`: List models on the Hub.
+* `list`: List models on the Hub. [alias: ls]
 
 ### `hf models info`
 
@@ -2582,14 +2613,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf models ls`
+### `hf models list`
 
-List models on the Hub.
+List models on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf models ls [OPTIONS]
+$ hf models list [OPTIONS]
 ```
 
 **Options**:
@@ -2597,6 +2628,7 @@ $ hf models ls [OPTIONS]
 * `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
@@ -2608,6 +2640,7 @@ $ hf models ls [OPTIONS]
 Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
+  $ hf models ls --num-parameters min:6B,max:128B --sort likes
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2630,16 +2663,16 @@ $ hf papers [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `ls`: List daily papers on the Hub.
+* `list`: List daily papers on the Hub. [alias: ls]
 
-### `hf papers ls`
+### `hf papers list`
 
-List daily papers on the Hub.
+List daily papers on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf papers ls [OPTIONS]
+$ hf papers list [OPTIONS]
 ```
 
 **Options**:
@@ -2647,6 +2680,8 @@ $ hf papers ls [OPTIONS]
 * `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
 * `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2654,6 +2689,7 @@ Examples
   $ hf papers ls
   $ hf papers ls --sort trending
   $ hf papers ls --date 2025-01-23
+  $ hf papers ls --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2987,7 +3023,7 @@ $ hf repos tag [OPTIONS] COMMAND [ARGS]...
 
 * `create`: Create a tag for a repo.
 * `delete`: Delete a tag for a repo.
-* `list`: List tags for a repo.
+* `list`: List tags for a repo. [alias: ls]
 
 #### `hf repos | repo tag create`
 
@@ -3053,7 +3089,7 @@ Learn more
 
 #### `hf repos | repo tag list`
 
-List tags for a repo.
+List tags for a repo. [alias: ls]
 
 **Usage**:
 
@@ -3102,6 +3138,9 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 Download a skill and install it for an AI assistant.
 
+Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
+If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+
 **Usage**:
 
 ```console
@@ -3120,10 +3159,10 @@ $ hf skills add [OPTIONS]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf skills add --claude
-  $ hf skills add --cursor
-  $ hf skills add --claude --global
-  $ hf skills add --codex --opencode --cursor
+  $ hf skills add
+  $ hf skills add --global
+  $ hf skills add --claude --cursor
+  $ hf skills add --codex --opencode --cursor --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3163,7 +3202,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
-* `ls`: List spaces on the Hub.
+* `list`: List spaces on the Hub. [alias: ls]
 
 ### `hf spaces dev-mode`
 
@@ -3271,14 +3310,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf spaces ls`
+### `hf spaces list`
 
-List spaces on the Hub.
+List spaces on the Hub. [alias: ls]
 
 **Usage**:
 
 ```console
-$ hf spaces ls [OPTIONS]
+$ hf spaces list [OPTIONS]
 ```
 
 **Options**:

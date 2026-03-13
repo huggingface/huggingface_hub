@@ -61,26 +61,41 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     return f"{prefix}{major}.{minor}.{patch}"
 
 
-def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | None = None) -> bool:
+def run_opencode_skill(
+    skill_name: str,
+    version: str,
+    missing_prs: list[int] | None = None,
+    extra_prs: list[int] | None = None,
+) -> bool:
     """Run an OpenCode skill non-interactively.
 
     Args:
         skill_name: Name of the skill to run (e.g., "hf-release-notes")
         version: Target version for release notes
         missing_prs: List of missing PR numbers (for validation skill)
+        extra_prs: List of extra PR numbers to remove (for validation skill)
 
     Returns:
         True if successful, False otherwise
     """
-    if missing_prs:
-        # Validation skill - add missing PRs
-        prompt = (
-            f"Run the {skill_name} skill. "
-            f"The output directory is {OUTPUT_DIR}. "
-            f"Add the following missing PRs to the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md: "
-            f"{', '.join(f'#{pr}' for pr in missing_prs)}. "
-            f"Read their details from {TMP_DIR}/pr_<number>.json files."
-        )
+    if missing_prs or extra_prs:
+        # Validation skill - fix missing and/or extra PRs
+        parts = [
+            f"Run the {skill_name} skill. ",
+            f"The output directory is {OUTPUT_DIR}. ",
+            f"Fix the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md. ",
+        ]
+        if missing_prs:
+            parts.append(
+                f"Add the following missing PRs: {', '.join(f'#{pr}' for pr in missing_prs)}. "
+                f"Read their details from {TMP_DIR}/pr_<number>.json files. "
+            )
+        if extra_prs:
+            parts.append(
+                f"Remove the following extra PRs that do not belong to this release: "
+                f"{', '.join(f'#{pr}' for pr in extra_prs)}. "
+            )
+        prompt = "".join(parts)
     else:
         # Main generation skill
         prompt = (
@@ -168,29 +183,38 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     # 5. Validation loop
     validation_iterations = 0
     missing_at_end = []
+    extra_at_end = []
     for i in range(max_iterations):
         validation_iterations += 1
         print(f"\nValidation iteration {i + 1}/{max_iterations}...")
-        missing = validate_release_notes(version)
+        missing, extra = validate_release_notes(version)
 
-        if not missing:
-            print("All PRs included in release notes")
+        if not missing and not extra:
+            print("Release notes match the manifest exactly")
             break
 
-        print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if missing:
+            print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if extra:
+            print(f"Extra {len(extra)} PRs: {', '.join(f'#{pr}' for pr in extra)}")
 
         if i < max_iterations - 1:
-            print("Running validation skill to add missing PRs...")
-            if not run_opencode_skill("hf-release-notes:validate", version, missing):
+            print("Running validation skill to fix release notes...")
+            if not run_opencode_skill("hf-release-notes:validate", version, missing or None, extra or None):
                 print("Warning: Validation skill failed", file=sys.stderr)
             agent_calls += 1
     else:
-        # Loop completed without all PRs included
-        missing = validate_release_notes(version)
-        if missing:
+        # Loop completed without exact match
+        missing, extra = validate_release_notes(version)
+        if missing or extra:
             missing_at_end = missing
-            print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
-            print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+            extra_at_end = extra
+            if missing:
+                print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
+                print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+            if extra:
+                print(f"\nWarning: Still {len(extra)} extra PRs after {max_iterations} iterations")
+                print(f"Extra: {', '.join(f'#{pr}' for pr in extra)}")
     t_agent = time.monotonic() - t_agent_start
 
     # 6. Final output
@@ -207,6 +231,7 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     print(f"  Model:                 {os.environ.get('RELEASE_NOTES_MODEL', '(default)')}")
     print(f"  PRs fetched:           {len(pr_numbers)}")
     print(f"  PRs missing:           {len(missing_at_end)}")
+    print(f"  PRs extra:             {len(extra_at_end)}")
     print(f"  Agent calls:           {agent_calls}")
     print(f"  Validation iterations: {validation_iterations}")
     print(f"  Fetch time:            {t_fetch:.1f}s")

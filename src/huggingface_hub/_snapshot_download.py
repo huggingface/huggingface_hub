@@ -322,7 +322,8 @@ def snapshot_download(
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
             raise LocalEntryNotFoundError(
-                "An error happened while trying to locate the files on the Hub and we cannot find the appropriate"
+                f"Got: {api_call_error.__class__.__name__}: {api_call_error}"
+                "\nAn error happened while trying to locate the files on the Hub and we cannot find the appropriate"
                 " snapshot folder for the specified revision on the local disk. Please check your internet connection"
                 " and try again."
             ) from api_call_error

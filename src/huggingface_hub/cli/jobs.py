@@ -550,14 +550,8 @@ def jobs_ps(
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
-    json_flag: Annotated[
-        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
-    ] = False,
 ) -> None:
     """List Jobs."""
-    if json_flag:
-        format = "json"
-
     api = get_hf_api(token=token)
     # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
@@ -858,14 +852,8 @@ def scheduled_ps(
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
-    json_flag: Annotated[
-        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
-    ] = False,
 ) -> None:
     """List scheduled Jobs"""
-    if json_flag:
-        format = "json"
-
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
     filters: list[tuple[str, str, str]] = []

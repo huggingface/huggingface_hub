@@ -29,7 +29,6 @@ Usage:
 
 import datetime
 import enum
-import json
 from typing import Annotated, Optional, get_args
 
 import typer
@@ -37,10 +36,15 @@ import typer
 from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
+    FormatOpt,
     LimitOpt,
+    OutputFormat,
+    QuietOpt,
     TokenOpt,
+    _format_cell,
     api_object_to_dict,
     get_hf_api,
+    print_list_output,
     typer_factory,
 )
 
@@ -62,11 +66,12 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
 
 
 @papers_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf papers ls",
         "hf papers ls --sort trending",
         "hf papers ls --date 2025-01-23",
+        "hf papers ls --format json",
     ],
 )
 def papers_ls(
@@ -82,6 +87,8 @@ def papers_ls(
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List daily papers on the Hub."""
@@ -95,4 +102,26 @@ def papers_ls(
             limit=limit,
         )
     ]
-    print(json.dumps(results, indent=2))
+    _HEADERS = ["id", "title", "upvotes", "comments", "published_at", "submitted_by"]
+
+    def _paper_row(item: dict) -> list[str]:
+        submitted_by = item.get("submitted_by") or {}
+        submitter = submitted_by.get("fullname") or submitted_by.get("username") or ""
+        return [
+            item.get("id", ""),
+            _format_cell(item.get("title", ""), max_len=60),
+            str(item.get("upvotes", "")),
+            str(item.get("comments", "")),
+            _format_cell(item.get("published_at", "")),
+            submitter,
+        ]
+
+    print_list_output(
+        results,
+        format=format,
+        quiet=quiet,
+        id_key="id",
+        headers=_HEADERS,
+        row_fn=_paper_row,
+        alignments={"upvotes": "right", "comments": "right"},
+    )

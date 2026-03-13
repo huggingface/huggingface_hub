@@ -100,10 +100,10 @@ The CLI is also shipped with the core `huggingface_hub` package:
 You can also install the CLI using [Homebrew](https://brew.sh/):
 
 ```bash
->>> brew install huggingface-cli
+>>> brew install hf
 ```
 
-Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
 ## hf auth login
 
@@ -115,7 +115,13 @@ Once you have your token, run the following command in your terminal:
 >>> hf auth login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. Then, you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+If you are already logged in, this command will skip the prompt and display a message. To force re-login (e.g. to switch tokens), use `--force`:
+
+```bash
+>>> hf auth login --force
+```
+
+If you are not logged in, the command will prompt you for a token. Copy-paste yours and press _Enter_. Then, you'll be asked if the token should also be saved as a git credential. Press _Enter_ again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -167,7 +173,6 @@ This command logs you out. In practice, it will delete all tokens stored on your
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
 
 ## hf download
-
 
 Use the `hf download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
 
@@ -339,11 +344,13 @@ By default, the `hf download` command will be verbose. It will print details suc
 ### Download timeout
 
 On machines with slow connections, you might encounter timeout issues like this one:
+
 ```bash
 `httpx.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
 ```
 
 To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
+
 ```bash
 export HF_HUB_DOWNLOAD_TIMEOUT=30
 ```
@@ -510,13 +517,13 @@ Use `hf upload-large-folder` to upload very large folders (hundreds of GBs or ev
 ```
 
 The command automatically:
+
 - Splits large files into chunks for reliable uploads
 - Resumes interrupted uploads from where they left off
 - Handles network failures gracefully
 
 > [!TIP]
 > Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
-
 
 ## hf buckets
 
@@ -741,7 +748,6 @@ Use `--dry-run` to print the sync plan as JSONL to stdout without executing anyt
 > [!TIP]
 > `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
 
-
 ## hf models
 
 Use `hf models` to list models on the Hub and get detailed information about a specific model.
@@ -757,6 +763,9 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 
 # Filter by author
 >>> hf models ls --author Qwen
+
+# Filter by parameter count
+>>> hf models ls --num-parameters min:6B,max:128B
 
 # Sort by downloads
 >>> hf models ls --sort downloads --limit 10
@@ -900,19 +909,19 @@ For scripting, use `--format json` to get structured output, or `--quiet` to pri
 >>> hf discussions ls username/my-model --quiet
 ```
 
-### View a discussion or PR
+### Get info for a discussion or PR
 
 To inspect a specific discussion or PR, pass the repo ID and the discussion number:
 
 ```bash
->>> hf discussions view username/my-model 5
+>>> hf discussions info username/my-model 5
 ```
 
 By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
 
 ```bash
->>> hf discussions view username/my-model 5 --comments
->>> hf discussions view username/my-model 5 --diff
+>>> hf discussions info username/my-model 5 --comments
+>>> hf discussions info username/my-model 5 --diff
 ```
 
 Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
@@ -1477,12 +1486,12 @@ You can pass environment variables to your job using
 
 Inside the job container, the following environment variables are automatically available:
 
-| Variable | Description |
-|----------|-------------|
-| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically. |
+| Variable      | Description                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `JOB_ID`      | The unique identifier of the current job. Use this to reference the job programmatically.               |
 | `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
-| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
-| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
+| `CPU_CORES`   | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                     |
+| `MEMORY`      | The amount of memory available to the job (e.g., `16Gi`, `32Gi`).                                       |
 
 ```bash
 # Access job environment information
