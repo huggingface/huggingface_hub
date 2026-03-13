@@ -2938,7 +2938,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
-  $ hf repos duplicate SpacesExamples/xxx myorg/dev --type space --flavor l4x4 --secrets HF_TOKEN --private
+  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
