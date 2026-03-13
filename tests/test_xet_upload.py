@@ -258,6 +258,7 @@ class TestXetUpload:
                     assert request_headers.get("x-custom-header") == "custom_value"
                     assert request_headers.get("user-agent") == "test-agent"
                     assert "authorization" not in request_headers
+                    assert mock_upload_files.call_args.kwargs["sha256s"] == [addition.upload_info.sha256.hex()]
 
     def test_request_headers_passed_to_upload_bytes(self):
         """Test that headers (minus authorization) are passed as request_headers to hf_xet.upload_bytes."""
@@ -289,6 +290,7 @@ class TestXetUpload:
                     assert request_headers.get("x-custom-header") == "custom_value"
                     assert request_headers.get("user-agent") == "test-agent"
                     assert "authorization" not in request_headers
+                    assert mock_upload_bytes.call_args.kwargs["sha256s"] == [addition.upload_info.sha256.hex()]
 
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id

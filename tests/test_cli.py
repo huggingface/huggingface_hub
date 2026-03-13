@@ -2739,3 +2739,48 @@ class TestWebhooksCommand:
         assert result.exit_code != 0
         assert "Aborted" in result.output
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestJsonShorthand:
+    """Test the hidden --json shorthand that rewrites to --format json."""
+
+    @with_production_testing
+    def test_json_flag_produces_json_output(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert isinstance(output, list)
+        assert len(output) <= 3
+
+    @with_production_testing
+    def test_json_flag_equivalent_to_format_json(self, runner: CliRunner) -> None:
+        result_json_flag = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
+        result_format_json = runner.invoke(app, ["models", "ls", "--format", "json", "--limit", "3"])
+        assert result_json_flag.exit_code == 0
+        assert result_format_json.exit_code == 0
+        assert json.loads(result_json_flag.stdout) == json.loads(result_format_json.stdout)
+
+    def test_json_and_format_mutually_exclusive(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--json", "--format", "table"])
+        assert result.exit_code != 0
+        assert "mutually exclusive" in result.output
+
+    def test_json_on_command_without_format(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["download", "--json", DUMMY_MODEL_ID])
+        assert result.exit_code != 0
+
+    def test_json_not_rewritten_for_extensions_exec(self, runner: CliRunner) -> None:
+        """--json must NOT be rewritten to --format json for `extensions exec` (pass-through to external binary)."""
+        fake_path = Mock()
+        fake_path.is_file.return_value = True
+        with (
+            patch("huggingface_hub.cli.extensions._resolve_installed_executable_path", return_value=fake_path),
+            patch("huggingface_hub.cli.extensions._execute_extension_binary") as mock_exec,
+        ):
+            mock_exec.return_value = 0
+            result = runner.invoke(app, ["extensions", "exec", "test", "--json"])
+            assert result.exit_code == 0, result.output
+            mock_exec.assert_called_once()
+            passed_args = mock_exec.call_args[1].get("args") or mock_exec.call_args[0][1]
+            assert "--json" in passed_args, f"Expected --json to be passed through, got {passed_args}"
+            assert "--format" not in passed_args, f"--json was rewritten to --format: {passed_args}"
