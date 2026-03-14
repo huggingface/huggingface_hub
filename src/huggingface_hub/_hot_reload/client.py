@@ -19,6 +19,7 @@ from typing import Iterator, Literal, Optional, TypedDict, Union
 
 import httpx
 
+from .. import constants
 from ..utils._headers import build_hf_headers
 from ..utils._http import hf_raise_for_status
 from .sse_client import SSEClient
@@ -56,6 +57,7 @@ class ReloadClient:
         self.client = httpx.Client(
             base_url=f"{base_host}/--replicas/+{replica_hash}",
             headers=build_hf_headers(token=token),
+            timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         )
 
     def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
