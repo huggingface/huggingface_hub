@@ -162,7 +162,13 @@ def post_lfs_batch_info(
         **build_hf_headers(token=token),
         **(headers or {}),
     }
-    resp = http_backoff("POST", batch_url, headers=headers, json=payload)
+    resp = http_backoff(
+        "POST",
+        batch_url,
+        headers=headers,
+        json=payload,
+        timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+    )
     hf_raise_for_status(resp)
     batch_info = resp.json()
 
@@ -258,6 +264,7 @@ def lfs_upload(
             verify_url,
             headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
+            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
         hf_raise_for_status(verify_resp)
     logger.debug(f"{operation.path_in_repo}: Upload successful")
@@ -317,7 +324,12 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
-        response = http_backoff("PUT", upload_url, data=fileobj)
+        response = http_backoff(
+            "PUT",
+            upload_url,
+            data=fileobj,
+            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+        )
         hf_raise_for_status(response)
 
 
@@ -340,6 +352,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size
         upload_url,
         json=_get_completion_payload(response_headers, operation.upload_info.sha256.hex()),
         headers=LFS_HEADERS,
+        timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
     )
     hf_raise_for_status(completion_res)
 
@@ -389,7 +402,12 @@ def _upload_parts_iteratively(
                 read_limit=chunk_size,
             ) as fileobj_slice:
                 # S3 might raise a transient 500 error -> let's retry if that happens
-                part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
+                part_upload_res = http_backoff(
+                    "PUT",
+                    part_upload_url,
+                    data=fileobj_slice,
+                    timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+                )
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore
