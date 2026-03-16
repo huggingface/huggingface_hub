@@ -22,6 +22,61 @@ from huggingface_hub._space_api import SpaceHardware
 from huggingface_hub.utils._datetime import parse_datetime
 
 
+class JobVolumeType(str, Enum):
+    """
+    Enumeration of possible volume types for a Job on the Hub.
+
+    Value can be compared to a string:
+    ```py
+    assert JobVolumeType.BUCKET == "bucket"
+    ```
+    Possible values are: `BUCKET`, `MODEL`, `DATASET`, `SPACE`.
+    """
+
+    BUCKET = "bucket"
+    MODEL = "model"
+    DATASET = "dataset"
+    SPACE = "space"
+
+
+@dataclass
+class JobVolume:
+    """
+    Describes a volume to mount in a Job container.
+
+    Args:
+        type (`str` or [`JobVolumeType`]):
+            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
+        source (`str`):
+            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
+        mount_path (`str`):
+            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
+        revision (`str` or `None`):
+            Git revision (only for repos, defaults to `"main"`).
+        read_only (`bool` or `None`):
+            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
+        path (`str` or `None`):
+            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
+    """
+
+    type: JobVolumeType
+    source: str
+    mount_path: str
+    revision: Optional[str] = None
+    read_only: Optional[bool] = None
+    path: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = JobVolumeType(kwargs.get("type", ""))
+        self.source = kwargs["source"]
+        mount_path = kwargs.get("mountPath")
+        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
+        self.revision = kwargs.get("revision")
+        read_only = kwargs.get("readOnly")
+        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
+        self.path = kwargs.get("path")
+
+
 class JobStage(str, Enum):
     """
     Enumeration of possible stage of a Job on the Hub.
@@ -119,6 +174,7 @@ class JobInfo:
     secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     labels: Optional[dict[str, str]]
+    volumes: Optional[list[JobVolume]]
     status: JobStatus
     owner: JobOwner
 
@@ -140,6 +196,8 @@ class JobInfo:
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
         self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [JobVolume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
@@ -161,6 +219,7 @@ class JobSpec:
     tags: Optional[list[str]]
     arch: Optional[str]
     labels: Optional[dict[str, str]]
+    volumes: Optional[list[JobVolume]]
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -174,6 +233,8 @@ class JobSpec:
         self.tags = kwargs.get("tags")
         self.arch = kwargs.get("arch")
         self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [JobVolume(**v) for v in volumes] if volumes else None
 
 
 @dataclass
@@ -363,6 +424,7 @@ def _create_job_spec(
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
     labels: Optional[dict[str, str]] = None,
+    volumes: Optional[list[JobVolume]] = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -384,6 +446,19 @@ def _create_job_spec(
     # labels are optional
     if labels:
         job_spec["labels"] = labels
+    # volumes are optional
+    if volumes:
+        job_spec["volumes"] = [
+            {
+                "type": vol.type.value if isinstance(vol.type, JobVolumeType) else vol.type,
+                "source": vol.source,
+                "mountPath": vol.mount_path,
+                **({"revision": vol.revision} if vol.revision is not None else {}),
+                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
+                **({"path": vol.path} if vol.path is not None else {}),
+            }
+            for vol in volumes
+        ]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",
