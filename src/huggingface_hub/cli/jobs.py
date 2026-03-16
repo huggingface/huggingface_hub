@@ -274,8 +274,9 @@ VolumesOpt = Annotated[
         "-v",
         "--volume",
         help="Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. "
-        "TYPE is one of: model, dataset, space, bucket (or plural forms). "
-        "E.g. -v models/gpt2:/data or -v buckets/my-org/my-bucket:/mnt:ro",
+        "TYPE is one of: model, dataset, space, bucket. "
+        "TYPE defaults to model if omitted. "
+        "E.g. -v gpt2:/data or -v dataset/org/ds:/data or -v bucket/org/b:/mnt:ro",
     ),
 ]
 
@@ -1139,35 +1140,28 @@ def scheduled_uv_run(
 ### UTILS
 
 
-_VOLUME_TYPE_ALIASES = {
-    **{t.value: t.value for t in JobVolumeType},
-    "models": JobVolumeType.MODEL.value,
-    "datasets": JobVolumeType.DATASET.value,
-    "spaces": JobVolumeType.SPACE.value,
-    "buckets": JobVolumeType.BUCKET.value,
-}
+_VOLUME_TYPE_ALIASES = {t.value: t.value for t in JobVolumeType}
 
 
 def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
     """Parse volume specs from CLI arguments.
 
-    Format: TYPE/SOURCE:/MOUNT_PATH[:ro]
-    Where TYPE is one of: model, models, dataset, datasets, space, spaces, bucket, buckets.
+    Format: [TYPE/]SOURCE:/MOUNT_PATH[:ro]
+    Where TYPE is one of: model, dataset, space, bucket (defaults to model if omitted).
     SOURCE is the repo/bucket identifier (e.g. 'username/my-model').
     MOUNT_PATH starts with '/'.
     Optional ':ro' suffix for read-only.
 
     Examples:
-        models/gpt2:/data
-        datasets/my-org/my-dataset:/data:ro
-        buckets/my-org/my-bucket:/mnt
+        gpt2:/data                        (model, implicit type)
+        dataset/my-org/my-dataset:/data:ro
+        bucket/my-org/my-bucket:/mnt
     """
     if not volumes:
         return None
     result: list[JobVolume] = []
     for spec in volumes:
-        # Split from the right to find mount_path (starts with /)
-        # Format: type/source:/mount_path[:ro]
+        # Strip :ro/:rw suffix
         read_only = None
         if spec.endswith(":ro"):
             read_only = True
@@ -1180,7 +1174,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
         colon_slash_idx = spec.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
-                f"Invalid volume format: '{spec}'. Expected TYPE/SOURCE:/MOUNT_PATH[:ro]. E.g. models/gpt2:/data"
+                f"Invalid volume format: '{spec}'. Expected [TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. gpt2:/data"
             )
         source_part = spec[:colon_slash_idx]
         mount_path = spec[colon_slash_idx + 1 :]
@@ -1188,18 +1182,17 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
         # Parse type from source_part (first segment before /)
         slash_idx = source_part.find("/")
         if slash_idx == -1:
-            raise CLIError(
-                f"Invalid volume source: '{source_part}'. Expected TYPE/SOURCE. "
-                "E.g. models/gpt2 or buckets/my-org/my-bucket"
-            )
-        vol_type_str = source_part[:slash_idx]
-        source = source_part[slash_idx + 1 :]
-
-        if vol_type_str not in _VOLUME_TYPE_ALIASES:
-            raise CLIError(
-                f"Unknown volume type: '{vol_type_str}'. "
-                f"Must be one of: {', '.join(sorted(_VOLUME_TYPE_ALIASES.keys()))}"
-            )
+            # No slash: bare source like "gpt2:/data" -> model type
+            vol_type_str = JobVolumeType.MODEL.value
+            source = source_part
+        else:
+            vol_type_str = source_part[:slash_idx]
+            source = source_part[slash_idx + 1 :]
+            # If the first segment isn't a known type, treat the whole thing as a model source
+            # e.g. "org/my-model:/data" -> type=model, source="org/my-model"
+            if vol_type_str not in _VOLUME_TYPE_ALIASES:
+                vol_type_str = JobVolumeType.MODEL.value
+                source = source_part
 
         result.append(
             JobVolume(
