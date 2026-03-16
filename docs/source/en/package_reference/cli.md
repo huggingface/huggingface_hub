@@ -2155,6 +2155,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: model, dataset, space, bucket (or plural forms). E.g. -v models/gpt2:/data or -v buckets/my-org/my-bucket:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -2333,6 +2334,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: model, dataset, space, bucket (or plural forms). E.g. -v models/gpt2:/data or -v buckets/my-org/my-bucket:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-xl|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -2420,6 +2422,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: model, dataset, space, bucket (or plural forms). E.g. -v models/gpt2:/data or -v buckets/my-org/my-bucket:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -2506,6 +2509,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: model, dataset, space, bucket (or plural forms). E.g. -v models/gpt2:/data or -v buckets/my-org/my-bucket:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
