@@ -539,7 +539,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             # Path could be a file
             if not resolved_path.path:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            try:
+                out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            except EntryNotFoundError:
+                out = []
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
