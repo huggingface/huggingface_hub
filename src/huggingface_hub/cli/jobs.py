@@ -1180,8 +1180,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
         colon_slash_idx = spec.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
-                f"Invalid volume format: '{spec}'. Expected TYPE/SOURCE:/MOUNT_PATH[:ro]. "
-                "E.g. models/gpt2:/data"
+                f"Invalid volume format: '{spec}'. Expected TYPE/SOURCE:/MOUNT_PATH[:ro]. E.g. models/gpt2:/data"
             )
         source_part = spec[:colon_slash_idx]
         mount_path = spec[colon_slash_idx + 1 :]
