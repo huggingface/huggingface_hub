@@ -1140,7 +1140,7 @@ def scheduled_uv_run(
 ### UTILS
 
 
-_VOLUME_TYPE_ALIASES = {t.value: t.value for t in JobVolumeType}
+_VOLUME_TYPES = {t.value for t in JobVolumeType}
 
 
 def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
@@ -1190,13 +1190,13 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
             source = source_part[slash_idx + 1 :]
             # If the first segment isn't a known type, treat the whole thing as a model source
             # e.g. "org/my-model:/data" -> type=model, source="org/my-model"
-            if vol_type_str not in _VOLUME_TYPE_ALIASES:
+            if vol_type_str not in _VOLUME_TYPES:
                 vol_type_str = JobVolumeType.MODEL.value
                 source = source_part
 
         result.append(
             JobVolume(
-                type=_VOLUME_TYPE_ALIASES[vol_type_str],
+                type=vol_type_str,
                 source=source,
                 mount_path=mount_path,
                 read_only=read_only,
