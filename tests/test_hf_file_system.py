@@ -89,6 +89,14 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             sorted(self.hffs.glob(self.hf_path + "/*")),
             sorted([self.readme_file, self.hf_path + "/data"]),
         )
+        self.assertEqual(
+            sorted(self.hffs.glob(self.hf_path + "/doesnt-exist/*")),
+            [],
+        )
+        self.assertEqual(
+            sorted(self.hffs.glob(self.hf_path + "/doesnt/exist/at/all/*")),
+            [],
+        )
 
     def test_url(self):
         self.assertEqual(
