@@ -139,6 +139,8 @@ class JobInfo:
             E.g. `"cpu-basic"`.
         labels (`dict[str, str]` or `None`):
             Labels to attach to the job (key-value pairs).
+        volumes (`list[JobVolume]` or `None`):
+            Volumes mounted in the job container (buckets, models, datasets, spaces).
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
@@ -450,7 +452,7 @@ def _create_job_spec(
     if volumes:
         job_spec["volumes"] = [
             {
-                "type": vol.type.value if isinstance(vol.type, JobVolumeType) else vol.type,
+                "type": vol.type.value,
                 "source": vol.source,
                 "mountPath": vol.mount_path,
                 **({"revision": vol.revision} if vol.revision is not None else {}),

@@ -1160,8 +1160,9 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
     if not volumes:
         return None
     result: list[JobVolume] = []
-    for spec in volumes:
+    for raw_spec in volumes:
         # Strip :ro/:rw suffix
+        spec = raw_spec
         read_only = None
         if spec.endswith(":ro"):
             read_only = True
@@ -1174,7 +1175,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
         colon_slash_idx = spec.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
-                f"Invalid volume format: '{spec}'. Expected [TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. gpt2:/data"
+                f"Invalid volume format: '{raw_spec}'. Expected [TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. gpt2:/data"
             )
         source_part = spec[:colon_slash_idx]
         mount_path = spec[colon_slash_idx + 1 :]
