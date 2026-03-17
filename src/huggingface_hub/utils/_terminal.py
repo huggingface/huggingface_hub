@@ -83,8 +83,9 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR"):
+        if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
             # See https://no-color.org/
+            # Also suppress ANSI when stdout is piped (standard UNIX convention).
             return s
         return f"{code}{s}{cls._reset}"
 

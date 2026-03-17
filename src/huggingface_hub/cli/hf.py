@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import traceback
 from typing import Annotated, Optional
@@ -64,11 +65,20 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def _no_color_callback(value: bool) -> None:
+    if value:
+        os.environ["NO_COLOR"] = "1"
+
+
 @app.callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
         Optional[bool], typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    no_color: Annotated[
+        bool,
+        typer.Option("--no-color", callback=_no_color_callback, is_eager=True, help="Disable ANSI color codes."),
+    ] = False,
 ) -> None:
     pass
 
