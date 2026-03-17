@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from click import Context, Group
+from click import Command, Context, Group
 from typer.main import get_command
 
 from ._cli_utils import typer_factory
@@ -98,18 +98,18 @@ _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 
-def _format_params(cmd) -> str:
+def _format_params(cmd: Command) -> str:
     """Format required params for a command as uppercase placeholders."""
     parts = []
     for p in cmd.params:
-        if p.required and not p.name.startswith("_") and p.human_readable_name != "--help":
+        if p.required and p.name and not p.name.startswith("_") and p.human_readable_name != "--help":
             parts.append(p.human_readable_name)
     return " ".join(parts)
 
 
-def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) -> list[tuple[list[str], object]]:
+def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) -> list[tuple[list[str], Command]]:
     """Recursively walk a Click Group, returning (full_path_parts, cmd) for every leaf command."""
-    leaves: list[tuple[list[str], object]] = []
+    leaves: list[tuple[list[str], Command]] = []
     sub_ctx = Context(group, parent=ctx, info_name=path_parts[-1])
     for name in group.list_commands(sub_ctx):
         cmd = group.get_command(sub_ctx, name)
@@ -123,7 +123,7 @@ def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) ->
     return leaves
 
 
-def _get_flag_names(cmd) -> list[str]:
+def _get_flag_names(cmd: Command) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
@@ -151,7 +151,7 @@ def _get_flag_names(cmd) -> list[str]:
 
 
 def _compute_common_flags(
-    leaf_commands: list[tuple[list[str], object]],
+    leaf_commands: list[tuple[list[str], Command]],
 ) -> dict[str, tuple[str, str]]:
     """Collect display info for flags in the allowlist.
 
@@ -195,7 +195,7 @@ def build_skill_md() -> str:
     ctx = Context(click_app, info_name="hf")
 
     # --- Phase 1: Collect ---
-    top_level: list[tuple[list[str], object]] = []
+    top_level: list[tuple[list[str], Command]] = []
     groups: list[tuple[str, Group]] = []
     for name in sorted(click_app.list_commands(ctx)):  # type: ignore[attr-defined]
         cmd = click_app.get_command(ctx, name)  # type: ignore[attr-defined]
@@ -207,8 +207,8 @@ def build_skill_md() -> str:
             top_level.append(([name], cmd))
 
     # Recursively resolve groups to leaf commands
-    group_leaves: list[tuple[str, list[tuple[list[str], object]]]] = []
-    all_leaf_commands: list[tuple[list[str], object]] = list(top_level)
+    group_leaves: list[tuple[str, list[tuple[list[str], Command]]]] = []
+    all_leaf_commands: list[tuple[list[str], Command]] = list(top_level)
     for name, group in groups:
         leaves = _collect_leaf_commands(group, ctx, [name])
         group_leaves.append((name, leaves))
@@ -226,8 +226,8 @@ def build_skill_md() -> str:
     lines.append("## Commands")
     lines.append("")
 
-    def _render_leaf(path_parts: list[str], cmd: object) -> str:
-        help_text = (cmd.help or "").split("\n")[0].strip()  # type: ignore[union-attr]
+    def _render_leaf(path_parts: list[str], cmd: Command) -> str:
+        help_text = (cmd.help or "").split("\n")[0].strip()
         params = _format_params(cmd)
         parts = ["hf", *path_parts] + ([params] if params else [])
         entry = f"- `{' '.join(parts)}` — {help_text}"
