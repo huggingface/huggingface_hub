@@ -77,7 +77,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 ExpandOpt = Annotated[
     Optional[str],
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]

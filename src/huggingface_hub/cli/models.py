@@ -59,7 +59,7 @@ ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 ExpandOpt = Annotated[
     Optional[str],
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
@@ -116,7 +116,7 @@ def models_ls(
     "info",
     examples=[
         "hf models info meta-llama/Llama-3.2-1B-Instruct",
-        "hf models info gpt2 --expand downloads,likes,tags",
+        "hf models info Qwen/Qwen3.5-9B --expand downloads,likes,tags",
     ],
 )
 def models_info(
