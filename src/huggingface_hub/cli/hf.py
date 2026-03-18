@@ -65,14 +65,9 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-def _no_color_callback(value: bool) -> None:
-    if value:
-        os.environ["NO_COLOR"] = "1"
-
-
-def _auto_detect_no_color() -> None:
-    """Auto-set NO_COLOR when stdout is not a TTY (e.g. piped output)."""
-    if not os.environ.get("NO_COLOR") and not sys.stdout.isatty():
+def _init_no_color() -> None:
+    """Set NO_COLOR early so all ANSI formatting is consistent."""
+    if not os.environ.get("NO_COLOR") and ("--no-color" in sys.argv or not sys.stdout.isatty()):
         os.environ["NO_COLOR"] = "1"
 
 
@@ -83,7 +78,7 @@ def app_callback(
     ] = None,
     no_color: Annotated[
         bool,
-        typer.Option("--no-color", callback=_no_color_callback, is_eager=True, help="Disable ANSI color codes."),
+        typer.Option("--no-color", is_eager=True, help="Disable ANSI color codes."),
     ] = False,
 ) -> None:
     pass
@@ -121,7 +116,7 @@ app.add_typer(extensions_cli, name="extensions | ext")
 
 
 def main():
-    _auto_detect_no_color()
+    _init_no_color()
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
     check_cli_update("huggingface_hub")
