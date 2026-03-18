@@ -146,6 +146,7 @@ def WeakFileLock(
                     lock = SoftFileLock(lock_file, **soft_kwargs)
                 except TypeError:
                     lock = SoftFileLock(lock_file, timeout=log_interval)
+                    lifetime = None  # disable heartbeat if lifetime not supported
                 continue
         else:
             break
