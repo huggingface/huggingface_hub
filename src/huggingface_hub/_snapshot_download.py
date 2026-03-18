@@ -378,7 +378,7 @@ def snapshot_download(
     files_to_download: list[str] = []
     cached_bytes = 0
 
-    if not force_download:
+    if not force_download and not dry_run:
         for repo_file in filtered_repo_files:
             relative_filename = os.path.join(*repo_file.split("/"))
             if local_dir is not None:
