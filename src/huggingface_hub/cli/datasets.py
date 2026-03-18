@@ -121,7 +121,7 @@ def datasets_info(
     expand: ExpandOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a dataset on the Hub."""
+    """Get info about a dataset on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
         info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore[arg-type]

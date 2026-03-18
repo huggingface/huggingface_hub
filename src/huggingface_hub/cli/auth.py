@@ -30,6 +30,7 @@ Usage:
     hf auth whoami
 """
 
+import json
 from typing import Annotated, Optional
 
 import typer
@@ -39,7 +40,7 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import ANSI, get_stored_tokens, get_token, logging
-from ._cli_utils import TokenOpt, typer_factory
+from ._cli_utils import FormatOpt, OutputFormat, TokenOpt, typer_factory
 
 
 logger = logging.get_logger(__name__)
@@ -147,18 +148,26 @@ def auth_list_cmd() -> None:
     auth_list()
 
 
-@auth_cli.command("whoami", examples=["hf auth whoami"])
-def auth_whoami() -> None:
+@auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
+def auth_whoami(
+    format: FormatOpt = OutputFormat.table,
+) -> None:
     """Find out which huggingface.co account you are logged in as."""
     token = get_token()
     if token is None:
-        print("Not logged in")
+        if format == OutputFormat.json:
+            print(json.dumps({"error": "Not logged in"}))
+        else:
+            print("Not logged in")
         raise typer.Exit()
     info = whoami(token)
-    print(ANSI.bold("user: "), info["name"])
-    orgs = [org["name"] for org in info["orgs"]]
-    if orgs:
-        print(ANSI.bold("orgs: "), ",".join(orgs))
+    if format == OutputFormat.json:
+        print(json.dumps(info, indent=2, default=str))
+    else:
+        print(ANSI.bold("user: "), info["name"])
+        orgs = [org["name"] for org in info["orgs"]]
+        if orgs:
+            print(ANSI.bold("orgs: "), ",".join(orgs))
 
-    if ENDPOINT != "https://huggingface.co":
-        print(f"Authenticated through private endpoint: {ENDPOINT}")
+        if ENDPOINT != "https://huggingface.co":
+            print(f"Authenticated through private endpoint: {ENDPOINT}")
