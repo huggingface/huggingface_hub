@@ -101,7 +101,21 @@ def WeakFileLock(
         timeout = float(constants.HF_HUB_LOCK_TIMEOUT)
 
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval, mode=0o664, lifetime=lifetime)
+
+    # lifetime parameter requires filelock>=3.24.0; gracefully degrade if unavailable
+    lock_kwargs: dict = {"timeout": log_interval, "mode": 0o664}
+    if lifetime is not None:
+        lock_kwargs["lifetime"] = lifetime
+    try:
+        lock = FileLock(lock_file, **lock_kwargs)
+    except TypeError:
+        # filelock version doesn't support lifetime - fall back without it
+        lock_kwargs.pop("lifetime", None)
+        lock = FileLock(lock_file, **lock_kwargs)
+        if lifetime is not None:
+            logger.debug("filelock version does not support 'lifetime' parameter. Stale lock detection disabled.")
+            lifetime = None  # disable heartbeat too since lifetime won't be enforced
+
     start_time = time.time()
 
     while True:
@@ -125,7 +139,13 @@ def WeakFileLock(
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=log_interval, lifetime=lifetime)
+                soft_kwargs: dict = {"timeout": log_interval}
+                if lifetime is not None:
+                    soft_kwargs["lifetime"] = lifetime
+                try:
+                    lock = SoftFileLock(lock_file, **soft_kwargs)
+                except TypeError:
+                    lock = SoftFileLock(lock_file, timeout=log_interval)
                 continue
         else:
             break
