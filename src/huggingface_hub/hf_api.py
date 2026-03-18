@@ -5008,10 +5008,11 @@ class HfApi:
             normalized_path_in_repo = _validate_path_in_repo(path_in_repo)
             path_or_fileobj = _validate_path_or_fileobj(path_or_fileobj)
             if isinstance(path_or_fileobj, str):
+                local_path = str(Path(path_or_fileobj).expanduser().resolve())
                 return DryRunUploadInfo(
                     path_in_repo=normalized_path_in_repo,
-                    local_path=path_or_fileobj,
-                    file_size=Path(path_or_fileobj).stat().st_size,
+                    local_path=local_path,
+                    file_size=Path(local_path).stat().st_size,
                 )
             elif isinstance(path_or_fileobj, bytes):
                 return DryRunUploadInfo(
