@@ -8816,7 +8816,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        return Collection(**r.json())
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
 
     def create_collection(
