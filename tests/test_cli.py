@@ -2784,3 +2784,74 @@ class TestJsonShorthand:
             passed_args = mock_exec.call_args[1].get("args") or mock_exec.call_args[0][1]
             assert "--json" in passed_args, f"Expected --json to be passed through, got {passed_args}"
             assert "--format" not in passed_args, f"--json was rewritten to --format: {passed_args}"
+
+
+class TestRepoTypePrefix:
+    """Test the repo type prefix shorthand that rewrites e.g. spaces/user/repo to user/repo --type space."""
+
+    def test_spaces_prefix_on_download(self, runner: CliRunner) -> None:
+        """spaces/user/repo should be rewritten to user/repo --type space."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_datasets_prefix_on_download(self, runner: CliRunner) -> None:
+        """datasets/user/repo should be rewritten to user/repo --type dataset."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "datasets/user/my-dataset"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-dataset"
+        assert kwargs["repo_type"] == "dataset"
+
+    def test_models_prefix_on_download(self, runner: CliRunner) -> None:
+        """models/user/repo should be rewritten to user/repo --type model."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "models/user/my-model"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-model"
+        assert kwargs["repo_type"] == "model"
+
+    def test_prefix_and_explicit_type_errors(self, runner: CliRunner) -> None:
+        """Using both a prefix and --type should raise an error."""
+        result = runner.invoke(app, ["download", "spaces/user/my-space", "--type", "dataset"])
+        assert result.exit_code != 0
+        assert "Ambiguous" in result.output
+
+    def test_prefix_and_explicit_repo_type_errors(self, runner: CliRunner) -> None:
+        """Using both a prefix and --repo-type should raise an error."""
+        result = runner.invoke(app, ["download", "spaces/user/my-space", "--repo-type", "dataset"])
+        assert result.exit_code != 0
+        assert "Ambiguous" in result.output
+
+    def test_no_prefix_unchanged(self, runner: CliRunner) -> None:
+        """Normal repo IDs (without prefix) should work as before."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", DUMMY_MODEL_ID])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["repo_type"] == "model"
+
+    def test_prefix_on_nested_command(self, runner: CliRunner) -> None:
+        """Prefix should work on nested subcommands like `repos settings`."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value  # noqa: B018
+            result = runner.invoke(app, ["repos", "settings", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_repo_settings.assert_called_once()
+        kwargs = api_cls.return_value.update_repo_settings.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_not_applied_on_command_without_type(self, runner: CliRunner) -> None:
+        """Commands that don't accept --type should not be affected by the prefix."""
+        # `models ls` doesn't have --type, so spaces/... should be treated as a literal argument.
+        # This should fail because `spaces/foo/bar` is not a valid option for this command.
+        result = runner.invoke(app, ["models", "ls", "--author", "spaces/foo/bar"])
+        # Should not error with "Ambiguous" since there's no --type option on `models ls`
+        assert "Ambiguous" not in (result.output or "")

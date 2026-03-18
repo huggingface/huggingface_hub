@@ -88,6 +88,13 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
+# Mapping from URL-style plural prefixes to repo type values used by the CLI.
+_REPO_TYPE_PREFIXES = {
+    "spaces": "space",
+    "datasets": "dataset",
+    "models": "model",
+}
+
 
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
@@ -97,24 +104,86 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
+    - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        # Rewrite hidden --json shorthand to --format json, but only for commands that accept --format.
-        # This avoids rewriting `--json` for commands that pass args through to external binaries
-        # (e.g. `hf extensions exec`) or that simply don't support `--format`.
-        if "--json" in args:
-            cmd_name = args[0] if args and not args[0].startswith("-") else None
-            cmd = self.get_command(ctx, cmd_name) if cmd_name else None
-            has_format_option = cmd is not None and any(
-                isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
-            )
-            if has_format_option:
-                if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                    raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-                idx = args.index("--json")
-                args[idx : idx + 1] = ["--format", "json"]
+        cmd_name = args[0] if args and not args[0].startswith("-") else None
+        cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+
+        if cmd is not None:
+            self._rewrite_json_shorthand(cmd, args)
+            self._rewrite_repo_type_prefix(cmd, args)
+
         return super().resolve_command(ctx, args)
+
+    @staticmethod
+    def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite hidden ``--json`` shorthand to ``--format json``.
+
+        Only applies to commands that accept ``--format``.  This avoids rewriting
+        ``--json`` for commands that pass args through to external binaries
+        (e.g. ``hf extensions exec``) or that simply don't support ``--format``.
+        """
+        if "--json" not in args:
+            return
+        has_format_option = any(
+            isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
+        )
+        if has_format_option:
+            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+            idx = args.index("--json")
+            args[idx : idx + 1] = ["--format", "json"]
+
+    @staticmethod
+    def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
+
+        Only applies to commands that accept ``--type`` / ``--repo-type``.  When a
+        positional argument matches the pattern ``{prefix}/org/repo`` where prefix is
+        one of ``spaces``, ``datasets`` or ``models``, the prefix is stripped and an
+        implicit ``--type {type}`` is appended.  An error is raised if ``--type`` is
+        also provided explicitly.
+        """
+        has_type_option = any(
+            isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params
+        )
+        if not has_type_option:
+            return
+
+        # Collect all positional args that look like prefixed repo IDs.
+        prefix_matches: list[tuple[int, list[str]]] = []
+        for i, arg in enumerate(args):
+            if i == 0 or arg.startswith("-"):
+                continue
+            parts = arg.split("/", 2)
+            if len(parts) == 3 and parts[0] in _REPO_TYPE_PREFIXES:
+                prefix_matches.append((i, parts))
+
+        if not prefix_matches:
+            return
+
+        # Ensure all prefixed args agree on the repo type.
+        prefixes = {parts[0] for _, parts in prefix_matches}
+        if len(prefixes) > 1:
+            raise click.UsageError(f"Conflicting repo type prefixes: {', '.join(sorted(prefixes))}.")
+
+        prefix = next(iter(prefixes))
+
+        # Error if --type / --repo-type was also provided explicitly.
+        if any(
+            a == "--type" or a.startswith("--type=") or a == "--repo-type" or a.startswith("--repo-type=")
+            for a in args
+        ):
+            raise click.UsageError(
+                f"Ambiguous repo type: got prefix '{prefix}/' in repo ID and explicit --type. Use one or the other."
+            )
+
+        # Rewrite each matched arg and append --type once.
+        for i, parts in prefix_matches:
+            args[i] = f"{parts[1]}/{parts[2]}"
+        args.extend(["--type", _REPO_TYPE_PREFIXES[prefix]])
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
@@ -308,7 +377,7 @@ class RepoType(str, Enum):
 RepoIdArg = Annotated[
     str,
     typer.Argument(
-        help="The ID of the repo (e.g. `username/repo-name`).",
+        help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
 
