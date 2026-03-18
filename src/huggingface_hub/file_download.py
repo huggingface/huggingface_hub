@@ -1291,7 +1291,7 @@ def _hf_hub_download_to_local_dir(
         # No HEAD call but local file exists => default to local file
         if paths.file_path.is_file():
             if dry_run or not force_download:
-                if isinstance(head_call_error, OfflineModeIsEnabled):
+                if constants.HF_HUB_OFFLINE:
                     logger.info("Offline mode enabled. Returning existing local file.")
                 else:
                     logger.warning(
