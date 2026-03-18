@@ -301,9 +301,14 @@ def snapshot_download(
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
-                logger.warning(
-                    f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
-                )
+                if constants.HF_HUB_OFFLINE:
+                    logger.info(
+                        f"Offline mode enabled. Returning existing local_dir `{local_dir}`."
+                    )
+                else:
+                    logger.warning(
+                        f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
+                    )
                 return str(local_dir.resolve())
         # If we couldn't find the appropriate folder on disk, raise an error.
         if constants.HF_HUB_OFFLINE:
