@@ -149,7 +149,7 @@ def _iter_optional_params(cmd: Command):
             yield p, long_name, short_name
 
 
-def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
+def _get_flag_names(cmd: Command, *, exclude: Optional[set[str]] = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
