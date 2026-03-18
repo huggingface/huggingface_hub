@@ -61,7 +61,8 @@ FILELOCK_DEFAULT_LIFETIME: float = 600  # 10 minutes
 
 # User-configurable lock timeout via environment variable.
 # If set, a Timeout exception is raised instead of waiting indefinitely.
-HF_HUB_LOCK_TIMEOUT: Optional[float] = _as_int(os.environ.get("HF_HUB_LOCK_TIMEOUT"))  # type: ignore[assignment]
+_lock_timeout_str = os.environ.get("HF_HUB_LOCK_TIMEOUT")
+HF_HUB_LOCK_TIMEOUT: Optional[float] = float(_lock_timeout_str) if _lock_timeout_str is not None else None
 
 # Git-related constants
 
