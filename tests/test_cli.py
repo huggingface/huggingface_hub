@@ -2832,3 +2832,70 @@ class TestJsonShorthand:
             passed_args = mock_exec.call_args[1].get("args") or mock_exec.call_args[0][1]
             assert "--json" in passed_args, f"Expected --json to be passed through, got {passed_args}"
             assert "--format" not in passed_args, f"--json was rewritten to --format: {passed_args}"
+
+
+class TestSkillGeneration:
+    """Tests for SKILL.md generation (build_skill_md and helpers)."""
+
+    def test_build_skill_md_has_expected_structure(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert md.startswith("---\nname: hf-cli")
+        assert "## Commands" in md
+        assert "## Common options" in md
+        assert "## Tips" in md
+
+    def test_build_skill_md_expands_nested_groups(self) -> None:
+        """Nested groups like `hf repos tag` should be expanded to leaf commands."""
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert "hf repos tag create" in md
+        assert "hf repos tag delete" in md
+        assert "hf repos branch create" in md
+
+    def test_build_skill_md_shows_inline_flags(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        download_line = [line for line in md.splitlines() if "hf download" in line][0]
+        # Command-specific flags appear inline
+        assert "--include TEXT" in download_line
+        assert "--local-dir TEXT" in download_line
+        # Common flags (--token, --quiet, etc.) are stripped from inline display
+        assert "--token" not in download_line
+        assert "--quiet" not in download_line
+
+    def test_format_params_distinguishes_options_from_arguments(self) -> None:
+        """Required options must render with --prefix, positional args as UPPER_CASE."""
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        webhooks_create_line = [line for line in md.splitlines() if "hf webhooks create" in line][0]
+        assert "--watch TEXT" in webhooks_create_line, "Required option --watch should have -- prefix"
+        assert "` watch`" not in webhooks_create_line, "Should not render as bare 'watch'"
+
+    def test_common_options_glossary(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert "`--token`" in md
+        assert "`--format`" in md
+        assert "`--revision`" in md
+
+    def test_collect_leaf_commands_finds_deeply_nested(self) -> None:
+        from click import Context, Group
+        from typer.main import get_command
+
+        from huggingface_hub.cli.hf import app
+        from huggingface_hub.cli.skills import _collect_leaf_commands
+
+        click_app = get_command(app)
+        ctx = Context(click_app, info_name="hf")
+        jobs_group = click_app.get_command(ctx, "jobs")
+        assert isinstance(jobs_group, Group)
+        leaves = _collect_leaf_commands(jobs_group, ctx, ["jobs"])
+        leaf_paths = [" ".join(path) for path, _ in leaves]
+        assert any("jobs scheduled run" in p for p in leaf_paths)
+        assert any("jobs uv run" in p for p in leaf_paths)
