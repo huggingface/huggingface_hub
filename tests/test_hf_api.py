@@ -4258,6 +4258,47 @@ class CollectionAPITest(HfApiCommonTest):
         assert collection.items[0].item_type == "collection"
         assert collection.items[0].item_id.startswith("celinah/")
 
+    def test_get_collection_by_title(self) -> None:
+        """Test that get_collection resolves 'owner/Title' format to a real slug."""
+        from unittest.mock import MagicMock, patch
+
+        fake_col = MagicMock()
+        fake_col.title = "My Cool Collection"
+        fake_col.slug = "myuser/my-cool-collection-abc12345"
+
+        with patch.object(self._api, "list_collections", return_value=iter([fake_col])) as mock_list:
+            with patch("huggingface_hub.hf_api.get_session") as mock_session:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {
+                    "slug": "myuser/my-cool-collection-abc12345",
+                    "title": "My Cool Collection",
+                    "owner": {"name": "myuser"},
+                    "items": [],
+                    "lastUpdated": "2024-01-01T00:00:00.000Z",
+                    "position": 0,
+                    "private": False,
+                    "theme": "blue",
+                    "upvotes": 0,
+                    "isUpvotedByUser": False,
+                }
+                mock_session.return_value.get.return_value = mock_response
+
+                result = self._api.get_collection("myuser/My Cool Collection")
+
+        mock_list.assert_called_once_with(owner="myuser", token=None)
+        assert result.slug == "myuser/my-cool-collection-abc12345"
+
+    def test_get_collection_by_title_not_found(self) -> None:
+        """Test that get_collection raises ValueError when title doesn't match any collection."""
+        from unittest.mock import MagicMock, patch
+
+        with patch.object(self._api, "list_collections", return_value=iter([])):
+            with self.assertRaises(ValueError) as ctx:
+                self._api.get_collection("myuser/Nonexistent Collection")
+
+        assert "Nonexistent Collection" in str(ctx.exception)
+        assert "myuser" in str(ctx.exception)
+
 
 class AccessRequestAPITest(HfApiCommonTest):
     def setUp(self) -> None:

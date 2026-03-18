@@ -1939,6 +1939,18 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
         ) from e
 
 
+def _is_collection_slug(value: str) -> bool:
+    """
+    Returns True if the string looks like a real collection slug.
+
+    A slug has the form "owner/collection-name-<8hexchars>", e.g.:
+        "TheBloke/recent-models-64f9a55b"
+    A plain title would look like:
+        "TheBloke/My Favourite Models"  or  "TheBloke/recent-models"
+    """
+    return bool(re.search(r"-[0-9a-f]{8,}$", value))
+
+
 class HfApi:
     """
     Client to interact with the Hugging Face Hub via HTTP.
@@ -8767,43 +8779,45 @@ class HfApi:
             yield Collection(position=position, **collection_data)
 
     def get_collection(self, collection_slug: str, *, token: Union[bool, str, None] = None) -> Collection:
-        """Gets information about a Collection on the Hub.
+        """
+        Gets information about a Collection on the Hub.
 
         Args:
             collection_slug (`str`):
-                Slug of the collection of the Hub. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
-            token (`bool` or `str`, *optional*):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
+                Slug of the collection of the form `"owner/collection-slug-id"`.
+                Also accepts `"owner/Collection Title"` — if the value doesn't end
+                with a hex suffix, it will be resolved to a slug by searching the
+                owner's collections by title.
+            token (Union[bool, str, None], optional):
+                A valid user access token. Defaults to the locally saved token.
 
-        Returns: [`Collection`]
+        Returns:
+            [`Collection`]: the collection object.
 
-        Example:
-
-        ```py
-        >>> from huggingface_hub import get_collection
-        >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
-        >>> collection.title
-        'Recent models'
-        >>> len(collection.items)
-        37
-        >>> collection.items[0]
-        CollectionItem(
-            item_object_id='651446103cd773a050bf64c2',
-            item_id='TheBloke/U-Amethyst-20B-AWQ',
-            item_type='model',
-            position=88,
-            note=None
-        )
-        ```
+        Raises:
+            [`ValueError`]: If no collection matching the title is found.
         """
+        # Resolve "owner/Title" → real slug if needed
+        if "/" in collection_slug and not _is_collection_slug(collection_slug):
+            owner, title = collection_slug.split("/", 1)
+            matched = next(
+                (col for col in self.list_collections(owner=owner, token=token) if col.title == title),
+                None,
+            )
+            if matched is None:
+                raise ValueError(
+                    f"No collection found with title '{title}' under namespace '{owner}'. "
+                    f"Use `list_collections(owner='{owner}')` to see available collections."
+                )
+            collection_slug = matched.slug
+
         r = get_session().get(
-            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        return Collection(**{**r.json(), "endpoint": self.endpoint})
+        return Collection(**r.json())
+
 
     def create_collection(
         self,
