@@ -15,7 +15,7 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, _get_pointer_path, hf_hub_download, repo_folder_name
+from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
@@ -354,8 +354,13 @@ def snapshot_download(
         ignore_patterns=ignore_patterns,
     )
 
-    # Always materialize the list so we can pre-check cached files
-    filtered_repo_files = list(filtered_repo_files)
+    if not unreliable_nb_files:
+        filtered_repo_files = list(filtered_repo_files)
+        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
+    else:
+        tqdm_desc = "Fetching ... files"
+    if dry_run:
+        tqdm_desc = "[dry-run] " + tqdm_desc
 
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
@@ -371,60 +376,19 @@ def snapshot_download(
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
-    # Pre-check which files are already cached to provide accurate progress reporting.
-    # This avoids the UX issue where retrying after a partial download shows progress
-    # starting from 0 even though most files are already present.
-    cached_files: list[str] = []
-    files_to_download: list[str] = []
-    cached_bytes = 0
-
-    if not force_download and not dry_run and local_dir is None:
-        # Only pre-check cache for non-local_dir downloads. The pointer path embeds
-        # the commit hash, so os.path.exists is a reliable and cheap cache check.
-        # For local_dir downloads, cache validation requires metadata checks that are
-        # internal to hf_hub_download — we avoid duplicating that logic here.
-        for repo_file in filtered_repo_files:
-            relative_filename = os.path.join(*repo_file.split("/"))
-            pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
-            if os.path.exists(pointer_path):
-                cached_files.append(repo_file)
-                try:
-                    cached_bytes += os.path.getsize(pointer_path)
-                except OSError:
-                    pass
-            else:
-                files_to_download.append(repo_file)
-    else:
-        files_to_download = filtered_repo_files
-
-    total_files = len(filtered_repo_files)
-    num_cached = len(cached_files)
-
-    if num_cached > 0:
-        logger.info(f"{num_cached}/{total_files} files already cached, downloading {len(files_to_download)} remaining")
-
-    if num_cached > 0 and len(files_to_download) > 0:
-        tqdm_desc = f"Fetching {len(files_to_download)} files ({num_cached} already cached)"
-    elif num_cached > 0 and len(files_to_download) == 0:
-        tqdm_desc = f"All {total_files} files already cached"
-    else:
-        tqdm_desc = f"Fetching {total_files} files"
-    if dry_run:
-        tqdm_desc = "[dry-run] " + tqdm_desc
-
     results: List[Union[str, DryRunFileInfo]] = []
 
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
     tqdm_class = tqdm_class or hf_tqdm
 
-    # Create a progress bar for the bytes downloaded.
+    # Create a progress bar for the bytes downloaded
     # This progress bar is shared across threads/files and gets updated each time we fetch
-    # metadata for a file. Pre-cached file bytes are included as initial progress.
+    # metadata for a file.
     bytes_progress = tqdm_class(
-        desc="Downloading" if len(files_to_download) > 0 else "Download complete",
+        desc="Downloading (incomplete total...)",
         disable=is_tqdm_disabled(log_level=logger.getEffectiveLevel()),
-        total=cached_bytes,
-        initial=cached_bytes,
+        total=0,
+        initial=0,
         unit="B",
         unit_scale=True,
         name="huggingface_hub.snapshot_download",
@@ -462,37 +426,46 @@ def snapshot_download(
     # so no network call happens if we already
     # have the file locally.
     def _inner_hf_hub_download(repo_file: str) -> None:
-        results.append(
-            hf_hub_download(  # type: ignore
-                repo_id,
-                filename=repo_file,
-                repo_type=repo_type,
-                revision=commit_hash,
-                endpoint=endpoint,
-                cache_dir=cache_dir,
-                local_dir=local_dir,
-                library_name=library_name,
-                library_version=library_version,
-                user_agent=user_agent,
-                etag_timeout=etag_timeout,
-                force_download=force_download,
-                token=token,
-                headers=headers,
-                tqdm_class=_AggregatedTqdm,  # type: ignore
-                dry_run=dry_run,
-            )
+        prev_total = bytes_progress.total
+        result = hf_hub_download(
+            repo_id,
+            filename=repo_file,
+            repo_type=repo_type,
+            revision=commit_hash,
+            endpoint=endpoint,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            etag_timeout=etag_timeout,
+            force_download=force_download,
+            token=token,
+            headers=headers,
+            tqdm_class=_AggregatedTqdm,  # type: ignore
+            dry_run=dry_run,
         )
+        # On cache hit, hf_hub_download returns immediately without creating
+        # _AggregatedTqdm, so bytes_progress doesn't know about this file.
+        # Detect this by checking if total was unchanged, then account for
+        # the cached file's size so the progress bar reflects reality.
+        if bytes_progress.total == prev_total and isinstance(result, str):
+            try:
+                file_size = os.path.getsize(result)
+                bytes_progress.total += file_size
+                bytes_progress.update(file_size)
+                bytes_progress.refresh()
+            except OSError:
+                pass
+        results.append(result)
 
-    if files_to_download:
-        thread_map(
-            _inner_hf_hub_download,
-            files_to_download,
-            desc=tqdm_desc,
-            max_workers=max_workers,
-            tqdm_class=tqdm_class,
-        )
-    elif num_cached > 0:
-        logger.info(tqdm_desc)
+    thread_map(
+        _inner_hf_hub_download,
+        filtered_repo_files,
+        desc=tqdm_desc,
+        max_workers=max_workers,
+        tqdm_class=tqdm_class,
+    )
 
     bytes_progress.set_description("Download complete")
 
