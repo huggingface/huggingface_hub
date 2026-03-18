@@ -68,6 +68,7 @@ _SKILL_TIPS = """
 ## Tips
 
 - Use `hf <command> --help` for full options, usage, and real-world examples
+- Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
 """
 
 CENTRAL_LOCAL = Path(".agents/skills")
@@ -99,10 +100,23 @@ skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 
 def _format_params(cmd: Command) -> str:
-    """Format required params for a command as uppercase placeholders."""
+    """Format required params for a command.
+
+    Positional arguments are rendered as UPPER_CASE placeholders.
+    Required options are rendered as ``--option-name TYPE``.
+    """
     parts = []
     for p in cmd.params:
-        if p.required and p.name and not p.name.startswith("_") and p.human_readable_name != "--help":
+        if not p.required or p.human_readable_name == "--help":
+            continue
+        if p.name and p.name.startswith("_"):
+            continue
+        opts = getattr(p, "opts", [])
+        long_name = next((o for o in opts if o.startswith("--")), None)
+        if long_name is not None:
+            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            parts.append(f"{long_name} {type_name}")
+        elif p.name:
             parts.append(p.human_readable_name)
     return " ".join(parts)
 
@@ -239,8 +253,9 @@ def build_skill_md() -> str:
     for path_parts, cmd in top_level:
         lines.append(_render_leaf(path_parts, cmd))
 
+    groups_dict = dict(groups)
     for name, leaves in group_leaves:
-        group_cmd = dict(groups)[name]
+        group_cmd = groups_dict[name]
         help_text = (group_cmd.help or "").split("\n")[0].strip()
         lines.append("")
         lines.append(f"### `hf {name}` — {help_text}")
