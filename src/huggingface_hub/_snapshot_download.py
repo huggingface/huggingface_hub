@@ -220,6 +220,10 @@ def snapshot_download(
     if repo_type not in constants.REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
 
+    # If offline mode is enabled via env var, skip HTTP requests entirely
+    if constants.HF_HUB_OFFLINE:
+        local_files_only = True
+
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
     api = HfApi(
@@ -302,7 +306,14 @@ def snapshot_download(
                 )
                 return str(local_dir.resolve())
         # If we couldn't find the appropriate folder on disk, raise an error.
-        if local_files_only:
+        if constants.HF_HUB_OFFLINE:
+            raise LocalEntryNotFoundError(
+                "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
+                "offline mode is enabled (HF_HUB_OFFLINE=1). To enable repo look-ups and downloads online, unset "
+                "the `HF_HUB_OFFLINE` environment variable. Tip: make sure the cache directory matches the one used "
+                "during download (current cache dir: set via `HF_HUB_CACHE` or defaults to `HF_HOME/hub`)."
+            )
+        elif local_files_only:
             raise LocalEntryNotFoundError(
                 "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
                 "outgoing traffic has been disabled. To enable repo look-ups and downloads online, pass "

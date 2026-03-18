@@ -953,6 +953,10 @@ def hf_hub_download(
     if repo_type not in constants.REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
 
+    # If offline mode is enabled via env var, skip HTTP requests entirely
+    if constants.HF_HUB_OFFLINE:
+        local_files_only = True
+
     hf_headers = build_hf_headers(
         token=token,
         library_name=library_name,
@@ -1287,9 +1291,12 @@ def _hf_hub_download_to_local_dir(
         # No HEAD call but local file exists => default to local file
         if paths.file_path.is_file():
             if dry_run or not force_download:
-                logger.warning(
-                    f"Couldn't access the Hub to check for update but local file already exists. Defaulting to existing file. (error: {head_call_error})"
-                )
+                if isinstance(head_call_error, OfflineModeIsEnabled):
+                    logger.info("Offline mode enabled. Returning existing local file.")
+                else:
+                    logger.warning(
+                        f"Couldn't access the Hub to check for update but local file already exists. Defaulting to existing file. (error: {head_call_error})"
+                    )
             local_path = str(paths.file_path)
             if dry_run and local_metadata is not None:
                 return DryRunFileInfo(
@@ -1745,15 +1752,24 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
     """Raise an appropriate error when the HEAD call failed and we cannot locate a local file."""
     # No head call => we cannot force download.
     if force_download:
-        if local_files_only:
+        if constants.HF_HUB_OFFLINE:
+            raise ValueError(
+                "Cannot pass 'force_download=True' when offline mode is enabled (HF_HUB_OFFLINE=1)."
+            ) from head_call_error
+        elif local_files_only:
             raise ValueError("Cannot pass 'force_download=True' and 'local_files_only=True' at the same time.")
-        elif isinstance(head_call_error, OfflineModeIsEnabled):
-            raise ValueError("Cannot pass 'force_download=True' when offline mode is enabled.") from head_call_error
         else:
             raise ValueError("Force download failed due to the above error.") from head_call_error
 
     # No head call + couldn't find an appropriate file on disk => raise an error.
-    if local_files_only:
+    if constants.HF_HUB_OFFLINE:
+        raise LocalEntryNotFoundError(
+            "Cannot find the requested files in the disk cache and offline mode is enabled (HF_HUB_OFFLINE=1)."
+            " To enable hf.co look-ups and downloads online, unset the `HF_HUB_OFFLINE` environment variable."
+            " Tip: make sure the cache directory matches the one used during download"
+            " (current cache dir: set via `HF_HUB_CACHE` or defaults to `HF_HOME/hub`)."
+        ) from head_call_error
+    elif local_files_only:
         raise LocalEntryNotFoundError(
             "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
             " hf.co look-ups and downloads online, set 'local_files_only' to False."
