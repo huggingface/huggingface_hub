@@ -19,7 +19,7 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import DryRunUploadInfo, ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -797,6 +797,41 @@ class TestUploadImpl:
                     quiet=True,
                 )
         api.create_repo.assert_not_called()
+
+    def test_upload_dry_run(self, *_: object) -> None:
+        api = Mock()
+        dry_infos = [
+            DryRunUploadInfo(path_in_repo="a.txt", local_path="/tmp/a.txt", file_size=50),
+            DryRunUploadInfo(path_in_repo="b.txt", local_path="/tmp/b.txt", file_size=150),
+        ]
+        api.upload_folder.return_value = dry_infos
+        with SoftTemporaryDirectory() as cache_dir:
+            cache_path = cache_dir.absolute().as_posix()
+            (Path(cache_path) / "a.txt").write_text("hello")
+            (Path(cache_path) / "b.txt").write_text("world")
+            with (
+                patch("huggingface_hub.cli.upload.get_hf_api", return_value=api),
+                patch("builtins.print") as print_mock,
+            ):
+                upload(
+                    repo_id="my-model",
+                    local_path=cache_path,
+                    path_in_repo=".",
+                    dry_run=True,
+                )
+        api.upload_folder.assert_called_once_with(
+            folder_path=cache_path,
+            path_in_repo=".",
+            repo_id="my-model",
+            repo_type="model",
+            allow_patterns=None,
+            ignore_patterns=None,
+            dry_run=True,
+        )
+        api.create_repo.assert_not_called()
+        output = print_mock.call_args_list[0][0][0]
+        assert "[dry-run]" in output
+        assert "2 file(s)" in output
 
 
 class TestDownloadCommand:
