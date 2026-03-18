@@ -157,36 +157,6 @@ def upload(
 ) -> None:
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
-    if dry_run:
-        resolved_local_path, resolved_path_in_repo, resolved_include = _resolve_upload_paths(
-            repo_id=repo_id, local_path=local_path, path_in_repo=path_in_repo, include=include
-        )
-        api = get_hf_api(token=token)
-        if os.path.isfile(resolved_local_path):
-            results = [
-                api.upload_file(
-                    path_or_fileobj=resolved_local_path,
-                    path_in_repo=resolved_path_in_repo,
-                    repo_id=repo_id,
-                    repo_type=repo_type.value,
-                    dry_run=True,
-                )
-            ]
-        elif os.path.isdir(resolved_local_path):
-            results = api.upload_folder(
-                folder_path=resolved_local_path,
-                path_in_repo=resolved_path_in_repo,
-                repo_id=repo_id,
-                repo_type=repo_type.value,
-                allow_patterns=resolved_include,
-                ignore_patterns=exclude,
-                dry_run=True,
-            )
-        else:
-            raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
-        _print_upload_dry_run_results(results)
-        return
-
     if every is not None and every <= 0:
         raise typer.BadParameter("--every must be a positive value", param_hint="every")
 
@@ -198,6 +168,32 @@ def upload(
     resolved_local_path, resolved_path_in_repo, resolved_include = _resolve_upload_paths(
         repo_id=repo_id, local_path=local_path, path_in_repo=path_in_repo, include=include
     )
+
+    if dry_run:
+        if os.path.isfile(resolved_local_path):
+            results = [
+                api.upload_file(
+                    path_or_fileobj=resolved_local_path,
+                    path_in_repo=resolved_path_in_repo,
+                    repo_id=repo_id,
+                    repo_type=repo_type_str,
+                    dry_run=True,
+                )
+            ]
+        elif os.path.isdir(resolved_local_path):
+            results = api.upload_folder(
+                folder_path=resolved_local_path,
+                path_in_repo=resolved_path_in_repo,
+                repo_id=repo_id,
+                repo_type=repo_type_str,
+                allow_patterns=resolved_include,
+                ignore_patterns=exclude,
+                dry_run=True,
+            )
+        else:
+            raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
+        _print_upload_dry_run_results(results)
+        return
 
     def run_upload() -> str:
         if os.path.isfile(resolved_local_path):
