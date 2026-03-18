@@ -15,19 +15,19 @@ Es wird dringend empfohlen, `huggingface_hub` in einer [virtuellen Umgebung](htt
 Beginnen Sie damit, eine virtuelle Umgebung in Ihrem Projektverzeichnis zu erstellen:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 Aktivieren Sie die virtuelle Umgebung. Unter Linux und macOS:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Aktivieren der virtuellen Umgebung unter Windows:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 Jetzt können Sie `huggingface_hub` aus dem [PyPi-Register](https://pypi.org/project/huggingface-hub/) installieren:
