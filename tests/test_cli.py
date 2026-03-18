@@ -1445,6 +1445,47 @@ class TestRepoDeleteCommand:
         )
 
 
+class TestAuthWhoamiCommand:
+    MOCK_WHOAMI = {"name": "testuser", "orgs": [{"name": "org1"}, {"name": "org2"}], "type": "user"}
+
+    def test_whoami_default_table(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami"])
+        assert result.exit_code == 0
+        assert "testuser" in result.stdout
+        assert "org1" in result.stdout
+        assert "org2" in result.stdout
+
+    def test_whoami_format_json(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == self.MOCK_WHOAMI
+
+    def test_whoami_json_shorthand(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == self.MOCK_WHOAMI
+
+    def test_whoami_not_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "whoami"])
+        assert result.exit_code == 0
+        assert "Not logged in" in result.stdout
+
+
 class TestModelsLsCommand:
     def test_models_ls_basic(self, runner: CliRunner) -> None:
         repo = ModelInfo(
