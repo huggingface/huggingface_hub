@@ -3,6 +3,7 @@ import os
 import shutil
 import stat
 import tempfile
+import threading
 import time
 from functools import partial
 from pathlib import Path
@@ -75,7 +76,7 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 @contextlib.contextmanager
 def WeakFileLock(
-    lock_file: Union[str, Path], *, timeout: Optional[float] = None
+    lock_file: Union[str, Path], *, timeout: Optional[float] = None, lifetime: Optional[float] = None
 ) -> Generator[BaseFileLock, None, None]:
     """A filelock with some custom logic.
 
@@ -87,14 +88,30 @@ def WeakFileLock(
 
     An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
+
+    If a lifetime is provided, it enables stale lock recovery: the lock holder periodically
+    updates the lock file's mtime (heartbeat), and other processes consider the lock stale
+    if the mtime is older than the lifetime. This handles the case where a process crashes
+    (e.g. OOM kill in Kubernetes) while holding a lock on shared filesystems.
+
+    The timeout can also be configured globally via the `HF_HUB_LOCK_TIMEOUT` environment variable.
     """
+    # Allow env var override for timeout (explicit parameter takes precedence)
+    if timeout is None and constants.HF_HUB_LOCK_TIMEOUT is not None:
+        timeout = float(constants.HF_HUB_LOCK_TIMEOUT)
+
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
+    lock = FileLock(lock_file, timeout=log_interval, mode=0o664, lifetime=lifetime)
     start_time = time.time()
 
     while True:
         elapsed_time = time.time() - start_time
         if timeout is not None and elapsed_time >= timeout:
+            logger.warning(
+                f"Lock acquisition timed out after {timeout:.0f}s on {lock_file}. "
+                f"This may be caused by a stale lock from a crashed process. "
+                f"If you are sure no other process is downloading, you can manually delete the lock file: {lock_file}"
+            )
             raise Timeout(str(lock_file))
 
         try:
@@ -108,14 +125,34 @@ def WeakFileLock(
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=log_interval)
+                lock = SoftFileLock(lock_file, timeout=log_interval, lifetime=lifetime)
                 continue
         else:
             break
 
+    # Start heartbeat thread to periodically touch the lock file.
+    # This keeps the lock's mtime fresh so other processes don't consider it stale.
+    heartbeat_stop = threading.Event()
+    heartbeat_thread = None
+    if lifetime is not None:
+        heartbeat_interval = min(lifetime / 3, 60)
+
+        def _heartbeat():
+            while not heartbeat_stop.wait(heartbeat_interval):
+                try:
+                    os.utime(str(lock_file))
+                except OSError:
+                    break
+
+        heartbeat_thread = threading.Thread(target=_heartbeat, daemon=True)
+        heartbeat_thread.start()
+
     try:
         yield lock
     finally:
+        if heartbeat_thread is not None:
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=5)
         try:
             lock.release()
         except OSError:

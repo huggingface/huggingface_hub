@@ -1198,7 +1198,7 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    with WeakFileLock(lock_path):
+    with WeakFileLock(lock_path, lifetime=constants.FILELOCK_DEFAULT_LIFETIME):
         _download_to_tmp_and_move(
             incomplete_path=Path(blob_path + ".incomplete"),
             destination_path=Path(blob_path),
@@ -1408,7 +1408,7 @@ def _hf_hub_download_to_local_dir(
         )
 
     # Otherwise, let's download the file!
-    with WeakFileLock(paths.lock_path):
+    with WeakFileLock(paths.lock_path, lifetime=constants.FILELOCK_DEFAULT_LIFETIME):
         paths.file_path.unlink(missing_ok=True)  # delete outdated file first
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),

@@ -53,6 +53,16 @@ SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 # Timeout of aquiring file lock and logging the attempt
 FILELOCK_LOG_EVERY_SECONDS = 10
 
+# Default lifetime for download locks (in seconds). After this time without a heartbeat,
+# the lock is considered stale and can be reclaimed by another process. This handles
+# the case where a process crashes (e.g. OOM kill) while holding a lock on NFS/shared
+# filesystems where OS-level flock cleanup doesn't apply.
+FILELOCK_DEFAULT_LIFETIME: float = 600  # 10 minutes
+
+# User-configurable lock timeout via environment variable.
+# If set, a Timeout exception is raised instead of waiting indefinitely.
+HF_HUB_LOCK_TIMEOUT: Optional[float] = _as_int(os.environ.get("HF_HUB_LOCK_TIMEOUT"))  # type: ignore[assignment]
+
 # Git-related constants
 
 DEFAULT_REVISION = "main"
