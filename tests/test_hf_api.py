@@ -2539,7 +2539,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "enzostvs/deepsite"
+        space_id = "black-forest-labs/FLUX.1-dev"
 
         spaces = [space for space in self._api.list_spaces(search=space_id) if space.id == space_id]
         assert spaces[0].models is None
