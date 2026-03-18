@@ -151,24 +151,25 @@ def WeakFileLock(
         else:
             break
 
-    # Start heartbeat thread to periodically touch the lock file.
-    # This keeps the lock's mtime fresh so other processes don't consider it stale.
     heartbeat_stop = threading.Event()
     heartbeat_thread = None
-    if lifetime is not None:
-        heartbeat_interval = min(lifetime / 3, 60)
-
-        def _heartbeat():
-            while not heartbeat_stop.wait(heartbeat_interval):
-                try:
-                    os.utime(str(lock_file))
-                except OSError:
-                    break
-
-        heartbeat_thread = threading.Thread(target=_heartbeat, daemon=True)
-        heartbeat_thread.start()
-
     try:
+        # Start heartbeat thread to periodically touch the lock file.
+        # This keeps the lock's mtime fresh so other processes don't consider it stale.
+        # Must be inside try block so lock.release() runs even if thread.start() fails.
+        if lifetime is not None:
+            heartbeat_interval = min(lifetime / 3, 60)
+
+            def _heartbeat():
+                while not heartbeat_stop.wait(heartbeat_interval):
+                    try:
+                        os.utime(str(lock_file))
+                    except OSError:
+                        break
+
+            heartbeat_thread = threading.Thread(target=_heartbeat, daemon=True)
+            heartbeat_thread.start()
+
         yield lock
     finally:
         if heartbeat_thread is not None:
