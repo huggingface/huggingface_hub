@@ -1,4 +1,5 @@
 import os
+import threading
 from pathlib import Path
 from typing import Iterable, List, Literal, Optional, Union, overload
 
@@ -394,6 +395,8 @@ def snapshot_download(
         name="huggingface_hub.snapshot_download",
     )
 
+    _tl = threading.local()
+
     class _AggregatedTqdm:
         """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
 
@@ -402,6 +405,8 @@ def snapshot_download(
         """
 
         def __init__(self, *args, **kwargs):
+            _tl.tqdm_created = True
+
             # Adjust the total of the parent progress bar
             total = kwargs.pop("total", None)
             if total is not None:
@@ -426,7 +431,7 @@ def snapshot_download(
     # so no network call happens if we already
     # have the file locally.
     def _inner_hf_hub_download(repo_file: str) -> None:
-        prev_total = bytes_progress.total
+        _tl.tqdm_created = False
         result = hf_hub_download(
             repo_id,
             filename=repo_file,
@@ -447,9 +452,8 @@ def snapshot_download(
         )
         # On cache hit, hf_hub_download returns immediately without creating
         # _AggregatedTqdm, so bytes_progress doesn't know about this file.
-        # Detect this by checking if total was unchanged, then account for
-        # the cached file's size so the progress bar reflects reality.
-        if bytes_progress.total == prev_total and isinstance(result, str):
+        # Use thread-local flag to detect this without race conditions.
+        if not _tl.tqdm_created and isinstance(result, str):
             try:
                 file_size = os.path.getsize(result)
                 bytes_progress.total += file_size
