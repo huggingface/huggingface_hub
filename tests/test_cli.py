@@ -1485,6 +1485,13 @@ class TestAuthWhoamiCommand:
         assert result.exit_code == 0
         assert "Not logged in" in result.stdout
 
+    def test_whoami_not_logged_in_json(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == {"error": "Not logged in"}
+
 
 class TestModelsLsCommand:
     def test_models_ls_basic(self, runner: CliRunner) -> None:

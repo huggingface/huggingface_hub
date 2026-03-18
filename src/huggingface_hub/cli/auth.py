@@ -155,7 +155,10 @@ def auth_whoami(
     """Find out which huggingface.co account you are logged in as."""
     token = get_token()
     if token is None:
-        print("Not logged in")
+        if format == OutputFormat.json:
+            print(json.dumps({"error": "Not logged in"}))
+        else:
+            print("Not logged in")
         raise typer.Exit()
     info = whoami(token)
     if format == OutputFormat.json:
