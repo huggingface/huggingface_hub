@@ -415,39 +415,22 @@ def _get_extended_environ() -> dict[str, str]:
     return extended_environ
 
 
-def _parse_dotenv_map(
-    env: Optional[list[str]] = None,
-    env_file: Optional[str] = None,
-    *,
-    environ: dict[str, str],
-) -> dict[str, Optional[str]]:
-    """Parse CLI env/secrets args into a dict using the provided lookup environment."""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=environ))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=environ))
-    return env_map
-
-
 def parse_env_map(
     env: Optional[list[str]] = None,
     env_file: Optional[str] = None,
 ) -> dict[str, Optional[str]]:
-    """Parse ``-e``/``--env`` and ``--env-file`` CLI args into a dict."""
-    return _parse_dotenv_map(env, env_file, environ=os.environ.copy())
-
-
-def parse_secret_map(
-    secrets: Optional[list[str]] = None,
-    secrets_file: Optional[str] = None,
-) -> dict[str, Optional[str]]:
-    """Parse ``-s``/``--secrets`` and ``--secrets-file`` CLI args into a dict.
+    """Parse ``-e``/``--env``/``-s``/``--secrets`` and ``--env-file``/``--secrets-file`` CLI args into a dict.
 
     Uses an extended environment that includes the user's HF token so that
     bare ``--secrets HF_TOKEN`` resolves correctly.
     """
-    return _parse_dotenv_map(secrets, secrets_file, environ=_get_extended_environ())
+    extended_environ = _get_extended_environ()
+    env_map: dict[str, Optional[str]] = {}
+    if env_file:
+        env_map.update(load_dotenv(Path(env_file).read_text(), environ=extended_environ))
+    for env_value in env or []:
+        env_map.update(load_dotenv(env_value, environ=extended_environ))
+    return env_map
 
 
 def env_map_to_key_value_list(env_map: dict[str, Optional[str]]) -> Optional[list[dict[str, str]]]:
