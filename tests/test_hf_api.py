@@ -4264,13 +4264,13 @@ class CollectionAPITest(HfApiCommonTest):
 
         fake_col = MagicMock()
         fake_col.title = "My Cool Collection"
-        fake_col.slug = "myuser/my-cool-collection-abc12345"
+        fake_col.slug = "myuser/my-cool-collection-64f9a55bb3115b4f513ec026"
 
         with patch.object(self._api, "list_collections", return_value=iter([fake_col])) as mock_list:
             with patch("huggingface_hub.hf_api.get_session") as mock_session:
                 mock_response = MagicMock()
                 mock_response.json.return_value = {
-                    "slug": "myuser/my-cool-collection-abc12345",
+                    "slug": "myuser/my-cool-collection-64f9a55bb3115b4f513ec026",
                     "title": "My Cool Collection",
                     "owner": {"name": "myuser"},
                     "items": [],
@@ -4286,7 +4286,7 @@ class CollectionAPITest(HfApiCommonTest):
                 result = self._api.get_collection("myuser/My Cool Collection")
 
         mock_list.assert_called_once_with(owner="myuser", token=None)
-        assert result.slug == "myuser/my-cool-collection-abc12345"
+        assert result.slug == "myuser/my-cool-collection-64f9a55bb3115b4f513ec026"
 
     def test_get_collection_by_title_not_found(self) -> None:
         """Test that get_collection raises ValueError when title doesn't match any collection."""

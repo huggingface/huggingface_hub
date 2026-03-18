@@ -1943,12 +1943,10 @@ def _is_collection_slug(value: str) -> bool:
     """
     Returns True if the string looks like a real collection slug.
 
-    A slug has the form "owner/collection-name-<8hexchars>", e.g.:
-        "TheBloke/recent-models-64f9a55b"
-    A plain title would look like:
-        "TheBloke/My Favourite Models"  or  "TheBloke/recent-models"
+    Real slugs end with a MongoDB ObjectID suffix of exactly 24 hex characters.
+    E.g.: "TheBloke/recent-models-64f9a55bb3115b4f513ec026"
     """
-    return bool(re.search(r"-[0-9a-f]{8,}$", value))
+    return bool(re.search(r"-[0-9a-f]{24}$", value))
 
 
 class HfApi:
