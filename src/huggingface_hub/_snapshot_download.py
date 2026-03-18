@@ -15,6 +15,7 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from ._local_folder import read_download_metadata
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, _get_pointer_path, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
@@ -383,7 +384,14 @@ def snapshot_download(
             relative_filename = os.path.join(*repo_file.split("/"))
             if local_dir is not None:
                 local_file_path = os.path.join(local_dir, relative_filename)
-                is_cached = os.path.isfile(local_file_path)
+                # Must also verify metadata commit_hash matches to avoid serving stale files
+                # from a previous revision (mirrors the check in _hf_hub_download_to_local_dir).
+                local_metadata = read_download_metadata(local_dir=Path(local_dir), filename=repo_file)
+                is_cached = (
+                    os.path.isfile(local_file_path)
+                    and local_metadata is not None
+                    and local_metadata.commit_hash == commit_hash
+                )
             else:
                 pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
                 is_cached = os.path.exists(pointer_path)
@@ -420,14 +428,6 @@ def snapshot_download(
         tqdm_desc = "[dry-run] " + tqdm_desc
 
     results: List[Union[str, DryRunFileInfo]] = []
-
-    # Add cached file paths to results immediately
-    for repo_file in cached_files:
-        relative_filename = os.path.join(*repo_file.split("/"))
-        if local_dir is not None:
-            results.append(str(Path(os.path.join(local_dir, relative_filename)).resolve()))
-        else:
-            results.append(_get_pointer_path(storage_folder, commit_hash, relative_filename))
 
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
     tqdm_class = tqdm_class or hf_tqdm
