@@ -4871,7 +4871,7 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-        run_as_future: bool = False,
+        run_as_future: Literal[False] = ...,
         dry_run: Literal[True] = ...,
         _hot_reload: Optional[bool] = None,
     ) -> DryRunUploadInfo: ...
@@ -5105,7 +5105,7 @@ class HfApi:
         allow_patterns: Optional[Union[list[str], str]] = None,
         ignore_patterns: Optional[Union[list[str], str]] = None,
         delete_patterns: Optional[Union[list[str], str]] = None,
-        run_as_future: bool = False,
+        run_as_future: Literal[False] = ...,
         dry_run: Literal[True] = ...,
     ) -> list[DryRunUploadInfo]: ...
 
