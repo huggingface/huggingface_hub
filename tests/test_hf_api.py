@@ -338,7 +338,7 @@ class CommitApiTest(HfApiCommonTest):
         )
         assert isinstance(result, DryRunUploadInfo)
         assert result.path_in_repo == "temp/new_file.md"
-        assert result.local_path == str(Path(self.tmp_file).expanduser().resolve())
+        assert result.local_path == os.path.normpath(os.path.expanduser(self.tmp_file))
         assert result.file_size == len(self.tmp_file_content)
 
         # bytes

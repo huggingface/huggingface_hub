@@ -78,6 +78,8 @@ from ._commit_api import (
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_files,
+    _validate_path_in_repo,
+    _validate_path_or_fileobj,
     _warn_on_overwriting_operations,
 )
 from ._dataset_viewer import DatasetParquetEntry
@@ -5003,23 +5005,27 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
         if dry_run:
-            if isinstance(path_or_fileobj, (str, Path)):
-                local_path = Path(path_or_fileobj).expanduser().resolve()
-                if not local_path.is_file():
-                    raise ValueError(f"Provided path: '{local_path}' is not a file")
+            normalized_path_in_repo = _validate_path_in_repo(path_in_repo)
+            path_or_fileobj = _validate_path_or_fileobj(path_or_fileobj)
+            if isinstance(path_or_fileobj, str):
+                path = Path(path_or_fileobj)
                 return DryRunUploadInfo(
-                    path_in_repo=path_in_repo, local_path=str(local_path), file_size=local_path.stat().st_size
+                    path_in_repo=normalized_path_in_repo,
+                    local_path=path_or_fileobj,
+                    file_size=path.stat().st_size,
                 )
             elif isinstance(path_or_fileobj, bytes):
                 return DryRunUploadInfo(
-                    path_in_repo=path_in_repo, local_path="<bytes>", file_size=len(path_or_fileobj)
+                    path_in_repo=normalized_path_in_repo, local_path="<bytes>", file_size=len(path_or_fileobj)
                 )
-            else:  # BinaryIO
+            else:
                 current_pos = path_or_fileobj.tell()
                 path_or_fileobj.seek(0, 2)  # SEEK_END
                 file_size = path_or_fileobj.tell()
                 path_or_fileobj.seek(current_pos)
-                return DryRunUploadInfo(path_in_repo=path_in_repo, local_path="<fileobj>", file_size=file_size)
+                return DryRunUploadInfo(
+                    path_in_repo=normalized_path_in_repo, local_path="<fileobj>", file_size=file_size
+                )
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
@@ -5272,12 +5278,21 @@ class HfApi:
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
         if dry_run:
-            filtered, relpath_to_abspath, prefix = self._list_folder_files(
-                folder_path, path_in_repo, allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+            resolved = Path(folder_path).expanduser().resolve()
+            if not resolved.is_dir():
+                raise ValueError(f"Provided path: '{resolved}' is not a directory")
+            relpath_to_abspath = {
+                path.relative_to(resolved).as_posix(): path for path in sorted(resolved.glob("**/*")) if path.is_file()
+            }
+            filtered = list(
+                filter_repo_objects(
+                    relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+                )
             )
+            prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
             return [
                 DryRunUploadInfo(
-                    path_in_repo=prefix + relpath,
+                    path_in_repo=_validate_path_in_repo(prefix + relpath),
                     local_path=str(relpath_to_abspath[relpath]),
                     file_size=relpath_to_abspath[relpath].stat().st_size,
                 )
@@ -10230,37 +10245,6 @@ class HfApi:
             if relpath_to_abspath[relpath] != ".gitattributes"
         ]
 
-    @staticmethod
-    def _list_folder_files(
-        folder_path: Union[str, Path],
-        path_in_repo: str,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-    ) -> tuple[list[str], dict[str, Path], str]:
-        """Resolve, list and filter files in a local folder for upload.
-
-        Returns:
-            A tuple of (filtered_relpaths, relpath_to_abspath, prefix).
-        """
-        resolved = Path(folder_path).expanduser().resolve()
-        if not resolved.is_dir():
-            raise ValueError(f"Provided path: '{resolved}' is not a directory")
-
-        relpath_to_abspath = {
-            path.relative_to(resolved).as_posix(): path
-            for path in sorted(resolved.glob("**/*"))  # sorted to be deterministic
-            if path.is_file()
-        }
-
-        filtered = list(
-            filter_repo_objects(
-                relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
-            )
-        )
-
-        prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
-        return filtered, relpath_to_abspath, prefix
-
     def _prepare_upload_folder_additions(
         self,
         folder_path: Union[str, Path],
@@ -10275,9 +10259,27 @@ class HfApi:
         Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
         constraints are discarded.
         """
-        filtered_repo_objects, relpath_to_abspath, prefix = self._list_folder_files(
-            folder_path, path_in_repo, allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+
+        folder_path = Path(folder_path).expanduser().resolve()
+        if not folder_path.is_dir():
+            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+        # List files from folder
+        relpath_to_abspath = {
+            path.relative_to(folder_path).as_posix(): path
+            for path in sorted(folder_path.glob("**/*"))  # sorted to be deterministic
+            if path.is_file()
+        }
+
+        # Filter files
+        # Patterns are applied on the path relative to `folder_path`. `path_in_repo` is prefixed after the filtering.
+        filtered_repo_objects = list(
+            filter_repo_objects(
+                relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+            )
         )
+
+        prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
 
         # If updating a README.md file, make sure the metadata format is valid
         # It's better to fail early than to fail after all the files have been hashed.
