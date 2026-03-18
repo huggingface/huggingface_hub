@@ -47,6 +47,7 @@ from ._cli_utils import (
     env_map_to_key_value_list,
     get_hf_api,
     parse_env_map,
+    parse_secret_map,
     typer_factory,
 )
 
@@ -152,7 +153,7 @@ def repo_create(
         space_hardware=hardware,  # type: ignore[arg-type]
         space_storage=storage,  # type: ignore[arg-type]
         space_sleep_time=sleep_time,
-        space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
+        space_secrets=env_map_to_key_value_list(parse_secret_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
     print(f"Successfully created {ANSI.bold(repo_url.repo_id)} on the Hub.")
@@ -203,7 +204,7 @@ def repo_duplicate(
         space_hardware=hardware,  # type: ignore[arg-type]
         space_storage=storage,  # type: ignore[arg-type]
         space_sleep_time=sleep_time,
-        space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
+        space_secrets=env_map_to_key_value_list(parse_secret_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
     print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
