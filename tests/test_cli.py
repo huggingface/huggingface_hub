@@ -2812,8 +2812,12 @@ class TestSkillGeneration:
 
         md = build_skill_md()
         download_line = [line for line in md.splitlines() if "hf download" in line][0]
-        assert "--token TEXT" in download_line
-        assert "--quiet" in download_line
+        # Command-specific flags appear inline
+        assert "--include TEXT" in download_line
+        assert "--local-dir TEXT" in download_line
+        # Common flags (--token, --quiet, etc.) are stripped from inline display
+        assert "--token" not in download_line
+        assert "--quiet" not in download_line
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""

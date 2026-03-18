@@ -91,7 +91,6 @@ LOCAL_TARGETS = {
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}
 
-# Override auto-detected help text for specific glossary entries.
 _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
     "--format": "Output format: `--format json` (or `--json`) or `--format table` (default).",
 }
@@ -100,19 +99,14 @@ skills_cli = typer_factory(help="Manage skills for AI assistants.")
 
 
 def _format_params(cmd: Command) -> str:
-    """Format required params for a command.
-
-    Positional arguments are rendered as UPPER_CASE placeholders.
-    Required options are rendered as ``--option-name TYPE``.
-    """
+    """Format required params: positional as UPPER_CASE, options as ``--name TYPE``."""
     parts = []
     for p in cmd.params:
         if not p.required or p.human_readable_name == "--help":
             continue
         if p.name and p.name.startswith("_"):
             continue
-        opts = getattr(p, "opts", [])
-        long_name = next((o for o in opts if o.startswith("--")), None)
+        long_name = next((o for o in getattr(p, "opts", []) if o.startswith("--")), None)
         if long_name is not None:
             type_name = getattr(p.type, "name", "").upper() or "VALUE"
             parts.append(f"{long_name} {type_name}")
@@ -137,59 +131,51 @@ def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) ->
     return leaves
 
 
-def _get_flag_names(cmd: Command) -> list[str]:
+def _iter_optional_params(cmd: Command):
+    """Yield (param, long_name, short_name) for each optional, non-internal param."""
+    for p in cmd.params:
+        if p.required or p.human_readable_name == "--help":
+            continue
+        if p.name and p.name.startswith("_"):
+            continue
+        long_name = None
+        short_name = None
+        for opt in getattr(p, "opts", []):
+            if opt.startswith("--"):
+                long_name = long_name or opt
+            elif opt.startswith("-"):
+                short_name = opt
+        if long_name:
+            yield p, long_name, short_name
+
+
+def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
     type hint (``--include TEXT``, ``--max-workers INTEGER``).
     """
     flags: list[str] = []
-    for p in cmd.params:
-        if p.required or p.human_readable_name == "--help":
+    for p, long_name, _short in _iter_optional_params(cmd):
+        if exclude and long_name in exclude:
             continue
-        if p.name and p.name.startswith("_"):
-            continue
-        # Find the long-form option string
-        long_name = None
-        for opt in getattr(p, "opts", []):
-            if opt.startswith("--"):
-                long_name = opt
-                break
-        if long_name:
-            if getattr(p, "is_flag", False):
-                flags.append(long_name)
-            else:
-                type_name = getattr(p.type, "name", "").upper() or "VALUE"
-                flags.append(f"{long_name} {type_name}")
+        if getattr(p, "is_flag", False):
+            flags.append(long_name)
+        else:
+            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            flags.append(f"{long_name} {type_name}")
     return flags
 
 
 def _compute_common_flags(
     leaf_commands: list[tuple[list[str], Command]],
 ) -> dict[str, tuple[str, str]]:
-    """Collect display info for flags in the allowlist.
-
-    Returns dict mapping long_flag_name -> (display_name, help_text).
-    display_name includes short form when available (e.g. "-q / --quiet").
-    """
+    """Collect display info for flags in the allowlist."""
     flag_info: dict[str, tuple[str, str]] = {}
 
     for _path, cmd in leaf_commands:
-        for p in cmd.params:
-            if p.required or p.human_readable_name == "--help":
-                continue
-            if p.name and p.name.startswith("_"):
-                continue
-            long_names = []
-            short_name = None
-            for opt in getattr(p, "opts", []):
-                if opt.startswith("--"):
-                    long_names.append(opt)
-                elif opt.startswith("-"):
-                    short_name = opt
-            # Match any of the long-form opts against the allowlist
-            long_name = next((n for n in long_names if n in _COMMON_FLAG_ALLOWLIST), None)
-            if long_name is None:
+        for p, long_name, short_name in _iter_optional_params(cmd):
+            if long_name not in _COMMON_FLAG_ALLOWLIST:
                 continue
             # Prefer the version with a short form (e.g. "-q / --quiet" over just "--quiet")
             if long_name not in flag_info or (short_name and " / " not in flag_info[long_name][0]):
@@ -200,6 +186,18 @@ def _compute_common_flags(
     return flag_info
 
 
+def _render_leaf(path_parts: list[str], cmd: Command, *, common_flag_names: set[str]) -> str:
+    """Render a single leaf command as a markdown list entry."""
+    help_text = (cmd.help or "").split("\n")[0].strip()
+    params = _format_params(cmd)
+    parts = ["hf", *path_parts] + ([params] if params else [])
+    entry = f"- `{' '.join(parts)}` — {help_text}"
+    flags = _get_flag_names(cmd, exclude=common_flag_names)
+    if flags:
+        entry += f" `[{' '.join(flags)}]`"
+    return entry
+
+
 def build_skill_md() -> str:
     # Lazy import to avoid circular dependency (hf.py imports skills_cli from this module)
     from huggingface_hub import __version__
@@ -208,7 +206,6 @@ def build_skill_md() -> str:
     click_app = get_command(app)
     ctx = Context(click_app, info_name="hf")
 
-    # --- Phase 1: Collect ---
     top_level: list[tuple[list[str], Command]] = []
     groups: list[tuple[str, Group]] = []
     for name in sorted(click_app.list_commands(ctx)):  # type: ignore[attr-defined]
@@ -220,7 +217,6 @@ def build_skill_md() -> str:
         else:
             top_level.append(([name], cmd))
 
-    # Recursively resolve groups to leaf commands
     group_leaves: list[tuple[str, list[tuple[list[str], Command]]]] = []
     all_leaf_commands: list[tuple[list[str], Command]] = list(top_level)
     for name, group in groups:
@@ -228,10 +224,9 @@ def build_skill_md() -> str:
         group_leaves.append((name, leaves))
         all_leaf_commands.extend(leaves)
 
-    # --- Phase 2: Compute common flags ---
     common_flags = _compute_common_flags(all_leaf_commands)
+    common_flag_names = set(common_flags)
 
-    # --- Phase 3: Render ---
     # wrap in list to widen list[LiteralString] -> list[str] for `ty`
     lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
     lines.append("")
@@ -240,18 +235,8 @@ def build_skill_md() -> str:
     lines.append("## Commands")
     lines.append("")
 
-    def _render_leaf(path_parts: list[str], cmd: Command) -> str:
-        help_text = (cmd.help or "").split("\n")[0].strip()
-        params = _format_params(cmd)
-        parts = ["hf", *path_parts] + ([params] if params else [])
-        entry = f"- `{' '.join(parts)}` — {help_text}"
-        flags = _get_flag_names(cmd)
-        if flags:
-            entry += f" `[{' '.join(flags)}]`"
-        return entry
-
     for path_parts, cmd in top_level:
-        lines.append(_render_leaf(path_parts, cmd))
+        lines.append(_render_leaf(path_parts, cmd, common_flag_names=common_flag_names))
 
     groups_dict = dict(groups)
     for name, leaves in group_leaves:
@@ -261,9 +246,8 @@ def build_skill_md() -> str:
         lines.append(f"### `hf {name}` — {help_text}")
         lines.append("")
         for path_parts, cmd in leaves:
-            lines.append(_render_leaf(path_parts, cmd))
+            lines.append(_render_leaf(path_parts, cmd, common_flag_names=common_flag_names))
 
-    # Common options glossary
     if common_flags:
         lines.append("")
         lines.append("## Common options")
