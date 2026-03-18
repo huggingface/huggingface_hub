@@ -180,10 +180,12 @@ $ hf auth whoami [OPTIONS]
 
 **Options**:
 
+* `--format [table|json]`: Output format (table or json).  [default: table]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf auth whoami
+  $ hf auth whoami --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -804,7 +806,7 @@ $ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 
 ### `hf collections info`
 
-Get info about a collection on the Hub.
+Get info about a collection on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -948,7 +950,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf datasets info`
 
-Get info about a dataset on the Hub.
+Get info about a dataset on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -963,7 +965,7 @@ $ hf datasets info [OPTIONS] DATASET_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -993,7 +995,7 @@ $ hf datasets list [OPTIONS]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2585,7 +2587,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 ### `hf models info`
 
-Get info about a model on the Hub.
+Get info about a model on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -2600,13 +2602,13 @@ $ hf models info [OPTIONS] MODEL_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf models info meta-llama/Llama-3.2-1B-Instruct
-  $ hf models info gpt2 --expand downloads,likes,tags
+  $ hf models info Qwen/Qwen3.5-9B --expand downloads,likes,tags
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2631,7 +2633,7 @@ $ hf models list [OPTIONS]
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -3267,7 +3269,7 @@ Learn more
 
 ### `hf spaces info`
 
-Get info about a space on the Hub.
+Get info about a space on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -3282,7 +3284,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -3312,7 +3314,7 @@ $ hf spaces list [OPTIONS]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--expand TEXT`: Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.

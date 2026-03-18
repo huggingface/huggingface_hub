@@ -60,7 +60,7 @@ DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, ty
 ExpandOpt = Annotated[
     Optional[str],
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
@@ -121,7 +121,7 @@ def datasets_info(
     expand: ExpandOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a dataset on the Hub."""
+    """Get info about a dataset on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
         info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore[arg-type]

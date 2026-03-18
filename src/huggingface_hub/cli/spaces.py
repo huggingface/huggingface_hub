@@ -77,7 +77,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 ExpandOpt = Annotated[
     Optional[str],
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
@@ -136,7 +136,7 @@ def spaces_info(
     expand: ExpandOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a space on the Hub."""
+    """Get info about a space on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
