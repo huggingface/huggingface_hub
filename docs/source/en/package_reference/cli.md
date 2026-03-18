@@ -181,10 +181,12 @@ $ hf auth whoami [OPTIONS]
 
 **Options**:
 
+* `--format [table|json]`: Output format (table or json).  [default: table]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf auth whoami
+  $ hf auth whoami --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -805,7 +807,7 @@ $ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 
 ### `hf collections info`
 
-Get info about a collection on the Hub.
+Get info about a collection on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -949,7 +951,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf datasets info`
 
-Get info about a dataset on the Hub.
+Get info about a dataset on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -2586,7 +2588,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 ### `hf models info`
 
-Get info about a model on the Hub.
+Get info about a model on the Hub. Output is in JSON format.
 
 **Usage**:
 
@@ -3268,7 +3270,7 @@ Learn more
 
 ### `hf spaces info`
 
-Get info about a space on the Hub.
+Get info about a space on the Hub. Output is in JSON format.
 
 **Usage**:
 
