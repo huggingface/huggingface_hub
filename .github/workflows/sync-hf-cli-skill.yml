@@ -27,6 +27,7 @@ jobs:
       - name: Generate skill docs
         run: |
           mkdir -p /tmp/hf-cli-skill
+          mkdir -p ~/.cache/huggingface && touch ~/.cache/huggingface/.check_for_update_done
           hf skills preview > /tmp/hf-cli-skill/SKILL.md
 
       - name: Determine PR title
