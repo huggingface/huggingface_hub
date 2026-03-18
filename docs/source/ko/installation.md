@@ -17,19 +17,19 @@ rendered properly in your Markdown viewer.
 프로젝트 디렉토리에 가상 환경을 생성하는 것으로 시작하세요:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 가상환경을 활성화하려면 Linux 및 macOS의 경우:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Windows의 경우:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 [PyPi 레지스트리](https://pypi.org/project/huggingface-hub/)에서 `huggingface_hub`를 설치할 준비가 되었습니다:

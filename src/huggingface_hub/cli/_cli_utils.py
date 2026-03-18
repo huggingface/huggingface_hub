@@ -587,7 +587,7 @@ def _get_huggingface_hub_update_command() -> str:
     """Return the command to update huggingface_hub."""
     method = installation_method()
     if method == "brew":
-        return "brew upgrade huggingface-cli"
+        return "brew upgrade hf"
     elif method == "hf_installer" and os.name == "nt":
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
     elif method == "hf_installer":
