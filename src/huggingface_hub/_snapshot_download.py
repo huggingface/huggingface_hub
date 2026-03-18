@@ -15,7 +15,6 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from ._local_folder import read_download_metadata
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, _get_pointer_path, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
@@ -379,32 +378,18 @@ def snapshot_download(
     files_to_download: list[str] = []
     cached_bytes = 0
 
-    if not force_download and not dry_run:
+    if not force_download and not dry_run and local_dir is None:
+        # Only pre-check cache for non-local_dir downloads. The pointer path embeds
+        # the commit hash, so os.path.exists is a reliable and cheap cache check.
+        # For local_dir downloads, cache validation requires metadata checks that are
+        # internal to hf_hub_download — we avoid duplicating that logic here.
         for repo_file in filtered_repo_files:
             relative_filename = os.path.join(*repo_file.split("/"))
-            if local_dir is not None:
-                local_file_path = os.path.join(local_dir, relative_filename)
-                # Must also verify metadata commit_hash matches to avoid serving stale files
-                # from a previous revision (mirrors the check in _hf_hub_download_to_local_dir).
-                local_metadata = read_download_metadata(local_dir=Path(local_dir), filename=repo_file)
-                is_cached = (
-                    os.path.isfile(local_file_path)
-                    and local_metadata is not None
-                    and local_metadata.commit_hash == commit_hash
-                )
-            else:
-                pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
-                is_cached = os.path.exists(pointer_path)
-
-            if is_cached:
+            pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
+            if os.path.exists(pointer_path):
                 cached_files.append(repo_file)
                 try:
-                    if local_dir is not None:
-                        cached_bytes += os.path.getsize(os.path.join(local_dir, relative_filename))
-                    else:
-                        cached_bytes += os.path.getsize(
-                            _get_pointer_path(storage_folder, commit_hash, relative_filename)
-                        )
+                    cached_bytes += os.path.getsize(pointer_path)
                 except OSError:
                     pass
             else:
