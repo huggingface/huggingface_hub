@@ -862,7 +862,7 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ## hf papers
 
-Use `hf papers` to list, search, and get info about papers on the Hub.
+Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
 
 ### List papers
 
