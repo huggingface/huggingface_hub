@@ -4036,9 +4036,7 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             private (`bool`, *optional*):
-                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
-                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
-                `visibility="public"`.
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists. Cannot be passed together with `visibility`.
             visibility (`Literal["public", "private", "protected"]`, *optional*):
                 Visibility of the repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. If `None`
                 (default), the repo will be public unless the organization's default is private. This value is ignored
@@ -4236,9 +4234,7 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
-                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
-                `visibility="public"`.
+                Whether the repository should be private. Cannot be passed together with `visibility`.
             visibility (`Literal["public", "private", "protected"]`, *optional*):
                 Visibility of the repository. Can be `"public"` or `"private"`, or `"protected"` for Spaces.
             token (`Union[str, bool, None]`, *optional*):
@@ -7721,9 +7717,8 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if duplicating a dataset or Space,
                 `None` or `"model"` if duplicating a model. Default is `None`.
             private (`bool`, *optional*):
-                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
-                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
-                `visibility="public"`.
+                Whether the new repo should be private or not. Defaults to the same
+                privacy as the original repo. Cannot be passed together with `visibility`.
             visibility (`Literal["public", "private", "protected"]`, *optional*):
                 Visibility of the new repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. Defaults
                 to the same visibility as the original repo.
@@ -7884,9 +7879,7 @@ class HfApi:
                 ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
                 name as the original Space, but in your account.
             private (`bool`, *optional*):
-                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
-                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
-                `visibility="public"`.
+                Whether the new Space should be private or not. Defaults to the same privacy as the original Space. Cannot be passed together with `visibility`.
             visibility (`Literal["public", "private", "protected"]`, *optional*):
                 Visibility of the new Space. Can be `"public"`, `"private"`, or `"protected"`. Defaults to the same
                 visibility as the original Space.
