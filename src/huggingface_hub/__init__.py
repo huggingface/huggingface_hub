@@ -293,6 +293,7 @@ _SUBMOD_ATTRS = {
         "move_bucket",
         "move_repo",
         "paper_info",
+        "paper_read",
         "parse_local_safetensors_file_metadata",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
@@ -1014,6 +1015,7 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
+    "paper_read",
     "parse_eval_result_entries",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
@@ -1405,6 +1407,7 @@ if TYPE_CHECKING:  # pragma: no cover
         move_bucket,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
+        paper_read,  # noqa: F401
         parse_local_safetensors_file_metadata,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401

@@ -12799,6 +12799,7 @@ space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
+paper_read = api.paper_read
 list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists
