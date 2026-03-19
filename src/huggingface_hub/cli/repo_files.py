@@ -70,7 +70,10 @@ def repo_files_delete(
     token: TokenOpt = None,
 ) -> None:
     print(
-        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repos delete-files` instead."),
+        ANSI.yellow(
+            "FutureWarning: `hf repo-files delete` is deprecated. Use `hf repos delete-files` instead.",
+            file=sys.stderr,
+        ),
         file=sys.stderr,
     )
     api = get_hf_api(token=token)

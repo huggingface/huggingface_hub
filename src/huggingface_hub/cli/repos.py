@@ -52,7 +52,7 @@ repos_cli = typer_factory(help="Manage repos on the Hub.")
 def _repos_callback(ctx: typer.Context) -> None:
     if ctx.info_name == "repo":
         print(
-            ANSI.yellow("FutureWarning: `hf repo` is deprecated in favor of `hf repos`."),
+            ANSI.yellow("FutureWarning: `hf repo` is deprecated in favor of `hf repos`.", file=sys.stderr),
             file=sys.stderr,
         )
 

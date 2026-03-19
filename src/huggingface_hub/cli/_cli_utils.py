@@ -47,6 +47,13 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
     return HfApi(token=token, library_name="huggingface-cli", library_version=__version__)
 
 
+def _init_no_color(ctx: Optional[click.Context] = None) -> None:
+    """Disable ANSI styling for both custom helpers and Click/Typer output."""
+    os.environ["NO_COLOR"] = "1"
+    if ctx is not None:
+        ctx.color = False
+
+
 #### TYPER UTILS
 
 CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"

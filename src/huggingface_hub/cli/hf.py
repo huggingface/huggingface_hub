@@ -20,7 +20,12 @@ from typing import Annotated, Optional
 import typer
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
+from huggingface_hub.cli._cli_utils import (
+    _init_no_color,
+    check_cli_update,
+    fallback_typer_group_factory,
+    typer_factory,
+)
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
@@ -65,23 +70,30 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-def _init_no_color() -> None:
-    """Set NO_COLOR early so all ANSI formatting is consistent."""
-    if not os.environ.get("NO_COLOR") and ("--no-color" in sys.argv or not sys.stdout.isatty()):
-        os.environ["NO_COLOR"] = "1"
+def _no_color_callback(ctx: typer.Context, value: bool) -> bool:
+    if value:
+        _init_no_color(ctx)
+    return value
 
 
 @app.callback(invoke_without_command=True)
 def app_callback(
+    ctx: typer.Context,
     version: Annotated[
         Optional[bool], typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
     no_color: Annotated[
         bool,
-        typer.Option("--no-color", is_eager=True, help="Disable ANSI color codes."),
+        typer.Option(
+            "--no-color",
+            callback=_no_color_callback,
+            help="Disable colored output.",
+            is_eager=True,
+        ),
     ] = False,
 ) -> None:
-    pass
+    if os.getenv("NO_COLOR"):
+        ctx.color = False
 
 
 # top level single commands (defined in their respective files)
@@ -116,13 +128,17 @@ app.add_typer(extensions_cli, name="extensions | ext")
 
 
 def main():
-    _init_no_color()
+    if os.getenv("NO_COLOR") or "--no-color" in sys.argv[1:]:
+        _init_no_color()
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
     check_cli_update("huggingface_hub")
 
     try:
-        app()
+        if os.getenv("NO_COLOR"):
+            app(color=False)
+        else:
+            app()
     except Exception as e:
         message = format_known_exception(e)
         if message:

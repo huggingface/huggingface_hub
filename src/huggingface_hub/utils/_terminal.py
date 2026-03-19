@@ -16,7 +16,7 @@
 import os
 import shutil
 import sys
-from typing import Optional, Union
+from typing import Optional, TextIO, Union
 
 
 class StatusLine:
@@ -58,33 +58,36 @@ class ANSI:
     _yellow = "\u001b[33m"
 
     @classmethod
-    def blue(cls, s: str) -> str:
-        return cls._format(s, cls._blue)
+    def blue(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._blue, file=file)
 
     @classmethod
-    def bold(cls, s: str) -> str:
-        return cls._format(s, cls._bold)
+    def bold(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._bold, file=file)
 
     @classmethod
-    def gray(cls, s: str) -> str:
-        return cls._format(s, cls._gray)
+    def gray(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._gray, file=file)
 
     @classmethod
-    def green(cls, s: str) -> str:
-        return cls._format(s, cls._green)
+    def green(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._green, file=file)
 
     @classmethod
-    def red(cls, s: str) -> str:
-        return cls._format(s, cls._bold + cls._red)
+    def red(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._bold + cls._red, file=file)
 
     @classmethod
-    def yellow(cls, s: str) -> str:
-        return cls._format(s, cls._yellow)
+    def yellow(cls, s: str, file: Optional[TextIO] = None) -> str:
+        return cls._format(s, cls._yellow, file=file)
 
     @classmethod
-    def _format(cls, s: str, code: str) -> str:
+    def _format(cls, s: str, code: str, file: Optional[TextIO] = None) -> str:
         if os.environ.get("NO_COLOR"):
             # See https://no-color.org/
+            return s
+        stream = file if file is not None else sys.stdout
+        if not getattr(stream, "isatty", lambda: False)():
             return s
         return f"{code}{s}{cls._reset}"
 
