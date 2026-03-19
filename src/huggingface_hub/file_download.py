@@ -1870,7 +1870,7 @@ def _reserve_disk_space_for_file(file: BinaryIO, size: int) -> None:
         import msvcrt
         from ctypes import wintypes
 
-        file_allocation_info_class = 19
+        file_allocation_info_class = 5
 
         class FILE_ALLOCATION_INFO(ctypes.Structure):
             _fields_ = [("AllocationSize", ctypes.c_longlong)]
