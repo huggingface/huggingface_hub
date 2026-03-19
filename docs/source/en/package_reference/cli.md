@@ -2666,6 +2666,9 @@ $ hf papers [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List daily papers on the Hub. [alias: ls]
+* `search`: Search papers on the Hub.
+* `info`: Get info about a paper on the Hub.
+* `read`: Read a paper as markdown.
 
 ### `hf papers list`
 
@@ -2680,6 +2683,9 @@ $ hf papers list [OPTIONS]
 **Options**:
 
 * `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
+* `--week TEXT`: ISO week to filter by, e.g. '2025-W09'.
+* `--month TEXT`: Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'.
+* `--submitter TEXT`: Filter by username of the submitter.
 * `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
 * `--format [table|json]`: Output format (table or json).  [default: table]
@@ -2691,7 +2697,97 @@ Examples
   $ hf papers ls
   $ hf papers ls --sort trending
   $ hf papers ls --date 2025-01-23
+  $ hf papers ls --week 2025-W09
+  $ hf papers ls --submitter someuser
   $ hf papers ls --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers search`
+
+Search papers on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers search [OPTIONS] QUERY
+```
+
+**Arguments**:
+
+* `QUERY`: Search query string.  [required]
+
+**Options**:
+
+* `--limit INTEGER`: Limit the number of results.  [default: 20]
+* `--format [table|json]`: Output format (table or json).  [default: table]
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers search "vision language"
+  $ hf papers search "attention mechanism" --limit 10
+  $ hf papers search "diffusion" --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers info`
+
+Get info about a paper on the Hub. Output is in JSON format.
+
+**Usage**:
+
+```console
+$ hf papers info [OPTIONS] PAPER_ID
+```
+
+**Arguments**:
+
+* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers info 2502.08025
+  $ hf papers info 2412.19819
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers read`
+
+Read a paper as markdown.
+
+**Usage**:
+
+```console
+$ hf papers read [OPTIONS] PAPER_ID
+```
+
+**Arguments**:
+
+* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers read 2502.08025
+  $ hf papers read 2412.19819
 
 Learn more
   Use `hf <command> --help` for more information about a command.
