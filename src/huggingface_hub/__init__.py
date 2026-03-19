@@ -180,6 +180,7 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "LeaderboardEntry",
         "ModelInfo",
         "Organization",
         "RepoFile",
@@ -215,6 +216,7 @@ _SUBMOD_ATTRS = {
         "create_tag",
         "create_webhook",
         "dataset_info",
+        "dataset_leaderboard",
         "delete_branch",
         "delete_bucket",
         "delete_collection",
@@ -749,6 +751,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "LeaderboardEntry",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -909,6 +912,7 @@ __all__ = [
     "create_tag",
     "create_webhook",
     "dataset_info",
+    "dataset_leaderboard",
     "delete_branch",
     "delete_bucket",
     "delete_collection",
@@ -1292,6 +1296,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        LeaderboardEntry,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
@@ -1327,6 +1332,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_tag,  # noqa: F401
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
+        dataset_leaderboard,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_bucket,  # noqa: F401
         delete_collection,  # noqa: F401

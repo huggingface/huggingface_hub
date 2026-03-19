@@ -1827,6 +1827,60 @@ class LFSFileInfo:
         self.__dict__.update(**kwargs)
 
 
+@dataclass
+class LeaderboardEntry:
+    """Contains information about a single entry in a dataset leaderboard on the Hub.
+
+    A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
+    This object is returned by [`dataset_leaderboard`].
+
+    Attributes:
+        rank (`int`):
+            Rank of the model on the leaderboard (1-indexed).
+        model_id (`str`):
+            ID of the model (e.g. `"meta-llama/Llama-3-8b"`).
+        value (`float`):
+            Evaluation score value.
+        filename (`str`):
+            Name of the result file containing the evaluation data.
+        verified (`bool`):
+            Whether the result has been verified.
+        source (`dict`):
+            Information about the source of the evaluation result. Contains keys like
+            `"url"`, `"name"`, and `"isExternal"`.
+        author (`dict`):
+            Information about the model author.
+        pull_request (`int`, *optional*):
+            Pull request number associated with the leaderboard entry, if any.
+        notes (`str`, *optional*):
+            Notes associated with the leaderboard entry, if any.
+    """
+
+    rank: int
+    model_id: str
+    value: float
+    filename: str
+    verified: bool
+    source: dict
+    author: dict
+    pull_request: Optional[int] = None
+    notes: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.rank = kwargs.pop("rank")
+        self.model_id = kwargs.pop("modelId")
+        self.value = kwargs.pop("value")
+        self.filename = kwargs.pop("filename")
+        self.verified = kwargs.pop("verified")
+        self.source = kwargs.pop("source")
+        self.author = kwargs.pop("author")
+        self.pull_request = kwargs.pop("pullRequest", None)
+        self.notes = kwargs.pop("notes", None)
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
 def future_compatible(fn: CallableT) -> CallableT:
     """Wrap a method of `HfApi` to handle `run_as_future=True`.
 
@@ -3010,6 +3064,61 @@ class HfApi:
         hf_raise_for_status(r)
         data = r.json()
         return DatasetInfo(**data)
+
+    @validate_hf_hub_args
+    def dataset_leaderboard(
+        self,
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+        timeout: Optional[float] = None,
+    ) -> list[LeaderboardEntry]:
+        """Get the leaderboard for a dataset on the Hub.
+
+        The leaderboard ranks models based on their evaluation scores on the given benchmark
+        dataset. Not all datasets have leaderboards — only benchmark datasets with evaluation
+        results submitted to them.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`. For example: `"allenai/olmOCR-bench"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `list[LeaderboardEntry]`: A list of [`LeaderboardEntry`] objects representing
+            the leaderboard entries, sorted by rank.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If the repository cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            [`~utils.HfHubHTTPError`]:
+                If the dataset does not have a leaderboard.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> leaderboard = api.dataset_leaderboard("allenai/olmOCR-bench")
+            >>> leaderboard[0].model_id
+            'datalab-to/chandra-ocr-2'
+            >>> leaderboard[0].rank
+            1
+            ```
+        """
+        headers = self._build_hf_headers(token=token)
+        path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
+        r = get_session().get(path, headers=headers, timeout=timeout)
+        hf_raise_for_status(r)
+        data = r.json()
+        return [LeaderboardEntry(**entry) for entry in data]
 
     @validate_hf_hub_args
     def space_info(
@@ -12773,6 +12882,7 @@ model_info = api.model_info
 list_datasets = api.list_datasets
 list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
+dataset_leaderboard = api.dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
