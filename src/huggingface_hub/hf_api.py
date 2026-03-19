@@ -1845,11 +1845,12 @@ class LeaderboardEntry:
             Name of the result file containing the evaluation data.
         verified (`bool`):
             Whether the result has been verified.
-        source (`dict`):
+        source (`dict[str, Any]`):
             Information about the source of the evaluation result. Contains keys like
             `"url"`, `"name"`, and `"isExternal"`.
-        author (`dict`):
-            Information about the model author.
+        author (`dict[str, Any]`):
+            Information about the model author. Contains keys like
+            `"name"`, `"fullname"`, `"type"` (`"user"` or `"org"`), and `"avatarUrl"`.
         pull_request (`int`, *optional*):
             Pull request number associated with the leaderboard entry, if any.
         notes (`str`, *optional*):
@@ -1861,8 +1862,8 @@ class LeaderboardEntry:
     value: float
     filename: str
     verified: bool
-    source: dict
-    author: dict
+    source: dict[str, Any]
+    author: dict[str, Any]
     pull_request: Optional[int] = None
     notes: Optional[str] = None
 

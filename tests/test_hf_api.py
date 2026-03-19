@@ -2341,10 +2341,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert isinstance(entry.verified, bool)
         assert isinstance(entry.source, dict)
         assert isinstance(entry.author, dict)
+        # Optional fields should be accessible (may be None)
+        assert entry.pull_request is None or isinstance(entry.pull_request, int)
+        assert entry.notes is None or isinstance(entry.notes, str)
 
     @with_production_testing
     def test_dataset_leaderboard_not_found(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(RepositoryNotFoundError):
             HfApi().dataset_leaderboard("this-repo-does-not-exist/404")
 
     def test_space_info(self) -> None:
