@@ -3067,7 +3067,7 @@ class HfApi:
         return DatasetInfo(**data)
 
     @validate_hf_hub_args
-    def dataset_leaderboard(
+    def get_dataset_leaderboad(
         self,
         repo_id: str,
         *,
