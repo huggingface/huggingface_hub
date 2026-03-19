@@ -67,7 +67,7 @@ Use `hf --help` to view available functions. Note that auth commands are now all
 _SKILL_TIPS = """
 ## Tips
 
-- Use `hf <command> --help` for full options, usage, and real-world examples
+- When in doubt about a command, use `hf <command> --help` for full options, description, usage, and real-world examples
 - Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
 """
 
@@ -90,9 +90,12 @@ LOCAL_TARGETS = {
 # Flags worth explaining in the common-options glossary. Self-explanatory flags
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}
+# Keep token out of inline command signatures to encourage env based auth.
+_INLINE_FLAG_EXCLUDE = {"--token"}
 
 _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
     "--format": "Output format: `--format json` (or `--json`) or `--format table` (default).",
+    "--token": "Use a User Access Token. Prefer setting `HF_TOKEN` env var instead of passing `--token`.",
 }
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
@@ -186,13 +189,13 @@ def _compute_common_flags(
     return flag_info
 
 
-def _render_leaf(path_parts: list[str], cmd: Command, *, common_flag_names: set[str]) -> str:
+def _render_leaf(path_parts: list[str], cmd: Command) -> str:
     """Render a single leaf command as a markdown list entry."""
     help_text = (cmd.help or "").split("\n")[0].strip()
     params = _format_params(cmd)
     parts = ["hf", *path_parts] + ([params] if params else [])
     entry = f"- `{' '.join(parts)}` — {help_text}"
-    flags = _get_flag_names(cmd, exclude=common_flag_names)
+    flags = _get_flag_names(cmd, exclude=_INLINE_FLAG_EXCLUDE)
     if flags:
         entry += f" `[{' '.join(flags)}]`"
     return entry
@@ -225,7 +228,6 @@ def build_skill_md() -> str:
         all_leaf_commands.extend(leaves)
 
     common_flags = _compute_common_flags(all_leaf_commands)
-    common_flag_names = set(common_flags)
 
     # wrap in list to widen list[LiteralString] -> list[str] for `ty`
     lines: list[str] = list(_SKILL_YAML_PREFIX.splitlines())
@@ -236,7 +238,7 @@ def build_skill_md() -> str:
     lines.append("")
 
     for path_parts, cmd in top_level:
-        lines.append(_render_leaf(path_parts, cmd, common_flag_names=common_flag_names))
+        lines.append(_render_leaf(path_parts, cmd))
 
     groups_dict = dict(groups)
     for name, leaves in group_leaves:
@@ -246,7 +248,7 @@ def build_skill_md() -> str:
         lines.append(f"### `hf {name}` — {help_text}")
         lines.append("")
         for path_parts, cmd in leaves:
-            lines.append(_render_leaf(path_parts, cmd, common_flag_names=common_flag_names))
+            lines.append(_render_leaf(path_parts, cmd))
 
     if common_flags:
         lines.append("")
