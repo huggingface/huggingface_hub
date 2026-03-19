@@ -1828,7 +1828,7 @@ class LFSFileInfo:
 
 
 @dataclass
-class LeaderboardEntry:
+class DatasetLeaderboardEntry:
     """Contains information about a single entry in a dataset leaderboard on the Hub.
 
     A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
