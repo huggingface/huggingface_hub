@@ -67,7 +67,7 @@ Use `hf --help` to view available functions. Note that auth commands are now all
 _SKILL_TIPS = """
 ## Tips
 
-- When in doubt about a command, use `hf <command> --help` for full options, description, usage, and real-world examples
+- Use `hf <command> --help` for full options, descriptions, usage, and real-world examples
 - Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
 """
 
