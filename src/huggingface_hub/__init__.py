@@ -176,11 +176,11 @@ _SUBMOD_ATTRS = {
         "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetInfo",
+        "DatasetLeaderboardEntry",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
-        "LeaderboardEntry",
         "ModelInfo",
         "Organization",
         "RepoFile",
@@ -216,7 +216,6 @@ _SUBMOD_ATTRS = {
         "create_tag",
         "create_webhook",
         "dataset_info",
-        "dataset_leaderboard",
         "delete_branch",
         "delete_bucket",
         "delete_collection",
@@ -245,6 +244,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -751,7 +751,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "LeaderboardEntry",
+    "DatasetLeaderboardEntry",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -912,7 +912,7 @@ __all__ = [
     "create_tag",
     "create_webhook",
     "dataset_info",
-    "dataset_leaderboard",
+    "get_dataset_leaderboard",
     "delete_branch",
     "delete_bucket",
     "delete_collection",
@@ -1292,11 +1292,11 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
+        DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
-        LeaderboardEntry,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
@@ -1332,7 +1332,6 @@ if TYPE_CHECKING:  # pragma: no cover
         create_tag,  # noqa: F401
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
-        dataset_leaderboard,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_bucket,  # noqa: F401
         delete_collection,  # noqa: F401
@@ -1361,6 +1360,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401

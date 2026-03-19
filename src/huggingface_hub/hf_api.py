@@ -1832,7 +1832,7 @@ class DatasetLeaderboardEntry:
     """Contains information about a single entry in a dataset leaderboard on the Hub.
 
     A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
-    This object is returned by [`dataset_leaderboard`].
+    This object is returned by [`get_dataset_leaderboard`].
 
     Attributes:
         rank (`int`):
@@ -1848,9 +1848,8 @@ class DatasetLeaderboardEntry:
         source (`dict[str, Any]`):
             Information about the source of the evaluation result. Contains keys like
             `"url"`, `"name"`, and `"isExternal"`.
-        author (`dict[str, Any]`):
-            Information about the model author. Contains keys like
-            `"name"`, `"fullname"`, `"type"` (`"user"` or `"org"`), and `"avatarUrl"`.
+        author (`User` or `Organization`):
+            The model author, parsed based on the `"type"` field in the API response.
         pull_request (`int`, *optional*):
             Pull request number associated with the leaderboard entry, if any.
         notes (`str`, *optional*):
@@ -1863,7 +1862,7 @@ class DatasetLeaderboardEntry:
     filename: str
     verified: bool
     source: dict[str, Any]
-    author: dict[str, Any]
+    author: Union[User, Organization]
     pull_request: Optional[int] = None
     notes: Optional[str] = None
 
@@ -1874,7 +1873,13 @@ class DatasetLeaderboardEntry:
         self.filename = kwargs.pop("filename")
         self.verified = kwargs.pop("verified")
         self.source = kwargs.pop("source")
-        self.author = kwargs.pop("author")
+        author_data = dict(kwargs.pop("author"))
+        author_type = author_data.get("type")
+        if author_type == "org":
+            self.author = Organization(**author_data)
+        else:
+            author_data["user"] = author_data.pop("name", "")
+            self.author = User(**author_data)
         self.pull_request = kwargs.pop("pullRequest", None)
         self.notes = kwargs.pop("notes", None)
 
@@ -3067,13 +3072,13 @@ class HfApi:
         return DatasetInfo(**data)
 
     @validate_hf_hub_args
-    def get_dataset_leaderboad(
+    def get_dataset_leaderboard(
         self,
         repo_id: str,
         *,
         token: Union[bool, str, None] = None,
         timeout: Optional[float] = None,
-    ) -> list[LeaderboardEntry]:
+    ) -> list[DatasetLeaderboardEntry]:
         """Get the leaderboard for a dataset on the Hub.
 
         The leaderboard ranks models based on their evaluation scores on the given benchmark
@@ -3093,7 +3098,7 @@ class HfApi:
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
-            `list[LeaderboardEntry]`: A list of [`LeaderboardEntry`] objects representing
+            `list[DatasetLeaderboardEntry]`: A list of [`DatasetLeaderboardEntry`] objects representing
             the leaderboard entries, sorted by rank.
 
         > [!TIP]
@@ -3109,7 +3114,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> leaderboard = api.dataset_leaderboard("allenai/olmOCR-bench")
+            >>> leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench")
             >>> leaderboard[0].model_id
             'datalab-to/chandra-ocr-2'
             >>> leaderboard[0].rank
@@ -3121,7 +3126,7 @@ class HfApi:
         r = get_session().get(path, headers=headers, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
-        return [LeaderboardEntry(**entry) for entry in data]
+        return [DatasetLeaderboardEntry(**entry) for entry in data]
 
     @validate_hf_hub_args
     def space_info(
@@ -12885,7 +12890,7 @@ model_info = api.model_info
 list_datasets = api.list_datasets
 list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
-dataset_leaderboard = api.dataset_leaderboard
+get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
