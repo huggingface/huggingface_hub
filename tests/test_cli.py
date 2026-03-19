@@ -2845,7 +2845,7 @@ class TestSkillGeneration:
         assert "## Commands" in md
         assert "## Common options" in md
         assert "## Tips" in md
-        assert "When in doubt about a command, use `hf <command> --help`" in md
+        assert "Use `hf <command> --help` for full options, descriptions, usage, and real-world examples" in md
 
     def test_build_skill_md_expands_nested_groups(self) -> None:
         """Nested groups like `hf repos tag` should be expanded to leaf commands."""
