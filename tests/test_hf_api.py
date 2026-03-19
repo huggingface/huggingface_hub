@@ -3556,6 +3556,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
+        self.put_mock = get_session_mock().put
         self.post_mock.return_value.json.return_value = {
             "url": f"{self.api.endpoint}/spaces/user/repo_id",
             "stage": "RUNNING",
@@ -3586,6 +3587,18 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.patcher.stop()
+
+    def test_create_repo_private_maps_to_visibility(self) -> None:
+        self.api.create_repo(self.repo_id, private=True)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "visibility": "private",
+            },
+        )
 
     def test_create_space_with_hardware(self) -> None:
         self.api.create_repo(
@@ -3646,6 +3659,57 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    def test_create_space_with_protected_visibility(self) -> None:
+        self.api.create_repo(self.repo_id, repo_type="space", space_sdk="gradio", visibility="protected")
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "type": "space",
+                "sdk": "gradio",
+                "visibility": "protected",
+            },
+        )
+
+    def test_protected_visibility_is_only_supported_for_spaces(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"Invalid visibility, must be one of 'public', 'private'."):
+            self.api.create_repo(self.repo_id, visibility="protected")
+        self.post_mock.assert_not_called()
+
+    def test_private_and_visibility_are_mutually_exclusive(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Received both `private` and `visibility` arguments. Please provide only one of them.",
+        ):
+            self.api.create_repo(self.repo_id, private=True, visibility="private")
+        self.post_mock.assert_not_called()
+
+    def test_update_space_settings_with_protected_visibility(self) -> None:
+        self.api.update_repo_settings(self.repo_id, repo_type="space", visibility="protected")
+        self.put_mock.assert_called_once_with(
+            url=f"{self.api.endpoint}/api/spaces/{self.repo_id}/settings",
+            headers=self.api._build_hf_headers(),
+            json={"visibility": "protected"},
+        )
+
+    def test_duplicate_repo_with_protected_visibility(self) -> None:
+        self.api.duplicate_repo(
+            self.repo_id,
+            to_id=f"{USER}/new_repo_id",
+            repo_type="space",
+            visibility="protected",
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/duplicate",
+            headers=self.api._build_hf_headers(),
+            json={
+                "repository": f"{USER}/new_repo_id",
+                "visibility": "protected",
+            },
+        )
+
     def test_create_space_with_secrets_and_variables(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3702,7 +3766,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             headers=self.api._build_hf_headers(),
             json={
                 "repository": f"{USER}/new_repo_id",
-                "private": True,
+                "visibility": "private",
                 "hardware": "t4-medium",
                 "storageTier": "large",
                 "sleepTimeSeconds": 123,

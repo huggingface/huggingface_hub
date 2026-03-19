@@ -150,6 +150,7 @@ if TYPE_CHECKING:
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
+RepoVisibility_T = Literal["public", "private", "protected"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -249,8 +250,32 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+_REPO_VISIBILITIES = ("public", "private")
+_SPACE_VISIBILITIES = ("public", "private", "protected")
 
 logger = logging.get_logger(__name__)
+
+
+def _resolve_repo_visibility(
+    *,
+    private: Optional[bool],
+    visibility: Optional[RepoVisibility_T],
+    repo_type: Optional[str],
+) -> Optional[RepoVisibility_T]:
+    if private is not None and visibility is not None:
+        raise ValueError("Received both `private` and `visibility` arguments. Please provide only one of them.")
+
+    if visibility is None:
+        if private is None:
+            return None
+        return "private" if private else "public"
+
+    allowed_visibilities = _SPACE_VISIBILITIES if repo_type == constants.REPO_TYPE_SPACE else _REPO_VISIBILITIES
+    if visibility not in allowed_visibilities:
+        raise ValueError(
+            f"Invalid visibility, must be one of {', '.join(repr(value) for value in allowed_visibilities)}."
+        )
+    return visibility
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tuple[Optional[str], Optional[str], str]:
@@ -3988,6 +4013,7 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         resource_group_id: Optional[str] = None,
@@ -4010,7 +4036,13 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             private (`bool`, *optional*):
-                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
+                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
+                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
+                `visibility="public"`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. If `None`
+                (default), the repo will be public unless the organization's default is private. This value is ignored
+                if the repo already exists.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -4051,9 +4083,11 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         json: dict[str, Any] = {"name": name, "organization": organization}
-        if private is not None:
-            json["private"] = private
+        if resolved_visibility is not None:
+            json["visibility"] = resolved_visibility
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -4183,6 +4217,7 @@ class HfApi:
         *,
         gated: Optional[Literal["auto", "manual", False]] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> None:
@@ -4190,7 +4225,7 @@ class HfApi:
         Update the settings of a repository, including gated access and visibility.
 
         To give more control over how repos are used, the Hub allows repo authors to enable
-        access requests for their repos, and also to set the visibility of the repo to private.
+        access requests for their repos, and also to change the visibility of the repo.
 
         Args:
             repo_id (`str`):
@@ -4201,7 +4236,11 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Whether the repository should be private.
+                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
+                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
+                `visibility="public"`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repository. Can be `"public"` or `"private"`, or `"protected"` for Spaces.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
@@ -4227,6 +4266,8 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Prepare the JSON payload for the PUT request
         payload: dict = {}
 
@@ -4235,8 +4276,8 @@ class HfApi:
                 raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
             payload["gated"] = gated
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         if len(payload) == 0:
             raise ValueError("At least one setting must be updated.")
@@ -7656,6 +7697,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[bool, str, None] = None,
         exist_ok: bool = False,
         space_hardware: Optional[SpaceHardware] = None,
@@ -7679,8 +7721,12 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if duplicating a dataset or Space,
                 `None` or `"model"` if duplicating a model. Default is `None`.
             private (`bool`, *optional*):
-                Whether the new repo should be private or not. Defaults to the same
-                privacy as the original repo.
+                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
+                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
+                `visibility="public"`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. Defaults
+                to the same visibility as the original repo.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7742,6 +7788,8 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Map repo_type to API path segment
         api_prefix = {
             None: "models",
@@ -7763,8 +7811,8 @@ class HfApi:
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         # Space-specific options
         function_args = [
@@ -7815,6 +7863,7 @@ class HfApi:
         to_id: Optional[str] = None,
         *,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[bool, str, None] = None,
         exist_ok: bool = False,
         hardware: Optional[SpaceHardware] = None,
@@ -7835,7 +7884,12 @@ class HfApi:
                 ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
                 name as the original Space, but in your account.
             private (`bool`, *optional*):
-                Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
+                Backward-compatible alternative to `visibility`. Cannot be passed together with `visibility`.
+                If set to `True`, it is equivalent to `visibility="private"`. If set to `False`, it is equivalent to
+                `visibility="public"`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new Space. Can be `"public"`, `"private"`, or `"protected"`. Defaults to the same
+                visibility as the original Space.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7879,7 +7933,7 @@ class HfApi:
         RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 
         # Can set custom destination id and visibility flag.
-        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", visibility="private")
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
 
@@ -7893,6 +7947,7 @@ class HfApi:
             from_id=from_id,
             repo_type="space",
             private=private,
+            visibility=visibility,
             token=token,
             exist_ok=exist_ok,
             space_hardware=hardware,
