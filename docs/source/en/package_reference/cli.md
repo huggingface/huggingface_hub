@@ -3390,7 +3390,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
 * `--create-pr / --no-create-pr`: Whether to upload content as a new Pull Request.  [default: no-create-pr]
-* `--every FLOAT`: f set, a background job is scheduled to create commits every `every` minutes.
+* `--every FLOAT`: If set, a background job is scheduled to create commits every `every` minutes.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]
 * `--help`: Show this message and exit.
