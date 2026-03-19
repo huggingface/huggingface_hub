@@ -33,6 +33,7 @@ from huggingface_hub.file_download import (
     HfFileMetadata,
     _check_disk_space,
     _create_symlink,
+    _download_to_tmp_and_move,
     _get_pointer_path,
     _normalize_etag,
     get_hf_file_metadata,
@@ -1218,6 +1219,61 @@ class TestHttpGet:
         # File should contain only the full content from retry (100 bytes), not 130
         assert temp_file.tell() == 100
         assert temp_file.getvalue() == b"B" * 100
+
+
+class TestDownloadToTmpAndMove:
+    @patch("huggingface_hub.file_download._chmod_and_move")
+    @patch("huggingface_hub.file_download.http_get")
+    @patch("huggingface_hub.file_download._reserve_disk_space_for_file")
+    def test_reserves_disk_space_on_windows(
+        self, reserve_mock: Mock, http_get_mock: Mock, chmod_and_move_mock: Mock, tmp_path: Path
+    ) -> None:
+        destination_path = tmp_path / "downloaded.bin"
+        incomplete_path = tmp_path / "downloaded.bin.incomplete"
+
+        with patch("huggingface_hub.file_download.os.name", "nt"):
+            _download_to_tmp_and_move(
+                incomplete_path=incomplete_path,
+                destination_path=destination_path,
+                url_to_download="https://huggingface.co/file.bin",
+                headers={},
+                expected_size=1024,
+                filename="file.bin",
+                force_download=False,
+                etag=None,
+                xet_file_data=None,
+            )
+
+        reserve_mock.assert_called_once()
+        assert reserve_mock.call_args.args[1] == 1024
+        http_get_mock.assert_called_once()
+        chmod_and_move_mock.assert_called_once_with(incomplete_path, destination_path)
+
+    @patch("huggingface_hub.file_download._chmod_and_move")
+    @patch("huggingface_hub.file_download.http_get")
+    @patch("huggingface_hub.file_download._reserve_disk_space_for_file")
+    def test_does_not_reserve_disk_space_without_expected_size(
+        self, reserve_mock: Mock, http_get_mock: Mock, chmod_and_move_mock: Mock, tmp_path: Path
+    ) -> None:
+        destination_path = tmp_path / "downloaded.bin"
+        incomplete_path = tmp_path / "downloaded.bin.incomplete"
+
+        with patch("huggingface_hub.file_download.os.name", "nt"):
+            _download_to_tmp_and_move(
+                incomplete_path=incomplete_path,
+                destination_path=destination_path,
+                url_to_download="https://huggingface.co/file.bin",
+                headers={},
+                expected_size=None,
+                filename="file.bin",
+                force_download=False,
+                etag=None,
+                xet_file_data=None,
+            )
+
+        reserve_mock.assert_not_called()
+        http_get_mock.assert_called_once()
+        chmod_and_move_mock.assert_called_once_with(incomplete_path, destination_path)
 
 
 class CreateSymlinkTest(unittest.TestCase):

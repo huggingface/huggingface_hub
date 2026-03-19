@@ -1820,6 +1820,7 @@ def _download_to_tmp_and_move(
             # Check disk space in both tmp and destination path
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
+            _reserve_disk_space_for_file(f, expected_size)
 
         if xet_file_data is not None and is_xet_available():
             logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
@@ -1857,6 +1858,35 @@ def _int_or_none(value: Optional[str]) -> Optional[int]:
         return int(value)  # type: ignore
     except (TypeError, ValueError):
         return None
+
+
+def _reserve_disk_space_for_file(file: BinaryIO, size: int) -> None:
+    """Best-effort disk space preallocation for Windows downloads."""
+    if os.name != "nt" or size <= 0:
+        return
+
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        file_allocation_info_class = 19
+
+        class FILE_ALLOCATION_INFO(ctypes.Structure):
+            _fields_ = [("AllocationSize", ctypes.c_longlong)]
+
+        allocation_info = FILE_ALLOCATION_INFO(size)
+        handle = msvcrt.get_osfhandle(file.fileno())
+        success = ctypes.windll.kernel32.SetFileInformationByHandle(
+            wintypes.HANDLE(handle),
+            file_allocation_info_class,
+            ctypes.byref(allocation_info),
+            ctypes.sizeof(allocation_info),
+        )
+        if not success:
+            raise ctypes.WinError()
+    except Exception as e:
+        logger.debug("Could not reserve disk space in advance: %s", e)
 
 
 def _chmod_and_move(src: Path, dst: Path) -> None:
