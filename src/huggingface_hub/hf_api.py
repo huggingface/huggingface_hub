@@ -3095,12 +3095,14 @@ class HfApi:
             `list[LeaderboardEntry]`: A list of [`LeaderboardEntry`] objects representing
             the leaderboard entries, sorted by rank.
 
-        Raises:
-            [`~utils.RepositoryNotFoundError`]:
-                If the repository cannot be found. This may be because it doesn't exist,
-                or because it is set to `private` and you do not have access.
-            [`~utils.HfHubHTTPError`]:
-                If the dataset does not have a leaderboard.
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.HfHubHTTPError`]
+        >       If the dataset does not have a leaderboard.
 
         Example:
             ```python
