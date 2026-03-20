@@ -36,6 +36,7 @@ from ._cli_utils import (
     RepoTypeOpt,
     TokenOpt,
     _format_cell,
+    _init_no_color,
     api_object_to_dict,
     get_hf_api,
     print_list_output,
@@ -277,10 +278,8 @@ def discussion_info(
     token: TokenOpt = None,
 ) -> None:
     """Get info about a discussion or pull request."""
-    import os
-
     if no_color:
-        os.environ["NO_COLOR"] = "1"
+        _init_no_color()
 
     api = get_hf_api(token=token)
     details = api.get_discussion_details(
