@@ -37,7 +37,6 @@ Usage:
     hf skills add --claude --force
 """
 
-import os
 import shutil
 from pathlib import Path
 from typing import Annotated, Optional
@@ -46,6 +45,9 @@ import typer
 from click import Command, Context, Group
 from typer.main import get_command
 
+from huggingface_hub.errors import CLIError
+
+from . import _skills
 from ._cli_utils import typer_factory
 
 
@@ -276,30 +278,55 @@ def _remove_existing(path: Path, force: bool) -> None:
         path.unlink()
 
 
-def _install_to(skills_dir: Path, force: bool) -> Path:
-    """Download and install the skill files into a skills directory. Returns the installed path."""
-    skills_dir = skills_dir.expanduser().resolve()
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    dest = skills_dir / DEFAULT_SKILL_ID
-
-    _remove_existing(dest, force)
-    dest.mkdir()
-
-    (dest / "SKILL.md").write_text(build_skill_md(), encoding="utf-8")
-
-    return dest
+def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
+    """Install a marketplace skill into a skills directory. Returns the installed path."""
+    skill = _skills.get_marketplace_skill(skill_name)
+    try:
+        return _skills.install_marketplace_skill(skill, skills_dir, force=force)
+    except FileExistsError as exc:
+        raise SystemExit(f"{exc}\nRe-run with --force to overwrite.") from exc
 
 
-def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: bool) -> Path:
+def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path: Path, force: bool) -> Path:
     """Create a relative symlink from agent directory to the central skill location."""
     agent_skills_dir = agent_skills_dir.expanduser().resolve()
     agent_skills_dir.mkdir(parents=True, exist_ok=True)
-    link_path = agent_skills_dir / DEFAULT_SKILL_ID
+    link_path = agent_skills_dir / skill_name
 
     _remove_existing(link_path, force)
-    link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
+    link_path.symlink_to(central_skill_path.relative_to(agent_skills_dir, walk_up=True))
 
     return link_path
+
+
+def _resolve_update_roots(
+    *,
+    claude: bool,
+    codex: bool,
+    cursor: bool,
+    opencode: bool,
+    global_: bool,
+    dest: Optional[Path],
+) -> list[Path]:
+    if dest is not None:
+        if claude or codex or cursor or opencode or global_:
+            raise CLIError("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
+        return [dest.expanduser().resolve()]
+
+    targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
+    roots: list[Path] = [CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL]
+    if not any([claude, codex, cursor, opencode]):
+        roots.extend(targets_dict.values())
+    else:
+        if claude:
+            roots.append(targets_dict["claude"])
+        if codex:
+            roots.append(targets_dict["codex"])
+        if cursor:
+            roots.append(targets_dict["cursor"])
+        if opencode:
+            roots.append(targets_dict["opencode"])
+    return [root.expanduser().resolve() for root in roots]
 
 
 @skills_cli.command("preview")
@@ -318,6 +345,10 @@ def skills_preview() -> None:
     ],
 )
 def skills_add(
+    name: Annotated[
+        str,
+        typer.Argument(help="Marketplace skill name.", show_default=False),
+    ] = DEFAULT_SKILL_ID,
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
     codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
     cursor: Annotated[bool, typer.Option("--cursor", help="Install for Cursor.")] = False,
@@ -349,31 +380,99 @@ def skills_add(
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
     If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
     """
-    if dest:
-        if claude or codex or cursor or opencode or global_:
-            print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
-            raise typer.Exit(code=1)
-        skill_dest = _install_to(dest, force)
-        print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
-        return
+    try:
+        if dest:
+            if claude or codex or cursor or opencode or global_:
+                print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
+                raise typer.Exit(code=1)
+            skill_dest = _install_to(dest, name, force)
+            print(f"Installed '{name}' to {skill_dest}")
+            return
 
-    # Install to central location
-    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-    central_skill_path = _install_to(central_path, force)
-    print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
+        # Install to central location
+        central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+        central_skill_path = _install_to(central_path, name, force)
+        print(f"Installed '{name}' to central location: {central_skill_path}")
 
-    # Create symlinks in agent directories
-    targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
-    agent_targets: list[Path] = []
-    if claude:
-        agent_targets.append(targets_dict["claude"])
-    if codex:
-        agent_targets.append(targets_dict["codex"])
-    if cursor:
-        agent_targets.append(targets_dict["cursor"])
-    if opencode:
-        agent_targets.append(targets_dict["opencode"])
+        # Create symlinks in agent directories
+        targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
+        agent_targets: list[Path] = []
+        if claude:
+            agent_targets.append(targets_dict["claude"])
+        if codex:
+            agent_targets.append(targets_dict["codex"])
+        if cursor:
+            agent_targets.append(targets_dict["cursor"])
+        if opencode:
+            agent_targets.append(targets_dict["opencode"])
 
-    for agent_target in agent_targets:
-        link_path = _create_symlink(agent_target, central_skill_path, force)
-        print(f"Created symlink: {link_path}")
+        for agent_target in agent_targets:
+            link_path = _create_symlink(agent_target, name, central_skill_path, force)
+            print(f"Created symlink: {link_path}")
+    except CLIError as exc:
+        print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+
+@skills_cli.command(
+    "update",
+    examples=[
+        "hf skills update",
+        "hf skills update hf-cli",
+        "hf skills update gradio --dest=~/my-skills",
+        "hf skills update --claude --force",
+    ],
+)
+def skills_update(
+    name: Annotated[
+        Optional[str],
+        typer.Argument(help="Optional installed skill name to update.", show_default=False),
+    ] = None,
+    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
+    codex: Annotated[bool, typer.Option("--codex", help="Update skills installed for Codex.")] = False,
+    cursor: Annotated[bool, typer.Option("--cursor", help="Update skills installed for Cursor.")] = False,
+    opencode: Annotated[bool, typer.Option("--opencode", help="Update skills installed for OpenCode.")] = False,
+    global_: Annotated[
+        bool,
+        typer.Option(
+            "--global",
+            "-g",
+            help="Use global skills directories instead of the current project.",
+        ),
+    ] = False,
+    dest: Annotated[
+        Optional[Path],
+        typer.Option(
+            help="Update skills in a custom skills directory.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Overwrite local modifications when updating a skill.",
+        ),
+    ] = False,
+) -> None:
+    """Update installed marketplace-managed skills."""
+    try:
+        roots = _resolve_update_roots(
+            claude=claude,
+            codex=codex,
+            cursor=cursor,
+            opencode=opencode,
+            global_=global_,
+            dest=dest,
+        )
+
+        results = _skills.apply_updates(roots, selector=name, force=force)
+        if not results:
+            print("No installed skills found.")
+            return
+
+        for result in results:
+            detail = f" ({result.detail})" if result.detail else ""
+            print(f"{result.name}: {result.status}{detail}")
+    except CLIError as exc:
+        print(str(exc))
+        raise typer.Exit(code=1) from exc
