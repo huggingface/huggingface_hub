@@ -53,6 +53,7 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    DryRunUploadInfo,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
@@ -326,6 +327,42 @@ class CommitApiTest(HfApiCommonTest):
                 repo_id="something",
                 repo_type="this type does not exist",
             )
+
+    def test_upload_file_dry_run(self) -> None:
+        # str path
+        result = self._api.upload_file(
+            path_or_fileobj=self.tmp_file,
+            path_in_repo="temp/new_file.md",
+            repo_id="fake/repo",
+            dry_run=True,
+        )
+        assert isinstance(result, DryRunUploadInfo)
+        assert result.path_in_repo == "temp/new_file.md"
+        assert result.local_path == str(Path(self.tmp_file).expanduser().resolve())
+        assert result.file_size == len(self.tmp_file_content)
+
+        # bytes
+        result = self._api.upload_file(
+            path_or_fileobj=b"hello world",
+            path_in_repo="hello.txt",
+            repo_id="fake/repo",
+            dry_run=True,
+        )
+        assert result.local_path == "<bytes>"
+        assert result.file_size == 11
+
+    def test_upload_folder_dry_run(self) -> None:
+        # basic walk + filters + prefix
+        results = self._api.upload_folder(
+            folder_path=self.tmp_dir,
+            path_in_repo="my/prefix",
+            repo_id="fake/repo",
+            allow_patterns="*.bin",
+            dry_run=True,
+        )
+        assert len(results) == 1
+        assert results[0].path_in_repo == "my/prefix/nested/file.bin"
+        assert results[0].file_size == 1024 * 1024
 
     def test_commit_operation_validation(self):
         with open(self.tmp_file, "rt") as ftext:

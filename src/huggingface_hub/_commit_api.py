@@ -122,6 +122,38 @@ class CommitOperationCopy:
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
 
 
+def _validate_path_or_fileobj(path_or_fileobj: Union[str, Path, bytes, BinaryIO]) -> Union[str, bytes, BinaryIO]:
+    """Validate ``path_or_fileobj`` for upload.
+
+    Converts :class:`~pathlib.Path` to :class:`str`, checks that string paths
+    point to an existing file, rejects non-binary file objects, and verifies
+    that binary file objects support ``seek()``/``tell()``.
+
+    Returns the validated value (``Path`` inputs are returned as ``str``).
+    String paths are **not** normalized — the original value is preserved.
+    """
+    if isinstance(path_or_fileobj, Path):
+        path_or_fileobj = str(path_or_fileobj)
+    if isinstance(path_or_fileobj, str):
+        normalized = os.path.normpath(os.path.expanduser(path_or_fileobj))
+        if not os.path.isfile(normalized):
+            raise ValueError(f"Provided path: '{normalized}' is not a file on the local file system")
+    elif not isinstance(path_or_fileobj, (io.BufferedIOBase, bytes)):
+        # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
+        raise ValueError(
+            "path_or_fileobj must be either an instance of str, bytes or"
+            " io.BufferedIOBase. If you passed a file-like object, make sure it is"
+            " in binary mode."
+        )
+    if isinstance(path_or_fileobj, io.BufferedIOBase):
+        try:
+            path_or_fileobj.tell()
+            path_or_fileobj.seek(0, os.SEEK_CUR)
+        except (OSError, AttributeError) as exc:
+            raise ValueError("path_or_fileobj is a file-like object but does not implement seek() and tell()") from exc
+    return path_or_fileobj
+
+
 @dataclass
 class CommitOperationAdd:
     """
@@ -173,29 +205,7 @@ class CommitOperationAdd:
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
-
-        # Validate `path_or_fileobj` value
-        if isinstance(self.path_or_fileobj, Path):
-            self.path_or_fileobj = str(self.path_or_fileobj)
-        if isinstance(self.path_or_fileobj, str):
-            path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
-            if not os.path.isfile(path_or_fileobj):
-                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file on the local file system")
-        elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
-            # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
-            raise ValueError(
-                "path_or_fileobj must be either an instance of str, bytes or"
-                " io.BufferedIOBase. If you passed a file-like object, make sure it is"
-                " in binary mode."
-            )
-        if isinstance(self.path_or_fileobj, io.BufferedIOBase):
-            try:
-                self.path_or_fileobj.tell()
-                self.path_or_fileobj.seek(0, os.SEEK_CUR)
-            except (OSError, AttributeError) as exc:
-                raise ValueError(
-                    "path_or_fileobj is a file-like object but does not implement seek() and tell()"
-                ) from exc
+        self.path_or_fileobj = _validate_path_or_fileobj(self.path_or_fileobj)
 
         # Compute "upload_info" attribute
         if isinstance(self.path_or_fileobj, str):

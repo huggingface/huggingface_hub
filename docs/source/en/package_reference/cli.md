@@ -3392,6 +3392,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--every FLOAT`: If set, a background job is scheduled to create commits every `every` minutes.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]
+* `--dry-run / --no-dry-run`: If True, perform a dry run without actually uploading the file.  [default: no-dry-run]
 * `--help`: Show this message and exit.
 
 Examples

@@ -49,14 +49,15 @@ Usage:
 import os
 import time
 import warnings
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 import typer
 
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.hf_api import DryRunUploadInfo
+from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
 
 from ._cli_utils import (
     PrivateOpt,
@@ -147,6 +148,12 @@ def upload(
             help="Disable progress bars and warnings; print only the returned path.",
         ),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            help="If True, perform a dry run without actually uploading the file.",
+        ),
+    ] = False,
 ) -> None:
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
@@ -161,6 +168,32 @@ def upload(
     resolved_local_path, resolved_path_in_repo, resolved_include = _resolve_upload_paths(
         repo_id=repo_id, local_path=local_path, path_in_repo=path_in_repo, include=include
     )
+
+    if dry_run:
+        if os.path.isfile(resolved_local_path):
+            results = [
+                api.upload_file(
+                    path_or_fileobj=resolved_local_path,
+                    path_in_repo=resolved_path_in_repo,
+                    repo_id=repo_id,
+                    repo_type=repo_type_str,
+                    dry_run=True,
+                )
+            ]
+        elif os.path.isdir(resolved_local_path):
+            results = api.upload_folder(
+                folder_path=resolved_local_path,
+                path_in_repo=resolved_path_in_repo,
+                repo_id=repo_id,
+                repo_type=repo_type_str,
+                allow_patterns=resolved_include,
+                ignore_patterns=exclude,
+                dry_run=True,
+            )
+        else:
+            raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
+        _print_upload_dry_run_results(results)
+        return
 
     def run_upload() -> str:
         if os.path.isfile(resolved_local_path):
@@ -299,3 +332,14 @@ def _resolve_upload_paths(
     if path_in_repo is None:
         return local_path, ".", resolved_include
     return local_path, path_in_repo, resolved_include
+
+
+def _print_upload_dry_run_results(results: list[DryRunUploadInfo]) -> None:
+    """Print a dry-run summary of what would be uploaded."""
+    total_size = sum(r.file_size for r in results)
+    print(f"[dry-run] Will upload {len(results)} file(s) totalling {_format_size(total_size)}.")
+    columns = ["File", "Bytes to upload"]
+    items: list[list[Union[str, int]]] = []
+    for info in sorted(results, key=lambda x: x.path_in_repo):
+        items.append([info.path_in_repo, _format_size(info.file_size)])
+    print(tabulate(items, headers=columns))

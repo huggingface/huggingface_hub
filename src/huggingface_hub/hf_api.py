@@ -78,6 +78,8 @@ from ._commit_api import (
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_files,
+    _validate_path_in_repo,
+    _validate_path_or_fileobj,
     _warn_on_overwriting_operations,
 )
 from ._dataset_viewer import DatasetParquetEntry
@@ -509,6 +511,26 @@ class CommitInfo(str):
         else:
             self.pr_revision = None
             self.pr_num = None
+
+
+@dataclass
+class DryRunUploadInfo:
+    """Information returned when performing a dry run of a file upload.
+
+    Returned by [`upload_file`] and [`upload_folder`] when `dry_run=True`.
+
+    Args:
+        path_in_repo (`str`):
+            Path where the file would be uploaded in the repository.
+        local_path (`str`):
+            Local filesystem path to the file.
+        file_size (`int`):
+            Size of the file in bytes.
+    """
+
+    path_in_repo: str
+    local_path: str
+    file_size: int
 
 
 @dataclass
@@ -4835,6 +4857,25 @@ class HfApi:
         _hot_reload: Optional[bool] = None,
     ) -> Future[CommitInfo]: ...
 
+    @overload
+    def upload_file(
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+        dry_run: Literal[True] = ...,
+        _hot_reload: Optional[bool] = None,
+    ) -> DryRunUploadInfo: ...
+
     @validate_hf_hub_args
     @future_compatible
     def upload_file(
@@ -4851,8 +4892,9 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
+        dry_run: bool = False,
         _hot_reload: Optional[bool] = None,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+    ) -> Union[CommitInfo, Future[CommitInfo], DryRunUploadInfo]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -4899,13 +4941,17 @@ class HfApi:
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
                 object. Defaults to `False`.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                If `True`, perform a dry run without actually uploading the file. Returns a
+                [`DryRunUploadInfo`] object containing information about what would be uploaded.
 
 
         Returns:
-            [`CommitInfo`] or `Future`:
-                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
-                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
-                contain the result when executed.
+            [`CommitInfo`] or [`DryRunUploadInfo`]:
+                - If `dry_run=False`: Instance of [`CommitInfo`] containing information about the newly created commit
+                  (commit hash, commit url, pr url, commit message,...). If `run_as_future=True` is passed, returns a
+                  Future object which will contain the result when executed.
+                - If `dry_run=True`: A [`DryRunUploadInfo`] object containing upload information.
         > [!TIP]
         > Raises the following errors:
         >
@@ -4957,6 +5003,29 @@ class HfApi:
         """
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+
+        if dry_run:
+            normalized_path_in_repo = _validate_path_in_repo(path_in_repo)
+            path_or_fileobj = _validate_path_or_fileobj(path_or_fileobj)
+            if isinstance(path_or_fileobj, str):
+                local_path = str(Path(path_or_fileobj).expanduser().resolve())
+                return DryRunUploadInfo(
+                    path_in_repo=normalized_path_in_repo,
+                    local_path=local_path,
+                    file_size=Path(local_path).stat().st_size,
+                )
+            elif isinstance(path_or_fileobj, bytes):
+                return DryRunUploadInfo(
+                    path_in_repo=normalized_path_in_repo, local_path="<bytes>", file_size=len(path_or_fileobj)
+                )
+            else:
+                current_pos = path_or_fileobj.tell()
+                path_or_fileobj.seek(0, 2)  # SEEK_END
+                file_size = path_or_fileobj.tell()
+                path_or_fileobj.seek(current_pos)
+                return DryRunUploadInfo(
+                    path_in_repo=normalized_path_in_repo, local_path="<fileobj>", file_size=file_size
+                )
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
@@ -5019,6 +5088,27 @@ class HfApi:
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
 
+    @overload
+    def upload_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
+        delete_patterns: Optional[Union[list[str], str]] = None,
+        run_as_future: Literal[False] = ...,
+        dry_run: Literal[True] = ...,
+    ) -> list[DryRunUploadInfo]: ...
+
     @validate_hf_hub_args
     @future_compatible
     def upload_folder(
@@ -5038,7 +5128,8 @@ class HfApi:
         ignore_patterns: Optional[Union[list[str], str]] = None,
         delete_patterns: Optional[Union[list[str], str]] = None,
         run_as_future: bool = False,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+        dry_run: bool = False,
+    ) -> Union[CommitInfo, Future[CommitInfo], list[DryRunUploadInfo]]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -5110,12 +5201,16 @@ class HfApi:
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
                 object. Defaults to `False`.
+            dry_run (`bool`, *optional*, defaults to `False`):
+                If `True`, perform a dry run without actually uploading files. Returns a list of
+                [`DryRunUploadInfo`] objects containing information about what would be uploaded.
 
         Returns:
-            [`CommitInfo`] or `Future`:
-                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
-                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
-                contain the result when executed.
+            [`CommitInfo`] or list of [`DryRunUploadInfo`]:
+                - If `dry_run=False`: Instance of [`CommitInfo`] containing information about the newly created commit
+                  (commit hash, commit url, pr url, commit message,...). If `run_as_future=True` is passed, returns a
+                  Future object which will contain the result when executed.
+                - If `dry_run=True`: A list of [`DryRunUploadInfo`] objects containing upload information.
 
         > [!TIP]
         > Raises the following errors:
@@ -5181,6 +5276,28 @@ class HfApi:
         elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
+
+        if dry_run:
+            resolved = Path(folder_path).expanduser().resolve()
+            if not resolved.is_dir():
+                raise ValueError(f"Provided path: '{resolved}' is not a directory")
+            relpath_to_abspath = {
+                path.relative_to(resolved).as_posix(): path for path in sorted(resolved.glob("**/*")) if path.is_file()
+            }
+            filtered = list(
+                filter_repo_objects(
+                    relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+                )
+            )
+            prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
+            return [
+                DryRunUploadInfo(
+                    path_in_repo=_validate_path_in_repo(prefix + relpath),
+                    local_path=str(relpath_to_abspath[relpath]),
+                    file_size=relpath_to_abspath[relpath].stat().st_size,
+                )
+                for relpath in filtered
+            ]
 
         delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
