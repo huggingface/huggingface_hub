@@ -77,6 +77,7 @@ from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, 
 import typer
 
 from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub._jobs_api import JobVolume, JobVolumeType
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -267,6 +268,18 @@ ScriptArgsArg = Annotated[
     ),
 ]
 
+VolumesOpt = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "-v",
+        "--volume",
+        help="Mount a volume. Format: TYPE/SOURCE:/MOUNT_PATH[:ro]. "
+        "TYPE is one of: model, dataset, space, bucket. "
+        "TYPE defaults to model if omitted. "
+        "E.g. -v gpt2:/data or -v dataset/org/ds:/data or -v bucket/org/b:/mnt:ro",
+    ),
+]
+
 CommandArg = Annotated[
     list[str],
     typer.Argument(
@@ -314,6 +327,7 @@ def jobs_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -343,6 +357,7 @@ def jobs_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=_parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -784,6 +799,7 @@ def jobs_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -816,6 +832,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=_parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -848,6 +865,7 @@ def scheduled_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -878,6 +896,7 @@ def scheduled_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=_parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -1075,6 +1094,7 @@ def scheduled_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -1109,6 +1129,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=_parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -1117,6 +1138,72 @@ def scheduled_uv_run(
 
 
 ### UTILS
+
+
+_VOLUME_TYPES = {t.value for t in JobVolumeType}
+
+
+def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
+    """Parse volume specs from CLI arguments.
+
+    Format: [TYPE/]SOURCE:/MOUNT_PATH[:ro]
+    Where TYPE is one of: model, dataset, space, bucket (defaults to model if omitted).
+    SOURCE is the repo/bucket identifier (e.g. 'username/my-model').
+    MOUNT_PATH starts with '/'.
+    Optional ':ro' suffix for read-only.
+
+    Examples:
+        gpt2:/data                        (model, implicit type)
+        dataset/my-org/my-dataset:/data:ro
+        bucket/my-org/my-bucket:/mnt
+    """
+    if not volumes:
+        return None
+    result: list[JobVolume] = []
+    for raw_spec in volumes:
+        # Strip :ro/:rw suffix
+        spec = raw_spec
+        read_only = None
+        if spec.endswith(":ro"):
+            read_only = True
+            spec = spec[:-3]
+        elif spec.endswith(":rw"):
+            read_only = False
+            spec = spec[:-3]
+
+        # Find the mount path: look for :/ pattern
+        colon_slash_idx = spec.find(":/")
+        if colon_slash_idx == -1:
+            raise CLIError(
+                f"Invalid volume format: '{raw_spec}'. Expected [TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. gpt2:/data"
+            )
+        source_part = spec[:colon_slash_idx]
+        mount_path = spec[colon_slash_idx + 1 :]
+
+        # Parse type from source_part (first segment before /)
+        slash_idx = source_part.find("/")
+        if slash_idx == -1:
+            # No slash: bare source like "gpt2:/data" -> model type
+            vol_type_str = JobVolumeType.MODEL.value
+            source = source_part
+        else:
+            vol_type_str = source_part[:slash_idx]
+            source = source_part[slash_idx + 1 :]
+            # If the first segment isn't a known type, treat the whole thing as a model source
+            # e.g. "org/my-model:/data" -> type=model, source="org/my-model"
+            if vol_type_str not in _VOLUME_TYPES:
+                vol_type_str = JobVolumeType.MODEL.value
+                source = source_part
+
+        result.append(
+            JobVolume(
+                type=vol_type_str,
+                source=source,
+                mount_path=mount_path,
+                read_only=read_only,
+            )
+        )
+    return result
 
 
 def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:

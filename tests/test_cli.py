@@ -12,11 +12,12 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
+from huggingface_hub._jobs_api import JobVolume, JobVolumeType, _create_job_spec
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+from huggingface_hub.cli.jobs import _parse_namespace_from_job_id, _parse_volumes
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -2131,6 +2132,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2155,6 +2157,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2183,6 +2186,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2207,6 +2211,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2234,6 +2239,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2259,6 +2265,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2286,6 +2293,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2502,6 +2510,36 @@ class TestJobsCommand:
         assert "abc123def456 RUNNING" in result.output
         assert "xyz789ghi012 COMPLETED" in result.output
 
+    def test_run_with_volumes(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            result = runner.invoke(
+                app,
+                [
+                    "jobs",
+                    "run",
+                    "--detach",
+                    "-v",
+                    "dataset/org/ds:/input:ro",
+                    "-v",
+                    "bucket/org/b:/output",
+                    "python:3.12",
+                    "echo",
+                ],
+            )
+        assert result.exit_code == 0
+        call_kwargs = api.run_job.call_args.kwargs
+        assert call_kwargs["volumes"] is not None
+        assert len(call_kwargs["volumes"]) == 2
+        assert call_kwargs["volumes"][0].type.value == "dataset"
+        assert call_kwargs["volumes"][0].read_only is True
+        assert call_kwargs["volumes"][1].type.value == "bucket"
+
 
 class TestCreateUvCommandQuoting:
     """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
@@ -2572,6 +2610,104 @@ class TestParseNamespaceFromJobId:
     def test_parse_namespace_from_job_id_errors(self, input_job_id: str, input_namespace: Optional[str]) -> None:
         with pytest.raises(CLIError):
             _parse_namespace_from_job_id(input_job_id, input_namespace)
+
+
+class TestParseVolumes:
+    """Unit tests for _parse_volumes."""
+
+    def test_none_and_empty(self) -> None:
+        assert _parse_volumes(None) is None
+        assert _parse_volumes([]) is None
+
+    @pytest.mark.parametrize(
+        "spec, expected_type, expected_source, expected_mount",
+        [
+            ("gpt2:/data", "model", "gpt2", "/data"),
+            ("my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt"),
+            ("model/gpt2:/data", "model", "gpt2", "/data"),
+            ("dataset/org/ds:/input", "dataset", "org/ds", "/input"),
+            ("bucket/org/my-bucket:/output", "bucket", "org/my-bucket", "/output"),
+            ("space/org/my-space:/app", "space", "org/my-space", "/app"),
+        ],
+    )
+    def test_parse_volume_spec(self, spec: str, expected_type: str, expected_source: str, expected_mount: str) -> None:
+        vols = _parse_volumes([spec])
+        assert len(vols) == 1
+        assert vols[0].type.value == expected_type
+        assert vols[0].source == expected_source
+        assert vols[0].mount_path == expected_mount
+
+    def test_read_only_suffix(self) -> None:
+        vols = _parse_volumes(["dataset/org/ds:/data:ro"])
+        assert vols[0].read_only is True
+
+    def test_read_write_suffix(self) -> None:
+        vols = _parse_volumes(["bucket/org/b:/mnt:rw"])
+        assert vols[0].read_only is False
+
+    def test_multiple_volumes(self) -> None:
+        vols = _parse_volumes(["gpt2:/model", "dataset/org/ds:/data:ro", "bucket/org/b:/output"])
+        assert len(vols) == 3
+        assert vols[0].type.value == "model"
+        assert vols[1].type.value == "dataset"
+        assert vols[1].read_only is True
+        assert vols[2].type.value == "bucket"
+
+    @pytest.mark.parametrize("spec", ["gpt2", "gpt2:data"])
+    def test_invalid_specs(self, spec: str) -> None:
+        with pytest.raises(CLIError, match="Invalid volume format"):
+            _parse_volumes([spec])
+
+
+class TestJobVolume:
+    """Unit tests for JobVolume dataclass and serialization."""
+
+    def test_from_api_response_camel_case(self) -> None:
+        vol = JobVolume(type="model", source="gpt2", mountPath="/data", readOnly=True)
+        assert vol.type == JobVolumeType.MODEL
+        assert vol.source == "gpt2"
+        assert vol.mount_path == "/data"
+        assert vol.read_only is True
+
+    def test_from_python_snake_case(self) -> None:
+        vol = JobVolume(type="bucket", source="org/b", mount_path="/mnt")
+        assert vol.mount_path == "/mnt"
+        assert vol.read_only is None
+
+    def test_read_only_false_preserved(self) -> None:
+        vol = JobVolume(type="bucket", source="org/b", mountPath="/mnt", readOnly=False)
+        assert vol.read_only is False
+
+    def test_missing_mount_path_raises(self) -> None:
+        with pytest.raises(KeyError):
+            JobVolume(type="model", source="gpt2")
+
+    def test_optional_fields(self) -> None:
+        vol = JobVolume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
+        assert vol.revision == "v1.0"
+        assert vol.path == "subdir"
+
+    def test_serialize_in_job_spec(self) -> None:
+        vols = [JobVolume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
+        )
+        assert len(spec["volumes"]) == 1
+        assert spec["volumes"][0] == {"type": "dataset", "source": "org/ds", "mountPath": "/data", "readOnly": True}
+
+    def test_serialize_no_volumes(self) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None
+        )
+        assert "volumes" not in spec
+
+    def test_serialize_optional_fields(self) -> None:
+        vols = [JobVolume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
+        spec = _create_job_spec(
+            image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
+        )
+        assert spec["volumes"][0]["revision"] == "main"
+        assert spec["volumes"][0]["path"] == "subdir"
 
 
 class TestWebhooksCommand:
