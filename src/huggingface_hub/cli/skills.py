@@ -37,6 +37,7 @@ Usage:
     hf skills add --claude --force
 """
 
+import os
 import shutil
 from pathlib import Path
 from typing import Annotated, Optional
@@ -294,7 +295,7 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
     link_path = agent_skills_dir / skill_name
 
     _remove_existing(link_path, force)
-    link_path.symlink_to(central_skill_path.relative_to(agent_skills_dir, walk_up=True))
+    link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
 
     return link_path
 

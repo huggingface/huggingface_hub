@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 import tempfile
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -137,13 +137,11 @@ def install_marketplace_skill(skill: MarketplaceSkill, destination_root: Path, f
             tmp_dir = Path(tmp_dir_str)
             staged_dir = tmp_dir / install_dir.name
             _populate_install_dir(skill=skill, install_dir=staged_dir)
-            _validate_installed_skill_dir(staged_dir)
             _atomic_replace_directory(existing_dir=install_dir, staged_dir=staged_dir)
         return install_dir
 
     try:
         _populate_install_dir(skill=skill, install_dir=install_dir)
-        _validate_installed_skill_dir(install_dir)
     except Exception:
         if install_dir.exists():
             shutil.rmtree(install_dir)
@@ -678,4 +676,4 @@ def _git_ls_remote(repo_url: str, repo_ref: str | None) -> str:
 
 
 def _iso_utc_now() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
