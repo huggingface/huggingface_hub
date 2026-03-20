@@ -69,11 +69,26 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
+class VisibilityChoices(str, enum.Enum):
+    public = "public"
+    private = "private"
+    protected = "protected"
+
+
+VisilibiltyOpt = Annotated[
+    Optional[VisibilityChoices],
+    typer.Option(
+        help='Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.',
+    ),
+]
+
+
 @repos_cli.command(
     "create",
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
+        "hf repos create my-space --repo-type space --space-sdk gradio --visibility protected",
     ],
 )
 def repo_create(
@@ -86,6 +101,7 @@ def repo_create(
         ),
     ] = None,
     private: PrivateOpt = None,
+    visibility: VisilibiltyOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -106,6 +122,7 @@ def repo_create(
         repo_id=repo_id,
         repo_type=repo_type.value,
         private=private,
+        visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
@@ -120,6 +137,7 @@ def repo_create(
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
         "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --visibility protected",
     ],
 )
 def repo_duplicate(
@@ -132,6 +150,7 @@ def repo_duplicate(
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
     private: PrivateOpt = None,
+    visibility: VisilibiltyOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -147,6 +166,7 @@ def repo_duplicate(
         to_id=to_id,
         repo_type=repo_type.value,
         private=private,
+        visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
     )
@@ -198,6 +218,7 @@ def repo_move(
     examples=[
         "hf repos settings my-model --private",
         "hf repos settings my-model --gated auto",
+        "hf repos settings my-space --repo-type space --visibility protected",
     ],
 )
 def repo_settings(
@@ -214,6 +235,7 @@ def repo_settings(
             help="Whether the repository should be private.",
         ),
     ] = None,
+    visibility: VisilibiltyOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
@@ -223,6 +245,7 @@ def repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
         private=private,
+        visibility=visibility.value if visibility else None,
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
