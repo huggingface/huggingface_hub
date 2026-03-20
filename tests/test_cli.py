@@ -3157,6 +3157,7 @@ class TestSkillsMarketplaceCLI:
         def fail_populate(*, skill, install_dir):
             original_populate(skill=skill, install_dir=install_dir)
             install_dir.joinpath("SKILL.md").unlink()
+            raise RuntimeError("simulated staging failure")
 
         with patch("huggingface_hub.cli._skills._populate_install_dir", side_effect=fail_populate):
             with pytest.raises(RuntimeError):
