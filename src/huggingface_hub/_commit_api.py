@@ -755,6 +755,7 @@ def _fetch_upload_modes(
             json=payload,
             headers=headers,
             params={"create_pr": "1"} if create_pr else None,
+            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
         hf_raise_for_status(resp)
         preupload_info = _validate_preupload_info(resp.json())
