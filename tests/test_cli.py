@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import os
+import subprocess
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -2901,3 +2904,264 @@ class TestSkillGeneration:
         leaf_paths = [" ".join(path) for path, _ in leaves]
         assert any("jobs scheduled run" in p for p in leaf_paths)
         assert any("jobs uv run" in p for p in leaf_paths)
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _commit_all(repo: Path, message: str) -> str:
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def _create_skills_repo(root: Path, descriptions: dict[str, str], bodies: dict[str, str] | None = None) -> Path:
+    repo = root / "skills-repo"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
+    _git(repo, "config", "user.email", "tests@example.com")
+    _git(repo, "config", "user.name", "Test User")
+
+    bodies = bodies or {}
+    plugins = []
+    for name, description in descriptions.items():
+        skill_dir = repo / "skills" / name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_dir.joinpath("SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: {description}\n---\n\n{bodies.get(name, f'# {name}')}\n",
+            encoding="utf-8",
+        )
+        skill_dir.joinpath("notes.txt").write_text(f"{name} helper file\n", encoding="utf-8")
+        plugins.append(
+            {
+                "name": name,
+                "source": f"./skills/{name}",
+                "skills": "./",
+                "description": description,
+            }
+        )
+
+    marketplace = repo / ".claude-plugin" / "marketplace.json"
+    marketplace.parent.mkdir(parents=True, exist_ok=True)
+    marketplace.write_text(json.dumps({"plugins": plugins}, indent=2), encoding="utf-8")
+    _commit_all(repo, "initial")
+    return repo
+
+
+class TestSkillsMarketplaceCLI:
+    def test_add_defaults_to_hf_cli(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"hf-cli": "HF CLI skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+
+        result = runner.invoke(app, ["skills", "add", "--dest", str(tmp_path / "managed-skills")])
+
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "managed-skills" / "hf-cli" / "SKILL.md").exists()
+        assert "Installed 'hf-cli'" in result.stdout
+
+    def test_add_named_skill_to_dest(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"hf-cli": "HF CLI skill", "gradio": "Gradio skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+
+        result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(tmp_path / "managed-skills")])
+
+        assert result.exit_code == 0, result.output
+        skill_dir = tmp_path / "managed-skills" / "gradio"
+        assert skill_dir.joinpath("SKILL.md").exists()
+        assert skill_dir.joinpath("notes.txt").exists()
+        assert "Installed 'gradio'" in result.stdout
+
+    def test_add_named_skill_for_assistant_creates_symlink(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["skills", "add", "gradio", "--claude"])
+
+        assert result.exit_code == 0, result.output
+        central = tmp_path / ".agents" / "skills" / "gradio"
+        link = tmp_path / ".claude" / "skills" / "gradio"
+        assert central.joinpath("SKILL.md").exists()
+        assert link.is_symlink()
+        assert link.resolve() == central.resolve()
+
+    def test_add_unknown_skill_fails_cleanly(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"hf-cli": "HF CLI skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+
+        result = runner.invoke(app, ["skills", "add", "missing", "--dest", str(tmp_path / "managed-skills")])
+
+        assert result.exit_code == 1
+        assert "Skill 'missing' not found in huggingface/skills" in result.output
+
+    def test_add_existing_skill_without_force_reports_hint(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+
+        first = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+        second = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+
+        assert first.exit_code == 0, first.output
+        assert second.exit_code == 1
+        assert "Skill already exists:" in second.output
+        assert "Re-run with --force to overwrite." in second.output
+
+    def test_add_force_overwrites_existing_skill(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"}, {"gradio": "remote version"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+
+        first = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+        assert first.exit_code == 0, first.output
+        skill_file = dest / "gradio" / "SKILL.md"
+        skill_file.write_text("---\nname: gradio\ndescription: local\n---\n\nlocal override\n", encoding="utf-8")
+
+        forced = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest), "--force"])
+
+        assert forced.exit_code == 0, forced.output
+        assert "remote version" in skill_file.read_text(encoding="utf-8")
+        assert "local override" not in skill_file.read_text(encoding="utf-8")
+
+    def test_add_writes_source_metadata(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+
+        result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads((dest / "gradio" / ".skill-source.json").read_text(encoding="utf-8"))
+        assert payload["repo_url"] == str(repo)
+        assert payload["repo_path"] == "skills/gradio"
+        assert payload["installed_revision"] == _git(repo, "rev-parse", "HEAD")
+
+    def test_update_reports_up_to_date(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+        add_result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+        assert add_result.exit_code == 0, add_result.output
+
+        result = runner.invoke(app, ["skills", "update", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        assert "gradio: up_to_date" in result.stdout
+
+    def test_update_detects_newer_revision_and_refreshes_files(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"}, {"gradio": "v1"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+        add_result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+        assert add_result.exit_code == 0, add_result.output
+
+        (repo / "skills" / "gradio" / "SKILL.md").write_text(
+            "---\nname: gradio\ndescription: Gradio skill\n---\n\nv2\n",
+            encoding="utf-8",
+        )
+        _commit_all(repo, "update gradio")
+
+        result = runner.invoke(app, ["skills", "update", "gradio", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        assert "gradio: updated" in result.stdout
+        assert "v2" in (dest / "gradio" / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_update_skips_dirty_install_without_force(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"}, {"gradio": "v1"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        dest = tmp_path / "managed-skills"
+        add_result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
+        assert add_result.exit_code == 0, add_result.output
+        skill_file = dest / "gradio" / "SKILL.md"
+        skill_file.write_text(skill_file.read_text(encoding="utf-8") + "\nlocal edit\n", encoding="utf-8")
+        (repo / "skills" / "gradio" / "SKILL.md").write_text(
+            "---\nname: gradio\ndescription: Gradio skill\n---\n\nv2\n",
+            encoding="utf-8",
+        )
+        _commit_all(repo, "update gradio")
+
+        result = runner.invoke(app, ["skills", "update", "gradio", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        assert "gradio: dirty (local modifications detected)" in result.stdout
+        assert "local edit" in skill_file.read_text(encoding="utf-8")
+
+    def test_update_scans_multiple_roots_by_default(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"}, {"gradio": "v1"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        monkeypatch.chdir(tmp_path)
+
+        add_result = runner.invoke(app, ["skills", "add", "gradio", "--claude"])
+        assert add_result.exit_code == 0, add_result.output
+        (repo / "skills" / "gradio" / "SKILL.md").write_text(
+            "---\nname: gradio\ndescription: Gradio skill\n---\n\nv2\n",
+            encoding="utf-8",
+        )
+        _commit_all(repo, "update gradio")
+
+        result = runner.invoke(app, ["skills", "update"])
+
+        assert result.exit_code == 0, result.output
+        assert "gradio: updated" in result.stdout
+        assert "v2" in (tmp_path / ".agents" / "skills" / "gradio" / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_update_for_assistant_symlink_updates_central_target(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"}, {"gradio": "v1"})
+        monkeypatch.setattr("huggingface_hub.cli._skills.DEFAULT_SKILLS_REPO", str(repo))
+        monkeypatch.chdir(tmp_path)
+
+        add_result = runner.invoke(app, ["skills", "add", "gradio", "--claude"])
+        assert add_result.exit_code == 0, add_result.output
+        link = tmp_path / ".claude" / "skills" / "gradio"
+        central = tmp_path / ".agents" / "skills" / "gradio"
+        (repo / "skills" / "gradio" / "SKILL.md").write_text(
+            "---\nname: gradio\ndescription: Gradio skill\n---\n\nv2\n",
+            encoding="utf-8",
+        )
+        _commit_all(repo, "update gradio")
+
+        result = runner.invoke(app, ["skills", "update", "--claude"])
+
+        assert result.exit_code == 0, result.output
+        assert "gradio: updated" in result.stdout
+        assert link.is_symlink()
+        assert link.resolve() == central.resolve()
+        assert "v2" in central.joinpath("SKILL.md").read_text(encoding="utf-8")
+
+    def test_force_reinstall_preserves_previous_install_on_staging_failure(self, tmp_path: Path) -> None:
+        from huggingface_hub.cli import _skills
+
+        repo = _create_skills_repo(tmp_path, {"gradio": "Gradio skill"})
+        skill = _skills.get_marketplace_skill("gradio", repo_url=str(repo))
+        destination_root = tmp_path / "managed-skills"
+        install_dir = _skills.install_marketplace_skill(skill, destination_root)
+        original_text = install_dir.joinpath("SKILL.md").read_text(encoding="utf-8")
+        original_populate = _skills._populate_install_dir
+
+        def fail_populate(*, skill, install_dir):
+            original_populate(skill=skill, install_dir=install_dir)
+            install_dir.joinpath("SKILL.md").unlink()
+            raise RuntimeError("simulated staging failure")
+
+        with patch("huggingface_hub.cli._skills._populate_install_dir", side_effect=fail_populate):
+            with pytest.raises(RuntimeError):
+                _skills.install_marketplace_skill(skill, destination_root, force=True)
+
+        assert install_dir.exists()
+        assert install_dir.joinpath("SKILL.md").read_text(encoding="utf-8") == original_text
