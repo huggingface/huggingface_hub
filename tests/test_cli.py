@@ -3011,6 +3011,7 @@ class TestSkillGeneration:
         assert "## Commands" in md
         assert "## Common options" in md
         assert "## Tips" in md
+        assert "Use `hf <command> --help` for full options, descriptions, usage, and real-world examples" in md
 
     def test_build_skill_md_expands_nested_groups(self) -> None:
         """Nested groups like `hf repos tag` should be expanded to leaf commands."""
@@ -3029,9 +3030,9 @@ class TestSkillGeneration:
         # Command-specific flags appear inline
         assert "--include TEXT" in download_line
         assert "--local-dir TEXT" in download_line
-        # Common flags (--token, --quiet, etc.) are stripped from inline display
+        # Common flags appear inline, except --token (kept in common-options glossary)
         assert "--token" not in download_line
-        assert "--quiet" not in download_line
+        assert "--quiet" in download_line
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""
@@ -3047,6 +3048,7 @@ class TestSkillGeneration:
 
         md = build_skill_md()
         assert "`--token`" in md
+        assert "Prefer setting `HF_TOKEN` env var instead of passing `--token`." in md
         assert "`--format`" in md
         assert "`--revision`" in md
 
