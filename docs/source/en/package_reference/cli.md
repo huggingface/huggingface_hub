@@ -3120,6 +3120,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 * `add`: Download a skill and install it for an AI...
 * `preview`: Print the generated SKILL.md to stdout.
+* `update`: Update installed skills.
 
 ### `hf skills add`
 
@@ -3131,8 +3132,12 @@ If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc),
 **Usage**:
 
 ```console
-$ hf skills add [OPTIONS]
+$ hf skills add [OPTIONS] [NAME]
 ```
+
+**Arguments**:
+
+* `[NAME]`: Hugging Face skill name.
 
 **Options**:
 
@@ -3169,6 +3174,42 @@ $ hf skills preview [OPTIONS]
 **Options**:
 
 * `--help`: Show this message and exit.
+
+### `hf skills update`
+
+Update installed marketplace-managed skills.
+
+**Usage**:
+
+```console
+$ hf skills update [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Optional installed skill name to update.
+
+**Options**:
+
+* `--claude`: Update skills installed for Claude.
+* `--codex`: Update skills installed for Codex.
+* `--cursor`: Update skills installed for Cursor.
+* `--opencode`: Update skills installed for OpenCode.
+* `-g, --global`: Use global skills directories instead of the current project.
+* `--dest PATH`: Update skills in a custom skills directory.
+* `--force`: Overwrite local modifications when updating a skill.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills update
+  $ hf skills update hf-cli
+  $ hf skills update gradio --dest=~/my-skills
+  $ hf skills update --claude --force
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ## `hf spaces`
 
