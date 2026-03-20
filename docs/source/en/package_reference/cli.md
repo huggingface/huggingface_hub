@@ -2690,8 +2690,7 @@ $ hf papers info [OPTIONS] PAPER_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf papers info 2502.08025
-  $ hf papers info 2412.19819
+  $ hf papers info 2601.15621
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2726,7 +2725,7 @@ Examples
   $ hf papers ls --sort trending
   $ hf papers ls --date 2025-01-23
   $ hf papers ls --week 2025-W09
-  $ hf papers ls --submitter someuser
+  $ hf papers ls --submitter akhaliq
   $ hf papers ls --format json
 
 Learn more
@@ -2754,8 +2753,7 @@ $ hf papers read [OPTIONS] PAPER_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf papers read 2502.08025
-  $ hf papers read 2412.19819
+  $ hf papers read 2601.15621
 
 Learn more
   Use `hf <command> --help` for more information about a command.

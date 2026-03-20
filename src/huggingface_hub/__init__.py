@@ -293,13 +293,13 @@ _SUBMOD_ATTRS = {
         "move_bucket",
         "move_repo",
         "paper_info",
-        "paper_read",
         "parse_local_safetensors_file_metadata",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
         "permanently_delete_lfs_files",
         "preupload_lfs_files",
+        "read_paper",
         "reject_access_request",
         "rename_discussion",
         "repo_exists",
@@ -1015,7 +1015,6 @@ __all__ = [
     "move_repo",
     "notebook_login",
     "paper_info",
-    "paper_read",
     "parse_eval_result_entries",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
@@ -1026,6 +1025,7 @@ __all__ = [
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "read_dduf_file",
+    "read_paper",
     "reject_access_request",
     "rename_discussion",
     "repo_exists",
@@ -1407,13 +1407,13 @@ if TYPE_CHECKING:  # pragma: no cover
         move_bucket,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
-        paper_read,  # noqa: F401
         parse_local_safetensors_file_metadata,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        read_paper,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401

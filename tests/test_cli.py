@@ -1753,12 +1753,12 @@ class TestPapersCommand:
         markdown = "# Attention Is All You Need\n\nThis paper introduces..."
         with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.paper_read.return_value = markdown
+            api.read_paper.return_value = markdown
             result = runner.invoke(app, ["papers", "read", "2502.08025"])
 
         assert result.exit_code == 0, result.output
         assert "Attention Is All You Need" in result.stdout
-        api.paper_read.assert_called_once_with(id="2502.08025")
+        api.read_paper.assert_called_once_with(id="2502.08025")
 
     def test_read_not_found(self, runner: CliRunner) -> None:
         from huggingface_hub.errors import CLIError, HfHubHTTPError
@@ -1767,7 +1767,7 @@ class TestPapersCommand:
         mock_response.status_code = 404
         with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.paper_read.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            api.read_paper.side_effect = HfHubHTTPError("Not found", response=mock_response)
             result = runner.invoke(app, ["papers", "read", "0000.00000"])
 
         assert result.exit_code == 1

@@ -886,7 +886,7 @@ Use `hf papers` to list, search, get structured info, and read the markdown cont
 >>> hf papers ls --month=2025-02
 
 # List papers submitted by a specific user
->>> hf papers ls --submitter=someuser
+>>> hf papers ls --submitter=akhaliq
 
 # Limit results
 >>> hf papers ls --sort=trending --limit=5
@@ -909,14 +909,14 @@ Use `hf papers` to list, search, get structured info, and read the markdown cont
 
 ```bash
 # Get structured metadata for a paper (returns JSON)
->>> hf papers info 2502.08025
+>>> hf papers info 2601.15621
 ```
 
 ### Read paper as markdown
 
 ```bash
 # Read the full paper content as markdown
->>> hf papers read 2502.08025
+>>> hf papers read 2601.15621
 ```
 
 ## hf discussions

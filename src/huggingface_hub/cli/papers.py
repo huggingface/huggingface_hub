@@ -89,7 +89,7 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
         "hf papers ls --sort trending",
         "hf papers ls --date 2025-01-23",
         "hf papers ls --week 2025-W09",
-        "hf papers ls --submitter someuser",
+        "hf papers ls --submitter akhaliq",
         "hf papers ls --format json",
     ],
 )
@@ -203,8 +203,7 @@ def papers_search(
 @papers_cli.command(
     "info",
     examples=[
-        "hf papers info 2502.08025",
-        "hf papers info 2412.19819",
+        "hf papers info 2601.15621",
     ],
 )
 def papers_info(
@@ -225,8 +224,7 @@ def papers_info(
 @papers_cli.command(
     "read",
     examples=[
-        "hf papers read 2502.08025",
-        "hf papers read 2412.19819",
+        "hf papers read 2601.15621",
     ],
 )
 def papers_read(
@@ -236,7 +234,7 @@ def papers_read(
     """Read a paper as markdown."""
     api = get_hf_api(token=token)
     try:
-        content = api.paper_read(id=paper_id)
+        content = api.read_paper(id=paper_id)
     except HfHubHTTPError as e:
         if e.response.status_code == 404:
             raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e

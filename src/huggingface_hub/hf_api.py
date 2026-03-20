@@ -10471,7 +10471,7 @@ class HfApi:
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
-    def paper_read(self, id: str) -> str:
+    def read_paper(self, id: str) -> str:
         """
         Get the markdown content of a paper page on the Hub.
 
@@ -12799,7 +12799,7 @@ space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
-paper_read = api.paper_read
+read_paper = api.read_paper
 list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists
