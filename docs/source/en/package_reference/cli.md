@@ -3120,7 +3120,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 * `add`: Download a skill and install it for an AI...
 * `preview`: Print the generated SKILL.md to stdout.
-* `update`: Update installed skills.
+* `update`: Update installed marketplace-managed skills.
 
 ### `hf skills add`
 
@@ -3137,7 +3137,7 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Arguments**:
 
-* `[NAME]`: Hugging Face skill name.
+* `[NAME]`: Marketplace skill name.
 
 **Options**:
 
