@@ -299,6 +299,7 @@ _SUBMOD_ATTRS = {
         "pause_space",
         "permanently_delete_lfs_files",
         "preupload_lfs_files",
+        "read_paper",
         "reject_access_request",
         "rename_discussion",
         "repo_exists",
@@ -1024,6 +1025,7 @@ __all__ = [
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "read_dduf_file",
+    "read_paper",
     "reject_access_request",
     "rename_discussion",
     "repo_exists",
@@ -1411,6 +1413,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_space,  # noqa: F401
         permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        read_paper,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401

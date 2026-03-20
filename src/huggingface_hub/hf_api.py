@@ -10471,6 +10471,26 @@ class HfApi:
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
+    def read_paper(self, id: str) -> str:
+        """
+        Get the markdown content of a paper page on the Hub.
+
+        Args:
+            id (`str`):
+                ArXiv id of the paper.
+
+        Returns:
+            `str`: The paper page content as markdown.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                HTTP 404 If the paper does not exist on the Hub.
+        """
+        path = f"{self.endpoint}/papers/{id}.md"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        return r.text
+
     def list_daily_papers(
         self,
         *,
@@ -12779,6 +12799,7 @@ space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
+read_paper = api.read_paper
 list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists
