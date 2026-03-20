@@ -64,31 +64,33 @@ Usage:
 import json
 import multiprocessing
 import multiprocessing.pool
-import os
 import shutil
 import time
 from collections import deque
 from dataclasses import asdict
 from fnmatch import fnmatch
-from pathlib import Path
 from queue import Empty, Queue
-from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
+from typing import Annotated, Any, Callable, Iterable, Optional, TypeVar, Union
 
 import typer
 
-from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
-from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
+    EnvFileOpt,
+    EnvOpt,
     OutputFormat,
     QuietOpt,
+    SecretsFileOpt,
+    SecretsOpt,
     TokenOpt,
     _format_cell,
     api_object_to_dict,
     get_hf_api,
+    parse_env_map,
     print_list_output,
     typer_factory,
 )
@@ -150,45 +152,12 @@ FlavorOpt = Annotated[
     ),
 ]
 
-EnvOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-e",
-        "--env",
-        help="Set environment variables. E.g. --env ENV=value",
-    ),
-]
-
-SecretsOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-s",
-        "--secrets",
-        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-    ),
-]
-
 LabelsOpt = Annotated[
     Optional[list[str]],
     typer.Option(
         "-l",
         "--label",
         help="Set labels. E.g. --label KEY=VALUE or --label LABEL",
-    ),
-]
-
-EnvFileOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--env-file",
-        help="Read in a file of environment variables.",
-    ),
-]
-
-SecretsFileOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        help="Read in a file of secret environment variables.",
     ),
 ]
 
@@ -323,18 +292,8 @@ def jobs_run(
     token: TokenOpt = None,
 ) -> None:
     """Run a Job."""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_job(
@@ -794,17 +753,8 @@ def jobs_uv_run(
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_uv_job(
@@ -856,17 +806,8 @@ def scheduled_run(
     token: TokenOpt = None,
 ) -> None:
     """Schedule a Job."""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
@@ -1084,17 +1025,8 @@ def scheduled_uv_run(
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(
@@ -1162,13 +1094,6 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
         ]
         lines.append(row_format.format(*row_format_args))
     return "\n".join(lines)
-
-
-def _get_extended_environ() -> Dict[str, str]:
-    extended_environ = os.environ.copy()
-    if (token := get_token()) is not None:
-        extended_environ["HF_TOKEN"] = token
-    return extended_environ
 
 
 T = TypeVar("T")
