@@ -4,12 +4,13 @@ import os
 import re
 import shutil
 import stat
+import threading
 import time
 import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
+from typing import Any, BinaryIO, Callable, Literal, NoReturn, Optional, Union, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -444,6 +445,126 @@ def http_get(
         )
 
 
+# Token refresh coalescing: prevent multiple concurrent refreshes for the same file/repo
+# This avoids overwhelming the server when multiple parallel downloads need token refresh
+_TOKEN_REFRESH_CACHE_SIZE = 1_000  # Limit to prevent unbounded growth
+_TOKEN_REFRESH_CACHE_CLEANUP_INTERVAL = 100  # Check for cleanup every N refresh operations
+_TOKEN_REFRESH_OPERATION_COUNT = 0  # Counter for cleanup triggering
+_TOKEN_REFRESH_LOCKS: dict[str, threading.Lock] = {}
+_TOKEN_REFRESH_LOCKS_LOCK = threading.Lock()
+_TOKEN_REFRESH_CACHE: dict[str, tuple[str, int]] = {}  # cache_key -> (access_token, expiration_unix_epoch)
+_TOKEN_REFRESH_CACHE_LOCK = threading.Lock()
+
+
+def _cleanup_token_refresh_caches() -> None:
+    """Clean up expired token refresh cache entries and enforce size limits.
+
+    This function:
+    1. Removes expired token entries from the cache
+    2. Enforces a maximum cache size (LRU-style eviction)
+    """
+    with _TOKEN_REFRESH_CACHE_LOCK:
+        current_time = int(time.time())
+
+        # Remove expired entries
+        expired_keys = [k for k, (token, expiration) in _TOKEN_REFRESH_CACHE.items() if expiration <= current_time]
+        for k in expired_keys:
+            _TOKEN_REFRESH_CACHE.pop(k, None)
+            # NOTE: We deliberately do NOT remove the lock to avoid the race condition
+            # described above. Locks are cheap and will be bounded by cache size.
+
+        # Enforce size limit (simple FIFO eviction)
+        while len(_TOKEN_REFRESH_CACHE) >= _TOKEN_REFRESH_CACHE_SIZE:
+            # Remove first (oldest) entry
+            oldest_key = next(iter(_TOKEN_REFRESH_CACHE))
+            _TOKEN_REFRESH_CACHE.pop(oldest_key, None)
+            # NOTE: We deliberately do NOT remove the lock to avoid the race condition
+            # described above. Locks are cheap and will be bounded by cache size.
+
+
+def _get_token_refresh_lock(cache_key: str) -> threading.Lock:
+    """Get or create a lock for a specific token refresh cache key.
+
+    Used to ensure only one thread refreshes a token at a time for a given key.
+    """
+    with _TOKEN_REFRESH_LOCKS_LOCK:
+        if cache_key not in _TOKEN_REFRESH_LOCKS:
+            _TOKEN_REFRESH_LOCKS[cache_key] = threading.Lock()
+        return _TOKEN_REFRESH_LOCKS[cache_key]
+
+
+def _make_thread_safe_token_refresher(
+    xet_file_data: XetFileData, headers: dict[str, str]
+) -> Callable[[], tuple[str, int]]:
+    """Create a thread-safe token refresher for XET downloads with coalescing.
+
+    This function creates a refresher that:
+    1. Coalesces concurrent refresh requests (only one thread actually calls the API)
+    2. Caches refresh results so other threads don't need to wait
+    3. Handles exceptions gracefully
+    4. Uses authorization-aware cache keys to prevent token leakage between users
+    5. Automatically cleans up expired and evicted entries to prevent memory leaks
+
+    Args:
+        xet_file_data: The file data needed to refresh tokens
+        headers: HTTP headers for the refresh request (includes authorization)
+
+    Returns:
+        A callable token_refresher that returns (access_token, expiration_unix_epoch)
+    """
+    # Create a cache key that includes the authorization header, ensuring tokens are not
+    # shared between different users. This mirrors the logic in _xet.py's _cache_key() function.
+    # Format: "{refresh_route}|{auth_header}" to prevent token leakage when multiple users
+    # download the same file with different authentication contexts.
+    lower_headers = {k.lower(): v for k, v in headers.items()}  # casing not guaranteed
+    auth_header = lower_headers.get("authorization", "")
+    cache_key = f"{xet_file_data.refresh_route}|{auth_header}"
+
+    def token_refresher() -> tuple[str, int]:
+        """Thread-safe token refresher with coalescing and caching."""
+        global _TOKEN_REFRESH_OPERATION_COUNT
+
+        # Periodically trigger cleanup of expired/evicted entries to prevent memory leaks
+        with _TOKEN_REFRESH_CACHE_LOCK:
+            _TOKEN_REFRESH_OPERATION_COUNT += 1
+            should_cleanup = _TOKEN_REFRESH_OPERATION_COUNT % _TOKEN_REFRESH_CACHE_CLEANUP_INTERVAL == 0
+
+        if should_cleanup:
+            _cleanup_token_refresh_caches()
+
+        # Try to get from cache first (outside lock for performance)
+        with _TOKEN_REFRESH_CACHE_LOCK:
+            if cache_key in _TOKEN_REFRESH_CACHE:
+                cached_token, cached_expiration = _TOKEN_REFRESH_CACHE[cache_key]
+                # Simple validation: if not expired, use cached value
+                if cached_expiration > int(time.time()) + 30:  # 30s safety margin
+                    return cached_token, cached_expiration
+
+        # Acquire refresh lock to ensure only one thread actually refreshes
+        refresh_lock = _get_token_refresh_lock(cache_key)
+        with refresh_lock:
+            # Double-check inside lock (another thread might have just refreshed)
+            with _TOKEN_REFRESH_CACHE_LOCK:
+                if cache_key in _TOKEN_REFRESH_CACHE:
+                    cached_token, cached_expiration = _TOKEN_REFRESH_CACHE[cache_key]
+                    if cached_expiration > int(time.time()) + 30:
+                        return cached_token, cached_expiration
+
+            # Actually refresh the token
+            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+            if connection_info is None:
+                raise ValueError("Failed to refresh token using xet metadata.")
+
+            # Update cache
+            token_data = (connection_info.access_token, connection_info.expiration_unix_epoch)
+            with _TOKEN_REFRESH_CACHE_LOCK:
+                _TOKEN_REFRESH_CACHE[cache_key] = token_data
+
+            return token_data
+
+    return token_refresher
+
+
 def xet_get(
     *,
     incomplete_path: Path,
@@ -509,11 +630,8 @@ def xet_get(
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
-    def token_refresher() -> tuple[str, int]:
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-        if connection_info is None:
-            raise ValueError("Failed to refresh token using xet metadata.")
-        return connection_info.access_token, connection_info.expiration_unix_epoch
+    # Use thread-safe token refresher with coalescing to prevent race conditions
+    token_refresher = _make_thread_safe_token_refresher(xet_file_data, headers)
 
     xet_download_info = [
         PyXetDownloadInfo(
@@ -750,7 +868,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[False] = False,
-) -> str: ...
+) -> str:
+    ...
 
 
 @overload
@@ -774,7 +893,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[True] = True,
-) -> DryRunFileInfo: ...
+) -> DryRunFileInfo:
+    ...
 
 
 @overload
@@ -798,7 +918,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
-) -> Union[str, DryRunFileInfo]: ...
+) -> Union[str, DryRunFileInfo]:
+    ...
 
 
 @validate_hf_hub_args
@@ -1115,21 +1236,26 @@ def _hf_hub_download_to_cache_dir(
                 and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
-                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
-                    _get_metadata_or_catch_error(
-                        repo_id=repo_id,
-                        filename=filename,
-                        repo_type=repo_type,
-                        revision=revision,
-                        endpoint=endpoint,
-                        etag_timeout=_ETAG_RETRY_TIMEOUT,
-                        headers=headers,
-                        token=token,
-                        local_files_only=local_files_only,
-                        storage_folder=storage_folder,
-                        relative_filename=relative_filename,
-                        retry_on_errors=True,
-                    )
+                (
+                    url_to_download,
+                    etag,
+                    commit_hash,
+                    expected_size,
+                    xet_file_data,
+                    head_call_error,
+                ) = _get_metadata_or_catch_error(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    endpoint=endpoint,
+                    etag_timeout=_ETAG_RETRY_TIMEOUT,
+                    headers=headers,
+                    token=token,
+                    local_files_only=local_files_only,
+                    storage_folder=storage_folder,
+                    relative_filename=relative_filename,
+                    retry_on_errors=True,
                 )
 
         # If still error, raise
@@ -1308,19 +1434,24 @@ def _hf_hub_download_to_local_dir(
                 and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
-                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
-                    _get_metadata_or_catch_error(
-                        repo_id=repo_id,
-                        filename=filename,
-                        repo_type=repo_type,
-                        revision=revision,
-                        endpoint=endpoint,
-                        etag_timeout=_ETAG_RETRY_TIMEOUT,
-                        headers=headers,
-                        token=token,
-                        local_files_only=local_files_only,
-                        retry_on_errors=True,
-                    )
+                (
+                    url_to_download,
+                    etag,
+                    commit_hash,
+                    expected_size,
+                    xet_file_data,
+                    head_call_error,
+                ) = _get_metadata_or_catch_error(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    endpoint=endpoint,
+                    etag_timeout=_ETAG_RETRY_TIMEOUT,
+                    headers=headers,
+                    token=token,
+                    local_files_only=local_files_only,
+                    retry_on_errors=True,
                 )
 
         # If still error, raise

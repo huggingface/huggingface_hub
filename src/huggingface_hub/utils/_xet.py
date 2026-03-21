@@ -1,4 +1,6 @@
+import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -11,7 +13,10 @@ from . import hf_raise_for_status, http_backoff, validate_hf_hub_args
 
 XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
 XET_CONNECTION_INFO_CACHE_SIZE = 1_000
-XET_CONNECTION_INFO_CACHE: dict[str, "XetConnectionInfo"] = {}
+# Use OrderedDict for LRU tracking; protected by XET_CACHE_LOCK
+XET_CONNECTION_INFO_CACHE: OrderedDict[str, "XetConnectionInfo"] = OrderedDict()
+# Thread lock for protecting all XET cache operations (read, write, eviction)
+XET_CACHE_LOCK = threading.RLock()
 
 
 class XetTokenType(str, Enum):
@@ -199,14 +204,18 @@ def _fetch_xet_connection_info_with_url(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    # Check cache first
+    # Check cache first (with lock to prevent race conditions)
     cache_key = _cache_key(url, headers, params, prefix=cache_key_prefix)
-    cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
-    if cached_info is not None:
-        if not _is_expired(cached_info):
-            return cached_info
 
-    # Fetch from server
+    with XET_CACHE_LOCK:
+        cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
+        if cached_info is not None:
+            if not _is_expired(cached_info):
+                # Move to end for LRU tracking (most recently used)
+                XET_CONNECTION_INFO_CACHE.move_to_end(cache_key)
+                return cached_info
+
+    # Fetch from server (outside lock to avoid blocking other threads during network I/O)
     resp = http_backoff("GET", url, headers=headers, params=params)
     hf_raise_for_status(resp)
 
@@ -214,17 +223,21 @@ def _fetch_xet_connection_info_with_url(
     if metadata is None:
         raise ValueError("Xet headers have not been correctly set by the server.")
 
-    # Delete expired cache entries
-    for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
-        if _is_expired(v):
-            XET_CONNECTION_INFO_CACHE.pop(k, None)
+    # Update cache (protected by lock)
+    with XET_CACHE_LOCK:
+        # Delete expired cache entries
+        for k in list(XET_CONNECTION_INFO_CACHE.keys()):
+            if _is_expired(XET_CONNECTION_INFO_CACHE[k]):
+                XET_CONNECTION_INFO_CACHE.pop(k, None)
 
-    # Enforce cache size limit
-    if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
-        XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
+        # Enforce cache size limit (LRU: remove least recently used)
+        while len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
+            # pop the first item (oldest/least recently used) from OrderedDict
+            XET_CONNECTION_INFO_CACHE.popitem(last=False)
 
-    # Update cache
-    XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+        # Update cache and mark as most recently used
+        XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+        XET_CONNECTION_INFO_CACHE.move_to_end(cache_key)
 
     return metadata
 
@@ -237,9 +250,11 @@ def reset_xet_connection_info_cache_for_repo(repo_type: Optional[str], repo_id: 
     if repo_type is None:
         repo_type = constants.REPO_TYPE_MODEL
     prefix = f"{repo_type}-{repo_id}|"
-    for k in list(XET_CONNECTION_INFO_CACHE.keys()):
-        if k.startswith(prefix):
-            XET_CONNECTION_INFO_CACHE.pop(k, None)
+
+    with XET_CACHE_LOCK:
+        for k in list(XET_CONNECTION_INFO_CACHE.keys()):
+            if k.startswith(prefix):
+                XET_CONNECTION_INFO_CACHE.pop(k, None)
 
 
 def _cache_key(
