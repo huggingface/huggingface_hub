@@ -4,12 +4,13 @@ import os
 import re
 import shutil
 import stat
+import threading
 import time
 import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
+from typing import Any, BinaryIO, Callable, Literal, NoReturn, Optional, Union, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -444,6 +445,80 @@ def http_get(
         )
 
 
+# Token refresh coalescing: prevent multiple concurrent refreshes for the same file/repo
+# This avoids overwhelming the server when multiple parallel downloads need token refresh
+_TOKEN_REFRESH_LOCKS: dict[str, threading.Lock] = {}
+_TOKEN_REFRESH_LOCKS_LOCK = threading.Lock()
+_TOKEN_REFRESH_CACHE: dict[str, tuple[str, int]] = {}  # cache_key -> (access_token, expiration_unix_epoch)
+_TOKEN_REFRESH_CACHE_LOCK = threading.Lock()
+
+
+def _get_token_refresh_lock(cache_key: str) -> threading.Lock:
+    """Get or create a lock for a specific token refresh cache key.
+
+    Used to ensure only one thread refreshes a token at a time for a given key.
+    """
+    with _TOKEN_REFRESH_LOCKS_LOCK:
+        if cache_key not in _TOKEN_REFRESH_LOCKS:
+            _TOKEN_REFRESH_LOCKS[cache_key] = threading.Lock()
+        return _TOKEN_REFRESH_LOCKS[cache_key]
+
+
+def _make_thread_safe_token_refresher(
+    xet_file_data: XetFileData, headers: dict[str, str]
+) -> tuple[Callable[[], tuple[str, int]], str]:
+    """Create a thread-safe token refresher for XET downloads with coalescing.
+
+    This function creates a refresher that:
+    1. Coalesces concurrent refresh requests (only one thread actually calls the API)
+    2. Caches refresh results so other threads don't need to wait
+    3. Handles exceptions gracefully
+
+    Args:
+        xet_file_data: The file data needed to refresh tokens
+        headers: HTTP headers for the refresh request
+
+    Returns:
+        A tuple of (token_refresher_callable, cache_key_for_cleanup)
+    """
+    # Use refresh_route as cache key to identify unique token refresh endpoints
+    cache_key = xet_file_data.refresh_route
+
+    def token_refresher() -> tuple[str, int]:
+        """Thread-safe token refresher with coalescing and caching."""
+        # Try to get from cache first (outside lock for performance)
+        with _TOKEN_REFRESH_CACHE_LOCK:
+            if cache_key in _TOKEN_REFRESH_CACHE:
+                cached_token, cached_expiration = _TOKEN_REFRESH_CACHE[cache_key]
+                # Simple validation: if not expired, use cached value
+                if cached_expiration > int(time.time()) + 30:  # 30s safety margin
+                    return cached_token, cached_expiration
+
+        # Acquire refresh lock to ensure only one thread actually refreshes
+        refresh_lock = _get_token_refresh_lock(cache_key)
+        with refresh_lock:
+            # Double-check inside lock (another thread might have just refreshed)
+            with _TOKEN_REFRESH_CACHE_LOCK:
+                if cache_key in _TOKEN_REFRESH_CACHE:
+                    cached_token, cached_expiration = _TOKEN_REFRESH_CACHE[cache_key]
+                    if cached_expiration > int(time.time()) + 30:
+                        return cached_token, cached_expiration
+
+            # Actually refresh the token
+            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+            if connection_info is None:
+                raise ValueError("Failed to refresh token using xet metadata.")
+
+            # Update cache
+            token_data = (connection_info.access_token, connection_info.expiration_unix_epoch)
+            with _TOKEN_REFRESH_CACHE_LOCK:
+                _TOKEN_REFRESH_CACHE[cache_key] = token_data
+
+            return token_data
+
+    return token_refresher, cache_key
+
+
 def xet_get(
     *,
     incomplete_path: Path,
@@ -509,11 +584,8 @@ def xet_get(
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
-    def token_refresher() -> tuple[str, int]:
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-        if connection_info is None:
-            raise ValueError("Failed to refresh token using xet metadata.")
-        return connection_info.access_token, connection_info.expiration_unix_epoch
+    # Use thread-safe token refresher with coalescing to prevent race conditions
+    token_refresher, _cache_key = _make_thread_safe_token_refresher(xet_file_data, headers)
 
     xet_download_info = [
         PyXetDownloadInfo(
