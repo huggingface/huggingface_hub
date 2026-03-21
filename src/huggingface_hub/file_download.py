@@ -461,11 +461,7 @@ def _cleanup_token_refresh_caches() -> None:
 
     This function:
     1. Removes expired token entries from the cache
-    2. Removes corresponding locks for deleted entries
-    3. Enforces a maximum cache size (LRU-style eviction)
-
-    This mirrors the cleanup logic in _xet.py for XET_CONNECTION_INFO_CACHE
-    to prevent unbounded memory growth in long-running processes.
+    2. Enforces a maximum cache size (LRU-style eviction)
     """
     with _TOKEN_REFRESH_CACHE_LOCK:
         current_time = int(time.time())
@@ -474,18 +470,16 @@ def _cleanup_token_refresh_caches() -> None:
         expired_keys = [k for k, (token, expiration) in _TOKEN_REFRESH_CACHE.items() if expiration <= current_time]
         for k in expired_keys:
             _TOKEN_REFRESH_CACHE.pop(k, None)
-            # Also clean up the corresponding lock
-            with _TOKEN_REFRESH_LOCKS_LOCK:
-                _TOKEN_REFRESH_LOCKS.pop(k, None)
+            # NOTE: We deliberately do NOT remove the lock to avoid the race condition
+            # described above. Locks are cheap and will be bounded by cache size.
 
         # Enforce size limit (simple FIFO eviction)
         while len(_TOKEN_REFRESH_CACHE) >= _TOKEN_REFRESH_CACHE_SIZE:
             # Remove first (oldest) entry
             oldest_key = next(iter(_TOKEN_REFRESH_CACHE))
             _TOKEN_REFRESH_CACHE.pop(oldest_key, None)
-            # Also clean up the corresponding lock
-            with _TOKEN_REFRESH_LOCKS_LOCK:
-                _TOKEN_REFRESH_LOCKS.pop(oldest_key, None)
+            # NOTE: We deliberately do NOT remove the lock to avoid the race condition
+            # described above. Locks are cheap and will be bounded by cache size.
 
 
 def _get_token_refresh_lock(cache_key: str) -> threading.Lock:
@@ -874,7 +868,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[False] = False,
-) -> str: ...
+) -> str:
+    ...
 
 
 @overload
@@ -898,7 +893,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[True] = True,
-) -> DryRunFileInfo: ...
+) -> DryRunFileInfo:
+    ...
 
 
 @overload
@@ -922,7 +918,8 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
-) -> Union[str, DryRunFileInfo]: ...
+) -> Union[str, DryRunFileInfo]:
+    ...
 
 
 @validate_hf_hub_args
@@ -1239,21 +1236,26 @@ def _hf_hub_download_to_cache_dir(
                 and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
-                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
-                    _get_metadata_or_catch_error(
-                        repo_id=repo_id,
-                        filename=filename,
-                        repo_type=repo_type,
-                        revision=revision,
-                        endpoint=endpoint,
-                        etag_timeout=_ETAG_RETRY_TIMEOUT,
-                        headers=headers,
-                        token=token,
-                        local_files_only=local_files_only,
-                        storage_folder=storage_folder,
-                        relative_filename=relative_filename,
-                        retry_on_errors=True,
-                    )
+                (
+                    url_to_download,
+                    etag,
+                    commit_hash,
+                    expected_size,
+                    xet_file_data,
+                    head_call_error,
+                ) = _get_metadata_or_catch_error(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    endpoint=endpoint,
+                    etag_timeout=_ETAG_RETRY_TIMEOUT,
+                    headers=headers,
+                    token=token,
+                    local_files_only=local_files_only,
+                    storage_folder=storage_folder,
+                    relative_filename=relative_filename,
+                    retry_on_errors=True,
                 )
 
         # If still error, raise
@@ -1432,19 +1434,24 @@ def _hf_hub_download_to_local_dir(
                 and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
             ):
                 logger.info("No local file found. Retrying..")
-                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
-                    _get_metadata_or_catch_error(
-                        repo_id=repo_id,
-                        filename=filename,
-                        repo_type=repo_type,
-                        revision=revision,
-                        endpoint=endpoint,
-                        etag_timeout=_ETAG_RETRY_TIMEOUT,
-                        headers=headers,
-                        token=token,
-                        local_files_only=local_files_only,
-                        retry_on_errors=True,
-                    )
+                (
+                    url_to_download,
+                    etag,
+                    commit_hash,
+                    expected_size,
+                    xet_file_data,
+                    head_call_error,
+                ) = _get_metadata_or_catch_error(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    endpoint=endpoint,
+                    etag_timeout=_ETAG_RETRY_TIMEOUT,
+                    headers=headers,
+                    token=token,
+                    local_files_only=local_files_only,
+                    retry_on_errors=True,
                 )
 
         # If still error, raise
