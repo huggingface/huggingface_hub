@@ -473,16 +473,22 @@ def _make_thread_safe_token_refresher(
     1. Coalesces concurrent refresh requests (only one thread actually calls the API)
     2. Caches refresh results so other threads don't need to wait
     3. Handles exceptions gracefully
+    4. Uses authorization-aware cache keys to prevent token leakage between users
 
     Args:
         xet_file_data: The file data needed to refresh tokens
-        headers: HTTP headers for the refresh request
+        headers: HTTP headers for the refresh request (includes authorization)
 
     Returns:
         A tuple of (token_refresher_callable, cache_key_for_cleanup)
     """
-    # Use refresh_route as cache key to identify unique token refresh endpoints
-    cache_key = xet_file_data.refresh_route
+    # Create a cache key that includes the authorization header, ensuring tokens are not
+    # shared between different users. This mirrors the logic in _xet.py's _cache_key() function.
+    # Format: "{refresh_route}|{auth_header}" to prevent token leakage when multiple users
+    # download the same file with different authentication contexts.
+    lower_headers = {k.lower(): v for k, v in headers.items()}  # casing not guaranteed
+    auth_header = lower_headers.get("authorization", "")
+    cache_key = f"{xet_file_data.refresh_route}|{auth_header}"
 
     def token_refresher() -> tuple[str, int]:
         """Thread-safe token refresher with coalescing and caching."""
