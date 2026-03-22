@@ -470,6 +470,42 @@ Use `hf buckets sync` to download all files from a bucket to a local directory:
 
 See the [Sync directories](#sync-directories) section below for the full set of sync options.
 
+## Copy files to Bucket
+
+Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
+
+```py
+>>> from huggingface_hub import copy_files
+
+# Bucket to bucket (same or different bucket)
+>>> copy_files(
+...     "hf://buckets/username/source-bucket/checkpoints/model.safetensors",
+...     "hf://buckets/username/destination-bucket/archive/model.safetensors",
+... )
+
+# Repo to bucket
+>>> copy_files(
+...     "hf://datasets/username/my-dataset/processed/",
+...     "hf://buckets/username/my-bucket/datasets/processed/",
+... )
+```
+
+The same is available from the CLI:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
+```
+
+Notes:
+
+- Folder copy requires destination to end with `/`.
+- Bucket-to-repo copy is not yet supported.
+- Small text files are not tracked with Xet on repo sources. To copy them to a Bucket, they are downloaded and re-uploaded.
+
 ## Sync directories
 
 The `hf buckets sync` command (and its API equivalent [`sync_bucket`]) is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.

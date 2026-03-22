@@ -20,6 +20,7 @@ import itertools
 import json
 import re
 import struct
+import tempfile
 import time
 import warnings
 from collections import defaultdict
@@ -38,12 +39,13 @@ from typing import (
     Iterator,
     Literal,
     Optional,
+    Sequence,
     Type,
     TypeVar,
     Union,
     overload,
 )
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import httpcore
 import httpx
@@ -249,6 +251,15 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+_HF_COPY_REPO_TYPE_PREFIXES: dict[str, Literal["model", "dataset", "space"]] = {
+    "model": constants.REPO_TYPE_MODEL,
+    "models": constants.REPO_TYPE_MODEL,
+    "dataset": constants.REPO_TYPE_DATASET,
+    "datasets": constants.REPO_TYPE_DATASET,
+    "space": constants.REPO_TYPE_SPACE,
+    "spaces": constants.REPO_TYPE_SPACE,
+}
+_SPECIAL_REFS_REVISION_REGEX = re.compile(r"(^refs\/convert\/\w+)|(^refs\/pr\/\d+)")
 
 logger = logging.get_logger(__name__)
 
@@ -385,6 +396,68 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
+
+
+def _parse_hf_copy_handle(hf_handle: str) -> Union[_BucketCopyHandle, _RepoCopyHandle]:
+    if not hf_handle.startswith("hf://"):
+        raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
+
+    path = hf_handle.removeprefix("hf://")
+    if path.startswith("buckets/"):
+        bucket_id, bucket_path = _split_bucket_id_and_prefix(path.removeprefix("buckets/"))
+        return _BucketCopyHandle(
+            bucket_id=bucket_id,
+            path=bucket_path.strip("/"),
+            is_directory=hf_handle.endswith("/") and bucket_path != "",
+        )
+
+    path = path.strip("/")
+    if path == "":
+        raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
+
+    parts = path.split("/")
+    repo_type: Literal["model", "dataset", "space"] = constants.REPO_TYPE_MODEL
+    if parts[0] in _HF_COPY_REPO_TYPE_PREFIXES:
+        repo_type = _HF_COPY_REPO_TYPE_PREFIXES[parts[0]]
+        parts = parts[1:]
+
+    if len(parts) < 2:
+        raise ValueError(
+            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' "
+            "or with explicit repo type prefix."
+        )
+
+    namespace, repo_name_with_revision = parts[0], parts[1]
+    remaining_parts = parts[2:]
+    revision: Optional[str] = None
+    if "@" in repo_name_with_revision:
+        repo_name, revision = repo_name_with_revision.split("@", 1)
+    else:
+        repo_name = repo_name_with_revision
+
+    if revision is None:
+        revision = constants.DEFAULT_REVISION
+    elif remaining_parts:
+        maybe_special_ref = f"{unquote(revision)}/{remaining_parts[0]}"
+        match = _SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
+        if match is not None:
+            special_ref = match.group()
+            revision = special_ref
+            suffix = maybe_special_ref.removeprefix(special_ref).lstrip("/")
+            remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
+        else:
+            revision = unquote(revision)
+    else:
+        revision = unquote(revision)
+
+    repo_path = "/".join(remaining_parts).strip("/")
+    return _RepoCopyHandle(
+        repo_type=repo_type,
+        repo_id=f"{namespace}/{repo_name}",
+        revision=revision,
+        path=repo_path,
+        is_directory=hf_handle.endswith("/") and repo_path != "",
+    )
 
 
 @dataclass
@@ -647,6 +720,22 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+@dataclass(frozen=True)
+class _BucketCopyHandle:
+    bucket_id: str
+    path: str
+    is_directory: bool
+
+
+@dataclass(frozen=True)
+class _RepoCopyHandle:
+    repo_type: Literal["model", "dataset", "space"]
+    repo_id: str
+    revision: str
+    path: str
+    is_directory: bool
 
 
 @dataclass
@@ -12052,6 +12141,192 @@ class HfApi:
                 yield BucketFile(**path_info)
 
     @validate_hf_hub_args
+    def copy_files(
+        self,
+        source: str,
+        destination: str,
+        *,
+        token: Union[str, bool, None] = None,
+    ) -> None:
+        """Copy files on the Hub.
+
+        Supported:
+        - bucket -> bucket
+        - repo (model/dataset/space) -> bucket
+
+        Unsupported:
+        - bucket -> repo
+        - local paths
+
+        If source is a folder, destination must end with ``/``.
+        """
+        source_handle = _parse_hf_copy_handle(source)
+        destination_handle = _parse_hf_copy_handle(destination)
+
+        if isinstance(destination_handle, _RepoCopyHandle):
+            raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
+
+        if isinstance(source_handle, _BucketCopyHandle) and isinstance(destination_handle, _RepoCopyHandle):
+            raise ValueError("Bucket-to-repo copy is not supported.")
+
+        destination_bucket_id = destination_handle.bucket_id
+        destination_path = destination_handle.path
+        destination_is_directory = destination_handle.is_directory or destination_path == ""
+
+        hash_based_adds: list[_BucketAddFile] = []
+
+        def _resolve_target_path(src_file_path: str, src_root_path: Optional[str], is_single_file: bool) -> str:
+            basename = src_file_path.rsplit("/", 1)[-1]
+            if is_single_file:
+                if destination_path == "":
+                    return basename
+                if destination_is_directory:
+                    return f"{destination_path.rstrip('/')}/{basename}"
+                return destination_path
+
+            if not destination_is_directory:
+                raise ValueError("Folder copy requires destination to end with '/'.")
+            if src_root_path is None:
+                rel_path = src_file_path
+            elif src_file_path.startswith(src_root_path + "/"):
+                rel_path = src_file_path[len(src_root_path) + 1 :]
+            elif src_file_path == src_root_path:
+                rel_path = src_file_path.rsplit("/", 1)[-1]
+            else:
+                raise ValueError(f"Unexpected source path while copying folder: '{src_file_path}'.")
+
+            if rel_path == "":
+                raise ValueError("Cannot copy an empty relative path.")
+            if destination_path == "":
+                return rel_path
+            return f"{destination_path.rstrip('/')}/{rel_path}"
+
+        def _flush_hash_based_adds() -> None:
+            nonlocal hash_based_adds
+            if not hash_based_adds:
+                return
+            for add_chunk in chunk_iterable(hash_based_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
+            hash_based_adds = []
+
+        if isinstance(source_handle, _BucketCopyHandle):
+            source_path = source_handle.path
+            same_bucket_copy = source_handle.bucket_id == destination_bucket_id
+            source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+            if source_path_info:
+                source_file = source_path_info[0]
+                target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
+                if same_bucket_copy:
+                    hash_based_adds.append(
+                        _BucketAddFile(
+                            source=b"",
+                            destination=target_path,
+                            xet_hash=source_file.xet_hash,
+                            size=source_file.size,
+                        )
+                    )
+                else:
+                    with tempfile.TemporaryDirectory() as tmp_dir:
+                        local_path = str(Path(tmp_dir) / source_file.path.rsplit("/", 1)[-1])
+                        self.download_bucket_files(
+                            source_handle.bucket_id, [(source_file.path, local_path)], token=token
+                        )
+                        self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
+            else:
+                if source_path != "" and not destination_is_directory:
+                    raise ValueError("Folder copy requires destination to end with '/'.")
+                for item in self.list_bucket_tree(
+                    source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
+                ):
+                    if not isinstance(item, BucketFile):
+                        continue
+                    if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
+                        continue
+                    target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
+                    if same_bucket_copy:
+                        hash_based_adds.append(
+                            _BucketAddFile(source=b"", destination=target_path, xet_hash=item.xet_hash, size=item.size)
+                        )
+                    else:
+                        _flush_hash_based_adds()
+                        with tempfile.TemporaryDirectory() as tmp_dir:
+                            local_path = str(Path(tmp_dir) / item.path.rsplit("/", 1)[-1])
+                            self.download_bucket_files(source_handle.bucket_id, [(item.path, local_path)], token=token)
+                            self.batch_bucket_files(
+                                destination_bucket_id, add=[(local_path, target_path)], token=token
+                            )
+        else:
+            source_path = source_handle.path
+            source_path_info: list[Union[RepoFile, RepoFolder]] = []
+            if source_path != "":
+                source_path_info = self.get_paths_info(
+                    repo_id=source_handle.repo_id,
+                    paths=[source_path],
+                    repo_type=source_handle.repo_type,
+                    revision=source_handle.revision,
+                    token=token,
+                )
+
+            if len(source_path_info) == 1 and isinstance(source_path_info[0], RepoFile):
+                source_file = source_path_info[0]
+                target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
+                if source_file.xet_hash is not None:
+                    hash_based_adds.append(
+                        _BucketAddFile(
+                            source=b"",
+                            destination=target_path,
+                            xet_hash=source_file.xet_hash,
+                            size=source_file.size,
+                        )
+                    )
+                else:
+                    with tempfile.TemporaryDirectory() as tmp_dir:
+                        local_path = self.hf_hub_download(
+                            repo_id=source_handle.repo_id,
+                            repo_type=source_handle.repo_type,
+                            filename=source_file.path,
+                            revision=source_handle.revision,
+                            local_dir=tmp_dir,
+                            token=token,
+                        )
+                        self.batch_bucket_files(destination_bucket_id, add=[(local_path, target_path)], token=token)
+            else:
+                if source_path and not destination_is_directory:
+                    raise ValueError("Folder copy requires destination to end with '/'.")
+                for item in self.list_repo_tree(
+                    repo_id=source_handle.repo_id,
+                    path_in_repo=source_path or None,
+                    recursive=True,
+                    repo_type=source_handle.repo_type,
+                    revision=source_handle.revision,
+                    token=token,
+                ):
+                    if not isinstance(item, RepoFile):
+                        continue
+                    target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
+                    if item.xet_hash is not None:
+                        hash_based_adds.append(
+                            _BucketAddFile(source=b"", destination=target_path, xet_hash=item.xet_hash, size=item.size)
+                        )
+                    else:
+                        _flush_hash_based_adds()
+                        with tempfile.TemporaryDirectory() as tmp_dir:
+                            local_path = self.hf_hub_download(
+                                repo_id=source_handle.repo_id,
+                                repo_type=source_handle.repo_type,
+                                filename=item.path,
+                                revision=source_handle.revision,
+                                local_dir=tmp_dir,
+                                token=token,
+                            )
+                            self.batch_bucket_files(
+                                destination_bucket_id, add=[(local_path, target_path)], token=token
+                            )
+
+        _flush_hash_based_adds()
+        return None
+
+    @validate_hf_hub_args
     def batch_bucket_files(
         self,
         bucket_id: str,
@@ -12102,12 +12377,14 @@ class HfApi:
             ... )
             ```
         """
-        add = add or []
-        delete = delete or []
+        add = [] if add is None else add
+        delete = [] if delete is None else delete
 
         # Small batch: do everything in one call
         if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+            add_payload: Optional[list[tuple[Union[str, Path, bytes], str]]] = add if len(add) > 0 else None
+            delete_payload: Optional[list[str]] = delete if len(delete) > 0 else None
+            self._batch_bucket_files(bucket_id, add=add_payload, delete=delete_payload, token=token)
             return
 
         # Large batch: chunk adds first, then deletes
@@ -12120,7 +12397,8 @@ class HfApi:
 
         try:
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
+                add_chunk_list: list[tuple[Union[str, Path, bytes], str]] = list(add_chunk)
+                self._batch_bucket_files(bucket_id, add=add_chunk_list, token=token, _progress=progress)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
@@ -12134,7 +12412,7 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
+        add: Optional[Sequence[Union[tuple[Union[str, Path, bytes], str], _BucketAddFile]]] = None,
         delete: Optional[list[str]] = None,
         token: Union[str, bool, None] = None,
         _progress: Optional["XetProgressReporter"] = None,
@@ -12143,8 +12421,12 @@ class HfApi:
         # Convert public API inputs to internal operation objects
         operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
         if add:
-            for source, destination in add:
-                operations.append(_BucketAddFile(source=source, destination=destination))
+            for item in add:
+                if isinstance(item, _BucketAddFile):
+                    operations.append(item)
+                else:
+                    source, destination = item
+                    operations.append(_BucketAddFile(source=source, destination=destination))
         if delete:
             for path in delete:
                 operations.append(_BucketDeleteFile(path=path))
@@ -12159,10 +12441,11 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
+        add_operations_to_upload = [op for op in add_operations if op.xet_hash is None]
         add_bytes_operations = [op for op in add_operations if isinstance(op.source, bytes)]
         add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
-        if len(add_operations) > 0:
+        if len(add_operations_to_upload) > 0:
             try:
                 xet_connection_info = fetch_xet_connection_info_from_repo_info(
                     token_type=XetTokenType.WRITE,
@@ -12207,7 +12490,7 @@ class HfApi:
             try:
                 # 2.a. Upload path files
                 xet_upload_infos = upload_files(
-                    [str(op.source) for op in add_path_operations],
+                    [str(op.source) for op in add_path_operations if op.xet_hash is None],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -12215,7 +12498,9 @@ class HfApi:
                     "bucket",
                     skip_sha256=True,
                 )
-                for upload_info, op in zip(xet_upload_infos, add_path_operations):
+                for upload_info, op in zip(
+                    xet_upload_infos, [op for op in add_path_operations if op.xet_hash is None]
+                ):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
 
@@ -12224,7 +12509,7 @@ class HfApi:
 
                 # 2.b. Upload bytes files
                 xet_upload_infos = upload_bytes(
-                    [op.source for op in add_bytes_operations],
+                    [op.source for op in add_bytes_operations if op.xet_hash is None],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -12232,7 +12517,9 @@ class HfApi:
                     "bucket",
                     skip_sha256=True,
                 )
-                for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
+                for upload_info, op in zip(
+                    xet_upload_infos, [op for op in add_bytes_operations if op.xet_hash is None]
+                ):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
 
@@ -12934,6 +13221,7 @@ delete_bucket = api.delete_bucket
 move_bucket = api.move_bucket
 list_bucket_tree = api.list_bucket_tree
 get_bucket_paths_info = api.get_bucket_paths_info
+copy_files = api.copy_files
 batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
