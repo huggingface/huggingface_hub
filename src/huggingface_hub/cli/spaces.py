@@ -262,8 +262,8 @@ def spaces_hot_reload(
     (meaning that Gradio demo object changes are reflected in the UI)
 
     The command creates a remote commit.
-    Use `git pull --autostash` if you are working from a local clone
-    in order to bring the commit back and keep your local git state in sync
+    If you are working from a local clone, run `git pull --autostash` afterwards
+    to bring the commit back and keep your local git state in sync.
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
