@@ -3238,6 +3238,10 @@ This command patches the live Python process using https://github.com/breuleux/j
 (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
 (meaning that Gradio demo object changes are reflected in the UI)
 
+The command creates a remote commit.
+Use `git pull --autostash` if you are working from a local clone
+in order to bring the commit back and keep your local git state in sync
+
 **Usage**:
 
 ```console
@@ -3258,9 +3262,9 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file
-  $ hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo
-  $ hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo
+  $ hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file
+  $ hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely
+  $ hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
