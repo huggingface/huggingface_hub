@@ -1832,7 +1832,9 @@ class DatasetLeaderboardEntry:
     """Contains information about a single entry in a dataset leaderboard on the Hub.
 
     A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
-    This object is returned by [`get_dataset_leaderboard`].
+    This object is returned by [`get_dataset_leaderboard`]. To get evaluation results for a
+    specific model across benchmarks, see [`ModelInfo.eval_results`] (via [`model_info`] with
+    `expand=["evalResults"]`) and [`EvalResultEntry`].
 
     Attributes:
         rank (`int`):
@@ -3083,7 +3085,8 @@ class HfApi:
 
         The leaderboard ranks models based on their evaluation scores on the given benchmark
         dataset. Not all datasets have leaderboards — only benchmark datasets with evaluation
-        results submitted to them.
+        results submitted to them. This gives a dataset-centric view of scores; for a model-centric
+        view, use [`model_info`] with `expand=["evalResults"]`.
 
         Args:
             repo_id (`str`):
