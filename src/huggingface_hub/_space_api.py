@@ -64,10 +64,10 @@ class SpaceHardware(str, Enum):
     CPU_UPGRADE = "cpu-upgrade"
     CPU_PERFORMANCE = "cpu-performance"
     CPU_XL = "cpu-xl"
-    SPRx8 = "sprx8"
+    SPRX8 = "sprx8"
 
     # ZeroGPU
-    ZERO_A10G = "zero-a10g"  # assuming ZERO_GPU_FLAVOR_NAME resolves to this
+    ZERO_A10G = "zero-a10g"
 
     # GPU
     T4_SMALL = "t4-small"
@@ -82,15 +82,15 @@ class SpaceHardware(str, Enum):
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
-    A100x4 = "a100x4"
-    A100x8 = "a100x8"
+    A100X4 = "a100x4"
+    A100X8 = "a100x8"
     H200 = "h200"
-    H200x2 = "h200x2"
-    H200x4 = "h200x4"
-    H200x8 = "h200x8"
+    H200X2 = "h200x2"
+    H200X4 = "h200x4"
+    H200X8 = "h200x8"
 
     # Neuron
-    INF2x6 = "inf2x6"
+    INF2X6 = "inf2x6"
 
 
 class SpaceStorage(str, Enum):
