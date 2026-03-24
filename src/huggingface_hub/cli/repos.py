@@ -34,7 +34,6 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundE
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
-    PrivateOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
@@ -75,7 +74,7 @@ class VisibilityChoices(str, enum.Enum):
     protected = "protected"
 
 
-VisilibiltyOpt = Annotated[
+VisibilityOpt = Annotated[
     Optional[VisibilityChoices],
     typer.Option(
         help='Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.',
@@ -87,7 +86,7 @@ VisilibiltyOpt = Annotated[
     "create",
     examples=[
         "hf repos create my-model",
-        "hf repos create my-dataset --repo-type dataset --private",
+        "hf repos create my-dataset --repo-type dataset --visibility private",
         "hf repos create my-space --repo-type space --space-sdk gradio --visibility protected",
     ],
 )
@@ -100,8 +99,7 @@ def repo_create(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
-    private: PrivateOpt = None,
-    visibility: VisilibiltyOpt = None,
+    visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -121,7 +119,6 @@ def repo_create(
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
-        private=private,
         visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
@@ -136,8 +133,7 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
-        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --visibility protected",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --visibility private",
     ],
 )
 def repo_duplicate(
@@ -149,8 +145,7 @@ def repo_duplicate(
         ),
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    private: PrivateOpt = None,
-    visibility: VisilibiltyOpt = None,
+    visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -165,7 +160,6 @@ def repo_duplicate(
         from_id=from_id,
         to_id=to_id,
         repo_type=repo_type.value,
-        private=private,
         visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
@@ -216,7 +210,7 @@ def repo_move(
 @repos_cli.command(
     "settings",
     examples=[
-        "hf repos settings my-model --private",
+        "hf repos settings my-model --visibility private",
         "hf repos settings my-model --gated auto",
         "hf repos settings my-space --repo-type space --visibility protected",
     ],
@@ -229,13 +223,7 @@ def repo_settings(
             help="The gated status for the repository.",
         ),
     ] = None,
-    private: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Whether the repository should be private.",
-        ),
-    ] = None,
-    visibility: VisilibiltyOpt = None,
+    visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
@@ -244,7 +232,6 @@ def repo_settings(
     api.update_repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
-        private=private,
         visibility=visibility.value if visibility else None,
         repo_type=repo_type.value,
     )

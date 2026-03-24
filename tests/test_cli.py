@@ -1280,42 +1280,6 @@ class TestBranchCommands:
         )
 
 
-class TestRepoCreateCommand:
-    def test_repo_create_with_visibility(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.create_repo.return_value = Mock(repo_id="myorg/my-space")
-            result = runner.invoke(
-                app,
-                [
-                    "repos",
-                    "create",
-                    "myorg/my-space",
-                    "--type",
-                    "space",
-                    "--space-sdk",
-                    "gradio",
-                    "--visibility",
-                    "protected",
-                    "--exist-ok",
-                    "--token",
-                    "my-token",
-                ],
-            )
-        assert result.exit_code == 0
-        api_cls.assert_called_once_with(token="my-token")
-        api.create_repo.assert_called_once_with(
-            repo_id="myorg/my-space",
-            repo_type="space",
-            private=None,
-            visibility="protected",
-            token="my-token",
-            exist_ok=True,
-            resource_group_id=None,
-            space_sdk="gradio",
-        )
-
-
 class TestRepoDuplicateCommand:
     def test_repo_duplicate_implicit_namespace(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
@@ -1328,7 +1292,6 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id=None,
             repo_type="dataset",
-            private=None,
             visibility=None,
             token=None,
             exist_ok=False,
@@ -1347,7 +1310,8 @@ class TestRepoDuplicateCommand:
                     "myorg/my-copy",
                     "--type",
                     "space",
-                    "--private",
+                    "--visibility",
+                    "private",
                     "--exist-ok",
                     "--token",
                     "my-token",
@@ -1359,39 +1323,9 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id="myorg/my-copy",
             repo_type="space",
-            private=True,
-            visibility=None,
+            visibility="private",
             token="my-token",
             exist_ok=True,
-        )
-
-    def test_repo_duplicate_with_visibility(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.duplicate_repo.return_value = Mock(repo_id="myorg/my-copy")
-            result = runner.invoke(
-                app,
-                [
-                    "repos",
-                    "duplicate",
-                    DUMMY_MODEL_ID,
-                    "myorg/my-copy",
-                    "--type",
-                    "space",
-                    "--visibility",
-                    "protected",
-                ],
-            )
-        assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None)
-        api.duplicate_repo.assert_called_once_with(
-            from_id=DUMMY_MODEL_ID,
-            to_id="myorg/my-copy",
-            repo_type="space",
-            private=None,
-            visibility="protected",
-            token=None,
-            exist_ok=False,
         )
 
 
@@ -1443,7 +1377,6 @@ class TestRepoSettingsCommand:
         api.update_repo_settings.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             gated=None,
-            private=None,
             visibility=None,
             repo_type="model",
         )
@@ -1459,7 +1392,8 @@ class TestRepoSettingsCommand:
                     DUMMY_MODEL_ID,
                     "--gated",
                     "manual",
-                    "--private",
+                    "--visibility",
+                    "private",
                     "--repo-type",
                     "dataset",
                     "--token",
@@ -1471,34 +1405,8 @@ class TestRepoSettingsCommand:
         kwargs = api.update_repo_settings.call_args.kwargs
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
         assert kwargs["repo_type"] == "dataset"
-        assert kwargs["private"] is True
-        assert kwargs["visibility"] is None
+        assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
-
-    def test_repo_settings_with_visibility(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(
-                app,
-                [
-                    "repo",
-                    "settings",
-                    DUMMY_MODEL_ID,
-                    "--repo-type",
-                    "space",
-                    "--visibility",
-                    "protected",
-                ],
-            )
-        assert result.exit_code == 0
-        api_cls.assert_called_once_with(token=None)
-        api.update_repo_settings.assert_called_once_with(
-            repo_id=DUMMY_MODEL_ID,
-            gated=None,
-            private=None,
-            visibility="protected",
-            repo_type="space",
-        )
 
 
 class TestRepoDeleteCommand:

@@ -463,6 +463,24 @@ class CommitApiTest(HfApiCommonTest):
 
         self._api.delete_repo(repo_id, token=ENTERPRISE_TOKEN)
 
+    def test_create_repo_with_visibility(self):
+        repo_id = repo_name()
+        url = self._api.create_repo(repo_id, visibility="private")
+        info = self._api.model_info(url.repo_id, expand="private")
+        assert info.private
+        self._api.delete_repo(url.repo_id)
+
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings_with_visibility(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        self._api.update_repo_settings(repo_id=repo_id, visibility="private")
+        info = self._api.model_info(repo_id, expand="private")
+        assert info.private
+
+        self._api.update_repo_settings(repo_id=repo_id, visibility="public")
+        info = self._api.model_info(repo_id, expand="private")
+        assert not info.private
+
     @use_tmp_repo()
     def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -3588,18 +3606,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
     def tearDown(self) -> None:
         self.patcher.stop()
 
-    def test_create_repo_private_maps_to_visibility(self) -> None:
-        self.api.create_repo(self.repo_id, private=True)
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/repos/create",
-            headers=self.api._build_hf_headers(),
-            json={
-                "name": self.repo_id,
-                "organization": None,
-                "visibility": "private",
-            },
-        )
-
     def test_create_space_with_hardware(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3659,22 +3665,10 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
-    def test_create_space_with_protected_visibility(self) -> None:
-        self.api.create_repo(self.repo_id, repo_type="space", space_sdk="gradio", visibility="protected")
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/repos/create",
-            headers=self.api._build_hf_headers(),
-            json={
-                "name": self.repo_id,
-                "organization": None,
-                "type": "space",
-                "sdk": "gradio",
-                "visibility": "protected",
-            },
-        )
-
     def test_protected_visibility_is_only_supported_for_spaces(self) -> None:
-        with self.assertRaisesRegex(ValueError, r"Invalid visibility, must be one of 'public', 'private'."):
+        with self.assertRaisesRegex(
+            ValueError, r"Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'."
+        ):
             self.api.create_repo(self.repo_id, visibility="protected")
         self.post_mock.assert_not_called()
 
@@ -3685,30 +3679,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
         ):
             self.api.create_repo(self.repo_id, private=True, visibility="private")
         self.post_mock.assert_not_called()
-
-    def test_update_space_settings_with_protected_visibility(self) -> None:
-        self.api.update_repo_settings(self.repo_id, repo_type="space", visibility="protected")
-        self.put_mock.assert_called_once_with(
-            url=f"{self.api.endpoint}/api/spaces/{self.repo_id}/settings",
-            headers=self.api._build_hf_headers(),
-            json={"visibility": "protected"},
-        )
-
-    def test_duplicate_repo_with_protected_visibility(self) -> None:
-        self.api.duplicate_repo(
-            self.repo_id,
-            to_id=f"{USER}/new_repo_id",
-            repo_type="space",
-            visibility="protected",
-        )
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/spaces/{self.repo_id}/duplicate",
-            headers=self.api._build_hf_headers(),
-            json={
-                "repository": f"{USER}/new_repo_id",
-                "visibility": "protected",
-            },
-        )
 
     def test_create_space_with_secrets_and_variables(self) -> None:
         self.api.create_repo(

@@ -250,9 +250,6 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
-_REPO_VISIBILITIES = ("public", "private")
-_SPACE_VISIBILITIES = ("public", "private", "protected")
-
 logger = logging.get_logger(__name__)
 
 
@@ -270,11 +267,8 @@ def _resolve_repo_visibility(
             return None
         return "private" if private else "public"
 
-    allowed_visibilities = _SPACE_VISIBILITIES if repo_type == constants.REPO_TYPE_SPACE else _REPO_VISIBILITIES
-    if visibility not in allowed_visibilities:
-        raise ValueError(
-            f"Invalid visibility, must be one of {', '.join(repr(value) for value in allowed_visibilities)}."
-        )
+    if visibility == "protected" and repo_type != constants.REPO_TYPE_SPACE:
+        raise ValueError("Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'.")
     return visibility
 
 
