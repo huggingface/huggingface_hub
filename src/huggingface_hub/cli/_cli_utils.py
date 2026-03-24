@@ -128,9 +128,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         """
         if "--json" not in args:
             return
-        has_format_option = any(
-            isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
-        )
+        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
         if has_format_option:
             if any(arg == "--format" or arg.startswith("--format=") for arg in args):
                 raise click.UsageError("'--json' and '--format' are mutually exclusive.")
@@ -147,9 +145,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         implicit ``--type {type}`` is appended.  An error is raised if ``--type`` is
         also provided explicitly.
         """
-        has_type_option = any(
-            isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params
-        )
+        has_type_option = any(isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params)
         if not has_type_option:
             return
 
