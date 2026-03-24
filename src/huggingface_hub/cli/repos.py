@@ -33,15 +33,7 @@ import typer
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
-from ._cli_utils import (
-    RepoIdArg,
-    RepoType,
-    RepoTypeOpt,
-    RevisionOpt,
-    TokenOpt,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -83,11 +75,34 @@ VisibilityOpt = Annotated[
 
 HiddenPrivateOpt = Annotated[
     Optional[bool],
-    typer.Option(
-        hidden=True,
-        help="Whether the repository should be private. Prefer using --visibility instead.",
-    ),
+    typer.Option("--private", hidden=True),
 ]
+
+HiddenPublicOpt = Annotated[
+    Optional[bool],
+    typer.Option("--public", hidden=True),
+]
+
+HiddenProtectedOpt = Annotated[
+    Optional[bool],
+    typer.Option("--protected", hidden=True),
+]
+
+
+def _resolve_visibility_flag(
+    visibility: Optional[VisibilityChoices],
+    private: Optional[bool],
+    public: Optional[bool],
+    protected: Optional[bool],
+) -> Optional[VisibilityChoices]:
+    if not visibility:
+        if private:
+            return VisibilityChoices.private
+        elif public:
+            return VisibilityChoices.public
+        elif protected:
+            return VisibilityChoices.protected
+    return visibility
 
 
 @repos_cli.command(
@@ -108,6 +123,8 @@ def repo_create(
         ),
     ] = None,
     private: HiddenPrivateOpt = None,
+    public: HiddenPublicOpt = None,
+    protected: HiddenProtectedOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
@@ -124,12 +141,12 @@ def repo_create(
     ] = None,
 ) -> None:
     """Create a new repo on the Hub."""
+    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
-        private=private,
-        visibility=visibility.value if visibility else None,
+        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
@@ -156,6 +173,8 @@ def repo_duplicate(
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
     private: HiddenPrivateOpt = None,
+    public: HiddenPublicOpt = None,
+    protected: HiddenProtectedOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
@@ -166,13 +185,13 @@ def repo_duplicate(
     ] = False,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
+    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     repo_url = api.duplicate_repo(
         from_id=from_id,
         to_id=to_id,
         repo_type=repo_type.value,
-        private=private,
-        visibility=visibility.value if visibility else None,
+        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
     )
@@ -236,17 +255,19 @@ def repo_settings(
         ),
     ] = None,
     private: HiddenPrivateOpt = None,
+    public: HiddenPublicOpt = None,
+    protected: HiddenProtectedOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     """Update the settings of a repository."""
+    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     api.update_repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
-        private=private,
-        visibility=visibility.value if visibility else None,
+        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")

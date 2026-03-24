@@ -3574,7 +3574,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
-        self.put_mock = get_session_mock().put
         self.post_mock.return_value.json.return_value = {
             "url": f"{self.api.endpoint}/spaces/user/repo_id",
             "stage": "RUNNING",
