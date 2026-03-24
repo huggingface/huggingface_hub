@@ -10688,6 +10688,17 @@ class HfApi:
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
+            Run a Job with volumes:
+
+            ```python
+            >>> from huggingface_hub import JobVolume, run_job
+            >>> dataset_volume = JobVolume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")
+            >>> output_bucket_volume = JobVolume(type="bucket", source="username/my-bucket", mount_path="/output")
+            >>> image = "duckdb/duckdb"
+            >>> command = ["duckdb", "-c", "COPY (SELECT * FROM '/data/**/*.parquet' LIMIT 5) TO '/output/first-rows.parquet'"]
+            >>> run_job(image=image, command=command, volumes=[dataset_volume, output_bucket_volume])
+            ```
+
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -11157,6 +11168,16 @@ class HfApi:
             >>> script = "lighteval"
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
             >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
+            ```
+
+            Mount volumes, e.g. to save model checkpoints during training:
+
+            ```python
+            >>> from huggingface_hub import JobVolume, run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--output_dir", "/training-outputs/training-v3-final", ...]
+            >>> checkpoints_bucket = JobVolume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
+            >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
