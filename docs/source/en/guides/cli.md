@@ -862,7 +862,7 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ## hf papers
 
-Use `hf papers` to list daily papers on the Hub.
+Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
 
 ### List papers
 
@@ -879,8 +879,44 @@ Use `hf papers` to list daily papers on the Hub.
 # List today's papers
 >>> hf papers ls --date=today
 
+# List papers from a specific week
+>>> hf papers ls --week=2025-W09
+
+# List papers from a specific month
+>>> hf papers ls --month=2025-02
+
+# List papers submitted by a specific user
+>>> hf papers ls --submitter=akhaliq
+
 # Limit results
 >>> hf papers ls --sort=trending --limit=5
+```
+
+### Search papers
+
+```bash
+# Search papers by keyword
+>>> hf papers search "vision language"
+
+# Limit search results
+>>> hf papers search "diffusion models" --limit=10
+
+# Output as JSON
+>>> hf papers search "attention" --format=json
+```
+
+### Get paper info
+
+```bash
+# Get structured metadata for a paper (returns JSON)
+>>> hf papers info 2601.15621
+```
+
+### Read paper as markdown
+
+```bash
+# Read the full paper content as markdown
+>>> hf papers read 2601.15621
 ```
 
 ## hf discussions

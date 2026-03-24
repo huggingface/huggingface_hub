@@ -1609,6 +1609,172 @@ class TestDatasetsLsCommand:
         assert kwargs["sort"] == "downloads"
 
 
+class TestPapersCommand:
+    def _make_paper(self, **kwargs):
+        from huggingface_hub.hf_api import PaperInfo
+
+        defaults = dict(
+            id="2502.08025",
+            title="Attention Is All You Need",
+            upvotes=42,
+            numComments=3,
+            publishedAt="2025-02-12T00:00:00.000Z",
+        )
+        defaults.update(kwargs)
+        return PaperInfo(**defaults)
+
+    def test_ls_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "ls", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output[0]["id"] == "2502.08025"
+        assert output[0]["title"] == "Attention Is All You Need"
+
+    def test_ls_with_sort(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--sort", "trending"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["sort"] == "trending"
+
+    def test_ls_with_date(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--date", "2025-01-23"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["date"] == "2025-01-23"
+
+    def test_ls_with_week(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--week", "2025-W09"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["week"] == "2025-W09"
+
+    def test_ls_with_month(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--month", "2025-02"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["month"] == "2025-02"
+
+    def test_ls_with_submitter(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--submitter", "someuser"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["submitter"] == "someuser"
+
+    def test_ls_invalid_sort(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["papers", "ls", "--sort", "invalid"])
+        assert result.exit_code == 2
+        assert "Invalid value" in result.output
+
+    def test_ls_quiet(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "ls", "--quiet"])
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout.strip() == "2502.08025"
+
+    def test_search_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "search", "attention", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output[0]["id"] == "2502.08025"
+        _, kwargs = api.list_papers.call_args
+        assert kwargs["query"] == "attention"
+
+    def test_search_with_limit(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "search", "diffusion", "--limit", "5"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_papers.call_args
+        assert kwargs["limit"] == 5
+
+    def test_info_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.paper_info.return_value = paper
+            result = runner.invoke(app, ["papers", "info", "2502.08025"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output["id"] == "2502.08025"
+        api.paper_info.assert_called_once_with(id="2502.08025")
+
+    def test_info_not_found(self, runner: CliRunner) -> None:
+        from huggingface_hub.errors import CLIError, HfHubHTTPError
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.paper_info.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            result = runner.invoke(app, ["papers", "info", "0000.00000"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "not found" in str(result.exception).lower()
+
+    def test_read_basic(self, runner: CliRunner) -> None:
+        markdown = "# Attention Is All You Need\n\nThis paper introduces..."
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.read_paper.return_value = markdown
+            result = runner.invoke(app, ["papers", "read", "2502.08025"])
+
+        assert result.exit_code == 0, result.output
+        assert "Attention Is All You Need" in result.stdout
+        api.read_paper.assert_called_once_with(id="2502.08025")
+
+    def test_read_not_found(self, runner: CliRunner) -> None:
+        from huggingface_hub.errors import CLIError, HfHubHTTPError
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.read_paper.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            result = runner.invoke(app, ["papers", "read", "0000.00000"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "not found" in str(result.exception).lower()
+
+
 class TestDatasetsParquetCommand:
     def test_datasets_parquet_table_output(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
