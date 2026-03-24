@@ -55,7 +55,7 @@ For more details and options, see the API reference for [`hf_hub_download`].
 
 ## hf CLI
 
-Hugging Face offers a [CLI](../guides/cli#command-line-interface-cli) to interact with Hub through terminal. You can install by following the instructions [here](https://huggingface.co/docs/huggingface_hub/guides/cli#standalone-installer-recommended).
+Hugging Face offers a [CLI](../guides/cli#command-line-interface-cli) to interact with Hub through terminal. You can install by following the instructions [here](../guides/cli#standalone-installer-recommended).
 
 ## Authentication
 
@@ -130,7 +130,7 @@ This is usually discouraged except in an environment where you don't want to sto
 
 ## Skills
 
-Once installed hf CLI, install hf-cli to give your agent tools to interact with Hub. Skills aren't limited to hf-cli but also allows agents to accomplish a variety of tasks from training a model to building a demo.
+Once installed hf CLI, install Skills to give your agent tools to interact with Hub. Skills aren't limited to hf-cli but also allows agents to accomplish a variety of tasks from training a model to building a demo.
 
 ```bash
 hf skills add --claude
