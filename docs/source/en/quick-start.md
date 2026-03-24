@@ -53,6 +53,10 @@ For more details and options, see the API reference for [`hf_hub_download`].
 
 <a id="login"></a> <!-- backward compatible anchor -->
 
+## hf CLI
+
+Hugging Face offers a [CLI](../guides/cli#command-line-interface-cli) to interact with Hub through terminal. You can install by following the instructions [here](https://huggingface.co/docs/huggingface_hub/guides/cli#standalone-installer-recommended).
+
 ## Authentication
 
 In a lot of cases, you must be authenticated with a Hugging Face account to interact with
@@ -123,6 +127,17 @@ This is usually discouraged except in an environment where you don't want to sto
 
 > [!WARNING]
 > Please be careful when passing tokens as a parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major leak risk if you share your code inadvertently.
+
+## Skills
+
+Once installed hf CLI, install hf-cli to give your agent tools to interact with Hub. Skills aren't limited to hf-cli but also allows agents to accomplish a variety of tasks from training a model to building a demo.
+
+```bash
+hf skills add --claude
+hf skills add --codex
+hf skills add --cursor
+hf skills add --opencode
+```
 
 ## Create a repository
 
