@@ -3231,6 +3231,16 @@ class TestRepoTypePrefix:
         # Should not error with "Ambiguous" since there's no --type option on `models ls`
         assert "Ambiguous" not in (result.output or "")
 
+    def test_filename_with_prefix_not_rewritten_on_download(self, runner: CliRunner) -> None:
+        """A filename like models/weights/model.safetensors should NOT be mistaken for a prefixed repo ID."""
+        with patch("huggingface_hub.cli.download.hf_hub_download", return_value="path") as download_mock:
+            result = runner.invoke(app, ["download", DUMMY_MODEL_ID, "models/weights/model.safetensors"])
+        assert result.exit_code == 0, result.output
+        kwargs = download_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["filename"] == "models/weights/model.safetensors"
+        assert kwargs["repo_type"] == "model"
+
 
 class TestSkillGeneration:
     """Tests for SKILL.md generation (build_skill_md and helpers)."""

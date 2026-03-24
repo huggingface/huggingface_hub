@@ -132,47 +132,81 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
         """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
 
-        Only applies to commands that accept ``--type`` / ``--repo-type``.  When a
-        positional argument matches the pattern ``{prefix}/org/repo`` where prefix is
-        one of ``spaces``, ``datasets`` or ``models``, the prefix is stripped and an
+        Only applies to commands that have a ``repo_id`` positional argument **and**
+        a ``--type`` / ``--repo-type`` option.  When the token that maps to the
+        ``repo_id`` argument matches ``{prefix}/org/repo`` (where *prefix* is one of
+        ``spaces``, ``datasets``, or ``models``), the prefix is stripped and an
         implicit ``--type {type}`` is appended.  An error is raised if ``--type`` is
         also provided explicitly.
+
+        Only the ``repo_id`` positional slot is inspected so that other positional
+        arguments (filenames, local paths, patterns …) are never misinterpreted as
+        prefixed repo IDs.
         """
         has_type_option = any(isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params)
         if not has_type_option:
             return
 
-        # Collect all positional args that look like prefixed repo IDs.
-        prefix_matches: list[tuple[int, list[str]]] = []
-        for i, arg in enumerate(args):
-            if i == 0 or arg.startswith("-"):
-                continue
-            parts = arg.split("/", 2)
-            if len(parts) == 3 and parts[0] in constants.REPO_TYPES_MAPPING:
-                prefix_matches.append((i, parts))
-
-        if not prefix_matches:
+        # Locate the `repo_id` positional argument and its index among Arguments.
+        repo_id_pos = next(
+            (
+                idx
+                for idx, param in enumerate(param for param in cmd.params if isinstance(param, click.Argument))
+                if param.name == "repo_id"
+            ),
+            None,
+        )
+        if repo_id_pos is None:
             return
 
-        # Ensure all prefixed args agree on the repo type.
-        prefixes = {parts[0] for _, parts in prefix_matches}
-        if len(prefixes) > 1:
-            raise click.UsageError(f"Conflicting repo type prefixes: {', '.join(sorted(prefixes))}.")
+        # Build a set of option names that consume a following value token.
+        value_options: set[str] = set()
+        for param in cmd.params:
+            if isinstance(param, click.Option) and not param.is_flag:
+                for opt in (*param.opts, *param.secondary_opts):
+                    value_options.add(opt)
 
-        prefix = next(iter(prefixes))
+        # Walk through args (skipping args[0] = command name) to find the token
+        # that occupies the repo_id positional slot.
+        positional_count = 0
+        repo_id_arg_index: Optional[int] = None
+        i = 1
+        while i < len(args):
+            arg = args[i]
+            if arg == "--":
+                break  # everything after -- is positional literal; stop rewriting
+            if arg.startswith("-"):
+                if "=" in arg or arg not in value_options:
+                    i += 1  # flag or --opt=val — single token
+                else:
+                    i += 2  # value-taking option — skip the value too
+            else:
+                if positional_count == repo_id_pos:
+                    repo_id_arg_index = i
+                    break
+                positional_count += 1
+                i += 1
+
+        if repo_id_arg_index is None:
+            return
+
+        parts = args[repo_id_arg_index].split("/", 2)
+        if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
+            return
+
+        prefix = parts[0]
 
         # Error if --type / --repo-type was also provided explicitly.
         if any(
-            a == "--type" or a.startswith("--type=") or a == "--repo-type" or a.startswith("--repo-type=")
-            for a in args
+            arg == "--type" or arg.startswith("--type=") or arg == "--repo-type" or arg.startswith("--repo-type=")
+            for arg in args
         ):
             raise click.UsageError(
                 f"Ambiguous repo type: got prefix '{prefix}/' in repo ID and explicit --type. Use one or the other."
             )
 
-        # Rewrite each matched arg and append --type once.
-        for i, parts in prefix_matches:
-            args[i] = f"{parts[1]}/{parts[2]}"
+        # Rewrite the matched arg and append --type.
+        args[repo_id_arg_index] = f"{parts[1]}/{parts[2]}"
         args.extend(["--type", constants.REPO_TYPES_MAPPING[prefix]])
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
