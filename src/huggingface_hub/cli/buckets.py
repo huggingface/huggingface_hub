@@ -991,7 +991,7 @@ def cp(
                     tmp_path = os.path.join(tmp_dir, filename)
                     api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
                     with open(tmp_path, "rb") as f:
-                        while chunk := f.read(8 * 1024 * 1024):  # 8MB chunks
+                        while chunk := f.read(32_000_000):  # 32MB chunks
                             sys.stdout.buffer.write(chunk)
             finally:
                 if not pbar_was_disabled:
