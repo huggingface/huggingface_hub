@@ -1558,7 +1558,7 @@ Then you can use the mounted volume as a local directory:
 ```
 
 By default, mounted storage buckets have read+write abilities.
-This is especially useful for storage buckets since they are fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
+This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
 
 Use `:ro` to enable read-only:
 

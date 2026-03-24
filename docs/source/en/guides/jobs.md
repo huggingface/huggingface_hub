@@ -237,7 +237,7 @@ Then you can use the mounted volume as a local directory:
 ... )
 ```
 
-You can also write to a mounted bucket, for example here to save checkpoints when training a model:
+You can also write to a mounted bucket, for example, to save checkpoints when training a model:
 
 ```python
 >>> from huggingface_hub import JobVolume, run_uv_job
@@ -248,7 +248,7 @@ You can also write to a mounted bucket, for example here to save checkpoints whe
 ```
 
 By default, mounted storage buckets have read+write abilities.
-This is especially useful for storage buckets since they are fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
+This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
 
 Use `read_only=True` to enable read-only: `JobVolume(type="bucket", read_only=True, ...)`.
 
