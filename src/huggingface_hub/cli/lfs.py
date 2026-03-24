@@ -11,7 +11,7 @@ Spec is: github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 To launch debugger while developing:
 
 ``` [lfs "customtransfer.multipart"]
-path = /path/to/huggingface_hub/.env/bin/python args = -m debugpy --listen 5678
+path = /path/to/huggingface_hub/.venv/bin/python args = -m debugpy --listen 5678
 --wait-for-client
 /path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
 lfs-multipart-upload ```"""

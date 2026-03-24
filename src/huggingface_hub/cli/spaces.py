@@ -77,7 +77,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 ExpandOpt = Annotated[
     Optional[str],
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
@@ -136,7 +136,7 @@ def spaces_info(
     expand: ExpandOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a space on the Hub."""
+    """Get info about a space on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
@@ -219,9 +219,9 @@ def dev_mode(
 @spaces_cli.command(
     "hot-reload",
     examples=[
-        "hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file",
-        "hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo",
-        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo",
+        "hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file",
+        "hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely",
+        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py",
     ],
 )
 def spaces_hot_reload(
@@ -260,6 +260,10 @@ def spaces_hot_reload(
     This command patches the live Python process using https://github.com/breuleux/jurigged
     (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
     (meaning that Gradio demo object changes are reflected in the UI)
+
+    The command creates a remote commit.
+    If you are working from a local clone, run `git pull --autostash` afterwards
+    to bring the commit back and keep your local git state in sync.
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)

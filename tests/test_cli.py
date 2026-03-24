@@ -1280,6 +1280,77 @@ class TestBranchCommands:
         )
 
 
+class TestRepoCreateCommand:
+    def test_repo_create_with_space_options(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.create_repo.return_value = Mock(repo_id="user/my-space")
+            result = runner.invoke(
+                app,
+                [
+                    "repos",
+                    "create",
+                    "my-space",
+                    "--type",
+                    "space",
+                    "--space-sdk",
+                    "gradio",
+                    "--flavor",
+                    "t4-medium",
+                    "--storage",
+                    "small",
+                    "--sleep-time",
+                    "3600",
+                    "--secrets",
+                    "HF_TOKEN=secret_val",
+                    "-e",
+                    "THEME=dark",
+                    "-e",
+                    "DEBUG=1",
+                    "--private",
+                ],
+            )
+        assert result.exit_code == 0
+        api.create_repo.assert_called_once_with(
+            repo_id="my-space",
+            repo_type="space",
+            private=True,
+            token=None,
+            exist_ok=False,
+            resource_group_id=None,
+            space_sdk="gradio",
+            space_hardware="t4-medium",
+            space_storage="small",
+            space_sleep_time=3600,
+            space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
+            space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
+        )
+
+    def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_repo.return_value = Mock(repo_id="user/my-model")
+            result = runner.invoke(app, ["repos", "create", "my-model"])
+        assert result.exit_code == 0
+        api.create_repo.assert_called_once_with(
+            repo_id="my-model",
+            repo_type="model",
+            private=None,
+            token=None,
+            exist_ok=False,
+            resource_group_id=None,
+            space_sdk=None,
+            space_hardware=None,
+            space_storage=None,
+            space_sleep_time=None,
+            space_secrets=None,
+            space_variables=None,
+        )
+
+
 class TestRepoDuplicateCommand:
     def test_repo_duplicate_implicit_namespace(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
@@ -1295,6 +1366,11 @@ class TestRepoDuplicateCommand:
             private=None,
             token=None,
             exist_ok=False,
+            space_hardware=None,
+            space_storage=None,
+            space_sleep_time=None,
+            space_secrets=None,
+            space_variables=None,
         )
 
     def test_repo_duplicate_explicit_namespace(self, runner: CliRunner) -> None:
@@ -1325,6 +1401,92 @@ class TestRepoDuplicateCommand:
             private=True,
             token="my-token",
             exist_ok=True,
+            space_hardware=None,
+            space_storage=None,
+            space_sleep_time=None,
+            space_secrets=None,
+            space_variables=None,
+        )
+
+    def test_repo_duplicate_with_space_options(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="myorg/dev")
+            result = runner.invoke(
+                app,
+                [
+                    "repos",
+                    "duplicate",
+                    "SpacesExamples/xxx",
+                    "myorg/dev",
+                    "--type",
+                    "space",
+                    "--flavor",
+                    "l4x4",
+                    "--storage",
+                    "small",
+                    "--sleep-time",
+                    "3600",
+                    "--secrets",
+                    "HF_TOKEN=hf_secret123",
+                    "-e",
+                    "THEME=dark",
+                    "--private",
+                ],
+            )
+        assert result.exit_code == 0
+        api.duplicate_repo.assert_called_once_with(
+            from_id="SpacesExamples/xxx",
+            to_id="myorg/dev",
+            repo_type="space",
+            private=True,
+            token=None,
+            exist_ok=False,
+            space_hardware="l4x4",
+            space_storage="small",
+            space_sleep_time=3600,
+            space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
+            space_variables=[{"key": "THEME", "value": "dark"}],
+        )
+
+    def test_repo_duplicate_secret_from_env(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
+            patch(
+                "huggingface_hub.cli._cli_utils._get_extended_environ",
+                return_value={"MY_SECRET": "env_value"},
+            ),
+        ):
+            api = api_cls.return_value
+            api.duplicate_repo.return_value = Mock(repo_id="user/copy")
+            result = runner.invoke(
+                app,
+                [
+                    "repos",
+                    "duplicate",
+                    "owner/repo",
+                    "--type",
+                    "space",
+                    "--secrets",
+                    "MY_SECRET",
+                ],
+            )
+        assert result.exit_code == 0
+        api.duplicate_repo.assert_called_once_with(
+            from_id="owner/repo",
+            to_id=None,
+            repo_type="space",
+            private=None,
+            token=None,
+            exist_ok=False,
+            space_hardware=None,
+            space_storage=None,
+            space_sleep_time=None,
+            space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
+            space_variables=None,
         )
 
 
@@ -1445,6 +1607,54 @@ class TestRepoDeleteCommand:
         )
 
 
+class TestAuthWhoamiCommand:
+    MOCK_WHOAMI = {"name": "testuser", "orgs": [{"name": "org1"}, {"name": "org2"}], "type": "user"}
+
+    def test_whoami_default_table(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami"])
+        assert result.exit_code == 0
+        assert "testuser" in result.stdout
+        assert "org1" in result.stdout
+        assert "org2" in result.stdout
+
+    def test_whoami_format_json(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == self.MOCK_WHOAMI
+
+    def test_whoami_json_shorthand(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == self.MOCK_WHOAMI
+
+    def test_whoami_not_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "whoami"])
+        assert result.exit_code == 0
+        assert "Not logged in" in result.stdout
+
+    def test_whoami_not_logged_in_json(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed == {"error": "Not logged in"}
+
+
 class TestModelsLsCommand:
     def test_models_ls_basic(self, runner: CliRunner) -> None:
         repo = ModelInfo(
@@ -1559,6 +1769,172 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestPapersCommand:
+    def _make_paper(self, **kwargs):
+        from huggingface_hub.hf_api import PaperInfo
+
+        defaults = dict(
+            id="2502.08025",
+            title="Attention Is All You Need",
+            upvotes=42,
+            numComments=3,
+            publishedAt="2025-02-12T00:00:00.000Z",
+        )
+        defaults.update(kwargs)
+        return PaperInfo(**defaults)
+
+    def test_ls_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "ls", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output[0]["id"] == "2502.08025"
+        assert output[0]["title"] == "Attention Is All You Need"
+
+    def test_ls_with_sort(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--sort", "trending"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["sort"] == "trending"
+
+    def test_ls_with_date(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--date", "2025-01-23"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["date"] == "2025-01-23"
+
+    def test_ls_with_week(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--week", "2025-W09"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["week"] == "2025-W09"
+
+    def test_ls_with_month(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--month", "2025-02"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["month"] == "2025-02"
+
+    def test_ls_with_submitter(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--submitter", "someuser"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["submitter"] == "someuser"
+
+    def test_ls_invalid_sort(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["papers", "ls", "--sort", "invalid"])
+        assert result.exit_code == 2
+        assert "Invalid value" in result.output
+
+    def test_ls_quiet(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "ls", "--quiet"])
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout.strip() == "2502.08025"
+
+    def test_search_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "search", "attention", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output[0]["id"] == "2502.08025"
+        _, kwargs = api.list_papers.call_args
+        assert kwargs["query"] == "attention"
+
+    def test_search_with_limit(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "search", "diffusion", "--limit", "5"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_papers.call_args
+        assert kwargs["limit"] == 5
+
+    def test_info_basic(self, runner: CliRunner) -> None:
+        paper = self._make_paper()
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.paper_info.return_value = paper
+            result = runner.invoke(app, ["papers", "info", "2502.08025"])
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.stdout)
+        assert output["id"] == "2502.08025"
+        api.paper_info.assert_called_once_with(id="2502.08025")
+
+    def test_info_not_found(self, runner: CliRunner) -> None:
+        from huggingface_hub.errors import CLIError, HfHubHTTPError
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.paper_info.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            result = runner.invoke(app, ["papers", "info", "0000.00000"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "not found" in str(result.exception).lower()
+
+    def test_read_basic(self, runner: CliRunner) -> None:
+        markdown = "# Attention Is All You Need\n\nThis paper introduces..."
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.read_paper.return_value = markdown
+            result = runner.invoke(app, ["papers", "read", "2502.08025"])
+
+        assert result.exit_code == 0, result.output
+        assert "Attention Is All You Need" in result.stdout
+        api.read_paper.assert_called_once_with(id="2502.08025")
+
+    def test_read_not_found(self, runner: CliRunner) -> None:
+        from huggingface_hub.errors import CLIError, HfHubHTTPError
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.read_paper.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            result = runner.invoke(app, ["papers", "read", "0000.00000"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "not found" in str(result.exception).lower()
 
 
 class TestDatasetsParquetCommand:
@@ -2071,7 +2447,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job
@@ -2093,7 +2469,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job
@@ -2117,7 +2493,7 @@ class TestJobsCommand:
         scheduled_job = Mock(id="my-job-id")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.create_scheduled_job.return_value = scheduled_job
@@ -2144,7 +2520,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2169,7 +2545,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2196,7 +2572,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2222,8 +2598,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
-            patch("huggingface_hub.cli.jobs.get_token", return_value="hf_xxx"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
@@ -2255,7 +2630,7 @@ class TestJobsCommand:
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
         ):
             api = api_cls.return_value
             api.run_job.return_value = job
@@ -2855,3 +3230,72 @@ class TestRepoTypePrefix:
         result = runner.invoke(app, ["models", "ls", "--author", "spaces/foo/bar"])
         # Should not error with "Ambiguous" since there's no --type option on `models ls`
         assert "Ambiguous" not in (result.output or "")
+
+
+class TestSkillGeneration:
+    """Tests for SKILL.md generation (build_skill_md and helpers)."""
+
+    def test_build_skill_md_has_expected_structure(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert md.startswith("---\nname: hf-cli")
+        assert "## Commands" in md
+        assert "## Common options" in md
+        assert "## Tips" in md
+        assert "Use `hf <command> --help` for full options, descriptions, usage, and real-world examples" in md
+
+    def test_build_skill_md_expands_nested_groups(self) -> None:
+        """Nested groups like `hf repos tag` should be expanded to leaf commands."""
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert "hf repos tag create" in md
+        assert "hf repos tag delete" in md
+        assert "hf repos branch create" in md
+
+    def test_build_skill_md_shows_inline_flags(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        download_line = [line for line in md.splitlines() if "hf download" in line][0]
+        # Command-specific flags appear inline
+        assert "--include TEXT" in download_line
+        assert "--local-dir TEXT" in download_line
+        # Common flags appear inline, except --token (kept in common-options glossary)
+        assert "--token" not in download_line
+        assert "--quiet" in download_line
+
+    def test_format_params_distinguishes_options_from_arguments(self) -> None:
+        """Required options must render with --prefix, positional args as UPPER_CASE."""
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        webhooks_create_line = [line for line in md.splitlines() if "hf webhooks create" in line][0]
+        assert "--watch TEXT" in webhooks_create_line, "Required option --watch should have -- prefix"
+        assert "` watch`" not in webhooks_create_line, "Should not render as bare 'watch'"
+
+    def test_common_options_glossary(self) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        md = build_skill_md()
+        assert "`--token`" in md
+        assert "Prefer setting `HF_TOKEN` env var instead of passing `--token`." in md
+        assert "`--format`" in md
+        assert "`--revision`" in md
+
+    def test_collect_leaf_commands_finds_deeply_nested(self) -> None:
+        from click import Context, Group
+        from typer.main import get_command
+
+        from huggingface_hub.cli.hf import app
+        from huggingface_hub.cli.skills import _collect_leaf_commands
+
+        click_app = get_command(app)
+        ctx = Context(click_app, info_name="hf")
+        jobs_group = click_app.get_command(ctx, "jobs")
+        assert isinstance(jobs_group, Group)
+        leaves = _collect_leaf_commands(jobs_group, ctx, ["jobs"])
+        leaf_paths = [" ".join(path) for path, _ in leaves]
+        assert any("jobs scheduled run" in p for p in leaf_paths)
+        assert any("jobs uv run" in p for p in leaf_paths)

@@ -350,24 +350,37 @@ def _install_python_extension(
         if extension_dir.exists():
             shutil.rmtree(extension_dir, ignore_errors=True)
         extension_dir.mkdir(parents=True, exist_ok=False)
-        venv.EnvBuilder(with_pip=True).create(str(venv_dir))
-        status.done(f"Virtual environment created in {venv_dir}")
 
-        status.update(f"Installing package from {source_url}")
+        uv_path = shutil.which("uv")
         venv_python = _get_venv_python_path(venv_dir)
-        subprocess.run(
-            [
-                str(venv_python),
-                "-m",
-                "pip",
-                "install",
-                "--disable-pip-version-check",
-                "--no-input",
-                source_url,
-            ],
-            check=True,
-            timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
-        )
+        if uv_path:
+            subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
+            status.done(f"Virtual environment created in {venv_dir}")
+
+            status.update(f"Installing package from {source_url}")
+            subprocess.run(
+                [uv_path, "pip", "install", "--python", str(venv_python), source_url],
+                check=True,
+                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
+            )
+        else:
+            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
+            status.done(f"Virtual environment created in {venv_dir}")
+
+            status.update(f"Installing package from {source_url}")
+            subprocess.run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--disable-pip-version-check",
+                    "--no-input",
+                    source_url,
+                ],
+                check=True,
+                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
+            )
         status.done(f"Package installed from {source_url}")
 
         executable_name = _get_executable_name(short_name)
