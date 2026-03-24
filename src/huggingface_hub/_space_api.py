@@ -82,8 +82,6 @@ class SpaceHardware(str, Enum):
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
-    A100x4 = "a100x4"  # backward-compat (inconsistent x casing)
-    A100x8 = "a100x8"  # backward-compat (inconsistent x casing)
     A100X4 = "a100x4"
     A100X8 = "a100x8"
     H200 = "h200"
