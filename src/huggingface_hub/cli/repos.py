@@ -81,6 +81,14 @@ VisibilityOpt = Annotated[
     ),
 ]
 
+HiddenPrivateOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        hidden=True,
+        help="Whether the repository should be private. Prefer using --visibility instead.",
+    ),
+]
+
 
 @repos_cli.command(
     "create",
@@ -99,6 +107,7 @@ def repo_create(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
+    private: HiddenPrivateOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
@@ -119,6 +128,7 @@ def repo_create(
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
+        private=private,
         visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
@@ -145,6 +155,7 @@ def repo_duplicate(
         ),
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    private: HiddenPrivateOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
@@ -160,6 +171,7 @@ def repo_duplicate(
         from_id=from_id,
         to_id=to_id,
         repo_type=repo_type.value,
+        private=private,
         visibility=visibility.value if visibility else None,
         token=token,
         exist_ok=exist_ok,
@@ -223,6 +235,7 @@ def repo_settings(
             help="The gated status for the repository.",
         ),
     ] = None,
+    private: HiddenPrivateOpt = None,
     visibility: VisibilityOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
@@ -232,6 +245,7 @@ def repo_settings(
     api.update_repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
+        private=private,
         visibility=visibility.value if visibility else None,
         repo_type=repo_type.value,
     )

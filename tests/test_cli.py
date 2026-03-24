@@ -1292,6 +1292,7 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id=None,
             repo_type="dataset",
+            private=None,
             visibility=None,
             token=None,
             exist_ok=False,
@@ -1323,6 +1324,7 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id="myorg/my-copy",
             repo_type="space",
+            private=None,
             visibility="private",
             token="my-token",
             exist_ok=True,
@@ -1377,6 +1379,7 @@ class TestRepoSettingsCommand:
         api.update_repo_settings.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             gated=None,
+            private=None,
             visibility=None,
             repo_type="model",
         )
