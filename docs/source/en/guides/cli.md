@@ -70,6 +70,18 @@ If the CLI is correctly installed, you should see a list of all the options avai
 > [!TIP]
 > The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
 
+
+## Skills
+
+Once installed hf CLI, install CLI skill to give your coding agent tools to interact with Hub. Here's the shortcut to install CLI Skill for different coding agents.
+
+```bash
+hf skills add --claude
+hf skills add --codex
+hf skills add --cursor
+hf skills add --opencode
+```
+
 ### Using uv
 
 The easiest way to use the `hf` CLI is with [`uvx`](https://docs.astral.sh/uv/concepts/tools/). It always runs the latest version in an isolated environment - no installation needed!
