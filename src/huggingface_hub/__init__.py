@@ -176,6 +176,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetInfo",
+        "DatasetLeaderboardEntry",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -243,6 +244,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -671,6 +673,7 @@ __all__ = [
     "DatasetCard",
     "DatasetCardData",
     "DatasetInfo",
+    "DatasetLeaderboardEntry",
     "DeleteCacheStrategy",
     "DepthEstimationInput",
     "DepthEstimationOutput",
@@ -943,6 +946,7 @@ __all__ = [
     "get_bucket_file_metadata",
     "get_bucket_paths_info",
     "get_collection",
+    "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
     "get_full_repo_name",
@@ -1288,6 +1292,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
+        DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1355,6 +1360,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401

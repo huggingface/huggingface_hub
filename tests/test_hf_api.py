@@ -53,12 +53,14 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    DatasetLeaderboardEntry,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
     InferenceEndpoint,
     InferenceProviderMapping,
     ModelInfo,
+    Organization,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -2324,6 +2326,30 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # `expand` cannot be used with other `files_metadata`
         with self.assertRaises(ValueError):
             self._api.dataset_info("HuggingFaceH4/no_robots", expand=["author"], files_metadata=True)
+
+    @with_production_testing
+    def test_get_dataset_leaderboard(self):
+        leaderboard = HfApi().get_dataset_leaderboard("allenai/olmOCR-bench")
+        assert isinstance(leaderboard, list)
+        assert len(leaderboard) > 0
+        entry = leaderboard[0]
+        assert isinstance(entry, DatasetLeaderboardEntry)
+        assert isinstance(entry.rank, int)
+        assert entry.rank == 1
+        assert isinstance(entry.model_id, str)
+        assert isinstance(entry.value, (int, float))
+        assert isinstance(entry.filename, str)
+        assert isinstance(entry.verified, bool)
+        assert isinstance(entry.source, dict)
+        assert isinstance(entry.author, (User, Organization))
+        # Optional fields should be accessible (may be None)
+        assert entry.pull_request is None or isinstance(entry.pull_request, int)
+        assert entry.notes is None or isinstance(entry.notes, str)
+
+    @with_production_testing
+    def test_get_dataset_leaderboard_not_found(self):
+        with self.assertRaises(RepositoryNotFoundError):
+            HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
 
     def test_space_info(self) -> None:
         space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
