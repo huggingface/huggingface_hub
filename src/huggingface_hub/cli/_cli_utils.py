@@ -203,9 +203,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             prefix = parts[0]
             mapped_type = constants.REPO_TYPES_MAPPING[prefix]
             if inferred_type is not None and mapped_type != inferred_type:
-                raise click.UsageError(
-                    f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'."
-                )
+                raise click.UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
             inferred_type = mapped_type
             first_prefix = prefix
             rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))

@@ -3245,7 +3245,9 @@ class TestRepoTypePrefix:
         """spaces/user/repo should be rewritten for `repos duplicate` (from_id param)."""
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api_cls.return_value.duplicate_repo.return_value = type(
-                "RepoUrl", (), {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"}
+                "RepoUrl",
+                (),
+                {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"},
             )()
             result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
         assert result.exit_code == 0, result.output
