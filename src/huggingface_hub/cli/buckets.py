@@ -33,7 +33,13 @@ from huggingface_hub._buckets import (
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
 )
-from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import (
+    SoftTemporaryDirectory,
+    StatusLine,
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+)
 
 from ._cli_utils import (
     FormatOpt,
@@ -981,11 +987,12 @@ def cp(
             if not pbar_was_disabled:
                 disable_progress_bars()
             try:
-                with tempfile.TemporaryDirectory() as tmp_dir:
+                with SoftTemporaryDirectory() as tmp_dir:
                     tmp_path = os.path.join(tmp_dir, filename)
                     api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
                     with open(tmp_path, "rb") as f:
-                        sys.stdout.buffer.write(f.read())
+                        while chunk := f.read(8 * 1024 * 1024):  # 8MB chunks
+                            sys.stdout.buffer.write(chunk)
             finally:
                 if not pbar_was_disabled:
                     enable_progress_bars()
