@@ -3241,6 +3241,44 @@ class TestRepoTypePrefix:
         assert kwargs["filename"] == "models/weights/model.safetensors"
         assert kwargs["repo_type"] == "model"
 
+    def test_prefix_on_duplicate_from_id(self, runner: CliRunner) -> None:
+        """spaces/user/repo should be rewritten for `repos duplicate` (from_id param)."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value.duplicate_repo.return_value = type(
+                "RepoUrl", (), {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"}
+            )()
+            result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.duplicate_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_on_move_both_args(self, runner: CliRunner) -> None:
+        """spaces/ prefix should be rewritten for both from_id and to_id in `repos move`."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "move", "spaces/user/old-space", "spaces/user/new-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.move_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/old-space"
+        assert kwargs["to_id"] == "user/new-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_on_move_only_from_id(self, runner: CliRunner) -> None:
+        """Prefix on only one of the two positional args should still work."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "move", "spaces/user/old-space", "user/new-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.move_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/old-space"
+        assert kwargs["to_id"] == "user/new-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_conflicting_prefixes_error(self, runner: CliRunner) -> None:
+        """Conflicting prefixes on two args should raise an error."""
+        result = runner.invoke(app, ["repos", "move", "spaces/user/repo", "datasets/user/repo"])
+        assert result.exit_code != 0
+        assert "Conflicting" in result.output
+
 
 class TestSkillGeneration:
     """Tests for SKILL.md generation (build_skill_md and helpers)."""

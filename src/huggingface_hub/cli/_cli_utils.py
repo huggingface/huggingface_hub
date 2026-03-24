@@ -132,14 +132,16 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
         """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
 
-        Only applies to commands that have a ``repo_id`` positional argument **and**
-        a ``--type`` / ``--repo-type`` option.  When the token that maps to the
-        ``repo_id`` argument matches ``{prefix}/org/repo`` (where *prefix* is one of
-        ``spaces``, ``datasets``, or ``models``), the prefix is stripped and an
-        implicit ``--type {type}`` is appended.  An error is raised if ``--type`` is
-        also provided explicitly.
+        Only applies to commands that have a ``--type`` / ``--repo-type`` option and
+        at least one repo-ID positional argument (any ``click.Argument`` whose name
+        ends with ``_id``, e.g. ``repo_id``, ``from_id``, ``to_id``).  When the
+        token that maps to such an argument matches ``{prefix}/org/repo`` (where
+        *prefix* is one of ``spaces``, ``datasets``, or ``models``), the prefix is
+        stripped and an implicit ``--type {type}`` is appended.  An error is raised
+        if ``--type`` is also provided explicitly or if multiple prefixed arguments
+        disagree on the repo type.
 
-        Only the ``repo_id`` positional slot is inspected so that other positional
+        Only repo-ID positional slots are inspected so that other positional
         arguments (filenames, local paths, patterns …) are never misinterpreted as
         prefixed repo IDs.
         """
@@ -147,16 +149,16 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         if not has_type_option:
             return
 
-        # Locate the `repo_id` positional argument and its index among Arguments.
-        repo_id_pos = next(
-            (
-                idx
-                for idx, param in enumerate(param for param in cmd.params if isinstance(param, click.Argument))
-                if param.name == "repo_id"
-            ),
-            None,
-        )
-        if repo_id_pos is None:
+        # Locate all repo-ID positional arguments and their indices among Arguments.
+        repo_id_positions: set[int] = set()
+        arg_idx = 0
+        for param in cmd.params:
+            if isinstance(param, click.Argument):
+                if param.name in ("repo_id", "from_id", "to_id"):
+                    repo_id_positions.add(arg_idx)
+                arg_idx += 1
+
+        if not repo_id_positions:
             return
 
         # Build a set of option names that consume a following value token.
@@ -166,10 +168,10 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 for opt in (*param.opts, *param.secondary_opts):
                     value_options.add(opt)
 
-        # Walk through args (skipping args[0] = command name) to find the token
-        # that occupies the repo_id positional slot.
+        # Walk through args (skipping args[0] = command name) to map positional
+        # slots to their indices in `args`.
         positional_count = 0
-        repo_id_arg_index: Optional[int] = None
+        repo_id_arg_indices: list[int] = []
         i = 1
         while i < len(args):
             arg = args[i]
@@ -181,20 +183,35 @@ class HFCliTyperGroup(typer.core.TyperGroup):
                 else:
                     i += 2  # value-taking option — skip the value too
             else:
-                if positional_count == repo_id_pos:
-                    repo_id_arg_index = i
-                    break
+                if positional_count in repo_id_positions:
+                    repo_id_arg_indices.append(i)
                 positional_count += 1
                 i += 1
 
-        if repo_id_arg_index is None:
+        if not repo_id_arg_indices:
             return
 
-        parts = args[repo_id_arg_index].split("/", 2)
-        if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
-            return
+        # Check each repo-ID arg for a type prefix and collect rewrites.
+        inferred_type: Optional[str] = None
+        first_prefix: Optional[str] = None
+        rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
 
-        prefix = parts[0]
+        for arg_index in repo_id_arg_indices:
+            parts = args[arg_index].split("/", 2)
+            if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
+                continue
+            prefix = parts[0]
+            mapped_type = constants.REPO_TYPES_MAPPING[prefix]
+            if inferred_type is not None and mapped_type != inferred_type:
+                raise click.UsageError(
+                    f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'."
+                )
+            inferred_type = mapped_type
+            first_prefix = prefix
+            rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))
+
+        if not rewrites:
+            return
 
         # Error if --type / --repo-type was also provided explicitly.
         if any(
@@ -202,12 +219,13 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             for arg in args
         ):
             raise click.UsageError(
-                f"Ambiguous repo type: got prefix '{prefix}/' in repo ID and explicit --type. Use one or the other."
+                f"Ambiguous repo type: got prefix '{first_prefix}/' in repo ID and explicit --type. Use one or the other."
             )
 
-        # Rewrite the matched arg and append --type.
-        args[repo_id_arg_index] = f"{parts[1]}/{parts[2]}"
-        args.extend(["--type", constants.REPO_TYPES_MAPPING[prefix]])
+        # Apply all rewrites and append --type once.
+        for arg_index, new_value in rewrites:
+            args[arg_index] = new_value
+        args.extend(["--type", inferred_type])  # type: ignore[list-item]
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
