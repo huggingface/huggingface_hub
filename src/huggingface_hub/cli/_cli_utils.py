@@ -89,13 +89,6 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
-# Mapping from URL-style plural prefixes to repo type values used by the CLI.
-_REPO_TYPE_PREFIXES = {
-    "spaces": "space",
-    "datasets": "dataset",
-    "models": "model",
-}
-
 
 class HFCliTyperGroup(typer.core.TyperGroup):
     """
@@ -155,7 +148,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
             if i == 0 or arg.startswith("-"):
                 continue
             parts = arg.split("/", 2)
-            if len(parts) == 3 and parts[0] in _REPO_TYPE_PREFIXES:
+            if len(parts) == 3 and parts[0] in constants.REPO_TYPES_MAPPING:
                 prefix_matches.append((i, parts))
 
         if not prefix_matches:
@@ -180,7 +173,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         # Rewrite each matched arg and append --type once.
         for i, parts in prefix_matches:
             args[i] = f"{parts[1]}/{parts[2]}"
-        args.extend(["--type", _REPO_TYPE_PREFIXES[prefix]])
+        args.extend(["--type", constants.REPO_TYPES_MAPPING[prefix]])
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
