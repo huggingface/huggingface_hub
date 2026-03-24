@@ -71,6 +71,7 @@ To mount Hub repositories or buckets as local filesystems — no download, no co
 
 Install: `curl -fsSL https://raw.githubusercontent.com/huggingface/hf-mount/main/install.sh | sh`
 
+Some command examples:
 - `hf-mount start repo openai-community/gpt2 /tmp/gpt2` — mount a repo (read-only)
 - `hf-mount start --hf-token $HF_TOKEN bucket myuser/my-bucket /tmp/data` — mount a bucket (read-write)
 - `hf-mount status` / `hf-mount stop /tmp/data` — list or unmount
