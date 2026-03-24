@@ -219,9 +219,9 @@ def dev_mode(
 @spaces_cli.command(
     "hot-reload",
     examples=[
-        "hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file",
-        "hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo",
-        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo",
+        "hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file",
+        "hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely",
+        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py",
     ],
 )
 def spaces_hot_reload(
@@ -260,6 +260,10 @@ def spaces_hot_reload(
     This command patches the live Python process using https://github.com/breuleux/jurigged
     (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
     (meaning that Gradio demo object changes are reflected in the UI)
+
+    The command creates a remote commit.
+    If you are working from a local clone, run `git pull --autostash` afterwards
+    to bring the commit back and keep your local git state in sync.
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
