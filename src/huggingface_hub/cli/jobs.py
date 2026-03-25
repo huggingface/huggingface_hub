@@ -289,6 +289,7 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
         "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
+        "hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
     ],
 )
 def jobs_run(
@@ -749,6 +750,7 @@ jobs_cli.add_typer(uv_app, name="uv")
         "hf jobs uv run my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
+        "hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py",
     ],
 )
 def jobs_uv_run(
