@@ -2963,9 +2963,14 @@ class TestParseVolumes:
     def test_parse_volume_spec(self, spec: str, expected_type: str, expected_source: str, expected_mount: str) -> None:
         vols = _parse_volumes([spec])
         assert len(vols) == 1
-        assert vols[0].type.value == expected_type
+        assert vols[0].type == expected_type
         assert vols[0].source == expected_source
         assert vols[0].mount_path == expected_mount
+
+    @pytest.mark.parametrize("spec", ["gpt2", "gpt2:data"])
+    def test_invalid_specs(self, spec: str) -> None:
+        with pytest.raises(CLIError, match="Invalid volume format"):
+            _parse_volumes([spec])
 
     def test_read_only_suffix(self) -> None:
         vols = _parse_volumes(["dataset/org/ds:/data:ro"])
@@ -2977,16 +2982,12 @@ class TestParseVolumes:
 
     def test_multiple_volumes(self) -> None:
         vols = _parse_volumes(["gpt2:/model", "dataset/org/ds:/data:ro", "bucket/org/b:/output"])
-        assert len(vols) == 3
-        assert vols[0].type.value == "model"
-        assert vols[1].type.value == "dataset"
-        assert vols[1].read_only is True
-        assert vols[2].type.value == "bucket"
 
-    @pytest.mark.parametrize("spec", ["gpt2", "gpt2:data"])
-    def test_invalid_specs(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="Invalid volume format"):
-            _parse_volumes([spec])
+        assert vols == [
+            Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),
+            Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
+            Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
+        ]
 
 
 class TestVolume:
