@@ -33,7 +33,7 @@ import typer
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
-from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -60,57 +60,29 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
-class VisibilityChoices(str, enum.Enum):
-    public = "public"
-    private = "private"
-    protected = "protected"
-
-
-VisibilityOpt = Annotated[
-    Optional[VisibilityChoices],
+PublicOpt = Annotated[
+    Optional[bool],
     typer.Option(
-        help='Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.',
+        "--public",
+        help="Whether to make the repo public. Ignored if the repo already exists.",
     ),
 ]
 
-HiddenPrivateOpt = Annotated[
+ProtectedOpt = Annotated[
     Optional[bool],
-    typer.Option("--private", hidden=True),
+    typer.Option(
+        "--protected",
+        help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
+    ),
 ]
-
-HiddenPublicOpt = Annotated[
-    Optional[bool],
-    typer.Option("--public", hidden=True),
-]
-
-HiddenProtectedOpt = Annotated[
-    Optional[bool],
-    typer.Option("--protected", hidden=True),
-]
-
-
-def _resolve_visibility_flag(
-    visibility: Optional[VisibilityChoices],
-    private: Optional[bool],
-    public: Optional[bool],
-    protected: Optional[bool],
-) -> Optional[VisibilityChoices]:
-    if not visibility:
-        if private:
-            return VisibilityChoices.private
-        elif public:
-            return VisibilityChoices.public
-        elif protected:
-            return VisibilityChoices.protected
-    return visibility
 
 
 @repos_cli.command(
     "create",
     examples=[
         "hf repos create my-model",
-        "hf repos create my-dataset --repo-type dataset --visibility private",
-        "hf repos create my-space --repo-type space --space-sdk gradio --visibility protected",
+        "hf repos create my-dataset --repo-type dataset --private",
+        "hf repos create my-space --repo-type space --space-sdk gradio --protected",
     ],
 )
 def repo_create(
@@ -122,10 +94,9 @@ def repo_create(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
-    private: HiddenPrivateOpt = None,
-    public: HiddenPublicOpt = None,
-    protected: HiddenProtectedOpt = None,
-    visibility: VisibilityOpt = None,
+    private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -141,12 +112,11 @@ def repo_create(
     ] = None,
 ) -> None:
     """Create a new repo on the Hub."""
-    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
-        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
@@ -160,7 +130,7 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --visibility private",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
     ],
 )
 def repo_duplicate(
@@ -172,10 +142,9 @@ def repo_duplicate(
         ),
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    private: HiddenPrivateOpt = None,
-    public: HiddenPublicOpt = None,
-    protected: HiddenProtectedOpt = None,
-    visibility: VisibilityOpt = None,
+    private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -185,13 +154,12 @@ def repo_duplicate(
     ] = False,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
-    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     repo_url = api.duplicate_repo(
         from_id=from_id,
         to_id=to_id,
         repo_type=repo_type.value,
-        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
     )
@@ -241,9 +209,9 @@ def repo_move(
 @repos_cli.command(
     "settings",
     examples=[
-        "hf repos settings my-model --visibility private",
+        "hf repos settings my-model --private",
         "hf repos settings my-model --gated auto",
-        "hf repos settings my-space --repo-type space --visibility protected",
+        "hf repos settings my-space --repo-type space --protected",
     ],
 )
 def repo_settings(
@@ -254,20 +222,18 @@ def repo_settings(
             help="The gated status for the repository.",
         ),
     ] = None,
-    private: HiddenPrivateOpt = None,
-    public: HiddenPublicOpt = None,
-    protected: HiddenProtectedOpt = None,
-    visibility: VisibilityOpt = None,
+    private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
     """Update the settings of a repository."""
-    visibility = _resolve_visibility_flag(visibility, private, public, protected)
     api = get_hf_api(token=token)
     api.update_repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
-        visibility=visibility.value if visibility else None,  # type: ignore [arg-type]
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
