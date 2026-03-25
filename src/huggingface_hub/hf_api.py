@@ -150,6 +150,7 @@ if TYPE_CHECKING:
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
+RepoVisibility_T = Literal["public", "private", "protected"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -249,8 +250,26 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
-
 logger = logging.get_logger(__name__)
+
+
+def _resolve_repo_visibility(
+    *,
+    private: Optional[bool],
+    visibility: Optional[RepoVisibility_T],
+    repo_type: Optional[str],
+) -> Optional[RepoVisibility_T]:
+    if private is not None and visibility is not None:
+        raise ValueError("Received both `private` and `visibility` arguments. Please provide only one of them.")
+
+    if visibility is None:
+        if private is None:
+            return None
+        return "private" if private else "public"
+
+    if visibility == "protected" and repo_type != constants.REPO_TYPE_SPACE:
+        raise ValueError("Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'.")
+    return visibility
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tuple[Optional[str], Optional[str], str]:
@@ -1827,6 +1846,68 @@ class LFSFileInfo:
         self.__dict__.update(**kwargs)
 
 
+@dataclass
+class DatasetLeaderboardEntry:
+    """Contains information about a single entry in a dataset leaderboard on the Hub.
+
+    A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
+    This object is returned by [`get_dataset_leaderboard`]. To get evaluation results for a
+    specific model across benchmarks, see [`ModelInfo.eval_results`] (via [`model_info`] with
+    `expand=["evalResults"]`) and [`EvalResultEntry`].
+
+    Attributes:
+        rank (`int`):
+            Rank of the model on the leaderboard (1-indexed).
+        model_id (`str`):
+            ID of the model (e.g. `"meta-llama/Llama-3-8b"`).
+        value (`float`):
+            Evaluation score value.
+        filename (`str`):
+            Name of the result file containing the evaluation data.
+        verified (`bool`):
+            Whether the result has been verified.
+        source (`dict[str, Any]`):
+            Information about the source of the evaluation result. Contains keys like
+            `"url"`, `"name"`, and `"isExternal"`.
+        author (`User` or `Organization`):
+            The model author, parsed based on the `"type"` field in the API response.
+        pull_request (`int`, *optional*):
+            Pull request number associated with the leaderboard entry, if any.
+        notes (`str`, *optional*):
+            Notes associated with the leaderboard entry, if any.
+    """
+
+    rank: int
+    model_id: str
+    value: float
+    filename: str
+    verified: bool
+    source: dict[str, Any]
+    author: Union[User, Organization]
+    pull_request: Optional[int] = None
+    notes: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.rank = kwargs.pop("rank")
+        self.model_id = kwargs.pop("modelId")
+        self.value = kwargs.pop("value")
+        self.filename = kwargs.pop("filename")
+        self.verified = kwargs.pop("verified")
+        self.source = kwargs.pop("source")
+        author_data = dict(kwargs.pop("author"))
+        author_type = author_data.get("type")
+        if author_type == "org":
+            self.author = Organization(**author_data)
+        else:
+            author_data["user"] = author_data.pop("name", "")
+            self.author = User(**author_data)
+        self.pull_request = kwargs.pop("pullRequest", None)
+        self.notes = kwargs.pop("notes", None)
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
 def future_compatible(fn: CallableT) -> CallableT:
     """Wrap a method of `HfApi` to handle `run_as_future=True`.
 
@@ -3012,6 +3093,64 @@ class HfApi:
         return DatasetInfo(**data)
 
     @validate_hf_hub_args
+    def get_dataset_leaderboard(
+        self,
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+        timeout: Optional[float] = None,
+    ) -> list[DatasetLeaderboardEntry]:
+        """Get the leaderboard for a dataset on the Hub.
+
+        The leaderboard ranks models based on their evaluation scores on the given benchmark
+        dataset. Not all datasets have leaderboards — only benchmark datasets with evaluation
+        results submitted to them. This gives a dataset-centric view of scores; for a model-centric
+        view, use [`model_info`] with `expand=["evalResults"]`.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`. For example: `"allenai/olmOCR-bench"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `list[DatasetLeaderboardEntry]`: A list of [`DatasetLeaderboardEntry`] objects representing
+            the leaderboard entries, sorted by rank.
+
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.HfHubHTTPError`]
+        >       If the dataset does not have a leaderboard.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench")
+            >>> leaderboard[0].model_id
+            'datalab-to/chandra-ocr-2'
+            >>> leaderboard[0].rank
+            1
+            ```
+        """
+        headers = self._build_hf_headers(token=token)
+        path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
+        r = get_session().get(path, headers=headers, timeout=timeout)
+        hf_raise_for_status(r)
+        data = r.json()
+        return [DatasetLeaderboardEntry(**entry) for entry in data]
+
+    @validate_hf_hub_args
     def space_info(
         self,
         repo_id: str,
@@ -3988,6 +4127,7 @@ class HfApi:
         *,
         token: Union[str, bool, None] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         resource_group_id: Optional[str] = None,
@@ -4010,7 +4150,11 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             private (`bool`, *optional*):
-                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. If `None`
+                (default), the repo will be public unless the organization's default is private. This value is ignored
+                if the repo already exists.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -4051,9 +4195,11 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         json: dict[str, Any] = {"name": name, "organization": organization}
-        if private is not None:
-            json["private"] = private
+        if resolved_visibility is not None:
+            json["visibility"] = resolved_visibility
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -4183,6 +4329,7 @@ class HfApi:
         *,
         gated: Optional[Literal["auto", "manual", False]] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> None:
@@ -4190,7 +4337,7 @@ class HfApi:
         Update the settings of a repository, including gated access and visibility.
 
         To give more control over how repos are used, the Hub allows repo authors to enable
-        access requests for their repos, and also to set the visibility of the repo to private.
+        access requests for their repos, and also to change the visibility of the repo.
 
         Args:
             repo_id (`str`):
@@ -4201,7 +4348,9 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Whether the repository should be private.
+                Whether the repository should be private. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repository. Can be `"public"` or `"private"`, or `"protected"` for Spaces.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
@@ -4227,6 +4376,8 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Prepare the JSON payload for the PUT request
         payload: dict = {}
 
@@ -4235,8 +4386,8 @@ class HfApi:
                 raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
             payload["gated"] = gated
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         if len(payload) == 0:
             raise ValueError("At least one setting must be updated.")
@@ -7656,6 +7807,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[bool, str, None] = None,
         exist_ok: bool = False,
         space_hardware: Optional[SpaceHardware] = None,
@@ -7680,7 +7832,10 @@ class HfApi:
                 `None` or `"model"` if duplicating a model. Default is `None`.
             private (`bool`, *optional*):
                 Whether the new repo should be private or not. Defaults to the same
-                privacy as the original repo.
+                privacy as the original repo. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. Defaults
+                to the same visibility as the original repo.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7742,6 +7897,8 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Map repo_type to API path segment
         api_prefix = {
             None: "models",
@@ -7763,8 +7920,8 @@ class HfApi:
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         # Space-specific options
         function_args = [
@@ -7815,6 +7972,7 @@ class HfApi:
         to_id: Optional[str] = None,
         *,
         private: Optional[bool] = None,
+        visibility: Optional[RepoVisibility_T] = None,
         token: Union[bool, str, None] = None,
         exist_ok: bool = False,
         hardware: Optional[SpaceHardware] = None,
@@ -7835,7 +7993,10 @@ class HfApi:
                 ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
                 name as the original Space, but in your account.
             private (`bool`, *optional*):
-                Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
+                Whether the new Space should be private or not. Defaults to the same privacy as the original Space. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new Space. Can be `"public"`, `"private"`, or `"protected"`. Defaults to the same
+                visibility as the original Space.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7879,7 +8040,7 @@ class HfApi:
         RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 
         # Can set custom destination id and visibility flag.
-        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", visibility="private")
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
 
@@ -7893,6 +8054,7 @@ class HfApi:
             from_id=from_id,
             repo_type="space",
             private=private,
+            visibility=visibility,
             token=token,
             exist_ok=exist_ok,
             space_hardware=hardware,
@@ -10471,6 +10633,26 @@ class HfApi:
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
+    def read_paper(self, id: str) -> str:
+        """
+        Get the markdown content of a paper page on the Hub.
+
+        Args:
+            id (`str`):
+                ArXiv id of the paper.
+
+        Returns:
+            `str`: The paper page content as markdown.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                HTTP 404 If the paper does not exist on the Hub.
+        """
+        path = f"{self.endpoint}/papers/{id}.md"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        return r.text
+
     def list_daily_papers(
         self,
         *,
@@ -12822,12 +13004,14 @@ model_info = api.model_info
 list_datasets = api.list_datasets
 list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
+get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
+read_paper = api.read_paper
 list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists

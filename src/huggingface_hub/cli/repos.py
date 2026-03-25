@@ -34,13 +34,19 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundE
 from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
+    EnvFileOpt,
+    EnvOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     RevisionOpt,
+    SecretsFileOpt,
+    SecretsOpt,
     TokenOpt,
+    env_map_to_key_value_list,
     get_hf_api,
+    parse_env_map,
     typer_factory,
 )
 
@@ -69,11 +75,52 @@ class GatedChoices(str, enum.Enum):
     false = "false"
 
 
+PublicOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        "--public",
+        help="Whether to make the repo public. Ignored if the repo already exists.",
+    ),
+]
+
+ProtectedOpt = Annotated[
+    Optional[bool],
+    typer.Option(
+        "--protected",
+        help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
+    ),
+]
+SpaceHardwareOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--flavor",
+        help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
+    ),
+]
+
+SpaceStorageOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        "--storage",
+        help="Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
+    ),
+]
+
+SpaceSleepTimeOpt = Annotated[
+    Optional[int],
+    typer.Option(
+        "--sleep-time",
+        help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
+    ),
+]
+
+
 @repos_cli.command(
     "create",
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
+        "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
     ],
 )
 def repo_create(
@@ -86,6 +133,8 @@ def repo_create(
         ),
     ] = None,
     private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -99,17 +148,29 @@ def repo_create(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
     ] = None,
+    hardware: SpaceHardwareOpt = None,
+    storage: SpaceStorageOpt = None,
+    sleep_time: SpaceSleepTimeOpt = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    env: EnvOpt = None,
+    env_file: EnvFileOpt = None,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
-        private=private,
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
         space_sdk=space_sdk,
+        space_hardware=hardware,  # type: ignore[arg-type]
+        space_storage=storage,  # type: ignore[arg-type]
+        space_sleep_time=sleep_time,
+        space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
+        space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
     print(f"Successfully created {ANSI.bold(repo_url.repo_id)} on the Hub.")
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
@@ -119,7 +180,7 @@ def repo_create(
     "duplicate",
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
-        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private",
+        "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private",
     ],
 )
 def repo_duplicate(
@@ -132,6 +193,8 @@ def repo_duplicate(
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
     private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
@@ -139,6 +202,13 @@ def repo_duplicate(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
+    hardware: SpaceHardwareOpt = None,
+    storage: SpaceStorageOpt = None,
+    sleep_time: SpaceSleepTimeOpt = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    env: EnvOpt = None,
+    env_file: EnvFileOpt = None,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
     api = get_hf_api(token=token)
@@ -146,9 +216,14 @@ def repo_duplicate(
         from_id=from_id,
         to_id=to_id,
         repo_type=repo_type.value,
-        private=private,
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
+        space_hardware=hardware,  # type: ignore[arg-type]
+        space_storage=storage,  # type: ignore[arg-type]
+        space_sleep_time=sleep_time,
+        space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
+        space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
     print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
     print(f"Your repo is now available at {ANSI.bold(repo_url)}")
@@ -198,6 +273,7 @@ def repo_move(
     examples=[
         "hf repos settings my-model --private",
         "hf repos settings my-model --gated auto",
+        "hf repos settings my-space --repo-type space --protected",
     ],
 )
 def repo_settings(
@@ -208,12 +284,9 @@ def repo_settings(
             help="The gated status for the repository.",
         ),
     ] = None,
-    private: Annotated[
-        Optional[bool],
-        typer.Option(
-            help="Whether the repository should be private.",
-        ),
-    ] = None,
+    private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
@@ -222,7 +295,7 @@ def repo_settings(
     api.update_repo_settings(
         repo_id=repo_id,
         gated=(gated.value if gated else None),  # type: ignore [arg-type]
-        private=private,
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         repo_type=repo_type.value,
     )
     print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")

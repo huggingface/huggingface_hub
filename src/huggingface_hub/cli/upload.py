@@ -137,7 +137,7 @@ def upload(
     every: Annotated[
         Optional[float],
         typer.Option(
-            help="f set, a background job is scheduled to create commits every `every` minutes.",
+            help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
     token: TokenOpt = None,

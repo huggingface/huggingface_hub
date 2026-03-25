@@ -17,19 +17,19 @@ A virtual environment makes it easier to manage different projects, and avoid co
 Start by creating a virtual environment in your project directory:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 Activate the virtual environment. On Linux and macOS:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Activate virtual environment on Windows:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 Now you're ready to install `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
