@@ -33,6 +33,6 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 [[autodoc]] JobStatus
 
-### JobVolume
+### Volume
 
-[[autodoc]] JobVolume
+[[autodoc]] Volume

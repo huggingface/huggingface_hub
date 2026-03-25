@@ -76,8 +76,8 @@ from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, 
 
 import typer
 
-from huggingface_hub import SpaceHardware, get_token
-from huggingface_hub._jobs_api import JobVolume, JobVolumeType
+from huggingface_hub import SpaceHardware, constants, get_token
+from huggingface_hub._jobs_api import Volume
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -1140,10 +1140,7 @@ def scheduled_uv_run(
 ### UTILS
 
 
-_VOLUME_TYPES = {t.value for t in JobVolumeType}
-
-
-def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
+def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
     """Parse volume specs from CLI arguments.
 
     Format: [TYPE/]SOURCE:/MOUNT_PATH[:ro]
@@ -1159,7 +1156,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
     """
     if not volumes:
         return None
-    result: list[JobVolume] = []
+    result: list[Volume] = []
     for raw_spec in volumes:
         # Strip :ro/:rw suffix
         spec = raw_spec
@@ -1184,19 +1181,19 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[JobVolume]]:
         slash_idx = source_part.find("/")
         if slash_idx == -1:
             # No slash: bare source like "gpt2:/data" -> model type
-            vol_type_str = JobVolumeType.MODEL.value
+            vol_type_str = constants.REPO_TYPE_MODEL
             source = source_part
         else:
             vol_type_str = source_part[:slash_idx]
             source = source_part[slash_idx + 1 :]
             # If the first segment isn't a known type, treat the whole thing as a model source
             # e.g. "org/my-model:/data" -> type=model, source="org/my-model"
-            if vol_type_str not in _VOLUME_TYPES:
-                vol_type_str = JobVolumeType.MODEL.value
+            if vol_type_str not in constants.REPO_TYPES_WITH_BUCKET:
+                vol_type_str = constants.REPO_TYPE_MODEL
                 source = source_part
 
         result.append(
-            JobVolume(
+            Volume(
                 type=vol_type_str,
                 source=source,
                 mount_path=mount_path,

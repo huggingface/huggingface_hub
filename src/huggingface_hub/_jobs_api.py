@@ -15,37 +15,20 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
 from huggingface_hub.utils._datetime import parse_datetime
 
 
-class JobVolumeType(str, Enum):
-    """
-    Enumeration of possible volume types for a Job on the Hub.
-
-    Value can be compared to a string:
-    ```py
-    assert JobVolumeType.BUCKET == "bucket"
-    ```
-    Possible values are: `BUCKET`, `MODEL`, `DATASET`, `SPACE`.
-    """
-
-    BUCKET = "bucket"
-    MODEL = "model"
-    DATASET = "dataset"
-    SPACE = "space"
-
-
 @dataclass
-class JobVolume:
+class Volume:
     """
     Describes a volume to mount in a Job container.
 
     Args:
-        type (`str` or [`JobVolumeType`]):
+        type (`str`):
             Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
         source (`str`):
             Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
@@ -59,7 +42,7 @@ class JobVolume:
             Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
     """
 
-    type: JobVolumeType
+    type: Literal["bucket", "model", "dataset", "space"]
     source: str
     mount_path: str
     revision: Optional[str] = None
@@ -67,7 +50,7 @@ class JobVolume:
     path: Optional[str] = None
 
     def __init__(self, **kwargs) -> None:
-        self.type = JobVolumeType(kwargs.get("type", ""))
+        self.type = kwargs.get("type", "")
         self.source = kwargs["source"]
         mount_path = kwargs.get("mountPath")
         self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
@@ -139,7 +122,7 @@ class JobInfo:
             E.g. `"cpu-basic"`.
         labels (`dict[str, str]` or `None`):
             Labels to attach to the job (key-value pairs).
-        volumes (`list[JobVolume]` or `None`):
+        volumes (`list[Volume]` or `None`):
             Volumes mounted in the job container (buckets, models, datasets, spaces).
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
@@ -176,7 +159,7 @@ class JobInfo:
     secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     labels: Optional[dict[str, str]]
-    volumes: Optional[list[JobVolume]]
+    volumes: Optional[list[Volume]]
     status: JobStatus
     owner: JobOwner
 
@@ -199,7 +182,7 @@ class JobInfo:
         self.flavor = kwargs.get("flavor")
         self.labels = kwargs.get("labels")
         volumes = kwargs.get("volumes")
-        self.volumes = [JobVolume(**v) for v in volumes] if volumes else None
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
@@ -221,7 +204,7 @@ class JobSpec:
     tags: Optional[list[str]]
     arch: Optional[str]
     labels: Optional[dict[str, str]]
-    volumes: Optional[list[JobVolume]]
+    volumes: Optional[list[Volume]]
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -236,7 +219,7 @@ class JobSpec:
         self.arch = kwargs.get("arch")
         self.labels = kwargs.get("labels")
         volumes = kwargs.get("volumes")
-        self.volumes = [JobVolume(**v) for v in volumes] if volumes else None
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
 
 
 @dataclass
@@ -426,7 +409,7 @@ def _create_job_spec(
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
     labels: Optional[dict[str, str]] = None,
-    volumes: Optional[list[JobVolume]] = None,
+    volumes: Optional[list[Volume]] = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {

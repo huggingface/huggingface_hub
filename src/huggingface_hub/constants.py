@@ -119,6 +119,9 @@ REPO_TYPES_MAPPING = {
     "models": REPO_TYPE_MODEL,
 }
 
+REPO_TYPE_BUCKET = "bucket"
+REPO_TYPES_WITH_BUCKET = [None, REPO_TYPE_BUCKET, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
+
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
 DiscussionStatusFilter = Literal["all", "open", "closed"]

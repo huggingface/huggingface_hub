@@ -12,7 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobVolume, JobVolumeType, _create_job_spec
+from huggingface_hub._jobs_api import Volume, _create_job_spec
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -2611,36 +2611,36 @@ class TestParseVolumes:
             _parse_volumes([spec])
 
 
-class TestJobVolume:
-    """Unit tests for JobVolume dataclass and serialization."""
+class TestVolume:
+    """Unit tests for Volume dataclass and serialization."""
 
     def test_from_api_response_camel_case(self) -> None:
-        vol = JobVolume(type="model", source="gpt2", mountPath="/data", readOnly=True)
-        assert vol.type == JobVolumeType.MODEL
+        vol = Volume(type="model", source="gpt2", mountPath="/data", readOnly=True)
+        assert vol.type == "model"
         assert vol.source == "gpt2"
         assert vol.mount_path == "/data"
         assert vol.read_only is True
 
     def test_from_python_snake_case(self) -> None:
-        vol = JobVolume(type="bucket", source="org/b", mount_path="/mnt")
+        vol = Volume(type="bucket", source="org/b", mount_path="/mnt")
         assert vol.mount_path == "/mnt"
         assert vol.read_only is None
 
     def test_read_only_false_preserved(self) -> None:
-        vol = JobVolume(type="bucket", source="org/b", mountPath="/mnt", readOnly=False)
+        vol = Volume(type="bucket", source="org/b", mountPath="/mnt", readOnly=False)
         assert vol.read_only is False
 
     def test_missing_mount_path_raises(self) -> None:
         with pytest.raises(KeyError):
-            JobVolume(type="model", source="gpt2")
+            Volume(type="model", source="gpt2")
 
     def test_optional_fields(self) -> None:
-        vol = JobVolume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
+        vol = Volume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
         assert vol.revision == "v1.0"
         assert vol.path == "subdir"
 
     def test_serialize_in_job_spec(self) -> None:
-        vols = [JobVolume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
+        vols = [Volume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
         spec = _create_job_spec(
             image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
         )
@@ -2654,7 +2654,7 @@ class TestJobVolume:
         assert "volumes" not in spec
 
     def test_serialize_optional_fields(self) -> None:
-        vols = [JobVolume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
+        vols = [Volume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
         spec = _create_job_spec(
             image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
         )

@@ -83,8 +83,7 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
-        "JobVolume",
-        "JobVolumeType",
+        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -751,8 +750,6 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "JobVolume",
-    "JobVolumeType",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -858,6 +855,7 @@ __all__ = [
     "VisualQuestionAnsweringInputData",
     "VisualQuestionAnsweringOutputElement",
     "VisualQuestionAnsweringParameters",
+    "Volume",
     "WebhookInfo",
     "WebhookPayload",
     "WebhookPayloadComment",
@@ -1203,8 +1201,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
-        JobVolume,  # noqa: F401
-        JobVolumeType,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
