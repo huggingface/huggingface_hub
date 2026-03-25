@@ -1573,7 +1573,7 @@ Available `--flavor` options:
 
 ## Volumes
 
-Mount a volume on the Jobs's disk using `-v` or `--volume`.
+Mount a volume on the Job's disk using `-v` or `--volume`.
 
 You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets) using the `hf://` URL scheme. For example:
 
