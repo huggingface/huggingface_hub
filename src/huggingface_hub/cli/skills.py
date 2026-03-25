@@ -51,10 +51,33 @@ from ._cli_utils import typer_factory
 
 DEFAULT_SKILL_ID = "hf-cli"
 
-_SKILL_YAML_PREFIX = """\
+_SKILL_DESCRIPTION = (
+    "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing"
+    " models, datasets, spaces, buckets, repos, papers, jobs, and more on the Hugging Face Hub."
+    " Use when: handling authentication;"
+    " managing local Hugging Face cache;"
+    " creating, syncing, copying, or managing Hugging Face Storage Buckets and Bucket files;"
+    " running or scheduling jobs on Hugging Face infrastructure;"
+    " managing repos (create, delete, branch, tag);"
+    " working with discussions and pull requests;"
+    " browsing models, datasets and spaces on the Hub;"
+    " reading, searching, or browsing academic papers;"
+    " managing collections;"
+    " querying datasets with SQL;"
+    " configuring spaces;"
+    " setting up webhooks;"
+    " or deploying and managing Hugging Face inference endpoints."
+    " Make sure to use this skill whenever the user mentions"
+    " 'hf', 'huggingface', 'Hugging Face', 'huggingface-cli', or 'hugging face cli',"
+    " or wants to do anything involving the Hugging Face Hub"
+    " -- even if they don't explicitly ask for a CLI command."
+    " Replaces the deprecated `huggingface-cli`."
+)
+
+_SKILL_YAML_PREFIX = f"""\
 ---
 name: hf-cli
-description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub. Replaces now deprecated `huggingface-cli` command."
+description: "{_SKILL_DESCRIPTION}"
 ---
 
 Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.
