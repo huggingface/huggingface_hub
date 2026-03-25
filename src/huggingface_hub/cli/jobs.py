@@ -1101,7 +1101,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
         "models": constants.REPO_TYPE_MODEL,
         "datasets": constants.REPO_TYPE_DATASET,
         "spaces": constants.REPO_TYPE_SPACE,
-        "buckets": constants.REPO_TYPE_BUCKET,
+        "buckets": "bucket",
     }
 
     result: list[Volume] = []
