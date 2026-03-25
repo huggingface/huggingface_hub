@@ -224,7 +224,7 @@ You can mount any Hugging Face Repository (model/dataset/space) or [Storage Buck
 
 * mount a model repository: `Volume(type="model", source="openai/gpt-oss-120b", mount_path="/model")`
 * mount a dataset repository: `Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")`
-* mount a storage bucket: `Volume(type="bucket", source="username/my-bucket", mount_path="/mnt)`
+* mount a storage bucket: `Volume(type="bucket", source="username/my-bucket", mount_path="/mnt")`
 
 Then you can use the mounted volume as a local directory:
 
