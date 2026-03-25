@@ -50,7 +50,7 @@ class Volume:
     path: Optional[str] = None
 
     def __init__(self, **kwargs) -> None:
-        self.type = kwargs.get("type", "")
+        self.type = kwargs.get("type", "model")
         self.source = kwargs["source"]
         mount_path = kwargs.get("mountPath")
         self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
@@ -435,7 +435,7 @@ def _create_job_spec(
     if volumes:
         job_spec["volumes"] = [
             {
-                "type": vol.type.value,
+                "type": vol.type,
                 "source": vol.source,
                 "mountPath": vol.mount_path,
                 **({"revision": vol.revision} if vol.revision is not None else {}),
