@@ -1317,7 +1317,7 @@ class TestRepoCreateCommand:
         api.create_repo.assert_called_once_with(
             repo_id="my-space",
             repo_type="space",
-            private=True,
+            visibility="private",
             token=None,
             exist_ok=False,
             resource_group_id=None,
@@ -1338,7 +1338,7 @@ class TestRepoCreateCommand:
         api.create_repo.assert_called_once_with(
             repo_id="my-model",
             repo_type="model",
-            private=None,
+            visibility=None,
             token=None,
             exist_ok=False,
             resource_group_id=None,
@@ -1356,14 +1356,14 @@ class TestRepoDuplicateCommand:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.duplicate_repo.return_value = Mock(repo_id="user/my-model")
-            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset"])
+            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset", "--private"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.duplicate_repo.assert_called_once_with(
             from_id=DUMMY_MODEL_ID,
             to_id=None,
             repo_type="dataset",
-            private=None,
+            visibility="private",
             token=None,
             exist_ok=False,
             space_hardware=None,
@@ -1386,7 +1386,6 @@ class TestRepoDuplicateCommand:
                     "myorg/my-copy",
                     "--type",
                     "space",
-                    "--private",
                     "--exist-ok",
                     "--token",
                     "my-token",
@@ -1398,7 +1397,7 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id="myorg/my-copy",
             repo_type="space",
-            private=True,
+            visibility=None,
             token="my-token",
             exist_ok=True,
             space_hardware=None,
@@ -1442,7 +1441,7 @@ class TestRepoDuplicateCommand:
             from_id="SpacesExamples/xxx",
             to_id="myorg/dev",
             repo_type="space",
-            private=True,
+            visibility="private",
             token=None,
             exist_ok=False,
             space_hardware="l4x4",
@@ -1479,7 +1478,7 @@ class TestRepoDuplicateCommand:
             from_id="owner/repo",
             to_id=None,
             repo_type="space",
-            private=None,
+            visibility=None,
             token=None,
             exist_ok=False,
             space_hardware=None,
@@ -1538,7 +1537,7 @@ class TestRepoSettingsCommand:
         api.update_repo_settings.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             gated=None,
-            private=None,
+            visibility=None,
             repo_type="model",
         )
 
@@ -1565,7 +1564,7 @@ class TestRepoSettingsCommand:
         kwargs = api.update_repo_settings.call_args.kwargs
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
         assert kwargs["repo_type"] == "dataset"
-        assert kwargs["private"] is True
+        assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
 
 
