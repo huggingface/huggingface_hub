@@ -10,6 +10,9 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > This guide covers the most important features of the `hf` CLI.
 > For a complete reference of all commands and options, see the [CLI reference](../package_reference/cli.md).
 
+> [!TIP]
+> Using the `hf` CLI with AI agents? Install the Skill with `hf skills add --claude` and check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide.
+
 ## Getting started
 
 ### Standalone installer (Recommended)
