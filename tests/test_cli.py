@@ -2838,10 +2838,7 @@ class TestJobsCommand:
 
     def test_run_with_volumes(self, runner: CliRunner) -> None:
         job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
-        with (
-            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
-        ):
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.run_job.return_value = job
             result = runner.invoke(
@@ -2860,11 +2857,18 @@ class TestJobsCommand:
             )
         assert result.exit_code == 0
         call_kwargs = api.run_job.call_args.kwargs
-        assert call_kwargs["volumes"] is not None
         assert len(call_kwargs["volumes"]) == 2
-        assert call_kwargs["volumes"][0].type.value == "dataset"
-        assert call_kwargs["volumes"][0].read_only is True
-        assert call_kwargs["volumes"][1].type.value == "bucket"
+        volume_1, volume_2 = call_kwargs["volumes"]
+
+        assert volume_1.type == "dataset"
+        assert volume_1.source == "org/ds"
+        assert volume_1.mount_path == "/input"
+        assert volume_1.read_only is True
+
+        assert volume_2.type == "bucket"
+        assert volume_2.source == "org/b"
+        assert volume_2.mount_path == "/output"
+        assert volume_2.read_only is None
 
 
 class TestCreateUvCommandQuoting:

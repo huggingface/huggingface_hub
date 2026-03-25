@@ -10841,7 +10841,7 @@ class HfApi:
                 Labels to attach to the job (key-value pairs).
 
             volumes (`list[Volume]`, *optional*):
-                HuggingFace Buckets or Repos to mount as volumes in the job container.
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
@@ -11311,7 +11311,7 @@ class HfApi:
                 Labels to attach to the job (key-value pairs).
 
             volumes (`list[Volume]`, *optional*):
-                HuggingFace Buckets or Repos to mount as volumes in the job container.
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
@@ -11448,7 +11448,7 @@ class HfApi:
                 Labels to attach to the job (key-value pairs).
 
             volumes (`list[Volume]`, *optional*):
-                HuggingFace Buckets or Repos to mount as volumes in the job container.
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
@@ -11743,7 +11743,7 @@ class HfApi:
                 Labels to attach to the job (key-value pairs).
 
             volumes (`list[Volume]`, *optional*):
-                HuggingFace Buckets or Repos to mount as volumes in the job container.
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
