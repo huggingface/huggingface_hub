@@ -98,24 +98,132 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
+    - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        # Rewrite hidden --json shorthand to --format json, but only for commands that accept --format.
-        # This avoids rewriting `--json` for commands that pass args through to external binaries
-        # (e.g. `hf extensions exec`) or that simply don't support `--format`.
-        if "--json" in args:
-            cmd_name = args[0] if args and not args[0].startswith("-") else None
-            cmd = self.get_command(ctx, cmd_name) if cmd_name else None
-            has_format_option = cmd is not None and any(
-                isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
-            )
-            if has_format_option:
-                if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                    raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-                idx = args.index("--json")
-                args[idx : idx + 1] = ["--format", "json"]
+        cmd_name = args[0] if args and not args[0].startswith("-") else None
+        cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+
+        if cmd is not None:
+            self._rewrite_json_shorthand(cmd, args)
+            self._rewrite_repo_type_prefix(cmd, args)
+
         return super().resolve_command(ctx, args)
+
+    @staticmethod
+    def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite hidden ``--json`` shorthand to ``--format json``.
+
+        Only applies to commands that accept ``--format``.  This avoids rewriting
+        ``--json`` for commands that pass args through to external binaries
+        (e.g. ``hf extensions exec``) or that simply don't support ``--format``.
+        """
+        if "--json" not in args:
+            return
+        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
+        if has_format_option:
+            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+            idx = args.index("--json")
+            args[idx : idx + 1] = ["--format", "json"]
+
+    @staticmethod
+    def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
+
+        Only applies to commands that have a ``--type`` / ``--repo-type`` option and
+        at least one repo-ID positional argument (any ``click.Argument`` whose name
+        ends with ``_id``, e.g. ``repo_id``, ``from_id``, ``to_id``).  When the
+        token that maps to such an argument matches ``{prefix}/org/repo`` (where
+        *prefix* is one of ``spaces``, ``datasets``, or ``models``), the prefix is
+        stripped and an implicit ``--type {type}`` is appended.  An error is raised
+        if ``--type`` is also provided explicitly or if multiple prefixed arguments
+        disagree on the repo type.
+
+        Only repo-ID positional slots are inspected so that other positional
+        arguments (filenames, local paths, patterns …) are never misinterpreted as
+        prefixed repo IDs.
+        """
+        has_type_option = any(isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params)
+        if not has_type_option:
+            return
+
+        # Locate all repo-ID positional arguments and their indices among Arguments.
+        repo_id_positions: set[int] = set()
+        arg_idx = 0
+        for param in cmd.params:
+            if isinstance(param, click.Argument):
+                if param.name in ("repo_id", "from_id", "to_id"):
+                    repo_id_positions.add(arg_idx)
+                arg_idx += 1
+
+        if not repo_id_positions:
+            return
+
+        # Build a set of option names that consume a following value token.
+        value_options: set[str] = set()
+        for param in cmd.params:
+            if isinstance(param, click.Option) and not param.is_flag:
+                for opt in (*param.opts, *param.secondary_opts):
+                    value_options.add(opt)
+
+        # Walk through args (skipping args[0] = command name) to map positional
+        # slots to their indices in `args`.
+        positional_count = 0
+        repo_id_arg_indices: list[int] = []
+        i = 1
+        while i < len(args):
+            arg = args[i]
+            if arg == "--":
+                break  # everything after -- is positional literal; stop rewriting
+            if arg.startswith("-"):
+                if "=" in arg or arg not in value_options:
+                    i += 1  # flag or --opt=val — single token
+                else:
+                    i += 2  # value-taking option — skip the value too
+            else:
+                if positional_count in repo_id_positions:
+                    repo_id_arg_indices.append(i)
+                positional_count += 1
+                i += 1
+
+        if not repo_id_arg_indices:
+            return
+
+        # Check each repo-ID arg for a type prefix and collect rewrites.
+        inferred_type: Optional[str] = None
+        first_prefix: Optional[str] = None
+        rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
+
+        for arg_index in repo_id_arg_indices:
+            parts = args[arg_index].split("/", 2)
+            if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
+                continue
+            prefix = parts[0]
+            mapped_type = constants.REPO_TYPES_MAPPING[prefix]
+            if inferred_type is not None and mapped_type != inferred_type:
+                raise click.UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
+            inferred_type = mapped_type
+            first_prefix = prefix
+            rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))
+
+        if not rewrites:
+            return
+
+        # Error if --type / --repo-type was also provided explicitly.
+        if any(
+            arg == "--type" or arg.startswith("--type=") or arg == "--repo-type" or arg.startswith("--repo-type=")
+            for arg in args
+        ):
+            raise click.UsageError(
+                f"Ambiguous repo type: got prefix '{first_prefix}/' in repo ID and explicit --type. Use one or the other."
+            )
+
+        # Apply all rewrites and append --type once.
+        for arg_index, new_value in rewrites:
+            args[arg_index] = new_value
+        args.extend(["--type", inferred_type])  # type: ignore[list-item]
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
@@ -309,7 +417,7 @@ class RepoType(str, Enum):
 RepoIdArg = Annotated[
     str,
     typer.Argument(
-        help="The ID of the repo (e.g. `username/repo-name`).",
+        help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
 

@@ -640,7 +640,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1112,7 +1112,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1144,7 +1144,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1176,7 +1176,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1211,7 +1211,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1240,7 +1240,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1276,7 +1276,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1313,7 +1313,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1345,7 +1345,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 * `NEW_TITLE`: The new title.  [required]
 
@@ -1375,7 +1375,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1407,7 +1407,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[FILENAMES]...`: Files to download (e.g. `config.json`, `data/metadata.jsonl`).
 
 **Options**:
@@ -2852,7 +2852,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `BRANCH`: The name of the branch to create.  [required]
 
 **Options**:
@@ -2884,7 +2884,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `BRANCH`: The name of the branch to delete.  [required]
 
 **Options**:
@@ -2913,7 +2913,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -2956,7 +2956,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -2985,7 +2985,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
 
 **Options**:
@@ -3020,7 +3020,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[TO_ID]`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
 
 **Options**:
@@ -3061,8 +3061,8 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `TO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `TO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -3090,7 +3090,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -3144,7 +3144,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `TAG`: The name of the tag to create.  [required]
 
 **Options**:
@@ -3176,7 +3176,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `TAG`: The name of the tag to delete.  [required]
 
 **Options**:
@@ -3206,7 +3206,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -3498,7 +3498,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[LOCAL_PATH]`: Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.
 * `[PATH_IN_REPO]`: Path of the file or folder in the repo. Defaults to the relative path of the file or folder.
 
@@ -3542,7 +3542,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `LOCAL_PATH`: Local path to the folder to upload.  [required]
 
 **Options**:
