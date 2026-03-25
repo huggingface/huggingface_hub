@@ -1575,21 +1575,24 @@ Available `--flavor` options:
 
 Mount a volume on the Jobs's disk using `-v` or `--volume`.
 
-You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets). For example:
+You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets) using the `hf://` URL scheme. For example:
 
-* mount a model repository: `-v openai/gpt-oss-120b:/model`
-* mount a dataset repository: `-v dataset/HuggingFaceFW/fineweb:/data`
-* mount a storabe bucket: `-v bucket/username/my-bucket:/mnt`
+* mount a model repository: `-v hf://openai/gpt-oss-120b:/model`
+* mount a model repository (explicit type): `-v hf://models/openai/gpt-oss-120b:/model`
+* mount a dataset repository: `-v hf://datasets/HuggingFaceFW/fineweb:/data`
+* mount a storage bucket: `-v hf://buckets/username/my-bucket:/mnt`
+* mount a space: `-v hf://spaces/username/my-space:/app`
+* mount a subfolder inside a repo: `-v hf://datasets/org/ds/train:/data`
 
 Then you can use the mounted volume as a local directory:
 
 ```bash
 # Docker Job with a mounted volume as input
->>> hf jobs run -v dataset/HuggingFaceFW/fineweb:/dataset \
+>>> hf jobs run -v hf://datasets/HuggingFaceFW/fineweb:/dataset \
 ...     duckdb/duckdb duckdb -c "SELECT * FROM '/dataset/**/*.parquet' LIMIT 5"
 
 # UV Job with a mounted volume to save checkpoints when training a model
->>> hf jobs uv run -v bucket/username/my-bucket:/training-outputs \
+>>> hf jobs uv run -v hf://buckets/username/my-bucket:/training-outputs \
 ...     sft.py --output-dir /training-outputs/training-v3-final ...
 ```
 
@@ -1598,7 +1601,7 @@ This is especially useful for storage buckets, which provide fast, mutable stora
 
 Use `:ro` to enable read-only:
 
-* mount a storabe bucket in read-only: `-v bucket/username/my-bucket:/mnt:ro`
+* mount a storage bucket in read-only: `-v hf://buckets/username/my-bucket:/mnt:ro`
 
 ### Labels
 

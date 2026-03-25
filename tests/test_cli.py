@@ -2848,9 +2848,9 @@ class TestJobsCommand:
                     "run",
                     "--detach",
                     "-v",
-                    "dataset/org/ds:/input:ro",
+                    "hf://datasets/org/ds:/input:ro",
                     "-v",
-                    "bucket/org/b:/output",
+                    "hf://buckets/org/b:/output",
                     "python:3.12",
                     "echo",
                 ],
@@ -2950,38 +2950,60 @@ class TestParseVolumes:
         assert _parse_volumes([]) is None
 
     @pytest.mark.parametrize(
-        "spec, expected_type, expected_source, expected_mount",
+        "spec, expected_type, expected_source, expected_mount, expected_path",
         [
-            ("gpt2:/data", "model", "gpt2", "/data"),
-            ("my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt"),
-            ("model/gpt2:/data", "model", "gpt2", "/data"),
-            ("dataset/org/ds:/input", "dataset", "org/ds", "/input"),
-            ("bucket/org/my-bucket:/output", "bucket", "org/my-bucket", "/output"),
-            ("space/org/my-space:/app", "space", "org/my-space", "/app"),
+            # Implicit model type (no type prefix)
+            ("hf://gpt2:/data", "model", "gpt2", "/data", None),
+            ("hf://my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt", None),
+            # Explicit type prefixes (plural form)
+            ("hf://models/gpt2:/data", "model", "gpt2", "/data", None),
+            ("hf://models/my-org/my-model:/data", "model", "my-org/my-model", "/data", None),
+            ("hf://datasets/org/ds:/input", "dataset", "org/ds", "/input", None),
+            ("hf://buckets/org/my-bucket:/output", "bucket", "org/my-bucket", "/output", None),
+            ("hf://spaces/org/my-space:/app", "space", "org/my-space", "/app", None),
+            # With path inside the repo/bucket
+            ("hf://datasets/org/ds/train:/input", "dataset", "org/ds", "/input", "train"),
+            ("hf://datasets/org/ds/path/to/dir:/input", "dataset", "org/ds", "/input", "path/to/dir"),
+            ("hf://buckets/org/my-bucket/sub/prefix:/mnt", "bucket", "org/my-bucket", "/mnt", "sub/prefix"),
+            ("hf://models/org/my-model/onnx:/weights", "model", "org/my-model", "/weights", "onnx"),
+            ("hf://org/my-model/onnx:/weights", "model", "org/my-model", "/weights", "onnx"),
         ],
     )
-    def test_parse_volume_spec(self, spec: str, expected_type: str, expected_source: str, expected_mount: str) -> None:
+    def test_parse_volume_spec(
+        self,
+        spec: str,
+        expected_type: str,
+        expected_source: str,
+        expected_mount: str,
+        expected_path: Optional[str],
+    ) -> None:
         vols = _parse_volumes([spec])
         assert len(vols) == 1
         assert vols[0].type == expected_type
         assert vols[0].source == expected_source
         assert vols[0].mount_path == expected_mount
+        assert vols[0].path == expected_path
 
-    @pytest.mark.parametrize("spec", ["gpt2", "gpt2:data"])
-    def test_invalid_specs(self, spec: str) -> None:
+    @pytest.mark.parametrize("spec", ["hf://gpt2", "hf://gpt2:data"])
+    def test_invalid_mount_path(self, spec: str) -> None:
         with pytest.raises(CLIError, match="Invalid volume format"):
             _parse_volumes([spec])
 
+    @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
+    def test_missing_hf_prefix(self, spec: str) -> None:
+        with pytest.raises(CLIError, match="must start with 'hf://'"):
+            _parse_volumes([spec])
+
     def test_read_only_suffix(self) -> None:
-        vols = _parse_volumes(["dataset/org/ds:/data:ro"])
+        vols = _parse_volumes(["hf://datasets/org/ds:/data:ro"])
         assert vols[0].read_only is True
 
     def test_read_write_suffix(self) -> None:
-        vols = _parse_volumes(["bucket/org/b:/mnt:rw"])
+        vols = _parse_volumes(["hf://buckets/org/b:/mnt:rw"])
         assert vols[0].read_only is False
 
     def test_multiple_volumes(self) -> None:
-        vols = _parse_volumes(["gpt2:/model", "dataset/org/ds:/data:ro", "bucket/org/b:/output"])
+        vols = _parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
 
         assert vols == [
             Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),
