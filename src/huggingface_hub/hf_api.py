@@ -83,7 +83,7 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, Volume, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -10807,6 +10807,7 @@ class HfApi:
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         labels: Optional[dict[str, str]] = None,
+        volumes: Optional[list[Volume]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -10839,6 +10840,11 @@ class HfApi:
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
 
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -10864,6 +10870,17 @@ class HfApi:
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
+            Run a Job with volumes:
+
+            ```python
+            >>> from huggingface_hub import Volume, run_job
+            >>> dataset_volume = Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")
+            >>> output_bucket_volume = Volume(type="bucket", source="username/my-bucket", mount_path="/output")
+            >>> image = "duckdb/duckdb"
+            >>> command = ["duckdb", "-c", "COPY (SELECT * FROM '/data/**/*.parquet' LIMIT 5) TO '/output/first-rows.parquet'"]
+            >>> run_job(image=image, command=command, volumes=[dataset_volume, output_bucket_volume])
+            ```
+
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -10875,6 +10892,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -11252,6 +11270,7 @@ class HfApi:
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         labels: Optional[dict[str, str]] = None,
+        volumes: Optional[list[Volume]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> JobInfo:
@@ -11291,6 +11310,11 @@ class HfApi:
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
 
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -11327,6 +11351,16 @@ class HfApi:
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
             >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
             ```
+
+            Mount volumes, e.g. to save model checkpoints during training:
+
+            ```python
+            >>> from huggingface_hub import Volume, run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--output_dir", "/training-outputs/training-v3-final", ...]
+            >>> checkpoints_bucket = Volume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
+            >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
+            ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
@@ -11352,6 +11386,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
             namespace=namespace,
             token=token,
         )
@@ -11369,6 +11404,7 @@ class HfApi:
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         labels: Optional[dict[str, str]] = None,
+        volumes: Optional[list[Volume]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -11410,6 +11446,11 @@ class HfApi:
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
+
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11456,6 +11497,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -11650,6 +11692,7 @@ class HfApi:
         flavor: Optional[SpaceHardware] = None,
         timeout: Optional[Union[int, float, str]] = None,
         labels: Optional[dict[str, str]] = None,
+        volumes: Optional[list[Volume]] = None,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> ScheduledJobInfo:
@@ -11698,6 +11741,11 @@ class HfApi:
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
+
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11760,6 +11808,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
             namespace=namespace,
             token=token,
         )
