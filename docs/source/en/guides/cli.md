@@ -1596,8 +1596,7 @@ Then you can use the mounted volume as a local directory:
 ...     sft.py --output-dir /training-outputs/training-v3-final ...
 ```
 
-By default, mounted storage buckets have read+write abilities.
-This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
+Models, datasets and spaces are always mounted read-only. Storage buckets are read+write by default — this is especially useful for data that changes frequently, as files can be overwritten or deleted in place.
 
 Use `:ro` to enable read-only:
 
