@@ -245,6 +245,7 @@ VolumesOpt = Annotated[
         help="Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
         "TYPE is one of: models, datasets, spaces, buckets. "
         "TYPE defaults to models if omitted. "
+        "models, datasets and spaces are always mounted read-only. buckets are read+write by default."
         "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
     ),
 ]
