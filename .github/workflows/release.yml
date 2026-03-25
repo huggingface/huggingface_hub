@@ -15,15 +15,18 @@
 # For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
 # the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release.
 #
-# The workflow uses GITHUB_TOKEN for all git operations (branch creation, tag push, PR creation). Since events triggered
-# by GITHUB_TOKEN do not cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml)
-# will not fire and can serve as a manual fallback if needed.
+# The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
+# (huggingface-hub-bot) for PR creation in the post-release job. Since events triggered by GITHUB_TOKEN do not
+# cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml) will not fire and
+# can serve as a manual fallback if needed.
 #
 # Required secrets:
 # - PYPI_TOKEN_DIST_HUGGINGFACE_HUB      : publish `huggingface_hub` package to PyPI
 # - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
 # - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
 # - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
+# - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
+# - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
 # - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
 # - APP_SECRET_PREM_HUB_SKILLS_REPO      : GitHub App private key for the skills repo
 # 
@@ -513,18 +516,26 @@ jobs:
     if: ${{ inputs.release_type == 'minor-release' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
       - uses: actions/checkout@v6
         with:
           ref: main
+          token: ${{ steps.app_token.outputs.token }}
 
       - name: Configure Git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "huggingface-hub-bot[bot]"
+          git config user.email "huggingface-hub-bot[bot]@users.noreply.github.com"
 
       - name: Create version bump PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
