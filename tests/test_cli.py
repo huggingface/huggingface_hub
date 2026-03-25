@@ -1285,9 +1285,7 @@ class TestRepoDuplicateCommand:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.duplicate_repo.return_value = Mock(repo_id="user/my-model")
-            result = runner.invoke(
-                app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset", "--visibility", "private"]
-            )
+            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset", "--private"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.duplicate_repo.assert_called_once_with(
@@ -1392,8 +1390,7 @@ class TestRepoSettingsCommand:
                     DUMMY_MODEL_ID,
                     "--gated",
                     "manual",
-                    "--visibility",
-                    "private",
+                    "--private",
                     "--repo-type",
                     "dataset",
                     "--token",

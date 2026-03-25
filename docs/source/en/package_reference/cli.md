@@ -2915,7 +2915,9 @@ $ hf repos create [OPTIONS] REPO_ID
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
-* `--visibility [public|private|protected]`: Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
@@ -2923,8 +2925,8 @@ $ hf repos create [OPTIONS] REPO_ID
 
 Examples
   $ hf repos create my-model
-  $ hf repos create my-dataset --repo-type dataset --visibility private
-  $ hf repos create my-space --repo-type space --space-sdk gradio --visibility protected
+  $ hf repos create my-dataset --repo-type dataset --private
+  $ hf repos create my-space --repo-type space --space-sdk gradio --protected
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3013,14 +3015,16 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 **Options**:
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--visibility [public|private|protected]`: Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
-  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --visibility private
+  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3073,15 +3077,17 @@ $ hf repos settings [OPTIONS] REPO_ID
 **Options**:
 
 * `--gated [auto|manual|false]`: The gated status for the repository.
-* `--visibility [public|private|protected]`: Visibility of the repository. Can be "public" or "private", or "protected" for Spaces.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repos settings my-model --visibility private
+  $ hf repos settings my-model --private
   $ hf repos settings my-model --gated auto
-  $ hf repos settings my-space --repo-type space --visibility protected
+  $ hf repos settings my-space --repo-type space --protected
 
 Learn more
   Use `hf <command> --help` for more information about a command.
