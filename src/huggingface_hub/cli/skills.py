@@ -21,12 +21,6 @@ Usage:
     # install the hf-cli skill for Claude (project-level, in current directory)
     hf skills add --claude
 
-    # install for Cursor (project-level, in current directory)
-    hf skills add --cursor
-
-    # install for multiple assistants (project-level)
-    hf skills add --claude --codex --opencode --cursor
-
     # install globally (user-level)
     hf skills add --claude --global
 
@@ -76,20 +70,8 @@ _SKILL_TIPS = """
 
 CENTRAL_LOCAL = Path(".agents/skills")
 CENTRAL_GLOBAL = Path("~/.agents/skills")
-
-GLOBAL_TARGETS = {
-    "codex": Path("~/.codex/skills"),
-    "claude": Path("~/.claude/skills"),
-    "cursor": Path("~/.cursor/skills"),
-    "opencode": Path("~/.config/opencode/skills"),
-}
-
-LOCAL_TARGETS = {
-    "codex": Path(".codex/skills"),
-    "claude": Path(".claude/skills"),
-    "cursor": Path(".cursor/skills"),
-    "opencode": Path(".opencode/skills"),
-}
+CLAUDE_LOCAL = Path(".claude/skills")
+CLAUDE_GLOBAL = Path("~/.claude/skills")
 # Flags worth explaining in the common-options glossary. Self-explanatory flags
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}
@@ -305,36 +287,23 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
 def _resolve_update_roots(
     *,
     claude: bool,
-    codex: bool,
-    cursor: bool,
-    opencode: bool,
     global_: bool,
     dest: Optional[Path],
 ) -> list[Path]:
     if dest is not None:
-        if claude or codex or cursor or opencode or global_:
-            raise CLIError("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
+        if claude or global_:
+            raise CLIError("--dest cannot be combined with --claude or --global.")
         return [dest.expanduser().resolve()]
 
-    targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
     roots: list[Path] = [CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL]
-    if not any([claude, codex, cursor, opencode]):
-        roots.extend(targets_dict.values())
-    else:
-        if claude:
-            roots.append(targets_dict["claude"])
-        if codex:
-            roots.append(targets_dict["codex"])
-        if cursor:
-            roots.append(targets_dict["cursor"])
-        if opencode:
-            roots.append(targets_dict["opencode"])
+    if claude:
+        roots.append(CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL)
     return [root.expanduser().resolve() for root in roots]
 
 
 @skills_cli.command("preview")
 def skills_preview() -> None:
-    """Print the generated SKILL.md to stdout."""
+    """Print the generated `hf-cli` SKILL.md to stdout."""
     print(build_skill_md())
 
 
@@ -342,9 +311,10 @@ def skills_preview() -> None:
     "add",
     examples=[
         "hf skills add",
+        "hf skills add huggingface-gradio --dest=~/my-skills",
         "hf skills add --global",
-        "hf skills add --claude --cursor",
-        "hf skills add --codex --opencode --cursor --global",
+        "hf skills add --claude",
+        "hf skills add --claude --global",
     ],
 )
 def skills_add(
@@ -353,9 +323,6 @@ def skills_add(
         typer.Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
-    codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
-    cursor: Annotated[bool, typer.Option("--cursor", help="Install for Cursor.")] = False,
-    opencode: Annotated[bool, typer.Option("--opencode", help="Install for OpenCode.")] = False,
     global_: Annotated[
         bool,
         typer.Option(
@@ -378,15 +345,15 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a skill and install it for an AI assistant.
+    """Download a Hugging Face skill and install it for an AI assistant.
 
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-    If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+    If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
     try:
         if dest:
-            if claude or codex or cursor or opencode or global_:
-                print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
+            if claude or global_:
+                print("--dest cannot be combined with --claude or --global.")
                 raise typer.Exit(code=1)
             skill_dest = _install_to(dest, name, force)
             print(f"Installed '{name}' to {skill_dest}")
@@ -397,19 +364,8 @@ def skills_add(
         central_skill_path = _install_to(central_path, name, force)
         print(f"Installed '{name}' to central location: {central_skill_path}")
 
-        # Create symlinks in agent directories
-        targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
-        agent_targets: list[Path] = []
         if claude:
-            agent_targets.append(targets_dict["claude"])
-        if codex:
-            agent_targets.append(targets_dict["codex"])
-        if cursor:
-            agent_targets.append(targets_dict["cursor"])
-        if opencode:
-            agent_targets.append(targets_dict["opencode"])
-
-        for agent_target in agent_targets:
+            agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
             link_path = _create_symlink(agent_target, name, central_skill_path, force)
             print(f"Created symlink: {link_path}")
     except CLIError as exc:
@@ -418,23 +374,20 @@ def skills_add(
 
 
 @skills_cli.command(
-    "update",
+    "upgrade",
     examples=[
-        "hf skills update",
-        "hf skills update hf-cli",
-        "hf skills update gradio --dest=~/my-skills",
-        "hf skills update --claude --force",
+        "hf skills upgrade",
+        "hf skills upgrade hf-cli",
+        "hf skills upgrade huggingface-gradio --dest=~/my-skills",
+        "hf skills upgrade --claude --force",
     ],
 )
-def skills_update(
+def skills_upgrade(
     name: Annotated[
         Optional[str],
-        typer.Argument(help="Optional installed skill name to update.", show_default=False),
+        typer.Argument(help="Optional installed skill name to upgrade.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
-    codex: Annotated[bool, typer.Option("--codex", help="Update skills installed for Codex.")] = False,
-    cursor: Annotated[bool, typer.Option("--cursor", help="Update skills installed for Cursor.")] = False,
-    opencode: Annotated[bool, typer.Option("--opencode", help="Update skills installed for OpenCode.")] = False,
+    claude: Annotated[bool, typer.Option("--claude", help="Upgrade skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
         typer.Option(
@@ -446,24 +399,21 @@ def skills_update(
     dest: Annotated[
         Optional[Path],
         typer.Option(
-            help="Update skills in a custom skills directory.",
+            help="Upgrade skills in a custom skills directory.",
         ),
     ] = None,
     force: Annotated[
         bool,
         typer.Option(
             "--force",
-            help="Overwrite local modifications when updating a skill.",
+            help="Overwrite local modifications when upgrading a skill.",
         ),
     ] = False,
 ) -> None:
-    """Update installed marketplace-managed skills."""
+    """Upgrade installed Hugging Face marketplace skills."""
     try:
         roots = _resolve_update_roots(
             claude=claude,
-            codex=codex,
-            cursor=cursor,
-            opencode=opencode,
             global_=global_,
             dest=dest,
         )
