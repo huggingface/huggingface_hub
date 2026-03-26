@@ -317,14 +317,12 @@ def is_colab_enterprise() -> bool:
 # Check how huggingface_hub has been installed
 
 
-def installation_method() -> Literal["brew", "hf_installer", "pip", "uv", "pipx", "conda", "unknown"]:
+def installation_method() -> Literal["brew", "hf_installer", "pip", "uv", "unknown"]:
     """Return the installation method of the current environment.
 
     - "hf_installer" if installed via the official installer script
     - "brew" if installed via Homebrew
-    - "pipx" if installed via pipx
     - "uv" if installed via uv
-    - "conda" if installed in a conda environment
     - "pip" if pip is available (default fallback for standard Python environments)
     - "unknown" otherwise
     """
@@ -332,12 +330,8 @@ def installation_method() -> Literal["brew", "hf_installer", "pip", "uv", "pipx"
         return "brew"
     if _is_hf_installer_installation():
         return "hf_installer"
-    if _is_pipx_installation():
-        return "pipx"
     if _is_uv_installation():
         return "uv"
-    if _is_conda_installation():
-        return "conda"
     if _is_pip_available():
         return "pip"
     return "unknown"
@@ -365,21 +359,11 @@ def _is_hf_installer_installation() -> bool:
     return marker.exists()
 
 
-def _is_pipx_installation() -> bool:
-    """Return `True` if running inside a pipx-managed virtual environment."""
-    return "pipx" in (os.environ.get("PIPX_HOME", "") + sys.prefix).lower()
-
-
 def _is_uv_installation() -> bool:
     """Return `True` if the environment was created by uv (uv sets UV_VIRTUAL_ENV or leaves a marker)."""
     if os.environ.get("UV_VIRTUAL_ENV"):
         return True
     return (Path(sys.prefix) / "uv.lock").exists()
-
-
-def _is_conda_installation() -> bool:
-    """Return `True` if running inside a conda environment."""
-    return os.environ.get("CONDA_PREFIX") is not None
 
 
 def _is_pip_available() -> bool:

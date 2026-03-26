@@ -784,20 +784,22 @@ def _prompt_autoupdate(
     """Interactively ask the user if they want to update, and run the update command if accepted.
 
     After a successful update the CLI exits so the user can re-run their command with the new version.
+    All output goes to stderr to keep stdout clean for command output.
     """
+    click.echo("", file=sys.stderr)
     click.echo(
         ANSI.yellow(
-            f"\n A new version of {library} is available: {ANSI.bold(current_version)} → {ANSI.bold(latest_version)}"
+            f"  A new version of {library} is available: {ANSI.bold(current_version)} → {ANSI.bold(latest_version)}"
         ),
         file=sys.stderr,
     )
-    click.echo(
-        ANSI.gray(f"  Update command: {update_command}"),
-        file=sys.stderr,
-    )
+    click.echo("", file=sys.stderr)
 
+    # Write the prompt to stderr (input() writes to stdout) and read from stdin
+    sys.stderr.write(ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({update_command})") + " ")
+    sys.stderr.flush()
     try:
-        answer = input(ANSI.yellow("\n  Do you want to update now? [Y/n] ")).strip().lower()
+        answer = sys.stdin.readline().strip().lower()
     except (EOFError, KeyboardInterrupt):
         click.echo("", file=sys.stderr)
         return
@@ -822,7 +824,7 @@ def _prompt_autoupdate(
             )
     else:
         click.echo(
-            ANSI.gray("  Skipped. You can update later with: ") + ANSI.bold(update_command),
+            ANSI.gray(f"  Skipped. You can update later with: {update_command}"),
             file=sys.stderr,
         )
     click.echo("", file=sys.stderr)
@@ -837,14 +839,10 @@ def _get_huggingface_hub_update_command() -> Optional[str]:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -"
-    elif method == "pip":
-        return "pip install -U huggingface_hub"
     elif method == "uv":
-        return "uv pip install -U huggingface_hub"
-    elif method == "pipx":
-        return "pipx upgrade huggingface_hub"
-    elif method == "conda":
-        return "conda update huggingface_hub"
+        return f"{sys.executable} -m uv pip install -U huggingface_hub"
+    elif method == "pip":
+        return f"{sys.executable} -m pip install -U huggingface_hub"
     return None
 
 
@@ -855,14 +853,8 @@ def _get_transformers_update_command() -> Optional[str]:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
-    elif method == "pip":
-        return "pip install -U transformers"
     elif method == "uv":
-        return "uv pip install -U transformers"
-    elif method == "pipx":
-        return "pipx upgrade transformers"
-    elif method == "conda":
-        return "conda update transformers"
-    elif method == "brew":
-        return "pip install -U transformers"
+        return f"{sys.executable} -m uv pip install -U transformers"
+    elif method in ("pip", "brew"):
+        return f"{sys.executable} -m pip install -U transformers"
     return None
