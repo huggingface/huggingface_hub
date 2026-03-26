@@ -795,9 +795,11 @@ def _prompt_autoupdate(
     )
     click.echo("", file=sys.stderr)
 
-    # Write the prompt to stderr (input() writes to stdout) and read from stdin
-    sys.stderr.write(ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({update_command})") + " ")
-    sys.stderr.flush()
+    click.echo(
+        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({update_command})") + " ",
+        file=sys.stderr,
+        nl=False,
+    )
     try:
         answer = sys.stdin.readline().strip().lower()
     except (EOFError, KeyboardInterrupt):
