@@ -839,8 +839,6 @@ def _get_huggingface_hub_update_command() -> Optional[str]:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -"
-    elif method == "uv":
-        return f"{sys.executable} -m uv pip install -U huggingface_hub"
     elif method == "pip":
         return f"{sys.executable} -m pip install -U huggingface_hub"
     return None
@@ -853,8 +851,6 @@ def _get_transformers_update_command() -> Optional[str]:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
-    elif method == "uv":
-        return f"{sys.executable} -m uv pip install -U transformers"
     elif method in ("pip", "brew"):
         return f"{sys.executable} -m pip install -U transformers"
     return None

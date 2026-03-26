@@ -317,12 +317,11 @@ def is_colab_enterprise() -> bool:
 # Check how huggingface_hub has been installed
 
 
-def installation_method() -> Literal["brew", "hf_installer", "pip", "uv", "unknown"]:
+def installation_method() -> Literal["brew", "hf_installer", "pip", "unknown"]:
     """Return the installation method of the current environment.
 
     - "hf_installer" if installed via the official installer script
     - "brew" if installed via Homebrew
-    - "uv" if installed via uv
     - "pip" if pip is available (default fallback for standard Python environments)
     - "unknown" otherwise
     """
@@ -330,8 +329,6 @@ def installation_method() -> Literal["brew", "hf_installer", "pip", "uv", "unkno
         return "brew"
     if _is_hf_installer_installation():
         return "hf_installer"
-    if _is_uv_installation():
-        return "uv"
     if _is_pip_available():
         return "pip"
     return "unknown"
@@ -360,13 +357,6 @@ def _is_hf_installer_installation() -> bool:
     venv = sys.prefix  # points to venv root if active
     marker = Path(venv) / ".hf_installer_marker"
     return marker.exists()
-
-
-def _is_uv_installation() -> bool:
-    """Return `True` if the environment was created by uv (uv sets UV_VIRTUAL_ENV or leaves a marker)."""
-    if os.environ.get("UV_VIRTUAL_ENV"):
-        return True
-    return (Path(sys.prefix) / "uv.lock").exists()
 
 
 def _is_pip_available() -> bool:
