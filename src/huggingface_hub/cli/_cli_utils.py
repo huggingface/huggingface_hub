@@ -19,6 +19,8 @@ import importlib.metadata
 import json
 import os
 import re
+import subprocess
+import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -711,7 +713,9 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found, notify the user and suggest updating.
+    If a newer version is found and stdin/stdout are attached to a TTY, prompt the user to update interactively.
+    Otherwise (non-TTY or update command cannot be determined), print a warning to stderr.
+
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
@@ -750,24 +754,82 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     data = response.json()
     latest_version = data["info"]["version"]
 
-    # If latest version is different from current, notify user
-    if current_version != latest_version:
-        if library == "huggingface_hub":
-            update_command = _get_huggingface_hub_update_command()
-        else:
-            update_command = _get_transformers_update_command()
+    if current_version == latest_version:
+        return
 
+    if library == "huggingface_hub":
+        update_command = _get_huggingface_hub_update_command()
+    else:
+        update_command = _get_transformers_update_command()
+
+    if sys.stdin.isatty() and sys.stderr.isatty() and update_command is not None:
+        _prompt_autoupdate(library, current_version, latest_version, update_command)
+    else:
+        update_hint = f"To update, run: {ANSI.bold(update_command)}" if update_command else ""
         click.echo(
             ANSI.yellow(
                 f"A new version of {library} ({latest_version}) is available! "
-                f"You are using version {current_version}.\n"
-                f"To update, run: {ANSI.bold(update_command)}\n",
-            )
+                f"You are using version {current_version}." + (f"\n{update_hint}" if update_hint else "") + "\n"
+            ),
+            file=sys.stderr,
         )
 
 
-def _get_huggingface_hub_update_command() -> str:
-    """Return the command to update huggingface_hub."""
+def _prompt_autoupdate(
+    library: str,
+    current_version: str,
+    latest_version: str,
+    update_command: str,
+) -> None:
+    """Interactively ask the user if they want to update, and run the update command if accepted.
+
+    After a successful update the CLI exits so the user can re-run their command with the new version.
+    """
+    click.echo(
+        ANSI.yellow(
+            f"\n A new version of {library} is available: {ANSI.bold(current_version)} → {ANSI.bold(latest_version)}"
+        ),
+        file=sys.stderr,
+    )
+    click.echo(
+        ANSI.gray(f"  Update command: {update_command}"),
+        file=sys.stderr,
+    )
+
+    try:
+        answer = input(ANSI.yellow("\n  Do you want to update now? [Y/n] ")).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        click.echo("", file=sys.stderr)
+        return
+
+    if answer in ("", "y", "yes"):
+        click.echo("", file=sys.stderr)
+        click.echo(ANSI.gray(f"  Running: {update_command}"), file=sys.stderr)
+        click.echo("", file=sys.stderr)
+        returncode = subprocess.call(update_command, shell=True)
+        if returncode == 0:
+            click.echo("", file=sys.stderr)
+            click.echo(
+                ANSI.green(f"  ✓ Successfully updated {library} to {latest_version}. Please re-run your command."),
+                file=sys.stderr,
+            )
+            raise SystemExit(0)
+        else:
+            click.echo("", file=sys.stderr)
+            click.echo(
+                ANSI.red(f"  ✗ Update failed (exit code {returncode}). Please update manually."),
+                file=sys.stderr,
+            )
+    else:
+        click.echo(
+            ANSI.gray("  Skipped. You can update later with: ") + ANSI.bold(update_command),
+            file=sys.stderr,
+        )
+    click.echo("", file=sys.stderr)
+
+
+def _get_huggingface_hub_update_command() -> Optional[str]:
+    """Return the command to update huggingface_hub, or None if the installation method is unknown."""
     method = installation_method()
     if method == "brew":
         return "brew upgrade hf"
@@ -775,16 +837,32 @@ def _get_huggingface_hub_update_command() -> str:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -"
-    else:  # unknown => likely pip
+    elif method == "pip":
         return "pip install -U huggingface_hub"
+    elif method == "uv":
+        return "uv pip install -U huggingface_hub"
+    elif method == "pipx":
+        return "pipx upgrade huggingface_hub"
+    elif method == "conda":
+        return "conda update huggingface_hub"
+    return None
 
 
-def _get_transformers_update_command() -> str:
-    """Return the command to update transformers."""
+def _get_transformers_update_command() -> Optional[str]:
+    """Return the command to update transformers, or None if the installation method is unknown."""
     method = installation_method()
     if method == "hf_installer" and os.name == "nt":
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
-    else:  # brew/unknown => likely pip
+    elif method == "pip":
         return "pip install -U transformers"
+    elif method == "uv":
+        return "uv pip install -U transformers"
+    elif method == "pipx":
+        return "pipx upgrade transformers"
+    elif method == "conda":
+        return "conda update transformers"
+    elif method == "brew":
+        return "pip install -U transformers"
+    return None
