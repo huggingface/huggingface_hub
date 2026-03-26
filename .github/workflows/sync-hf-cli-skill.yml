@@ -25,9 +25,11 @@ jobs:
         run: pip install -e .
 
       - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
         run: |
           mkdir -p /tmp/hf-cli-skill
-          mkdir -p ~/.cache/huggingface && touch ~/.cache/huggingface/.check_for_update_done
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
           hf skills preview > /tmp/hf-cli-skill/SKILL.md
 
       - name: Determine PR title

@@ -12,11 +12,12 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
+from huggingface_hub._jobs_api import Volume, _create_job_spec
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+from huggingface_hub.cli.jobs import _parse_namespace_from_job_id, _parse_volumes
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -1317,7 +1318,7 @@ class TestRepoCreateCommand:
         api.create_repo.assert_called_once_with(
             repo_id="my-space",
             repo_type="space",
-            private=True,
+            visibility="private",
             token=None,
             exist_ok=False,
             resource_group_id=None,
@@ -1338,7 +1339,7 @@ class TestRepoCreateCommand:
         api.create_repo.assert_called_once_with(
             repo_id="my-model",
             repo_type="model",
-            private=None,
+            visibility=None,
             token=None,
             exist_ok=False,
             resource_group_id=None,
@@ -1356,14 +1357,14 @@ class TestRepoDuplicateCommand:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.duplicate_repo.return_value = Mock(repo_id="user/my-model")
-            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset"])
+            result = runner.invoke(app, ["repos", "duplicate", DUMMY_MODEL_ID, "--type", "dataset", "--private"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.duplicate_repo.assert_called_once_with(
             from_id=DUMMY_MODEL_ID,
             to_id=None,
             repo_type="dataset",
-            private=None,
+            visibility="private",
             token=None,
             exist_ok=False,
             space_hardware=None,
@@ -1386,7 +1387,6 @@ class TestRepoDuplicateCommand:
                     "myorg/my-copy",
                     "--type",
                     "space",
-                    "--private",
                     "--exist-ok",
                     "--token",
                     "my-token",
@@ -1398,7 +1398,7 @@ class TestRepoDuplicateCommand:
             from_id=DUMMY_MODEL_ID,
             to_id="myorg/my-copy",
             repo_type="space",
-            private=True,
+            visibility=None,
             token="my-token",
             exist_ok=True,
             space_hardware=None,
@@ -1442,7 +1442,7 @@ class TestRepoDuplicateCommand:
             from_id="SpacesExamples/xxx",
             to_id="myorg/dev",
             repo_type="space",
-            private=True,
+            visibility="private",
             token=None,
             exist_ok=False,
             space_hardware="l4x4",
@@ -1479,7 +1479,7 @@ class TestRepoDuplicateCommand:
             from_id="owner/repo",
             to_id=None,
             repo_type="space",
-            private=None,
+            visibility=None,
             token=None,
             exist_ok=False,
             space_hardware=None,
@@ -1538,7 +1538,7 @@ class TestRepoSettingsCommand:
         api.update_repo_settings.assert_called_once_with(
             repo_id=DUMMY_MODEL_ID,
             gated=None,
-            private=None,
+            visibility=None,
             repo_type="model",
         )
 
@@ -1565,7 +1565,7 @@ class TestRepoSettingsCommand:
         kwargs = api.update_repo_settings.call_args.kwargs
         assert kwargs["repo_id"] == DUMMY_MODEL_ID
         assert kwargs["repo_type"] == "dataset"
-        assert kwargs["private"] is True
+        assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
 
 
@@ -2459,6 +2459,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2483,6 +2484,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2511,6 +2513,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2535,6 +2538,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2562,6 +2566,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2587,6 +2592,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2613,6 +2619,7 @@ class TestJobsCommand:
             env={},
             secrets={},
             labels=None,
+            volumes=None,
             flavor=None,
             timeout=None,
             namespace=None,
@@ -2829,6 +2836,40 @@ class TestJobsCommand:
         assert "abc123def456 RUNNING" in result.output
         assert "xyz789ghi012 COMPLETED" in result.output
 
+    def test_run_with_volumes(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            result = runner.invoke(
+                app,
+                [
+                    "jobs",
+                    "run",
+                    "--detach",
+                    "-v",
+                    "hf://datasets/org/ds:/input:ro",
+                    "-v",
+                    "hf://buckets/org/b:/output",
+                    "python:3.12",
+                    "echo",
+                ],
+            )
+        assert result.exit_code == 0
+        call_kwargs = api.run_job.call_args.kwargs
+        assert len(call_kwargs["volumes"]) == 2
+        volume_1, volume_2 = call_kwargs["volumes"]
+
+        assert volume_1.type == "dataset"
+        assert volume_1.source == "org/ds"
+        assert volume_1.mount_path == "/input"
+        assert volume_1.read_only is True
+
+        assert volume_2.type == "bucket"
+        assert volume_2.source == "org/b"
+        assert volume_2.mount_path == "/output"
+        assert volume_2.read_only is None
+
 
 class TestCreateUvCommandQuoting:
     """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
@@ -2899,6 +2940,127 @@ class TestParseNamespaceFromJobId:
     def test_parse_namespace_from_job_id_errors(self, input_job_id: str, input_namespace: Optional[str]) -> None:
         with pytest.raises(CLIError):
             _parse_namespace_from_job_id(input_job_id, input_namespace)
+
+
+class TestParseVolumes:
+    """Unit tests for _parse_volumes."""
+
+    def test_none_and_empty(self) -> None:
+        assert _parse_volumes(None) is None
+        assert _parse_volumes([]) is None
+
+    @pytest.mark.parametrize(
+        "spec, expected_type, expected_source, expected_mount, expected_path",
+        [
+            # Implicit model type (no type prefix)
+            ("hf://gpt2:/data", "model", "gpt2", "/data", None),
+            ("hf://my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt", None),
+            # Explicit type prefixes (plural form)
+            ("hf://models/gpt2:/data", "model", "gpt2", "/data", None),
+            ("hf://models/my-org/my-model:/data", "model", "my-org/my-model", "/data", None),
+            ("hf://datasets/org/ds:/input", "dataset", "org/ds", "/input", None),
+            ("hf://buckets/org/my-bucket:/output", "bucket", "org/my-bucket", "/output", None),
+            ("hf://spaces/org/my-space:/app", "space", "org/my-space", "/app", None),
+            # With path inside the repo/bucket
+            ("hf://datasets/org/ds/train:/input", "dataset", "org/ds", "/input", "train"),
+            ("hf://datasets/org/ds/path/to/dir:/input", "dataset", "org/ds", "/input", "path/to/dir"),
+            ("hf://buckets/org/my-bucket/sub/prefix:/mnt", "bucket", "org/my-bucket", "/mnt", "sub/prefix"),
+            ("hf://models/org/my-model/onnx:/weights", "model", "org/my-model", "/weights", "onnx"),
+            ("hf://org/my-model/onnx:/weights", "model", "org/my-model", "/weights", "onnx"),
+        ],
+    )
+    def test_parse_volume_spec(
+        self,
+        spec: str,
+        expected_type: str,
+        expected_source: str,
+        expected_mount: str,
+        expected_path: Optional[str],
+    ) -> None:
+        vols = _parse_volumes([spec])
+        assert len(vols) == 1
+        assert vols[0].type == expected_type
+        assert vols[0].source == expected_source
+        assert vols[0].mount_path == expected_mount
+        assert vols[0].path == expected_path
+
+    @pytest.mark.parametrize("spec", ["hf://gpt2", "hf://gpt2:data"])
+    def test_invalid_mount_path(self, spec: str) -> None:
+        with pytest.raises(CLIError, match="Invalid volume format"):
+            _parse_volumes([spec])
+
+    @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
+    def test_missing_hf_prefix(self, spec: str) -> None:
+        with pytest.raises(CLIError, match="must start with 'hf://'"):
+            _parse_volumes([spec])
+
+    def test_read_only_suffix(self) -> None:
+        vols = _parse_volumes(["hf://datasets/org/ds:/data:ro"])
+        assert vols[0].read_only is True
+
+    def test_read_write_suffix(self) -> None:
+        vols = _parse_volumes(["hf://buckets/org/b:/mnt:rw"])
+        assert vols[0].read_only is False
+
+    def test_multiple_volumes(self) -> None:
+        vols = _parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
+
+        assert vols == [
+            Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),
+            Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
+            Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
+        ]
+
+
+class TestVolume:
+    """Unit tests for Volume dataclass and serialization."""
+
+    def test_from_api_response_camel_case(self) -> None:
+        vol = Volume(type="model", source="gpt2", mountPath="/data", readOnly=True)
+        assert vol.type == "model"
+        assert vol.source == "gpt2"
+        assert vol.mount_path == "/data"
+        assert vol.read_only is True
+
+    def test_from_python_snake_case(self) -> None:
+        vol = Volume(type="bucket", source="org/b", mount_path="/mnt")
+        assert vol.mount_path == "/mnt"
+        assert vol.read_only is None
+
+    def test_read_only_false_preserved(self) -> None:
+        vol = Volume(type="bucket", source="org/b", mountPath="/mnt", readOnly=False)
+        assert vol.read_only is False
+
+    def test_missing_mount_path_raises(self) -> None:
+        with pytest.raises(KeyError):
+            Volume(type="model", source="gpt2")
+
+    def test_optional_fields(self) -> None:
+        vol = Volume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
+        assert vol.revision == "v1.0"
+        assert vol.path == "subdir"
+
+    def test_serialize_in_job_spec(self) -> None:
+        vols = [Volume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
+        )
+        assert len(spec["volumes"]) == 1
+        assert spec["volumes"][0] == {"type": "dataset", "source": "org/ds", "mountPath": "/data", "readOnly": True}
+
+    def test_serialize_no_volumes(self) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None
+        )
+        assert "volumes" not in spec
+
+    def test_serialize_optional_fields(self) -> None:
+        vols = [Volume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
+        spec = _create_job_spec(
+            image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
+        )
+        assert spec["volumes"][0]["revision"] == "main"
+        assert spec["volumes"][0]["path"] == "subdir"
 
 
 class TestWebhooksCommand:
@@ -3159,6 +3321,127 @@ class TestJsonShorthand:
             passed_args = mock_exec.call_args[1].get("args") or mock_exec.call_args[0][1]
             assert "--json" in passed_args, f"Expected --json to be passed through, got {passed_args}"
             assert "--format" not in passed_args, f"--json was rewritten to --format: {passed_args}"
+
+
+class TestRepoTypePrefix:
+    """Test the repo type prefix shorthand that rewrites e.g. spaces/user/repo to user/repo --type space."""
+
+    def test_spaces_prefix_on_download(self, runner: CliRunner) -> None:
+        """spaces/user/repo should be rewritten to user/repo --type space."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_datasets_prefix_on_download(self, runner: CliRunner) -> None:
+        """datasets/user/repo should be rewritten to user/repo --type dataset."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "datasets/user/my-dataset"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-dataset"
+        assert kwargs["repo_type"] == "dataset"
+
+    def test_models_prefix_on_download(self, runner: CliRunner) -> None:
+        """models/user/repo should be rewritten to user/repo --type model."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", "models/user/my-model"])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-model"
+        assert kwargs["repo_type"] == "model"
+
+    def test_prefix_and_explicit_type_errors(self, runner: CliRunner) -> None:
+        """Using both a prefix and --type should raise an error."""
+        result = runner.invoke(app, ["download", "spaces/user/my-space", "--type", "dataset"])
+        assert result.exit_code != 0
+        assert "Ambiguous" in result.output
+
+    def test_prefix_and_explicit_repo_type_errors(self, runner: CliRunner) -> None:
+        """Using both a prefix and --repo-type should raise an error."""
+        result = runner.invoke(app, ["download", "spaces/user/my-space", "--repo-type", "dataset"])
+        assert result.exit_code != 0
+        assert "Ambiguous" in result.output
+
+    def test_no_prefix_unchanged(self, runner: CliRunner) -> None:
+        """Normal repo IDs (without prefix) should work as before."""
+        with patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock:
+            result = runner.invoke(app, ["download", DUMMY_MODEL_ID])
+        assert result.exit_code == 0, result.output
+        kwargs = snapshot_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["repo_type"] == "model"
+
+    def test_prefix_on_nested_command(self, runner: CliRunner) -> None:
+        """Prefix should work on nested subcommands like `repos settings`."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value  # noqa: B018
+            result = runner.invoke(app, ["repos", "settings", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_repo_settings.assert_called_once()
+        kwargs = api_cls.return_value.update_repo_settings.call_args.kwargs
+        assert kwargs["repo_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_not_applied_on_command_without_type(self, runner: CliRunner) -> None:
+        """Commands that don't accept --type should not be affected by the prefix."""
+        # `models ls` doesn't have --type, so spaces/... should be treated as a literal argument.
+        # This should fail because `spaces/foo/bar` is not a valid option for this command.
+        result = runner.invoke(app, ["models", "ls", "--author", "spaces/foo/bar"])
+        # Should not error with "Ambiguous" since there's no --type option on `models ls`
+        assert "Ambiguous" not in (result.output or "")
+
+    def test_filename_with_prefix_not_rewritten_on_download(self, runner: CliRunner) -> None:
+        """A filename like models/weights/model.safetensors should NOT be mistaken for a prefixed repo ID."""
+        with patch("huggingface_hub.cli.download.hf_hub_download", return_value="path") as download_mock:
+            result = runner.invoke(app, ["download", DUMMY_MODEL_ID, "models/weights/model.safetensors"])
+        assert result.exit_code == 0, result.output
+        kwargs = download_mock.call_args.kwargs
+        assert kwargs["repo_id"] == DUMMY_MODEL_ID
+        assert kwargs["filename"] == "models/weights/model.safetensors"
+        assert kwargs["repo_type"] == "model"
+
+    def test_prefix_on_duplicate_from_id(self, runner: CliRunner) -> None:
+        """spaces/user/repo should be rewritten for `repos duplicate` (from_id param)."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value.duplicate_repo.return_value = type(
+                "RepoUrl",
+                (),
+                {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"},
+            )()
+            result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.duplicate_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/my-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_on_move_both_args(self, runner: CliRunner) -> None:
+        """spaces/ prefix should be rewritten for both from_id and to_id in `repos move`."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "move", "spaces/user/old-space", "spaces/user/new-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.move_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/old-space"
+        assert kwargs["to_id"] == "user/new-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_prefix_on_move_only_from_id(self, runner: CliRunner) -> None:
+        """Prefix on only one of the two positional args should still work."""
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "move", "spaces/user/old-space", "user/new-space"])
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.move_repo.call_args.kwargs
+        assert kwargs["from_id"] == "user/old-space"
+        assert kwargs["to_id"] == "user/new-space"
+        assert kwargs["repo_type"] == "space"
+
+    def test_conflicting_prefixes_error(self, runner: CliRunner) -> None:
+        """Conflicting prefixes on two args should raise an error."""
+        result = runner.invoke(app, ["repos", "move", "spaces/user/repo", "datasets/user/repo"])
+        assert result.exit_code != 0
+        assert "Conflicting" in result.output
 
 
 class TestSkillGeneration:
