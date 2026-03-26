@@ -70,7 +70,7 @@ _SKILL_DESCRIPTION = (
     " Make sure to use this skill whenever the user mentions"
     " 'hf', 'huggingface', 'Hugging Face', 'huggingface-cli', or 'hugging face cli',"
     " or wants to do anything related to the Hugging Face ecosystem and to AI and ML in general."
-    " Also use for non-versioned cloud storage needs like training checkpoints, data pipelines, or agent traces."
+    " Also use for cloud storage needs like training checkpoints, data pipelines, or agent traces."
     " Use even if the user doesn't explicitly ask for a CLI command."
     " Replaces the deprecated `huggingface-cli`."
 )
