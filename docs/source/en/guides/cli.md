@@ -1578,7 +1578,6 @@ Mount a volume on the Job's disk using `-v` or `--volume`.
 You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets) using the `hf://` URL scheme. For example:
 
 * mount a model repository: `-v hf://openai/gpt-oss-120b:/model`
-* mount a model repository (explicit type): `-v hf://models/openai/gpt-oss-120b:/model`
 * mount a dataset repository: `-v hf://datasets/HuggingFaceFW/fineweb:/data`
 * mount a storage bucket: `-v hf://buckets/username/my-bucket:/mnt`
 * mount a space: `-v hf://spaces/username/my-space:/app`
