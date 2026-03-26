@@ -335,7 +335,7 @@ def list_cmd(
 
     if is_file_mode:
         _list_files(
-            argument=argument,  # type: ignore[arg-type]
+            argument=argument,  # type: ignore
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
@@ -960,8 +960,7 @@ def cp(
         raise typer.BadParameter("Stdin upload requires a bucket destination.")
 
     if src_is_stdin and dst_is_bucket:
-        assert dst is not None
-        _, prefix = _parse_bucket_path(dst)
+        _, prefix = _parse_bucket_path(dst)  # type: ignore
         if prefix == "" or prefix.endswith("/"):
             raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
 
@@ -1022,7 +1021,7 @@ def cp(
 
     elif src_is_stdin:
         # Upload from stdin
-        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore
         data = sys.stdin.buffer.read()
 
         if quiet:
@@ -1041,7 +1040,7 @@ def cp(
         if not os.path.isfile(src):
             raise typer.BadParameter(f"Source file not found: {src}")
 
-        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore
 
         if prefix == "":
             remote_path = os.path.basename(src)

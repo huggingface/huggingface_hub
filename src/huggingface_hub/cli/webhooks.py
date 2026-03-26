@@ -90,7 +90,7 @@ def _parse_watch(values: list[str]) -> list[WebhookWatchedItem]:
         kind, name = v.split(":", 1)
         if kind not in valid_types:
             raise typer.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
-        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore[arg-type]
+        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore
     return items
 
 

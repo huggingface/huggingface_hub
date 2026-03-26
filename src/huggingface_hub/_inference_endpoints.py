@@ -161,7 +161,7 @@ class InferenceEndpoint:
 
         return InferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     @property
@@ -183,7 +183,7 @@ class InferenceEndpoint:
 
         return AsyncInferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":

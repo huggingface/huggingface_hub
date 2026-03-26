@@ -22,10 +22,11 @@ import re
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, TypeVar, Union, cast
 
 import click
 import typer
+from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
@@ -77,6 +78,7 @@ Learn more
 
 TOPIC_T = Union[Literal["main", "help"], str]
 FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
+ExpandPropertyT = TypeVar("ExpandPropertyT", bound=str)
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -90,7 +92,7 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-class HFCliTyperGroup(typer.core.TyperGroup):
+class HFCliTyperGroup(TyperGroup):
     """
     Typer Group that:
     - lists commands alphabetically within sections.
@@ -223,7 +225,7 @@ class HFCliTyperGroup(typer.core.TyperGroup):
         # Apply all rewrites and append --type once.
         for arg_index, new_value in rewrites:
             args[arg_index] = new_value
-        args.extend(["--type", inferred_type])  # type: ignore[list-item]
+        args.extend(["--type", inferred_type])  # type: ignore
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
@@ -321,13 +323,13 @@ def fallback_typer_group_factory(
     return FallbackTyperGroup
 
 
-def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
+def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[TyperCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     return type(
         f"TyperCommand{topic.capitalize()}",
-        (typer.core.TyperCommand,),
+        (TyperCommand,),
         {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
     )
 
@@ -335,7 +337,7 @@ def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[t
 class HFCliApp(typer.Typer):
     """Custom Typer app for Hugging Face CLI."""
 
-    def command(  # type: ignore[override]
+    def command(  # type: ignore
         self,
         name: Optional[str] = None,
         *,
@@ -375,9 +377,7 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(
-    help: str, epilog: Optional[str] = None, cls: Optional[type[typer.core.TyperGroup]] = None
-) -> "HFCliApp":
+def typer_factory(help: str, epilog: Optional[str] = None, cls: Optional[type[TyperGroup]] = None) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
@@ -687,10 +687,10 @@ def api_object_to_dict(info: Any) -> dict[str, Any]:
     return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
-def make_expand_properties_parser(valid_properties: list[str]):
+def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
     """Create a callback to parse and validate comma-separated expand properties."""
 
-    def _parse_expand_properties(value: Optional[str]) -> Optional[list[str]]:
+    def _parse_expand_properties(value: Optional[str]) -> Optional[list[ExpandPropertyT]]:
         if value is None:
             return None
         properties = [p.strip() for p in value.split(",")]
@@ -699,7 +699,7 @@ def make_expand_properties_parser(valid_properties: list[str]):
                 raise typer.BadParameter(
                     f"Invalid expand property: '{prop}'. Valid values are: {', '.join(valid_properties)}"
                 )
-        return properties
+        return [cast(ExpandPropertyT, prop) for prop in properties]
 
     return _parse_expand_properties
 

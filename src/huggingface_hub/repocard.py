@@ -767,7 +767,7 @@ def metadata_update(
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
         # Cast to the concrete expected card type to satisfy type checkers.
-        card = card_class.from_template(CardData())  # type: ignore[return-value]
+        card = card_class.from_template(CardData())  # type: ignore
 
     for key, value in metadata.items():
         if key == "model-index":

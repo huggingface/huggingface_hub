@@ -90,7 +90,7 @@ class BaseInferenceType(dict):
 
         # If a list, parse each item individually
         if isinstance(data, list):
-            return [cls.parse_obj(d) for d in data]  # type: ignore [misc]
+            return [cls.parse_obj(d) for d in data]  # type: ignore
 
         # At this point, we expect a dict
         if not isinstance(data, dict):

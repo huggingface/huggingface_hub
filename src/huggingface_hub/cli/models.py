@@ -106,7 +106,7 @@ def models_ls(
             num_parameters=num_parameters,
             sort=sort_key,
             limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
@@ -128,7 +128,7 @@ def models_info(
     """Get info about a model on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
-        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore[arg-type]
+        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore
     except RepositoryNotFoundError as e:
         raise CLIError(f"Model '{model_id}' not found.") from e
     except RevisionNotFoundError as e:
