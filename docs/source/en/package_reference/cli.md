@@ -42,6 +42,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
+* `update`: Update the huggingface_hub CLI to the...
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
@@ -3486,6 +3487,20 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `-v, --verbose`: Show detailed logging with reasoning.
 * `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf update`
+
+Update the huggingface_hub CLI to the latest version.
+
+**Usage**:
+
+```console
+$ hf update [OPTIONS]
+```
+
+**Options**:
+
 * `--help`: Show this message and exit.
 
 ## `hf upload`
