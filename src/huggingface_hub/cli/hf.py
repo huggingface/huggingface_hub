@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import traceback
 from typing import Annotated, Optional
@@ -21,6 +22,7 @@ import typer
 from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
+from huggingface_hub.cli._output import is_agent_output
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
@@ -107,7 +109,17 @@ app.add_typer(extensions_cli, name="extensions | ext")
 def main():
     if not constants.HF_DEBUG:
         logging.set_verbosity_info()
-    check_cli_update("huggingface_hub")
+
+    _agent = is_agent_output()
+
+    if _agent:
+        # Suppress noisy features for agent consumers: update check, progress bars
+        from huggingface_hub.utils import disable_progress_bars
+
+        disable_progress_bars()
+        os.environ.setdefault("NO_COLOR", "1")
+    else:
+        check_cli_update("huggingface_hub")
 
     try:
         app()
@@ -117,7 +129,7 @@ def main():
             print(f"Error: {message}", file=sys.stderr)
             if constants.HF_DEBUG:
                 traceback.print_exc()
-            else:
+            elif not _agent:
                 print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
             sys.exit(1)
         raise

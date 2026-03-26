@@ -194,6 +194,10 @@ CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 # as curl commands for reproducibility.
 HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
 
+# When set, the CLI produces compact, machine-readable output optimised for LLM agents
+# (no ANSI codes, no progress bars, no decorative formatting).
+HF_CLI_AGENT_OUTPUT = _is_true(os.environ.get("HF_CLI_AGENT_OUTPUT"))
+
 # Opt-out from telemetry requests
 HF_HUB_DISABLE_TELEMETRY = (
     _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable

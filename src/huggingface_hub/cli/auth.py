@@ -41,6 +41,7 @@ from huggingface_hub.hf_api import whoami
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import ANSI, get_stored_tokens, get_token, logging
 from ._cli_utils import FormatOpt, OutputFormat, TokenOpt, typer_factory
+from ._output import CLIOutput, is_agent_output
 
 
 logger = logging.get_logger(__name__)
@@ -161,8 +162,10 @@ def auth_whoami(
             print("Not logged in")
         raise typer.Exit()
     info = whoami(token)
-    if format == OutputFormat.json:
-        print(json.dumps(info, indent=2, default=str))
+    if format == OutputFormat.json or is_agent_output():
+        out = CLIOutput()
+        out.json(info)
+        out.flush()
     else:
         print(ANSI.bold("user: "), info["name"])
         orgs = [org["name"] for org in info["orgs"]]

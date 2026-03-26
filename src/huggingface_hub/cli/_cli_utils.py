@@ -620,14 +620,21 @@ def print_as_table(
         row_fn: Function that takes an item dict and returns a list of string values for each column.
         alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
+    from ._output import is_agent_output
+
     if not items:
-        print("No results found.")
+        print("No results found." if not is_agent_output() else "EMPTY")
         return
     rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    screaming_headers = [_to_header(h) for h in headers]
-    # Remap alignments keys to screaming case to match tabulate headers
-    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
+    if is_agent_output():
+        # Compact TSV for agents — easier to parse, fewer tokens
+        print("\t".join(headers))
+        for row in rows:
+            print("\t".join(str(c) for c in row))
+    else:
+        screaming_headers = [_to_header(h) for h in headers]
+        screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+        print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
 
 
 def print_list_output(
@@ -641,6 +648,9 @@ def print_list_output(
 ) -> None:
     """Print list command output in the specified format.
 
+    In agent mode (``HF_CLI_AGENT_OUTPUT=1``), JSON output is compact (no
+    indentation) and table output uses tab-separated values for easy parsing.
+
     Args:
         items: Sequence of dictionaries representing the items to display.
         format: Output format (table or json).
@@ -650,13 +660,18 @@ def print_list_output(
         row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
         alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
+    from ._output import is_agent_output
+
     if quiet:
         for item in items:
             print(item[id_key])
         return
 
     if format == OutputFormat.json:
-        print(json.dumps(list(items), indent=2, default=str))
+        if is_agent_output():
+            print(json.dumps(list(items), default=str, separators=(",", ":")))
+        else:
+            print(json.dumps(list(items), indent=2, default=str))
         return
 
     if headers is None:
@@ -713,6 +728,7 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
 
     If a newer version is found, notify the user and suggest updating.
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
+    The check is skipped entirely when agent output mode is active (``HF_CLI_AGENT_OUTPUT=1``).
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
     during the check is caught and logged, to avoid breaking the CLI.
@@ -720,6 +736,10 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     Args:
         library: The library to check for updates. Currently supports "huggingface_hub" and "transformers".
     """
+    from ._output import is_agent_output
+
+    if is_agent_output():
+        return
     try:
         _check_cli_update(library)
     except Exception:

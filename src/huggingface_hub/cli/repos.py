@@ -49,6 +49,7 @@ from ._cli_utils import (
     parse_env_map,
     typer_factory,
 )
+from ._output import CLIOutput, is_agent_output
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -172,8 +173,13 @@ def repo_create(
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
-    print(f"Successfully created {ANSI.bold(repo_url.repo_id)} on the Hub.")
-    print(f"Your repo is now available at {ANSI.bold(repo_url)}")
+    out = CLIOutput()
+    out.success(
+        "Repo created",
+        repo_id=repo_url.repo_id,
+        url=str(repo_url),
+    )
+    out.flush()
 
 
 @repos_cli.command(
@@ -225,8 +231,14 @@ def repo_duplicate(
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
     )
-    print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
-    print(f"Your repo is now available at {ANSI.bold(repo_url)}")
+    out = CLIOutput()
+    out.success(
+        "Repo duplicated",
+        from_id=from_id,
+        repo_id=repo_url.repo_id,
+        url=str(repo_url),
+    )
+    out.flush()
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])
@@ -248,7 +260,9 @@ def repo_delete(
         repo_type=repo_type.value,
         missing_ok=missing_ok,
     )
-    print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
+    out = CLIOutput()
+    out.success("Repo deleted", repo_id=repo_id)
+    out.flush()
 
 
 @repos_cli.command("move", examples=["hf repos move old-namespace/my-model new-namespace/my-model"])
@@ -265,7 +279,9 @@ def repo_move(
         to_id=to_id,
         repo_type=repo_type.value,
     )
-    print(f"Successfully moved {ANSI.bold(from_id)} to {ANSI.bold(to_id)} on the Hub.")
+    out = CLIOutput()
+    out.success("Repo moved", from_id=from_id, to_id=to_id)
+    out.flush()
 
 
 @repos_cli.command(
@@ -298,7 +314,9 @@ def repo_settings(
         visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         repo_type=repo_type.value,
     )
-    print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
+    out = CLIOutput()
+    out.success("Settings updated", repo_id=repo_id)
+    out.flush()
 
 
 @repos_cli.command(
@@ -350,7 +368,9 @@ def repo_delete_files(
         commit_description=commit_description,
         create_pr=create_pr,
     )
-    print(f"Files correctly deleted from repo. Commit: {url}.")
+    out = CLIOutput()
+    out.success("Files deleted", repo_id=repo_id, commit_url=str(url))
+    out.flush()
 
 
 @branch_cli.command(
@@ -387,7 +407,9 @@ def branch_create(
         repo_type=repo_type.value,
         exist_ok=exist_ok,
     )
-    print(f"Successfully created {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+    out = CLIOutput()
+    out.success("Branch created", branch=branch, repo_type=repo_type.value, repo_id=repo_id)
+    out.flush()
 
 
 @branch_cli.command("delete", examples=["hf repos branch delete my-model dev"])
@@ -409,7 +431,9 @@ def branch_delete(
         branch=branch,
         repo_type=repo_type.value,
     )
-    print(f"Successfully deleted {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+    out = CLIOutput()
+    out.success("Branch deleted", branch=branch, repo_type=repo_type.value, repo_id=repo_id)
+    out.flush()
 
 
 @tag_cli.command(
@@ -442,7 +466,8 @@ def tag_create(
     """Create a tag for a repo."""
     repo_type_str = repo_type.value
     api = get_hf_api(token=token)
-    print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
+    if not is_agent_output():
+        print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
         api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
     except RepositoryNotFoundError as e:
@@ -453,7 +478,9 @@ def tag_create(
         if e.response.status_code == 409:
             raise CLIError(f"Tag '{tag}' already exists on '{repo_id}'.") from e
         raise
-    print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
+    out = CLIOutput()
+    out.success("Tag created", tag=tag, repo_id=repo_id, repo_type=repo_type_str)
+    out.flush()
 
 
 @tag_cli.command("list | ls", examples=["hf repos tag list my-model"])
@@ -472,7 +499,8 @@ def tag_list(
     if len(refs.tags) == 0:
         print("No tags found")
         raise typer.Exit(code=0)
-    print(f"Tags for {repo_type_str} {ANSI.bold(repo_id)}:")
+    if not is_agent_output():
+        print(f"Tags for {repo_type_str} {ANSI.bold(repo_id)}:")
     for t in refs.tags:
         print(t.name)
 
@@ -499,8 +527,9 @@ def tag_delete(
 ) -> None:
     """Delete a tag for a repo."""
     repo_type_str = repo_type.value
-    print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
-    if not yes:
+    if not is_agent_output():
+        print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
+    if not yes and not is_agent_output():
         choice = input("Proceed? [Y/n] ").lower()
         if choice not in ("", "y", "yes"):
             print("Abort")
@@ -512,4 +541,6 @@ def tag_delete(
         raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
-    print(f"Tag {ANSI.bold(tag)} deleted on {ANSI.bold(repo_id)}")
+    out = CLIOutput()
+    out.success("Tag deleted", tag=tag, repo_id=repo_id, repo_type=repo_type_str)
+    out.flush()
