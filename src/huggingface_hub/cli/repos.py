@@ -30,6 +30,7 @@ from typing import Annotated, Optional
 
 import typer
 
+from huggingface_hub import SpaceHardware, SpaceStorage
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import ANSI
 
@@ -76,7 +77,7 @@ class GatedChoices(str, enum.Enum):
 
 
 SpaceHardwareOpt = Annotated[
-    Optional[str],
+    Optional[SpaceHardware],
     typer.Option(
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
@@ -84,7 +85,7 @@ SpaceHardwareOpt = Annotated[
 ]
 
 SpaceStorageOpt = Annotated[
-    Optional[str],
+    Optional[SpaceStorage],
     typer.Option(
         "--storage",
         help="Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
@@ -149,8 +150,8 @@ def repo_create(
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
         space_sdk=space_sdk,
-        space_hardware=hardware,  # type: ignore[arg-type]
-        space_storage=storage,  # type: ignore[arg-type]
+        space_hardware=hardware,
+        space_storage=storage,
         space_sleep_time=sleep_time,
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
@@ -200,8 +201,8 @@ def repo_duplicate(
         private=private,
         token=token,
         exist_ok=exist_ok,
-        space_hardware=hardware,  # type: ignore[arg-type]
-        space_storage=storage,  # type: ignore[arg-type]
+        space_hardware=hardware,
+        space_storage=storage,
         space_sleep_time=sleep_time,
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
@@ -277,7 +278,7 @@ def repo_settings(
     api = get_hf_api(token=token)
     api.update_repo_settings(
         repo_id=repo_id,
-        gated=(gated.value if gated else None),  # type: ignore [arg-type]
+        gated=(None if gated is None else False if gated is GatedChoices.false else gated.value),
         private=private,
         repo_type=repo_type.value,
     )

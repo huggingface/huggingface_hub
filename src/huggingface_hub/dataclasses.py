@@ -152,7 +152,7 @@ def strict(
             # If validation passed, set the attribute
             original_setattr(self, name, value)
 
-        cls.__setattr__ = __strict_setattr__  # type: ignore[method-assign]
+        cls.__setattr__ = __strict_setattr__  # type: ignore
 
         if accept_kwargs:
             # (optional) Override __init__ to accept arbitrary keyword arguments
@@ -193,7 +193,7 @@ def strict(
 
                 self.__post_init__(**additional_kwargs)
 
-            cls.__init__ = __init__  # type: ignore[method-assign]
+            cls.__init__ = __init__  # type: ignore
 
             # Define a default __post_init__ if not defined
             if not hasattr(cls, "__post_init__"):
@@ -226,7 +226,7 @@ def strict(
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
             if cls.__dataclass_params__.repr is True:  # type: ignore [attr-defined]
-                cls.__repr__ = __repr__  # type: ignore [method-assign]
+                cls.__repr__ = __repr__  # type: ignore
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
@@ -245,7 +245,7 @@ def strict(
                 )
             class_validators.append(method)
 
-        cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
+        cls.__class_validators__ = class_validators  # type: ignore
 
         # Add `validate` method to the class, but first check if it already exists
         def validate(self: T) -> None:
