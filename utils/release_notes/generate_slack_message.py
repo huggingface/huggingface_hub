@@ -27,11 +27,11 @@ OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 # Each entry: (display_label, slack_mention, repo_name_or_None)
 # repo_name=None means no CI link (e.g., lighteval has no automated HF Hub testing branch)
 DEFAULT_PING_LIST: list[tuple[str, str, str | None]] = [
-    ("transformers", "@Yih-Dar SHIEH", "transformers"),
-    ("datasets", "@Quentin Lhoest", "datasets"),
-    ("diffusers", "@Sayak Paul", "diffusers"),
-    ("lighteval", "@Nathan", None),
-    ("sentence-transformers", "@Tom Aarsen", "sentence-transformers"),
+    ("transformers", "@U01JNPUN1ML", "transformers"),  # Yih-Dar
+    ("datasets", "@U011YKS85FY", "datasets"),  # Quentin
+    ("diffusers", "@U03AU4E7DJB", "diffusers"),  # Sayak
+    ("lighteval", "@U04MZDFL8DD", None),  # Nathan
+    ("sentence-transformers", "@U04E4DNPWG7", "sentence-transformers"),  # Tom
 ]
 
 
@@ -51,14 +51,10 @@ def build_ping_section(
     if ping_list is None:
         ping_list = DEFAULT_PING_LIST
 
-    # Branch name used by the test-downstream job
-    branch_name = f"ci-test-huggingface-hub-{rc_version}-release"
-
     lines = ["Pinging:"]
     for label, mention, repo in ping_list:
         if repo is not None:
-            url = f"https://github.com/huggingface/{repo}/compare/main...{branch_name}"
-            lines.append(f"- for {label} {mention} => {url}")
+            lines.append(f"- for {label} {mention} => link")
         else:
             lines.append(f"- for {label} {mention}")
 
