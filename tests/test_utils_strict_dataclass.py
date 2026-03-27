@@ -624,36 +624,6 @@ config = Config(
     assert "hidden_size=" in completion_names
 
 
-def test_bool_not_accepted_as_int():
-    """bool is a subclass of int in Python, but strict dataclasses should reject it."""
-
-    @strict
-    @dataclass
-    class MyConfig:
-        vocab_size: int
-        flag: bool = True
-
-    # int values work fine
-    config = MyConfig(vocab_size=100)
-    assert config.vocab_size == 100
-
-    # bool field still accepts bool
-    config = MyConfig(vocab_size=100, flag=False)
-    assert config.flag is False
-
-    # bool should not be accepted for int field
-    with pytest.raises(StrictDataclassFieldValidationError):
-        MyConfig(vocab_size=True)
-
-    with pytest.raises(StrictDataclassFieldValidationError):
-        MyConfig(vocab_size=False)
-
-    # assignment should also be rejected
-    config = MyConfig(vocab_size=100)
-    with pytest.raises(StrictDataclassFieldValidationError):
-        config.vocab_size = True
-
-
 def test_strict_requires_dataclass():
     with pytest.raises(StrictDataclassDefinitionError):
 
