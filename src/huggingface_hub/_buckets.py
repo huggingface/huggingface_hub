@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
 from . import constants, logging
 from .errors import BucketNotFoundError
 from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
+from .utils._hf_uri import parse_hf_url
 from .utils._terminal import StatusLine
 
 
@@ -56,12 +57,8 @@ def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
     Returns (bucket_id, prefix) where prefix may be empty string.
     Raises ValueError if path doesn't contain at least namespace/name.
     """
-    parts = path.split("/", 2)
-    if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
+    parsed = parse_hf_url(f"buckets/{path}")
+    return parsed.bucket_id, parsed.path
 
 
 @dataclass
@@ -242,9 +239,8 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
     Returns:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
     """
-    if not path.startswith(BUCKET_PREFIX):
-        raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    parsed = parse_hf_url(path)
+    return parsed.bucket_id, parsed.path
 
 
 def _is_bucket_path(path: str) -> bool:

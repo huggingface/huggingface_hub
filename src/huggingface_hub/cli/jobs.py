@@ -78,6 +78,7 @@ from huggingface_hub import SpaceHardware, constants
 from huggingface_hub._jobs_api import Volume
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._hf_uri import ParsedBucketUrl, parse_hf_url
 from huggingface_hub.utils._cache_manager import _format_size
 
 from ._cli_utils import (
@@ -1099,12 +1100,6 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
         return None
 
     HF_PREFIX = "hf://"
-    HF_TYPES_MAPPING = {
-        "models": constants.REPO_TYPE_MODEL,
-        "datasets": constants.REPO_TYPE_DATASET,
-        "spaces": constants.REPO_TYPE_SPACE,
-        "buckets": "bucket",
-    }
 
     result: list[Volume] = []
     for raw_spec in volumes:
@@ -1124,45 +1119,29 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
                 f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
                 f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
             )
-        spec = spec[len(HF_PREFIX) :]
 
         # Find the mount path: look for :/ pattern
-        colon_slash_idx = spec.find(":/")
+        # We search in the part after "hf://" to avoid matching the "://" in the prefix.
+        after_prefix = spec[len(HF_PREFIX) :]
+        colon_slash_idx = after_prefix.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
                 f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
             )
-        source_part = spec[:colon_slash_idx]
-        mount_path = spec[colon_slash_idx + 1 :]
+        source_uri = HF_PREFIX + after_prefix[:colon_slash_idx]
+        mount_path = after_prefix[colon_slash_idx + 1 :]
 
-        # Parse type from source_part (first segment before /)
-        # Then split remaining into source (namespace/name or name) and optional path.
-        slash_idx = source_part.find("/")
-        if slash_idx == -1:
-            # No slash: bare source like "gpt2" -> model type
-            vol_type_str = constants.REPO_TYPE_MODEL
-            source = source_part
-            path = None
+        # Parse the source URI using the central parser.
+        parsed = parse_hf_url(source_uri)
+
+        if isinstance(parsed, ParsedBucketUrl):
+            vol_type_str = "bucket"
+            source = parsed.bucket_id
+            path = parsed.path or None
         else:
-            first_segment = source_part[:slash_idx]
-            if first_segment in HF_TYPES_MAPPING:
-                vol_type_str = HF_TYPES_MAPPING[first_segment]
-                remaining = source_part[slash_idx + 1 :]
-            else:
-                # First segment isn't a known type -> model type
-                vol_type_str = constants.REPO_TYPE_MODEL
-                remaining = source_part
-
-            # Split remaining into source (namespace/name) and optional path.
-            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
-            # Any extra segments are the path inside the repo/bucket.
-            parts = remaining.split("/", 2)
-            if len(parts) >= 3:
-                source = parts[0] + "/" + parts[1]
-                path = parts[2]
-            else:
-                source = remaining
-                path = None
+            vol_type_str = parsed.repo_type
+            source = parsed.repo_id
+            path = parsed.path_in_repo or None
 
         result.append(
             Volume(

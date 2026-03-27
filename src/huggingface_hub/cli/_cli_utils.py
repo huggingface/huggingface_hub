@@ -33,6 +33,7 @@ from typer.core import TyperCommand, TyperGroup
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
+from huggingface_hub.utils._hf_uri import parse_hf_url
 
 
 logger = logging.get_logger()
@@ -201,16 +202,16 @@ class HFCliTyperGroup(TyperGroup):
         rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
 
         for arg_index in repo_id_arg_indices:
-            parts = args[arg_index].split("/", 2)
-            if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
+            parsed = parse_hf_url(args[arg_index])
+            if not parsed.has_explicit_type:
                 continue
-            prefix = parts[0]
-            mapped_type = constants.REPO_TYPES_MAPPING[prefix]
-            if inferred_type is not None and mapped_type != inferred_type:
-                raise click.UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
-            inferred_type = mapped_type
-            first_prefix = prefix
-            rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))
+            if inferred_type is not None and parsed.repo_type != inferred_type:
+                raise click.UsageError(
+                    f"Conflicting repo type prefixes: '{first_prefix}/' and '{args[arg_index].split('/', 1)[0]}/'."
+                )
+            inferred_type = parsed.repo_type
+            first_prefix = args[arg_index].split("/", 1)[0]
+            rewrites.append((arg_index, parsed.repo_id))
 
         if not rewrites:
             return
