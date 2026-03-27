@@ -13,6 +13,11 @@ and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
 This page will guide you through all environment variables specific to `huggingface_hub`
 and their meaning.
 
+> [!TIP]
+> All environment variables are read at import time of `huggingface_hub`. Any modification
+> made afterwards will not be taken into account. Make sure to set your environment variables
+> before importing `huggingface_hub`.
+
 ## Generic
 
 ### HF_INFERENCE_ENDPOINT
