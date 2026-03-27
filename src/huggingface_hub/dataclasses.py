@@ -514,9 +514,12 @@ def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate Literal type."""
-    if value not in args:
-        raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    """Validate Literal type.
+
+    Uses strict matching: both value and type must match (e.g. True != 1, False != 0).
+    """
+    if not any(value is arg or (value == arg and type(value) is type(arg)) for arg in args):
+        raise TypeError(f"Field '{name}' expected one of {args}, got {value!r}")
 
 
 def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:

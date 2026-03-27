@@ -231,6 +231,8 @@ def test_custom_validator_must_be_callable():
         # Literal
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
+        (True, Literal[True, False]),
+        (False, Literal[True, False]),
         # List
         ([1, 2, 3], list[int]),
         ([1, 2, "3"], list[Union[int, str]]),
@@ -310,6 +312,10 @@ def test_type_validator_valid(value, type_annotation):
         # Literal
         ("Ada", Literal["John", "Doe"]),
         (3, Literal[4, 5, 6]),
+        (True, Literal[1, 2, 3]),
+        (False, Literal[0, 1, 2]),
+        (1, Literal[True, False]),
+        (0, Literal[True, False]),
         # List
         (5, list[int]),
         ([1, 2, "3"], list[int]),
