@@ -154,6 +154,23 @@ The advantages are:
 
 If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.
 
+## Showcase repository boilerplate checklist
+
+We periodically audit community-run gallery repositories to ensure each project ships with the same baseline experience: a discoverable repo card, a README that links back to the official domain, and the correct logo assets. When reviewing or creating one of these showcases, confirm the following:
+
+- The repository metadata references the official Space or website domain.
+- A README is present with up-to-date boilerplate instructions and the correct logo.
+- The logo assets are checked into the repository under a `assets/` (or similar) directory and are referenced from the README.
+
+| Showcase | Repository slug | Official domain | Hugging Face Space |
+| --- | --- | --- | --- |
+| Goldshore | `goldshore/showcase` | https://goldshore.ai | https://huggingface.co/spaces/goldshore |
+| GearSwipe | `gearswipe/showcase` | https://gearswipe.app | https://huggingface.co/spaces/gearswipe |
+| Armsway | `armsway/showcase` | https://armsway.ai | https://huggingface.co/spaces/armsway |
+| RMarston | `rmarston/showcase` | https://rmarston.io | https://huggingface.co/spaces/rmarston |
+
+Update the table above whenever a showcase domain changes so downstream boilerplate stays consistent across READMEs and logos.
+
 ## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜🧡❤️
 
 Everyone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.
