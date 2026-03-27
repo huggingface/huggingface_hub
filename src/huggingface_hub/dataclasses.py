@@ -468,7 +468,7 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
-    if expected_type is None:
+    elif expected_type is None:
         _validate_none(name, value)
     elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
