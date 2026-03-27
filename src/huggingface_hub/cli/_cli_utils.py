@@ -746,16 +746,17 @@ _TOOL_AGENTS: tuple[tuple[tuple[str, ...], str], ...] = (
 
 
 def detect_agent() -> Optional[str]:
-    """Return the name of the detected AI agent or None if no agent is detected.
+    """Return the name of the detected AI agent or ``None``.
 
     Checks environment variables in priority order and returns on the first
-    match.  When ``AI_AGENT`` or ``AGENT`` is set, its (trimmed) value is used
-    as the agent name directly.
+    match.  When ``AI_AGENT`` or ``AGENT`` is set, the value is checked against
+    known agent names, unrecognized values are returned as ``"unknown"``.
     """
+    known = {agent for _, agent in _TOOL_AGENTS}
     for var in _STANDARD_AGENT_VARS:
         name = os.environ.get(var, "").strip()
         if name:
-            return name
+            return name if name in known else "unknown"
 
     for env_vars, agent_name in _TOOL_AGENTS:
         if any(os.environ.get(var) for var in env_vars):
