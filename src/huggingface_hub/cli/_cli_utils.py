@@ -727,21 +727,22 @@ _STANDARD_AGENT_VARS: tuple[str, ...] = ("AI_AGENT", "AGENT")
 # signal takes priority when both ``CLAUDE_CODE`` and ``CLAUDE_CODE_IS_COWORK``
 # are set.
 _TOOL_AGENTS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("ANTIGRAVITY_AGENT",), "antigravity"),
+    (("AUGMENT_AGENT",), "augment-cli"),
+    (("CLINE_ACTIVE",), "cline"),
+    (("CLAUDE_CODE_IS_COWORK",), "cowork"),
+    (("CLAUDECODE", "CLAUDE_CODE"), "claude-code"),
+    (("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"), "codex"),
     (("CURSOR_TRACE_ID",), "cursor"),
     (("CURSOR_AGENT",), "cursor-cli"),
     (("GEMINI_CLI",), "gemini"),
-    (("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"), "codex"),
-    (("ANTIGRAVITY_AGENT",), "antigravity"),
-    (("AUGMENT_AGENT",), "augment-cli"),
-    (("OPENCODE_CLIENT",), "opencode"),
-    (("CLAUDE_CODE_IS_COWORK",), "cowork"),
-    (("CLAUDECODE", "CLAUDE_CODE"), "claude-code"),
-    (("REPL_ID",), "replit"),
     (("COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"), "github-copilot"),
-    (("CLINE_ACTIVE",), "cline"),
+    (("GOOSE_TERMINAL",), "goose"),
+    (("OPENCLAW_SHELL",), "openclaw"),
+    (("OPENCODE_CLIENT",), "opencode"),
+    (("REPL_ID",), "replit"),
     (("ROO_ACTIVE",), "roo-code"),
     (("TRAE_AI_SHELL_ID",), "trae"),
-    (("GOOSE_TERMINAL",), "goose"),
 )
 
 
