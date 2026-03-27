@@ -38,7 +38,7 @@ class NebiusConversationalTask(BaseConversationalTask):
         if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
             json_schema_details = response_format.get("json_schema")
             if isinstance(json_schema_details, dict) and "schema" in json_schema_details:
-                payload["guided_json"] = json_schema_details["schema"]  # type: ignore [index]
+                payload["guided_json"] = json_schema_details["schema"]  # type: ignore
         return payload
 
 

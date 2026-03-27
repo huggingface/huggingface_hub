@@ -44,7 +44,7 @@ Create an empty repository with [`create_repo`] and give it a name with the `rep
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-model
+>>> hf repos create lysandre/test-model
 Successfully created lysandre/test-model on the Hub.
 Your repo is now available at https://huggingface.co/lysandre/test-model
 ```
@@ -60,7 +60,7 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-dataset --repo-type dataset
+>>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
 When you create a repository, you can set your repository visibility with the `private` parameter.
@@ -73,7 +73,7 @@ When you create a repository, you can set your repository visibility with the `p
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-private --private
+>>> hf repos create lysandre/test-private --private
 ```
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
@@ -94,19 +94,25 @@ Specify the `repo_id` of the repository you want to delete:
 Or via CLI:
 
 ```bash
->>> hf repo delete lysandre/my-corrupted-dataset --repo-type dataset
+>>> hf repos delete lysandre/my-corrupted-dataset --repo-type dataset
 ```
 
-### Duplicate a repository (only for Spaces)
+### Duplicate a repository
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
-This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
-You will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
+This is possible using the [`duplicate_repo`] method. It will duplicate the whole repository, preserving the full git history.
+This works for models, datasets, and Spaces. For Spaces, you will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
 
 ```py
->>> from huggingface_hub import duplicate_space
->>> duplicate_space("multimodalart/dreambooth-training", private=False)
+>>> from huggingface_hub import duplicate_repo
+
+# Duplicate a Space
+>>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", private=False)
 RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+# Duplicate a dataset
+>>> duplicate_repo("openai/gdpval", repo_type="dataset")
+RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
 ## Upload and download files
@@ -140,11 +146,11 @@ You can create new branch and tags using [`create_branch`] and [`create_tag`]:
 Or via CLI:
 
 ```bash
->>> hf repo branch create Matthijs/speecht5-tts-demo handle-dog-speaker --repo-type space
->>> hf repo tag create bigcode/the-stack v0.1.1 --repo-type dataset --revision v0.1-release -m "Bump release version."
+>>> hf repos branch create Matthijs/speecht5-tts-demo handle-dog-speaker --repo-type space
+>>> hf repos tag create bigcode/the-stack v0.1.1 --repo-type dataset --revision v0.1-release -m "Bump release version."
 ```
 
-You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag, or `hf repo branch delete` and `hf repo tag delete` respectively in CLI.
+You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag, or `hf repos branch delete` and `hf repos tag delete` respectively in CLI.
 
 
 ### List all branches and tags
@@ -186,7 +192,7 @@ A repository can be public or private. A private repository is only visible to y
 Or via CLI:
 
 ```bash
->>> hf repo settings lysandre/test-private --private true
+>>> hf repos settings lysandre/test-private --private true
 ```
 
 ### Setup gated access
@@ -205,13 +211,13 @@ You can set a repo as gated using [`update_repo_settings`]:
 Or via CLI:
 
 ```bash
->>> hf repo settings lysandre/test-private --gated auto
+>>> hf repos settings lysandre/test-private --gated auto
 ```
 
 ### Rename your repository
 
 You can rename your repository on the Hub using [`move_repo`]. Using this method, you can also move the repo from a user to
-an organization. When doing so, there are a [few limitations](https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo)
+an organization. When doing so, there are a [few limitations](https://hf.cos/docs/hub/repositories-settings#renaming-or-transferring-a-repo)
 that you should be aware of. For example, you can't transfer your repo to another user.
 
 ```py
@@ -222,5 +228,5 @@ that you should be aware of. For example, you can't transfer your repo to anothe
 Or via CLI:
 
 ```bash
->>> hf repo move Wauplin/cool-model huggingface/cool-model
+>>> hf repos move Wauplin/cool-model huggingface/cool-model
 ```

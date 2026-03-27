@@ -172,6 +172,30 @@ rendered properly in your Markdown viewer.
 
 
 
+## image_text_to_image[[huggingface_hub.ImageTextToImageInput]]
+
+[[autodoc]] huggingface_hub.ImageTextToImageInput
+
+[[autodoc]] huggingface_hub.ImageTextToImageOutput
+
+[[autodoc]] huggingface_hub.ImageTextToImageParameters
+
+[[autodoc]] huggingface_hub.ImageTextToImageTargetSize
+
+
+
+## image_text_to_video[[huggingface_hub.ImageTextToVideoInput]]
+
+[[autodoc]] huggingface_hub.ImageTextToVideoInput
+
+[[autodoc]] huggingface_hub.ImageTextToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageTextToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageTextToVideoTargetSize
+
+
+
 ## image_to_image[[huggingface_hub.ImageToImageInput]]
 
 [[autodoc]] huggingface_hub.ImageToImageInput

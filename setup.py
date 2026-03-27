@@ -13,24 +13,22 @@ def get_version() -> str:
     raise RuntimeError("Unable to find version string.")
 
 
+# hf-xet version used in both install_requires and extras["hf_xet"]
+HF_XET_VERSION = "hf-xet>=1.4.2,<2.0.0"
+
 install_requires = [
-    "filelock",
+    "filelock>=3.10.0",
     "fsspec>=2023.5.0",
-    "hf-xet>=1.1.3,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
     "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
-    "shellingham",
     "tqdm>=4.42.1",
-    "typer-slim",
-    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
+    "typer",
+    "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
 extras = {}
-
-extras["inference"] = [
-    "aiohttp",  # for AsyncInferenceClient
-]
 
 extras["oauth"] = [
     "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
@@ -49,16 +47,12 @@ extras["fastai"] = [
     "fastcore>=1.3.27",
 ]
 
-extras["hf_xet"] = ["hf-xet>=1.1.3,<2.0.0"]
+extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["mcp"] = [
-    "mcp>=1.8.0",
-    "typer",
-] + extras["inference"]
+extras["mcp"] = ["mcp>=1.8.0"]
 
 extras["testing"] = (
-    extras["inference"]
-    + extras["oauth"]
+    extras["oauth"]
     + [
         "jedi",
         "Jinja2",
@@ -73,8 +67,8 @@ extras["testing"] = (
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "requests",  # for gradio
         "numpy",  # for embeddings
+        "duckdb",  # for datasets SQL end-to-end tests
         "fastapi",  # To build the documentation
     ]
 )
@@ -82,8 +76,10 @@ extras["testing"] = (
 if sys.version_info >= (3, 10):
     # We need gradio to test webhooks server
     # But gradio 5.0+ only supports python 3.10+ so we don't want to test earlier versions
-    extras["testing"].append("gradio>=5.0.0")
-    extras["testing"].append("requests")  # see https://github.com/gradio-app/gradio/pull/11830
+    extras["gradio"] = [
+        "gradio>=5.0.0",
+        "requests",  # see https://github.com/gradio-app/gradio/pull/11830
+    ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
@@ -116,7 +112,7 @@ setup(
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
-    license="Apache",
+    license="Apache-2.0",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
     packages=find_packages("src"),
@@ -143,6 +139,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

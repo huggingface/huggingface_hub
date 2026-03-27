@@ -60,7 +60,7 @@ def login(
     token: Optional[str] = None,
     *,
     add_to_git_credential: bool = False,
-    skip_if_logged_in: bool = False,
+    skip_if_logged_in: bool = True,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -90,8 +90,9 @@ def login(
             is configured, a warning will be displayed to the user. If `token` is `None`,
             the value of `add_to_git_credential` is ignored and will be prompted again
             to the end user.
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -123,7 +124,7 @@ def logout(token_name: Optional[str] = None) -> None:
 
     Args:
         token_name (`str`, *optional*):
-            Name of the access token to logout from. If `None`, will logout from all saved access tokens.
+            Name of the access token to logout from. If `None`, will log out from all saved access tokens.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the access token name is not found.
@@ -192,7 +193,11 @@ def auth_list() -> None:
     tokens = get_stored_tokens()
 
     if not tokens:
-        logger.info("No access tokens found.")
+        if _get_token_from_environment():
+            logger.info("No stored access tokens found.")
+            logger.warning("Note: Environment variable `HF_TOKEN` is set and is the current active token.")
+        else:
+            logger.info("No access tokens found.")
         return
     # Find current token
     current_token = get_token()
@@ -228,7 +233,7 @@ def auth_list() -> None:
 ###
 
 
-def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -239,11 +244,12 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     For more details, see [`login`].
 
     Args:
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
-    if not skip_if_logged_in and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     print(_HF_LOGO_ASCII)
@@ -290,7 +296,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login(*, skip_if_logged_in: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -301,8 +307,9 @@ def notebook_login(*, skip_if_logged_in: bool = False) -> None:
     For more details, see [`login`].
 
     Args:
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -312,8 +319,8 @@ def notebook_login(*, skip_if_logged_in: bool = False) -> None:
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not skip_if_logged_in and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")

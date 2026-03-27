@@ -4,6 +4,9 @@ rendered properly in your Markdown viewer.
 # Run and manage Jobs
 
 The Hugging Face Hub provides compute for AI and data workflows via Jobs.
+
+**For a general overview of Jobs and pricing, see the [Hub Jobs documentation](https://huggingface.co/docs/hub/jobs).**
+
 A job runs on Hugging Face infrastructure and are defined with a command to run (e.g. a python command), a Docker Image from Hugging Face Spaces or Docker Hub, and a hardware flavor (CPU, GPU, TPU). This guide will show you how to interact with Jobs on the Hub, especially:
 
 - Run a job.
@@ -25,7 +28,7 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:3.12 python -c "print('Hello world!')"
+>>> hf jobs run python:3.12 python -c "print('Hello world')"
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
@@ -101,7 +104,7 @@ https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a
 687f911eaea852de79c4a50a
 ```
 
-Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status and [`fetch_job_logs`] to view the logs.
+Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status, [`fetch_job_logs`] to view the logs and [`fetch_job_metrics`] to monitor resources usage.
 
 ## Check Job status
 
@@ -125,6 +128,21 @@ JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22,
 >>> for log in fetch_job_logs(job_id=job_id):
 ...     print(log)
 Hello from the cloud!
+
+# View resources usage metrics from a job
+>>> from huggingface_hub import fetch_job_metrics
+>>> for metrics in fetch_job_metrics(job_id=job_id):
+...     print(metrics)
+{
+    "cpu_usage_pct": 0,
+    "cpu_millicores": 2000,
+    "memory_used_bytes": 929792,
+    "memory_total_bytes": 17179869184,
+    "rx_bps": 0,
+    "tx_bps": 0,
+    "gpus": {},
+    "replica": "4dzsh"
+}
 
 # Cancel a job
 >>> from huggingface_hub import cancel_job
@@ -172,7 +190,7 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-Use this to run a fine tuning script like [trl/scripts/sft.py](https://github.com/huggingface/trl/blob/main/trl/scripts/sft.py) with UV:
+Use this to run a fine-tuning script like [trl/scripts/sft.py](https://github.com/huggingface/trl/blob/main/trl/scripts/sft.py) with UV:
 
 ```python
 >>> from huggingface_hub import run_uv_job
@@ -197,6 +215,42 @@ Available `flavor` options:
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
 That's it! You're now running code on Hugging Face's infrastructure.
+
+## Mount a volume
+
+Mount a volume on the Jobs's disk using a list of [`Volume`].
+
+You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets). For example:
+
+* mount a model repository: `Volume(type="model", source="openai/gpt-oss-120b", mount_path="/model")`
+* mount a dataset repository: `Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")`
+* mount a storage bucket: `Volume(type="bucket", source="username/my-bucket", mount_path="/mnt")`
+
+Then you can use the mounted volume as a local directory:
+
+```python
+>>> from huggingface_hub import run_job, Volume
+>>> job = run_job(
+...     image="duckdb/duckdb",
+...     command=["duckdb", "-c", "SELECT * FROM '/data/**/*.parquet' LIMIT 5"],
+...     volumes=[Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")],
+... )
+```
+
+You can also write to a mounted bucket, for example, to save checkpoints when training a model:
+
+```python
+>>> from huggingface_hub import run_uv_job, Volume
+>>> script = "my_sft.py"
+>>> script_args = ["--output_dir", "/training-outputs/training-v3-final", ...]
+>>> checkpoints_bucket = Volume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
+>>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
+```
+
+By default, mounted storage buckets have read+write abilities.
+This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
+
+Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
 
 ## Configure Job Timeout
 
@@ -301,8 +355,49 @@ You can pass environment variables to your job using `env` and `secrets`:
 ... )
 ```
 
+### Built-in Environment Variables
 
-### UV Scripts (Experimental)
+Inside the job container, the following environment variables are automatically available:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
+| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
+| `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
+
+```python
+# Access job environment information
+>>> from huggingface_hub import run_job
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", """
+... import os
+... print(f"Job ID: {os.environ.get('JOB_ID')}")
+... print(f"Accelerator: {os.environ.get('ACCELERATOR', 'none')}")
+... print(f"CPU cores: {os.environ.get('CPU_CORES')}")
+... print(f"Memory: {os.environ.get('MEMORY')}")
+... """],
+... )
+```
+
+These variables are useful when you need to create unique identifiers for outputs, adapt your code based on available hardware, or log resource information.
+
+## Labels
+
+Labels are a key=value pairs that applies metadata to a Job:
+
+```python
+# Pass extra metadata with Labels
+>>> from huggingface_hub import run_job
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", "import os; print(os.environ['MY_SECRET'])"],
+...     labels={"my-label": "my-value", "foo": "bar"},
+... )
+```
+
+## UV Scripts (Experimental)
 
 > [!TIP]
 > Looking for ready-to-use UV scripts? Check out the [uv-scripts organization](https://huggingface.co/uv-scripts) on the Hugging Face Hub, which offers a community collection of UV scripts for tasks like model training, synthetic data generation, data processing, and more.

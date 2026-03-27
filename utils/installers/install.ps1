@@ -18,8 +18,12 @@ Enables verbose output, including detailed pip logs.
 .PARAMETER NoModifyPath
 Skips PATH modifications; `hf` must be invoked via its full path unless you add it manually.
 
+.PARAMETER WithTransformers
+Also install the transformers CLI.
+
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
+powershell -c "irm https://hf.co/cli/install.ps1 | iex" -WithTransformers
 #>
 
 <#
@@ -27,13 +31,13 @@ powershell -c "irm https://hf.co/cli/install.ps1 | iex"
 Environment variables:
   HF_HOME           Installation base directory; installer uses $env:HF_HOME\cli when set
   HF_CLI_BIN_DIR    Directory for the hf wrapper (default: $env:USERPROFILE\.local\bin)
-  HF_CLI_VERSION    Install a specific huggingface_hub version (default: latest)
 #>
 
 param(
     [switch]$Force = $false,
     [switch]$Verbose,
-    [switch]$NoModifyPath
+    [switch]$NoModifyPath,
+    [switch]$WithTransformers = $false
 )
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
@@ -234,32 +238,82 @@ function New-VirtualEnvironment {
     if (-not $?) { throw "Failed to upgrade pip" }
 }
 
-function Install-HuggingFaceHub {
-    $packageSpec = 'huggingface_hub'
-    $requestedVersion = $env:HF_CLI_VERSION
-    if ($requestedVersion) {
-        $packageSpec = "huggingface_hub==$requestedVersion"
-        Write-Log "Installing The Hugging Face CLI (version $requestedVersion)..."
-    } else {
-        Write-Log "Installing The Hugging Face CLI (latest)..."
-    }
+function Install-Package {
+    param([string]$PackageSpec)
+
     if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
 
-    # Allow optional pip arguments via HF_CLI_PIP_ARGS/HF_PIP_ARGS env vars
     $extraArgsRaw = if ($env:HF_CLI_PIP_ARGS) { $env:HF_CLI_PIP_ARGS } else { $env:HF_PIP_ARGS }
-    $pipArgs = @('-m', 'pip', 'install', '--upgrade')
-    if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
-        $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
-        Write-Log "(pip output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs)"
-    }
-    $pipArgs += $packageSpec
+
     if ($extraArgsRaw) {
-        Write-Log "Passing extra pip arguments: $extraArgsRaw"
-        $pipArgs += $extraArgsRaw -split '\s+'
+        Write-Log "Passing extra arguments: $extraArgsRaw"
     }
 
-    & $script:VenvPython @pipArgs
-    if (-not $?) { throw "Failed to install huggingface_hub" }
+    if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+        Write-Log "Installation output suppressed; set HF_CLI_VERBOSE_PIP=1 for full logs"
+    }
+
+    # Check if uv is available and use it for faster installation
+    if (Test-Command "uv") {
+        Write-Log "Using uv for faster installation"
+        $uvArgs = @('pip', 'install', '--python', $script:VenvPython, '--upgrade')
+
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $uvArgs += '--quiet'
+        }
+
+        $uvArgs += $PackageSpec
+
+        if ($extraArgsRaw) {
+            $uvArgs += $extraArgsRaw -split '\s+'
+        }
+
+        & uv @uvArgs
+        if (-not $?) { throw "Failed to install $PackageSpec with uv" }
+    }
+    else {
+        $pipArgs = @('-m', 'pip', 'install', '--upgrade')
+
+        if ($env:HF_CLI_VERBOSE_PIP -ne '1') {
+            $pipArgs += @('--quiet', '--progress-bar', 'off', '--disable-pip-version-check')
+        }
+
+        $pipArgs += $PackageSpec
+
+        if ($extraArgsRaw) {
+            $pipArgs += $extraArgsRaw -split '\s+'
+        }
+
+        & $script:VenvPython @pipArgs
+        if (-not $?) { throw "Failed to install $PackageSpec" }
+    }
+}
+
+function Install-HuggingFaceHub {
+    Write-Log "Installing/upgrading Hugging Face CLI (latest)..."
+
+    Install-Package -PackageSpec 'huggingface_hub'
+}
+
+function Test-TransformersInstalled {
+    # Use importlib.metadata for speed (avoids loading the full transformers module)
+    if (-not $script:VenvPython) { $script:VenvPython = Join-Path $SCRIPTS_DIR "python.exe" }
+    try {
+        & $script:VenvPython -c "import importlib.metadata; importlib.metadata.version('transformers')" 2>&1 | Out-Null
+        return $?
+    } catch {
+        return $false
+    }
+}
+
+function Install-Transformers {
+    # Install if -WithTransformers was passed OR if transformers is already in the venv
+    if (-not $WithTransformers -and -not (Test-TransformersInstalled)) {
+        return
+    }
+
+    Write-Log "Installing/upgrading transformers CLI (latest)..."
+    Install-Package -PackageSpec 'transformers'
 }
 
 function Publish-HfCommand {
@@ -347,8 +401,8 @@ function Show-UninstallInfo {
     Write-Log ""
     Write-Log "To uninstall the Hugging Face CLI:"
     Write-Log "  Remove-Item -Path '$HF_CLI_DIR' -Recurse -Force"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf.exe'"
-    Write-Log "  Remove-Item -Path '$BIN_DIR\\hf-script.py' (if present)"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf.exe'"
+    Write-Log "  Remove-Item -Path '$BIN_DIR\hf-script.py' (if present)"
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
@@ -363,7 +417,7 @@ function Show-UninstallInfo {
 function Show-Usage {
     Write-Log ''
     Write-Log 'Usage examples:'
-    Write-Log '  hf login'
+    Write-Log '  hf auth login'
     Write-Log '  hf download deepseek-ai/DeepSeek-R1'
     Write-Log '  hf jobs run python:3.12 python -c ''print("Hello from HF CLI!")'''
     Write-Log ''
@@ -385,6 +439,7 @@ function Main {
         New-Directories
         New-VirtualEnvironment -PythonCmd $pythonCmd
         Install-HuggingFaceHub
+        Install-Transformers
         Publish-HfCommand
         if ($NoModifyPath) {
             Write-Log 'Skipping PATH modification (--no-modify-path).'
@@ -396,11 +451,9 @@ function Main {
             $hfExecutable = Join-Path $BIN_DIR "hf.exe"
             Show-Usage
             Show-UninstallInfo
-            $requestedVersion = if ($env:HF_CLI_VERSION) { $env:HF_CLI_VERSION } else { 'latest' }
             Write-Log "hf CLI ready!" "SUCCESS"
             Write-Log "Binary: $hfExecutable"
             Write-Log "Virtualenv: $HF_CLI_DIR"
-            Write-Log "CLI version: $requestedVersion"
         } else {
             throw "Installation verification failed"
         }

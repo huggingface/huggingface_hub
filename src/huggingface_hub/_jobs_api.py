@@ -15,11 +15,49 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
 from huggingface_hub.utils._datetime import parse_datetime
+
+
+@dataclass
+class Volume:
+    """
+    Describes a volume to mount in a Job container.
+
+    Args:
+        type (`str`):
+            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
+        source (`str`):
+            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
+        mount_path (`str`):
+            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
+        revision (`str` or `None`):
+            Git revision (only for repos, defaults to `"main"`).
+        read_only (`bool` or `None`):
+            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
+        path (`str` or `None`):
+            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
+    """
+
+    type: Literal["bucket", "model", "dataset", "space"]
+    source: str
+    mount_path: str
+    revision: Optional[str] = None
+    read_only: Optional[bool] = None
+    path: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs.get("type", "model")
+        self.source = kwargs["source"]
+        mount_path = kwargs.get("mountPath")
+        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
+        self.revision = kwargs.get("revision")
+        read_only = kwargs.get("readOnly")
+        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
+        self.path = kwargs.get("path")
 
 
 class JobStage(str, Enum):
@@ -82,6 +120,10 @@ class JobInfo:
         flavor (`str` or `None`):
             Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
             E.g. `"cpu-basic"`.
+        labels (`dict[str, str]` or `None`):
+            Labels to attach to the job (key-value pairs).
+        volumes (`list[Volume]` or `None`):
+            Volumes mounted in the job container (buckets, models, datasets, spaces).
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
@@ -97,7 +139,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -116,6 +158,8 @@ class JobInfo:
     environment: Optional[dict[str, Any]]
     secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
+    labels: Optional[dict[str, str]]
+    volumes: Optional[list[Volume]]
     status: JobStatus
     owner: JobOwner
 
@@ -136,6 +180,9 @@ class JobInfo:
         self.environment = kwargs.get("environment")
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
+        self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
@@ -156,6 +203,8 @@ class JobSpec:
     timeout: Optional[int]
     tags: Optional[list[str]]
     arch: Optional[str]
+    labels: Optional[dict[str, str]]
+    volumes: Optional[list[Volume]]
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -168,6 +217,9 @@ class JobSpec:
         self.timeout = kwargs.get("timeout")
         self.tags = kwargs.get("tags")
         self.arch = kwargs.get("arch")
+        self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
 
 
 @dataclass
@@ -260,6 +312,94 @@ class ScheduledJobInfo:
         self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
 
 
+@dataclass
+class JobAccelerator:
+    """
+    Contains information about a Job accelerator (GPU).
+
+    Args:
+        type (`str`):
+            Type of accelerator, e.g. `"gpu"`.
+        model (`str`):
+            Model of accelerator, e.g. `"T4"`, `"A10G"`, `"A100"`, `"L4"`, `"L40S"`.
+        quantity (`str`):
+            Number of accelerators, e.g. `"1"`, `"2"`, `"4"`, `"8"`.
+        vram (`str`):
+            Total VRAM, e.g. `"16 GB"`, `"24 GB"`.
+        manufacturer (`str`):
+            Manufacturer of the accelerator, e.g. `"Nvidia"`.
+    """
+
+    type: str
+    model: str
+    quantity: str
+    vram: str
+    manufacturer: str
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs["type"]
+        self.model = kwargs["model"]
+        self.quantity = kwargs["quantity"]
+        self.vram = kwargs["vram"]
+        self.manufacturer = kwargs["manufacturer"]
+
+
+@dataclass
+class JobHardware:
+    """
+    Contains information about available Job hardware.
+
+    Args:
+        name (`str`):
+            Machine identifier, e.g. `"cpu-basic"`, `"a10g-large"`.
+        pretty_name (`str`):
+            Human-readable name, e.g. `"CPU Basic"`, `"Nvidia A10G - large"`.
+        cpu (`str`):
+            CPU specification, e.g. `"2 vCPU"`, `"12 vCPU"`.
+        ram (`str`):
+            RAM specification, e.g. `"16 GB"`, `"46 GB"`.
+        accelerator (`JobAccelerator` or `None`):
+            GPU/accelerator details if available.
+        unit_cost_micro_usd (`int`):
+            Cost in micro-dollars per unit, e.g. `167` (= $0.000167).
+        unit_cost_usd (`float`):
+            Cost in USD per unit, e.g. `0.000167`.
+        unit_label (`str`):
+            Cost unit period, e.g. `"minute"`.
+
+    Example:
+
+    ```python
+    >>> from huggingface_hub import list_jobs_hardware
+    >>> hardware_list = list_jobs_hardware()
+    >>> hardware_list[0]
+    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+    >>> hardware_list[0].name
+    'cpu-basic'
+    ```
+    """
+
+    name: str
+    pretty_name: str
+    cpu: str
+    ram: str
+    accelerator: Optional[JobAccelerator]
+    unit_cost_micro_usd: int
+    unit_cost_usd: float
+    unit_label: str
+
+    def __init__(self, **kwargs) -> None:
+        self.name = kwargs["name"]
+        self.pretty_name = kwargs["prettyName"]
+        self.cpu = kwargs["cpu"]
+        self.ram = kwargs["ram"]
+        accelerator = kwargs.get("accelerator")
+        self.accelerator = JobAccelerator(**accelerator) if accelerator else None
+        self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]
+        self.unit_cost_usd = kwargs["unitCostUSD"]
+        self.unit_label = kwargs["unitLabel"]
+
+
 def _create_job_spec(
     *,
     image: str,
@@ -268,6 +408,8 @@ def _create_job_spec(
     secrets: Optional[dict[str, Any]],
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
+    labels: Optional[dict[str, str]] = None,
+    volumes: Optional[list[Volume]] = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -286,6 +428,22 @@ def _create_job_spec(
             job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
         else:
             job_spec["timeoutSeconds"] = int(timeout)
+    # labels are optional
+    if labels:
+        job_spec["labels"] = labels
+    # volumes are optional
+    if volumes:
+        job_spec["volumes"] = [
+            {
+                "type": vol.type,
+                "source": vol.source,
+                "mountPath": vol.mount_path,
+                **({"revision": vol.revision} if vol.revision is not None else {}),
+                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
+                **({"path": vol.path} if vol.path is not None else {}),
+            }
+            for vol in volumes
+        ]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

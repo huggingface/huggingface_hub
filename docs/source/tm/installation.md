@@ -13,19 +13,19 @@
 முதலில், உங்கள் திட்ட அடைவரிசையில் (project directory) ஒரு மெய்நிகர் சூழலை உருவாக்கத் தொடங்குங்கள்:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 மெய்நிகர் சூழலை செயல்படுத்தவும். Linux மற்றும் macOS-இல்:
 
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 விண்டோஸ்-இல் மெய்நிகர் சூழலை செயல்படுத்த:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 இப்போது நீங்கள் `huggingface_hub`-ஐ [PyPi பதிவகத்திலிருந்து](https://pypi.org/project/huggingface-hub/) நிறுவ தயாராக இருக்கிறீர்கள்.

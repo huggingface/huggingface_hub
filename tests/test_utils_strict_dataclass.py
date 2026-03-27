@@ -1,7 +1,7 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Literal, Optional, TypedDict, Union, get_type_hints
+from typing import Annotated, Any, Literal, Optional, Sequence, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
@@ -82,6 +82,36 @@ class Config:
 class ConfigWithKwargs:
     model_type: str
     vocab_size: int = validated_field(validator=positive_int, default=16)
+
+
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithKwargsAndPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """Custom __post_init__ that also accepts additional kwargs."""
+        for name, value in kwargs.items():
+            setattr(self, name.upper(), value)  # store additional kwargs in uppercase (just for testing)
+
+
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithRequiresKwargsInPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """
+        Custom __post_init__ that accepts additional kwargs and expects `encoder` to be in kwargs.
+        """
+        if kwargs.get("encoder") is None:
+            raise ValueError("Encoder must be present to init a config class!")
+
+        self.encoder = kwargs.pop("encoder")["model_type"]
+        for name, value in kwargs.items():
+            setattr(self, name, value)  # store additional kwargs in uppercase (just for testing)
 
 
 class DummyClass:
@@ -185,13 +215,16 @@ def test_custom_validator_must_be_callable():
         (5, int),
         (5.0, float),
         ("John", str),
-        # Union types
+        # Union types (typing.Union)
         (5, Union[int, str]),
         ("John", Union[int, str]),
         # Optional
         (5, Optional[int]),
         (None, Optional[int]),
         (DummyClass(), Optional[DummyClass]),
+        # None type
+        (None, None),
+        (None, type(None)),  # types.NoneType only in 3.10+
         # Literal
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
@@ -208,6 +241,17 @@ def test_custom_validator_must_be_callable():
         # Set
         ({1, 2, 3}, set[int]),
         ({1, 2, "3"}, set[Union[int, str]]),
+        # Sequence (accepts list, tuple, str, etc.)
+        ([1, 2, 3], Sequence[int]),
+        ((1, 2, 3), Sequence[int]),
+        ("abc", Sequence[str]),  # str is a Sequence of str
+        ([1, 2, "3"], Sequence[Union[int, str]]),
+        ((1, 2, "3"), Sequence[Union[int, str]]),
+        # Sequence without type parameter (accepts any sequence)
+        ([1, 2, 3], Sequence),
+        ((1, 2, "3"), Sequence),
+        ("abc", Sequence),
+        ([], Sequence),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -246,10 +290,13 @@ def test_type_validator_valid(value, type_annotation):
         (5, float),
         (5.0, int),
         ("John", int),
-        # Union types
+        # Union types (typing.Union)
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
+        # None type
+        (4, None),
+        (4, type(None)),  # types.NoneType only in 3.10+
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),
@@ -270,6 +317,14 @@ def test_type_validator_valid(value, type_annotation):
         # Set
         (5, set[int]),
         ({1, 2, "3"}, set[int]),
+        # Sequence
+        (5, Sequence[int]),  # not a sequence
+        ({1, 2, 3}, Sequence[int]),  # set is not a sequence
+        ([1, 2, "3"], Sequence[int]),  # wrong item type
+        ((1, 2, "3"), Sequence[int]),  # wrong item type in tuple
+        # Sequence without type parameter
+        (5, Sequence),  # not a sequence
+        ({1, 2, 3}, Sequence),  # set is not a sequence
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
@@ -278,6 +333,28 @@ def test_type_validator_valid(value, type_annotation):
 def test_type_validator_invalid(value, type_annotation):
     with pytest.raises(TypeError):
         type_validator("dummy", value, type_annotation)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
+def test_type_union_type():
+    # TODO: make it first class citizen when bumping to Python 3.10+
+    # Union types (x | y syntax)
+    for value, type_annotation in [
+        (5, int | str),
+        ("John", int | str),
+        (None, int | None),
+        (DummyClass(), DummyClass | int | None),
+    ]:
+        type_validator("dummy", value, type_annotation)
+
+    for value, type_annotation in [
+        (5.0, int | str),
+        (None, int | str),
+        (DummyClass(), int | str),
+        ("str", DummyClass | int | None),
+    ]:
+        with pytest.raises(TypeError):
+            type_validator("dummy", value, type_annotation)
 
 
 class DummyValidator:
@@ -354,6 +431,29 @@ def test_do_not_accept_kwargs():
         Config(model_type="bert", vocab_size=30000)
 
 
+def test_post_init_with_kwargs():
+    config = ConfigWithKwargsAndPostInit(model_type="bert", vocab_size=30000, extra_param="extra_value")
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.EXTRA_PARAM == "extra_value"  # stored in uppercase by custom __post_init__
+
+
+def test_post_init_with_required_kwargs():
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000, encoder={"model_type": "t5"})
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.encoder == "t5"
+
+    with pytest.raises(ValueError):
+        ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000)
+
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", encoder={"model_type": "t5"})
+    assert config.vocab_size == 16  # default value
+
+    with pytest.raises(TypeError, match="Missing required field - 'model_type'"):
+        config = ConfigWithRequiresKwargsInPostInit(encoder={"model_type": "t5"})
+
+
 def test_is_recognized_as_dataclass():
     # Check that dataclasses module recognizes it as a dataclass
     assert is_dataclass(Config)
@@ -417,6 +517,19 @@ def test_correct_eq_repr():
 def test_repr_if_accept_kwargs():
     config1 = ConfigWithKwargs(foo="bar", model_type="bert")
     assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
+
+
+def test_custom_repr_preserved_when_repr_false():
+    @strict(accept_kwargs=True)
+    @dataclass(repr=False)
+    class MyClass:
+        x: int
+
+        def __repr__(self):
+            return f"CustomRepr(x={self.x})"
+
+    obj = MyClass(x=1, extra=2)
+    assert repr(obj) == "CustomRepr(x=1)"
 
 
 def test_autocompletion_attribute_without_kwargs():

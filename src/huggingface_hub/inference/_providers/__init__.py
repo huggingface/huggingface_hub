@@ -13,6 +13,7 @@ from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -36,13 +37,27 @@ from .nebius import (
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
+from .nvidia import NvidiaConversationalTask
 from .openai import OpenAIConversationalTask
+from .ovhcloud import OVHcloudConversationalTask
 from .publicai import PublicAIConversationalTask
-from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
+from .replicate import (
+    ReplicateAutomaticSpeechRecognitionTask,
+    ReplicateImageToImageTask,
+    ReplicateTask,
+    ReplicateTextToImageTask,
+    ReplicateTextToSpeechTask,
+)
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-from .zai_org import ZaiConversationalTask
+from .wavespeed import (
+    WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
+from .zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 
 logger = logging.get_logger(__name__)
@@ -62,12 +77,15 @@ PROVIDER_T = Literal[
     "nebius",
     "novita",
     "nscale",
+    "nvidia",
     "openai",
+    "ovhcloud",
     "publicai",
     "replicate",
     "sambanova",
     "scaleway",
     "together",
+    "wavespeed",
     "zai-org",
 ]
 
@@ -95,6 +113,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-video": FalAITextToVideoTask(),
         "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
+        "image-segmentation": FalAIImageSegmentationTask(),
     },
     "featherless-ai": {
         "conversational": FeatherlessConversationalTask(),
@@ -154,13 +173,20 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": NscaleConversationalTask(),
         "text-to-image": NscaleTextToImageTask(),
     },
+    "nvidia": {
+        "conversational": NvidiaConversationalTask(),
+    },
     "openai": {
         "conversational": OpenAIConversationalTask(),
+    },
+    "ovhcloud": {
+        "conversational": OVHcloudConversationalTask(),
     },
     "publicai": {
         "conversational": PublicAIConversationalTask(),
     },
     "replicate": {
+        "automatic-speech-recognition": ReplicateAutomaticSpeechRecognitionTask(),
         "image-to-image": ReplicateImageToImageTask(),
         "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
@@ -179,8 +205,15 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": TogetherConversationalTask(),
         "text-generation": TogetherTextGenerationTask(),
     },
+    "wavespeed": {
+        "text-to-image": WavespeedAITextToImageTask(),
+        "text-to-video": WavespeedAITextToVideoTask(),
+        "image-to-image": WavespeedAIImageToImageTask(),
+        "image-to-video": WavespeedAIImageToVideoTask(),
+    },
     "zai-org": {
         "conversational": ZaiConversationalTask(),
+        "text-to-image": ZaiTextToImageTask(),
     },
 }
 

@@ -27,6 +27,7 @@ from .utils import (
     fetch_xet_connection_info_from_repo_info,
     get_session,
     hf_raise_for_status,
+    http_backoff,
     logging,
     sha,
     tqdm_stream_file,
@@ -635,8 +636,12 @@ def _upload_xet_files(
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
+        xet_headers = headers.copy()
+        xet_headers.pop("authorization", None)
+
         if len(all_paths_ops) > 0:
             all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
+            all_sha256s = [op.upload_info.sha256.hex() for op in all_paths_ops]
             upload_files(
                 all_paths,
                 xet_endpoint,
@@ -644,10 +649,13 @@ def _upload_xet_files(
                 token_refresher,
                 progress_callback,
                 repo_type,
+                request_headers=xet_headers,
+                sha256s=all_sha256s,
             )
 
         if len(all_bytes_ops) > 0:
             all_bytes = [op.path_or_fileobj for op in all_bytes_ops]
+            all_sha256s = [op.upload_info.sha256.hex() for op in all_bytes_ops]
             upload_bytes(
                 all_bytes,
                 xet_endpoint,
@@ -655,6 +663,8 @@ def _upload_xet_files(
                 token_refresher,
                 progress_callback,
                 repo_type,
+                request_headers=xet_headers,
+                sha256s=all_sha256s,
             )
 
     finally:
@@ -739,7 +749,8 @@ def _fetch_upload_modes(
         if gitignore_content is not None:
             payload["gitIgnore"] = gitignore_content
 
-        resp = get_session().post(
+        resp = http_backoff(
+            "POST",
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,

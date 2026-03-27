@@ -6,6 +6,9 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
 
+> [!TIP]
+> This guide covers the Python-specific cache management tools provided by `huggingface_hub`. For a language-agnostic overview of how the Hugging Face Hub cache system works, see the [Hub documentation on local caching](https://huggingface.co/docs/hub/local-cache).
+
 ## File-based caching
 
 The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
@@ -174,7 +177,7 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 ## Chunk-based caching (Xet)
 
-To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/storage-backends).
+To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
 
 The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads. It has the following structure:
 
@@ -201,7 +204,7 @@ Note that the `xet` caching system, like the rest of `hf_xet` is fully integrate
 
 ### `chunk_cache`
 
-This cache is used on the download path. The cache directory structure is based on a base-64 encoded hash from the content-addressed store (CAS) that backs each Xet-enabled repository. A CAS hash serves as the key to lookup the offsets of where the data is stored. 
+This cache is used on the download path. The cache directory structure is based on a base-64 encoded hash from the content-addressed store (CAS) that backs each Xet-enabled repository. A CAS hash serves as the key to lookup the offsets of where the data is stored. Note: as of `hf_xet` 1.2.0 the chunk_cache is disabled by default. To enable it, set the `HF_XET_CHUNK_CACHE_SIZE_BYTES` environment variable to the appropriate size prior to launching the Python process.
 
 At the topmost level, the first two letters of the base 64 encoded CAS hash are used to create a subdirectory in the `chunk_cache` (keys that share these first two letters are grouped here).  The inner levels are comprised of subdirectories with the full key as the directory name. At the base are the cache items which are ranges of blocks that contain the cached chunks.
 
@@ -295,7 +298,7 @@ Example full `xet`cache directory tree:
 │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
-To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/storage-backends).
+To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/xet/index).
 
 ## Caching assets
 
@@ -401,7 +404,7 @@ Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 
 Need machine-friendly output? Use `--format json` to get structured objects or
 `--format csv` for spreadsheets. Alternatively `--quiet` prints only identifiers (one
-per line) so you can pipe them into other tooling. Combine these options with
+per line) so you can pipe them into other tooling. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these options with
 `--cache-dir` when you need to inspect a cache stored outside of `HF_HOME`.
 
 **Filter with common shell tools**
@@ -478,6 +481,26 @@ HFCacheInfo(
     ],
 )
 ```
+
+### Verify your cache
+
+`huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` CLI to validate file consistency for a specific revision of a specific repository:
+
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.2-1B-Instruct
+✅ Verified 13 file(s) for 'meta-llama/Llama-3.2-1B-Instruct' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+Verify a specific cached revision:
+
+```bash
+>>> hf cache verify meta-llama/Llama-3.1-8B-Instruct --revision 0e9e39f249a16976918f6564b8830bc894c89659
+```
+
+> [!TIP]
+> Check the [`hf cache verify` CLI reference](../package_reference/cli#hf-cache-verify) for more details about the usage and a complete list of options.
 
 ### Clean your cache
 

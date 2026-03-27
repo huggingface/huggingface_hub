@@ -129,17 +129,17 @@ class TestValidateUploadLimits(unittest.TestCase):
 
     @patch("huggingface_hub._upload_large_folder.logger")
     def test_very_large_file_warning(self, mock_logger):
-        """Test warning for files exceeding hard limit (50GB)."""
-        # Create a file that's 51 GB
-        size_bytes = 51 * 1_000_000_000
+        """Test warning for files exceeding recommended maximum (200GB)."""
+        # Create a file that's 201 GB
+        size_bytes = 201 * 1_000_000_000
         paths = [self.MockPath("huge_file.bin", size_bytes=size_bytes)]
 
         _validate_upload_limits(paths)
 
-        # Should warn about file exceeding 50GB hard limit
+        # Should warn about file exceeding 200GB recommended maximum
         warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
-        assert any("51.0GB" in call or "51GB" in call for call in warning_calls)
-        assert any("50GB hard limit" in call for call in warning_calls)
+        assert any("201.0GB" in call or "201GB" in call for call in warning_calls)
+        assert any("200GB recommended maximum" in call for call in warning_calls)
 
     @patch("huggingface_hub._upload_large_folder.logger")
     def test_nested_directory_structure(self, mock_logger):

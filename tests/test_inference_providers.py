@@ -22,6 +22,7 @@ from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -44,9 +45,12 @@ from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenera
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
+from huggingface_hub.inference._providers.nvidia import NvidiaConversationalTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
+from huggingface_hub.inference._providers.ovhcloud import OVHcloudConversationalTask
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
 from huggingface_hub.inference._providers.replicate import (
+    ReplicateAutomaticSpeechRecognitionTask,
     ReplicateImageToImageTask,
     ReplicateTask,
     ReplicateTextToSpeechTask,
@@ -54,7 +58,14 @@ from huggingface_hub.inference._providers.replicate import (
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
-from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask
+from huggingface_hub.inference._providers.wavespeed import (
+    WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
+from huggingface_hub.inference._providers.zai_org import _POLLING_INTERVAL as ZAI_POLLING_INTERVAL
+from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 from .testing_utils import assert_in_logs
 
@@ -389,7 +400,7 @@ class TestFalAIProvider:
     def test_automatic_speech_recognition_response(self):
         helper = FalAIAutomaticSpeechRecognitionTask()
         response = helper.get_response({"text": "Hello world"})
-        assert response == "Hello world"
+        assert response == {"text": "Hello world"}
 
         with pytest.raises(ValueError):
             helper.get_response({"text": 123})
@@ -493,13 +504,19 @@ class TestFalAIProvider:
             status="live",
         )
         payload = helper._prepare_payload_as_dict("https://example.com/image.png", {"prompt": "a cat"}, mapping_info)
-        assert payload == {"image_url": "https://example.com/image.png", "prompt": "a cat"}
+        assert payload == {
+            "image_url": "https://example.com/image.png",
+            "image_urls": ["https://example.com/image.png"],
+            "prompt": "a cat",
+        }
 
         payload = helper._prepare_payload_as_dict(
             b"dummy_image_data", {"prompt": "replace the cat with a dog"}, mapping_info
         )
+        expected_url = f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}"
         assert payload == {
-            "image_url": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "image_url": expected_url,
+            "image_urls": [expected_url],
             "prompt": "replace the cat with a dog",
         }
 
@@ -622,6 +639,124 @@ class TestFalAIProvider:
         )
         mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
         assert response == b"video_content"
+
+    def test_image_segmentation_payload(self):
+        helper = FalAIImageSegmentationTask()
+        mapping_info = InferenceProviderMapping(
+            provider="fal-ai",
+            hf_model_id="briaai/RMBG-2.0",
+            providerId="fal-ai/rmbg-2.0",
+            task="image-segmentation",
+            status="live",
+        )
+        payload = helper._prepare_payload_as_dict("https://example.com/image.png", {"threshold": 0.5}, mapping_info)
+        assert payload == {"image_url": "https://example.com/image.png", "threshold": 0.5, "sync_mode": True}
+
+        payload = helper._prepare_payload_as_dict(b"dummy_image_data", {"mask_threshold": 0.8}, mapping_info)
+        assert payload == {
+            "image_url": f"data:image/png;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "mask_threshold": 0.8,
+            "sync_mode": True,
+        }
+
+    def test_image_segmentation_response_with_data_url(self, mocker):
+        """Test image segmentation response when image URL is a data URL."""
+        helper = FalAIImageSegmentationTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        dummy_mask_base64 = base64.b64encode(b"mask_content").decode()
+        data_url = f"data:image/png;base64,{dummy_mask_base64}"
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(json=lambda: {"image": {"url": data_url}}, headers={"Content-Type": "application/json"}),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-segmentation",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called (only status and result, no fetch needed for data URL)
+        assert mock_session.return_value.get.call_count == 2
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
+
+    def test_image_segmentation_response_with_regular_url(self, mocker):
+        """Test image segmentation response when image URL is a regular HTTP URL."""
+        helper = FalAIImageSegmentationTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.fal_ai.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.fal_ai.time.sleep")
+        dummy_mask_base64 = base64.b64encode(b"mask_content").decode()
+        mock_session.return_value.get.side_effect = [
+            # First call: status
+            mocker.Mock(json=lambda: {"status": "COMPLETED"}, headers={"Content-Type": "application/json"}),
+            # Second call: get result
+            mocker.Mock(
+                json=lambda: {"image": {"url": "https://example.com/mask.png"}},
+                headers={"Content-Type": "application/json"},
+            ),
+            # Third call: get mask content
+            mocker.Mock(content=b"mask_content", raise_for_status=lambda: None),
+        ]
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "username/repo_name")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="image-segmentation",
+            model="username/repo_name",
+            data=None,
+            json=None,
+        )
+        response = helper.get_response(
+            b'{"request_id": "test_request_id", "status": "PROCESSING", "response_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id", "status_url": "https://queue.fal.run/username_provider/repo_name_provider/requests/test_request_id/status"}',
+            request_params,
+        )
+
+        # Verify the correct URLs were called (status, result, and mask fetch)
+        assert mock_session.return_value.get.call_count == 3
+        mock_session.return_value.get.assert_has_calls(
+            [
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id/status?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call(
+                    "https://router.huggingface.co/fal-ai/username_provider/repo_name_provider/requests/test_request_id?_subdomain=queue",
+                    headers=request_params.headers,
+                ),
+                mocker.call("https://example.com/mask.png"),
+            ]
+        )
+        mock_sleep.assert_called_once_with(_POLLING_INTERVAL)
+        assert response == [{"label": "mask", "mask": dummy_mask_base64}]
 
 
 class TestFeatherlessAIProvider:
@@ -1297,7 +1432,140 @@ class TestOpenAIProvider:
         assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
 
 
+class TestNvidiaProvider:
+    def test_prepare_hf_url(self):
+        helper = NvidiaConversationalTask()
+        assert helper._prepare_url("hf_token", "private/huggingface/nvidia/nemotron-3-nano-30b-a3b") == (
+            "https://router.huggingface.co/nvidia/v1/chat/completions"
+        )
+
+    def test_prepare_url(self):
+        helper = NvidiaConversationalTask()
+        assert helper._prepare_url("nvapi_XXXXXX", "private/huggingface/nvidia/nemotron-3-nano-30b-a3b") == (
+            "https://integrate.api.nvidia.com/v1/chat/completions"
+        )
+
+
+class TestOVHcloudAIEndpointsProvider:
+    def test_prepare_hf_url_conversational(self):
+        helper = OVHcloudConversationalTask()
+        url = helper._prepare_url("hf_token", "username/repo_name")
+        assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = OVHcloudConversationalTask()
+        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
+        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = OVHcloudConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            {
+                "max_tokens": 512,
+                "temperature": 0.15,
+                "top_p": 1,
+                "presence_penalty": 0,
+                "stream": True,
+            },
+            InferenceProviderMapping(
+                provider="ovhcloud",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="Llama-3.1-8B-Instruct",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "max_tokens": 512,
+            "messages": [
+                {"content": "You are a helpful assistant", "role": "system"},
+                {"role": "user", "content": "Hello!"},
+            ],
+            "model": "Llama-3.1-8B-Instruct",
+            "presence_penalty": 0,
+            "stream": True,
+            "temperature": 0.15,
+            "top_p": 1,
+        }
+
+    def test_prepare_route_conversational(self):
+        helper = OVHcloudConversationalTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
+
+
 class TestReplicateProvider:
+    def test_automatic_speech_recognition_payload(self):
+        helper = ReplicateAutomaticSpeechRecognitionTask()
+
+        mapping_info = InferenceProviderMapping(
+            provider="replicate",
+            hf_model_id="openai/whisper-large-v3",
+            providerId="openai/whisper-large-v3",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/audio.mp3",
+            {"language": "en"},
+            mapping_info,
+        )
+
+        assert payload == {"input": {"audio": "https://example.com/audio.mp3", "language": "en"}}
+
+        mapping_with_version = InferenceProviderMapping(
+            provider="replicate",
+            hf_model_id="openai/whisper-large-v3",
+            providerId="openai/whisper-large-v3:123",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+
+        audio_bytes = b"dummy-audio"
+        encoded_audio = base64.b64encode(audio_bytes).decode()
+
+        payload = helper._prepare_payload_as_dict(
+            audio_bytes,
+            {},
+            mapping_with_version,
+        )
+
+        assert payload == {
+            "input": {"audio": f"data:audio/wav;base64,{encoded_audio}"},
+            "version": "123",
+        }
+
+    def test_automatic_speech_recognition_get_response_variants(self, mocker):
+        helper = ReplicateAutomaticSpeechRecognitionTask()
+
+        result = helper.get_response({"output": "hello"})
+        assert result == {"text": "hello"}
+
+        result = helper.get_response({"output": ["hello-world"]})
+        assert result == {"text": "hello-world"}
+
+        result = helper.get_response({"output": {"transcription": "bonjour"}})
+        assert result == {"text": "bonjour"}
+
+        result = helper.get_response({"output": {"translation": "hola"}})
+        assert result == {"text": "hola"}
+
+        mock_session = mocker.patch("huggingface_hub.inference._providers.replicate.get_session")
+        mock_response = mocker.Mock(text="file text")
+        mock_response.raise_for_status = lambda: None
+        mock_session.return_value.get.return_value = mock_response
+
+        result = helper.get_response({"output": {"txt_file": "https://example.com/output.txt"}})
+        mock_session.return_value.get.assert_called_once_with("https://example.com/output.txt")
+        assert result == {"text": "file text"}
+
+        with pytest.raises(ValueError):
+            helper.get_response({"output": 123})
+
     def test_prepare_headers(self):
         helper = ReplicateTask("text-to-image")
         headers = helper._prepare_headers({}, "my_replicate_key")
@@ -1398,7 +1666,13 @@ class TestReplicateProvider:
             ),
         )
         assert payload == {
-            "input": {"input_image": image_uri, "num_inference_steps": 20},
+            "input": {
+                "image": image_uri,
+                "images": [image_uri],
+                "input_image": image_uri,
+                "input_images": [image_uri],
+                "num_inference_steps": 20,
+            },
         }
 
         payload = helper._prepare_payload_as_dict(
@@ -1413,7 +1687,13 @@ class TestReplicateProvider:
             ),
         )
         assert payload == {
-            "input": {"input_image": image_uri, "num_inference_steps": 20},
+            "input": {
+                "image": image_uri,
+                "images": [image_uri],
+                "input_image": image_uri,
+                "input_images": [image_uri],
+                "num_inference_steps": 20,
+            },
             "version": "123456",
         }
 
@@ -1483,6 +1763,166 @@ class TestTogetherProvider:
         assert response == b"image_bytes"
 
 
+class TestWavespeedAIProvider:
+    """Test Wavespeed AI provider functionality."""
+
+    def test_prepare_headers(self):
+        """Test header preparation for both direct and routed calls."""
+        helper = WavespeedAITextToImageTask()
+
+        # Test with Wavespeed API key
+        headers = helper._prepare_headers({}, "ws_test_key")
+        assert headers["authorization"] == "Bearer ws_test_key"
+
+        # Test with HF token
+        headers = helper._prepare_headers({}, "hf_token")
+        assert headers["authorization"] == "Bearer hf_token"
+
+    def test_prepare_text_to_image_payload(self):
+        """Test payload preparation for text-to-image task."""
+        helper = WavespeedAITextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {
+                "num_inference_steps": 30,
+                "guidance_scale": 7.5,
+                "width": 512,
+                "height": 512,
+                "seed": 42,
+            },
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
+                providerId="wavespeed-ai/flux-schnell",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "num_inference_steps": 30,
+            "guidance_scale": 7.5,
+            "width": 512,
+            "height": 512,
+            "seed": 42,
+        }
+
+    def test_prepare_text_to_video_payload(self):
+        """Test payload preparation for text-to-video task."""
+        helper = WavespeedAITextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a dancing cat",
+            {
+                "guidance_scale": 5,
+                "num_inference_steps": 30,
+                "seed": -1,
+                "duration": 5,
+                "enable_safety_checker": True,
+                "flow_shift": 2.9,
+                "size": "480*832",
+            },
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="Wan-AI/Wan2.1-T2V-14B",
+                providerId="wavespeed-ai/wan-2.1/t2v-480p",
+                task="text-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "prompt": "a dancing cat",
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1,
+            "duration": 5,
+            "enable_safety_checker": True,
+            "flow_shift": 2.9,
+            "size": "480*832",
+        }
+
+    def test_prepare_image_to_image_payload(self, mocker):
+        """Test payload preparation for image-to-image task."""
+        helper = WavespeedAIImageToImageTask()
+
+        # Mock image data
+        image_data = b"dummy_image_data"
+        mock_encode = mocker.patch("base64.b64encode")
+        mock_encode.return_value.decode.return_value = "base64_encoded_image"
+
+        payload = helper._prepare_payload_as_dict(
+            image_data,
+            {"prompt": "The leopard chases its prey", "guidance_scale": 5, "num_inference_steps": 30, "seed": -1},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="HiDream-ai/HiDream-E1-Full",
+                providerId="wavespeed-ai/hidream-e1-full",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+
+        assert payload == {
+            "image": "data:image/jpeg;base64,base64_encoded_image",
+            "prompt": "The leopard chases its prey",
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1,
+        }
+        mock_encode.assert_called_once_with(image_data)
+
+    def test_prepare_image_to_video_payload(self, mocker):
+        """Test payload preparation for image-to-video task."""
+        helper = WavespeedAIImageToVideoTask()
+
+        # Mock image data
+        image_data = b"dummy_image_data"
+        mock_encode = mocker.patch("base64.b64encode")
+        mock_encode.return_value.decode.return_value = "base64_encoded_image"
+
+        payload = helper._prepare_payload_as_dict(
+            image_data,
+            {"prompt": "The leopard chases its prey", "guidance_scale": 5, "num_inference_steps": 30, "seed": -1},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="Wan-AI/Wan2.1-I2V-14B-480P",
+                providerId="wavespeed-ai/wan-2.1/i2v-480p",
+                task="image-to-video",
+                status="live",
+            ),
+        )
+
+        assert payload == {
+            "image": "data:image/jpeg;base64,base64_encoded_image",
+            "prompt": "The leopard chases its prey",
+            "guidance_scale": 5,
+            "num_inference_steps": 30,
+            "seed": -1,
+        }
+        mock_encode.assert_called_once_with(image_data)
+
+    def test_prepare_urls(self):
+        """Test URL preparation for different tasks."""
+        # Text to Image
+        t2i_helper = WavespeedAITextToImageTask()
+        t2i_url = t2i_helper._prepare_url("ws_test_key", "wavespeed-ai/flux-schnell")
+        assert t2i_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/flux-schnell"
+
+        # Text to Video
+        t2v_helper = WavespeedAITextToVideoTask()
+        t2v_url = t2v_helper._prepare_url("ws_test_key", "wavespeed-ai/wan-2.1/t2v-480p")
+        assert t2v_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1/t2v-480p"
+
+        # Image to Image
+        i2i_helper = WavespeedAIImageToImageTask()
+        i2i_url = i2i_helper._prepare_url("ws_test_key", "wavespeed-ai/hidream-e1-full")
+        assert i2i_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/hidream-e1-full"
+
+        # Image to Video
+        i2v_helper = WavespeedAIImageToVideoTask()
+        i2v_url = i2v_helper._prepare_url("ws_test_key", "wavespeed-ai/wan-2.1/i2v-480p")
+        assert i2v_url == "https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1/i2v-480p"
+
+
 class TestZaiProvider:
     def test_prepare_route(self):
         helper = ZaiConversationalTask()
@@ -1503,6 +1943,151 @@ class TestZaiProvider:
         # Test with HF token (should route through HF proxy)
         url = helper._prepare_url("hf_token", "test-model")
         assert url.startswith("https://router.huggingface.co/zai-org")
+
+    def test_text_to_image_prepare_route(self):
+        helper = ZaiTextToImageTask()
+        route = helper._prepare_route("glm-image", "zai_token")
+        assert route == "/api/paas/v4/async/images/generations"
+
+    def test_text_to_image_prepare_headers(self):
+        helper = ZaiTextToImageTask()
+        headers = helper._prepare_headers({}, "test_key")
+        assert headers["Accept-Language"] == "en-US,en"
+        assert headers["x-source-channel"] == "hugging_face"
+
+    def test_text_to_image_prepare_url(self):
+        helper = ZaiTextToImageTask()
+        assert helper.task == "text-to-image"
+        url = helper._prepare_url("zai_token", "glm-image")
+        assert url == "https://api.z.ai/api/paas/v4/async/images/generations"
+
+        # Test with HF token (should route through HF proxy)
+        url = helper._prepare_url("hf_token", "glm-image")
+        assert url.startswith("https://router.huggingface.co/zai-org")
+
+    def test_text_to_image_prepare_payload(self):
+        helper = ZaiTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "A cute cat sitting on a sunny windowsill",
+            {"width": 1280, "height": 1280},
+            InferenceProviderMapping(
+                provider="zai-org",
+                hf_model_id="zai-org/glm-image",
+                providerId="glm-image",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "glm-image",
+            "prompt": "A cute cat sitting on a sunny windowsill",
+            "size": "1280x1280",
+        }
+
+    def test_text_to_image_prepare_payload_no_size(self):
+        helper = ZaiTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "A cute cat",
+            {},
+            InferenceProviderMapping(
+                provider="zai-org",
+                hf_model_id="zai-org/glm-image",
+                providerId="glm-image",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "glm-image",
+            "prompt": "A cute cat",
+        }
+
+    def test_text_to_image_get_response_success(self, mocker):
+        helper = ZaiTextToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.zai_org.get_session")
+        mock_sleep = mocker.patch("huggingface_hub.inference._providers.zai_org.time.sleep")
+
+        # Mock polling response and image download
+        mock_session.return_value.get.side_effect = [
+            # First call: poll for status (still processing)
+            mocker.Mock(
+                json=lambda: {"task_status": "PROCESSING", "id": "8353992347972780031"},
+                raise_for_status=lambda: None,
+            ),
+            # Second call: poll for status (success)
+            mocker.Mock(
+                json=lambda: {
+                    "task_status": "SUCCESS",
+                    "id": "8353992347972780031",
+                    "image_result": [{"url": "https://example.com/image.png"}],
+                },
+                raise_for_status=lambda: None,
+            ),
+            # Third call: download image
+            mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None),
+        ]
+
+        api_key = helper._prepare_api_key("hf_token")
+        headers = helper._prepare_headers({}, api_key)
+        url = helper._prepare_url(api_key, "glm-image")
+
+        request_params = RequestParameters(
+            url=url,
+            headers=headers,
+            task="text-to-image",
+            model="glm-image",
+            data=None,
+            json=None,
+        )
+
+        response = helper.get_response(
+            {"id": "8353992347972780031", "task_status": "PROCESSING", "model": "glm-image"},
+            request_params,
+        )
+
+        assert response == b"image_bytes"
+        assert mock_session.return_value.get.call_count == 3
+        mock_sleep.assert_called_once_with(ZAI_POLLING_INTERVAL)
+
+    def test_text_to_image_get_response_immediate_success(self, mocker):
+        """Test when the response is already successful (no polling needed)."""
+        helper = ZaiTextToImageTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.zai_org.get_session")
+
+        mock_session.return_value.get.return_value = mocker.Mock(content=b"image_bytes", raise_for_status=lambda: None)
+
+        response = helper.get_response(
+            {
+                "id": "8353992347972780031",
+                "task_status": "SUCCESS",
+                "image_result": [{"url": "https://example.com/image.png"}],
+            },
+            None,
+        )
+
+        assert response == b"image_bytes"
+        mock_session.return_value.get.assert_called_once_with("https://example.com/image.png")
+
+    def test_text_to_image_get_response_fail(self):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="ZAI image generation failed"):
+            helper.get_response(
+                {"id": "8353992347972780031", "task_status": "FAIL"},
+                None,
+            )
+
+    def test_text_to_image_get_response_no_task_id(self):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="No task_id in response"):
+            helper.get_response({}, None)
+
+    def test_text_to_image_get_response_no_image_result(self, mocker):
+        helper = ZaiTextToImageTask()
+        with pytest.raises(ValueError, match="No image_result in response"):
+            helper.get_response(
+                {"id": "8353992347972780031", "task_status": "SUCCESS"},
+                None,
+            )
 
 
 class TestBaseConversationalTask:

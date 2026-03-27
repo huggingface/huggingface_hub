@@ -73,7 +73,7 @@ to the Hub: https://huggingface.co/docs/hub/adding-a-model.
 
 ### API utilities in `hf_api.py`
 
-You don't need them for the standard publishing workflow (ie. using git command line), however, if you need a
+You don't need them for the standard publishing workflow (i.e. using git command line), however, if you need a
 programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a
 single file to a repo or listing models from the Hub, you'll find helpers in
 `hf_api.py`. Some example functionality available with the `HfApi` class:
@@ -95,7 +95,7 @@ Those API utilities are also exposed through the `hf` CLI:
 hf auth login
 hf auth logout
 hf auth whoami
-hf repo create
+hf repos create
 ```
 
 With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):

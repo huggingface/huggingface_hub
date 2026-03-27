@@ -13,6 +13,7 @@ from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
 from urllib.parse import quote, urlparse
 
 import httpx
+from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
 from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
@@ -38,9 +39,14 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._http import _adjust_range_header, http_backoff, http_stream_backoff
+from .utils._http import (
+    _DEFAULT_RETRY_ON_EXCEPTIONS,
+    _DEFAULT_RETRY_ON_STATUS_CODES,
+    _adjust_range_header,
+    _httpx_follow_relative_redirects_with_backoff,
+    http_stream_backoff,
+)
 from .utils._runtime import is_xet_available
-from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -61,6 +67,9 @@ REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
+
+# Internal retry timeout for metadata fetch when no local file exists
+_ETAG_RETRY_TIMEOUT = 60
 
 
 def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
@@ -263,47 +272,6 @@ def hf_hub_url(
     return url
 
 
-def _httpx_follow_relative_redirects(method: HTTP_METHOD_T, url: str, **httpx_kwargs) -> httpx.Response:
-    """Perform an HTTP request with backoff and follow relative redirects only.
-
-    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
-
-    A backoff mechanism retries the HTTP call on 5xx errors and network errors.
-
-    Args:
-        method (`str`):
-            HTTP method, such as 'GET' or 'HEAD'.
-        url (`str`):
-            The URL of the resource to fetch.
-        **httpx_kwargs (`dict`, *optional*):
-            Params to pass to `httpx.request`.
-    """
-    while True:
-        # Make the request
-        response = http_backoff(
-            method=method,
-            url=url,
-            **httpx_kwargs,
-            follow_redirects=False,
-            retry_on_exceptions=(),
-            retry_on_status_codes=(429,),
-        )
-        hf_raise_for_status(response)
-
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
-
-        # Break if no relative redirect
-        break
-
-    return response
-
-
 def _get_file_length_from_http_response(response: httpx.Response) -> Optional[int]:
     """
     Get the length of the file from the HTTP response headers.
@@ -348,6 +316,7 @@ def http_get(
     headers: Optional[dict[str, Any]] = None,
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     _nb_retries: int = 5,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
@@ -399,6 +368,14 @@ def http_get(
         retry_on_status_codes=(429,),
     ) as response:
         hf_raise_for_status(response)
+
+        # If we requested a Range but got 200 back, the server ignored our Range header
+        # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
+        if resume_size > 0 and response.status_code == 200:
+            temp_file.seek(0)
+            temp_file.truncate()
+            resume_size = 0
+
         total: Optional[int] = _get_file_length_from_http_response(response)
 
         if displayed_filename is None:
@@ -425,6 +402,7 @@ def http_get(
             total=total,
             initial=resume_size,
             name="huggingface_hub.http_get",
+            tqdm_class=tqdm_class,
             _tqdm_bar=_tqdm_bar,
         )
 
@@ -453,6 +431,7 @@ def http_get(
                     resume_size=new_resume_size,
                     headers=initial_headers,
                     expected_size=expected_size,
+                    tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
                     _tqdm_bar=_tqdm_bar,
                 )
@@ -472,6 +451,7 @@ def xet_get(
     headers: dict[str, str],
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
     """
@@ -554,8 +534,12 @@ def xet_get(
         total=expected_size,
         initial=0,
         name="huggingface_hub.xet_get",
+        tqdm_class=tqdm_class,
         _tqdm_bar=_tqdm_bar,
     )
+
+    xet_headers = headers.copy()
+    xet_headers.pop("authorization", None)
 
     with progress_cm as progress:
 
@@ -568,6 +552,7 @@ def xet_get(
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
             progress_updater=[progress_updater],
+            request_headers=xet_headers,
         )
 
 
@@ -685,10 +670,10 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     # Symlinks are not supported => let's move or copy the file.
     if new_blob:
-        logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
+        logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
         shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
     else:
-        logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
+        logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(abs_src, abs_dst)
 
 
@@ -763,6 +748,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -786,6 +772,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
 
@@ -809,6 +796,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
 ) -> Union[str, DryRunFileInfo]: ...
 
@@ -832,6 +820,7 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    tqdm_class: Optional[type[base_tqdm]] = None,
     dry_run: bool = False,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file if it's not already present in the local cache.
@@ -908,6 +897,11 @@ def hf_hub_download(
             local cached file if it exists.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        tqdm_class (`tqdm`, *optional*):
+            If provided, overwrites the default behavior for the progress bar. Passed
+            argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+            Defaults to the custom HF progress bar that can be disabled by setting
+            `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
         dry_run (`bool`, *optional*, defaults to `False`):
             If `True`, perform a dry run without actually downloading the file. Returns a
             [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -985,6 +979,7 @@ def hf_hub_download(
             cache_dir=cache_dir,
             force_download=force_download,
             local_files_only=local_files_only,
+            tqdm_class=tqdm_class,
             dry_run=dry_run,
         )
     else:
@@ -1004,6 +999,7 @@ def hf_hub_download(
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
+            tqdm_class=tqdm_class,
             dry_run=dry_run,
         )
 
@@ -1025,6 +1021,7 @@ def _hf_hub_download_to_cache_dir(
     # Additional options
     local_files_only: bool,
     force_download: bool,
+    tqdm_class: Optional[type[base_tqdm]],
     dry_run: bool,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file to a cache folder, if not already present.
@@ -1034,7 +1031,7 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # cross platform transcription of filename, to be used as a local file path.
+    # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
@@ -1113,8 +1110,31 @@ def _hf_hub_download_to_cache_dir(
                     if not force_download:
                         return pointer_path
 
-        # Otherwise, raise appropriate error
-        _raise_on_head_call_error(head_call_error, force_download, local_files_only)
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
+                isinstance(head_call_error, HfHubHTTPError)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
+            ):
+                logger.info("No local file found. Retrying..")
+                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                    _get_metadata_or_catch_error(
+                        repo_id=repo_id,
+                        filename=filename,
+                        repo_type=repo_type,
+                        revision=revision,
+                        endpoint=endpoint,
+                        etag_timeout=_ETAG_RETRY_TIMEOUT,
+                        headers=headers,
+                        token=token,
+                        local_files_only=local_files_only,
+                        storage_folder=storage_folder,
+                        relative_filename=relative_filename,
+                        retry_on_errors=True,
+                    )
+                )
+
+        # If still error, raise
+        if head_call_error is not None:
+            _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
     # From now on, etag, commit_hash, url and size are not None.
     assert etag is not None, "etag must have been retrieved from server"
@@ -1189,6 +1209,7 @@ def _hf_hub_download_to_cache_dir(
             force_download=force_download,
             etag=etag,
             xet_file_data=xet_file_data,
+            tqdm_class=tqdm_class,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1214,6 +1235,7 @@ def _hf_hub_download_to_local_dir(
     cache_dir: str,
     force_download: bool,
     local_files_only: bool,
+    tqdm_class: Optional[type[base_tqdm]],
     dry_run: bool,
 ) -> Union[str, DryRunFileInfo]:
     """Download a given file to a local folder, if not already present.
@@ -1280,9 +1302,30 @@ def _hf_hub_download_to_local_dir(
                 )
             if not force_download:
                 return local_path
+        elif not force_download:
+            if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
+                isinstance(head_call_error, HfHubHTTPError)
+                and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES
+            ):
+                logger.info("No local file found. Retrying..")
+                (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = (
+                    _get_metadata_or_catch_error(
+                        repo_id=repo_id,
+                        filename=filename,
+                        repo_type=repo_type,
+                        revision=revision,
+                        endpoint=endpoint,
+                        etag_timeout=_ETAG_RETRY_TIMEOUT,
+                        headers=headers,
+                        token=token,
+                        local_files_only=local_files_only,
+                        retry_on_errors=True,
+                    )
+                )
 
-        # Otherwise => raise
-        _raise_on_head_call_error(head_call_error, force_download, local_files_only)
+        # If still error, raise
+        if head_call_error is not None:
+            _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
     # From now on, etag, commit_hash, url and size are not None.
     assert etag is not None, "etag must have been retrieved from server"
@@ -1377,6 +1420,7 @@ def _hf_hub_download_to_local_dir(
             force_download=force_download,
             etag=etag,
             xet_file_data=xet_file_data,
+            tqdm_class=tqdm_class,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1480,12 +1524,13 @@ def try_to_load_from_cache(
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
-    timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
+    timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[dict, str, None] = None,
     headers: Optional[dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    retry_on_errors: bool = False,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1510,6 +1555,9 @@ def get_hf_file_metadata(
             Additional headers to be sent with the request.
         endpoint (`str`, *optional*):
             Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        retry_on_errors (`bool`, *optional*, defaults to `False`):
+            Whether to retry on errors (429, 5xx, timeout, network errors).
+            If False, no retry for fast fallback to local cache.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
@@ -1525,13 +1573,15 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects(method="HEAD", url=url, headers=hf_headers, timeout=timeout)
+    response = _httpx_follow_relative_redirects_with_backoff(
+        method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
+    )
     hf_raise_for_status(response)
 
     # Return
     return HfFileMetadata(
         commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        # We favor a custom header indicating the etag of the linked resource, and we fallback to the regular etag header.
+        # We favor a custom header indicating the etag of the linked resource, and we fall back to the regular etag header.
         etag=_normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         ),
@@ -1558,6 +1608,7 @@ def _get_metadata_or_catch_error(
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
+    retry_on_errors: bool = False,
 ) -> Union[
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception],
@@ -1600,7 +1651,12 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+                    url=url,
+                    timeout=etag_timeout,
+                    headers=headers,
+                    token=token,
+                    endpoint=endpoint,
+                    retry_on_errors=retry_on_errors,
                 )
             except RemoteEntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
@@ -1682,7 +1738,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
@@ -1727,6 +1783,7 @@ def _download_to_tmp_and_move(
     force_download: bool,
     etag: Optional[str],
     xet_file_data: Optional[XetFileData],
+    tqdm_class: Optional[type[base_tqdm]] = None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1749,7 +1806,7 @@ def _download_to_tmp_and_move(
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True`, then we should
         # not resume the download => delete the incomplete file.
-        logger.info(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
+        logger.debug(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
         incomplete_path.unlink(missing_ok=True)
 
     with incomplete_path.open("ab") as f:
@@ -1757,7 +1814,7 @@ def _download_to_tmp_and_move(
         message = f"Downloading '{filename}' to '{incomplete_path}'"
         if resume_size > 0 and expected_size is not None:
             message += f" (resume from {resume_size}/{expected_size})"
-        logger.info(message)
+        logger.debug(message)
 
         if expected_size is not None:  # might be None if HTTP header not set correctly
             # Check disk space in both tmp and destination path
@@ -1772,6 +1829,7 @@ def _download_to_tmp_and_move(
                 headers=headers,
                 expected_size=expected_size,
                 displayed_filename=filename,
+                tqdm_class=tqdm_class,
             )
         else:
             if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
@@ -1787,9 +1845,10 @@ def _download_to_tmp_and_move(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
+                tqdm_class=tqdm_class,
             )
 
-    logger.info(f"Download complete. Moving file to {destination_path}")
+    logger.debug(f"Download complete. Moving file to {destination_path}")
     _chmod_and_move(incomplete_path, destination_path)
 
 

@@ -1,3 +1,4 @@
+import sys
 import time
 import unittest
 from io import SEEK_END
@@ -61,6 +62,10 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(folder_path=folder_path, repo_id=self.repo_name, hf_api=self.api)
         self.assertTrue(folder_path.is_dir())
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and sys.version_info >= (3, 14),
+        reason="Flaky on Windows Python 3.14 due to file lock on lfs.bin",
+    )
     def test_sync_local_folder(self) -> None:
         """Test sync local folder to remote repo."""
         watched_folder = self.cache_dir / "watched_folder"

@@ -31,6 +31,7 @@ TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
+EVAL_RESULTS_FOLDER = ".eval_results"
 DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
@@ -69,6 +70,8 @@ HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filenam
 if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+DATASETS_SERVER_ENDPOINT = "https://datasets-server.huggingface.co"
 
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
@@ -116,6 +119,7 @@ REPO_TYPES_MAPPING = {
     "models": REPO_TYPE_MODEL,
 }
 
+
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
 DiscussionStatusFilter = Literal["all", "open", "closed"]
@@ -161,6 +165,26 @@ HF_ASSETS_CACHE = os.path.expandvars(
 )
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+
+def is_offline_mode() -> bool:
+    """Returns whether we are in offline mode for the Hub.
+
+    When offline mode is enabled, all HTTP requests made with `get_session` will raise an `OfflineModeIsEnabled` exception.
+
+    Example:
+        ```py
+        from huggingface_hub import is_offline_mode
+
+        def list_files(repo_id: str):
+            if is_offline_mode():
+                ... # list files from local cache (degraded experience but still functional)
+            else:
+                ... # list files from Hub (complete experience)
+        ```
+    """
+    return HF_HUB_OFFLINE
+
 
 # File created to mark that the version check has been done.
 # Check is performed once per 24 hours at most.
@@ -231,9 +255,10 @@ if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PER
 HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
 
 # Used to override the get request timeout on a system level
+# Also used as a default timeout for other requests if not specified (kept the naming for legacy reasons)
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
 
-# Allows to add information about the requester in the user-agent (eg. partner name)
+# Allows to add information about the requester in the user-agent (e.g. partner name)
 HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.

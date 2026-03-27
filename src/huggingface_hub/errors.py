@@ -45,7 +45,7 @@ class HfHubHTTPError(HTTPError, OSError):
     sent back by the server, it will be added to the error message.
 
     Added details:
-    - Request id from "X-Request-Id" header if exists. If not, fallback to "X-Amzn-Trace-Id" header if exists.
+    - Request ID sourced from headers in order of precedence: "X-Request-Id", "X-Amzn-Trace-Id", "X-Amz-Cf-Id".
     - Server error message from the header "X-Error-Message".
     - Server error message if we can found one in the response body.
 
@@ -74,7 +74,11 @@ class HfHubHTTPError(HTTPError, OSError):
         response: Response,
         server_message: Optional[str] = None,
     ):
-        self.request_id = response.headers.get("x-request-id") or response.headers.get("X-Amzn-Trace-Id")
+        self.request_id = (
+            response.headers.get("x-request-id")
+            or response.headers.get("X-Amzn-Trace-Id")
+            or response.headers.get("x-amz-cf-id")
+        )
         self.server_message = server_message
         self.response = response
         self.request = response.request
@@ -83,6 +87,16 @@ class HfHubHTTPError(HTTPError, OSError):
     def append_to_message(self, additional_message: str) -> None:
         """Append additional information to the `HfHubHTTPError` initial message."""
         self.args = (self.args[0] + additional_message,) + self.args[1:]
+
+    @classmethod
+    def _reconstruct_hf_hub_http_error(
+        cls, message: str, response: Response, server_message: Optional[str]
+    ) -> "HfHubHTTPError":
+        return cls(message, response=response, server_message=server_message)
+
+    def __reduce_ex__(self, protocol):
+        """Fix pickling of Exception subclass with kwargs. We need to override __reduce_ex__ of the parent class"""
+        return (self.__class__._reconstruct_hf_hub_http_error, (str(self), self.response, self.server_message))
 
 
 # INFERENCE CLIENT ERRORS
@@ -171,6 +185,34 @@ class FileMetadataError(OSError):
     """
 
 
+# BUCKET ERRORS
+
+
+class BucketNotFoundError(HfHubHTTPError):
+    """
+    Raised when trying to access a bucket that does not exist.
+
+    Attributes:
+        bucket_id (`str` or `None`):
+            The bucket id (namespace/name) that was not found, if it could be determined from the request URL.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import bucket_info
+    >>> bucket_info("<non_existent_bucket>")
+    (...)
+    huggingface_hub.errors.BucketNotFoundError: 404 Client Error. (Request ID: XXX)
+
+    Bucket Not Found for url: https://huggingface.co/api/buckets/namespace/name.
+    Please make sure you specified the correct bucket id (namespace/name).
+    If the bucket is private, make sure you are authenticated.
+    ```
+    """
+
+    bucket_id: Optional[str] = None
+
+
 # REPOSITORY ERRORS
 
 
@@ -178,6 +220,12 @@ class RepositoryNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with an invalid repository name, or
     with a private repo name the user does not have access to.
+
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id that was not found, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
 
     Example:
 
@@ -193,6 +241,9 @@ class RepositoryNotFoundError(HfHubHTTPError):
     Invalid username or password.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 class GatedRepoError(RepositoryNotFoundError):
@@ -243,6 +294,12 @@ class RevisionNotFoundError(HfHubHTTPError):
     Raised when trying to access a hf.co URL with a valid repository but an invalid
     revision.
 
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
+
     Example:
 
     ```py
@@ -254,6 +311,9 @@ class RevisionNotFoundError(HfHubHTTPError):
     Revision Not Found for url: https://huggingface.co/bert-base-cased/resolve/%3Cnon-existent-revision%3E/config.json.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 # ENTRY ERRORS
@@ -280,6 +340,12 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     Raised when trying to access a hf.co URL with a valid repository and revision
     but an invalid filename.
 
+    Attributes:
+        repo_id (`str` or `None`):
+            The repo id, if it could be determined from the request URL.
+        repo_type (`str` or `None`):
+            The repo type ("model", "dataset", or "space"), if it could be determined from the request URL.
+
     Example:
 
     ```py
@@ -291,6 +357,9 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     Entry Not Found for url: https://huggingface.co/bert-base-cased/resolve/main/%3Cnon-existent-file%3E.
     ```
     """
+
+    repo_id: Optional[str] = None
+    repo_type: Optional[str] = None
 
 
 class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
@@ -392,3 +461,14 @@ class XetRefreshTokenError(XetError):
 
 class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
+
+
+# CLI ERRORS
+
+
+class CLIError(Exception):
+    """CLI error with clean message (no traceback by default)."""
+
+
+class CLIExtensionInstallError(CLIError):
+    """Error during CLI extension installation."""

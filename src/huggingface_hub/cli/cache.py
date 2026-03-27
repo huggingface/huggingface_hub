@@ -14,7 +14,6 @@
 # limitations under the License.
 """Contains the 'hf cache' command group with cache management subcommands."""
 
-import csv
 import json
 import re
 import sys
@@ -22,9 +21,11 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import typer
+
+from huggingface_hub.errors import CLIError
 
 from ..utils import (
     ANSI,
@@ -37,19 +38,21 @@ from ..utils import (
     tabulate,
 )
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import typer_factory
+from ._cli_utils import (
+    OutputFormat,
+    RepoIdArg,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
 
 
 #### Cache helper utilities
-
-
-class OutputFormat(str, Enum):
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,25 @@ class _DeletionResolution:
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 _FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
+_SORT_KEYS = {"accessed", "modified", "name", "size"}
+_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?$")
+_SORT_DEFAULT_ORDER = {
+    # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
+    "accessed": "desc",
+    "modified": "desc",
+    "size": "desc",
+    "name": "asc",
+}
+
+
+# Dynamically generate SortOptions enum from _SORT_KEYS
+_sort_options_dict = {}
+for key in sorted(_SORT_KEYS):
+    _sort_options_dict[key] = key
+    _sort_options_dict[f"{key}_asc"] = f"{key}:asc"
+    _sort_options_dict[f"{key}_desc"] = f"{key}:desc"
+
+SortOptions = Enum("SortOptions", _sort_options_dict, type=str, module=__name__)  # type: ignore
 
 
 @dataclass(frozen=True)
@@ -258,7 +280,7 @@ def print_cache_entries_table(
         message = "No cached revisions found." if include_revisions else "No cached repositories found."
         print(message)
         return
-    table_rows: List[List[str]]
+    table_rows: List[List[Union[str, int]]]
     if include_revisions:
         headers = ["ID", "REVISION", "SIZE", "LAST_MODIFIED", "REFS"]
         table_rows = [
@@ -285,7 +307,7 @@ def print_cache_entries_table(
             for repo, _ in entries
         ]
 
-    print(tabulate(table_rows, headers=headers))  # type: ignore[arg-type]
+    print(tabulate(table_rows, headers=headers))
 
     unique_repos = {repo for repo, _ in entries}
     repo_count = len(unique_repos)
@@ -309,55 +331,6 @@ def print_cache_entries_json(
     sys.stdout.write("\n")
 
 
-def print_cache_entries_csv(entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap) -> None:
-    """Export cache entries as CSV rows with the shared payload format."""
-    records = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
-    writer = csv.writer(sys.stdout)
-
-    if include_revisions:
-        headers = [
-            "repo_id",
-            "repo_type",
-            "revision",
-            "snapshot_path",
-            "size_on_disk",
-            "last_accessed",
-            "last_modified",
-            "refs",
-        ]
-    else:
-        headers = ["repo_id", "repo_type", "size_on_disk", "last_accessed", "last_modified", "refs"]
-
-    writer.writerow(headers)
-
-    if not records:
-        return
-
-    for record in records:
-        refs = record["refs"]
-        if include_revisions:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("revision", ""),
-                record.get("snapshot_path", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        else:
-            row = [
-                record.get("repo_id", ""),
-                record.get("repo_type", ""),
-                record.get("size_on_disk"),
-                record.get("last_accessed"),
-                record.get("last_modified"),
-                " ".join(refs) if refs else "",
-            ]
-        writer.writerow(row)
-
-
 def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
     """Evaluate numeric comparisons for filters."""
     if left is None:
@@ -376,6 +349,60 @@ def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
         raise ValueError(f"Unsupported numeric comparison operator: {op}")
 
     return comparisons[op]
+
+
+def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any, ...]], bool]:
+    """Convert a `hf cache ls` sort expression into a key function for sorting entries.
+
+    Returns:
+        A tuple of (key_function, reverse_flag) where reverse_flag indicates whether
+        to sort in descending order (True) or ascending order (False).
+    """
+    match = _SORT_PATTERN.match(sort_expr.strip().lower())
+    if not match:
+        raise ValueError(f"Invalid sort expression: '{sort_expr}'. Expected format: 'key' or 'key:asc' or 'key:desc'.")
+
+    key = match.group("key").lower()
+    explicit_order = match.group("order")
+
+    if key not in _SORT_KEYS:
+        raise ValueError(f"Unsupported sort key '{key}' in '{sort_expr}'. Must be one of {list(_SORT_KEYS)}.")
+
+    # Use explicit order if provided, otherwise use default for the key
+    order = explicit_order if explicit_order else _SORT_DEFAULT_ORDER[key]
+    reverse = order == "desc"
+
+    def _sort_key(entry: CacheEntry) -> tuple[Any, ...]:
+        repo, revision = entry
+
+        if key == "name":
+            # Sort by cache_id (repo type/id)
+            value: Any = repo.cache_id.lower()
+            return (value,)
+
+        if key == "size":
+            # Use revision size if available, otherwise repo size
+            value = revision.size_on_disk if revision is not None else repo.size_on_disk
+            return (value,)
+
+        if key == "accessed":
+            # For revisions, accessed is not available per-revision, use repo's last_accessed
+            # For repos, use repo's last_accessed
+            value = repo.last_accessed if repo.last_accessed is not None else 0.0
+            return (value,)
+
+        if key == "modified":
+            # Use revision's last_modified if available, otherwise repo's last_modified
+            if revision is not None:
+                value = revision.last_modified if revision.last_modified is not None else 0.0
+            else:
+                value = repo.last_modified if repo.last_modified is not None else 0.0
+            return (value,)
+
+        # Should never reach here due to validation above
+        raise ValueError(f"Unsupported sort key: {key}")
+
+    return _sort_key, reverse
 
 
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
@@ -422,7 +449,15 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 #### Cache CLI commands
 
 
-@cache_cli.command()
+@cache_cli.command(
+    "list | ls",
+    examples=[
+        "hf cache ls",
+        "hf cache ls --revisions",
+        'hf cache ls --filter "size>1GB" --limit 20',
+        "hf cache ls --format json",
+    ],
+)
 def ls(
     cache_dir: Annotated[
         Optional[str],
@@ -458,13 +493,27 @@ def ls(
             help="Print only IDs (repo IDs or revision hashes).",
         ),
     ] = False,
+    sort: Annotated[
+        Optional[SortOptions],
+        typer.Option(
+            help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
+            "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
+            "Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); "
+            "'name' defaults to 'asc' (alphabetical).",
+        ),
+    ] = None,
+    limit: Annotated[
+        Optional[int],
+        typer.Option(
+            help="Limit the number of results returned. Returns only the top N entries after sorting.",
+        ),
+    ] = None,
 ) -> None:
     """List cached repositories or revisions."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     filters = filter or []
 
@@ -478,6 +527,20 @@ def ls(
     for fn in filter_fns:
         entries = [entry for entry in entries if fn(entry[0], entry[1], now)]
 
+    # Apply sorting if requested
+    if sort:
+        try:
+            sort_key_fn, reverse = compile_cache_sort(sort.value)
+            entries.sort(key=sort_key_fn, reverse=reverse)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+    # Apply limit if requested
+    if limit is not None:
+        if limit < 0:
+            raise typer.BadParameter(f"Limit must be a positive integer, got {limit}.")
+        entries = entries[:limit]
+
     if quiet:
         for repo, revision in entries:
             print(revision.commit_hash if revision is not None else repo.cache_id)
@@ -486,12 +549,18 @@ def ls(
     formatters = {
         OutputFormat.table: print_cache_entries_table,
         OutputFormat.json: print_cache_entries_json,
-        OutputFormat.csv: print_cache_entries_csv,
     }
     return formatters[format](entries, include_revisions=revisions, repo_refs_map=repo_refs_map)
 
 
-@cache_cli.command()
+@cache_cli.command(
+    examples=[
+        "hf cache rm model/gpt2",
+        "hf cache rm <revision_hash>",
+        "hf cache rm model/gpt2 --dry-run",
+        "hf cache rm model/gpt2 --yes",
+    ],
+)
 def rm(
     targets: Annotated[
         list[str],
@@ -524,8 +593,7 @@ def rm(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     resolution = _resolve_deletion_targets(hf_cache_info, targets)
 
@@ -568,7 +636,7 @@ def rm(
     )
 
 
-@cache_cli.command()
+@cache_cli.command(examples=["hf cache prune", "hf cache prune --dry-run"])
 def prune(
     cache_dir: Annotated[
         Optional[str],
@@ -595,8 +663,7 @@ def prune(
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
-        print(f"Cache directory not found: {str(exc.cache_dir)}")
-        raise typer.Exit(code=1)
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
 
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]] = {}
     revisions: set[str] = set()
@@ -634,3 +701,112 @@ def prune(
 
     strategy.execute()
     print(f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.")
+
+
+@cache_cli.command(
+    examples=[
+        "hf cache verify gpt2",
+        "hf cache verify gpt2 --revision refs/pr/1",
+        "hf cache verify my-dataset --repo-type dataset",
+    ],
+)
+def verify(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    revision: RevisionOpt = None,
+    cache_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    local_dir: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If set, verify files under this directory instead of the cache.",
+        ),
+    ] = None,
+    fail_on_missing_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-missing-files",
+            help="Fail if some files exist on the remote but are missing locally.",
+        ),
+    ] = False,
+    fail_on_extra_files: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-extra-files",
+            help="Fail if some files exist locally but are not present on the remote revision.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Verify checksums for a single repo revision from cache or a local directory.
+
+    Examples:
+      - Verify main revision in cache: `hf cache verify gpt2`
+      - Verify specific revision: `hf cache verify gpt2 --revision refs/pr/1`
+      - Verify dataset: `hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset`
+      - Verify local dir: `hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo`
+    """
+
+    if local_dir is not None and cache_dir is not None:
+        print("Cannot pass both --local-dir and --cache-dir. Use one or the other.")
+        raise typer.Exit(code=2)
+
+    api = get_hf_api(token=token)
+
+    result = api.verify_repo_checksums(
+        repo_id=repo_id,
+        repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
+        revision=revision,
+        local_dir=local_dir,
+        cache_dir=cache_dir,
+        token=token,
+    )
+
+    exit_code = 0
+
+    has_mismatches = bool(result.mismatches)
+    if has_mismatches:
+        print("❌ Checksum verification failed for the following file(s):")
+        for m in result.mismatches:
+            print(f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}")
+        exit_code = 1
+
+    if result.missing_paths:
+        if fail_on_missing_files:
+            print("Missing files (present remotely, absent locally):")
+            for p in result.missing_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.missing_paths)} remote file(s) are missing locally. "
+                "Use --fail-on-missing-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    if result.extra_paths:
+        if fail_on_extra_files:
+            print("Extra files (present locally, absent remotely):")
+            for p in result.extra_paths:
+                print(f"  - {p}")
+            exit_code = 1
+        else:
+            warning = (
+                f"{len(result.extra_paths)} local file(s) do not exist on the remote repo. "
+                "Use --fail-on-extra-files for details."
+            )
+            print(f"⚠️  {warning}")
+
+    verified_location = result.verified_path
+
+    if exit_code != 0:
+        print(f"❌ Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.")
+        print(f"  Revision: {result.revision}")
+        raise typer.Exit(code=exit_code)
+
+    print(f"✅ Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}")
+    print("  All checksums match.")

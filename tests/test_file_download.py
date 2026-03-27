@@ -25,7 +25,6 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl, constants
 from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
@@ -42,7 +41,7 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -55,9 +54,9 @@ from .testing_utils import (
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
+    skip_on_windows,
     use_tmp_repo,
     with_production_testing,
-    xfail_on_windows,
 )
 
 
@@ -224,7 +223,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Set permission back for cleanup
             _recursive_chmod(tmpdir, 0o777)
 
-    @xfail_on_windows(reason="umask is UNIX-specific")
+    @skip_on_windows(reason="umask is UNIX-specific")
     def test_hf_hub_download_custom_cache_permission(self):
         """Checks `hf_hub_download` respect the cache dir permission.
 
@@ -562,19 +561,45 @@ class CachedDownloadTests(unittest.TestCase):
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
 
-    @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):
-        """Lock files should not be deleted on Linux."""
+        """Downloading should acquire locks under `.locks`."""
         with SoftTemporaryDirectory() as tmpdir:
-            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
-            lock_file_exist = False
-            locks_dir = os.path.join(tmpdir, ".locks")
-            for subdir, dirs, files in os.walk(locks_dir):
-                for file in files:
-                    if file.endswith(".lock"):
-                        lock_file_exist = True
-                        break
-            self.assertTrue(lock_file_exist, "no lock file can be found")
+            original_weak_file_lock = WeakFileLock
+            acquired_lock_paths = []
+
+            @contextmanager
+            def tracked_weak_file_lock(lock_file, **kwargs):
+                acquired_lock_paths.append(Path(lock_file))
+                with original_weak_file_lock(lock_file, **kwargs):
+                    yield
+
+            with patch("huggingface_hub.file_download.WeakFileLock", tracked_weak_file_lock):
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
+
+            def _normalize_lock_path(path: Path) -> str:
+                normalized = str(path)
+                # Windows long-path prefix can appear in lock paths.
+                if normalized.startswith("\\\\?\\"):
+                    normalized = normalized[4:]
+                return os.path.normcase(os.path.normpath(normalized))
+
+            locks_dir = _normalize_lock_path(Path(tmpdir) / ".locks")
+
+            def _is_lock_under_cache_locks(path: Path) -> bool:
+                normalized = _normalize_lock_path(path)
+                if not normalized.endswith(".lock"):
+                    return False
+                try:
+                    return os.path.commonpath([normalized, locks_dir]) == locks_dir
+                except ValueError:
+                    # Happens on Windows if drives differ.
+                    return False
+
+            self.assertGreater(len(acquired_lock_paths), 0, "no lock acquisition was recorded")
+            self.assertTrue(
+                any(_is_lock_under_cache_locks(path) for path in acquired_lock_paths),
+                "expected at least one lock acquisition in cache `.locks`",
+            )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -951,13 +976,13 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
             self.expected_resolve_url,
         )
 
-    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
+    @skip_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir)
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
 
-    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
+    @skip_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
         local_path = hf_hub_download(
             self.repo_url.repo_id,
@@ -991,11 +1016,11 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.api.delete_repo(repo_id=cls.repo_id)
 
-    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    @skip_on_windows(reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_in_cache_dir(self) -> None:
         hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir)
 
-    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    @skip_on_windows(reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_to_local_dir(self) -> None:
         with SoftTemporaryDirectory() as local_dir:
             hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)
@@ -1153,6 +1178,47 @@ class TestHttpGet:
         for i, expected_range in enumerate(expected_ranges):
             assert mock_stream_backoff.call_args_list[i].kwargs["headers"] == {"Range": expected_range}
 
+    def test_http_get_retry_resets_file_when_range_ignored(self, caplog):
+        """Test that http_get resets the file when the server ignores the Range header.
+
+        When a download is interrupted and retried with a Range header, some servers
+        (e.g. CloudFront with Accept-Encoding: gzip) ignore the Range header and return
+        200 with the full file instead of 206. In that case, the code must truncate
+        the file before writing to avoid appending the full content to partial data.
+        """
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            # Server ignores Range, returns full content
+            yield b"B" * 100
+
+        mock_response_1 = Mock()
+        mock_response_1.status_code = 200
+        mock_response_1.headers = {"Content-Length": "100"}
+        mock_response_1.iter_bytes.return_value = _iter_content_1()
+
+        mock_response_2 = Mock()
+        mock_response_2.status_code = 200  # 200, not 206 — Range was ignored
+        mock_response_2.headers = {"Content-Length": "100"}
+        mock_response_2.iter_bytes.return_value = _iter_content_2()
+
+        mock_responses = iter([mock_response_1, mock_response_2])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(mock_responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file)
+
+        # File should contain only the full content from retry (100 bytes), not 130
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"B" * 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
@@ -1245,65 +1311,6 @@ class TestNormalizeEtag(unittest.TestCase):
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )
-
-
-@with_production_testing
-class TestEtagTimeoutConfig(unittest.TestCase):
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_default_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 10)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
-    def test_etag_timeout_parameter_value(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed as parameter, takes priority
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
-    def test_etag_timeout_set_as_env_variable(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 15)
-
-    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 12)  # takes priority
-    def test_etag_timeout_set_as_env_variable_parameter_ignored(self):
-        with SoftTemporaryDirectory() as cache_dir:
-            with patch.object(
-                huggingface_hub.file_download,
-                "get_hf_file_metadata",
-                wraps=huggingface_hub.file_download.get_hf_file_metadata,
-            ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
-                kwargs = mock_etag_call.call_args.kwargs
-                self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
 
 
 @with_production_testing

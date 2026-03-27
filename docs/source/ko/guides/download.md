@@ -170,7 +170,7 @@ Fetching 2 files: 100%|███████████████████
 ```
 
 캐시 디렉터리 구조를 따르지 않고 로컬 폴더에 파일을 다운로드하려면 `--local-dir` 옵션을 사용하세요.
-로컬 폴더로 다운로드하면 이 [표](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder)에 나열된 제한 사항이 있습니다.
+로컬 폴더로 다운로드하면 이 [표](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder)에 나열된 제한 사항이 있습니다.
 
 
 ```bash

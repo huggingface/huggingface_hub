@@ -42,7 +42,7 @@ def paginate(path: str, params: dict, headers: dict) -> Iterable:
     next_page = _get_next_page(r)
     while next_page is not None:
         logger.debug(f"Pagination detected. Requesting next page: {next_page}")
-        r = http_backoff("GET", next_page, max_retries=20, retry_on_status_codes=429, headers=headers)
+        r = http_backoff("GET", next_page, headers=headers)
         hf_raise_for_status(r)
         yield from r.json()
         next_page = _get_next_page(r)

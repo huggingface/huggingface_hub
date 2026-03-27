@@ -48,7 +48,7 @@ models = hf_api.list_models(
 필터링하는 과정에서 모델을 정렬하고 상위 결과만 선택할 수도 있습니다. 다음 예제는 Hub에서 가장 많이 다운로드된 상위 5개 데이터 세트를 가져옵니다.
 
 ```py
->>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',

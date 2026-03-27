@@ -14,8 +14,12 @@
       title: Download files
     - local: guides/upload
       title: Upload files
+    - local: guides/buckets
+      title: Buckets
     - local: guides/cli
       title: Use the CLI
+    - local: guides/cli-extensions
+      title: Create a CLI extension
     - local: guides/hf_file_system
       title: HfFileSystem
     - local: guides/repository

@@ -17,14 +17,16 @@
 import atexit
 import io
 import json
+import os
 import re
 import threading
 import time
 import uuid
 from contextlib import contextmanager
-from http import HTTPStatus
+from dataclasses import dataclass
 from shlex import quote
-from typing import Any, Callable, Generator, Optional, Union
+from typing import Any, Callable, Generator, Mapping, Optional, TypeVar, Union
+from urllib.parse import urlparse
 
 import httpx
 
@@ -33,6 +35,7 @@ from huggingface_hub.errors import OfflineModeIsEnabled
 from .. import constants
 from ..errors import (
     BadRequestError,
+    BucketNotFoundError,
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
@@ -47,11 +50,99 @@ from ._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
-# Both headers are used by the Hub to debug failed requests.
-# `X_AMZN_TRACE_ID` is better as it also works to debug on Cloudfront and ALB.
-# If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
-X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+
+@dataclass(frozen=True)
+class RateLimitInfo:
+    """
+    Parsed rate limit information from HTTP response headers.
+
+    Attributes:
+        resource_type (`str`): The type of resource being rate limited.
+        remaining (`int`): The number of requests remaining in the current window.
+        reset_in_seconds (`int`): The number of seconds until the rate limit resets.
+        limit (`int`, *optional*): The maximum number of requests allowed in the current window.
+        window_seconds (`int`, *optional*): The number of seconds in the current window.
+
+    """
+
+    resource_type: str
+    remaining: int
+    reset_in_seconds: int
+    limit: Optional[int] = None
+    window_seconds: Optional[int] = None
+
+
+# Regex patterns for parsing rate limit headers
+# e.g.: "api";r=0;t=55 --> resource_type="api", r=0, t=55
+_RATELIMIT_REGEX = re.compile(r"\"(?P<resource_type>\w+)\"\s*;\s*r\s*=\s*(?P<r>\d+)\s*;\s*t\s*=\s*(?P<t>\d+)")
+# e.g.: "fixed window";"api";q=500;w=300 --> q=500, w=300
+_RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(?P<q>\d+).*?w\s*=\s*(?P<w>\d+)")
+
+
+def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInfo]:
+    """Parse rate limit information from HTTP response headers.
+
+    Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
+    Only a subset is implemented.
+
+    Example:
+    ```python
+    >>> from huggingface_hub.utils import parse_ratelimit_headers
+    >>> headers = {
+    ...     "ratelimit": '"api";r=0;t=55',
+    ...     "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+    ... }
+    >>> info = parse_ratelimit_headers(headers)
+    >>> info.remaining
+    0
+    >>> info.reset_in_seconds
+    55
+    ```
+    """
+
+    ratelimit: Optional[str] = None
+    policy: Optional[str] = None
+    for key in headers:
+        lower_key = key.lower()
+        if lower_key == "ratelimit":
+            ratelimit = headers[key]
+        elif lower_key == "ratelimit-policy":
+            policy = headers[key]
+
+    if not ratelimit:
+        return None
+
+    match = _RATELIMIT_REGEX.search(ratelimit)
+    if not match:
+        return None
+
+    resource_type = match.group("resource_type")
+    remaining = int(match.group("r"))
+    reset_in_seconds = int(match.group("t"))
+
+    limit: Optional[int] = None
+    window_seconds: Optional[int] = None
+
+    if policy:
+        policy_match = _RATELIMIT_POLICY_REGEX.search(policy)
+        if policy_match:
+            limit = int(policy_match.group("q"))
+            window_seconds = int(policy_match.group("w"))
+
+    return RateLimitInfo(
+        resource_type=resource_type,
+        remaining=remaining,
+        reset_in_seconds=reset_in_seconds,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+
+
+# When raising an error, we include the request id in the error message for easier debugging.
+# Request ID is sourced from headers in order of precedence: "X-Request-Id", "X-Amzn-Trace-Id", "X-Amz-Cf-Id".
 X_REQUEST_ID = "x-request-id"
+X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+X_AMZ_CF_ID = "x-amz-cf-id"
 
 REPO_API_REGEX = re.compile(
     r"""
@@ -68,6 +159,57 @@ REPO_API_REGEX = re.compile(
     flags=re.VERBOSE,
 )
 
+BUCKET_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https?://[^/]+
+        # on /api/buckets/...
+        /api/buckets/
+    """,
+    flags=re.VERBOSE,
+)
+
+# Regex to extract repo_type and repo_id from API URLs.
+# Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
+_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
+
+# Regex to extract bucket_id (namespace/name) from bucket API URLs.
+_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/]+/[^/]+)")
+
+# Sub-paths that follow a repo_id in API URLs (not part of the repo name).
+_REPO_URL_SUBPATHS = {"resolve", "tree", "blob", "raw", "refs", "commit", "discussions", "settings", "revision"}
+
+
+def _parse_repo_info_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
+    """Extract (repo_type, repo_id) from an API URL.
+
+    Returns canonical repo_type values: "model", "dataset", "space" (or None).
+
+    Examples:
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo")
+        ("model", "user/repo")
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/resolve/main/data.csv")
+        ("dataset", "user/repo")
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json")
+        ("model", "bert-base-cased")
+    """
+    match = _REPO_ID_FROM_URL_REGEX.search(url)
+    if not match:
+        return None, None
+    repo_type = constants.REPO_TYPES_MAPPING.get(match.group(1))
+    first, second = match.group(2), match.group(3)
+    if second and second not in _REPO_URL_SUBPATHS:
+        repo_id = f"{first}/{second}"
+    else:
+        repo_id = first
+    return repo_type, repo_id
+
+
+def _parse_bucket_id_from_url(url: str) -> Optional[str]:
+    """Extract bucket_id (namespace/name) from a bucket API URL."""
+    match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    return match.group(1) if match else None
+
 
 def hf_request_event_hook(request: httpx.Request) -> None:
     """
@@ -78,7 +220,7 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     - Add a request ID to the request headers
     - Log the request if debug mode is enabled
     """
-    if constants.HF_HUB_OFFLINE:
+    if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
             f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
         )
@@ -130,7 +272,7 @@ def default_client_factory() -> httpx.Client:
     return httpx.Client(
         event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+        timeout=None,
     )
 
 
@@ -141,7 +283,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
-        timeout=httpx.Timeout(constants.DEFAULT_REQUEST_TIMEOUT, write=60.0),
+        timeout=None,
     )
 
 
@@ -244,6 +386,12 @@ def close_session() -> None:
 
 
 atexit.register(close_session)
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=close_session)
+
+
+_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
 
 
 def _http_backoff_base(
@@ -253,11 +401,8 @@ def _http_backoff_base(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     stream: bool = False,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
@@ -270,6 +415,7 @@ def _http_backoff_base(
 
     nb_tries = 0
     sleep_time = base_wait_time
+    ratelimit_reset: Optional[int] = None  # seconds to wait for rate limit reset if 429 response
 
     # If `data` is used and is a file object (or any IO), it will be consumed on the
     # first HTTP request. We need to save the initial position so that the full content
@@ -281,6 +427,7 @@ def _http_backoff_base(
     client = get_session()
     while True:
         nb_tries += 1
+        ratelimit_reset = None
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
             # initial position.
@@ -290,6 +437,8 @@ def _http_backoff_base(
             # Perform request and handle response
             def _should_retry(response: httpx.Response) -> bool:
                 """Handle response and return True if should retry, False if should return/yield."""
+                nonlocal ratelimit_reset
+
                 if response.status_code not in retry_on_status_codes:
                     return False  # Success, don't retry
 
@@ -300,6 +449,12 @@ def _http_backoff_base(
                     # Return/yield response to avoid infinite loop in the corner case where the
                     # user ask for retry on a status code that doesn't raise_for_status.
                     return False  # Don't retry, return/yield response
+
+                # get rate limit reset time from headers if 429 response
+                if response.status_code == 429:
+                    ratelimit_info = parse_ratelimit_headers(response.headers)
+                    if ratelimit_info is not None:
+                        ratelimit_reset = ratelimit_info.reset_in_seconds
 
                 return True  # Should retry
 
@@ -323,9 +478,14 @@ def _http_backoff_base(
             if nb_tries > max_retries:
                 raise err
 
-        # Sleep for X seconds
-        logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-        time.sleep(sleep_time)
+        if ratelimit_reset is not None:
+            actual_sleep = float(ratelimit_reset) + 1  # +1s to avoid rounding issues
+            logger.warning(f"Rate limited. Waiting {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
+        else:
+            actual_sleep = sleep_time
+            logger.warning(f"Retrying in {actual_sleep}s [Retry {nb_tries}/{max_retries}].")
+
+        time.sleep(actual_sleep)
 
         # Update sleep time for next retry
         sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff
@@ -338,11 +498,8 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> httpx.Response:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -371,9 +528,9 @@ def http_backoff(
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
             By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
-            Define on which status codes the request must be retried. By default, only
-            HTTP 503 Service Unavailable is retried.
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
+            Define on which status codes the request must be retried. By default, retries
+            on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
             kwargs to pass to `httpx.request`.
 
@@ -422,11 +579,8 @@ def http_stream_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
-        httpx.TimeoutException,
-        httpx.NetworkError,
-    ),
-    retry_on_status_codes: Union[int, tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -454,10 +608,10 @@ def http_stream_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.Timeout` and `httpx.NetworkError`.
-        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `503`):
-            Define on which status codes the request must be retried. By default, only
-            HTTP 503 Service Unavailable is retried.
+            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+        retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
+            Define on which status codes the request must be retried. By default, retries
+            on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
             kwargs to pass to `httpx.request`.
 
@@ -500,6 +654,57 @@ def http_stream_backoff(
     )
 
 
+def _httpx_follow_relative_redirects_with_backoff(
+    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
+) -> httpx.Response:
+    """Perform an HTTP request with backoff and follow relative redirects only.
+
+    Used to fetch HEAD /resolve on repo or bucket files.
+
+    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+
+    A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
+
+    Args:
+        method (`str`):
+            HTTP method, such as 'GET' or 'HEAD'.
+        url (`str`):
+            The URL of the resource to fetch.
+        retry_on_errors (`bool`, *optional*, defaults to `False`):
+            Whether to retry on errors. If False, no retry is performed (fast fallback to local cache).
+            If True, uses default retry behavior (429, 5xx, timeout, network errors).
+        **httpx_kwargs (`dict`, *optional*):
+            Params to pass to `httpx.request`.
+    """
+    # if `retry_on_errors=False`, disable all retries for fast fallback to cache
+    no_retry_kwargs: dict[str, Any] = (
+        {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
+    )
+
+    while True:
+        response = http_backoff(
+            method=method,
+            url=url,
+            **httpx_kwargs,
+            follow_redirects=False,
+            **no_retry_kwargs,
+        )
+        hf_raise_for_status(response)
+
+        # Check if response is a relative redirect
+        if 300 <= response.status_code <= 399:
+            parsed_target = urlparse(response.headers["Location"])
+            if parsed_target.netloc == "":
+                # Relative redirect -> update URL and retry
+                url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                continue
+
+        # Break if no relative redirect
+        break
+
+    return response
+
+
 def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
     """Replace the default endpoint in a URL by a custom one.
 
@@ -537,7 +742,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     >         If the repository exists but is gated and the user is not on the authorized
     >         list.
     >     - [`~utils.RevisionNotFoundError`]
-    >         If the repository exists but the revision couldn't be find.
+    >         If the repository exists but the revision couldn't be found.
     >     - [`~utils.EntryNotFoundError`]
     >         If the repository exists but the entry (e.g. the requested file) couldn't be
     >         find.
@@ -547,6 +752,12 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
     >         If request failed for a reason not listed above.
     """
     try:
+        _warn_on_warning_headers(response)
+    except Exception:
+        # Never raise on warning parsing
+        logger.debug("Failed to parse warning headers", exc_info=True)
+
+    try:
         response.raise_for_status()
     except httpx.HTTPStatusError as e:
         if response.status_code // 100 == 3:
@@ -555,19 +766,34 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         error_code = response.headers.get("X-Error-Code")
         error_message = response.headers.get("X-Error-Message")
 
+        # Parse repo info from request URL (used to enrich errors below)
+        request_url = (
+            str(response.request.url) if response.request is not None and response.request.url is not None else None
+        )
+        repo_type, repo_id = _parse_repo_info_from_url(request_url) if request_url else (None, None)
+
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
-            raise _format(RevisionNotFoundError, message, response) from e
+            revision_err = _format(RevisionNotFoundError, message, response)
+            revision_err.repo_type = repo_type
+            revision_err.repo_id = repo_id
+            raise revision_err from e
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            raise _format(RemoteEntryNotFoundError, message, response) from e
+            entry_err = _format(RemoteEntryNotFoundError, message, response)
+            entry_err.repo_type = repo_type
+            entry_err.repo_id = repo_id
+            raise entry_err from e
 
         elif error_code == "GatedRepo":
             message = (
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
-            raise _format(GatedRepoError, message, response) from e
+            gated_err = _format(GatedRepoError, message, response)
+            gated_err.repo_type = repo_type
+            gated_err.repo_id = repo_id
+            raise gated_err from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
@@ -579,12 +805,27 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
             )
             raise _format(DisabledRepoError, message, response) from e
 
+        elif (
+            error_code == "RepoNotFound"
+            and request_url is not None
+            and BUCKET_API_REGEX.search(request_url) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Bucket Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct bucket id (namespace/name)."
+                + "\nIf the bucket is private, make sure you are authenticated."
+            )
+            bucket_err = _format(BucketNotFoundError, message, response)
+            bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
+            raise bucket_err from e
+
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
             and error_message != "Invalid credentials in Authorization header"
-            and response.request is not None
-            and response.request.url is not None
-            and REPO_API_REGEX.search(str(response.request.url)) is not None
+            and request_url is not None
+            and REPO_API_REGEX.search(request_url) is not None
         ):
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated
@@ -600,7 +841,10 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 " make sure you are authenticated. For more details, see"
                 " https://huggingface.co/docs/huggingface_hub/authentication"
             )
-            raise _format(RepositoryNotFoundError, message, response) from e
+            repo_err = _format(RepositoryNotFoundError, message, response)
+            repo_err.repo_type = repo_type
+            repo_err.repo_id = repo_id
+            raise repo_err from e
 
         elif response.status_code == 400:
             message = (
@@ -616,6 +860,25 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
             )
             raise _format(HfHubHTTPError, message, response) from e
 
+        elif response.status_code == 429:
+            ratelimit_info = parse_ratelimit_headers(response.headers)
+            if ratelimit_info is not None:
+                message = (
+                    f"\n\n429 Too Many Requests: you have reached your '{ratelimit_info.resource_type}' rate limit."
+                )
+                message += f"\nRetry after {ratelimit_info.reset_in_seconds} seconds"
+                if ratelimit_info.limit is not None and ratelimit_info.window_seconds is not None:
+                    message += (
+                        f" ({ratelimit_info.remaining}/{ratelimit_info.limit} requests remaining"
+                        f" in current {ratelimit_info.window_seconds}s window)."
+                    )
+                else:
+                    message += "."
+                message += f"\nUrl: {response.url}."
+            else:
+                message = f"\n\n429 Too Many Requests for url: {response.url}."
+            raise _format(HfHubHTTPError, message, response) from e
+
         elif response.status_code == 416:
             range_header = response.request.headers.get("Range")
             message = f"{e}. Requested range: {range_header}. Content-Range: {response.headers.get('Content-Range')}."
@@ -626,7 +889,37 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
         raise _format(HfHubHTTPError, str(e), response) from e
 
 
-def _format(error_type: type[HfHubHTTPError], custom_message: str, response: httpx.Response) -> HfHubHTTPError:
+_WARNED_TOPICS = set()
+
+
+def _warn_on_warning_headers(response: httpx.Response) -> None:
+    """
+    Emit warnings if warning headers are present in the HTTP response.
+
+    Expected header format: 'X-HF-Warning: topic; message'
+
+    Only the first warning for each topic will be shown. Topic is optional and can be empty. Note that several warning
+    headers can be present in a single response.
+
+    Args:
+        response (`httpx.Response`):
+            The HTTP response to check for warning headers.
+    """
+    server_warnings = response.headers.get_list("X-HF-Warning")
+    for server_warning in server_warnings:
+        topic, message = server_warning.split(";", 1) if ";" in server_warning else ("", server_warning)
+        topic = topic.strip()
+        if topic not in _WARNED_TOPICS:
+            message = message.strip()
+            if message:
+                _WARNED_TOPICS.add(topic)
+                logger.warning(message)
+
+
+_HfHubHTTPErrorT = TypeVar("_HfHubHTTPErrorT", bound=HfHubHTTPError)
+
+
+def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response) -> _HfHubHTTPErrorT:
     server_errors = []
 
     # Retrieve server error from header
@@ -690,15 +983,22 @@ def _format(error_type: type[HfHubHTTPError], custom_message: str, response: htt
             final_error_message += "\n" + server_message
         else:
             final_error_message += "\n\n" + server_message
+
+    # Prepare Request ID message
+    request_id = ""
+    request_id_message = ""
+    for header, label in (
+        (X_REQUEST_ID, "Request ID"),
+        (X_AMZN_TRACE_ID, "Amzn Trace ID"),
+        (X_AMZ_CF_ID, "Amz CF ID"),
+    ):
+        value = response.headers.get(header)
+        if value:
+            request_id = str(value)
+            request_id_message = f" ({label}: {value})"
+            break
+
     # Add Request ID
-    request_id = str(response.headers.get(X_REQUEST_ID, ""))
-    if request_id:
-        request_id_message = f" (Request ID: {request_id})"
-    else:
-        # Fallback to X-Amzn-Trace-Id
-        request_id = str(response.headers.get(X_AMZN_TRACE_ID, ""))
-        if request_id:
-            request_id_message = f" (Amzn Trace ID: {request_id})"
     if request_id and request_id.lower() not in final_error_message.lower():
         if "\n" in final_error_message:
             newline_index = final_error_message.index("\n")
@@ -731,11 +1031,12 @@ def _curlify(request: httpx.Request) -> str:
         parts += [("-H", f"{k}: {v}")]
 
     body: Optional[str] = None
-    if request.content is not None:
-        body = request.content.decode("utf-8", errors="ignore")
-        if len(body) > 1000:
-            body = f"{body[:1000]} ... [truncated]"
-    elif request.stream is not None:
+    try:
+        if request.content is not None:
+            body = request.content.decode("utf-8", errors="ignore")
+            if len(body) > 1000:
+                body = f"{body[:1000]} ... [truncated]"
+    except httpx.RequestNotRead:
         body = "<streaming body>"
     if body is not None:
         parts += [("-d", body.replace("\n", ""))]

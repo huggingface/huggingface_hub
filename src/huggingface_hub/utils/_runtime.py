@@ -15,6 +15,7 @@
 """Check presence of installed packages at runtime."""
 
 import importlib.metadata
+import importlib.util
 import os
 import platform
 import sys
@@ -316,19 +317,21 @@ def is_colab_enterprise() -> bool:
 # Check how huggingface_hub has been installed
 
 
-def installation_method() -> Literal["brew", "hf_installer", "unknown"]:
+def installation_method() -> Literal["brew", "hf_installer", "pip", "unknown"]:
     """Return the installation method of the current environment.
 
     - "hf_installer" if installed via the official installer script
     - "brew" if installed via Homebrew
+    - "pip" if pip is available (default fallback for standard Python environments)
     - "unknown" otherwise
     """
     if _is_brew_installation():
         return "brew"
-    elif _is_hf_installer_installation():
+    if _is_hf_installer_installation():
         return "hf_installer"
-    else:
-        return "unknown"
+    if _is_pip_available():
+        return "pip"
+    return "unknown"
 
 
 def _is_brew_installation() -> bool:
@@ -348,12 +351,17 @@ def _is_hf_installer_installation() -> bool:
     """Return `True` if the current environment was set up via the official hf installer script.
 
     i.e. using one of
-        curl -LsSf https://hf.co/cli/install.sh | sh
+        curl -LsSf https://hf.co/cli/install.sh | bash
         powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
     """
     venv = sys.prefix  # points to venv root if active
     marker = Path(venv) / ".hf_installer_marker"
     return marker.exists()
+
+
+def _is_pip_available() -> bool:
+    """Return `True` if pip is importable in the current environment."""
+    return importlib.util.find_spec("pip") is not None
 
 
 def dump_environment_info() -> dict[str, Any]:

@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -5,7 +6,12 @@ from typing import Optional
 import httpx
 
 from .. import constants
-from . import get_session, hf_raise_for_status, validate_hf_hub_args
+from . import hf_raise_for_status, http_backoff, validate_hf_hub_args
+
+
+XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
+XET_CONNECTION_INFO_CACHE_SIZE = 1_000
+XET_CONNECTION_INFO_CACHE: dict[str, "XetConnectionInfo"] = {}
 
 
 class XetTokenType(str, Enum):
@@ -154,8 +160,14 @@ def fetch_xet_connection_info_from_repo_info(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
-    return _fetch_xet_connection_info_with_url(url, headers, params)
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token"
+    if repo_type != "bucket" or revision is not None:
+        # On "bucket" repo type, the revision never needed => don't use it
+        # Otherwise, use the revision.
+        # Note: when creating a PR on a git-based repo, user needs write access but they don't know the revision in advance.
+        # => pass "/None" in URL and server will return a token for PR refs.
+        url += f"/{revision}"
+    return _fetch_xet_connection_info_with_url(url, headers, params, cache_key_prefix=f"{repo_type}-{repo_id}")
 
 
 @validate_hf_hub_args
@@ -163,10 +175,14 @@ def _fetch_xet_connection_info_with_url(
     url: str,
     headers: dict[str, str],
     params: Optional[dict[str, str]] = None,
+    cache_key_prefix: Optional[str] = None,
 ) -> XetConnectionInfo:
     """
     Requests the xet connection info from the supplied URL. This includes the
     access token, expiration time, and endpoint to use for the xet storage service.
+
+    Result is cached to avoid redundant requests.
+
     Args:
         url: (`str`):
             The access token endpoint URL.
@@ -183,10 +199,59 @@ def _fetch_xet_connection_info_with_url(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    resp = get_session().get(headers=headers, url=url, params=params)
+    # Check cache first
+    cache_key = _cache_key(url, headers, params, prefix=cache_key_prefix)
+    cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
+    if cached_info is not None:
+        if not _is_expired(cached_info):
+            return cached_info
+
+    # Fetch from server
+    resp = http_backoff("GET", url, headers=headers, params=params)
     hf_raise_for_status(resp)
 
     metadata = parse_xet_connection_info_from_headers(resp.headers)  # type: ignore
     if metadata is None:
         raise ValueError("Xet headers have not been correctly set by the server.")
+
+    # Delete expired cache entries
+    for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
+        if _is_expired(v):
+            XET_CONNECTION_INFO_CACHE.pop(k, None)
+
+    # Enforce cache size limit
+    if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
+        XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
+
+    # Update cache
+    XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+
     return metadata
+
+
+def reset_xet_connection_info_cache_for_repo(repo_type: Optional[str], repo_id: str) -> None:
+    """Reset the XET connection info cache for the given repo type and repo id.
+
+    Used when a repo is deleted.
+    """
+    if repo_type is None:
+        repo_type = constants.REPO_TYPE_MODEL
+    prefix = f"{repo_type}-{repo_id}|"
+    for k in list(XET_CONNECTION_INFO_CACHE.keys()):
+        if k.startswith(prefix):
+            XET_CONNECTION_INFO_CACHE.pop(k, None)
+
+
+def _cache_key(
+    url: str, headers: dict[str, str], params: Optional[dict[str, str]], prefix: Optional[str] = None
+) -> str:
+    """Return a unique cache key for the given request parameters."""
+    lower_headers = {k.lower(): v for k, v in headers.items()}  # casing is not guaranteed here
+    auth_header = lower_headers.get("authorization", "")
+    params_str = "&".join(f"{k}={v}" for k, v in sorted((params or {}).items(), key=lambda x: x[0]))
+    return f"{prefix}|{url}|{auth_header}|{params_str}"
+
+
+def _is_expired(connection_info: XetConnectionInfo) -> bool:
+    """Check if the given XET connection info is expired."""
+    return connection_info.expiration_unix_epoch <= int(time.time()) + XET_CONNECTION_INFO_SAFETY_PERIOD

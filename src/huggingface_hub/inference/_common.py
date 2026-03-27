@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import get_session, is_aiohttp_available, is_numpy_available, is_pillow_available
+from ..utils import get_session, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -47,7 +47,7 @@ UrlT = str
 PathT = Union[str, Path]
 ContentT = Union[bytes, BinaryIO, PathT, UrlT, "Image", bytearray, memoryview]
 
-# Use to set a Accept: image/png header
+# Use to set an Accept: image/png header
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 
 logger = logging.getLogger(__name__)
@@ -89,15 +89,6 @@ class MimeBytes(bytes):
 
 
 ## IMPORT UTILS
-
-
-def _import_aiohttp():
-    # Make sure `aiohttp` is installed on the machine.
-    if not is_aiohttp_available():
-        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
-    import aiohttp
-
-    return aiohttp
 
 
 def _import_numpy():
@@ -153,7 +144,7 @@ def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
     if hasattr(content, "read"):  # duck-typing instead of isinstance(content, BinaryIO)
         logger.debug("Reading content from BinaryIO")
         data = content.read()
-        mime_type = mimetypes.guess_type(content.name)[0] if hasattr(content, "name") else None
+        mime_type = mimetypes.guess_type(str(content.name))[0] if hasattr(content, "name") else None
         if isinstance(data, str):
             raise TypeError("Expected binary stream (bytes), but got text stream")
         return MimeBytes(data, mime_type=mime_type)
@@ -373,7 +364,7 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 #
 # Both approaches have very similar APIs, but not exactly the same. What we do first in
 # the `text_generation` method is to assume the model is served via TGI. If we realize
-# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
+# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fall back to the
 # default API with a warning message. When that's the case, We remember the unsupported
 # attributes for this model in the `_UNSUPPORTED_TEXT_GENERATION_KWARGS` global variable.
 #

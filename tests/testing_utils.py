@@ -133,7 +133,7 @@ def requires(package_name: str):
 
     def _inner(test_case):
         if not is_package_available(package_name):
-            return unittest.skip(f"Test requires '{package_name}'")(test_case)
+            return pytest.mark.skip(f"Test requires '{package_name}'")(test_case)
         else:
             return test_case
 
@@ -256,7 +256,7 @@ def expect_deprecation(function_name: str):
         function_name (`str`):
             Name of the function that we expect to use in a deprecated way.
 
-    NOTE: if a test is expected to warns FutureWarnings but is not, the test will fail.
+    NOTE: if a test is expected to warn FutureWarnings but is not, the test will fail.
 
     Context: over time, some arguments/methods become deprecated. In order to track
              deprecation in tests, we run pytest with flag `-Werror::FutureWarning`.
@@ -302,22 +302,17 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-def xfail_on_windows(reason: str, raises: Optional[type[Exception]] = None):
+def skip_on_windows(reason: str):
     """
-    Decorator to flag tests that we expect to fail on Windows.
-
-    Will not raise an error if the expected error happens while running on Windows machine.
-    If error is expected but does not happen, the test fails as well.
+    Decorator to flag tests that we want to skip on Windows.
 
     Args:
         reason (`str`):
-            Reason why it should fail.
-        raises (`type[Exception]`):
-            The error type we except to happen.
+            Reason to skip it.
     """
 
     def _inner_decorator(test_function: Callable) -> Callable:
-        return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
+        return pytest.mark.skipif(os.name == "nt", reason=reason)(test_function)
 
     return _inner_decorator
 

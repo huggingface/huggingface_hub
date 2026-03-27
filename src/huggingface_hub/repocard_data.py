@@ -710,11 +710,11 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
         task_and_ds_types_map[eval_result.unique_identifier].append(eval_result)
 
     # Use the map from above to generate the model index data.
-    model_index_data = []
+    model_index_data: list[dict[str, Any]] = []
     for results in task_and_ds_types_map.values():
         # All items from `results` share same metadata
         sample_result = results[0]
-        data = {
+        data: dict[str, Any] = {
             "task": {
                 "type": sample_result.task_type,
                 "name": sample_result.task_name,
@@ -741,7 +741,7 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
             ],
         }
         if sample_result.source_url is not None:
-            source = {
+            source: dict[str, str] = {
                 "url": sample_result.source_url,
             }
             if sample_result.source_name is not None:

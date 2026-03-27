@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Before you start, you will need to setup your environment by installing the appropriate packages.
+Before you start, you will need to set up your environment by installing the appropriate packages.
 
 `huggingface_hub` is tested on **Python 3.9+**.
 
@@ -17,19 +17,19 @@ A virtual environment makes it easier to manage different projects, and avoid co
 Start by creating a virtual environment in your project directory:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 Activate the virtual environment. On Linux and macOS:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Activate virtual environment on Windows:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 Now you're ready to install `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
@@ -46,8 +46,8 @@ Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io
 
 You can install optional dependencies via `pip`:
 ```bash
-# Install dependencies for both torch-specific and CLI-specific features.
-pip install 'huggingface_hub[cli,torch]'
+# Install dependencies for both torch-specific and MCP-specific features.
+pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
@@ -84,7 +84,7 @@ Once done, [check installation](#check-installation) is working correctly.
 
 ### Editable install
 
-Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
+Installing from source allows you to set up an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
 This is a more advanced installation if you plan to contribute to `huggingface_hub`
 and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
 on your machine.
@@ -110,7 +110,7 @@ Use our one-liner installers to set up the `hf` CLI without touching your Python
 On macOS and Linux:
 
 ```bash
-curl -LsSf https://hf.co/cli/install.sh | sh
+curl -LsSf https://hf.co/cli/install.sh | bash
 ```
 
 On Windows:
@@ -168,5 +168,5 @@ a solution.
 
 ## Next steps
 
-Once `huggingface_hub` is properly installed on your machine, you might want
+Once `huggingface_hub` is properly installed on your machine, you might want to
 [configure environment variables](package_reference/environment_variables) or [check one of our guides](guides/overview) to get started.

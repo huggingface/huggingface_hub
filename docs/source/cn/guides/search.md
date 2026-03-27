@@ -41,7 +41,7 @@ models = hf_api.list_models(
 在过滤时，您还可以对模型进行排序，并仅获取前几个结果。例如，以下示例获取了 Hub 上下载量最多的前 5 个数据集：
 
 ```py
->>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',

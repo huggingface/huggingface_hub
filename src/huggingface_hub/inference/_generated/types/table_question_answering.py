@@ -55,7 +55,7 @@ class TableQuestionAnsweringOutputElement(BaseInferenceType):
     preceded by `AGGREGATOR >`.
     """
     cells: list[str]
-    """List of strings made up of the answer cell values."""
+    """list of strings made up of the answer cell values."""
     coordinates: list[list[int]]
     """Coordinates of the cells of the answers."""
     aggregator: Optional[str] = None

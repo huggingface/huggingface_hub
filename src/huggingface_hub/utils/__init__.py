@@ -16,6 +16,7 @@
 # ruff: noqa: F401
 from huggingface_hub.errors import (
     BadRequestError,
+    BucketNotFoundError,
     CacheNotFound,
     CorruptedCacheException,
     DisabledRepoError,
@@ -54,6 +55,7 @@ from ._headers import build_hf_headers, get_token_to_send
 from ._http import (
     ASYNC_CLIENT_FACTORY_T,
     CLIENT_FACTORY_T,
+    RateLimitInfo,
     close_session,
     fix_hf_endpoint_in_url,
     get_async_session,
@@ -61,6 +63,7 @@ from ._http import (
     hf_raise_for_status,
     http_backoff,
     http_stream_backoff,
+    parse_ratelimit_headers,
     set_async_client_factory,
     set_client_factory,
 )
@@ -108,7 +111,7 @@ from ._runtime import (
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
-from ._terminal import ANSI, tabulate
+from ._terminal import ANSI, StatusLine, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
@@ -119,4 +122,11 @@ from ._xet import (
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
-from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file
+from .tqdm import (
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+    is_tqdm_disabled,
+    tqdm,
+    tqdm_stream_file,
+)

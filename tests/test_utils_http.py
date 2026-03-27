@@ -1,9 +1,7 @@
-import os
 import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from multiprocessing import Process, Queue
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlparse
@@ -14,15 +12,21 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
+from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
 from huggingface_hub.utils._http import (
+    _WARNED_TOPICS,
+    RateLimitInfo,
     _adjust_range_header,
+    _parse_bucket_id_from_url,
+    _parse_repo_info_from_url,
+    _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
     get_session,
     hf_raise_for_status,
     http_backoff,
+    parse_ratelimit_headers,
     set_client_factory,
 )
 
@@ -151,6 +155,33 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
+    def test_backoff_on_429_uses_ratelimit_header(self) -> None:
+        """Test that 429 wait time uses full reset time from ratelimit header."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]
+        assert response.status_code == 200
+
 
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
@@ -221,24 +252,6 @@ class TestConfigureSession(unittest.TestCase):
             self.assertIs(main_client, clients[i])
             for j in range(N):
                 self.assertIs(clients[i], clients[j])
-
-    @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
-    def test_get_session_in_forked_process(self):
-        # Get main process client
-        main_client = get_session()
-
-        def _child_target():
-            # Put `repr(client)` in queue because putting the `Client` object directly would duplicate it.
-            # Repr looks like this: "<httpx.Client object at 0x7f5adcc41e40>"
-            process_queue.put(repr(get_session()))
-
-        # Fork a new process and get client in it
-        process_queue = Queue()
-        Process(target=_child_target).start()
-        child_client = process_queue.get()
-
-        # Check clients are the same instance
-        self.assertEqual(repr(main_client), child_client)
 
 
 class OfflineModeSessionTest(unittest.TestCase):
@@ -467,3 +480,225 @@ async def test_raise_on_status_async_non_stream(fake_server: str):
 async def test_raise_on_status_async_stream(fake_server: str):
     async with get_async_session().stream("GET", fake_server) as response:
         _check_raise_status(response)
+
+
+class TestParseRatelimitHeaders:
+    def test_parse_full_headers(self):
+        """Test parsing both ratelimit and ratelimit-policy headers."""
+        headers = {
+            "ratelimit": '"api";r=0;t=55',
+            "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+        }
+        info = parse_ratelimit_headers(headers)
+        assert info == RateLimitInfo(
+            resource_type="api",
+            remaining=0,
+            reset_in_seconds=55,
+            limit=500,
+            window_seconds=300,
+        )
+
+    def test_parse_ratelimit_only(self):
+        """Test parsing with only ratelimit header (no policy)."""
+        headers = {"ratelimit": '"api";r=489;t=189'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.resource_type == "api"
+        assert info.remaining == 489
+        assert info.reset_in_seconds == 189
+        assert info.limit is None
+        assert info.window_seconds is None
+
+    def test_parse_missing_header(self):
+        """Test returns None when ratelimit header is missing."""
+        assert parse_ratelimit_headers({}) is None
+
+    def test_parse_malformed_header(self):
+        """Test returns None when ratelimit header is malformed."""
+        assert parse_ratelimit_headers({"ratelimit": "malformed"}) is None
+
+    def test_parse_case_insensitive(self):
+        """Test header lookup is case-insensitive."""
+        headers = {"RateLimit": '"api";r=10;t=100', "RateLimit-Policy": '"fixed window";"api";q=500;w=300'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.remaining == 10
+
+
+class TestBucketNotFoundError:
+    def _make_response(self, url: str, error_code: str = "RepoNotFound"):
+        request = Mock(spec=httpx.Request)
+        request.url = url
+        response = Mock(spec=httpx.Response)
+        response.status_code = 404
+        response.url = url
+        response.request = request
+        response.headers = httpx.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        response.json.return_value = {"error": "Repository not found"}
+        return response
+
+    def test_bucket_not_found_on_bucket_url(self):
+        """Test that BucketNotFoundError is raised for bucket API URLs."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name")
+        with pytest.raises(BucketNotFoundError) as exc_info:
+            hf_raise_for_status(response)
+        assert "Bucket Not Found" in str(exc_info.value)
+        assert "api/buckets/namespace/name" in str(exc_info.value)
+
+    def test_bucket_not_found_on_bucket_sub_url(self):
+        """Test that BucketNotFoundError is raised for bucket sub-URLs (e.g. tree)."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+        with pytest.raises(BucketNotFoundError):
+            hf_raise_for_status(response)
+
+    def test_repo_not_found_on_non_bucket_url(self):
+        """Test that RepositoryNotFoundError is still raised for non-bucket URLs."""
+        response = self._make_response("https://huggingface.co/api/models/namespace/name")
+        with pytest.raises(RepositoryNotFoundError):
+            hf_raise_for_status(response)
+
+
+class TestRateLimitErrorMessage:
+    def test_429_with_ratelimit_headers(self):
+        """Test 429 error includes rate limit info when headers present."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models/username/reponame"
+        response.headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=0;t=55',
+                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429 Too Many Requests" in error_msg
+        assert "'api' rate limit" in error_msg
+        assert "55 seconds" in error_msg
+        assert "0/500" in error_msg
+        assert "api/models/username/reponame" in error_msg
+
+    def test_429_without_ratelimit_headers(self):
+        """Test 429 error fallback when headers missing."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models"
+        response.headers = httpx.Headers({})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        assert "429 Too Many Requests" in str(exc_info.value)
+        assert "api/models" in str(exc_info.value)
+
+
+class TestWarnOnWarningHeaders:
+    def test_warn_on_warning_headers(self, caplog):
+        # Request #1 (multiple warnings)
+        response = Mock(spec=httpx.Response)
+        response.headers = httpx.Headers(
+            [
+                ("X-HF-Warning", "Topic1; This is the first warning message."),
+                ("X-HF-Warning", "Topic2; This is the second warning message."),
+                ("X-HF-Warning", "Topic1; This is a repeated warning message for Topic1."),
+                ("X-HF-Warning", "This is a warning without a topic."),
+                ("X-HF-Warning", "This is another warning without a topic."),
+            ]
+        )
+
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+
+        assert {"Topic1", "Topic2", ""}.issubset(_WARNED_TOPICS)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert "This is the first warning message." in warnings
+        assert "This is the second warning message." in warnings
+        assert "This is a repeated warning message for Topic1." not in warnings
+        assert "This is a warning without a topic." in warnings
+        assert "This is another warning without a topic." not in warnings
+        # Request #2 (exact same warnings, should not warn again)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 0  # No new warnings should be added
+
+        # Request #3 (single warning with new topic, should warn)
+        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 1
+        assert warnings == ["Another warning."]
+        assert "Topic4" in _WARNED_TOPICS
+
+
+class TestParseRepoInfoFromUrl:
+    def test_api_model_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo") == ("model", "user/repo")
+
+    def test_api_dataset_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo") == ("dataset", "user/repo")
+
+    def test_api_space_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/spaces/user/repo") == ("space", "user/repo")
+
+    def test_api_model_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased") == (
+            "model",
+            "bert-base-cased",
+        )
+
+    def test_api_model_with_resolve_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/user/repo/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "user/repo"
+
+    def test_api_dataset_with_tree_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/tree/main")
+        assert repo_type == "dataset"
+        assert repo_id == "user/repo"
+
+    def test_api_model_single_name_with_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "bert-base-cased"
+
+    def test_non_matching_url(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/some/other/path") == (None, None)
+
+    def test_staging_url(self):
+        assert _parse_repo_info_from_url("https://hub-ci.huggingface.co/api/models/user/repo") == (
+            "model",
+            "user/repo",
+        )
+
+
+class TestParseBucketIdFromUrl:
+    def test_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_subpath(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+            == "namespace/name"
+        )
+
+    def test_non_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/models/user/repo") is None
+
+    def test_http_url(self):
+        assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"

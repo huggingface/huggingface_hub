@@ -821,7 +821,7 @@ def _format_size(num: int) -> str:
 def _try_delete_path(path: Path, path_type: str) -> None:
     """Try to delete a local file or folder.
 
-    If the path does not exists, error is logged as a warning and then ignored.
+    If the path does not exist, error is logged as a warning and then ignored.
 
     Args:
         path (`Path`)

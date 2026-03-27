@@ -58,10 +58,27 @@ from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
-from ._cli_utils import PrivateOpt, RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api
+from ._cli_utils import (
+    PrivateOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+)
 
 
 logger = logging.get_logger(__name__)
+
+
+UPLOAD_EXAMPLES = [
+    "hf upload my-cool-model . .",
+    "hf upload Wauplin/my-cool-model ./models/model.safetensors",
+    "hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset",
+    'hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"',
+    "hf upload bigcode/the-stack . . --repo-type dataset --create-pr",
+]
 
 
 def upload(
@@ -80,7 +97,7 @@ def upload(
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
-    private: PrivateOpt = False,
+    private: PrivateOpt = None,
     include: Annotated[
         Optional[list[str]],
         typer.Option(
@@ -120,7 +137,7 @@ def upload(
     every: Annotated[
         Optional[float],
         typer.Option(
-            help="f set, a background job is scheduled to create commits every `every` minutes.",
+            help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
     token: TokenOpt = None,
@@ -156,6 +173,8 @@ def upload(
 
         # Schedule commits if `every` is set
         if every is not None:
+            allow_patterns: Optional[list[str]]
+            ignore_patterns: Optional[list[str]]
             if os.path.isfile(resolved_local_path):
                 # If file => watch entire folder + use allow_patterns
                 folder_path = os.path.dirname(resolved_local_path)
@@ -165,18 +184,12 @@ def upload(
                     else resolved_path_in_repo
                 )
                 allow_patterns = [resolved_local_path]
-                ignore_patterns: Optional[list[str]] = []
+                ignore_patterns = []
             else:
                 folder_path = resolved_local_path
                 pi = resolved_path_in_repo
-                allow_patterns = (
-                    resolved_include or []
-                    if isinstance(resolved_include, list)
-                    else [resolved_include]
-                    if isinstance(resolved_include, str)
-                    else []
-                )
-                ignore_patterns = exclude or []
+                allow_patterns = resolved_include
+                ignore_patterns = exclude
                 if delete is not None and len(delete) > 0:
                     warnings.warn("Ignoring --delete when uploading with scheduled commits.")
 
@@ -210,7 +223,7 @@ def upload(
             private=private,
             space_sdk="gradio" if repo_type_str == "space" else None,
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
         ).repo_id
 
         # Check if branch already exists and if not, create it
@@ -245,13 +258,7 @@ def upload(
             commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
-            allow_patterns=(
-                resolved_include
-                if isinstance(resolved_include, list)
-                else [resolved_include]
-                if isinstance(resolved_include, str)
-                else None
-            ),
+            allow_patterns=resolved_include,
             ignore_patterns=exclude,
             delete_patterns=delete,
         )

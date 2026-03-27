@@ -73,9 +73,9 @@ The easiest way to authenticate is to save the token on your machine. You can do
 hf auth login
 ```
 
-The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
+If you are already logged in, the command will return immediately. To force re-login, use `hf auth login --force`. If you are not logged in, you will be prompted for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
 
-Alternatively, you can programmatically login using [`login`] in a notebook or a script:
+Alternatively, you can programmatically log in using [`login`] in a notebook or a script:
 
 ```py
 >>> from huggingface_hub import login

@@ -3,14 +3,19 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from huggingface_hub import constants
+from huggingface_hub import HfApi, constants
 from huggingface_hub.utils._xet import (
     XetFileData,
+    XetTokenType,
     _fetch_xet_connection_info_with_url,
+    fetch_xet_connection_info_from_repo_info,
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
+
+from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_utils import repo_name
 
 
 def test_parse_valid_headers_file_info() -> None:
@@ -162,9 +167,7 @@ def test_refresh_metadata_success(mocker) -> None:
         "X-Xet-Refresh-Route": f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token",
     }
 
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     headers = {"user-agent": "user-agent-example"}
     refreshed_connection = refresh_xet_connection_info(
@@ -177,9 +180,10 @@ def test_refresh_metadata_success(mocker) -> None:
 
     # Verify the request
     expected_url = f"{constants.ENDPOINT}/api/models/username/repo_name/xet-read-token/token"
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        expected_url,
         headers=headers,
-        url=expected_url,
         params=None,
     )
 
@@ -199,9 +203,7 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
         "X-Xet-Token-Expiration": "1234599999",
     }
 
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     headers = {"user-agent": "user-agent-example"}
     refresh_xet_connection_info(
@@ -214,9 +216,10 @@ def test_refresh_metadata_custom_endpoint(mocker) -> None:
 
     # Verify the request used the custom endpoint
     expected_url = f"{custom_endpoint}/api/models/username/repo_name/xet-read-token/token"
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        expected_url,
         headers=headers,
-        url=expected_url,
         params=None,
     )
 
@@ -245,9 +248,7 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     }
 
     # Mock the session.get method
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    http_backoff_mock = mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     # Call the function
     url = "https://example.xethub.hf.co/api/models/username/repo_name/xet-read-token/token"
@@ -255,9 +256,10 @@ def test_fetch_xet_metadata_with_url(mocker) -> None:
     metadata = _fetch_xet_connection_info_with_url(url=url, headers=headers)
 
     # Verify the request
-    mock_session.get.assert_called_once_with(
+    http_backoff_mock.assert_called_once_with(
+        "GET",
+        url,
         headers=headers,
-        url=url,
         params=None,
     )
 
@@ -272,9 +274,7 @@ def test_fetch_xet_metadata_with_url_invalid_response(mocker) -> None:
     mock_response.headers = {"Content-Type": "application/json"}  # No XET headers
 
     # Mock the session.get method
-    mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
-    mocker.patch("huggingface_hub.utils._xet.get_session", return_value=mock_session)
+    mocker.patch("huggingface_hub.utils._xet.http_backoff", return_value=mock_response)
 
     url = "https://example.xethub.hf.co/api/models/username/repo_name/xet-read-token/token"
     headers = {"user-agent": "user-agent-example"}
@@ -291,3 +291,54 @@ def test_env_var_hf_hub_disable_xet() -> None:
     monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DISABLE_XET", True)
 
     assert not is_xet_available()
+
+
+def test_xet_token_reset_after_repo_deletion() -> None:
+    """Test Xet token is reset after repo deletion.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/3829
+    """
+    # Create a repo
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    repo_id = api.create_repo(repo_id=repo_name()).repo_id
+
+    # Get XET token
+    xet_info_read = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.READ,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    xet_info_write = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    # Recreate the repo
+    api.delete_repo(repo_id=repo_id)
+    api.create_repo(repo_id)
+
+    # Get XET token for the new repo (same repo ID, same revision)
+    xet_info_read_new = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.READ,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+    xet_info_write_new = fetch_xet_connection_info_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type="model",
+        revision="main",
+        headers=api._build_hf_headers(),
+    )
+
+    # XET token must have changed (reset after repo deletion)
+    assert xet_info_read.access_token != xet_info_read_new.access_token
+    assert xet_info_write.access_token != xet_info_write_new.access_token

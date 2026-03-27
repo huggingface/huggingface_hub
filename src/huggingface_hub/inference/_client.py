@@ -139,7 +139,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `publicai`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"` or `"zai-org"`.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"nvidia"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
             Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
@@ -163,6 +163,8 @@ class InferenceClient:
             Token to use for authentication. This is a duplicated argument from `token` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
+
+    provider: Optional[PROVIDER_OR_POLICY_T]
 
     @validate_hf_hub_args
     def __init__(
@@ -194,7 +196,7 @@ class InferenceClient:
             )
         token = token if token is not None else api_key
         if isinstance(token, bool):
-            # Legacy behavior: previously is was possible to pass `token=False` to disable authentication. This is not
+            # Legacy behavior: previously it was possible to pass `token=False` to disable authentication. This is not
             # supported anymore as authentication is required. Better to explicitly raise here rather than risking
             # sending the locally saved token without the user knowing about it.
             if token is False:
@@ -231,7 +233,7 @@ class InferenceClient:
                 )
 
         # Configure provider
-        self.provider = provider
+        self.provider = provider  # type: ignore[assignment]
 
         self.cookies = cookies
         self.timeout = timeout
@@ -461,6 +463,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_params=request_parameters)
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     @overload
@@ -868,7 +871,7 @@ class InferenceClient:
         >>> messages = [
         ...     {
         ...         "role": "user",
-        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I see and when?",
         ...     },
         ... ]
         >>> response_format = {
@@ -939,9 +942,9 @@ class InferenceClient:
         data = self._inner_post(request_parameters, stream=stream)
 
         if stream:
-            return _stream_chat_completion_response(data)  # type: ignore[arg-type]
+            return _stream_chat_completion_response(data)  # type: ignore
 
-        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore
 
     def document_question_answering(
         self,
@@ -1037,7 +1040,9 @@ class InferenceClient:
         normalize: Optional[bool] = None,
         prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
-        truncation_direction: Optional[Literal["Left", "Right"]] = None,
+        truncation_direction: Optional[Literal["left", "right"]] = None,
+        dimensions: Optional[int] = None,
+        encoding_format: Optional[Literal["float", "base64"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -1062,8 +1067,14 @@ class InferenceClient:
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not.
                 Only available on server powered by Text-Embedding-Inference.
-            truncation_direction (`Literal["Left", "Right"]`, *optional*):
+            truncation_direction (`Literal["left", "right"]`, *optional*):
                 Which side of the input should be truncated when `truncate=True` is passed.
+            dimensions (`int`, *optional*):
+                The number of dimensions the resulting output embeddings should have.
+                Only available on OpenAI-compatible embedding endpoints.
+            encoding_format (`Literal["float", "base64"]`, *optional*):
+                The format of the output embeddings. Either "float" or "base64".
+                Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -1094,6 +1105,8 @@ class InferenceClient:
                 "prompt_name": prompt_name,
                 "truncate": truncate,
                 "truncation_direction": truncation_direction,
+                "dimensions": dimensions,
+                "encoding_format": encoding_format,
             },
             headers=self.headers,
             model=model_id,
@@ -1271,9 +1284,10 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
+        response = provider_helper.get_response(response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
+            item.mask = _b64_to_image(item.mask)  # type: ignore
         return output
 
     def image_to_image(
@@ -1330,6 +1344,7 @@ class InferenceClient:
         >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
         >>> image.save("tiger.jpg")
         ```
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id)
@@ -1435,7 +1450,7 @@ class InferenceClient:
         Takes an input image and return text.
 
         Models can have very different outputs depending on your use case (image captioning, optical character recognition
-        (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
+        (OCR), Pix2Struct, etc.). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO, PIL.Image.Image]`):
@@ -1942,7 +1957,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore
 
     @overload
     def text_generation(
@@ -2425,7 +2440,7 @@ class InferenceClient:
         if stream:
             return _stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore
 
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):
@@ -2549,6 +2564,7 @@ class InferenceClient:
         ... )
         >>> image.save("astronaut.png")
         ```
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id)
@@ -2569,7 +2585,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        response = provider_helper.get_response(response)
+        response = provider_helper.get_response(response, request_parameters)
         return _bytes_to_image(response)
 
     def text_to_video(
@@ -2647,6 +2663,7 @@ class InferenceClient:
         >>> with open("cat.mp4", "wb") as file:
         ...     file.write(video)
         ```
+
         """
         model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id)
@@ -3200,10 +3217,7 @@ class InferenceClient:
         )
         response = self._inner_post(request_parameters)
         output = _bytes_to_dict(response)
-        return [
-            ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
-            for label, score in zip(output["labels"], output["scores"])
-        ]
+        return ZeroShotClassificationOutputElement.parse_obj_as_list(output)
 
     def zero_shot_image_classification(
         self,

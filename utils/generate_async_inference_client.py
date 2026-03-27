@@ -150,15 +150,6 @@ def _add_imports(code: str) -> str:
         flags=re.DOTALL,
     )
 
-    # type-checking imports
-    code = re.sub(
-        r"(\nif TYPE_CHECKING:\n)",
-        repl=r"\1    from aiohttp import ClientResponse, ClientSession\n",
-        string=code,
-        count=1,
-        flags=re.DOTALL,
-    )
-
     return code
 
 

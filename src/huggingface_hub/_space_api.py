@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from huggingface_hub.utils import parse_datetime
 
@@ -43,6 +43,8 @@ class SpaceStage(str, Enum):
     DELETING = "DELETING"
     STOPPED = "STOPPED"
     PAUSED = "PAUSED"
+    APP_STARTING = "APP_STARTING"
+    RUNNING_APP_STARTING = "RUNNING_APP_STARTING"
 
 
 class SpaceHardware(str, Enum):
@@ -60,7 +62,9 @@ class SpaceHardware(str, Enum):
     # CPU
     CPU_BASIC = "cpu-basic"
     CPU_UPGRADE = "cpu-upgrade"
+    CPU_PERFORMANCE = "cpu-performance"
     CPU_XL = "cpu-xl"
+    SPRX8 = "sprx8"
 
     # ZeroGPU
     ZERO_A10G = "zero-a10g"
@@ -78,8 +82,15 @@ class SpaceHardware(str, Enum):
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
-    H100 = "h100"
-    H100X8 = "h100x8"
+    A100X4 = "a100x4"
+    A100X8 = "a100x8"
+    H200 = "h200"
+    H200X2 = "h200x2"
+    H200X4 = "h200x4"
+    H200X8 = "h200x8"
+
+    # Neuron
+    INF2X6 = "inf2x6"
 
 
 class SpaceStorage(str, Enum):
@@ -100,6 +111,18 @@ class SpaceStorage(str, Enum):
 
 
 @dataclass
+class SpaceHotReloading:
+    status: Literal["created", "canceled"]
+    replica_statuses: list[tuple[str, str]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
+    raw: dict
+
+    def __init__(self, data: dict) -> None:
+        self.status = data["status"]
+        self.replica_statuses = data["replicaStatuses"]
+        self.raw = data
+
+
+@dataclass
 class SpaceRuntime:
     """
     Contains information about the current runtime of a Space.
@@ -111,7 +134,7 @@ class SpaceRuntime:
             Current hardware of the space. Example: "cpu-basic". Can be `None` if Space
             is `BUILDING` for the first time.
         requested_hardware (`str` or `None`):
-            Requested hardware. Can be different than `hardware` especially if the request
+            Requested hardware. Can be different from `hardware` especially if the request
             has just been made. Example: "t4-medium". Can be `None` if no hardware has
             been requested yet.
         sleep_time (`int` or `None`):
@@ -128,6 +151,7 @@ class SpaceRuntime:
     requested_hardware: Optional[SpaceHardware]
     sleep_time: Optional[int]
     storage: Optional[SpaceStorage]
+    hot_reloading: Optional[SpaceHotReloading]
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -136,6 +160,7 @@ class SpaceRuntime:
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
+        self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
         self.raw = data
 
 

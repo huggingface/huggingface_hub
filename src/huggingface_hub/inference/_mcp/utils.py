@@ -57,10 +57,10 @@ def format_result(result: "mcp_types.CallToolResult") -> str:
         elif item.type == "resource":
             resource = item.resource
 
-            if hasattr(resource, "text"):
+            if hasattr(resource, "text") and isinstance(resource.text, str):
                 formatted_parts.append(resource.text)
 
-            elif hasattr(resource, "blob"):
+            elif hasattr(resource, "blob") and isinstance(resource.blob, str):
                 formatted_parts.append(
                     f"[Binary Content ({resource.uri}): {resource.mimeType}, {_get_base64_size(resource.blob)} bytes]\n"
                     f"The task is complete and the content accessible to the User"
@@ -102,7 +102,7 @@ def _load_agent_config(agent_path: Optional[str]) -> tuple[AgentConfig, Optional
         return config, prompt
 
     if agent_path is None:
-        return DEFAULT_AGENT, None  # type: ignore[return-value]
+        return DEFAULT_AGENT, None  # type: ignore
 
     path = Path(agent_path).expanduser()
 

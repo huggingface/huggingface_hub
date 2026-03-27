@@ -33,8 +33,8 @@ class OAuthOrgInfo:
             The org's username. OpenID Connect field.
         picture (`str`):
             The org's profile picture URL. OpenID Connect field.
-        is_enterprise (`bool`):
-            Whether the org is an enterprise org. Hugging Face field.
+        plan (`str`, *optional*):
+            The org's plan (e.g., "enterprise", "team"). Hugging Face field.
         can_pay (`Optional[bool]`, *optional*):
             Whether the org has a payment method set up. Hugging Face field.
         role_in_org (`Optional[str]`, *optional*):
@@ -47,7 +47,7 @@ class OAuthOrgInfo:
     name: str
     preferred_username: str
     picture: str
-    is_enterprise: bool
+    plan: Optional[str] = None
     can_pay: Optional[bool] = None
     role_in_org: Optional[str] = None
     security_restrictions: Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]] = None
@@ -167,7 +167,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         ) from e
     session_secret = (constants.OAUTH_CLIENT_SECRET or "") + "-v1"
     app.add_middleware(
-        SessionMiddleware,  # type: ignore[arg-type]
+        SessionMiddleware,  # type: ignore
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
         same_site="none",
         https_only=True,
@@ -190,7 +190,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
 
 def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
     """
-    Returns the information from a logged in user as a [`OAuthInfo`] object.
+    Returns the information from a logged-in user as a [`OAuthInfo`] object.
 
     For flexibility and future-proofing, this method is very lax in its parsing and does not raise errors.
     Missing fields are set to `None` without a warning.
@@ -215,7 +215,7 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
                 name=org.get("name"),
                 preferred_username=org.get("preferred_username"),
                 picture=org.get("picture"),
-                is_enterprise=org.get("isEnterprise"),
+                plan=org.get("plan"),
                 can_pay=org.get("canPay"),
                 role_in_org=org.get("roleInOrg"),
                 security_restrictions=org.get("securityRestrictions"),

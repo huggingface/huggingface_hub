@@ -50,7 +50,7 @@ class WebhooksServer:
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
     model that contains all the information about the webhook event. The data will be parsed automatically for you.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     WebhooksServer and deploy it on a Space.
 
     > [!WARNING]
@@ -231,7 +231,7 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
     you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
     this decorator multiple times.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     server and deploy it on a Space.
 
     > [!WARNING]

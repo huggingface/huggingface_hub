@@ -124,7 +124,7 @@ You can also enable or disable progress bars for specific groups. This allows yo
 
 <Tip>
 
-In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/v1.0-release/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
+In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
 
 </Tip>
 
@@ -184,6 +184,12 @@ except HfHubHTTPError as e:
 
 [[autodoc]] huggingface_hub.utils.hf_raise_for_status
 
+### Check offline mode
+
+You can programmatically check if offline mode is enabled using `is_offline_mode`. Offline mode is enabled by setting `HF_HUB_OFFLINE=1` as environment variable.
+
+[[autodoc]] is_offline_mode
+
 ### HTTP errors
 
 Here is a list of HTTP errors thrown in `huggingface_hub`.
@@ -230,7 +236,7 @@ user as possible.
 
 ## Telemetry
 
-`huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
+`huggingface_hub` includes a helper to send telemetry data. This information helps us debug issues and prioritize new features.
 Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
 Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
 

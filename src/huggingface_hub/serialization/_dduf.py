@@ -202,7 +202,7 @@ def export_entries_as_dduf(
         ... # ... do some work with the pipeline
 
         >>> def as_entries(pipe: DiffusionPipeline) -> Generator[tuple[str, bytes], None, None]:
-        ...     # Build an generator that yields the entries to add to the DDUF file.
+        ...     # Build a generator that yields the entries to add to the DDUF file.
         ...     # The first element of the tuple is the filename in the DDUF archive (must use UNIX separator!). The second element is the content of the file.
         ...     # Entries will be evaluated lazily when the DDUF file is created (only 1 entry is loaded in memory at a time)
         ...     yield "vae/config.json", pipe.vae.to_json_string().encode()
