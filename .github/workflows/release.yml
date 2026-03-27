@@ -377,17 +377,19 @@ jobs:
 
           ARGS=(
             "$TAG"
-            --title "v${VERSION}"
             --draft
             --prerelease
           )
 
           if [[ -n "$NOTES_FILE" ]]; then
             echo "Using generated release notes from $NOTES_FILE"
-            ARGS+=(--notes-file "$NOTES_FILE")
+            # Extract title from first line (strip "# " prefix) and use rest as body
+            TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
+            tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
+            ARGS+=(--title "$TITLE" --notes-file "${NOTES_FILE}.body")
           else
             echo "No generated notes found, using GitHub auto-generated notes"
-            ARGS+=(--generate-notes)
+            ARGS+=(--title "v${VERSION}" --generate-notes)
           fi
 
           gh release create "${ARGS[@]}"
@@ -418,7 +420,6 @@ jobs:
             echo "Updating existing draft release from $EXISTING_TAG to $TAG"
             gh release edit "$EXISTING_TAG" \
               --tag "$TAG" \
-              --title "v${VERSION}" \
               --prerelease=false
           else
             echo "::warning::No draft release found for v${MINOR}. Creating new release with auto-generated notes."

@@ -100,7 +100,7 @@ For highlighted PRs and other PRs that introduce new features, commands, or APIs
 
 Output to `<output_dir>/RELEASE_NOTES_<version>.md` using the structure from `references/release-notes-template.md`:
 
-- Title: `# vX.Y.Z: <tagline>` (derive tagline from main highlights)
+- Title: `# [vX.Y.Z] <tagline>` (derive tagline from main highlights; always use the base version without prerelease suffix, e.g. `[v1.8.0]` even when generating for `v1.8.0.rc0`)
 - One section per highlight with emoji header and narrative
 - Standard sections for remaining items (only include sections with items)
 
