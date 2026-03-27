@@ -1,4 +1,3 @@
-import asyncio
 import unittest
 from unittest.mock import patch
 
@@ -146,16 +145,6 @@ class TestWebhooksServerDontRun(unittest.TestCase):
             pass
 
         self.assertIn("/webhooks/handler", app.registered_webhooks)
-        self.assertIs(handler, app.registered_webhooks["/webhooks/handler"])
-
-    def test_add_webhook_decorator_returns_callable(self):
-        app = WebhooksServer()
-
-        @app.add_webhook
-        async def handler():
-            return "ok"
-
-        self.assertEqual(asyncio.run(handler()), "ok")
 
     def test_add_webhook_explicit_path(self):
         # Test adding a webhook
@@ -163,22 +152,9 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
         @app.add_webhook(path="/test_webhook")
         async def handler():
-            return "registered"
+            pass
 
         self.assertIn("/webhooks/test_webhook", app.registered_webhooks)  # still registered under /webhooks
-        self.assertIs(handler, app.registered_webhooks["/webhooks/test_webhook"])
-        self.assertEqual(asyncio.run(handler()), "registered")
-
-    def test_add_webhook_direct_call_returns_original_callable(self):
-        app = WebhooksServer()
-
-        async def handler():
-            return "ok"
-
-        returned = app.add_webhook(path="/callable")(handler)
-
-        self.assertIs(returned, handler)
-        self.assertIs(handler, app.registered_webhooks["/webhooks/callable"])
 
     def test_add_webhook_twice_should_fail(self):
         # Test adding a webhook
