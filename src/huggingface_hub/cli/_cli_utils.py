@@ -812,7 +812,7 @@ def _prompt_autoupdate(
         click.echo("", file=sys.stderr)
         return
 
-    answer = raw_answer.strip().lower()
+    answer = raw_answer.strip().lower()  # Note: if user press 'Enter', raw_answer is `\n`
     if answer in ("", "y", "yes"):
         click.echo("", file=sys.stderr)
         click.echo(ANSI.gray(f"  Running: {update_command}"), file=sys.stderr)
