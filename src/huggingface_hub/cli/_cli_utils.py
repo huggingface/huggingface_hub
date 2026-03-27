@@ -713,7 +713,7 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found and stdin/stdout are attached to a TTY, prompt the user to update interactively.
+    If a newer version is found and stdin/stderr are attached to a TTY, prompt the user to update interactively.
     Otherwise (non-TTY or update command cannot be determined), print a warning to stderr.
 
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
