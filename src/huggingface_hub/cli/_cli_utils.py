@@ -861,8 +861,7 @@ def _get_transformers_update_command() -> Optional[list[str]]:
             "powershell",
             "-NoProfile",
             "-Command",
-            "iwr -useb https://hf.co/cli/install.ps1 | iex",
-            "-WithTransformers",
+            "iwr -useb https://hf.co/cli/install.ps1 | iex -WithTransformers",
         ]
     elif method == "hf_installer":
         return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
