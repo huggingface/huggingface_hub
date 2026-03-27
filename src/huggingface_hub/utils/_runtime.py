@@ -400,7 +400,7 @@ def dump_environment_info() -> dict[str, Any]:
     except Exception:
         pass
 
-    info["Running in AI agent ?"] = "Yes" if is_agent() else "No"
+    info["Run by AI agent ?"] = "Yes" if is_agent() else "No"
 
     # How huggingface_hub has been installed?
     info["Installation method"] = installation_method()

@@ -30,7 +30,7 @@ from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
-from huggingface_hub.utils._detect_agent import detect_agent, is_agent  # noqa: F401
+from huggingface_hub.utils._detect_agent import detect_agent
 from huggingface_hub.utils._dotenv import load_dotenv
 
 
