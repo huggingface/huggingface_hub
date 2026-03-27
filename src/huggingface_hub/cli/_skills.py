@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 import io
 import json
 import shutil
@@ -27,7 +26,6 @@ SKILL_MANIFEST_FILENAME = ".hf-skill-manifest.json"
 SKILL_MANIFEST_SCHEMA_VERSION = 1
 
 SkillUpdateStatus = Literal[
-    "dirty",
     "up_to_date",
     "update_available",
     "updated",
@@ -47,7 +45,6 @@ class MarketplaceSkill:
 class InstalledSkillManifest:
     schema_version: int
     installed_revision: str
-    content_fingerprint: str
 
 
 @dataclass(frozen=True)
@@ -132,31 +129,13 @@ def check_for_updates(
 def apply_updates(
     roots: list[Path],
     selector: str | None = None,
-    force: bool = False,
 ) -> list[SkillUpdateInfo]:
-    """Upgrade managed skills in place, skipping dirty installs unless forced."""
+    """Upgrade managed skills in place when the upstream revision changes."""
     updates = check_for_updates(roots, selector)
     results: list[SkillUpdateInfo] = []
     for update in updates:
-        results.append(_apply_single_update(update, force=force))
+        results.append(_apply_single_update(update))
     return results
-
-
-def compute_skill_content_fingerprint(skill_dir: Path) -> str:
-    """Hash installed skill contents while ignoring the local manifest."""
-    digest = hashlib.sha256()
-    root = skill_dir.resolve()
-    manifest_path = root / SKILL_MANIFEST_FILENAME
-
-    for path in sorted(root.rglob("*")):
-        if path == manifest_path or not path.is_file():
-            continue
-        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-
-    return f"sha256:{digest.hexdigest()}"
 
 
 def read_installed_skill_manifest(skill_dir: Path) -> tuple[InstalledSkillManifest | None, str | None]:
@@ -180,7 +159,6 @@ def write_installed_skill_manifest(skill_dir: Path, manifest: InstalledSkillMani
     payload = {
         "schema_version": manifest.schema_version,
         "installed_revision": manifest.installed_revision,
-        "content_fingerprint": manifest.content_fingerprint,
     }
     (skill_dir / SKILL_MANIFEST_FILENAME).write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -244,7 +222,6 @@ def _populate_install_dir(skill: MarketplaceSkill, install_dir: Path) -> None:
         InstalledSkillManifest(
             schema_version=SKILL_MANIFEST_SCHEMA_VERSION,
             installed_revision=installed_revision,
-            content_fingerprint=compute_skill_content_fingerprint(install_dir),
         ),
     )
 
@@ -370,17 +347,6 @@ def _evaluate_update(skill_dir: Path, marketplace_skills: dict[str, MarketplaceS
             current_revision=current_revision,
         )
 
-    fingerprint = compute_skill_content_fingerprint(skill_dir)
-    if fingerprint != manifest.content_fingerprint:
-        return SkillUpdateInfo(
-            name=skill_dir.name,
-            skill_dir=skill_dir,
-            status="dirty",
-            detail="local modifications detected",
-            current_revision=current_revision,
-            available_revision=available_revision,
-        )
-
     if available_revision == current_revision:
         return SkillUpdateInfo(
             name=skill_dir.name,
@@ -400,10 +366,8 @@ def _evaluate_update(skill_dir: Path, marketplace_skills: dict[str, MarketplaceS
     )
 
 
-def _apply_single_update(update: SkillUpdateInfo, *, force: bool) -> SkillUpdateInfo:
+def _apply_single_update(update: SkillUpdateInfo) -> SkillUpdateInfo:
     if update.status in {"up_to_date", "unmanaged", "invalid_metadata", "source_unreachable"}:
-        return update
-    if update.status == "dirty" and not force:
         return update
 
     manifest, error = read_installed_skill_manifest(update.skill_dir)
@@ -472,17 +436,12 @@ def _parse_installed_skill_manifest(payload: dict[str, Any]) -> InstalledSkillMa
         raise ValueError(f"unsupported schema_version: {payload.get('schema_version')}")
 
     installed_revision = payload.get("installed_revision")
-    content_fingerprint = payload.get("content_fingerprint")
-
     if not isinstance(installed_revision, str) or not installed_revision:
         raise ValueError("missing installed_revision")
-    if not isinstance(content_fingerprint, str) or not content_fingerprint:
-        raise ValueError("missing content_fingerprint")
 
     return InstalledSkillManifest(
         schema_version=SKILL_MANIFEST_SCHEMA_VERSION,
         installed_revision=installed_revision,
-        content_fingerprint=content_fingerprint,
     )
 
 

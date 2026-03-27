@@ -3192,14 +3192,13 @@ $ hf skills upgrade [OPTIONS] [NAME]
 * `--claude`: Upgrade skills installed for Claude.
 * `-g, --global`: Use global skills directories instead of the current project.
 * `--dest PATH`: Upgrade skills in a custom skills directory.
-* `--force`: Overwrite local modifications when upgrading a skill.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf skills upgrade
   $ hf skills upgrade hf-cli
   $ hf skills upgrade huggingface-gradio --dest=~/my-skills
-  $ hf skills upgrade --claude --force
+  $ hf skills upgrade --claude
 
 Learn more
   Use `hf <command> --help` for more information about a command.

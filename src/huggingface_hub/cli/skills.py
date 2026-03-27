@@ -379,7 +379,7 @@ def skills_add(
         "hf skills upgrade",
         "hf skills upgrade hf-cli",
         "hf skills upgrade huggingface-gradio --dest=~/my-skills",
-        "hf skills upgrade --claude --force",
+        "hf skills upgrade --claude",
     ],
 )
 def skills_upgrade(
@@ -402,13 +402,6 @@ def skills_upgrade(
             help="Upgrade skills in a custom skills directory.",
         ),
     ] = None,
-    force: Annotated[
-        bool,
-        typer.Option(
-            "--force",
-            help="Overwrite local modifications when upgrading a skill.",
-        ),
-    ] = False,
 ) -> None:
     """Upgrade installed Hugging Face marketplace skills."""
     try:
@@ -418,7 +411,7 @@ def skills_upgrade(
             dest=dest,
         )
 
-        results = _skills.apply_updates(roots, selector=name, force=force)
+        results = _skills.apply_updates(roots, selector=name)
         if not results:
             print("No installed skills found.")
             return

@@ -3140,8 +3140,7 @@ class TestSkillsMarketplaceCLI:
 
         assert result.exit_code == 0, result.output
         payload = json.loads((dest / "huggingface-gradio" / ".hf-skill-manifest.json").read_text(encoding="utf-8"))
-        assert set(payload) == {"content_fingerprint", "installed_revision", "schema_version"}
-        assert payload["content_fingerprint"].startswith("sha256:")
+        assert set(payload) == {"installed_revision", "schema_version"}
         assert payload["installed_revision"] == session.latest_revision("huggingface-gradio")
         assert payload["schema_version"] == 1
 
@@ -3176,7 +3175,9 @@ class TestSkillsMarketplaceCLI:
         assert "huggingface-gradio: updated" in result.stdout
         assert "v2" in (dest / "huggingface-gradio" / "SKILL.md").read_text(encoding="utf-8")
 
-    def test_upgrade_skips_dirty_install_without_force(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+    def test_upgrade_overwrites_local_edits_when_revision_changes(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
         session = _patch_skills_marketplace(
             monkeypatch,
             {"huggingface-gradio": "Gradio skill"},
@@ -3192,8 +3193,9 @@ class TestSkillsMarketplaceCLI:
         result = runner.invoke(app, ["skills", "upgrade", "huggingface-gradio", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: dirty (local modifications detected)" in result.stdout
-        assert "local edit" in skill_file.read_text(encoding="utf-8")
+        assert "huggingface-gradio: updated" in result.stdout
+        assert "local edit" not in skill_file.read_text(encoding="utf-8")
+        assert "v2" in skill_file.read_text(encoding="utf-8")
 
     def test_upgrade_updates_central_install_created_for_claude(
         self, runner: CliRunner, tmp_path: Path, monkeypatch
