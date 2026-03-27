@@ -19,7 +19,6 @@ import importlib.metadata
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 import time
@@ -766,7 +765,8 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     if sys.stdin.isatty() and sys.stderr.isatty() and update_command is not None:
         _prompt_autoupdate(library, current_version, latest_version, update_command)
     else:
-        update_hint = f"To update, run: {ANSI.bold(update_command)}" if update_command else ""
+        display_cmd = " ".join(update_command) if update_command else None
+        update_hint = f"To update, run: {ANSI.bold(display_cmd)}" if display_cmd else ""
         click.echo(
             ANSI.yellow(
                 f"A new version of {library} ({latest_version}) is available! "
@@ -780,24 +780,24 @@ def _prompt_autoupdate(
     library: str,
     current_version: str,
     latest_version: str,
-    update_command: str,
+    update_command: list[str],
 ) -> None:
     """Interactively ask the user if they want to update, and run the update command if accepted.
 
     After a successful update the CLI exits so the user can re-run their command with the new version.
     All output goes to stderr to keep stdout clean for command output.
     """
+    display_cmd = " ".join(update_command)
+
     click.echo("", file=sys.stderr)
     click.echo(
-        ANSI.yellow(
-            f"  A new version of {library} is available: {current_version} → {latest_version}"
-        ),
+        ANSI.yellow(f"  A new version of {library} is available: {current_version} → {latest_version}"),
         file=sys.stderr,
     )
     click.echo("", file=sys.stderr)
 
     click.echo(
-        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({update_command})") + " ",
+        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({display_cmd})") + " ",
         file=sys.stderr,
         nl=False,
     )
@@ -815,9 +815,9 @@ def _prompt_autoupdate(
     answer = raw_answer.strip().lower()  # Note: if user press 'Enter', raw_answer is `\n`
     if answer in ("", "y", "yes"):
         click.echo("", file=sys.stderr)
-        click.echo(ANSI.gray(f"  Running: {update_command}"), file=sys.stderr)
+        click.echo(ANSI.gray(f"  Running: {display_cmd}"), file=sys.stderr)
         click.echo("", file=sys.stderr)
-        returncode = subprocess.call(update_command, shell=True)
+        returncode = subprocess.call(update_command)
         if returncode == 0:
             click.echo("", file=sys.stderr)
             click.echo(
@@ -833,33 +833,39 @@ def _prompt_autoupdate(
             )
     else:
         click.echo(
-            ANSI.gray(f"  Skipped. You can update later with: {update_command}"),
+            ANSI.gray(f"  Skipped. You can update later with: {display_cmd}"),
             file=sys.stderr,
         )
     click.echo("", file=sys.stderr)
 
 
-def _get_huggingface_hub_update_command() -> Optional[str]:
-    """Return the command to update huggingface_hub, or None if the installation method is unknown."""
+def _get_huggingface_hub_update_command() -> Optional[list[str]]:
+    """Return the command to update huggingface_hub as an argv list, or None if the installation method is unknown."""
     method = installation_method()
     if method == "brew":
-        return "brew upgrade hf"
+        return ["brew", "upgrade", "hf"]
     elif method == "hf_installer" and os.name == "nt":
-        return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
+        return ["powershell", "-NoProfile", "-Command", "iwr -useb https://hf.co/cli/install.ps1 | iex"]
     elif method == "hf_installer":
-        return "curl -LsSf https://hf.co/cli/install.sh | bash -"
+        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -"]
     elif method == "pip":
-        return f"{shlex.quote(sys.executable)} -m pip install -U huggingface_hub"
+        return [sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"]
     return None
 
 
-def _get_transformers_update_command() -> Optional[str]:
-    """Return the command to update transformers, or None if the installation method is unknown."""
+def _get_transformers_update_command() -> Optional[list[str]]:
+    """Return the command to update transformers as an argv list, or None if the installation method is unknown."""
     method = installation_method()
     if method == "hf_installer" and os.name == "nt":
-        return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
+        return [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "iwr -useb https://hf.co/cli/install.ps1 | iex",
+            "-WithTransformers",
+        ]
     elif method == "hf_installer":
-        return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
+        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
     elif method == "pip":
-        return f"{shlex.quote(sys.executable)} -m pip install -U transformers"
+        return [sys.executable, "-m", "pip", "install", "-U", "transformers"]
     return None
