@@ -468,6 +468,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
+    elif expected_type is None:
+        _validate_none(name, value)
     elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
@@ -484,6 +486,16 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         type_validator(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
+
+
+def _validate_none(name: str, value: Any) -> None:
+    """Validate None type.
+
+    'None' is not a type, it's a special value. Type should be `NoneType` instead.
+    But in type annotations 'None' is accepted so we must support it.
+    """
+    if value is not None:
+        raise TypeError(f"Field '{name}' expected None, got {type(value).__name__}")
 
 
 def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
