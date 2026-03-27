@@ -790,7 +790,7 @@ def _prompt_autoupdate(
     click.echo("", file=sys.stderr)
     click.echo(
         ANSI.yellow(
-            f"  A new version of {library} is available: {ANSI.bold(current_version)} → {ANSI.bold(latest_version)}"
+            f"  A new version of {library} is available: {current_version} → {latest_version}"
         ),
         file=sys.stderr,
     )
