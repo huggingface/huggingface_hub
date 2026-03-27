@@ -30,7 +30,6 @@ from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
-from huggingface_hub.utils._detect_agent import detect_agent
 from huggingface_hub.utils._dotenv import load_dotenv
 
 
@@ -47,13 +46,7 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
     # Import here to avoid circular import
     from huggingface_hub.hf_api import HfApi
 
-    agent = detect_agent()
-    return HfApi(
-        token=token,
-        library_name="huggingface-cli",
-        library_version=__version__,
-        user_agent={"agent": agent} if agent else None,
-    )
+    return HfApi(token=token, library_name="huggingface-cli", library_version=__version__)
 
 
 #### TYPER UTILS
