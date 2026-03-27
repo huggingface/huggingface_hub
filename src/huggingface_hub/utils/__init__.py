@@ -67,6 +67,7 @@ from ._http import (
     set_async_client_factory,
     set_client_factory,
 )
+from ._detect_agent import detect_agent, is_agent
 from ._pagination import paginate
 from ._paths import DEFAULT_IGNORE_PATTERNS, FORBIDDEN_FOLDERS, filter_repo_objects
 from ._runtime import (

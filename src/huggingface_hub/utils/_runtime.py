@@ -365,7 +365,7 @@ def dump_environment_info() -> dict[str, Any]:
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
     from huggingface_hub import get_token, whoami
-    from huggingface_hub.utils import list_credential_helpers
+    from huggingface_hub.utils import is_agent, list_credential_helpers
 
     token = get_token()
 
@@ -399,6 +399,8 @@ def dump_environment_info() -> dict[str, Any]:
         info["Configured git credential helpers"] = ", ".join(list_credential_helpers())
     except Exception:
         pass
+
+    info["Running in AI agent ?"] = "Yes" if is_agent() else "No"
 
     # How huggingface_hub has been installed?
     info["Installation method"] = installation_method()
