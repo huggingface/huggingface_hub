@@ -385,7 +385,6 @@ def _apply_single_update(update: SkillUpdateInfo) -> SkillUpdateInfo:
     try:
         skill = get_marketplace_skill(update.skill_dir.name)
         install_marketplace_skill(skill, update.skill_dir.parent, force=True)
-        refreshed = _evaluate_update(update.skill_dir, {skill.name.lower(): skill})
     except Exception as exc:
         return SkillUpdateInfo(
             name=update.name,
@@ -396,13 +395,25 @@ def _apply_single_update(update: SkillUpdateInfo) -> SkillUpdateInfo:
             available_revision=update.available_revision,
         )
 
+    refreshed_manifest, manifest_error = read_installed_skill_manifest(update.skill_dir)
+    if refreshed_manifest is None:
+        detail = manifest_error or "missing skill manifest after upgrade"
+        return SkillUpdateInfo(
+            name=update.name,
+            skill_dir=update.skill_dir,
+            status="invalid_metadata",
+            detail=detail,
+            current_revision=update.current_revision,
+            available_revision=update.available_revision,
+        )
+
     return SkillUpdateInfo(
         name=update.name,
         skill_dir=update.skill_dir,
         status="updated",
         detail="updated",
         current_revision=update.current_revision,
-        available_revision=refreshed.current_revision,
+        available_revision=refreshed_manifest.installed_revision,
     )
 
 

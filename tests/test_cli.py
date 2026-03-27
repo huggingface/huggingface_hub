@@ -3175,6 +3175,31 @@ class TestSkillsMarketplaceCLI:
         assert "huggingface-gradio: updated" in result.stdout
         assert "v2" in (dest / "huggingface-gradio" / "SKILL.md").read_text(encoding="utf-8")
 
+    def test_upgrade_reports_updated_even_if_followup_revision_lookup_would_fail(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        session = _patch_skills_marketplace(
+            monkeypatch,
+            {"huggingface-gradio": "Gradio skill"},
+            {"huggingface-gradio": "v1"},
+        )
+        dest = tmp_path / "managed-skills"
+        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
+        assert add_result.exit_code == 0, add_result.output
+
+        session.add_revision("huggingface-gradio", body="v2")
+        updated_revision = session.latest_revision("huggingface-gradio")
+
+        with patch(
+            "huggingface_hub.cli._skills._resolve_available_revision",
+            side_effect=[updated_revision, updated_revision, RuntimeError("transient follow-up lookup failure")],
+        ):
+            result = runner.invoke(app, ["skills", "upgrade", "huggingface-gradio", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        assert "huggingface-gradio: updated" in result.stdout
+        assert "v2" in (dest / "huggingface-gradio" / "SKILL.md").read_text(encoding="utf-8")
+
     def test_upgrade_overwrites_local_edits_when_revision_changes(
         self, runner: CliRunner, tmp_path: Path, monkeypatch
     ) -> None:
