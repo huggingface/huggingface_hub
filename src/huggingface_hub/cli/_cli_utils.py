@@ -853,6 +853,6 @@ def _get_transformers_update_command() -> Optional[str]:
         return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
-    elif method in ("pip", "brew"):
+    elif method == "pip":
         return f"{sys.executable} -m pip install -U transformers"
     return None
