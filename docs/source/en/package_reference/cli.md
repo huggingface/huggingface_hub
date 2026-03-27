@@ -211,6 +211,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `cp`: Copy a single file to or from a bucket.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
+* `import`: Import files from an S3 bucket into a...
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
@@ -316,6 +317,49 @@ Examples
   $ hf buckets delete hf://buckets/user/my-bucket
   $ hf buckets delete user/my-bucket --yes
   $ hf buckets delete user/my-bucket --missing-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets import`
+
+Import files from an S3 bucket into a Hugging Face bucket.
+
+Data is streamed from S3 through the local machine and re-uploaded to HF.
+Requires the `s3fs` package (`pip install s3fs`). AWS credentials are resolved
+by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance profiles, etc.).
+
+**Usage**:
+
+```console
+$ hf buckets import [OPTIONS] SOURCE DEST
+```
+
+**Arguments**:
+
+* `SOURCE`: S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).  [required]
+* `DEST`: HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).  [required]
+
+**Options**:
+
+* `--dry-run`: List files that would be imported without actually transferring.
+* `--include TEXT`: Include only files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `-w, --workers INTEGER`: Number of parallel S3 download threads.  [default: 4]
+* `--batch-size INTEGER`: Number of files per upload batch.  [default: 50]
+* `-v, --verbose`: Show per-file transfer details.
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket
+  $ hf buckets import s3://my-data-bucket/prefix/ hf://buckets/user/my-bucket/dest-prefix
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8
 
 Learn more
   Use `hf <command> --help` for more information about a command.

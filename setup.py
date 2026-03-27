@@ -51,6 +51,8 @@ extras["hf_xet"] = [HF_XET_VERSION]
 
 extras["mcp"] = ["mcp>=1.8.0"]
 
+extras["s3"] = ["s3fs"]
+
 extras["testing"] = (
     extras["oauth"]
     + [

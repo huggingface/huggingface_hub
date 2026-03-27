@@ -1175,3 +1175,302 @@ def sync_bucket_internal(
         print("Sync completed.")
 
     return sync_plan
+
+
+# =============================================================================
+# S3 import
+# =============================================================================
+
+
+@dataclass
+class ImportStats:
+    """Statistics for an S3-to-bucket import operation."""
+
+    files_transferred: int = 0
+    files_skipped: int = 0
+    files_failed: int = 0
+    bytes_transferred: int = 0
+    elapsed_seconds: float = 0.0
+
+    @property
+    def throughput_mb_s(self) -> float:
+        if self.elapsed_seconds <= 0:
+            return 0.0
+        return (self.bytes_transferred / (1024 * 1024)) / self.elapsed_seconds
+
+    def summary_str(self) -> str:
+        parts = [
+            f"Transferred {self.files_transferred} file(s)",
+            f"({_format_import_size(self.bytes_transferred)})",
+        ]
+        if self.files_skipped > 0:
+            parts.append(f"skipped {self.files_skipped}")
+        if self.files_failed > 0:
+            parts.append(f"failed {self.files_failed}")
+        parts.append(f"in {self.elapsed_seconds:.1f}s")
+        if self.throughput_mb_s > 0:
+            parts.append(f"({self.throughput_mb_s:.1f} MB/s)")
+        return ", ".join(parts)
+
+
+def _format_import_size(size_bytes: Union[int, float]) -> str:
+    size: float = float(size_bytes)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1000:
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1000
+    return f"{size:.1f} PB"
+
+
+def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple[str, int]]:
+    """List all files under an S3 path.
+
+    Yields:
+        tuple: (relative_path, size_bytes) for each file
+    """
+    try:
+        entries = s3_fs.ls(s3_path, detail=True)
+    except FileNotFoundError:
+        raise ValueError(f"S3 path not found: s3://{s3_path}")
+
+    for entry in entries:
+        if entry["type"] == "directory":
+            dir_rel = entry["name"]
+            yield from _list_s3_files(s3_fs, dir_rel, prefix)
+        else:
+            full_key = entry["name"]
+            if prefix:
+                rel_path = full_key[len(prefix) :].lstrip("/")
+            else:
+                rel_path = full_key.split("/", 1)[1] if "/" in full_key else full_key
+            if rel_path:
+                yield rel_path, entry.get("size", 0)
+
+
+def _normalize_s3_path(s3_url: str) -> str:
+    """Strip the s3:// prefix and return the raw bucket/key path."""
+    if s3_url.startswith("s3://"):
+        return s3_url[len("s3://") :]
+    return s3_url
+
+
+def import_from_s3(
+    s3_source: str,
+    bucket_dest: str,
+    *,
+    api: "HfApi",
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
+    dry_run: bool = False,
+    verbose: bool = False,
+    quiet: bool = False,
+    workers: int = 4,
+    batch_size: int = 50,
+    token: Union[bool, str, None] = None,
+) -> ImportStats:
+    """Import files from an S3 bucket into a Hugging Face bucket.
+
+    Data is streamed from S3 through the local machine and uploaded to HF. The ``s3fs``
+    package is required (``pip install s3fs``). AWS credentials are resolved by the
+    standard boto chain (env vars, ``~/.aws/credentials``, instance profile, etc.).
+
+    Args:
+        s3_source (`str`):
+            S3 URI, e.g. ``s3://my-bucket/prefix/``.
+        bucket_dest (`str`):
+            HF bucket path, e.g. ``hf://buckets/namespace/bucket-name`` or
+            ``hf://buckets/namespace/bucket-name/dest-prefix``.
+        api ([`HfApi`]):
+            The HfApi instance to use.
+        include (`list[str]`, *optional*):
+            Only transfer files matching these fnmatch patterns.
+        exclude (`list[str]`, *optional*):
+            Skip files matching these fnmatch patterns.
+        dry_run (`bool`):
+            List files that would be transferred without actually transferring.
+        verbose (`bool`):
+            Print per-file progress.
+        quiet (`bool`):
+            Suppress all output.
+        workers (`int`):
+            Number of parallel download threads for S3 files.
+        batch_size (`int`):
+            Number of files per ``batch_bucket_files`` call.
+        token:
+            HF token override.
+
+    Returns:
+        [`ImportStats`]: Transfer statistics.
+    """
+    if not s3_source.startswith("s3://"):
+        raise ValueError(f"Source must be an S3 URI (s3://...): {s3_source}")
+
+    if not _is_bucket_path(bucket_dest):
+        raise ValueError(f"Destination must be a bucket path (hf://buckets/...): {bucket_dest}")
+
+    try:
+        import s3fs
+    except ImportError:
+        raise ImportError(
+            "The `s3fs` package is required for S3 imports. Install it with:\n"
+            "  pip install s3fs\n"
+            "or:\n"
+            "  pip install huggingface_hub[s3]"
+        )
+
+    if token is not None:
+        from .hf_api import HfApi
+
+        api = HfApi(token=token)
+
+    bucket_id, dest_prefix = _parse_bucket_path(bucket_dest)
+    dest_prefix = dest_prefix.rstrip("/")
+
+    s3_raw = _normalize_s3_path(s3_source)
+    s3_bucket_name = s3_raw.split("/")[0]
+    s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
+    full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
+
+    s3 = s3fs.S3FileSystem()
+
+    status = StatusLine(enabled=not quiet and not dry_run)
+    filter_matcher = (
+        FilterMatcher(include_patterns=include, exclude_patterns=exclude) if (include or exclude) else None
+    )
+
+    if status:
+        status.update("Listing S3 files...")
+
+    all_files: list[tuple[str, int]] = []
+    for rel_path, size in _list_s3_files(s3, full_s3_prefix, prefix=full_s3_prefix):
+        if filter_matcher and not filter_matcher.matches(rel_path):
+            continue
+        all_files.append((rel_path, size))
+        if status:
+            status.update(f"Listing S3 files ({len(all_files)} found)")
+
+    if status:
+        status.done(f"Found {len(all_files)} files in S3")
+
+    if not all_files:
+        if not quiet:
+            print("No files found in S3 source.")
+        return ImportStats()
+
+    total_size = sum(s for _, s in all_files)
+
+    if dry_run:
+        for rel_path, size in all_files:
+            remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
+            print(
+                f"  {_format_import_size(size):>10}  s3://{full_s3_prefix}/{rel_path} -> {BUCKET_PREFIX}{bucket_id}/{remote_dest}"
+            )
+        print(f"\n(dry run) Would transfer {len(all_files)} file(s), {_format_import_size(total_size)} total.")
+        return ImportStats(files_transferred=0, files_skipped=len(all_files), bytes_transferred=0)
+
+    if not quiet:
+        print(
+            f"Importing {len(all_files)} file(s) ({_format_import_size(total_size)}) from S3 to {BUCKET_PREFIX}{bucket_id}"
+        )
+
+    stats = ImportStats()
+    start_time = time.monotonic()
+
+    import tempfile
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _download_one(rel_path: str, size: int, tmp_dir: str) -> Optional[tuple[str, str, int]]:
+        s3_key = f"{full_s3_prefix}/{rel_path}"
+        local_tmp = os.path.join(tmp_dir, rel_path.replace("/", os.sep))
+        os.makedirs(os.path.dirname(local_tmp), exist_ok=True)
+        try:
+            s3.get(s3_key, local_tmp)
+            return rel_path, local_tmp, size
+        except Exception as e:
+            logger.warning(f"Failed to download s3://{s3_key}: {e}")
+            return None
+
+    batch_index = 0
+    transferred_in_batch = 0
+
+    with tempfile.TemporaryDirectory(prefix="hf-s3-import-") as tmp_dir:
+        for batch_start in range(0, len(all_files), batch_size):
+            batch = all_files[batch_start : batch_start + batch_size]
+            batch_index += 1
+
+            if status:
+                status.update(f"Batch {batch_index}: downloading {len(batch)} files from S3")
+
+            downloaded: list[tuple[str, str, int]] = []
+
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {
+                    executor.submit(_download_one, rel_path, size, tmp_dir): (rel_path, size)
+                    for rel_path, size in batch
+                }
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result is not None:
+                        downloaded.append(result)
+                    else:
+                        stats.files_failed += 1
+
+            if not downloaded:
+                continue
+
+            add_files: list[tuple[Union[str, Path, bytes], str]] = []
+            for rel_path, local_tmp, size in downloaded:
+                remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
+                add_files.append((local_tmp, remote_dest))
+
+            if status:
+                status.update(f"Batch {batch_index}: uploading {len(add_files)} files to HF bucket")
+
+            try:
+                if quiet:
+                    disable_progress_bars()
+                try:
+                    api.batch_bucket_files(bucket_id, add=add_files)
+                finally:
+                    if quiet:
+                        enable_progress_bars()
+
+                for rel_path, local_tmp, size in downloaded:
+                    stats.files_transferred += 1
+                    stats.bytes_transferred += size
+                    transferred_in_batch += 1
+                    if verbose:
+                        remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
+                        print(
+                            f"  {rel_path} -> {BUCKET_PREFIX}{bucket_id}/{remote_dest} ({_format_import_size(size)})"
+                        )
+            except Exception as e:
+                logger.error(f"Failed to upload batch {batch_index}: {e}")
+                stats.files_failed += len(downloaded)
+
+            for _, local_tmp, _ in downloaded:
+                try:
+                    os.remove(local_tmp)
+                except OSError:
+                    pass
+
+            if status:
+                elapsed = time.monotonic() - start_time
+                throughput = (stats.bytes_transferred / (1024 * 1024)) / elapsed if elapsed > 0 else 0
+                status.update(
+                    f"Progress: {stats.files_transferred}/{len(all_files)} files, "
+                    f"{_format_import_size(stats.bytes_transferred)}, "
+                    f"{throughput:.1f} MB/s"
+                )
+
+    stats.elapsed_seconds = time.monotonic() - start_time
+
+    if status:
+        status.done(stats.summary_str())
+
+    if not quiet:
+        print(f"Import completed: {stats.summary_str()}")
+
+    return stats

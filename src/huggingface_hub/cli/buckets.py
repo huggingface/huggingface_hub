@@ -31,6 +31,7 @@ from huggingface_hub._buckets import (
     _is_bucket_path,
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
+    import_from_s3,
 )
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
@@ -1059,3 +1060,97 @@ def cp(
 
         if not quiet:
             print(f"Uploaded: {src} -> {BUCKET_PREFIX}{bucket_id}/{remote_path}")
+
+
+# =============================================================================
+# Import command (S3 -> HF bucket)
+# =============================================================================
+
+
+@buckets_cli.command(
+    name="import",
+    examples=[
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket",
+        "hf buckets import s3://my-data-bucket/prefix/ hf://buckets/user/my-bucket/dest-prefix",
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run",
+        'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"',
+        'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8',
+    ],
+)
+def import_cmd(
+    source: Annotated[
+        str,
+        typer.Argument(
+            help="S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).",
+        ),
+    ],
+    dest: Annotated[
+        str,
+        typer.Argument(
+            help="HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).",
+        ),
+    ],
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="List files that would be imported without actually transferring.",
+        ),
+    ] = False,
+    include: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Include only files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    exclude: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Exclude files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of parallel S3 download threads.",
+        ),
+    ] = 4,
+    batch_size: Annotated[
+        int,
+        typer.Option(
+            "--batch-size",
+            help="Number of files per upload batch.",
+        ),
+    ] = 50,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show per-file transfer details.",
+        ),
+    ] = False,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Import files from an S3 bucket into a Hugging Face bucket.
+
+    Data is streamed from S3 through the local machine and re-uploaded to HF.
+    Requires the `s3fs` package (`pip install s3fs`). AWS credentials are resolved
+    by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance profiles, etc.).
+    """
+    api = get_hf_api(token=token)
+    import_from_s3(
+        s3_source=source,
+        bucket_dest=dest,
+        api=api,
+        include=include,
+        exclude=exclude,
+        dry_run=dry_run,
+        verbose=verbose,
+        quiet=quiet,
+        workers=workers,
+        batch_size=batch_size,
+    )
