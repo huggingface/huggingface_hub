@@ -784,7 +784,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(exc_ctx.exception.response.status_code, 412)
         self.assertIn(
             # Check the server message is added to the exception
-            "A commit has happened since. Please refresh and try again.",
+            "The branch was updated since you opened this page. Please refresh and try again.",
             str(exc_ctx.exception),
         )
 

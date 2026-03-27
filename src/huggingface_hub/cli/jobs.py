@@ -651,7 +651,7 @@ def jobs_ps(
 
     # Custom template format
     if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
     else:
         output_format = OutputFormat.json if format == "json" else OutputFormat.table
         print_list_output(
@@ -941,7 +941,7 @@ def scheduled_ps(
 
     # Custom template format (e.g. --format '{{.id}} {{.schedule}}')
     if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
     else:
         output_format = OutputFormat.json if format == "json" else OutputFormat.table
         print_list_output(

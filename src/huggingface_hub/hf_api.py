@@ -3287,7 +3287,7 @@ class HfApi:
             revision=revision,
             token=token,
             timeout=timeout,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
             files_metadata=files_metadata,
         )
 
@@ -4737,7 +4737,7 @@ class HfApi:
                 commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
                 commit_message=commit_message,
                 commit_description=commit_description,
-                oid=info.sha,  # type: ignore[arg-type]
+                oid=info.sha,  # type: ignore
                 _endpoint=self.endpoint,
             )
 

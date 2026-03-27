@@ -152,7 +152,7 @@ def strict(
             # If validation passed, set the attribute
             original_setattr(self, name, value)
 
-        cls.__setattr__ = __strict_setattr__  # type: ignore[method-assign]
+        cls.__setattr__ = __strict_setattr__  # type: ignore
 
         if accept_kwargs:
             # (optional) Override __init__ to accept arbitrary keyword arguments
@@ -193,7 +193,7 @@ def strict(
 
                 self.__post_init__(**additional_kwargs)
 
-            cls.__init__ = __init__  # type: ignore[method-assign]
+            cls.__init__ = __init__  # type: ignore
 
             # Define a default __post_init__ if not defined
             if not hasattr(cls, "__post_init__"):
@@ -226,7 +226,7 @@ def strict(
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
             if cls.__dataclass_params__.repr is True:  # type: ignore [attr-defined]
-                cls.__repr__ = __repr__  # type: ignore [method-assign]
+                cls.__repr__ = __repr__  # type: ignore
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
@@ -245,7 +245,7 @@ def strict(
                 )
             class_validators.append(method)
 
-        cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
+        cls.__class_validators__ = class_validators  # type: ignore
 
         # Add `validate` method to the class, but first check if it already exists
         def validate(self: T) -> None:
@@ -468,6 +468,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
+    elif expected_type is None:
+        _validate_none(name, value)
     elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
@@ -484,6 +486,16 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         type_validator(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
+
+
+def _validate_none(name: str, value: Any) -> None:
+    """Validate None type.
+
+    'None' is not a type, it's a special value. Type should be `NoneType` instead.
+    But in type annotations 'None' is accepted so we must support it.
+    """
+    if value is not None:
+        raise TypeError(f"Field '{name}' expected None, got {type(value).__name__}")
 
 
 def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
