@@ -6,6 +6,9 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
 
+> [!TIP]
+> This guide covers the Python-specific cache management tools provided by `huggingface_hub`. For a language-agnostic overview of how the Hugging Face Hub cache system works, see the [Hub documentation on local caching](https://huggingface.co/docs/hub/local-cache).
+
 ## File-based caching
 
 The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
