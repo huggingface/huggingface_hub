@@ -704,6 +704,65 @@ def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
     return _parse_expand_properties
 
 
+#### AGENT DETECTION
+#
+# Detect whether the CLI is being invoked by an AI coding agent based on
+# environment variables.  ``AI_AGENT`` and ``AGENT`` are treated as a universal standard (any
+# tool can set it); the remaining checks are tool-specific and ordered by
+# prevalence.
+#
+# Inspired by ``@vercel/detect-agent`` (https://github.com/vercel/vercel/tree/main/packages/detect-agent).
+
+# Standard env vars — value is used as the agent name directly.
+_STANDARD_AGENT_VARS: tuple[str, ...] = ("AI_AGENT", "AGENT")
+
+
+# NOTE: ``cowork`` must appear before ``claude-code`` so the more specific
+# signal takes priority when both ``CLAUDE_CODE`` and ``CLAUDE_CODE_IS_COWORK``
+# are set.
+_TOOL_AGENTS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("CURSOR_TRACE_ID",), "cursor"),
+    (("CURSOR_AGENT",), "cursor-cli"),
+    (("GEMINI_CLI",), "gemini"),
+    (("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"), "codex"),
+    (("ANTIGRAVITY_AGENT",), "antigravity"),
+    (("AUGMENT_AGENT",), "augment-cli"),
+    (("OPENCODE_CLIENT",), "opencode"),
+    (("CLAUDE_CODE_IS_COWORK",), "cowork"),
+    (("CLAUDECODE", "CLAUDE_CODE"), "claude-code"),
+    (("REPL_ID",), "replit"),
+    (("COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"), "github-copilot"),
+    (("CLINE_ACTIVE",), "cline"),
+    (("ROO_ACTIVE",), "roo-code"),
+    (("TRAE_AI_SHELL_ID",), "trae"),
+    (("GOOSE_TERMINAL",), "goose"),
+)
+
+
+def detect_agent() -> Optional[str]:
+    """Return the name of the detected AI agent or None if no agent is detected.
+
+    Checks environment variables in priority order and returns on the first
+    match.  When ``AI_AGENT`` or ``AGENT`` is set, its (trimmed) value is used
+    as the agent name directly.
+    """
+    for var in _STANDARD_AGENT_VARS:
+        name = os.environ.get(var, "").strip()
+        if name:
+            return name
+
+    for env_vars, agent_name in _TOOL_AGENTS:
+        if any(os.environ.get(var) for var in env_vars):
+            return agent_name
+
+    return None
+
+
+def is_agent() -> bool:
+    """Return ``True`` if the CLI is being invoked by an AI coding agent."""
+    return detect_agent() is not None
+
+
 ### PyPI VERSION CHECKER
 
 
