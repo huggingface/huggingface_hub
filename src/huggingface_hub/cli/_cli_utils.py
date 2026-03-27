@@ -46,7 +46,13 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
     # Import here to avoid circular import
     from huggingface_hub.hf_api import HfApi
 
-    return HfApi(token=token, library_name="huggingface-cli", library_version=__version__)
+    agent = detect_agent()
+    return HfApi(
+        token=token,
+        library_name="huggingface-cli",
+        library_version=__version__,
+        user_agent={"agent": agent} if agent else None,
+    )
 
 
 #### TYPER UTILS
