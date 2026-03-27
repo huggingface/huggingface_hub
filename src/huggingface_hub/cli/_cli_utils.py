@@ -19,6 +19,7 @@ import importlib.metadata
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -801,11 +802,17 @@ def _prompt_autoupdate(
         nl=False,
     )
     try:
-        answer = sys.stdin.readline().strip().lower()
+        raw_answer = sys.stdin.readline()
     except (EOFError, KeyboardInterrupt):
         click.echo("", file=sys.stderr)
         return
 
+    if raw_answer == "":
+        # EOF (e.g. Ctrl+D) — treat as cancellation, not acceptance
+        click.echo("", file=sys.stderr)
+        return
+
+    answer = raw_answer.strip().lower()
     if answer in ("", "y", "yes"):
         click.echo("", file=sys.stderr)
         click.echo(ANSI.gray(f"  Running: {update_command}"), file=sys.stderr)
@@ -842,7 +849,7 @@ def _get_huggingface_hub_update_command() -> Optional[str]:
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -"
     elif method == "pip":
-        return f"{sys.executable} -m pip install -U huggingface_hub"
+        return f"{shlex.quote(sys.executable)} -m pip install -U huggingface_hub"
     return None
 
 
@@ -854,5 +861,5 @@ def _get_transformers_update_command() -> Optional[str]:
     elif method == "hf_installer":
         return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
     elif method == "pip":
-        return f"{sys.executable} -m pip install -U transformers"
+        return f"{shlex.quote(sys.executable)} -m pip install -U transformers"
     return None
