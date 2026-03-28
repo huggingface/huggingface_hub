@@ -150,7 +150,6 @@ class WebhooksServer:
             if abs_path in self.registered_webhooks:
                 raise ValueError(f"Webhook {abs_path} already exists.")
             self.registered_webhooks[abs_path] = func
-            # Return the original callable so that decorating doesn't replace the symbol.
             return func
 
         return _inner_post
