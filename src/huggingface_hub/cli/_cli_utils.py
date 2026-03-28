@@ -202,7 +202,10 @@ class HFCliTyperGroup(TyperGroup):
         rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
 
         for arg_index in repo_id_arg_indices:
-            parsed = parse_hf_url(args[arg_index])
+            try:
+                parsed = parse_hf_url(args[arg_index])
+            except ValueError:
+                continue
             if isinstance(parsed, ParsedBucketUrl) or not parsed.has_explicit_type:
                 continue
             if inferred_type is not None and parsed.repo_type != inferred_type:

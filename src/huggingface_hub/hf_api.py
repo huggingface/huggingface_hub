@@ -336,6 +336,12 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
         # Passed <repo_type>/<user>/<model_id> — accept singular type names
         # (e.g. "dataset/user/id") which parse_hf_url doesn't handle.
         repo_type, namespace, repo_id = url_segments
+    elif not is_hf_url and len(url_segments) == 2 and url_segments[0] == "buckets":
+        # Special case: "buckets/name" (no namespace) — parse_hf_url expects
+        # namespace/name for buckets, but this function accepts bare bucket names.
+        repo_type = "bucket"
+        namespace = None
+        repo_id = url_segments[1]
     else:
         # Delegate to the central parser for type detection, bucket handling, etc.
         parsed = parse_hf_url(hf_id)
