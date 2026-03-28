@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- ── Meta ─────────────────────────────────────── -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <title>Banproof | AI-Powered CyberSecurity Tools — Free Online Security Scanner</title>
+  <meta name="description" content="Banproof delivers free AI-powered cybersecurity tools: phishing detector, URL threat scanner, password strength checker, and hash generator — powered by Hugging Face models.">
+  <meta name="keywords" content="cybersecurity tools, free security scanner, phishing detector, URL scanner, password checker, AI security, hugging face cybersecurity, threat detection, online security, banproof">
+  <meta name="author" content="Banproof">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://banproof.me/">
+
+  <!-- ── Open Graph ───────────────────────────────── -->
+  <meta property="og:type"        content="website">
+  <meta property="og:url"         content="https://banproof.me/">
+  <meta property="og:title"       content="Banproof — AI-Powered CyberSecurity Tools">
+  <meta property="og:description" content="Free AI-powered cybersecurity tools: phishing detector, URL threat scanner, password strength checker — powered by Hugging Face.">
+  <meta property="og:image"       content="https://banproof.me/assets/images/og-banner.png">
+  <meta property="og:site_name"   content="Banproof">
+
+  <!-- ── Twitter Card ─────────────────────────────── -->
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:site"        content="@banproof">
+  <meta name="twitter:title"       content="Banproof — AI-Powered CyberSecurity Tools">
+  <meta name="twitter:description" content="Free AI-powered cybersecurity tools powered by Hugging Face.">
+  <meta name="twitter:image"       content="https://banproof.me/assets/images/og-banner.png">
+
+  <!-- ── Schema.org ───────────────────────────────── -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Banproof",
+    "url": "https://banproof.me",
+    "description": "Free AI-powered cybersecurity tools: phishing detection, URL scanning, password analysis.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://banproof.me/#tools",
+      "query-input": "required name=search_term_string"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Banproof",
+      "url": "https://banproof.me",
+      "logo": { "@type": "ImageObject", "url": "https://banproof.me/assets/images/logo.png" }
+    }
+  }
+  </script>
+
+  <!-- ── Favicon ──────────────────────────────────── -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0a'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='20' fill='%23ff6b35'>🛡</text></svg>">
+
+  <!-- ── Fonts ────────────────────────────────────── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- ── Styles ───────────────────────────────────── -->
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     NAVIGATION
+══════════════════════════════════════════════════ -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="container nav-inner">
+    <a href="#" class="nav-logo" aria-label="Banproof Home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+      </svg>
+      Ban<span>proof</span>
+    </a>
+
+    <ul class="nav-links" role="list">
+      <li><a href="#tools">Tools</a></li>
+      <li><a href="#ai">AI Engine</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#sponsors">Partners</a></li>
+    </ul>
+
+    <div class="nav-cta">
+      <a href="#pricing" class="btn btn-ghost btn-sm">Sign In</a>
+      <a href="#pricing" class="btn btn-primary btn-sm">Get Free Access</a>
+    </div>
+
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <div class="mobile-menu" id="mobileMenu" role="menu">
+    <a href="#tools">Tools</a>
+    <a href="#ai">AI Engine</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#sponsors">Partners</a>
+    <a href="#pricing" style="color:var(--orange)">Get Free Access →</a>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════ -->
+<section class="hero" id="home" aria-labelledby="hero-heading">
+  <div class="container hero-grid">
+
+    <!-- Left copy -->
+    <div class="hero-copy">
+      <div class="hero-eyebrow">
+        <span class="badge">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+          Now Powered by Hugging Face AI
+        </span>
+      </div>
+
+      <h1 class="hero-title" id="hero-heading">
+        CyberSecurity
+        <span class="line2">Supercharged by AI</span>
+      </h1>
+
+      <p class="hero-desc">
+        Free, real-time threat analysis tools — phishing detection, URL scanning, password intelligence, and hash verification — powered by open-source AI models from Hugging Face.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#tools" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1z"/></svg>
+          Try Free Tools
+        </a>
+        <a href="#ai" class="btn btn-outline btn-lg">See AI Engine</a>
+      </div>
+
+      <div class="hero-stats" role="list">
+        <div class="hero-stat" role="listitem">
+          <span class="hero-stat-val" data-count="250000" data-suffix="+">0</span>
+          <span class="hero-stat-label">Threats Blocked</span>
+        </div>
+        <div class="hero-stat" role="listitem">
+          <span class="hero-stat-val" data-count="98" data-suffix="%">0</span>
+          <span class="hero-stat-label">Detection Rate</span>
+        </div>
+        <div class="hero-stat" role="listitem">
+          <span class="hero-stat-val" data-count="12000" data-suffix="+">0</span>
+          <span class="hero-stat-label">Active Users</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right visual — terminal -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="terminal-window">
+        <div class="terminal-bar">
+          <span class="terminal-dot dot-red"></span>
+          <span class="terminal-dot dot-yellow"></span>
+          <span class="terminal-dot dot-green"></span>
+          <span class="terminal-title">banproof — threat-scanner</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="t-prompt">$ </span><span class="t-cmd">banproof scan --url https://suspicious-login.xyz</span></div>
+          <div><span class="t-dim">  Initializing AI model (HuggingFace)…</span></div>
+          <div><span class="t-dim">  Running heuristic analysis…</span></div>
+          <div><span class="t-warn">  ⚠ Domain age: 3 days</span></div>
+          <div><span class="t-warn">  ⚠ TLS cert mismatch detected</span></div>
+          <div><span class="t-warn">  ⚠ Phishing keyword score: 0.91</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-danger" style="color:#ff5f56">  ✖ VERDICT: HIGH RISK — PHISHING</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt">$ </span><span class="t-cmd">banproof check-pw --input "S3cur3P@ss#2025"</span></div>
+          <div><span class="t-ok">  ✔ STRONG (score 6/7) — No breaches found</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt">$ </span><span class="t-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     TRUSTED BY
+══════════════════════════════════════════════════ -->
+<div class="trusted">
+  <div class="container">
+    <p class="trusted-label">Trusted by security teams at</p>
+    <div class="trusted-logos" role="list">
+      <span class="trusted-logo" role="listitem">TechCorp</span>
+      <span class="trusted-logo" role="listitem">SecureNet</span>
+      <span class="trusted-logo" role="listitem">DefendX</span>
+      <span class="trusted-logo" role="listitem">ShieldOps</span>
+      <span class="trusted-logo" role="listitem">CyberGuard</span>
+      <span class="trusted-logo" role="listitem">InfraSafe</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     AD BANNER (Revenue)
+══════════════════════════════════════════════════ -->
+<section class="section-sm" style="background:var(--black-soft); padding:32px 0;">
+  <div class="container">
+    <div class="ad-banner reveal">
+      <div>
+        <div class="ad-banner-label">Sponsored</div>
+        <h4>🔐 Enterprise Security Suite — 30-day Free Trial</h4>
+        <p>Advanced SIEM, EDR, and threat-intelligence platform for growing teams. No credit card required.</p>
+      </div>
+      <a href="#pricing" class="btn btn-primary">Start Free Trial</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     TOOLS
+══════════════════════════════════════════════════ -->
+<section class="section" id="tools" aria-labelledby="tools-heading">
+  <div class="container">
+    <div class="text-center reveal">
+      <span class="badge" style="margin-bottom:16px">Free Tools</span>
+      <h2 class="section-title" id="tools-heading">AI-Powered Security <span class="text-orange">Toolkit</span></h2>
+      <p class="section-subtitle">Lightweight, browser-based tools for instant threat analysis. No sign-up required.</p>
+    </div>
+
+    <div class="tools-grid">
+
+      <!-- Password Checker -->
+      <div class="tool-card reveal" role="article" aria-labelledby="pw-tool-title">
+        <div class="tool-icon" aria-hidden="true">🔑</div>
+        <h3 id="pw-tool-title">Password Strength Analyzer</h3>
+        <p>Instantly evaluate password strength against entropy, complexity, and known breach patterns.</p>
+        <div class="tool-interactive">
+          <div class="tool-input-row">
+            <input
+              type="password"
+              id="pwInput"
+              class="tool-input"
+              placeholder="Enter a password to analyse…"
+              autocomplete="new-password"
+              aria-label="Password to analyse"
+            >
+          </div>
+          <div class="strength-meter" role="status" aria-live="polite">
+            <div class="strength-bar-bg">
+              <div class="strength-bar-fill" id="strengthBar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <span class="strength-label" id="strengthLabel">&nbsp;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- URL Scanner -->
+      <div class="tool-card reveal" role="article" aria-labelledby="url-tool-title">
+        <div class="tool-icon" aria-hidden="true">🔗</div>
+        <h3 id="url-tool-title">URL Threat Scanner</h3>
+        <p>Scan URLs for phishing, malware, and social-engineering indicators before you click.</p>
+        <div class="tool-interactive">
+          <div class="tool-input-row">
+            <input
+              type="url"
+              id="urlInput"
+              class="tool-input"
+              placeholder="https://example.com"
+              aria-label="URL to scan"
+            >
+            <button id="urlScanBtn" class="btn btn-primary btn-sm">Scan</button>
+          </div>
+          <div class="tool-result" id="urlResult" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- Hash Generator -->
+      <div class="tool-card reveal" role="article" aria-labelledby="hash-tool-title">
+        <div class="tool-icon" aria-hidden="true">#</div>
+        <h3 id="hash-tool-title">Hash Generator</h3>
+        <p>Generate SHA-1, SHA-256, and SHA-512 hashes client-side for file integrity verification.</p>
+        <div class="tool-interactive">
+          <textarea
+            id="hashInput"
+            class="tool-textarea"
+            placeholder="Enter text or paste file content…"
+            aria-label="Text to hash"
+          ></textarea>
+          <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+            <button id="hashBtn" class="btn btn-primary btn-sm">Generate Hashes</button>
+          </div>
+          <div id="hashOutput" class="hash-result-box" role="status" aria-live="polite" style="display:block; min-height:40px; margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Email Phishing Detector -->
+      <div class="tool-card reveal" role="article" aria-labelledby="email-tool-title">
+        <div class="tool-icon" aria-hidden="true">📧</div>
+        <h3 id="email-tool-title">Email Phishing Detector</h3>
+        <p>Paste email headers or body text to detect phishing, scam, and social-engineering tactics.</p>
+        <div class="tool-interactive">
+          <textarea
+            id="emailInput"
+            class="tool-textarea"
+            placeholder="Paste email headers or body here…"
+            aria-label="Email content to analyse"
+          ></textarea>
+          <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+            <button id="emailScanBtn" class="btn btn-primary btn-sm">Analyse Email</button>
+          </div>
+          <div class="tool-result" id="emailResult" role="status" aria-live="polite" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     AI ENGINE
+══════════════════════════════════════════════════ -->
+<section class="section ai-section" id="ai" aria-labelledby="ai-heading">
+  <div class="container">
+    <div class="ai-grid">
+
+      <!-- Left: copy + features -->
+      <div>
+        <span class="badge" style="margin-bottom:16px">Hugging Face Powered</span>
+        <h2 class="section-title reveal" id="ai-heading">
+          Built on Open-Source <span class="text-orange">AI Models</span>
+        </h2>
+        <p style="color:var(--white-dim); margin-bottom:40px; font-size:1.05rem; line-height:1.75;" class="reveal">
+          Banproof integrates leading open-source NLP and classification models from the Hugging Face Hub to deliver real-time, context-aware threat analysis — no black boxes.
+        </p>
+
+        <div class="ai-features">
+          <div class="ai-feature reveal">
+            <div class="ai-feature-icon" aria-hidden="true">🧠</div>
+            <div class="ai-feature-text">
+              <h4>Transformer-Based Classification</h4>
+              <p>Fine-tuned BERT and DeBERTa models classify phishing emails with 97%+ accuracy on benchmark datasets.</p>
+            </div>
+          </div>
+          <div class="ai-feature reveal">
+            <div class="ai-feature-icon" aria-hidden="true">🔍</div>
+            <div class="ai-feature-text">
+              <h4>URL Heuristic + NLP Hybrid</h4>
+              <p>Combines lexical URL features with NLP page-content signals for comprehensive threat scoring.</p>
+            </div>
+          </div>
+          <div class="ai-feature reveal">
+            <div class="ai-feature-icon" aria-hidden="true">🤗</div>
+            <div class="ai-feature-text">
+              <h4>Hugging Face Inference API</h4>
+              <p>All models are hosted on the Hugging Face Hub. Swap models, fine-tune, or self-host with one config change.</p>
+            </div>
+          </div>
+          <div class="ai-feature reveal">
+            <div class="ai-feature-icon" aria-hidden="true">🔒</div>
+            <div class="ai-feature-text">
+              <h4>Privacy-First Architecture</h4>
+              <p>Sensitive inputs (passwords, hashes) are processed entirely in-browser — nothing leaves your device.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:36px;">
+          <a href="https://huggingface.co" target="_blank" rel="noopener" class="btn btn-outline">
+            Explore Models on HF Hub →
+          </a>
+        </div>
+      </div>
+
+      <!-- Right: AI confidence demo -->
+      <div class="reveal">
+        <div class="ai-demo-card">
+          <h4>
+            AI Analysis Preview
+            <span class="ai-status">Live Demo</span>
+          </h4>
+
+          <p class="ai-demo-label">Sample Input — Phishing Email</p>
+          <div style="background:var(--black-mid); border-radius:8px; padding:12px; margin-bottom:20px; font-size:0.82rem; font-family:var(--font-mono); color:var(--white-dim); line-height:1.6;">
+            <span style="color:var(--orange)">From:</span> support@paypa1-security.net<br>
+            <span style="color:var(--orange)">Subject:</span> URGENT: Verify your account<br>
+            <span style="color:var(--orange)">Body:</span> Dear Customer, your account has been<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;suspended. Click here immediately…
+          </div>
+
+          <p class="ai-demo-label">Model Confidence Scores</p>
+          <div class="ai-confidence-list">
+            <div class="ai-conf-row">
+              <div class="ai-conf-header">
+                <span class="ai-conf-label" style="color:#ff5f56">🚨 Phishing</span>
+                <span class="ai-conf-pct" style="color:#ff5f56">96.2%</span>
+              </div>
+              <div class="ai-conf-bar-bg"><div class="ai-conf-bar-fill" data-width="96.2%" style="width:0%; background:linear-gradient(90deg,#ff5f56,#ff8c42)"></div></div>
+            </div>
+            <div class="ai-conf-row">
+              <div class="ai-conf-header">
+                <span class="ai-conf-label" style="color:#ffbd2e">⚠ Spam</span>
+                <span class="ai-conf-pct" style="color:#ffbd2e">2.9%</span>
+              </div>
+              <div class="ai-conf-bar-bg"><div class="ai-conf-bar-fill" data-width="2.9%" style="width:0%; background:linear-gradient(90deg,#ffbd2e,#ff8c42)"></div></div>
+            </div>
+            <div class="ai-conf-row">
+              <div class="ai-conf-header">
+                <span class="ai-conf-label" style="color:#27c93f">✅ Legitimate</span>
+                <span class="ai-conf-pct" style="color:#27c93f">0.9%</span>
+              </div>
+              <div class="ai-conf-bar-bg"><div class="ai-conf-bar-fill" data-width="0.9%" style="width:0%; background:linear-gradient(90deg,#27c93f,#00e676)"></div></div>
+            </div>
+          </div>
+
+          <div style="margin-top:20px; padding:12px 16px; background:rgba(255,95,86,0.08); border:1px solid rgba(255,95,86,0.2); border-radius:8px; font-size:0.83rem;">
+            <strong style="color:#ff5f56;">Model:</strong>
+            <a href="https://huggingface.co/models?pipeline_tag=text-classification&sort=downloads&search=phishing" target="_blank" rel="noopener" style="color:var(--orange); font-family:var(--font-mono);">
+              ealvaradob/bert-finetuned-phishing
+            </a>
+            <span style="color:var(--white-dim)"> via HF Inference API</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     HOW IT WORKS
+══════════════════════════════════════════════════ -->
+<section class="section" id="how-it-works" aria-labelledby="how-heading">
+  <div class="container">
+    <div class="text-center reveal">
+      <span class="badge" style="margin-bottom:16px">Simple & Fast</span>
+      <h2 class="section-title" id="how-heading">How <span class="text-orange">Banproof</span> Works</h2>
+      <p class="section-subtitle">Three steps to AI-powered threat intelligence in seconds.</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-num" aria-hidden="true">1</div>
+        <h3>Submit Your Input</h3>
+        <p>Enter a URL, email text, password, or any content you want to analyse — no sign-up required for basic tools.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-num" aria-hidden="true">2</div>
+        <h3>AI Analysis</h3>
+        <p>Our AI pipeline — powered by Hugging Face transformer models — extracts signals and scores threat likelihood in milliseconds.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-num" aria-hidden="true">3</div>
+        <h3>Actionable Verdict</h3>
+        <p>Receive a clear risk verdict with confidence scores and specific threat indicators, so you know exactly what to do next.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-num" aria-hidden="true">4</div>
+        <h3>Stay Protected</h3>
+        <p>Subscribe for continuous monitoring, API access, and automated alerts — protecting your whole team 24/7.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     TESTIMONIALS
+══════════════════════════════════════════════════ -->
+<section class="section" style="background:var(--black-soft);" aria-labelledby="testimonials-heading">
+  <div class="container">
+    <div class="text-center reveal">
+      <h2 class="section-title" id="testimonials-heading">Trusted by <span class="text-orange">Security Professionals</span></h2>
+      <p class="section-subtitle">What our users say about Banproof.</p>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars" aria-label="5 stars">★★★★★</div>
+        <p class="testimonial-quote">"Banproof caught a sophisticated spear-phishing attempt our legacy gateway missed. The AI confidence breakdown was incredibly useful for our incident report."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">A</div>
+          <div>
+            <div class="testimonial-name">Alex T.</div>
+            <div class="testimonial-role">SOC Analyst · TechCorp</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars" aria-label="5 stars">★★★★★</div>
+        <p class="testimonial-quote">"The free URL scanner is faster than any alternative I've tried, and the fact it's backed by Hugging Face models gives me confidence in the results."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">S</div>
+          <div>
+            <div class="testimonial-name">Samira K.</div>
+            <div class="testimonial-role">IT Security Manager · FinanceGroup</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars" aria-label="5 stars">★★★★★</div>
+        <p class="testimonial-quote">"I use the hash tool daily for supply-chain verification. Clean UI, instant results, and knowing it runs client-side means zero data-privacy concerns."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">M</div>
+          <div>
+            <div class="testimonial-name">Marcus L.</div>
+            <div class="testimonial-role">DevSecOps Engineer · CloudStartup</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     PRICING
+══════════════════════════════════════════════════ -->
+<section class="section" id="pricing" aria-labelledby="pricing-heading">
+  <div class="container">
+    <div class="text-center reveal">
+      <span class="badge" style="margin-bottom:16px">Transparent Pricing</span>
+      <h2 class="section-title" id="pricing-heading">Start Free, <span class="text-orange">Scale When Ready</span></h2>
+      <p class="section-subtitle">All core tools are free forever. Upgrade for API access, monitoring, and team features.</p>
+    </div>
+
+    <div class="pricing-grid">
+
+      <!-- Free -->
+      <div class="pricing-card reveal">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0 <span>/ month</span></div>
+        <div class="plan-desc">Everything you need to get started. No credit card.</div>
+        <ul class="plan-features">
+          <li>Password strength analyser</li>
+          <li>URL threat scanner (10/day)</li>
+          <li>Email phishing detector</li>
+          <li>SHA hash generator</li>
+          <li>Community support</li>
+          <li class="unavailable">API access</li>
+          <li class="unavailable">Continuous monitoring</li>
+          <li class="unavailable">Team dashboard</li>
+        </ul>
+        <a href="#tools" class="btn btn-ghost">Start Free</a>
+      </div>
+
+      <!-- Pro -->
+      <div class="pricing-card featured reveal">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$19 <span>/ month</span></div>
+        <div class="plan-desc">For security professionals and growing teams.</div>
+        <ul class="plan-features">
+          <li>Everything in Free</li>
+          <li>Unlimited URL scans</li>
+          <li>REST API access (10k req/mo)</li>
+          <li>Bulk email analysis</li>
+          <li>Breach monitoring alerts</li>
+          <li>Priority email support</li>
+          <li class="unavailable">Team dashboard</li>
+          <li class="unavailable">Custom model fine-tuning</li>
+        </ul>
+        <a href="#subscribe" class="btn btn-primary">Get Pro Access</a>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="pricing-card reveal">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">$99 <span>/ month</span></div>
+        <div class="plan-desc">For security teams, MSSPs, and enterprises.</div>
+        <ul class="plan-features">
+          <li>Everything in Pro</li>
+          <li>Unlimited API calls</li>
+          <li>Team dashboard (up to 50 seats)</li>
+          <li>Custom model fine-tuning</li>
+          <li>SSO / SAML integration</li>
+          <li>SLA-backed uptime guarantee</li>
+          <li>Dedicated account manager</li>
+          <li>On-premise deployment option</li>
+        </ul>
+        <a href="mailto:enterprise@banproof.me" class="btn btn-outline">Contact Sales</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     SUBSCRIBE / CTA BANNER
+══════════════════════════════════════════════════ -->
+<section class="section-sm cta-banner" id="subscribe" aria-labelledby="subscribe-heading">
+  <div class="container">
+    <div class="cta-banner-inner">
+      <div class="reveal">
+        <h2 id="subscribe-heading">Stay ahead of <span class="text-orange">every threat.</span></h2>
+        <p>Subscribe for weekly threat intelligence briefs, new tool alerts, and exclusive security resources — free.</p>
+      </div>
+      <div class="reveal">
+        <form class="subscribe-form" aria-label="Newsletter subscription">
+          <label for="subscribeEmail" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Email address</label>
+          <input
+            type="email"
+            id="subscribeEmail"
+            class="subscribe-input"
+            placeholder="your@email.com"
+            required
+            autocomplete="email"
+          >
+          <button type="submit" class="btn btn-primary">Subscribe Free</button>
+        </form>
+        <p style="font-size:0.78rem; color:var(--white-dim); margin-top:10px; text-align:center;">No spam. Unsubscribe anytime.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     SPONSORS / PARTNERS
+══════════════════════════════════════════════════ -->
+<section class="section sponsors-section" id="sponsors" aria-labelledby="sponsors-heading">
+  <div class="container">
+    <div class="text-center reveal">
+      <span class="badge" style="margin-bottom:16px">Partnerships</span>
+      <h2 class="section-title" id="sponsors-heading">Partners &amp; <span class="text-orange">Sponsors</span></h2>
+      <p class="section-subtitle">We partner with leading technology and security companies to deliver best-in-class protection.</p>
+    </div>
+
+    <div class="sponsor-tiers">
+
+      <!-- Gold -->
+      <div class="reveal">
+        <p class="sponsor-tier-label">🥇 Gold Sponsors</p>
+        <div class="sponsor-logos">
+          <div class="sponsor-logo-box"><span>SecureCo</span></div>
+          <div class="sponsor-logo-box"><span>ThreatWatch</span></div>
+          <div class="sponsor-logo-box"><span>CipherStack</span></div>
+        </div>
+      </div>
+
+      <!-- Silver -->
+      <div class="reveal">
+        <p class="sponsor-tier-label">🥈 Silver Sponsors</p>
+        <div class="sponsor-logos">
+          <div class="sponsor-logo-box"><span>NetShield</span></div>
+          <div class="sponsor-logo-box"><span>DataVault</span></div>
+          <div class="sponsor-logo-box"><span>AuditAI</span></div>
+          <div class="sponsor-logo-box"><span>ZeroTrust Labs</span></div>
+        </div>
+      </div>
+
+      <!-- Technology Partners -->
+      <div class="reveal">
+        <p class="sponsor-tier-label">🤝 Technology Partners</p>
+        <div class="sponsor-logos">
+          <div class="sponsor-logo-box" style="border-color:rgba(255,107,53,0.25)">
+            <span style="color:rgba(255,107,53,0.6)">🤗 Hugging Face</span>
+          </div>
+          <div class="sponsor-logo-box"><span>Cloudflare</span></div>
+          <div class="sponsor-logo-box"><span>GitHub</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Advertise / Sponsor CTA -->
+    <div class="sponsor-cta reveal">
+      <h4>Become a Sponsor or Advertiser</h4>
+      <p>Reach 12,000+ cybersecurity professionals. Display your brand in front of the right audience.</p>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <a href="mailto:sponsors@banproof.me" class="btn btn-primary">Partner With Us</a>
+        <a href="mailto:ads@banproof.me" class="btn btn-outline">Advertise</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════ -->
+<footer class="footer" role="contentinfo">
+  <div class="container">
+    <div class="footer-grid">
+
+      <!-- Brand -->
+      <div>
+        <a href="#" class="nav-logo" style="display:inline-flex; font-size:1.3rem;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--orange)" aria-hidden="true">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1z"/>
+          </svg>
+          Ban<span style="color:var(--orange)">proof</span>
+        </a>
+        <p class="footer-brand-desc">AI-powered cybersecurity tools, free for everyone. Built with open-source models from Hugging Face.</p>
+        <div class="footer-social" role="list">
+          <a href="https://twitter.com/banproof" target="_blank" rel="noopener" aria-label="Banproof on Twitter" role="listitem" title="Twitter">𝕏</a>
+          <a href="https://github.com/marzton/huggingface_hub" target="_blank" rel="noopener" aria-label="Banproof on GitHub" role="listitem" title="GitHub">⌥</a>
+          <a href="https://linkedin.com/company/banproof" target="_blank" rel="noopener" aria-label="Banproof on LinkedIn" role="listitem" title="LinkedIn">in</a>
+          <a href="https://huggingface.co" target="_blank" rel="noopener" aria-label="Hugging Face" role="listitem" title="HuggingFace">🤗</a>
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="footer-col">
+        <h5>Tools</h5>
+        <ul role="list">
+          <li><a href="#tools">Password Checker</a></li>
+          <li><a href="#tools">URL Scanner</a></li>
+          <li><a href="#tools">Hash Generator</a></li>
+          <li><a href="#tools">Phishing Detector</a></li>
+          <li><a href="#ai">AI Engine</a></li>
+        </ul>
+      </div>
+
+      <!-- Company -->
+      <div class="footer-col">
+        <h5>Company</h5>
+        <ul role="list">
+          <li><a href="#">About Us</a></li>
+          <li><a href="#sponsors">Partners</a></li>
+          <li><a href="mailto:press@banproof.me">Press</a></li>
+          <li><a href="mailto:careers@banproof.me">Careers</a></li>
+          <li><a href="mailto:ads@banproof.me">Advertise</a></li>
+        </ul>
+      </div>
+
+      <!-- Resources -->
+      <div class="footer-col">
+        <h5>Resources</h5>
+        <ul role="list">
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Security Research</a></li>
+          <li><a href="https://huggingface.co/docs" target="_blank" rel="noopener">HF Docs</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+
+      <!-- Legal -->
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <ul role="list">
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Cookie Policy</a></li>
+          <li><a href="mailto:security@banproof.me">Responsible Disclosure</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <p>© <span id="year"></span> Banproof. All rights reserved. Built with 🤗 <a href="https://huggingface.co" target="_blank" rel="noopener">Hugging Face</a>.</p>
+      <p style="font-size:0.78rem;">
+        <a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="mailto:hello@banproof.me">hello@banproof.me</a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+<script src="assets/js/app.js" defer></script>
+</body>
+</html>
