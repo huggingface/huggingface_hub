@@ -5,8 +5,6 @@ import pytest
 from huggingface_hub.utils._hf_uri import (
     ParsedBucketUrl,
     ParsedHfUrl,
-    is_bucket_url,
-    is_hf_url,
     parse_hf_url,
 )
 
@@ -77,12 +75,3 @@ def test_properties():
     assert bucket.bucket_name == "my-bucket"
 
 
-def test_is_hf_url():
-    assert is_hf_url("hf://datasets/squad") is True
-    assert is_hf_url("datasets/squad") is False
-
-
-def test_is_bucket_url():
-    assert is_bucket_url("hf://buckets/ns/name") is True
-    assert is_bucket_url("buckets/ns/name") is True
-    assert is_bucket_url("hf://datasets/squad") is False

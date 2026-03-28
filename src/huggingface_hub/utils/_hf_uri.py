@@ -94,19 +94,6 @@ class ParsedBucketUrl:
 
 
 # ---------------------------------------------------------------------------
-# Public helpers
-# ---------------------------------------------------------------------------
-def is_hf_url(url: str) -> bool:
-    """Return *True* if *url* starts with ``hf://``."""
-    return url.startswith(HF_PREFIX)
-
-
-def is_bucket_url(url: str) -> bool:
-    """Return *True* if *url* is an ``hf://buckets/…`` URI or a bare ``buckets/…`` path."""
-    return url.startswith("hf://buckets/") or url.startswith("buckets/")
-
-
-# ---------------------------------------------------------------------------
 # Core parser
 # ---------------------------------------------------------------------------
 def parse_hf_url(

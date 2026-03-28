@@ -33,7 +33,7 @@ from typer.core import TyperCommand, TyperGroup
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
-from huggingface_hub.utils._hf_uri import parse_hf_url
+from huggingface_hub.utils._hf_uri import ParsedBucketUrl, parse_hf_url
 
 
 logger = logging.get_logger()
@@ -203,7 +203,7 @@ class HFCliTyperGroup(TyperGroup):
 
         for arg_index in repo_id_arg_indices:
             parsed = parse_hf_url(args[arg_index])
-            if not parsed.has_explicit_type:
+            if isinstance(parsed, ParsedBucketUrl) or not parsed.has_explicit_type:
                 continue
             if inferred_type is not None and parsed.repo_type != inferred_type:
                 raise click.UsageError(
