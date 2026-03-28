@@ -1,4 +1,4 @@
-from huggingface_hub.inference._providers._common import BaseConversationalTask
+from ._common import BaseConversationalTask
 
 
 class CerebrasConversationalTask(BaseConversationalTask):

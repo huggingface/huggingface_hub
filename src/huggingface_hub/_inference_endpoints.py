@@ -2,18 +2,17 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
-from .inference._client import InferenceClient
-from .inference._generated._async_client import AsyncInferenceClient
 from .utils import get_session, logging, parse_datetime
 
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
-
+    from .inference._client import InferenceClient
+    from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
 
@@ -33,6 +32,11 @@ class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
     PROTECTED = "protected"
     PRIVATE = "private"
+
+
+class InferenceEndpointScalingMetric(str, Enum):
+    PENDING_REQUESTS = "pendingRequests"
+    HARDWARE_USAGE = "hardwareUsage"
 
 
 @dataclass
@@ -63,7 +67,7 @@ class InferenceEndpoint:
             The timestamp of the last update of the Inference Endpoint.
         type ([`InferenceEndpointType`]):
             The type of the Inference Endpoint (public, protected, private).
-        raw (`Dict`):
+        raw (`dict`):
             The raw dictionary data returned from the API.
         token (`str` or `bool`, *optional*):
             Authentication token for the Inference Endpoint, if set when requesting the API. Will default to the
@@ -101,6 +105,7 @@ class InferenceEndpoint:
     namespace: str
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
+    health_route: str = field(init=False)
     url: Optional[str] = field(init=False)
 
     # Other fields
@@ -112,7 +117,7 @@ class InferenceEndpoint:
     type: InferenceEndpointType = field(repr=False, init=False)
 
     # Raw dict from the API
-    raw: Dict = field(repr=False)
+    raw: dict = field(repr=False)
 
     # Internal fields
     _token: Union[str, bool, None] = field(repr=False, compare=False)
@@ -120,7 +125,7 @@ class InferenceEndpoint:
 
     @classmethod
     def from_raw(
-        cls, raw: Dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
+        cls, raw: dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
     ) -> "InferenceEndpoint":
         """Initialize object from raw dictionary."""
         if api is None:
@@ -138,7 +143,7 @@ class InferenceEndpoint:
         self._populate_from_raw()
 
     @property
-    def client(self) -> InferenceClient:
+    def client(self) -> "InferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -152,13 +157,15 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
+        from .inference._client import InferenceClient
+
         return InferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     @property
-    def async_client(self) -> AsyncInferenceClient:
+    def async_client(self) -> "AsyncInferenceClient":
         """Returns a client to make predictions on this Inference Endpoint.
 
         Returns:
@@ -172,9 +179,11 @@ class InferenceEndpoint:
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
+        from .inference._generated._async_client import AsyncInferenceClient
+
         return AsyncInferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
@@ -217,7 +226,8 @@ class InferenceEndpoint:
                 )
             if self.status == InferenceEndpointStatus.RUNNING and self.url is not None:
                 # Verify the endpoint is actually reachable
-                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                _health_url = f"{self.url.rstrip('/')}/{self.health_route.lstrip('/')}"
+                response = get_session().get(_health_url, headers=self._api._build_hf_headers(token=self._token))
                 if response.status_code == 200:
                     logger.info("Inference Endpoint is ready to be used.")
                     return self
@@ -255,8 +265,8 @@ class InferenceEndpoint:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        custom_image: Optional[dict] = None,
+        secrets: Optional[dict[str, str]] = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 
@@ -288,10 +298,10 @@ class InferenceEndpoint:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict[str, str]`, *optional*):
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
@@ -324,7 +334,7 @@ class InferenceEndpoint:
         """Pause the Inference Endpoint.
 
         A paused Inference Endpoint will not be charged. It can be resumed at any time using [`InferenceEndpoint.resume`].
-        This is different than scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
+        This is different from scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
         would be automatically restarted when a request is made to it.
 
         This is an alias for [`HfApi.pause_inference_endpoint`]. The current object is mutated in place with the
@@ -362,8 +372,8 @@ class InferenceEndpoint:
     def scale_to_zero(self) -> "InferenceEndpoint":
         """Scale Inference Endpoint to zero.
 
-        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
-        cold start delay. This is different than pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
+        An Inference Endpoint scaled to zero will not be charged. It will be resumed on the next request to it, with a
+        cold start delay. This is different from pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
         would require a manual resume with [`InferenceEndpoint.resume`].
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the
@@ -397,6 +407,7 @@ class InferenceEndpoint:
         self.repository = self.raw["model"]["repository"]
         self.status = self.raw["status"]["state"]
         self.url = self.raw["status"].get("url")
+        self.health_route = self.raw["healthRoute"]
 
         # Other fields
         self.framework = self.raw["model"]["framework"]

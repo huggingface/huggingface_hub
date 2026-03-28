@@ -10,13 +10,10 @@ rendered properly in your Markdown viewer.
 
 DDUF is a file format designed for diffusion models. It allows saving all the information to run a model in a single file. This work is inspired by the [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md) format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
 
-<Tip warning={true}>
-
-This is a very early version of the parser. The API and implementation can evolve in the near future.
-
-The parser currently does very little validation. For more details about the file format, check out https://github.com/huggingface/huggingface.js/tree/main/packages/dduf.
-
-</Tip>
+> [!WARNING]
+> This is a very early version of the parser. The API and implementation can evolve in the near future.
+>
+> The parser currently does very little validation. For more details about the file format, check out https://github.com/huggingface/huggingface.js/tree/main/packages/dduf.
 
 ### How to write a DDUF file?
 
@@ -131,11 +128,7 @@ If you want to save a state dictionary (e.g. a mapping between layer names and r
 [[autodoc]] huggingface_hub.save_torch_state_dict
 
 
-The `serialization` module also contains low-level helpers to split a state dictionary into several shards, while creating a proper index in the process. These helpers are available for `torch` and `tensorflow` tensors and are designed to be easily extended to any other ML frameworks.
-
-### split_tf_state_dict_into_shards
-
-[[autodoc]] huggingface_hub.split_tf_state_dict_into_shards
+The `serialization` module also contains low-level helpers to split a state dictionary into several shards, while creating a proper index in the process. These helpers are available for `torch` tensors and are designed to be easily extended to any other ML frameworks.
 
 ### split_torch_state_dict_into_shards
 
@@ -158,7 +151,6 @@ The loading helpers support both single-file and sharded checkpoints in either s
 ### load_state_dict_from_file
 
 [[autodoc]] huggingface_hub.load_state_dict_from_file
-
 
 ## Tensors helpers
 

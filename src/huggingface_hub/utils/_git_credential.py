@@ -16,7 +16,7 @@
 
 import re
 import subprocess
-from typing import List, Optional
+from typing import Optional
 
 from ..constants import ENDPOINT
 from ._subprocess import run_interactive_subprocess, run_subprocess
@@ -27,14 +27,14 @@ GIT_CREDENTIAL_REGEX = re.compile(
         ^\s* # start of line
         credential\.helper # credential.helper value
         \s*=\s* # separator
-        (\w+) # the helper name (group 1)
+        ([\w\-\/]+) # the helper name or absolute path (group 1)
         (\s|$) # whitespace or end of line
     """,
     flags=re.MULTILINE | re.IGNORECASE | re.VERBOSE,
 )
 
 
-def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
+def list_credential_helpers(folder: Optional[str] = None) -> list[str]:
     """Return the list of git credential helpers configured.
 
     See https://git-scm.com/docs/gitcredentials.
@@ -104,14 +104,14 @@ def unset_git_credential(username: str = "hf_user", folder: Optional[str] = None
         stdin.flush()
 
 
-def _parse_credential_output(output: str) -> List[str]:
+def _parse_credential_output(output: str) -> list[str]:
     """Parse the output of `git credential fill` to extract the password.
 
     Args:
         output (`str`):
             The output of `git credential fill`.
     """
-    # NOTE: If user has set an helper for a custom URL, it will not we caught here.
+    # NOTE: If user has set a helper for a custom URL, it will not be caught here.
     #       Example: `credential.https://huggingface.co.helper=store`
     #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
     return sorted(  # Sort for nice printing

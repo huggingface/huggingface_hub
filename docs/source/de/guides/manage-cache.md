@@ -190,12 +190,9 @@ assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", sub
 something_path = assets_path / "something.json" # Machen Sie, was Sie möchten, in Ihrem Assets-Ordner!
 ```
 
-<Tip>
-
-[`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend.
-Wenn Ihre Bibliothek bereits ihren eigenen Cache verwendet, können Sie diesen gerne nutzen!
-
-</Tip>
+> [!TIP]
+> [`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend.
+> Wenn Ihre Bibliothek bereits ihren eigenen Cache verwendet, können Sie diesen gerne nutzen!
 
 ### Assets in der Praxis
 
@@ -238,72 +235,54 @@ Derzeit werden zwischengespeicherte Dateien nie aus Ihrem lokalen Verzeichnis ge
 Wenn Sie eine neue Revision eines Zweiges herunterladen, werden vorherige Dateien aufbewahrt,
 falls Sie sie wieder benötigen. Daher kann es nützlich sein, Ihr Cache-Verzeichnis zu scannen,
 um zu erfahren, welche Repos und Revisionen den meisten Speicherplatz beanspruchen.
-`huggingface_hub` bietet einen Helfer dafür, der über `huggingface-cli` oder in einem Python-Skript verwendet werden kann.
+`huggingface_hub` bietet einen Helfer dafür, der über `hf` oder in einem Python-Skript verwendet werden kann.
 
-### Cache vom Terminal aus scannen
+### Cache im Terminal prüfen
 
-Die einfachste Möglichkeit, Ihr HF-Cache-System zu scannen, besteht darin, den Befehl `scan-cache`
-aus dem `huggingface-cli`-Tool zu verwenden. Dieser Befehl scannt den Cache und gibt einen Bericht
-mit Informationen wie Repo-ID, Repo-Typ, Speicherverbrauch, Referenzen und vollständigen lokalen Pfad aus.
-
-Im folgenden Ausschnitt wird ein Scan-Bericht in einem Ordner angezeigt, in dem 4 Modelle und 2 Datensätze
-gecached sind.
-
+Die bequemste Möglichkeit, Ihren HF-Cache zu untersuchen, ist der Befehl `hf cache ls`.
+Er listet standardmäßig alle gecachten Repositories zusammen mit Größe, letzter Nutzung und Referenzen auf.
 
 ```text
-➜ huggingface-cli scan-cache
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+➜ hf cache ls
+ID                                   SIZE   LAST_ACCESSED LAST_MODIFIED REFS
+------------------------------------ ------- ------------- ------------- -------------------
+dataset/glue                         116.3K 4 days ago     4 days ago     2.4.0 main 1.17.0
+dataset/google/fleurs                 64.9M 1 week ago     1 week ago     main refs/pr/1
+model/Jean-Baptiste/camembert-ner    441.0M 2 weeks ago    16 hours ago   main
+model/bert-base-cased                  1.9G 1 week ago     2 years ago
+model/t5-base                          10.1K 3 months ago   3 months ago   main
+model/t5-small                        970.7M 3 days ago     3 days ago     main refs/pr/1
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 6 repo(s) for a total of 12 revision(s) and 3.4G on disk.
 ```
 
-Um einen detaillierteren Bericht zu erhalten, verwenden Sie die Option `--verbose`.
-Für jedes Repository erhalten Sie eine Liste aller heruntergeladenen Revisionen.
-Wie oben erläutert, werden Dateien, die sich zwischen 2 Revisionen nicht ändern,
-dank der symbolischen Links geteilt. Das bedeutet, dass die Größe des Repositorys
-auf der Festplatte voraussichtlich kleiner ist als die Summe der Größe jeder einzelnen Revision.
-Zum Beispiel hat hier `bert-base-cased` 2 Revisionen von 1,4G und 1,5G,
-aber der gesamte Festplattenspeicher beträgt nur 1,9G.
+Mit `--revisions` wechseln Sie zur Ansicht auf Snapshot-Ebene. Filter akzeptieren
+menschenlesbare Werte, sodass Ausdrücke wie `size>1GB` oder `accessed>30d` sofort funktionieren:
 
 ```text
-➜ huggingface-cli scan-cache -v
-REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS        LOCAL PATH
---------------------------- --------- ---------------------------------------- ------------ -------- ------------- ----------- ----------------------------------------------------------------------------------------------------------------------------
-glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 4 days ago    main, 2.4.0 /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
-glue                        dataset   f021ae41c879fcabcf823648ec685e3fead91fe7        97.8K       14 1 week ago    1.17.0      /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/f021ae41c879fcabcf823648ec685e3fead91fe7
-google/fleurs               dataset   129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8        25.4K        3 2 weeks ago   refs/pr/1   /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs/snapshots/129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8
-google/fleurs               dataset   24f85a01eb955224ca3946e70050869c56446805        64.9M        4 1 week ago    main        /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs/snapshots/24f85a01eb955224ca3946e70050869c56446805
-Jean-Baptiste/camembert-ner model     dbec8489a1c44ecad9da8a9185115bccabd799fe       441.0M        7 16 hours ago  main        /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner/snapshots/dbec8489a1c44ecad9da8a9185115bccabd799fe
-bert-base-cased             model     378aa1bda6387fd00e824948ebe3488630ad8565         1.5G        9 2 years ago               /home/wauplin/.cache/huggingface/hub/models--bert-base-cased/snapshots/378aa1bda6387fd00e824948ebe3488630ad8565
-bert-base-cased             model     a8d257ba9925ef39f3036bfc338acf5283c512d9         1.4G        9 3 days ago    main        /home/wauplin/.cache/huggingface/hub/models--bert-base-cased/snapshots/a8d257ba9925ef39f3036bfc338acf5283c512d9
-t5-base                     model     23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9        10.1K        3 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-base/snapshots/23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
-t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
+➜ hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
+ID                                   REVISION            SIZE   LAST_MODIFIED REFS
+------------------------------------ ------------------ ------- ------------- -------------------
+model/bert-base-cased                6d1d7a1a2a6cf4c2    1.9G  2 years ago
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
 ```
 
-#### Grep-Beispiel
+Brauchen Sie maschinenlesbare Ausgaben? `--format json` liefert strukturierte Objekte,
+`--format csv` erzeugt durch Komma getrennte Zeilen und `--quiet` gibt nur Kennungen aus.
+Alle Varianten lassen sich mit `--cache-dir` kombinieren, wenn Ihr Cache nicht unter `HF_HOME`
+liegt.
 
-Da die Ausgabe im Tabellenformat erfolgt, können Sie sie mit `grep`-ähnlichen Tools kombinieren,
-um die Einträge zu filtern. Hier ein Beispiel, um nur Revisionen vom Modell "t5-small"
-auf einem Unix-basierten Gerät zu filtern.
+#### Mit Shell-Tools filtern
+
+Die Tabellen-Ausgabe lässt sich weiterhin mit bekannten Tools verarbeiten. Das folgende
+Beispiel zeigt alle Revisionen für `t5-small`:
 
 ```text
-➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
-t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
+➜ eval "hf cache ls --revisions" | grep "t5-small"
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
+model/t5-small                       8f3ad1c90fed7a62    820.1M 2 weeks ago   refs/pr/1
 ```
 
 ### Den Cache von Python aus scannen
@@ -373,10 +352,9 @@ HFCacheInfo(
 ## Cache leeren
 
 Das Durchsuchen Ihres Caches ist interessant, aber was Sie normalerweise als Nächstes tun möchten, ist
-einige Teile zu löschen, um etwas Speicherplatz auf Ihrem Laufwerk freizugeben. Dies ist möglich mit dem
-`delete-cache` CLI-Befehl. Man kann auch programmatisch den
-[`~HFCacheInfo.delete_revisions`] Helfer vom [`HFCacheInfo`] Objekt verwenden, das beim
-Durchsuchen des Caches zurückgegeben wird.
+einige Teile zu löschen, um Speicherplatz freizugeben. Dies gelingt mit den CLI-Befehlen
+`hf cache rm` und `hf cache prune`. Alternativ können Sie programmatisch den
+[`~HFCacheInfo.delete_revisions`]-Helfer des zurückgegebenen [`HFCacheInfo`]-Objekts nutzen.
 
 ### Löschstrategie
 
@@ -394,135 +372,60 @@ Die Strategie zur Löschung von Revisionen ist folgende:
 - Wenn eine Revision mit 1 oder mehreren `refs` verknüpft ist, werden die Referenzen gelöscht.
 - Werden alle Revisionen aus einem Repo gelöscht, wird das gesamte zwischengespeicherte Repository gelöscht.
 
-<Tip>
+> [!TIP]
+> Revisions-Hashes sind eindeutig über alle Repositories hinweg. `hf cache rm` akzeptiert daher sowohl
+> Repository-Kennungen (z. B. `model/bert-base-uncased`) als auch einzelne Revisions-Hashes – bei einem Hash
+> müssen Sie das Repository nicht zusätzlich angeben.
 
-Revisions-Hashes sind eindeutig über alle Repositories hinweg. Das bedeutet, dass Sie keine `repo_id` oder `repo_type`
-angeben müssen, wenn Sie Revisionen entfernen.
-
-</Tip>
-
-<Tip warning={true}>
-
-Wenn eine Revision im Cache nicht gefunden wird, wird sie stillschweigend ignoriert. Außerdem wird, wenn eine Datei
-oder ein Ordner beim Versuch, ihn zu löschen, nicht gefunden wird, eine Warnung protokolliert, aber es wird kein
-Fehler ausgelöst. Die Löschung wird für andere Pfade im
-[`DeleteCacheStrategy`] Objekt fortgesetzt.
-
-</Tip>
+> [!WARNING]
+> Wenn eine Revision im Cache nicht gefunden wird, wird sie stillschweigend ignoriert. Außerdem wird, wenn eine Datei
+> oder ein Ordner beim Versuch, ihn zu löschen, nicht gefunden wird, eine Warnung protokolliert, aber es wird kein
+> Fehler ausgelöst. Die Löschung wird für andere Pfade im
+> [`DeleteCacheStrategy`] Objekt fortgesetzt.
 
 ### Cache vom Terminal aus leeren
 
-Der einfachste Weg, einige Revisionen aus Ihrem HF-Cache-System zu löschen, ist die Verwendung des
-`delete-cache` Befehls vom `huggingface-cli` Tool. Der Befehl hat zwei Modi. Standardmäßig wird dem Benutzer
-eine TUI (Terminal User Interface) angezeigt, um auszuwählen, welche Revisionen gelöscht werden sollen. Diese TUI
-befindet sich derzeit in der Beta-Phase, da sie nicht auf allen Plattformen getestet wurde. Wenn die TUI auf Ihrem
-Gerät nicht funktioniert, können Sie sie mit dem Flag `--disable-tui` deaktivieren.
+Verwenden Sie `hf cache rm`, um gecachte Repositories oder einzelne Revisionen zu löschen.
+Übergeben Sie dazu eine oder mehrere Repository-Kennungen (z. B. `model/bert-base-uncased`) oder Revisions-Hashes:
 
-#### Verwendung der TUI
-
-Dies ist der Standardmodus. Um ihn zu nutzen, müssen Sie zuerst zusätzliche Abhängigkeiten installieren, indem Sie
-den folgenden Befehl ausführen:
-
-```
-pip install huggingface_hub["cli"]
+```text
+➜ hf cache rm model/bert-base-cased
+About to delete 1 repo(s) totalling 1.9G.
+  - model/bert-base-cased (entire repo)
+Proceed with deletion? [y/N]: y
+Deleted 1 repo(s) and 1 revision(s); freed 1.9G.
 ```
 
-Führen Sie dann den Befehl aus:
+Sie können Repositories und spezifische Revisionen mischen. Nutzen Sie `--dry-run`, um den Effekt vorab zu prüfen,
+oder `--yes`, wenn keine Rückfrage erscheinen soll:
 
-```
-huggingface-cli delete-cache
-```
-
-Sie sollten jetzt eine Liste von Revisionen sehen, die Sie auswählen/abwählen können:
-
-<div class="flex justify-center">
-    <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/delete-cache-tui.png"/>
-</div>
-
-Anleitung:
-    - Drücken Sie die Pfeiltasten `Hoch>` und `<Runter>` auf der Tastatur, um den Cursor zu bewegen.
-    - Drücken Sie `<Leertaste>`, um einen Eintrag zu wechseln (auswählen/abwählen).
-    - Wenn eine Revision ausgewählt ist, wird die erste Zeile aktualisiert, um Ihnen anzuzeigen, wie viel Speicherplatz
-      freigegeben wird.
-    - Drücken Sie `<Enter>`, um Ihre Auswahl zu bestätigen.
-    - Wenn Sie den Vorgang abbrechen und beenden möchten, können Sie den ersten Eintrag
-      ("None of the following") auswählen. Wenn dieser Eintrag ausgewählt ist, wird der Löschvorgang abgebrochen,
-      unabhängig davon, welche anderen Einträge ausgewählt sind. Alternativ können Sie auch `<Ctrl+C> `drücken, um die
-      TUI zu verlassen.
-
-Nachdem Sie die Revisionen ausgewählt haben, die Sie löschen möchten, und `<Enter>` gedrückt haben, wird eine
-letzte Bestätigungsnachricht angezeigt. Drücken Sie erneut `<Enter>`, und die Löschung wird wirksam. Wenn Sie
-abbrechen möchten, geben Sie `n` ein.
-
-```txt
-✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
-? Select revisions to delete: 2 revision(s) selected.
-? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
-Start deletion.
-Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
+```text
+➜ hf cache rm model/t5-small 8f3ad1c --dry-run
+About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
+  - model/t5-small:
+      8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
 ```
 
-#### Ohne TUI
+Wenn Ihr Cache nicht im Standardverzeichnis liegt, kombinieren Sie den Befehl mit `--cache-dir PFAD`.
 
-Wie bereits erwähnt, befindet sich der TUI-Modus derzeit in der Beta-Phase und ist optional.
-Es könnte sein, dass er auf Ihrem Gerät nicht funktioniert oder dass Sie ihn nicht als praktisch finden.
+Zum Aufräumen verwaister Snapshots steht `hf cache prune` bereit. Der Befehl entfernt automatisch alle
+Revisionen ohne Referenz:
 
-Ein anderer Ansatz besteht darin, das Flag `--disable-tui` zu verwenden. Der Vorgang ähnelt sehr dem vorherigen,
-da Sie aufgefordert werden, die Liste der zu löschenden Revisionen manuell zu überprüfen.
-Dieser manuelle Schritt findet jedoch nicht direkt im Terminal statt, sondern in einer temporären Datei,
-die ad hoc generiert wird und die Sie manuell bearbeiten können.
-
-Diese Datei enthält alle erforderlichen Anweisungen im Kopfteil. Öffnen Sie sie in Ihrem bevorzugten Texteditor.
-Um eine Revision auszuwählen/abzuwählen, kommentieren Sie sie einfach mit einem `#` aus oder ein.
-Sobald die manuelle Überprüfung abgeschlossen ist und die Datei bearbeitet wurde, können Sie sie speichern.
-Gehen Sie zurück zu Ihrem Terminal und drücken Sie `<Enter>`. Standardmäßig wird berechnet,
-wie viel Speicherplatz mit der aktualisierten Revisionsliste freigegeben würde.
-Sie können die Datei weiter bearbeiten oder mit `"y"` bestätigen.
-
-```sh
-huggingface-cli delete-cache --disable-tui
+```text
+➜ hf cache prune
+About to delete 3 unreferenced revision(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s); freed 2.4G.
 ```
 
-Beispiel für eine Befehlsdatei:
-
-```txt
-# INSTRUCTIONS
-# ------------
-# This is a temporary file created by running `huggingface-cli delete-cache` with the
-# `--disable-tui` option. It contains a set of revisions that can be deleted from your
-# local cache directory.
-#
-# Please manually review the revisions you want to delete:
-#   - Revision hashes can be commented out with '#'.
-#   - Only non-commented revisions in this file will be deleted.
-#   - Revision hashes that are removed from this file are ignored as well.
-#   - If `CANCEL_DELETION` line is uncommented, the all cache deletion is cancelled and
-#     no changes will be applied.
-#
-# Once you've manually reviewed this file, please confirm deletion in the terminal. This
-# file will be automatically removed once done.
-# ------------
-
-# KILL SWITCH
-# ------------
-# Un-comment following line to completely cancel the deletion process
-# CANCEL_DELETION
-# ------------
-
-# REVISIONS
-# ------------
-# Dataset chrisjay/crowd-speech-africa (761.7M, used 5 days ago)
-    ebedcd8c55c90d39fd27126d29d8484566cd27ca # Refs: main # modified 5 days ago
-
-# Dataset oscar (3.3M, used 4 days ago)
-#    916f956518279c5e60c63902ebdf3ddf9fa9d629 # Refs: main # modified 4 days ago
-
-# Dataset wikiann (804.1K, used 2 weeks ago)
-    89d089624b6323d69dcd9e5eb2def0551887a73a # Refs: main # modified 2 weeks ago
-
-# Dataset z-uo/male-LJSpeech-italian (5.5G, used 5 days ago)
-#    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
-```
+Beide Befehle unterstützen `--dry-run`, `--yes` und `--cache-dir`, sodass Sie Vorschauen erzeugen,
+Automatisierungen bauen und alternative Cache-Verzeichnisse angeben können.
 
 ### Cache aus Python leeren
 

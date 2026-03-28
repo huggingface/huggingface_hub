@@ -1,0 +1,88 @@
+name: Sync HF CLI Skill
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '!v*rc*'
+  workflow_dispatch:
+
+jobs:
+  sync-skill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Determine PR title
+        id: pr_title
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            echo "title=Sync HF CLI Skill (${{ github.ref_name }})" >> $GITHUB_OUTPUT
+          else
+            echo "title=Sync HF CLI Skill (manual trigger)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
+      - name: Checkout skills repo
+        uses: actions/checkout@v4
+        with:
+          repository: huggingface/skills
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+
+      - name: Copy generated files
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Check for changes
+        id: check_changes
+        working-directory: skills-repo
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: ${{ steps.pr_title.outputs.title }}
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
+
+            Triggered by changes to `src/huggingface_hub/cli/`
+
+            ---
+            This PR was created automatically by the [sync-hf-cli-skill](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/sync-hf-cli-skill.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          labels: |
+            automated
+            cli-sync

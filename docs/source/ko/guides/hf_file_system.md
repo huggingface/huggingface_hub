@@ -9,26 +9,25 @@ rendered properly in your Markdown viewer.
 ## 사용법[[usage]]
 
 ```python
->>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem()
+>>> from huggingface_hub import hffs
 
 >>> # 디렉터리의 모든 파일 나열하기
->>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
+>>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 저장소(repo)에서 ".csv" 파일 모두 나열하기
->>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
+>>> hffs.glob("datasets/my-username/my-dataset-repo/**.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 원격 파일 읽기
->>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
 >>> # 문자열로 원격 파일의 내용 읽기
->>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
+>>> train_data = hffs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # 원격 파일 쓰기
->>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
@@ -103,7 +102,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem(token=token)
+>>> hffs = HfFileSystem(token=token)
 ```
 
 이렇게 로그인하는 경우 소스 코드를 공유할 때 토큰이 실수로 누출되지 않도록 주의해야 합니다!

@@ -144,9 +144,8 @@ assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", sub
 something_path = assets_path / "something.json" # 자산 폴더에서 원하는 대로 작업하세요!
 ```
 
-<Tip>
-[`cached_assets_path`]는 자산을 저장하는 권장 방법이지만 필수는 아닙니다. 이미 라이브러리가 자체 캐시를 사용하는 경우 해당 캐시를 자유롭게 사용하세요!
-</Tip>
+> [!TIP]
+> [`cached_assets_path`]는 자산을 저장하는 권장 방법이지만 필수는 아닙니다. 이미 라이브러리가 자체 캐시를 사용하는 경우 해당 캐시를 자유롭게 사용하세요!
 
 ### 자산 캐시 구조 예시[[assets-in-practice]]
 
@@ -183,61 +182,61 @@ something_path = assets_path / "something.json" # 자산 폴더에서 원하는 
                 └── (...)
 ```
 
-## 캐시 스캔하기[[scan-your-cache]]
+## 캐시 확인하기[[scan-your-cache]]
 
-현재 캐시된 파일은 로컬 디렉토리에서 삭제되지 않습니다. 브랜치의 새로운 수정 버전을 다운로드할 때 이전 파일은 다시 필요할 경우를 대비하여 보관됩니다. 따라서 디스크 공간을 많이 차지하는 리포지토리와 수정 버전을 파악하기 위해 캐시 디렉토리를 스캔하는 것이 유용할 수 있습니다. `huggingface_hub`은 이를 수행할 수 있는 헬퍼를 제공하며, `huggingface-cli`를 통해 또는 Python 스크립트에서 사용할 수 있습니다.
+현재 캐시된 파일은 로컬 디렉토리에서 자동으로 삭제되지 않습니다. 브랜치의 새로운 수정 버전을 다운로드하면 이전 파일이 그대로 남아 향후 다시 사용할 수 있습니다. 따라서 디스크 공간을 많이 차지하는 리포지토리와 수정 버전을 파악하려면 캐시 디렉터리를 점검하는 것이 좋습니다. `huggingface_hub`은 이를 위해 CLI와 Python 유틸리티를 모두 제공합니다.
 
-### 터미널에서 캐시 스캔하기[[scan-cache-from-the-terminal]]
+### 터미널에서 캐시 확인하기[[scan-cache-from-the-terminal]]
 
-HF 캐시 시스템을 스캔하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `scan-cache` 명령을 사용하는 것입니다. 이 명령은 캐시를 스캔하고 리포지토리 ID, 리포지토리 유형, 디스크 사용량, 참조 및 전체 로컬 경로와 같은 정보가 포함된 보고서를 출력합니다.
-
-아래 코드 조각은 4개의 모델과 2개의 데이터셋이 캐시된 폴더에서의 스캔 보고서를 보여줍니다.
+HF 캐시 상태를 살펴보는 가장 간단한 방법은 `hf cache ls` 명령을 사용하는 것입니다. 기본적으로 캐시에 저장된 리포지토리를 한눈에 보여줍니다.
 
 ```text
-➜ huggingface-cli scan-cache
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+➜ hf cache ls
+ID                                   SIZE   LAST_ACCESSED LAST_MODIFIED REFS
+------------------------------------ ------- ------------- ------------- -------------------
+dataset/glue                         116.3K 4 days ago     4 days ago     2.4.0 main 1.17.0
+dataset/google/fleurs                 64.9M 1 week ago     1 week ago     main refs/pr/1
+model/Jean-Baptiste/camembert-ner    441.0M 2 weeks ago    16 hours ago   main
+model/bert-base-cased                  1.9G 1 week ago     2 years ago
+model/t5-base                          10.1K 3 months ago   3 months ago   main
+model/t5-small                        970.7M 3 days ago     3 days ago     main refs/pr/1
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
-```
-더 자세한 보고서를 얻으려면 `--verbose` 옵션을 사용하세요. 각 리포지토리에 대해 다운로드된 모든 수정 버전의 목록을 얻게 됩니다. 위에서 설명한대로, 2개의 수정 버전 사이에 변경되지 않는 파일들은 심볼릭 링크를 통해 공유됩니다. 이는 디스크 상의 리포지토리 크기가 각 수정 버전의 크기의 합보다 작을 것으로 예상됨을 의미합니다. 예를 들어, 여기서 `bert-base-cased`는 1.4G와 1.5G의 두 가지 수정 버전이 있지만 총 디스크 사용량은 단 1.9G입니다.
-
-```text
-➜ huggingface-cli scan-cache -v
-REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS        LOCAL PATH
---------------------------- --------- ---------------------------------------- ------------ -------- ------------- ----------- ----------------------------------------------------------------------------------------------------------------------------
-glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 4 days ago    main, 2.4.0 /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
-glue                        dataset   f021ae41c879fcabcf823648ec685e3fead91fe7        97.8K       14 1 week ago    1.17.0      /home/wauplin/.cache/huggingface/hub/datasets--glue/snapshots/f021ae41c879fcabcf823648ec685e3fead91fe7
-google/fleurs               dataset   129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8        25.4K        3 2 weeks ago   refs/pr/1   /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs/snapshots/129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8
-google/fleurs               dataset   24f85a01eb955224ca3946e70050869c56446805        64.9M        4 1 week ago    main        /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs/snapshots/24f85a01eb955224ca3946e70050869c56446805
-Jean-Baptiste/camembert-ner model     dbec8489a1c44ecad9da8a9185115bccabd799fe       441.0M        7 16 hours ago  main        /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner/snapshots/dbec8489a1c44ecad9da8a9185115bccabd799fe
-bert-base-cased             model     378aa1bda6387fd00e824948ebe3488630ad8565         1.5G        9 2 years ago               /home/wauplin/.cache/huggingface/hub/models--bert-base-cased/snapshots/378aa1bda6387fd00e824948ebe3488630ad8565
-bert-base-cased             model     a8d257ba9925ef39f3036bfc338acf5283c512d9         1.4G        9 3 days ago    main        /home/wauplin/.cache/huggingface/hub/models--bert-base-cased/snapshots/a8d257ba9925ef39f3036bfc338acf5283c512d9
-t5-base                     model     23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9        10.1K        3 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-base/snapshots/23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
-t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
-
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 6 repo(s) for a total of 12 revision(s) and 3.4G on disk.
 ```
 
-#### Grep 예시[[grep-example]]
-
-출력이 테이블 형식으로 되어 있기 때문에 `grep`과 유사한 도구를 사용하여 항목을 필터링할 수 있습니다. 여기에는 Unix 기반 머신에서 "t5-small" 모델의 수정 버전만 필터링하는 예제가 있습니다.
+`--revisions` 옵션을 추가하면 각 스냅샷별 상세 목록을 확인할 수 있습니다. `size>1GB`, `accessed>30d`와 같이 사람이 읽기 쉬운 값을 사용하는 필터도 함께 적용할 수 있습니다.
 
 ```text
-➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 1 week ago    refs/pr/1   /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6 4 weeks ago               /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
-t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
+➜ hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
+ID                                   REVISION            SIZE   LAST_MODIFIED REFS
+------------------------------------ ------------------ ------- ------------- -------------------
+model/bert-base-cased                6d1d7a1a2a6cf4c2    1.9G  2 years ago
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
+
+Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
+```
+
+머신 친화적인 출력이 필요하다면 `--format json` 또는 `--format csv`를 사용하고, 식별자만 받고 싶다면 `--quiet`를 사용할 수 있습니다. `--cache-dir` 옵션을 함께 지정하면 기본 위치가 아닌 다른 캐시 디렉터리를 살펴볼 수도 있습니다.
+
+```text
+➜ hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
+#### 쉘 도구로 필터링하기[[grep-example]]
+
+출력이 표 형식이므로 기존의 `grep` 같은 도구와도 잘 어울립니다. 아래 예시는 `t5-small` 관련 스냅샷만 찾는 방법입니다.
+
+```text
+➜ eval "hf cache ls --revisions" | grep "t5-small"
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
+model/t5-small                       8f3ad1c90fed7a62    820.1M 2 weeks ago   refs/pr/1
 ```
 
 ### 파이썬에서 캐시 스캔하기[[scan-cache-from-python]]
@@ -319,105 +318,51 @@ HFCacheInfo(
 - 수정 버전이 1개 이상의 `refs`에 연결되어 있는 경우, 참조가 삭제됩니다.
 - 리포지토리의 모든 수정 버전이 삭제되는 경우 전체 캐시된 리포지토리가 삭제됩니다.
 
-<Tip>
-수정 버전 해시는 모든 리포지토리를 통틀어 고유합니다. 이는 수정 버전을 제거할 때 `repo_id`나 `repo_type`을 제공할 필요가 없음을 의미합니다.
-</Tip>
+> [!TIP]
+> 수정 버전 해시는 모든 리포지토리를 통틀어 고유합니다. 따라서 `hf cache rm`은 리포지토리 식별자(`model/bert-base-uncased` 등)와 수정 버전 해시를 모두 인수로 받으며, 해시를 전달할 때는 리포지토리를 별도로 지정할 필요가 없습니다.
 
-<Tip warning={true}>
-캐시에서 수정 버전을 찾을 수 없는 경우 무시됩니다. 또한 삭제 중에 파일 또는 폴더를 찾을 수 없는 경우 경고가 기록되지만 오류가 발생하지 않습니다. [`DeleteCacheStrategy`] 객체에 포함된 다른 경로에 대해 삭제가 계속됩니다.
-</Tip>
+> [!WARNING]
+> 캐시에서 수정 버전을 찾을 수 없는 경우 무시됩니다. 또한 삭제 중에 파일 또는 폴더를 찾을 수 없는 경우 경고가 기록되지만 오류가 발생하지 않습니다. [`DeleteCacheStrategy`] 객체에 포함된 다른 경로에 대해 삭제가 계속됩니다.
 
 ### 터미널에서 캐시 정리하기[[clean-cache-from-the-terminal]]
 
-HF 캐시 시스템에서 일부 수정 버전을 삭제하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `delete-cache` 명령을 사용하는 것입니다. 이 명령에는 두 가지 모드가 있습니다. 기본적으로 사용자에게 삭제할 수정 버전을 선택하도록 TUI(터미널 사용자 인터페이스)가 표시됩니다. 이 TUI는 현재 베타 버전으로, 모든 플랫폼에서 테스트되지 않았습니다. 만약 TUI가 작동하지 않는다면 `--disable-tui` 플래그를 사용하여 비활성화할 수 있습니다.
+캐시에서 불필요한 데이터를 지우려면 `hf cache rm` 명령을 사용하세요. 리포지토리 식별자(예: `model/bert-base-uncased`)나 수정 버전 해시를 인수로 전달하면 됩니다.
 
-#### TUI 사용하기[[using-the-tui]]
-
-이것은 기본 모드입니다. 이를 사용하려면 먼저 다음 명령을 실행하여 추가 종속성을 설치해야 합니다:
-
-```
-pip install huggingface_hub["cli"]
-```
-
-그러고 명령어를 실행합니다:
-
-```
-huggingface-cli delete-cache
-```
-이제 선택/해제할 수 있는 수정 버전 목록이 표시됩니다:
-
-<div class="flex justify-center">
-    <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/delete-cache-tui.png"/>
-</div>
-사용방법:
-   - `up` 및 `down` 키를 사용하여 커서를 이동합니다.
-   - `space` 키를 눌러 항목을 토글(선택/해제)합니다.
-   - 수정 버전이 선택된 경우 첫 번째 줄이 업데이트되어 얼마나 많은 공간이 해제될지 표시됩니다.
-   - 선택을 확인하려면 `enter` 키를 누릅니다.
-   - 작업을 취소하고 종료하려면 첫 번째 항목("None of the following")을 선택합니다. 이 항목이 선택된 경우, 다른 항목이 선택되었는지 여부에 관계없이 삭제 프로세스가 취소됩니다. 그렇지 않으면 `ctrl+c` 를 눌러 TUI를 종료할 수도 있습니다.
-
-삭제할 수정 버전을 선택하고 `enter` 를 누르면 마지막 확인 메시지가 표시됩니다. 다시 `enter` 를 누르면 삭제됩니다. 취소하려면 `n` 을 입력하세요.
-
-```txt
-✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
-? Select revisions to delete: 2 revision(s) selected.
-? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
-Start deletion.
-Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
+```text
+➜ hf cache rm model/bert-base-cased
+About to delete 1 repo(s) totalling 1.9G.
+  - model/bert-base-cased (entire repo)
+Proceed with deletion? [y/N]: y
+Deleted 1 repo(s) and 1 revision(s); freed 1.9G.
 ```
 
-#### TUI 없이 작업하기[[without-tui]]
+여러 리포지토리와 특정 수정 버전을 함께 지정할 수도 있습니다. `--dry-run` 옵션을 사용하면 실제 삭제 없이 결과를 미리 확인할 수 있고, 자동화된 스크립트에서는 `--yes`로 확인 단계를 건너뛸 수 있습니다.
 
-위에서 언급한대로, TUI 모드는 현재 베타 버전이며 선택 사항입니다. 사용 중인 기기에서 작동하지 않을 수도 있거나 편리하지 않을 수 있습니다.
-
-다른 방법은 `--disable-tui` 플래그를 사용하는 것입니다. 이 프로세스는 TUI 모드와 매우 유사하게 삭제할 수정 버전 목록을 수동으로 검토하라는 요청이 표시됩니다. 그러나 이 수동 단계는 터미널에서 직접 발생하는 것이 아니라 임시 파일에 자동으로 생성되며, 이를 수동으로 편집할 수 있습니다.
-
-이 파일에는 헤더에 필요한 모든 사용방법이 포함되어 있습니다. 텍스트 편집기에서 이 파일을 열어 `#`으로 주석 처리/해제하면 수정 버전을 쉽게 선택/해제 할 수 있습니다. 검토를 완료하고 파일 편집이 완료되었다면 터미널로 돌아가 `<enter>`를 눌러 파일을 저장하세요. 기본적으로 업데이트된 수정 버전 목록으로 확보될 공간의 양을 계산합니다. 파일을 계속 편집할 수도 있고, `"y"`를 눌러 변경 사항을 확정할 수 있습니다.
-
-```sh
-huggingface-cli delete-cache --disable-tui
+```text
+➜ hf cache rm model/t5-small 8f3ad1c --dry-run
+About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
+  - model/t5-small:
+      8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
 ```
 
-Example of command file:
+기본 위치가 아닌 다른 캐시 디렉터리를 다루고 있다면 `--cache-dir` 옵션으로 경로를 지정하세요.
 
-```txt
-# INSTRUCTIONS
-# ------------
-# This is a temporary file created by running `huggingface-cli delete-cache` with the
-# `--disable-tui` option. It contains a set of revisions that can be deleted from your
-# local cache directory.
-#
-# Please manually review the revisions you want to delete:
-#   - Revision hashes can be commented out with '#'.
-#   - Only non-commented revisions in this file will be deleted.
-#   - Revision hashes that are removed from this file are ignored as well.
-#   - If `CANCEL_DELETION` line is uncommented, the all cache deletion is cancelled and
-#     no changes will be applied.
-#
-# Once you've manually reviewed this file, please confirm deletion in the terminal. This
-# file will be automatically removed once done.
-# ------------
+사용되지 않는(detached) 스냅샷만 한 번에 정리하려면 `hf cache prune`을 사용할 수 있습니다. 이 명령은 브랜치나 태그에서 참조하지 않는 수정 버전을 자동으로 선택합니다.
 
-# KILL SWITCH
-# ------------
-# Un-comment following line to completely cancel the deletion process
-# CANCEL_DELETION
-# ------------
-
-# REVISIONS
-# ------------
-# Dataset chrisjay/crowd-speech-africa (761.7M, used 5 days ago)
-    ebedcd8c55c90d39fd27126d29d8484566cd27ca # Refs: main # modified 5 days ago
-
-# Dataset oscar (3.3M, used 4 days ago)
-#    916f956518279c5e60c63902ebdf3ddf9fa9d629 # Refs: main # modified 4 days ago
-
-# Dataset wikiann (804.1K, used 2 weeks ago)
-    89d089624b6323d69dcd9e5eb2def0551887a73a # Refs: main # modified 2 weeks ago
-
-# Dataset z-uo/male-LJSpeech-italian (5.5G, used 5 days ago)
-#    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
+```text
+➜ hf cache prune
+About to delete 3 unreferenced revision(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s); freed 2.4G.
 ```
+
+두 명령 모두 `--dry-run`, `--yes`, `--cache-dir` 옵션을 지원하므로 시뮬레이션, 자동화, 대체 캐시 경로 지정을 자유롭게 조합할 수 있습니다.
 
 ### 파이썬에서 캐시 정리하기[[clean-cache-from-python]]
 

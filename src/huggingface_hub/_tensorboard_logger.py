@@ -14,7 +14,7 @@
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import Optional, Union
 
 from ._commit_scheduler import CommitScheduler
 from .errors import EntryNotFoundError
@@ -26,25 +26,24 @@ from .utils import experimental
 # or from 'torch.utils.tensorboard'. Both are compatible so let's try to load
 # from either of them.
 try:
-    from tensorboardX import SummaryWriter
+    from tensorboardX import SummaryWriter as _RuntimeSummaryWriter
 
     is_summary_writer_available = True
-
 except ImportError:
     try:
-        from torch.utils.tensorboard import SummaryWriter
+        from torch.utils.tensorboard import SummaryWriter as _RuntimeSummaryWriter
 
-        is_summary_writer_available = False
+        is_summary_writer_available = True
     except ImportError:
         # Dummy class to avoid failing at import. Will raise on instance creation.
-        SummaryWriter = object
+        class _DummySummaryWriter:
+            pass
+
+        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]
         is_summary_writer_available = False
 
-if TYPE_CHECKING:
-    from tensorboardX import SummaryWriter
 
-
-class HFSummaryWriter(SummaryWriter):
+class HFSummaryWriter(_RuntimeSummaryWriter):
     """
     Wrapper around the tensorboard's `SummaryWriter` to push training logs to the Hub.
 
@@ -53,11 +52,8 @@ class HFSummaryWriter(SummaryWriter):
     issue), the main script will not be interrupted. Data is automatically pushed to the Hub every `commit_every`
     minutes (default to every 5 minutes).
 
-    <Tip warning={true}>
-
-    `HFSummaryWriter` is experimental. Its API is subject to change in the future without prior notice.
-
-    </Tip>
+    > [!WARNING]
+    > `HFSummaryWriter` is experimental. Its API is subject to change in the future without prior notice.
 
     Args:
         repo_id (`str`):
@@ -78,10 +74,10 @@ class HFSummaryWriter(SummaryWriter):
             Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         path_in_repo (`str`, *optional*):
             The path to the folder in the repo where the logs will be pushed. Defaults to "tensorboard/".
-        repo_allow_patterns (`List[str]` or `str`, *optional*):
+        repo_allow_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to include in the upload. Defaults to `"*.tfevents.*"`. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
-        repo_ignore_patterns (`List[str]` or `str`, *optional*):
+        repo_ignore_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to exclude in the upload. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
         token (`str`, *optional*):
@@ -138,8 +134,8 @@ class HFSummaryWriter(SummaryWriter):
         repo_revision: Optional[str] = None,
         repo_private: Optional[bool] = None,
         path_in_repo: Optional[str] = "tensorboard",
-        repo_allow_patterns: Optional[Union[List[str], str]] = "*.tfevents.*",
-        repo_ignore_patterns: Optional[Union[List[str], str]] = None,
+        repo_allow_patterns: Optional[Union[list[str], str]] = "*.tfevents.*",
+        repo_ignore_patterns: Optional[Union[list[str], str]] = None,
         token: Optional[str] = None,
         **kwargs,
     ):

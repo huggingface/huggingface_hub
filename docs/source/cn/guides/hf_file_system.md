@@ -5,36 +5,31 @@
 
 除了 [`HfApi`]，`huggingface_hub` 库还提供了 [`HfFileSystem`]，这是一个符合 [fsspec](https://filesystem-spec.readthedocs.io/en/latest/) 规范的 Python 文件接口，用于与 Hugging Face Hub 交互。[`HfFileSystem`] 基于 [`HfApi`] 构建，提供了典型的文件系统操作，如 `cp`、`mv`、`ls`、`du`、`glob`、`get_file` 和 `put_file`。
 
-<Tip warning={true}>
-
-  [`HfFileSystem`] 提供了 fsspec 兼容性，这对于需要它的库（例如，直接使用 `pandas` 读取 Hugging Face 数据集）非常有用。然而，由于这种兼容性层，会引入额外的开销。为了更好的性能和可靠性，建议尽可能使用 [`HfApi`] 方法。
-
-
-</Tip>
+> [!WARNING]
+> [`HfFileSystem`] 提供了 fsspec 兼容性，这对于需要它的库（例如，直接使用 `pandas` 读取 Hugging Face 数据集）非常有用。然而，由于这种兼容性层，会引入额外的开销。为了更好的性能和可靠性，建议尽可能使用 [`HfApi`] 方法。
 
 ## 使用方法
 
 ```python
->>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem()
+>>> from huggingface_hub import hffs
 
 >>> # 列出目录中的所有文件
->>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
+>>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 列出仓库中的所有 ".csv" 文件
->>> fs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
+>>> hffs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 读取远程文件
->>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
 >>> # 远程文件内容读取为字符串
->>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
+>>> train_data = hffs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # 写入远程文件
->>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
@@ -113,7 +108,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem(token=token)
+>>> hffs = HfFileSystem(token=token)
 ```
 
 如果您以这种方式登录，请注意在共享源代码时不要意外泄露令牌！ 

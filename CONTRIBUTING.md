@@ -59,7 +59,7 @@ Did not find it? :( So we can act quickly on it, please follow these steps:
 
 - A short, self-contained, code snippet that allows us to reproduce the bug in less than 30s;
 - Provide the _full_ traceback if an exception is raised by copying the text from your terminal in the issue description.
-- Include information about your local setup. You can dump this information by running `huggingface-cli env` in your terminal;
+- Include information about your local setup. You can dump this information by running `hf env` in your terminal;
 
 ### Do you want a new feature?
 
@@ -164,7 +164,7 @@ Follow these steps to start contributing:
    ```
 
    Compared to `make style`, `make quality` will never update your code. In addition to the previous code formatter, it
-   also runs [`mypy`](https://github.com/python/mypy) to check for static typing issues. All those tests will also run
+   also runs [`ty`](https://docs.astral.sh/ty/) type checker to check for static typing issues. All those tests will also run
    in the CI once you open your PR but it is recommended to run them locally in order to iterate faster.
 
    > For the commands leveraging the `make` utility, we recommend using the WSL system when running on

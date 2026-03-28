@@ -14,11 +14,8 @@ Die `huggingface_hub`-Bibliothek bietet Funktionen zum Herunterladen von Dateien
 
 Die [`hf_hub_download`]-Funktion ist die Hauptfunktion zum Herunterladen von Dateien aus dem Hub. Sie lädt die Remote-Datei herunter, speichert sie auf der Festplatte (auf eine versionsbewusste Art und Weise) und gibt ihren lokalen Dateipfad zurück.
 
-<Tip>
-
-Der zurückgegebene Dateipfad verweist auf den lokalen Cache von HF. Es ist daher wichtig, die Datei nicht zu ändern, um einen beschädigten Cache zu vermeiden. Wenn Sie mehr darüber erfahren möchten, wie Dateien zwischengespeichert werden, lesen Sie bitte unseren [Caching-Leitfaden](./manage-cache).
-
-</Tip>
+> [!TIP]
+> Der zurückgegebene Dateipfad verweist auf den lokalen Cache von HF. Es ist daher wichtig, die Datei nicht zu ändern, um einen beschädigten Cache zu vermeiden. Wenn Sie mehr darüber erfahren möchten, wie Dateien zwischengespeichert werden, lesen Sie bitte unseren [Caching-Leitfaden](./manage-cache).
 
 ### Von der neuesten Version
 
@@ -136,24 +133,24 @@ Hier ist eine Tabelle, die die verschiedenen Optionen zusammenfasst, um Ihnen zu
 
 ## Herunterladen mit dem CLI
 
-Sie können den `huggingface-cli download`-Befehl im Terminal verwenden, um Dateien direkt aus dem Hub herunterzuladen. Intern verwendet es die gleichen [`hf_hub_download`] und [`snapshot_download`] Helfer, die oben beschrieben wurden, und gibt den zurückgegebenen Pfad im Terminal aus:
+Sie können den `hf download`-Befehl im Terminal verwenden, um Dateien direkt aus dem Hub herunterzuladen. Intern verwendet es die gleichen [`hf_hub_download`] und [`snapshot_download`] Helfer, die oben beschrieben wurden, und gibt den zurückgegebenen Pfad im Terminal aus:
 
 ```bash
->>> huggingface-cli download gpt2 config.json
+>>> hf download gpt2 config.json
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-Standardmäßig wird das lokal gespeicherte Token (mit `huggingface-cli login`) verwendet. Wenn Sie sich ausdrücklich authentifizieren möchten, verwenden Sie die `--token` Option:
+Standardmäßig wird das lokal gespeicherte Token (mit `hf auth login`) verwendet. Wenn Sie sich ausdrücklich authentifizieren möchten, verwenden Sie die `--token` Option:
 
 ```bash
->>> huggingface-cli download gpt2 config.json --token=hf_****
+>>> hf download gpt2 config.json --token=hf_****
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
 Sie können mehrere Dateien gleichzeitig herunterladen, wobei eine Fortschrittsleiste angezeigt wird und der Snapshot-Pfad zurückgegeben wird, in dem sich die Dateien befinden:
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 Fetching 2 files: 100%|████████████████████████████████████████████| 2/2 [00:00<00:00, 23831.27it/s]
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
@@ -161,28 +158,28 @@ Fetching 2 files: 100%|███████████████████
 Wenn Sie die Fortschrittsleisten und mögliche Warnungen stummschalten möchten, verwenden Sie die Option `--quiet`. Dies kann nützlich sein, wenn Sie die Ausgabe an einen anderen Befehl in einem Skript weitergeben möchten.
 
 ```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
+>>> hf download gpt2 config.json model.safetensors
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
 Standardmäßig werden Dateien im Cache-Verzeichnis heruntergeladen, das durch die Umgebungsvariable `HF_HOME` definiert ist (oder `~/.cache/huggingface/hub`, wenn nicht angegeben). Sie können dies mit der Option `--cache-dir` überschreiben:
 
 ```bash
->>> huggingface-cli download gpt2 config.json --cache-dir=./cache
+>>> hf download gpt2 config.json --cache-dir=./cache
 ./cache/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-Wenn Sie Dateien in einen lokalen Ordner herunterladen möchten, ohne die Cache-Verzeichnisstruktur, können Sie `--local-dir` verwenden. Das Herunterladen in einen lokalen Ordner hat seine Einschränkungen, die in dieser [Tabelle](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder) aufgeführt sind.
+Wenn Sie Dateien in einen lokalen Ordner herunterladen möchten, ohne die Cache-Verzeichnisstruktur, können Sie `--local-dir` verwenden. Das Herunterladen in einen lokalen Ordner hat seine Einschränkungen, die in dieser [Tabelle](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder) aufgeführt sind.
 
 ```bash
->>> huggingface-cli download gpt2 config.json --local-dir=./models/gpt2
+>>> hf download gpt2 config.json --local-dir=./models/gpt2
 ./models/gpt2/config.json
 ```
 
 Es gibt weitere Argumente, die Sie angeben können, um aus verschiedenen Repo-Typen oder Revisionen herunterzuladen und Dateien zum Herunterladen mit Glob-Mustern ein- oder auszuschließen:
 
 ```bash
->>> huggingface-cli download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
+>>> hf download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
 de="*.json" --exclude="*.zip"
 Fetching 206 files:   100%|████████████████████████████████████████████| 206/206 [02:31<2:31, ?it/s]
 /home/wauplin/.cache/huggingface/hub/datasets--bigcode--the-stack/snapshots/9ca8fa6acdbc8ce920a0cb58adcdafc495818ae7
@@ -191,5 +188,5 @@ Fetching 206 files:   100%|█████████████████�
 Für eine vollständige Liste der Argumente führen Sie bitte den folgenden Befehl aus:
 
 ```bash
-huggingface-cli download --help
+hf download --help
 ```

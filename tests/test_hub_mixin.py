@@ -4,7 +4,7 @@ import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Union, get_type_hints
+from typing import Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
 
 import jedi
@@ -58,7 +58,7 @@ class DummyModelConfigAsDataclass(BaseModel, ModelHubMixin):
 
 
 class DummyModelConfigAsDict(BaseModel, ModelHubMixin):
-    def __init__(self, config: Dict):
+    def __init__(self, config: dict):
         pass
 
 
@@ -68,7 +68,7 @@ class DummyModelConfigAsOptionalDataclass(BaseModel, ModelHubMixin):
 
 
 class DummyModelConfigAsOptionalDict(BaseModel, ModelHubMixin):
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, config: Optional[dict] = None):
         pass
 
 
@@ -85,7 +85,7 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
     def _from_pretrained(
         cls,
         model_id: Union[str, Path],
-        config: Optional[Dict] = None,
+        config: Optional[dict] = None,
         **kwargs,
     ) -> "BaseModel":
         return cls(**kwargs)
@@ -126,8 +126,6 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         revision: Optional[str],
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
-        proxies: Optional[Dict],
-        resume_download: bool,
         local_files_only: bool,
         token: Optional[Union[str, bool]],
         **model_kwargs,
@@ -341,8 +339,6 @@ class HubMixinTest(unittest.TestCase):
             revision="123456789",  # Revision is passed correctly!
             cache_dir=None,
             force_download=False,
-            proxies=None,
-            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -376,10 +372,7 @@ class HubMixinTest(unittest.TestCase):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id,
-            filename="config.json",
-            use_auth_token=TOKEN,
-            cache_dir=self.cache_dir,
+            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
             assert json.load(f) == CONFIG_AS_DICT

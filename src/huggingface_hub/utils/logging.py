@@ -109,17 +109,14 @@ def get_verbosity() -> int:
         Logging level, e.g., `huggingface_hub.logging.DEBUG` and
         `huggingface_hub.logging.INFO`.
 
-    <Tip>
-
-    HuggingFace Hub has following logging levels:
-
-    - `huggingface_hub.logging.CRITICAL`, `huggingface_hub.logging.FATAL`
-    - `huggingface_hub.logging.ERROR`
-    - `huggingface_hub.logging.WARNING`, `huggingface_hub.logging.WARN`
-    - `huggingface_hub.logging.INFO`
-    - `huggingface_hub.logging.DEBUG`
-
-    </Tip>
+    > [!TIP]
+    > HuggingFace Hub has following logging levels:
+    >
+    > - `huggingface_hub.logging.CRITICAL`, `huggingface_hub.logging.FATAL`
+    > - `huggingface_hub.logging.ERROR`
+    > - `huggingface_hub.logging.WARNING`, `huggingface_hub.logging.WARN`
+    > - `huggingface_hub.logging.INFO`
+    > - `huggingface_hub.logging.DEBUG`
     """
     return _get_library_root_logger().getEffectiveLevel()
 

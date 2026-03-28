@@ -62,7 +62,7 @@ def _deprecate_arguments(
     Args:
         version (`str`):
             The version when deprecated arguments will result in error.
-        deprecated_args (`List[str]`):
+        deprecated_args (`list[str]`):
             List of the arguments to be deprecated.
         custom_message (`str`, *optional*):
             Warning message that is raised. If not passed, a default warning message

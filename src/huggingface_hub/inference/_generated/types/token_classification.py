@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -17,7 +17,7 @@ class TokenClassificationParameters(BaseInferenceType):
 
     aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None
     """The strategy used to fuse tokens based on model predictions"""
-    ignore_labels: Optional[List[str]] = None
+    ignore_labels: Optional[list[str]] = None
     """A list of labels to ignore"""
     stride: Optional[int] = None
     """The number of overlapping tokens between chunks when splitting the input text."""

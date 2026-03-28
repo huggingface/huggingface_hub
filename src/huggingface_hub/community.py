@@ -7,7 +7,7 @@ for more information on Pull Requests, Discussions, and the community tab.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, TypedDict, Union
 
 from . import constants
 from .utils import parse_datetime
@@ -116,7 +116,7 @@ class DiscussionWithDetails(Discussion):
             The `datetime` of creation of the Discussion / Pull Request.
         events (`list` of [`DiscussionEvent`])
             The list of [`DiscussionEvents`] in this Discussion or Pull Request.
-        conflicting_files (`Union[List[str], bool, None]`, *optional*):
+        conflicting_files (`Union[list[str], bool, None]`, *optional*):
             A list of conflicting files if this is a Pull Request.
             `None` if `self.is_pull_request` is `False`.
             `True` if there are conflicting files but the list can't be retrieved.
@@ -136,11 +136,19 @@ class DiscussionWithDetails(Discussion):
             (property) URL of the discussion on the Hub.
     """
 
-    events: List["DiscussionEvent"]
-    conflicting_files: Union[List[str], bool, None]
+    events: list["DiscussionEvent"]
+    conflicting_files: Union[list[str], bool, None]
     target_branch: Optional[str]
     merge_commit_oid: Optional[str]
     diff: Optional[str]
+
+
+class DiscussionEventArgs(TypedDict):
+    id: str
+    type: str
+    created_at: datetime
+    author: str
+    _event: dict
 
 
 @dataclass
@@ -222,7 +230,7 @@ class DiscussionComment(DiscussionEvent):
         return self._event["data"]["latest"].get("author", {}).get("name", "deleted")
 
     @property
-    def edit_history(self) -> List[dict]:
+    def edit_history(self) -> list[dict]:
         """The edit history of the comment"""
         return self._event["data"]["history"]
 
@@ -319,13 +327,13 @@ def deserialize_event(event: dict) -> DiscussionEvent:
     event_type: str = event["type"]
     created_at = parse_datetime(event["createdAt"])
 
-    common_args = dict(
-        id=event_id,
-        type=event_type,
-        created_at=created_at,
-        author=event.get("author", {}).get("name", "deleted"),
-        _event=event,
-    )
+    common_args: DiscussionEventArgs = {
+        "id": event_id,
+        "type": event_type,
+        "created_at": created_at,
+        "author": event.get("author", {}).get("name", "deleted"),
+        "_event": event,
+    }
 
     if event_type == "comment":
         return DiscussionComment(

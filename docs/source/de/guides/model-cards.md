@@ -6,11 +6,8 @@ rendered properly in your Markdown viewer.
 
 Die `huggingface_hub`-Bibliothek bietet eine Python-Schnittstelle zum Erstellen, Teilen und Aktualisieren von Model Cards. Besuchen Sie [die spezielle Dokumentationsseite](https://huggingface.co/docs/hub/models-cards) für einen tieferen Einblick in das, was Model Cards im Hub sind und wie sie unter der Haube funktionieren.
 
-<Tip>
-
-[Neu (Beta)! Probieren Sie unsere experimentelle Model Card Creator App aus](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
-
-</Tip>
+> [!TIP]
+> [Neu (Beta)! Probieren Sie unsere experimentelle Model Card Creator App aus](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 ## Eine Model Card vom Hub laden
 
@@ -167,11 +164,8 @@ Wenn Sie die Karteninformationen aktualisieren, können Sie durch Aufrufen von [
 
 Anstatt Ihr eigenes Template zu verwenden, können Sie auch das [Standard-Template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md) verwenden, welches eine vollständig ausgestattete Model Card mit vielen Abschnitten ist, die Sie vielleicht ausfüllen möchten. Unter der Haube verwendet es [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/), um eine Vorlagendatei auszufüllen.
 
-<Tip>
-
-Beachten Sie, dass Sie Jinja2 installiert haben müssen, um `from_template` zu verwenden. Sie können dies mit `pip install Jinja2` tun.
-
-</Tip>
+> [!TIP]
+> Beachten Sie, dass Sie Jinja2 installiert haben müssen, um `from_template` zu verwenden. Sie können dies mit `pip install Jinja2` tun.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -188,7 +182,7 @@ print(card)
 
 ## Model Cards teilen
 
-Wenn Sie mit dem Hugging Face Hub authentifiziert sind (entweder durch Verwendung von `huggingface-cli login` oder [`login`]), können Sie Karten zum Hub hinzufügen, indem Sie einfach [`ModelCard.push_to_hub`] aufrufen. Schauen wir uns an, wie das funktioniert...
+Wenn Sie mit dem Hugging Face Hub authentifiziert sind (entweder durch Verwendung von `hf auth login` oder [`login`]), können Sie Karten zum Hub hinzufügen, indem Sie einfach [`ModelCard.push_to_hub`] aufrufen. Schauen wir uns an, wie das funktioniert...
 
 Zuerst erstellen wir ein neues Repo namens 'hf-hub-modelcards-pr-test' im Namensraum des authentifizierten Benutzers:
 
@@ -233,11 +227,8 @@ Ein PR, der mit diesem Befehl erstellt wurde, kann [hier](https://huggingface.co
 
 Um Evaluierungsergebnisse in den Metadaten `model-index` einzufügen, können Sie ein [`EvalResult`] oder eine Liste von `EvalResult` mit Ihren zugehörigen Evaluierungsergebnissen übergeben. Im Hintergrund wird der `model-index` erstellt, wenn Sie `card.data.to_dict()` aufrufen. Weitere Informationen darüber, wie dies funktioniert, finden Sie in [diesem Abschnitt der Hub-Dokumentation](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 
-<Tip>
-
-Beachten Sie, dass die Verwendung dieser Funktion erfordert, dass Sie das Attribut `model_name` in [`ModelCardData`] einbeziehen.
-
-</Tip>
+> [!TIP]
+> Beachten Sie, dass die Verwendung dieser Funktion erfordert, dass Sie das Attribut `model_name` in [`ModelCardData`] einbeziehen.
 
 ```python
 card_data = ModelCardData(

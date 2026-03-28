@@ -52,7 +52,7 @@ Während des Filterns können Sie auch die Modelle sortieren und nur die Top-Erg
 Zum Beispiel holt das folgende Beispiel die 5 am häufigsten heruntergeladenen Datensätze auf dem Hub:
 
 ```py
->>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',

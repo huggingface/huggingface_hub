@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
@@ -22,6 +23,16 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
         # there is no v1/ route for novita
         return "/v3/openai/completions"
 
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+        output = _as_dict(response)["choices"][0]
+        return {
+            "generated_text": output["text"],
+            "details": {
+                "finish_reason": output.get("finish_reason"),
+                "seed": output.get("seed"),
+            },
+        }
+
 
 class NovitaConversationalTask(BaseConversationalTask):
     def __init__(self):
@@ -39,10 +50,12 @@ class NovitaTextToVideoTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/v3/hf/{mapped_model}"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         return {"prompt": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         response_dict = _as_dict(response)
         if not (
             isinstance(response_dict, dict)

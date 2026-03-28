@@ -1,3 +1,4 @@
+import sys
 import time
 import unittest
 from io import SEEK_END
@@ -61,6 +62,10 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(folder_path=folder_path, repo_id=self.repo_name, hf_api=self.api)
         self.assertTrue(folder_path.is_dir())
 
+    @pytest.mark.skipif(
+        sys.platform == "win32" and sys.version_info >= (3, 14),
+        reason="Flaky on Windows Python 3.14 due to file lock on lfs.bin",
+    )
     def test_sync_local_folder(self) -> None:
         """Test sync local folder to remote repo."""
         watched_folder = self.cache_dir / "watched_folder"
@@ -206,12 +211,21 @@ class TestPartialFileIO(unittest.TestCase):
         self.assertEqual(file.read(20), b"12345")
 
     def test_partial_file_len(self) -> None:
-        """Useful for `requests` internally."""
+        """Useful for httpx internally."""
         file = PartialFileIO(self.file_path, size_limit=5)
         self.assertEqual(len(file), 5)
 
         file = PartialFileIO(self.file_path, size_limit=50)
         self.assertEqual(len(file), 9)
+
+    def test_partial_file_fileno(self) -> None:
+        """We explicitly do not implement fileno() to avoid misuse.
+
+        httpx tries to use it to check file size which we don't want for PartialFileIO.
+        """
+        file = PartialFileIO(self.file_path, size_limit=5)
+        with self.assertRaises(AttributeError):
+            file.fileno()
 
     def test_partial_file_seek_and_tell(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=5)

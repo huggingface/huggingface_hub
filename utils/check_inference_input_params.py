@@ -80,7 +80,7 @@ def check_method(method_name: str, method: Any):
             continue
         if param_name in PARAMETERS_TO_SKIP[method_name]:
             continue
-        if f"            {param_name} (" not in docstring:
+        if f"{param_name} (" not in docstring:
             logs.append(f"Parameter {param_name} is not documented")
 
     return logs

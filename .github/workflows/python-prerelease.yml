@@ -3,8 +3,12 @@ name: Python prerelease
 on:
   push:
     tags:
-      - "v*.rc*"
-
+      - v*rc*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to test (e.g., 0.30.0rc2)"
+        required: true
 jobs:
   trigger_rc_testing:
     runs-on: ubuntu-latest
@@ -12,15 +16,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target-repo: ["transformers", "datasets", "diffusers"]
+        target-repo: ["transformers", "datasets", "diffusers", "sentence-transformers"]
 
     steps:
-      - name: Extract version from tag
+      - name: Determine version from tag
         id: get-version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        env: 
+          TAG : ${{ inputs.tag }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Checkout target repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -46,18 +57,20 @@ jobs:
         run: |
           cd ${{ matrix.target-repo }}
           VERSION=${{ steps.get-version.outputs.VERSION }}
-          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
 
           # Create and checkout new branch
           git checkout -b $BRANCH_NAME
 
-          # Update dependencies using sed
-          sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" setup.py
-          git add setup.py
+          # Update dependencies using sed - match both >= and == patterns
+          if [ -f "setup.py" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+            git add setup.py
+          fi
 
           # Only if the target repo is transformers
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
-            sed -i -E "s/\"huggingface-hub>=0.*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
             git add src/transformers/dependency_versions_table.py
           fi
 
@@ -65,6 +78,12 @@ jobs:
           if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
             sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
             git add src/diffusers/dependency_versions_table.py
+          fi
+
+          # Only if the target repo is sentence-transformers
+          if [ "${{ matrix.target-repo }}" = "sentence-transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" pyproject.toml
+            git add pyproject.toml
           fi
 
           # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
@@ -80,4 +99,4 @@ jobs:
         run: |
           VERSION=${{ steps.get-version.outputs.VERSION }}
           echo "https://github.com/huggingface/${{ matrix.target-repo }}/actions"
-          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...ci-test-huggingface-hub-${VERSION}"
+          echo "https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME}"

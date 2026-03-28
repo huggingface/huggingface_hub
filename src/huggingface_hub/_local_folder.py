@@ -86,7 +86,13 @@ class LocalDownloadFilePaths:
 
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
-        return self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
+        path = self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
+        resolved_path = str(path.resolve())
+        # Some Windows versions do not allow for paths longer than 255 characters.
+        # In this case, we must specify it as an extended path by using the "\\?\" prefix.
+        if os.name == "nt" and len(resolved_path) > 255 and not resolved_path.startswith("\\\\?\\"):
+            path = Path("\\\\?\\" + resolved_path)
+        return path
 
 
 @dataclass(frozen=True)
@@ -149,6 +155,7 @@ class LocalUploadFileMetadata:
     should_ignore: Optional[bool] = None
     sha256: Optional[str] = None
     upload_mode: Optional[str] = None
+    remote_oid: Optional[str] = None
     is_uploaded: bool = False
     is_committed: bool = False
 
@@ -174,6 +181,10 @@ class LocalUploadFileMetadata:
                     f.write(self.upload_mode)
                 f.write("\n")
 
+                if self.remote_oid is not None:
+                    f.write(self.remote_oid)
+                f.write("\n")
+
                 f.write(str(int(self.is_uploaded)) + "\n")
                 f.write(str(int(self.is_committed)) + "\n")
 
@@ -195,7 +206,7 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
         [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross platform transcription
+    # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
@@ -235,7 +246,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
         [`LocalUploadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross platform transcription
+    # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
         if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
@@ -297,6 +308,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
                     paths.metadata_path.unlink()
                 except Exception as e:
                     logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+                return None
 
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
@@ -346,6 +358,9 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                     if upload_mode not in (None, "regular", "lfs"):
                         raise ValueError(f"Invalid upload mode in metadata {paths.path_in_repo}: {upload_mode}")
 
+                    _remote_oid = f.readline().strip()
+                    remote_oid = None if _remote_oid == "" else _remote_oid
+
                     is_uploaded = bool(int(f.readline().strip()))
                     is_committed = bool(int(f.readline().strip()))
 
@@ -355,6 +370,7 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                         should_ignore=should_ignore,
                         sha256=sha256,
                         upload_mode=upload_mode,
+                        remote_oid=remote_oid,
                         is_uploaded=is_uploaded,
                         is_committed=is_committed,
                     )
@@ -367,6 +383,9 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
                     paths.metadata_path.unlink()
                 except Exception as e:
                     logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+
+                # corrupted metadata => we don't know anything expect its size
+                return LocalUploadFileMetadata(size=paths.file_path.stat().st_size)
 
             # TODO: can we do better?
             if (
