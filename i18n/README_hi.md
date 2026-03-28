@@ -97,9 +97,9 @@ snapshot_download("stabilityai/stable-diffusion-2-1")
 Hugging Face Hub एप्लिकेशन को प्रमाणित करने के लिए टोकन का उपयोग करता है (देखें [docs](https://huggingface.co/docs/hub/security-tokens))। अपनी मशीन में लॉगिन करने के लिए, निम्नलिखित सीएलआई चलाएँ:
 
 ```bash
-huggingface-cli login
+hf auth login
 # या कृपया इसे एक पर्यावरण चर के रूप में निर्दिष्ट करें।
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### एक रिपॉजिटरी बनाएं

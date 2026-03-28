@@ -24,7 +24,7 @@ def cached_assets_path(
     subfolder: str = "default",
     *,
     assets_dir: Union[str, Path, None] = None,
-):
+) -> Path:
     """Return a folder path to cache arbitrary files.
 
     `huggingface_hub` provides a canonical folder path to store assets. This is the

@@ -14,7 +14,7 @@
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
 
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from .utils import is_pydantic_available
 
@@ -116,7 +116,7 @@ class WebhookPayloadRepo(ObjectId):
     name: str
     private: bool
     subdomain: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
     type: Literal["dataset", "model", "space"]
     url: WebhookPayloadUrl
 
@@ -134,4 +134,4 @@ class WebhookPayload(BaseModel):
     comment: Optional[WebhookPayloadComment] = None
     webhook: WebhookPayloadWebhook
     movedTo: Optional[WebhookPayloadMovedTo] = None
-    updatedRefs: Optional[List[WebhookPayloadUpdatedRef]] = None
+    updatedRefs: Optional[list[WebhookPayloadUpdatedRef]] = None

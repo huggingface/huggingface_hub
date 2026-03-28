@@ -1,6 +1,7 @@
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
+from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import logging
@@ -17,7 +18,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
     def __init__(self):
         super().__init__(provider="black-forest-labs", base_url="https://api.us1.bfl.ai", task="text-to-image")
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         headers = super()._prepare_headers(headers, api_key)
         if not api_key.startswith("hf_"):
             _ = headers.pop("authorization")
@@ -27,7 +28,9 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/v1/{mapped_model}"
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> Optional[dict]:
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
@@ -36,7 +39,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
         """
         Polling mechanism for Black Forest Labs since the API is asynchronous.
         """
@@ -47,7 +50,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
             response = session.get(url, headers={"Content-Type": "application/json"})  # type: ignore
             response.raise_for_status()  # type: ignore
-            response_json: Dict = response.json()  # type: ignore
+            response_json: dict = response.json()  # type: ignore
             status = response_json.get("status")
             logger.info(
                 f"Polling generation result from {url}. Current status: {status}. "

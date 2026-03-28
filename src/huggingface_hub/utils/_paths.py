@@ -16,7 +16,7 @@
 
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
+from typing import Callable, Generator, Iterable, Optional, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -39,8 +39,8 @@ FORBIDDEN_FOLDERS = [".git", ".cache"]
 def filter_repo_objects(
     items: Iterable[T],
     *,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[list[str], str]] = None,
+    ignore_patterns: Optional[Union[list[str], str]] = None,
     key: Optional[Callable[[T], str]] = None,
 ) -> Generator[T, None, None]:
     """Filter repo objects based on an allowlist and a denylist.
@@ -49,16 +49,19 @@ def filter_repo_objects(
     In the later case, `key` must be provided and specifies a function of one argument
     that is used to extract a path from each element in iterable.
 
-    Patterns are Unix shell-style wildcards which are NOT regular expressions. See
-    https://docs.python.org/3/library/fnmatch.html for more details.
+    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions.
+    The pattern matching is based on Python's `fnmatch`. Note that `fnmatch` matches
+    `*` across path boundaries, unlike traditional Unix shell globbing. For example,
+    `"data/*.json"` will match both `data/file.json` and `data/subdir/file.json`.
+    See https://docs.python.org/3/library/fnmatch.html for more details.
 
     Args:
         items (`Iterable`):
             List of items to filter.
-        allow_patterns (`str` or `List[str]`, *optional*):
+        allow_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the allowlist. If provided, item paths must match at
             least one pattern from the allowlist.
-        ignore_patterns (`str` or `List[str]`, *optional*):
+        ignore_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the denylist. If provided, item paths must not match
             any patterns from the denylist.
         key (`Callable[[T], str]`, *optional*):

@@ -12,11 +12,8 @@ Das Hugging Face Hub besteht aus einer Sammlung von Git-Repositories. [Git](http
 - Die Sichtbarkeit Ihres Repositories aktualisieren.
 - Eine lokale Kopie Ihres Repositories verwalten.
 
-<Tip warning={true}>
-
-Wenn Sie es gewohnt sind, mit Plattformen wie GitLab/GitHub/Bitbucket zu arbeiten, könnte Ihr erster Instinkt sein, die `git` CLI zu verwenden, um Ihr Repo zu klonen (`git clone`), Änderungen zu übernehmen (`git add`, `git commit`) und diese hochzuladen (`git push`). Dies ist beim Verwenden des Hugging Face Hubs gültig. Softwareentwicklung und maschinelles Lernen haben jedoch nicht dieselben Anforderungen und Arbeitsabläufe. Modell-Repositories könnten große Modellgewichtsdateien für verschiedene Frameworks und Tools beinhalten, sodass das Klonen des Repositories dazu führen kann, dass Sie große lokale Ordner mit massiven Größen pflegen. Daher kann es effizienter sein, unsere benutzerdefinierten HTTP-Methoden zu verwenden. Sie können unsere [Git vs HTTP Paradigma](../concepts/git_vs_http) Erklärungsseite für weitere Details lesen.
-
-</Tip>
+> [!WARNING]
+> Wenn Sie es gewohnt sind, mit Plattformen wie GitLab/GitHub/Bitbucket zu arbeiten, könnte Ihr erster Instinkt sein, die `git` CLI zu verwenden, um Ihr Repo zu klonen (`git clone`), Änderungen zu übernehmen (`git add`, `git commit`) und diese hochzuladen (`git push`). Dies ist beim Verwenden des Hugging Face Hubs gültig. Softwareentwicklung und maschinelles Lernen haben jedoch nicht dieselben Anforderungen und Arbeitsabläufe. Modell-Repositories könnten große Modellgewichtsdateien für verschiedene Frameworks und Tools beinhalten, sodass das Klonen des Repositories dazu führen kann, dass Sie große lokale Ordner mit massiven Größen pflegen. Daher kann es effizienter sein, unsere benutzerdefinierten HTTP-Methoden zu verwenden. Sie können unsere [Git vs HTTP Paradigma](../concepts/git_vs_http) Erklärungsseite für weitere Details lesen.
 
 Wenn Sie ein Repository auf dem Hub erstellen und verwalten möchten, muss Ihr Computer angemeldet sein. Wenn Sie es nicht sind, beziehen Sie sich bitte auf [diesen Abschnitt](../quick-start#login). Im Rest dieses Leitfadens gehen wir davon aus, dass Ihr Computer angemeldet ist.
 

@@ -15,10 +15,10 @@
 """Handle typing imports based on system compatibility."""
 
 import sys
-from typing import Any, Callable, List, Literal, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Callable, Literal, Optional, Type, TypeVar, Union, get_args, get_origin
 
 
-UNION_TYPES: List[Any] = [Union]
+UNION_TYPES: list[Any] = [Union]
 if sys.version_info >= (3, 10):
     from types import UnionType
 
@@ -33,7 +33,7 @@ CallableT = TypeVar("CallableT", bound=Callable)
 _JSON_SERIALIZABLE_TYPES = (int, float, str, bool, type(None))
 
 
-def is_jsonable(obj: Any) -> bool:
+def is_jsonable(obj: Any, _visited: Optional[set[int]] = None) -> bool:
     """Check if an object is JSON serializable.
 
     This is a weak check, as it does not check for the actual JSON serialization, but only for the types of the object.
@@ -43,19 +43,39 @@ def is_jsonable(obj: Any) -> bool:
     - it is an instance of int, float, str, bool, or NoneType
     - it is a list or tuple and all its items are json serializable
     - it is a dict and all its keys are strings and all its values are json serializable
+
+    Uses a visited set to avoid infinite recursion on circular references. If object has already been visited, it is
+    considered not json serializable.
     """
+    # Initialize visited set to track object ids and detect circular references
+    if _visited is None:
+        _visited = set()
+
+    # Detect circular reference
+    obj_id = id(obj)
+    if obj_id in _visited:
+        return False
+
+    # Add current object to visited before recursive checks
+    _visited.add(obj_id)
     try:
         if isinstance(obj, _JSON_SERIALIZABLE_TYPES):
             return True
         if isinstance(obj, (list, tuple)):
-            return all(is_jsonable(item) for item in obj)
+            return all(is_jsonable(item, _visited) for item in obj)
         if isinstance(obj, dict):
-            return all(isinstance(key, _JSON_SERIALIZABLE_TYPES) and is_jsonable(value) for key, value in obj.items())
+            return all(
+                isinstance(key, _JSON_SERIALIZABLE_TYPES) and is_jsonable(value, _visited)
+                for key, value in obj.items()
+            )
         if hasattr(obj, "__json__"):
             return True
         return False
     except RecursionError:
         return False
+    finally:
+        # Remove the object id from visited to avoid side‑effects for other branches
+        _visited.discard(obj_id)
 
 
 def is_simple_optional_type(type_: Type) -> bool:

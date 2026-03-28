@@ -10,7 +10,7 @@ In this guide, we will see how to manage your Space runtime
 
 ## A simple example: configure secrets and hardware.
 
-Here is an end-to-end example to create and setup a Space on the Hub.
+Here is an end-to-end example to create and set up a Space on the Hub.
 
 **1. Create a Space on the Hub.**
 
@@ -26,10 +26,10 @@ Here is an end-to-end example to create and setup a Space on the Hub.
 **1. (bis) Duplicate a Space.**
 
 This can prove useful if you want to build up from an existing Space instead of starting from scratch.
-It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
+It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_repo`] for more details.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
 **2. Upload your code using your preferred solution.**
@@ -60,14 +60,12 @@ Secrets and variables can be deleted as well:
 >>> api.delete_space_variable(repo_id=repo_id, key="MODEL_REPO_ID")
 ```
 
-<Tip>
-From within your Space, secrets are available as environment variables (or
-Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
-</Tip>
+> [!TIP]
+> From within your Space, secrets are available as environment variables (or
+> Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
 
-<Tip warning={true}>
-Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
-</Tip>
+> [!WARNING]
+> Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
 
 **Bonus: set secrets and variables when creating or duplicating the Space!**
 
@@ -84,10 +82,11 @@ Secrets and variables can be set when creating or duplicating a space:
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
 ... )
 ```
 
@@ -138,11 +137,12 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time="7200", # 2 hours in secs
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_storage="small",
+...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
@@ -193,10 +193,11 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time="3600",
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
 ... )
 ```
 
@@ -228,9 +229,10 @@ you must delete the storage first then request the new desired tier.
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     storage="large",
+...     repo_type="space",
+...     space_storage="large",
 ... )
 ```
 
@@ -263,11 +265,10 @@ Here is what your app would look like. On startup, check if a task is scheduled 
 run it on the correct hardware. Once done, set back hardware to the free-plan CPU and
 prompt the user for a new task.
 
-<Tip warning={true}>
-Such a workflow does not support concurrent access as normal demos.
-In particular, the interface will be disabled when training occurs.
-It is preferable to set your repo as private to ensure you are the only user.
-</Tip>
+> [!WARNING]
+> Such a workflow does not support concurrent access as normal demos.
+> In particular, the interface will be disabled when training occurs.
+> It is preferable to set your repo as private to ensure you are the only user.
 
 ```py
 # Space will need your token to request hardware: set it as a Secret !

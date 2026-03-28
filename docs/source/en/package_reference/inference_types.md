@@ -57,11 +57,17 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName
 
-[[autodoc]] huggingface_hub.ChatCompletionInputGrammarType
+[[autodoc]] huggingface_hub.ChatCompletionInputJSONSchema
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatJSONObject
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatJSONSchema
+
+[[autodoc]] huggingface_hub.ChatCompletionInputResponseFormatText
 
 [[autodoc]] huggingface_hub.ChatCompletionInputStreamOptions
 
@@ -167,6 +173,30 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## image_text_to_image
+
+[[autodoc]] huggingface_hub.ImageTextToImageInput
+
+[[autodoc]] huggingface_hub.ImageTextToImageOutput
+
+[[autodoc]] huggingface_hub.ImageTextToImageParameters
+
+[[autodoc]] huggingface_hub.ImageTextToImageTargetSize
+
+
+
+## image_text_to_video
+
+[[autodoc]] huggingface_hub.ImageTextToVideoInput
+
+[[autodoc]] huggingface_hub.ImageTextToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageTextToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageTextToVideoTargetSize
+
+
+
 ## image_to_image
 
 [[autodoc]] huggingface_hub.ImageToImageInput
@@ -188,6 +218,18 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.ImageToTextOutput
 
 [[autodoc]] huggingface_hub.ImageToTextParameters
+
+
+
+## image_to_video
+
+[[autodoc]] huggingface_hub.ImageToVideoInput
+
+[[autodoc]] huggingface_hub.ImageToVideoOutput
+
+[[autodoc]] huggingface_hub.ImageToVideoParameters
+
+[[autodoc]] huggingface_hub.ImageToVideoTargetSize
 
 
 

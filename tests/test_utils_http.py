@@ -1,25 +1,33 @@
-import os
 import threading
 import time
 import unittest
-from multiprocessing import Process, Queue
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
+from urllib.parse import urlparse
 from uuid import UUID
 
+import httpx
 import pytest
-import requests
-from requests import ConnectTimeout, HTTPError
+from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
+from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
 from huggingface_hub.utils._http import (
-    OfflineModeIsEnabled,
+    _WARNED_TOPICS,
+    RateLimitInfo,
     _adjust_range_header,
-    configure_http_backend,
+    _parse_bucket_id_from_url,
+    _parse_repo_info_from_url,
+    _warn_on_warning_headers,
+    default_client_factory,
     fix_hf_endpoint_in_url,
+    get_async_session,
     get_session,
+    hf_raise_for_status,
     http_backoff,
-    reset_sessions,
+    parse_ratelimit_headers,
+    set_client_factory,
 )
 
 
@@ -63,7 +71,7 @@ class TestHttpBackoff(unittest.TestCase):
 
     def test_backoff_on_exception_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with exceptions."""
-        self.mock_request.side_effect = ConnectTimeout()
+        self.mock_request.side_effect = ConnectTimeout("Connection timeout")
 
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=3)
@@ -76,7 +84,7 @@ class TestHttpBackoff(unittest.TestCase):
         mock_503.status_code = 503
         mock_504 = Mock()
         mock_504.status_code = 504
-        mock_504.raise_for_status.side_effect = HTTPError()
+        mock_504.raise_for_status.side_effect = HTTPError("HTTP Error")
         self.mock_request.side_effect = (mock_503, mock_504, mock_503, mock_504)
 
         with self.assertRaises(HTTPError):
@@ -94,7 +102,7 @@ class TestHttpBackoff(unittest.TestCase):
         """Test `http_backoff` until max limit with status codes and exceptions."""
         mock_503 = Mock()
         mock_503.status_code = 503
-        self.mock_request.side_effect = (mock_503, ConnectTimeout())
+        self.mock_request.side_effect = (mock_503, ConnectTimeout("Connection timeout"))
 
         with self.assertRaises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=1)
@@ -131,7 +139,7 @@ class TestHttpBackoff(unittest.TestCase):
         def _side_effect_timer() -> Generator[ConnectTimeout, None, None]:
             t0 = time.time()
             while True:
-                yield ConnectTimeout()
+                yield ConnectTimeout("Connection timeout")
                 t1 = time.time()
                 sleep_times.append(round(t1 - t0, 1))
                 t0 = t1
@@ -147,69 +155,91 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
+    def test_backoff_on_429_uses_ratelimit_header(self) -> None:
+        """Test that 429 wait time uses full reset time from ratelimit header."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]
+        assert response.status_code == 200
+
 
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
         # Reconfigure + clear session cache between each test
-        configure_http_backend()
+        set_client_factory(default_client_factory)
 
     @classmethod
     def tearDownClass(cls) -> None:
         # Clear all sessions after tests
-        configure_http_backend()
+        set_client_factory(default_client_factory)
 
     @staticmethod
-    def _factory() -> requests.Session:
-        session = requests.Session()
-        session.headers.update({"x-test-header": 4})
-        return session
+    def _factory() -> httpx.Client:
+        client = httpx.Client()
+        client.headers.update({"x-test-header": "4"})
+        return client
 
     def test_default_configuration(self) -> None:
-        session = get_session()
-        self.assertEqual(session.headers["connection"], "keep-alive")  # keep connection alive by default
-        self.assertIsNone(session.auth)
-        self.assertEqual(session.proxies, {})
-        self.assertEqual(session.verify, True)
-        self.assertIsNone(session.cert)
-        self.assertEqual(session.max_redirects, 30)
-        self.assertEqual(session.trust_env, True)
-        self.assertEqual(session.hooks, {"response": []})
+        client = get_session()
+        # Check httpx.Client default configuration
+        self.assertTrue(client.follow_redirects)
+        self.assertIsNotNone(client.timeout)
 
     def test_set_configuration(self) -> None:
-        configure_http_backend(backend_factory=self._factory)
+        set_client_factory(self._factory)
 
         # Check headers have been set correctly
-        session = get_session()
-        self.assertNotEqual(session.headers, {"x-test-header": 4})
-        self.assertEqual(session.headers["x-test-header"], 4)
+        client = get_session()
+        self.assertNotEqual(client.headers, {"x-test-header": "4"})
+        self.assertEqual(client.headers["x-test-header"], "4")
 
     def test_get_session_twice(self):
-        session_1 = get_session()
-        session_2 = get_session()
-        self.assertIs(session_1, session_2)  # exact same instance
+        client_1 = get_session()
+        client_2 = get_session()
+        self.assertIs(client_1, client_2)  # exact same instance
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
-        session_1 = get_session()
-        configure_http_backend(backend_factory=self._factory)
+        client_1 = get_session()
+        set_client_factory(self._factory)
 
-        session_2 = get_session()
-        self.assertIsNot(session_1, session_2)
-        self.assertIsNone(session_1.headers.get("x-test-header"))
-        self.assertEqual(session_2.headers["x-test-header"], 4)
+        client_2 = get_session()
+        self.assertIsNot(client_1, client_2)
+        self.assertIsNone(client_1.headers.get("x-test-header"))
+        self.assertEqual(client_2.headers["x-test-header"], "4")
 
     def test_get_session_multiple_threads(self):
         N = 3
-        sessions = [None] * N
+        clients = [None] * N
 
         def _get_session_in_thread(index: int) -> None:
             time.sleep(0.1)
-            sessions[index] = get_session()
+            clients[index] = get_session()
 
-        # Get main thread session
-        main_session = get_session()
+        # Get main thread client
+        main_client = get_session()
 
-        # Start 3 threads and get sessions in each of them
+        # Start 3 threads and get clients in each of them
         threads = [threading.Thread(target=_get_session_in_thread, args=(index,)) for index in range(N)]
         for th in threads:
             th.start()
@@ -217,43 +247,23 @@ class TestConfigureSession(unittest.TestCase):
         for th in threads:
             th.join()
 
-        # Check all sessions are different
+        # Check all clients are the same instance (httpx is thread-safe)
         for i in range(N):
-            self.assertIsNot(main_session, sessions[i])
+            self.assertIs(main_client, clients[i])
             for j in range(N):
-                if i != j:
-                    self.assertIsNot(sessions[i], sessions[j])
-
-    @unittest.skipIf(os.name == "nt", "Works differently on Windows.")
-    def test_get_session_in_forked_process(self):
-        # Get main process session
-        main_session = get_session()
-
-        def _child_target():
-            # Put `repr(session)` in queue because putting the `Session` object directly would duplicate it.
-            # Repr looks like this: "<requests.sessions.Session object at 0x7f5adcc41e40>"
-            process_queue.put(repr(get_session()))
-
-        # Fork a new process and get session in it
-        process_queue = Queue()
-        Process(target=_child_target).start()
-        child_session = process_queue.get()
-
-        # Check sessions are different
-        self.assertNotEqual(repr(main_session), child_session)
+                self.assertIs(clients[i], clients[j])
 
 
 class OfflineModeSessionTest(unittest.TestCase):
     def tearDown(self) -> None:
-        reset_sessions()
         return super().tearDown()
 
     @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)
     def test_offline_mode(self):
-        configure_http_backend()
-        session = get_session()
+        set_client_factory(default_client_factory)
+        client = get_session()
         with self.assertRaises(OfflineModeIsEnabled):
-            session.get("https://huggingface.co")
+            client.get("https://huggingface.co")
 
 
 class TestUniqueRequestId(unittest.TestCase):
@@ -336,3 +346,359 @@ def test_adjust_range_header():
         _adjust_range_header("bytes=0-100", 150)
     with pytest.raises(RuntimeError):
         _adjust_range_header("bytes=-50", 100)
+
+
+def test_proxy_env_is_used(monkeypatch):
+    """Regression test for https://github.com/huggingface/transformers/issues/41301.
+
+    Test is hacky and uses httpx internal attributes, but it works.
+    We just need to test that proxies from env vars are used when creating the client.
+    """
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.example1.com:8080")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example2.com:8181")
+
+    set_client_factory(default_client_factory)
+    client = get_session()
+    mounts = client._mounts
+    url_patterns = list(mounts.keys())
+    assert len(url_patterns) == 2  # http and https
+
+    http_url_pattern = next(url for url in url_patterns if url.pattern == "http://")
+    http_proxy_url = mounts[http_url_pattern]._pool._proxy_url
+    assert http_proxy_url.scheme == b"http"
+    assert http_proxy_url.host == b"proxy.example1.com"
+    assert http_proxy_url.port == 8080
+    assert http_proxy_url.target == b"/"
+
+    https_url_pattern = next(url for url in url_patterns if url.pattern == "https://")
+    https_proxy_url = mounts[https_url_pattern]._pool._proxy_url
+    assert https_proxy_url.scheme == b"http"
+    assert https_proxy_url.host == b"proxy.example2.com"
+    assert https_proxy_url.port == 8181
+    assert https_proxy_url.target == b"/"
+
+    # Reset
+    set_client_factory(default_client_factory)
+
+
+def test_client_get_request():
+    # Check that sync client works
+    client = get_session()
+    response = client.get("https://huggingface.co")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_async_client_get_request():
+    # Check that async client works
+    client = get_async_session()
+    response = await client.get("https://huggingface.co")
+    assert response.status_code == 200
+
+
+class FakeServerHandler(BaseHTTPRequestHandler):
+    """Fake server handler to test client behavior."""
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+
+        # Health check endpoint (always succeeds)
+        if parsed.path == "/health":
+            self._send_response(200, b"OK")
+            return
+
+        # Main endpoint (always fails with 500)
+        self._send_response(500, b"This is a 500 error")
+
+    def _send_response(self, status_code, body):
+        self.send_response(status_code)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def fake_server():
+    # Find a free port
+    host, port = "127.0.0.1", 8000
+    for port in range(port, 8100):
+        try:
+            server = HTTPServer((host, port), FakeServerHandler)
+            break
+        except OSError:
+            continue
+    else:
+        raise RuntimeError("Could not find a free port")
+
+    url = f"http://{host}:{port}"
+
+    # Start server in a separate thread and wait until it's ready
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    for _ in range(1000):  # up to 10 seconds
+        try:
+            if httpx.get(f"{url}/health", timeout=0.01).status_code == 200:
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.01)
+    else:
+        server.shutdown()
+        raise RuntimeError("Fake server failed to start")
+
+    yield url
+    server.shutdown()
+
+
+def _check_raise_status(response: httpx.Response):
+    """Common assertions for 500 error tests."""
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        hf_raise_for_status(response)
+    assert exc_info.value.response.status_code == 500
+    assert "This is a 500 error" in str(exc_info.value)
+
+
+def test_raise_on_status_sync_non_stream(fake_server: str):
+    response = get_session().get(fake_server)
+    _check_raise_status(response)
+
+
+def test_raise_on_status_sync_stream(fake_server: str):
+    with get_session().stream("GET", fake_server) as response:
+        _check_raise_status(response)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_non_stream(fake_server: str):
+    response = await get_async_session().get(fake_server)
+    _check_raise_status(response)
+
+
+@pytest.mark.asyncio
+async def test_raise_on_status_async_stream(fake_server: str):
+    async with get_async_session().stream("GET", fake_server) as response:
+        _check_raise_status(response)
+
+
+class TestParseRatelimitHeaders:
+    def test_parse_full_headers(self):
+        """Test parsing both ratelimit and ratelimit-policy headers."""
+        headers = {
+            "ratelimit": '"api";r=0;t=55',
+            "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+        }
+        info = parse_ratelimit_headers(headers)
+        assert info == RateLimitInfo(
+            resource_type="api",
+            remaining=0,
+            reset_in_seconds=55,
+            limit=500,
+            window_seconds=300,
+        )
+
+    def test_parse_ratelimit_only(self):
+        """Test parsing with only ratelimit header (no policy)."""
+        headers = {"ratelimit": '"api";r=489;t=189'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.resource_type == "api"
+        assert info.remaining == 489
+        assert info.reset_in_seconds == 189
+        assert info.limit is None
+        assert info.window_seconds is None
+
+    def test_parse_missing_header(self):
+        """Test returns None when ratelimit header is missing."""
+        assert parse_ratelimit_headers({}) is None
+
+    def test_parse_malformed_header(self):
+        """Test returns None when ratelimit header is malformed."""
+        assert parse_ratelimit_headers({"ratelimit": "malformed"}) is None
+
+    def test_parse_case_insensitive(self):
+        """Test header lookup is case-insensitive."""
+        headers = {"RateLimit": '"api";r=10;t=100', "RateLimit-Policy": '"fixed window";"api";q=500;w=300'}
+        info = parse_ratelimit_headers(headers)
+        assert info is not None
+        assert info.remaining == 10
+
+
+class TestBucketNotFoundError:
+    def _make_response(self, url: str, error_code: str = "RepoNotFound"):
+        request = Mock(spec=httpx.Request)
+        request.url = url
+        response = Mock(spec=httpx.Response)
+        response.status_code = 404
+        response.url = url
+        response.request = request
+        response.headers = httpx.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        response.json.return_value = {"error": "Repository not found"}
+        return response
+
+    def test_bucket_not_found_on_bucket_url(self):
+        """Test that BucketNotFoundError is raised for bucket API URLs."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name")
+        with pytest.raises(BucketNotFoundError) as exc_info:
+            hf_raise_for_status(response)
+        assert "Bucket Not Found" in str(exc_info.value)
+        assert "api/buckets/namespace/name" in str(exc_info.value)
+
+    def test_bucket_not_found_on_bucket_sub_url(self):
+        """Test that BucketNotFoundError is raised for bucket sub-URLs (e.g. tree)."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+        with pytest.raises(BucketNotFoundError):
+            hf_raise_for_status(response)
+
+    def test_repo_not_found_on_non_bucket_url(self):
+        """Test that RepositoryNotFoundError is still raised for non-bucket URLs."""
+        response = self._make_response("https://huggingface.co/api/models/namespace/name")
+        with pytest.raises(RepositoryNotFoundError):
+            hf_raise_for_status(response)
+
+
+class TestRateLimitErrorMessage:
+    def test_429_with_ratelimit_headers(self):
+        """Test 429 error includes rate limit info when headers present."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models/username/reponame"
+        response.headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=0;t=55',
+                "ratelimit-policy": '"fixed window";"api";q=500;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429 Too Many Requests" in error_msg
+        assert "'api' rate limit" in error_msg
+        assert "55 seconds" in error_msg
+        assert "0/500" in error_msg
+        assert "api/models/username/reponame" in error_msg
+
+    def test_429_without_ratelimit_headers(self):
+        """Test 429 error fallback when headers missing."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/models"
+        response.headers = httpx.Headers({})
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {}
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        assert "429 Too Many Requests" in str(exc_info.value)
+        assert "api/models" in str(exc_info.value)
+
+
+class TestWarnOnWarningHeaders:
+    def test_warn_on_warning_headers(self, caplog):
+        # Request #1 (multiple warnings)
+        response = Mock(spec=httpx.Response)
+        response.headers = httpx.Headers(
+            [
+                ("X-HF-Warning", "Topic1; This is the first warning message."),
+                ("X-HF-Warning", "Topic2; This is the second warning message."),
+                ("X-HF-Warning", "Topic1; This is a repeated warning message for Topic1."),
+                ("X-HF-Warning", "This is a warning without a topic."),
+                ("X-HF-Warning", "This is another warning without a topic."),
+            ]
+        )
+
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+
+        assert {"Topic1", "Topic2", ""}.issubset(_WARNED_TOPICS)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert "This is the first warning message." in warnings
+        assert "This is the second warning message." in warnings
+        assert "This is a repeated warning message for Topic1." not in warnings
+        assert "This is a warning without a topic." in warnings
+        assert "This is another warning without a topic." not in warnings
+        # Request #2 (exact same warnings, should not warn again)
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 0  # No new warnings should be added
+
+        # Request #3 (single warning with new topic, should warn)
+        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            _warn_on_warning_headers(response)
+        warnings = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert len(warnings) == 1
+        assert warnings == ["Another warning."]
+        assert "Topic4" in _WARNED_TOPICS
+
+
+class TestParseRepoInfoFromUrl:
+    def test_api_model_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo") == ("model", "user/repo")
+
+    def test_api_dataset_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo") == ("dataset", "user/repo")
+
+    def test_api_space_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/spaces/user/repo") == ("space", "user/repo")
+
+    def test_api_model_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased") == (
+            "model",
+            "bert-base-cased",
+        )
+
+    def test_api_model_with_resolve_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/user/repo/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "user/repo"
+
+    def test_api_dataset_with_tree_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/tree/main")
+        assert repo_type == "dataset"
+        assert repo_id == "user/repo"
+
+    def test_api_model_single_name_with_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "bert-base-cased"
+
+    def test_non_matching_url(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/some/other/path") == (None, None)
+
+    def test_staging_url(self):
+        assert _parse_repo_info_from_url("https://hub-ci.huggingface.co/api/models/user/repo") == (
+            "model",
+            "user/repo",
+        )
+
+
+class TestParseBucketIdFromUrl:
+    def test_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_subpath(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+            == "namespace/name"
+        )
+
+    def test_non_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/models/user/repo") is None
+
+    def test_http_url(self):
+        assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"

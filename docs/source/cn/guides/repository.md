@@ -12,11 +12,8 @@ Hugging Face Hub是一组 Git 存储库。[Git](https://git-scm.com/)是软件�
 - 更新您的存储库可见性
 - 管理存储库的本地副本
 
-<Tip warning={true}>
-
-如果您习惯于使用类似于GitLab/GitHub/Bitbucket等平台，您可能首先想到使用 `git`命令行工具来克隆存储库（`git clone`）、提交更改（`git add` , ` git commit`）并推送它们（`git push`）。在使用 Hugging Face Hub 时，这是有效的。然而，软件工程和机器学习并不具有相同的要求和工作流程。模型存储库可能会维护大量模型权重文件以适应不同的框架和工具，因此克隆存储库会导致您维护大量占用空间的本地文件夹。因此，使用我们的自定义HTTP方法可能更有效。您可以阅读我们的[git与HTTP相比较](../concepts/git_vs_http)解释页面以获取更多详细信息
-
-</Tip>
+> [!WARNING]
+> 如果您习惯于使用类似于GitLab/GitHub/Bitbucket等平台，您可能首先想到使用 `git`命令行工具来克隆存储库（`git clone`）、提交更改（`git add` , ` git commit`）并推送它们（`git push`）。在使用 Hugging Face Hub 时，这是有效的。然而，软件工程和机器学习并不具有相同的要求和工作流程。模型存储库可能会维护大量模型权重文件以适应不同的框架和工具，因此克隆存储库会导致您维护大量占用空间的本地文件夹。因此，使用我们的自定义HTTP方法可能更有效。您可以阅读我们的[git与HTTP相比较](../concepts/git_vs_http)解释页面以获取更多详细信息
 
 如果你想在Hub上创建和管理一个仓库，你的计算机必须处于登录状态。如果尚未登录，请参考[此部分](../quick-start#login)。在本指南的其余部分，我们将假设你的计算机已登录
 
@@ -155,92 +152,4 @@ GitRefs(
 ```py
 >>> from huggingface_hub import move_repo
 >>> move_repo(from_id="Wauplin/cool-model", to_id="huggingface/cool-model")
-```
-
-## 管理存储库的本地副本
-
-上述所有操作都可以通过HTTP请求完成。然而，在某些情况下，您可能希望在本地拥有存储库的副本，并使用您熟悉的Git命令与之交互。
-
-[`Repository`] 类允许您使用类似于Git命令的函数与Hub上的文件和存储库进行交互。它是对Git和Git-LFS方法的包装，以使用您已经了解和喜爱的Git命令。在开始之前，请确保已安装Git-LFS（请参阅[此处](https://git-lfs.github.com/)获取安装说明）。
-
-### 使用本地存储库
-
-使用本地存储库路径实例化一个 [`Repository`] 对象：
-
-请运行以下代码：
-
-```py
->>> from huggingface_hub import Repository
->>> repo = Repository(local_dir="<path>/<to>/<folder>")
-```
-
-### 克隆
-
-`clone_from`参数将一个存储库从Hugging Face存储库ID克隆到由 `local_dir`参数指定的本地目录：
-
-请运行以下代码：
-
-```py
->>> from huggingface_hub import Repository
->>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
-```
-`clone_from`还可以使用URL克隆存储库：
-
-请运行以下代码：
-
-```py
->>> repo = Repository(local_dir="huggingface-hub", clone_from="https://huggingface.co/facebook/wav2vec2-large-960h-lv60")
-```
-
-你可以将`clone_from`参数与[`create_repo`]结合使用，以创建并克隆一个存储库：
-
-请运行以下代码：
-
-```py
->>> repo_url = create_repo(repo_id="repo_name")
->>> repo = Repository(local_dir="repo_local_path", clone_from=repo_url)
-```
-
-当你克隆一个存储库时，通过在克隆时指定`git_user`和`git_email`参数，你还可以为克隆的存储库配置Git用户名和电子邮件。当用户提交到该存储库时，Git将知道提交的作者是谁。
-
-请运行以下代码：
-
-```py
->>> repo = Repository(
-...   "my-dataset",
-...   clone_from="<user>/<dataset_id>",
-...   token=True,
-...   repo_type="dataset",
-...   git_user="MyName",
-...   git_email="me@cool.mail"
-... )
-```
-
-### 分支
-
-分支对于协作和实验而不影响当前文件和代码非常重要。使用[`~Repository.git_checkout`]来在不同的分支之间切换。例如，如果你想从 `branch1`切换到 `branch2`：
-
-请运行以下代码：
-
-```py
->>> from huggingface_hub import Repository
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>", revision='branch1')
->>> repo.git_checkout("branch2")
-```
-
-### 拉取
-
-[`~Repository.git_pull`] 允许你使用远程存储库的更改更新当前本地分支：
-
-请运行以下代码：
-
-```py
->>> from huggingface_hub import Repository
->>> repo.git_pull()
-```
-
-如果你希望本地的提交发生在你的分支被远程的新提交更新之后，请设置`rebase=True`：
-
-```py
->>> repo.git_pull(rebase=True)
 ```

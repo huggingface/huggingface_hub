@@ -13,9 +13,9 @@ If the provider supports multiple tasks that require different implementations, 
 For `text-generation` and `conversational` tasks, one can just inherit from `BaseTextGenerationTask` and `BaseConversationalTask` respectively (defined in `_common.py`) and override the methods if needed. Examples can be found in `fireworks_ai.py` and `together.py`.
 
 ```py
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
-from ._common import TaskProviderHelper
+from ._common import TaskProviderHelper, MimeBytes
 
 
 class MyNewProviderTaskProviderHelper(TaskProviderHelper):
@@ -23,28 +23,32 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         """Define high-level parameters."""
         super().__init__(provider=..., base_url=..., task=...)
 
-    def get_response(self, response: Union[bytes, Dict]) -> Any:
+    def get_response(
+        self,
+        response: Union[bytes, dict],
+        request_params: Optional[RequestParameters] = None,
+    ) -> Any:
         """
         Return the response in the expected format.
 
         Override this method in subclasses for customized response handling."""
         return super().get_response(response)
 
-    def _prepare_headers(self, headers: Dict, api_key: str) -> Dict:
+    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
         """Return the headers to use for the request.
 
         Override this method in subclasses for customized headers.
         """
         return super()._prepare_headers(headers, api_key)
 
-    def _prepare_route(self, mapped_model: str) -> str:
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         """Return the route to use for the request.
 
         Override this method in subclasses for customized routes.
         """
         return super()._prepare_route(mapped_model)
 
-    def _prepare_payload_as_dict(self, inputs: Any, parameters: Dict, mapped_model: str) -> Optional[Dict]:
+    def _prepare_payload_as_dict(self, inputs: Any, parameters: dict, mapped_model: str) -> Optional[dict]:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -53,12 +57,14 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         return super()._prepare_payload_as_dict(inputs, parameters, mapped_model)
 
     def _prepare_payload_as_bytes(
-        self, inputs: Any, parameters: Dict, mapped_model: str, extra_payload: Optional[Dict]
-    ) -> Optional[bytes]:
+        self, inputs: Any, parameters: dict, mapped_model: str, extra_payload: Optional[dict]
+    ) -> Optional[MimeBytes]:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.
         Only one of `_prepare_payload_as_dict` and `_prepare_payload_as_bytes` should return a value.
+
+        `MimeBytes` is a subclass of `bytes` that carries a `mime_type` attribute.
         """
         return super()._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
     

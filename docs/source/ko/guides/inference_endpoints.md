@@ -157,21 +157,15 @@ huggingface_hub._inference_endpoints.InferenceEndpointError: Cannot create a cli
 
 이제 추론 엔드포인트를 생성하고 추론을 실행하는 방법을 살펴보았으니, 라이프사이클을 관리하는 방법을 살펴봅시다.
 
-<Tip>
-
-이 섹션에서는 [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] 및 [`~InferenceEndpoint.delete`] 등의 메소드를 살펴볼 것입니다. 모든 메소드는 편의를 위해 [`InferenceEndpoint`]에 추가된 별칭입니다. 원한다면 `HfApi`에 정의된 일반 메소드 [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`] 및 [`delete_inference_endpoint`]를 사용할 수도 있습니다.
-
-</Tip>
+> [!TIP]
+> 이 섹션에서는 [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] 및 [`~InferenceEndpoint.delete`] 등의 메소드를 살펴볼 것입니다. 모든 메소드는 편의를 위해 [`InferenceEndpoint`]에 추가된 별칭입니다. 원한다면 `HfApi`에 정의된 일반 메소드 [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`] 및 [`delete_inference_endpoint`]를 사용할 수도 있습니다.
 
 ### 일시 중지 또는 0으로 확장[[pause-or-scale-to-zero]]
 
 추론 엔드포인트를 사용하지 않을 때 비용을 절감하기 위해 [`~InferenceEndpoint.pause`]를 사용하여 일시 중지하거나 [`~InferenceEndpoint.scale_to_zero`]를 사용하여 0으로 스케일링할 수 있습니다.
 
-<Tip>
-
-*일시 중지* 또는 *0으로 스케일링*된 추론 엔드포인트는 비용이 들지 않습니다. 이 두 가지의 차이점은 *일시 중지* 엔드포인트는 [`~InferenceEndpoint.resume`]를 사용하여 명시적으로 *재개*해야 한다는 것입니다. 반대로 *0으로 스케일링*된 엔드포인트는 추론 호출이 있으면 추가 콜드 스타트 지연과 함께 자동으로 시작됩니다. 추론 엔드포인트는 일정 기간 비활성화된 후 자동으로 0으로 스케일링되도록 구성할 수도 있습니다.
-
-</Tip>
+> [!TIP]
+> *일시 중지* 또는 *0으로 스케일링*된 추론 엔드포인트는 비용이 들지 않습니다. 이 두 가지의 차이점은 *일시 중지* 엔드포인트는 [`~InferenceEndpoint.resume`]를 사용하여 명시적으로 *재개*해야 한다는 것입니다. 반대로 *0으로 스케일링*된 엔드포인트는 추론 호출이 있으면 추가 콜드 스타트 지연과 함께 자동으로 시작됩니다. 추론 엔드포인트는 일정 기간 비활성화된 후 자동으로 0으로 스케일링되도록 구성할 수도 있습니다.
 
 ```py
 # 엔드포인트 일시중지 및 재시작
@@ -210,11 +204,8 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 마지막으로 더 이상 추론 엔드포인트를 사용하지 않을 경우, [`~InferenceEndpoint.delete()`]를 호출하기만 하면 됩니다.
 
-<Tip warning={true}>
-
-이것은 돌이킬 수 없는 작업이며, 구성, 로그 및 사용 메트릭을 포함한 엔드포인트를 완전히 제거합니다. 삭제된 추론 엔드포인트는 복원할 수 없습니다.
-
-</Tip>
+> [!WARNING]
+> 이것은 돌이킬 수 없는 작업이며, 구성, 로그 및 사용 메트릭을 포함한 엔드포인트를 완전히 제거합니다. 삭제된 추론 엔드포인트는 복원할 수 없습니다.
 
 ## 엔드 투 엔드 예제[an-end-to-end-example]
 

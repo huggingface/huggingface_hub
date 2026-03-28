@@ -18,7 +18,7 @@ import atexit
 import inspect
 import os
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .utils import experimental, is_fastapi_available, is_gradio_available
 
@@ -32,7 +32,7 @@ if is_fastapi_available():
     from fastapi.responses import JSONResponse
 else:
     # Will fail at runtime if FastAPI is not available
-    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
+    FastAPI = Request = JSONResponse = None  # type: ignore
 
 
 _global_app: Optional["WebhooksServer"] = None
@@ -50,20 +50,14 @@ class WebhooksServer:
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
     model that contains all the information about the webhook event. The data will be parsed automatically for you.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     WebhooksServer and deploy it on a Space.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `WebhooksServer` is experimental. Its API is subject to change in the future.
 
-    `WebhooksServer` is experimental. Its API is subject to change in the future.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
-
-    </Tip>
+    > [!WARNING]
+    > You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
 
     Args:
         ui (`gradio.Blocks`, optional):
@@ -115,7 +109,7 @@ class WebhooksServer:
         self._ui = ui
 
         self.webhook_secret = webhook_secret or os.getenv("WEBHOOK_SECRET")
-        self.registered_webhooks: Dict[str, Callable] = {}
+        self.registered_webhooks: dict[str, Callable] = {}
         _warn_on_empty_secret(self.webhook_secret)
 
     def add_webhook(self, path: Optional[str] = None) -> Callable:
@@ -236,20 +230,14 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
     you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
     this decorator multiple times.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     server and deploy it on a Space.
 
-    <Tip warning={true}>
+    > [!WARNING]
+    > `webhook_endpoint` is experimental. Its API is subject to change in the future.
 
-    `webhook_endpoint` is experimental. Its API is subject to change in the future.
-
-    </Tip>
-
-    <Tip warning={true}>
-
-    You must have `gradio` installed to use `webhook_endpoint` (`pip install --upgrade gradio`).
-
-    </Tip>
+    > [!WARNING]
+    > You must have `gradio` installed to use `webhook_endpoint` (`pip install --upgrade gradio`).
 
     Args:
         path (`str`, optional):

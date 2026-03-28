@@ -35,16 +35,3 @@ pip install --upgrade huggingface_hub[inference]
 ## 반환 유형[[return-types]]
 
 대부분의 작업에 대해, 반환 값은 내장된 유형(string, list, image...)을 갖습니다. 보다 복잡한 유형을 위한 목록은 다음과 같습니다.
-
-### 모델 상태[[huggingface_hub.inference._common.ModelStatus]]
-
-[[autodoc]] huggingface_hub.inference._common.ModelStatus
-
-## 추론 API[[huggingface_hub.InferenceApi]]
-
-[`InferenceAPI`]는 추론 API를 호출하는 레거시 방식입니다. 이 인터페이스는 더 간단하며 각 작업의 입력 매개변수와 출력 형식을 알아야 합니다. 또한 추론 엔드포인트나 AWS SageMaker와 같은 다른 서비스에 연결할 수 있는 기능이 없습니다. [`InferenceAPI`]는 곧 폐지될 예정이므로 가능한 경우 [`InferenceClient`]를 사용하는 것을 권장합니다. 스크립트에서 [`InferenceAPI`]를 [`InferenceClient`]로 전환하는 방법에 대해 알아보려면 [이 가이드](../guides/inference#legacy-inferenceapi-client)를 참조하세요.
-
-[[autodoc]] InferenceApi
-    - __init__
-    - __call__
-    - all

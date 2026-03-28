@@ -2,11 +2,8 @@
 
 Hugging Face가 관리하는 추론 엔드포인트는 우리가 모델을 쉽고 안전하게 배포할 수 있게 해주는 도구입니다. 이러한 추론 엔드포인트는 [Hub](https://huggingface.co/models)에 있는 모델을 기반으로 설계되었습니다. 이 문서는 `huggingface_hub`와 추론 엔드포인트 통합에 관한 참조 페이지이며, 더욱 자세한 정보는 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)를 통해 확인할 수 있습니다.
 
-<Tip>
-
-'huggingface_hub'를 사용하여 추론 엔드포인트를 프로그래밍 방식으로 관리하는 방법을 알고 싶다면, [관련 가이드](../guides/inference_endpoints)를 확인해 보세요.
-
-</Tip>
+> [!TIP]
+> 'huggingface_hub'를 사용하여 추론 엔드포인트를 프로그래밍 방식으로 관리하는 방법을 알고 싶다면, [관련 가이드](../guides/inference_endpoints)를 확인해 보세요.
 
 추론 엔드포인트는 API로 쉽게 접근할 수 있습니다. 이 엔드포인트들은 [Swagger](https://api.endpoints.huggingface.cloud/)를 통해 문서화되어 있고, [`InferenceEndpoint`] 클래스는 이 API를 사용해 만든 간단한 래퍼입니다.
 

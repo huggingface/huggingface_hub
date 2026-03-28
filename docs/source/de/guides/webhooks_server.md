@@ -8,17 +8,11 @@ Webhooks sind ein Grundpfeiler für MLOps-bezogene Funktionen. Sie ermöglichen 
 
 Die Basis-Klasse, die wir in diesem Leitfaden verwenden werden, ist der [`WebhooksServer`]. Es handelt sich um eine Klasse, mit der sich ein Server leicht konfigurieren lässt, der Webhooks vom Huggingface Hub empfangen kann. Der Server basiert auf einer Gradio-App. Er verfügt über eine Benutzeroberfläche zur Anzeige von Anweisungen für Sie oder Ihre Benutzer und eine API zum Hören auf Webhooks.
 
-<Tip>
+> [!TIP]
+> Um ein Beispiel eines laufenden Webhook-Servers zu sehen, werfen Sie einen Blick auf den [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook). Es handelt sich um einen Space, der kurzlebige Umgebungen startet, wenn ein PR in einem Space geöffnet wird.
 
-Um ein Beispiel eines laufenden Webhook-Servers zu sehen, werfen Sie einen Blick auf den [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook). Es handelt sich um einen Space, der kurzlebige Umgebungen startet, wenn ein PR in einem Space geöffnet wird.
-
-</Tip>
-
-<Tip warning={true}>
-
-Dies ist ein [experimentelles Feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). Das bedeutet, dass wir noch daran arbeiten, die API zu verbessern. Es könnten in der Zukunft ohne vorherige Ankündigung Änderungen vorgenommen werden. Stellen Sie sicher, dass Sie die Version des `huggingface_hub` in Ihren Anforderungen festlegen.
-
-</Tip>
+> [!WARNING]
+> Dies ist ein [experimentelles Feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). Das bedeutet, dass wir noch daran arbeiten, die API zu verbessern. Es könnten in der Zukunft ohne vorherige Ankündigung Änderungen vorgenommen werden. Stellen Sie sicher, dass Sie die Version des `huggingface_hub` in Ihren Anforderungen festlegen.
 
 
 ## Einen Endpunkt erstellen
@@ -60,11 +54,8 @@ Gute Arbeit! Sie haben gerade einen Webhook-Server gestartet! Lassen Sie uns gen
 3. Die Gradio-App hat auch einen Tunnel geöffnet, um Anfragen aus dem Internet zu empfangen. Das Interessante daran ist: Sie können einen Webhook auf https://huggingface.co/settings/webhooks konfigurieren, der auf Ihren lokalen Rechner zeigt. Dies ist nützlich zum Debuggen Ihres Webhook-Servers und zum schnellen Iterieren, bevor Sie ihn in einem Space bereitstellen.
 4. Schließlich teilen Ihnen die Logs auch mit, dass Ihr Server derzeit nicht durch ein Geheimnis gesichert ist. Dies ist für das lokale Debuggen nicht problematisch, sollte aber für später berücksichtigt werden.
 
-<Tip warning={true}>
-
-Standardmäßig wird der Server am Ende Ihres Skripts gestartet. Wenn Sie es in einem Notizbuch ausführen, können Sie den Server manuell starten, indem Sie `decorated_function.run()` aufrufen. Da ein einzigartiger Server verwendet wird, müssen Sie den Server nur einmal starten, auch wenn Sie mehrere Endpunkte haben.
-
-</Tip>
+> [!WARNING]
+> Standardmäßig wird der Server am Ende Ihres Skripts gestartet. Wenn Sie es in einem Notizbuch ausführen, können Sie den Server manuell starten, indem Sie `decorated_function.run()` aufrufen. Da ein einzigartiger Server verwendet wird, müssen Sie den Server nur einmal starten, auch wenn Sie mehrere Endpunkte haben.
 
 
 ## Konfigurieren eines Webhook

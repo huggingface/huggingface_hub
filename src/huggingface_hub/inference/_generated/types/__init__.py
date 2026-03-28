@@ -24,10 +24,13 @@ from .chat_completion import (
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
-    ChatCompletionInputGrammarTypeType,
+    ChatCompletionInputJSONSchema,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,
+    ChatCompletionInputResponseFormatJSONObject,
+    ChatCompletionInputResponseFormatJSONSchema,
+    ChatCompletionInputResponseFormatText,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputTool,
     ChatCompletionInputToolCall,
@@ -74,6 +77,18 @@ from .image_segmentation import (
     ImageSegmentationParameters,
     ImageSegmentationSubtask,
 )
+from .image_text_to_image import (
+    ImageTextToImageInput,
+    ImageTextToImageOutput,
+    ImageTextToImageParameters,
+    ImageTextToImageTargetSize,
+)
+from .image_text_to_video import (
+    ImageTextToVideoInput,
+    ImageTextToVideoOutput,
+    ImageTextToVideoParameters,
+    ImageTextToVideoTargetSize,
+)
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, ImageToImageTargetSize
 from .image_to_text import (
     ImageToTextEarlyStoppingEnum,
@@ -82,6 +97,7 @@ from .image_to_text import (
     ImageToTextOutput,
     ImageToTextParameters,
 )
+from .image_to_video import ImageToVideoInput, ImageToVideoOutput, ImageToVideoParameters, ImageToVideoTargetSize
 from .object_detection import (
     ObjectDetectionBoundingBox,
     ObjectDetectionInput,

@@ -28,23 +28,26 @@ The list helpers have several attributes like:
 - `filter`
 - `author`
 - `search`
+- `num_parameters`
 - ...
 
 Let's see an example to get all models on the Hub that does image classification, have been trained on the imagenet dataset and that runs with PyTorch.
 
 ```py
-models = hf_api.list_models(
-	task="image-classification",
-	library="pytorch",
-	trained_dataset="imagenet",
-)
+models = hf_api.list_models(filter=["image-classification", "pytorch", "imagenet"])
+```
+
+You can also filter models by parameter count using the same range syntax as the Hub UI:
+
+```py
+models = hf_api.list_models(num_parameters="min:6B,max:128B")
 ```
 
 While filtering, you can also sort the models and take only the top results. For example,
 the following example fetches the top 5 most downloaded datasets on the Hub:
 
 ```py
->>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',
@@ -59,3 +62,23 @@ the following example fetches the top 5 most downloaded datasets on the Hub:
 
 To explore available filters on the Hub, visit [models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
 in your browser, search for some parameters and look at the values in the URL.
+
+## Using the CLI
+
+You can also list and search for models, datasets, and Spaces using the `hf` command-line interface:
+
+```bash
+# List models
+>>> hf models ls --search "llama" --sort downloads --limit 5
+
+# List datasets
+>>> hf datasets ls --author Qwen
+
+# List Spaces
+>>> hf spaces ls --search "3d"
+
+# Get info about a specific model
+>>> hf models info Lightricks/LTX-2
+```
+
+For more details, see the [CLI guide](./cli.md#hf-models).

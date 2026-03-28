@@ -96,9 +96,9 @@ Dateien werden in einen lokalen Cache-Ordner heruntergeladen. Weitere Details fi
 Der Hugging Face Hub verwendet Tokens zur Authentifizierung von Anwendungen (siehe [Dokumentation](https://huggingface.co/docs/hub/security-tokens)). Um sich an Ihrem Computer anzumelden, führen Sie das folgende Kommando in der Befehlszeile aus:
 
 ```bash
-huggingface-cli login
+hf auth login
 # oder mit einer Umgebungsvariablen
-huggingface-cli login --token $HUGGINGFACE_TOKEN
+hf auth login --token $HUGGINGFACE_TOKEN
 ```
 
 ### Eine Repository erstellen

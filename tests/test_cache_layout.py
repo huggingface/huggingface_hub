@@ -8,11 +8,7 @@ from huggingface_hub.errors import EntryNotFoundError
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import (
-    repo_name,
-    with_production_testing,
-    xfail_on_windows,
-)
+from .testing_utils import repo_name, skip_on_windows, with_production_testing
 
 
 logger = logging.get_logger(__name__)
@@ -28,7 +24,7 @@ def get_file_contents(path):
 
 @with_production_testing
 class CacheFileLayoutHfHubDownload(unittest.TestCase):
-    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache(self):
         for revision, expected_reference in (
             (None, "main"),
@@ -130,7 +126,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             self.assertEqual(creation_time_0, creation_time_1)
 
-    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_file_download_happens_once_intra_revision(self):
         # Tests that a file is only downloaded once if it's not updated, even across different revisions.
 
@@ -145,7 +141,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             self.assertEqual(creation_time_0, creation_time_1)
 
-    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_multiple_refs_for_same_file(self):
         with SoftTemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
@@ -179,7 +175,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
 @with_production_testing
 class CacheFileLayoutSnapshotDownload(unittest.TestCase):
-    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache(self):
         with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache)
@@ -210,7 +206,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 
             self.assertTrue(all([os.path.isfile(link) for link in resolved_snapshot_links]))
 
-    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache_several_revisions(self):
         with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-3")

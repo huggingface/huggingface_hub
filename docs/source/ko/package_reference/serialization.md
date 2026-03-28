@@ -8,11 +8,7 @@ rendered properly in your Markdown viewer.
 
 ## 상태 사전을 샤드로 나누기[[split-state-dict-into-shards]]
 
-현재 이 모듈은 상태 딕셔너리(예: 레이어 이름과 관련 텐서 간의 매핑)를 받아 여러 샤드로 나누고, 이 과정에서 적절한 인덱스를 생성하는 단일 헬퍼를 포함하고 있습니다. 이 헬퍼는 `torch`, `tensorflow`, `numpy` 텐서에 사용 가능하며, 다른 ML 프레임워크로 쉽게 확장될 수 있도록 설계되었습니다.
-
-### split_tf_state_dict_into_shards[[huggingface_hub.split_tf_state_dict_into_shards]]
-
-[[autodoc]] huggingface_hub.split_tf_state_dict_into_shards
+현재 이 모듈은 상태 딕셔너리(예: 레이어 이름과 관련 텐서 간의 매핑)를 받아 여러 샤드로 나누고, 이 과정에서 적절한 인덱스를 생성하는 단일 헬퍼를 포함하고 있습니다. 이 헬퍼는 `torch` 텐서에 사용 가능하며, 다른 ML 프레임워크로 쉽게 확장될 수 있도록 설계되었습니다.
 
 ### split_torch_state_dict_into_shards[[huggingface_hub.split_torch_state_dict_into_shards]]
 
