@@ -27,6 +27,13 @@ if TYPE_CHECKING:
     import torch
 
 
+def _load_safetensors_metadata(path: Path) -> dict:
+    """Return the decoded metadata section from a safetensors file."""
+    file_bytes = path.read_bytes()
+    metadata_length = struct.unpack("<Q", file_bytes[:8])[0]
+    return json.loads(file_bytes[8 : 8 + metadata_length].decode())
+
+
 def _dummy_get_storage_id(item):
     return None
 
@@ -444,11 +451,8 @@ def test_save_torch_state_dict_shared_layers_not_sharded(
     assert "shared_2" not in state_dict
 
     # Check shared layer info in metadata
-    file_bytes = safetensors_file.read_bytes()
-    metadata_str = file_bytes[
-        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
-    ].decode()  # TODO: next time add helper for this
-    assert json.loads(metadata_str)["__metadata__"]["shared_2"] == "shared_1"
+    metadata = _load_safetensors_metadata(safetensors_file)
+    assert metadata["__metadata__"]["shared_2"] == "shared_1"
 
 
 def test_save_torch_state_dict_shared_layers_sharded(
@@ -512,11 +516,8 @@ def test_save_torch_state_dict_discard_selected_not_sharded(
     assert "shared_2" in state_dict
 
     # Check shared layer info in metadata
-    file_bytes = safetensors_file.read_bytes()
-    metadata_str = file_bytes[
-        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
-    ].decode()  # TODO: next time add helper for this
-    assert json.loads(metadata_str)["__metadata__"]["shared_1"] == "shared_2"
+    metadata = _load_safetensors_metadata(safetensors_file)
+    assert metadata["__metadata__"]["shared_1"] == "shared_2"
 
 
 def test_split_torch_state_dict_into_shards(

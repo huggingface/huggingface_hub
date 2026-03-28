@@ -40,6 +40,8 @@ import warnings
 from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
 
+import httpx
+
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
@@ -288,8 +290,8 @@ class InferenceClient:
                 return response.iter_lines()
             else:
                 return response.read()
-        except TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx.TimeoutException as error:
+            # Convert any `httpx.TimeoutException` to an `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
