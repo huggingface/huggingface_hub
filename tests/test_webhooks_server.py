@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from unittest.mock import patch
 
@@ -147,14 +148,14 @@ class TestWebhooksServerDontRun(unittest.TestCase):
         self.assertIn("/webhooks/handler", app.registered_webhooks)
         self.assertIs(handler, app.registered_webhooks["/webhooks/handler"])
 
-    def test_add_webhook_decorator_returns_original_callable(self):
+    def test_add_webhook_decorator_returns_callable(self):
         app = WebhooksServer()
 
         @app.add_webhook
         async def handler():
             return "ok"
 
-        # The decorator must not replace the symbol; calling it should work as usual.
+         # The decorator must not replace the symbol; calling it should work as usual.
         self.assertIs(handler, app.registered_webhooks["/webhooks/handler"])
 
     def test_add_webhook_explicit_path(self):
@@ -163,10 +164,11 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
         @app.add_webhook(path="/test_webhook")
         async def handler():
-            pass
+            return "registered"
 
         self.assertIn("/webhooks/test_webhook", app.registered_webhooks)  # still registered under /webhooks
         self.assertIs(handler, app.registered_webhooks["/webhooks/test_webhook"])
+        self.assertEqual(asyncio.run(handler()), "registered")
 
     def test_add_webhook_direct_call_returns_original_callable(self):
         app = WebhooksServer()

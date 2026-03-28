@@ -1,7 +1,7 @@
 import json
 import struct
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 from unittest.mock import Mock
 
 import pytest
@@ -27,11 +27,14 @@ if TYPE_CHECKING:
     import torch
 
 
-def _load_safetensors_metadata(path: Path) -> dict:
+def _load_safetensors_metadata(path: Path) -> Dict[str, Any]:
     """Return the decoded metadata section from a safetensors file."""
+
     file_bytes = path.read_bytes()
     metadata_length = struct.unpack("<Q", file_bytes[:8])[0]
-    return json.loads(file_bytes[8 : 8 + metadata_length].decode())
+    metadata_start = 8
+    metadata_end = metadata_start + metadata_length
+    return json.loads(file_bytes[metadata_start:metadata_end].decode())
 
 
 def _dummy_get_storage_id(item):

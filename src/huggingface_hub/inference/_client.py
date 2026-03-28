@@ -37,6 +37,10 @@ import logging
 import os
 import re
 import warnings
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
+
+from requests import HTTPError
+from requests.exceptions import Timeout as RequestsTimeout
 from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
 
@@ -284,6 +288,11 @@ class InferenceClient:
                     cookies=self.cookies,
                     timeout=self.timeout,
                 )
+            except RequestsTimeout as error:
+                # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
+
+        try:
             )
             hf_raise_for_status(response)
             if stream:
