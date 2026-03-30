@@ -1,17 +1,14 @@
 import collections.abc
 import inspect
-import sys
 import types
+from collections.abc import Callable
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
     Annotated,
     Any,
-    Callable,
     ForwardRef,
     Literal,
-    Optional,
-    Type,
     TypeVar,
     Union,
     get_args,
@@ -48,16 +45,14 @@ _TYPED_DICT_DEFAULT_VALUE = object()  # used as default value in TypedDict field
 
 # The overload decorator helps type checkers understand the different return types
 @overload
-def strict(cls: Type[T]) -> Type[T]: ...
+def strict(cls: type[T]) -> type[T]: ...
 
 
 @overload
-def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
+def strict(*, accept_kwargs: bool = False) -> Callable[[type[T]], type[T]]: ...
 
 
-def strict(
-    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
-) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
+def strict(cls: type[T] | None = None, *, accept_kwargs: bool = False) -> type[T] | Callable[[type[T]], type[T]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -113,7 +108,7 @@ def strict(
     ```
     """
 
-    def wrap(cls: Type[T]) -> Type[T]:
+    def wrap(cls: type[T]) -> type[T]:
         if not hasattr(cls, "__dataclass_fields__"):
             raise StrictDataclassDefinitionError(
                 f"Class '{cls.__name__}' must be a dataclass before applying @strict."
@@ -338,7 +333,7 @@ def validate_typed_dict(schema: type[TypedDictType], data: dict) -> None:
 
 
 @lru_cache
-def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
+def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> type:
     # Extract type hints from the TypedDict class
     type_hints = _get_typed_dict_annotations(schema)
 
@@ -385,14 +380,14 @@ def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
 
 
 def validated_field(
-    validator: Union[list[Validator_T], Validator_T],
-    default: Union[Any, _MISSING_TYPE] = MISSING,
-    default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+    validator: list[Validator_T] | Validator_T,
+    default: Any | _MISSING_TYPE = MISSING,
+    default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
     init: bool = True,
     repr: bool = True,
-    hash: Optional[bool] = None,
+    hash: bool | None = None,
     compare: bool = True,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -437,13 +432,13 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Union[Any, _MISSING_TYPE] = MISSING,
-        default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+        default: Any | _MISSING_TYPE = MISSING,
+        default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
         init: bool = True,
         repr: bool = True,
-        hash: Optional[bool] = None,
+        hash: bool | None = None,
         compare: bool = True,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         **kwargs: Any,
     ):
         return validated_field(
@@ -673,9 +668,8 @@ _BASIC_TYPE_VALIDATORS: dict[Any, Callable[[str, Any, tuple[Any, ...]], None]] =
     collections.abc.Sequence: _validate_sequence,
 }
 
-if sys.version_info >= (3, 10):
-    # TODO: make it first class citizen when bumping to Python 3.10+
-    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
+# TODO: make it first class citizen when bumping to Python 3.10+
+_BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [

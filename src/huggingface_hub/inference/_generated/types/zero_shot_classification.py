@@ -3,7 +3,6 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -14,11 +13,11 @@ class ZeroShotClassificationParameters(BaseInferenceType):
 
     candidate_labels: list[str]
     """The set of possible class labels to classify the text into."""
-    hypothesis_template: Optional[str] = None
+    hypothesis_template: str | None = None
     """The sentence used in conjunction with `candidate_labels` to attempt the text
     classification by replacing the placeholder with the candidate labels.
     """
-    multi_label: Optional[bool] = None
+    multi_label: bool | None = None
     """Whether multiple candidate labels can be true. If false, the scores are normalized such
     that the sum of the label likelihoods for each sequence is 1. If true, the labels are
     considered independent and probabilities are normalized for each candidate.

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,9 +83,10 @@ import io
 import logging
 import os
 import warnings
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager, Iterator, Optional, Union
+from typing import ContextManager
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -105,7 +105,7 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 progress_bar_states: dict[str, bool] = {}
 
 
-def disable_progress_bars(name: Optional[str] = None) -> None:
+def disable_progress_bars(name: str | None = None) -> None:
     """
     Disable progress bars either globally or for a specified group.
 
@@ -137,7 +137,7 @@ def disable_progress_bars(name: Optional[str] = None) -> None:
         progress_bar_states[name] = False
 
 
-def enable_progress_bars(name: Optional[str] = None) -> None:
+def enable_progress_bars(name: str | None = None) -> None:
     """
     Enable progress bars either globally or for a specified group.
 
@@ -169,7 +169,7 @@ def enable_progress_bars(name: Optional[str] = None) -> None:
         progress_bar_states[name] = True
 
 
-def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
+def are_progress_bars_disabled(name: str | None = None) -> bool:
     """
     Check if progress bars are disabled globally or for a specific group.
 
@@ -198,7 +198,7 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     return not progress_bar_states.get("_global", True)
 
 
-def is_tqdm_disabled(log_level: int) -> Optional[bool]:
+def is_tqdm_disabled(log_level: int) -> bool | None:
     """
     Determine if tqdm progress bars should be disabled based on logging level and environment settings.
 
@@ -234,7 +234,7 @@ class tqdm(old_tqdm):
 
 
 @contextmanager
-def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
+def tqdm_stream_file(path: Path | str) -> Iterator[io.BufferedReader]:
     """
     Open a file as binary and wrap the `read` method to display a progress bar when it's streamed.
 
@@ -267,7 +267,7 @@ def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
 
         f_read = f.read
 
-        def _inner_read(size: Optional[int] = -1) -> bytes:
+        def _inner_read(size: int | None = -1) -> bytes:
             data = f_read(size)
             pbar.update(len(data))
             return data
@@ -283,13 +283,13 @@ def _get_progress_bar_context(
     *,
     desc: str,
     log_level: int,
-    total: Optional[int] = None,
+    total: int | None = None,
     initial: int = 0,
     unit: str = "B",
     unit_scale: bool = True,
-    name: Optional[str] = None,
-    tqdm_class: Optional[type[old_tqdm]] = None,
-    _tqdm_bar: Optional[tqdm] = None,
+    name: str | None = None,
+    tqdm_class: type[old_tqdm] | None = None,
+    _tqdm_bar: tqdm | None = None,
 ) -> ContextManager[tqdm]:
     if _tqdm_bar is not None:
         return nullcontext(_tqdm_bar)

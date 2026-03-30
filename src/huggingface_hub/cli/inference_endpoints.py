@@ -1,7 +1,7 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import json
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 
@@ -29,12 +29,12 @@ NameArg = Annotated[
     typer.Argument(help="Endpoint name."),
 ]
 NameOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(help="Endpoint name."),
 ]
 
 NamespaceOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.",
     ),
@@ -136,7 +136,7 @@ def deploy(
     *,
     namespace: NamespaceOpt = None,
     task: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
@@ -155,19 +155,19 @@ def deploy(
         ),
     ] = 1,
     scale_to_zero_timeout: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
     scaling_metric: Annotated[
-        Optional[InferenceEndpointScalingMetric],
+        InferenceEndpointScalingMetric | None,
         typer.Option(
             help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
@@ -207,7 +207,7 @@ def deploy_from_catalog(
     ],
     name: NameOpt = None,
     accelerator: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').",
         ),
@@ -275,73 +275,73 @@ def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
     repo: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ] = None,
     accelerator: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The hardware accelerator to be used for inference (e.g. 'cpu').",
         ),
     ] = None,
     instance_size: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
         ),
     ] = None,
     instance_type: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
         ),
     ] = None,
     framework: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The machine learning framework used for the model (e.g. 'custom').",
         ),
     ] = None,
     revision: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').",
         ),
     ] = None,
     task: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
     min_replica: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="The minimum number of replicas (instances) to keep running for the Inference Endpoint.",
         ),
     ] = None,
     max_replica: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="The maximum number of replicas (instances) to scale to for the Inference Endpoint.",
         ),
     ] = None,
     scale_to_zero_timeout: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
     scaling_metric: Annotated[
-        Optional[InferenceEndpointScalingMetric],
+        InferenceEndpointScalingMetric | None,
         typer.Option(
             help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),

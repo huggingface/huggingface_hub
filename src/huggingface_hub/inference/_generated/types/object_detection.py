@@ -3,7 +3,6 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -12,7 +11,7 @@ from .base import BaseInferenceType, dataclass_with_extra
 class ObjectDetectionParameters(BaseInferenceType):
     """Additional inference parameters for Object Detection"""
 
-    threshold: Optional[float] = None
+    threshold: float | None = None
     """The probability necessary to make a prediction."""
 
 
@@ -24,7 +23,7 @@ class ObjectDetectionInput(BaseInferenceType):
     """The input image data as a base64-encoded string. If no `parameters` are provided, you can
     also provide the image data as a raw bytes payload.
     """
-    parameters: Optional[ObjectDetectionParameters] = None
+    parameters: ObjectDetectionParameters | None = None
     """Additional inference parameters for Object Detection"""
 
 

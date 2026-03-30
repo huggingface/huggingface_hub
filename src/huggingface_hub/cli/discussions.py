@@ -17,7 +17,7 @@ import enum
 import json
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -81,18 +81,20 @@ DiscussionNumArg = Annotated[
 
 
 def _format_status(status: str) -> str:
-    if status == "open":
-        return ANSI.green("open")
-    elif status == "closed":
-        return ANSI.red("closed")
-    elif status == "merged":
-        return ANSI.blue("merged")
-    elif status == "draft":
-        return ANSI.yellow("draft")
-    return status
+    match status:
+        case "open":
+            return ANSI.green("open")
+        case "closed":
+            return ANSI.red("closed")
+        case "merged":
+            return ANSI.blue("merged")
+        case "draft":
+            return ANSI.yellow("draft")
+        case _:
+            return status
 
 
-def _read_body(body: Optional[str], body_file: Optional[Path]) -> Optional[str]:
+def _read_body(body: str | None, body_file: Path | None) -> str | None:
     """Resolve body text from --body or --body-file (supports '-' for stdin)."""
     if body is not None and body_file is not None:
         raise typer.BadParameter("Cannot use both --body and --body-file.")
@@ -186,7 +188,7 @@ def discussion_list(
     """List discussions and pull requests on a repo."""
     api = get_hf_api(token=token)
 
-    api_status: Optional[constants.DiscussionStatusFilter]
+    api_status: constants.DiscussionStatusFilter | None
     if status == DiscussionStatus.open:
         api_status = "open"
     elif status == DiscussionStatus.closed:
@@ -194,7 +196,7 @@ def discussion_list(
     else:
         api_status = None
 
-    api_discussion_type: Optional[constants.DiscussionTypeFilter]
+    api_discussion_type: constants.DiscussionTypeFilter | None
     if kind == DiscussionKind.all:
         api_discussion_type = None
     else:
@@ -323,14 +325,14 @@ def discussion_create(
         ),
     ],
     body: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--body",
             help="The description (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--body-file",
             help="Read the description from a file. Use '-' for stdin.",
@@ -375,14 +377,14 @@ def discussion_comment(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     body: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--body",
             help="The comment text (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--body-file",
             help="Read the comment from a file. Use '-' for stdin.",
@@ -416,7 +418,7 @@ def discussion_close(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--comment",
             help="An optional comment to post when closing.",
@@ -461,7 +463,7 @@ def discussion_reopen(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--comment",
             help="An optional comment to post when reopening.",
@@ -535,7 +537,7 @@ def discussion_merge(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--comment",
             help="An optional comment to post when merging.",

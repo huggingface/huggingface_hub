@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from huggingface_hub.utils import parse_datetime
 
@@ -147,11 +146,11 @@ class SpaceRuntime:
     """
 
     stage: SpaceStage
-    hardware: Optional[SpaceHardware]
-    requested_hardware: Optional[SpaceHardware]
-    sleep_time: Optional[int]
-    storage: Optional[SpaceStorage]
-    hot_reloading: Optional[SpaceHotReloading]
+    hardware: SpaceHardware | None
+    requested_hardware: SpaceHardware | None
+    sleep_time: int | None
+    storage: SpaceStorage | None
+    hot_reloading: SpaceHotReloading | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -182,8 +181,8 @@ class SpaceVariable:
 
     key: str
     value: str
-    description: Optional[str]
-    updated_at: Optional[datetime]
+    description: str | None
+    updated_at: datetime | None
 
     def __init__(self, key: str, values: dict) -> None:
         self.key = key

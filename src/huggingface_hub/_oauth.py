@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal
 
 from . import constants
 from .hf_api import whoami
@@ -47,10 +47,10 @@ class OAuthOrgInfo:
     name: str
     preferred_username: str
     picture: str
-    plan: Optional[str] = None
-    can_pay: Optional[bool] = None
-    role_in_org: Optional[str] = None
-    security_restrictions: Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]] = None
+    plan: str | None = None
+    can_pay: bool | None = None
+    role_in_org: str | None = None
+    security_restrictions: list[Literal["ip", "token-policy", "mfa", "sso"]] | None = None
 
 
 @dataclass
@@ -86,14 +86,14 @@ class OAuthUserInfo:
     sub: str
     name: str
     preferred_username: str
-    email_verified: Optional[bool]
-    email: Optional[str]
+    email_verified: bool | None
+    email: str | None
     picture: str
     profile: str
-    website: Optional[str]
+    website: str | None
     is_pro: bool
-    can_pay: Optional[bool]
-    orgs: Optional[list[OAuthOrgInfo]]
+    can_pay: bool | None
+    orgs: list[OAuthOrgInfo] | None
 
 
 @dataclass
@@ -117,7 +117,7 @@ class OAuthInfo:
     access_token: str
     access_token_expires_at: datetime.datetime
     user_info: OAuthUserInfo
-    state: Optional[str]
+    state: str | None
     scope: str
 
 
@@ -188,7 +188,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         _add_mocked_oauth_routes(app, route_prefix=route_prefix)
 
 
-def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
+def parse_huggingface_oauth(request: "fastapi.Request") -> OAuthInfo | None:
     """
     Returns the information from a logged-in user as a [`OAuthInfo`] object.
 
@@ -306,7 +306,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             target_url = request.query_params.get("_target_url")
 
             # Build redirect URI with the same query params as before and bump nb_redirects count
-            query_params: dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
+            query_params: dict[str, int | str] = {"_nb_redirects": nb_redirects + 1}
             if target_url:
                 query_params["_target_url"] = target_url
 

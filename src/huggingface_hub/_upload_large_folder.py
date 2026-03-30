@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2024-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +23,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
@@ -153,14 +152,14 @@ def _validate_upload_limits(paths_list: list[LocalUploadFilePaths]) -> None:
 def upload_large_folder_internal(
     api: "HfApi",
     repo_id: str,
-    folder_path: Union[str, Path],
+    folder_path: str | Path,
     *,
     repo_type: str,  # Repo type is required!
-    revision: Optional[str] = None,
-    private: Optional[bool] = None,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
-    num_workers: Optional[int] = None,
+    revision: str | None = None,
+    private: bool | None = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
+    num_workers: int | None = None,
     print_report: bool = True,
     print_report_every: int = 60,
 ):
@@ -317,7 +316,7 @@ class LargeUploadStatus:
         self.upload_batch_size: int = upload_batch_size
         self.nb_workers_commit: int = 0
         self.nb_workers_waiting: int = 0
-        self.last_commit_attempt: Optional[float] = None
+        self.last_commit_attempt: float | None = None
 
         self._started_at = datetime.now()
         self._chunk_idx: int = 1
@@ -436,7 +435,7 @@ def _worker_job(
     Read `upload_large_folder` docstring for more information on how tasks are prioritized.
     """
     while True:
-        next_job: Optional[tuple[WorkerJob, list[JOB_ITEM_T]]] = None
+        next_job: tuple[WorkerJob, list[JOB_ITEM_T]] | None = None
 
         # Determine next task
         next_job = _determine_next_job(status)
@@ -445,91 +444,93 @@ def _worker_job(
         job, items = next_job
 
         # Perform task
-        if job == WorkerJob.SHA256:
-            item = items[0]  # single item
-            try:
-                _compute_sha256(item)
-                status.queue_get_upload_mode.put(item)
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                logger.error(f"Failed to compute sha256: {e}")
-                traceback.format_exc()
-                status.queue_sha256.put(item)
-
-            with status.lock:
-                status.nb_workers_sha256 -= 1
-
-        elif job == WorkerJob.GET_UPLOAD_MODE:
-            try:
-                _get_upload_mode(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                logger.error(f"Failed to get upload mode: {e}")
-                traceback.format_exc()
-
-            # Items are either:
-            # - dropped (if should_ignore)
-            # - put in LFS queue (if LFS)
-            # - put in commit queue (if regular)
-            # - or put back (if error occurred).
-            for item in items:
-                _, metadata = item
-                if metadata.should_ignore:
-                    continue
-                if metadata.upload_mode == "lfs":
-                    status.queue_preupload_lfs.put(item)
-                elif metadata.upload_mode == "regular":
-                    status.queue_commit.put(item)
-                else:
+        match job:
+            case WorkerJob.SHA256:
+                item = items[0]  # single item
+                try:
+                    _compute_sha256(item)
                     status.queue_get_upload_mode.put(item)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to compute sha256: {e}")
+                    traceback.format_exc()
+                    status.queue_sha256.put(item)
 
-            with status.lock:
-                status.nb_workers_get_upload_mode -= 1
+                with status.lock:
+                    status.nb_workers_sha256 -= 1
 
-        elif job == WorkerJob.PREUPLOAD_LFS:
-            try:
-                _preupload_lfs(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+            case WorkerJob.GET_UPLOAD_MODE:
+                try:
+                    _get_upload_mode(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to get upload mode: {e}")
+                    traceback.format_exc()
+
+                # Items are either:
+                # - dropped (if should_ignore)
+                # - put in LFS queue (if LFS)
+                # - put in commit queue (if regular)
+                # - or put back (if error occurred).
                 for item in items:
-                    status.queue_commit.put(item)
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                logger.error(f"Failed to preupload LFS: {e}")
-                traceback.format_exc()
-                for item in items:
-                    status.queue_preupload_lfs.put(item)
+                    _, metadata = item
+                    if metadata.should_ignore:
+                        continue
+                    match metadata.upload_mode:
+                        case "lfs":
+                            status.queue_preupload_lfs.put(item)
+                        case "regular":
+                            status.queue_commit.put(item)
+                        case _:
+                            status.queue_get_upload_mode.put(item)
 
-            with status.lock:
-                status.nb_workers_preupload_lfs -= 1
+                with status.lock:
+                    status.nb_workers_get_upload_mode -= 1
 
-        elif job == WorkerJob.COMMIT:
-            start_ts = time.time()
-            success = True
-            try:
-                _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                logger.error(f"Failed to commit: {e}")
-                traceback.format_exc()
-                for item in items:
-                    status.queue_commit.put(item)
-                success = False
-            duration = time.time() - start_ts
-            status.update_chunk(success, len(items), duration)
-            with status.lock:
-                status.last_commit_attempt = time.time()
-                status.nb_workers_commit -= 1
+            case WorkerJob.PREUPLOAD_LFS:
+                try:
+                    _preupload_lfs(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                    for item in items:
+                        status.queue_commit.put(item)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to preupload LFS: {e}")
+                    traceback.format_exc()
+                    for item in items:
+                        status.queue_preupload_lfs.put(item)
 
-        elif job == WorkerJob.WAIT:
-            time.sleep(WAITING_TIME_IF_NO_TASKS)
-            with status.lock:
-                status.nb_workers_waiting -= 1
+                with status.lock:
+                    status.nb_workers_preupload_lfs -= 1
+
+            case WorkerJob.COMMIT:
+                start_ts = time.time()
+                success = True
+                try:
+                    _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to commit: {e}")
+                    traceback.format_exc()
+                    for item in items:
+                        status.queue_commit.put(item)
+                    success = False
+                duration = time.time() - start_ts
+                status.update_chunk(success, len(items), duration)
+                with status.lock:
+                    status.last_commit_attempt = time.time()
+                    status.nb_workers_commit -= 1
+
+            case WorkerJob.WAIT:
+                time.sleep(WAITING_TIME_IF_NO_TASKS)
+                with status.lock:
+                    status.nb_workers_waiting -= 1
 
 
-def _determine_next_job(status: LargeUploadStatus) -> Optional[tuple[WorkerJob, list[JOB_ITEM_T]]]:
+def _determine_next_job(status: LargeUploadStatus) -> tuple[WorkerJob, list[JOB_ITEM_T]] | None:
     with status.lock:
         # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
         if (

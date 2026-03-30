@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +48,7 @@ Usage:
 import os
 import time
 import warnings
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -84,13 +83,13 @@ UPLOAD_EXAMPLES = [
 def upload(
     repo_id: RepoIdArg,
     local_path: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         ),
     ] = None,
     path_in_repo: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
@@ -99,31 +98,31 @@ def upload(
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
     ] = None,
     commit_message: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The description of the generated commit.",
         ),
@@ -135,7 +134,7 @@ def upload(
         ),
     ] = False,
     every: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(
             help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
@@ -173,8 +172,8 @@ def upload(
 
         # Schedule commits if `every` is set
         if every is not None:
-            allow_patterns: Optional[list[str]]
-            ignore_patterns: Optional[list[str]]
+            allow_patterns: list[str] | None
+            ignore_patterns: list[str] | None
             if os.path.isfile(resolved_local_path):
                 # If file => watch entire folder + use allow_patterns
                 folder_path = os.path.dirname(resolved_local_path)
@@ -275,8 +274,8 @@ def upload(
 
 
 def _resolve_upload_paths(
-    *, repo_id: str, local_path: Optional[str], path_in_repo: Optional[str], include: Optional[list[str]]
-) -> tuple[str, str, Optional[list[str]]]:
+    *, repo_id: str, local_path: str | None, path_in_repo: str | None, include: list[str] | None
+) -> tuple[str, str, list[str] | None]:
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 
