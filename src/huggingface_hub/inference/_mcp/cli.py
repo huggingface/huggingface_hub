@@ -150,7 +150,7 @@ async def run_agent(
             config["apiKey"] = substituted_api_key
         # Main agent loop
         async with Agent(
-            provider=config.get("provider"),  # type: ignore[arg-type]
+            provider=config.get("provider"),  # type: ignore
             model=config.get("model"),
             base_url=config.get("endpointUrl"),  # type: ignore[arg-type]
             api_key=config.get("apiKey"),

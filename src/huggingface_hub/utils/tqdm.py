@@ -297,7 +297,7 @@ def _get_progress_bar_context(
         #   Makes it easier to use the same code path for both cases but in the later
         #   case, the progress bar is not closed when exiting the context manager.
 
-    return (tqdm_class or tqdm)(  # type: ignore[return-value]
+    return (tqdm_class or tqdm)(  # type: ignore
         unit=unit,
         unit_scale=unit_scale,
         total=total,

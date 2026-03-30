@@ -640,7 +640,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1112,7 +1112,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1144,7 +1144,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1176,7 +1176,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1211,7 +1211,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1240,7 +1240,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1276,7 +1276,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -1313,7 +1313,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1345,7 +1345,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 * `NEW_TITLE`: The new title.  [required]
 
@@ -1375,7 +1375,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `NUM`: The discussion or pull request number.  [required]
 
 **Options**:
@@ -1407,7 +1407,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[FILENAMES]...`: Files to download (e.g. `config.json`, `data/metadata.jsonl`).
 
 **Options**:
@@ -2157,6 +2157,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -2170,6 +2171,7 @@ Examples
   $ hf jobs run python:3.12 python -c 'print("Hello!")'
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
+  $ hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2335,6 +2337,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
@@ -2422,6 +2425,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -2508,6 +2512,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
@@ -2522,6 +2527,7 @@ Examples
   $ hf jobs uv run my_script.py
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
+  $ hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2848,7 +2854,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `BRANCH`: The name of the branch to create.  [required]
 
 **Options**:
@@ -2880,7 +2886,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `BRANCH`: The name of the branch to delete.  [required]
 
 **Options**:
@@ -2909,18 +2915,20 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
-* `--flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage [small|medium|large]`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
@@ -2931,7 +2939,7 @@ $ hf repos create [OPTIONS] REPO_ID
 Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
-  $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark
+  $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2950,7 +2958,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -2979,7 +2987,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
 
 **Options**:
@@ -3014,17 +3022,19 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[TO_ID]`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
 
 **Options**:
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
-* `--flavor TEXT`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage TEXT`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage [small|medium|large]`: Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
@@ -3053,8 +3063,8 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
-* `TO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `TO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -3082,12 +3092,14 @@ $ hf repos settings [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
 * `--gated [auto|manual|false]`: The gated status for the repository.
-* `--private / --no-private`: Whether the repository should be private.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--help`: Show this message and exit.
@@ -3095,6 +3107,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 Examples
   $ hf repos settings my-model --private
   $ hf repos settings my-model --gated auto
+  $ hf repos settings my-space --repo-type space --protected
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3133,7 +3146,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `TAG`: The name of the tag to create.  [required]
 
 **Options**:
@@ -3165,7 +3178,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `TAG`: The name of the tag to delete.  [required]
 
 **Options**:
@@ -3195,7 +3208,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 
 **Options**:
 
@@ -3487,7 +3500,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `[LOCAL_PATH]`: Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.
 * `[PATH_IN_REPO]`: Path of the file or folder in the repo. Defaults to the relative path of the file or folder.
 
@@ -3531,7 +3544,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name`).  [required]
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
 * `LOCAL_PATH`: Local path to the folder to upload.  [required]
 
 **Options**:

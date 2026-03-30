@@ -216,6 +216,42 @@ Available `flavor` options:
 
 That's it! You're now running code on Hugging Face's infrastructure.
 
+## Mount a volume
+
+Mount a volume on the Jobs's disk using a list of [`Volume`].
+
+You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets). For example:
+
+* mount a model repository: `Volume(type="model", source="openai/gpt-oss-120b", mount_path="/model")`
+* mount a dataset repository: `Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")`
+* mount a storage bucket: `Volume(type="bucket", source="username/my-bucket", mount_path="/mnt")`
+
+Then you can use the mounted volume as a local directory:
+
+```python
+>>> from huggingface_hub import run_job, Volume
+>>> job = run_job(
+...     image="duckdb/duckdb",
+...     command=["duckdb", "-c", "SELECT * FROM '/data/**/*.parquet' LIMIT 5"],
+...     volumes=[Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")],
+... )
+```
+
+You can also write to a mounted bucket, for example, to save checkpoints when training a model:
+
+```python
+>>> from huggingface_hub import run_uv_job, Volume
+>>> script = "my_sft.py"
+>>> script_args = ["--output_dir", "/training-outputs/training-v3-final", ...]
+>>> checkpoints_bucket = Volume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
+>>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
+```
+
+By default, mounted storage buckets have read+write abilities.
+This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
+
+Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
+
 ## Configure Job Timeout
 
 Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.

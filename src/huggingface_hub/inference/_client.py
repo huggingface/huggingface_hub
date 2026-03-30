@@ -933,9 +933,9 @@ class InferenceClient:
         data = self._inner_post(request_parameters, stream=stream)
 
         if stream:
-            return _stream_chat_completion_response(data)  # type: ignore[arg-type]
+            return _stream_chat_completion_response(data)  # type: ignore
 
-        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore
 
     def document_question_answering(
         self,
@@ -1278,7 +1278,7 @@ class InferenceClient:
         response = provider_helper.get_response(response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
+            item.mask = _b64_to_image(item.mask)  # type: ignore
         return output
 
     def image_to_image(
@@ -1948,7 +1948,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore
 
     @overload
     def text_generation(
@@ -2431,7 +2431,7 @@ class InferenceClient:
         if stream:
             return _stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore
 
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):

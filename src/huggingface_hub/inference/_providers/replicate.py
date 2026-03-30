@@ -54,7 +54,7 @@ class ReplicateTextToImageTask(ReplicateTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
-        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
+        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore
         if provider_mapping_info.adapter_weights_path is not None:
             payload["input"]["lora_weights"] = f"https://huggingface.co/{provider_mapping_info.hf_model_id}"
         return payload
@@ -67,7 +67,7 @@ class ReplicateTextToSpeechTask(ReplicateTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[dict]:
-        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
+        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload
 

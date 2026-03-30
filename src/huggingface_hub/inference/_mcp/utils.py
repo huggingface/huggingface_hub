@@ -102,7 +102,7 @@ def _load_agent_config(agent_path: Optional[str]) -> tuple[AgentConfig, Optional
         return config, prompt
 
     if agent_path is None:
-        return DEFAULT_AGENT, None  # type: ignore[return-value]
+        return DEFAULT_AGENT, None  # type: ignore
 
     path = Path(agent_path).expanduser()
 

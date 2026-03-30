@@ -19,13 +19,16 @@ import importlib.metadata
 import json
 import os
 import re
+import subprocess
+import sys
 import time
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, TypeVar, Union, cast
 
 import click
 import typer
+from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
@@ -77,6 +80,7 @@ Learn more
 
 TOPIC_T = Union[Literal["main", "help"], str]
 FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
+ExpandPropertyT = TypeVar("ExpandPropertyT", bound=str)
 
 
 def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -90,7 +94,7 @@ def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatte
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-class HFCliTyperGroup(typer.core.TyperGroup):
+class HFCliTyperGroup(TyperGroup):
     """
     Typer Group that:
     - lists commands alphabetically within sections.
@@ -98,24 +102,132 @@ class HFCliTyperGroup(typer.core.TyperGroup):
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
+    - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     """
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        # Rewrite hidden --json shorthand to --format json, but only for commands that accept --format.
-        # This avoids rewriting `--json` for commands that pass args through to external binaries
-        # (e.g. `hf extensions exec`) or that simply don't support `--format`.
-        if "--json" in args:
-            cmd_name = args[0] if args and not args[0].startswith("-") else None
-            cmd = self.get_command(ctx, cmd_name) if cmd_name else None
-            has_format_option = cmd is not None and any(
-                isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params
-            )
-            if has_format_option:
-                if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                    raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-                idx = args.index("--json")
-                args[idx : idx + 1] = ["--format", "json"]
+        cmd_name = args[0] if args and not args[0].startswith("-") else None
+        cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+
+        if cmd is not None:
+            self._rewrite_json_shorthand(cmd, args)
+            self._rewrite_repo_type_prefix(cmd, args)
+
         return super().resolve_command(ctx, args)
+
+    @staticmethod
+    def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite hidden ``--json`` shorthand to ``--format json``.
+
+        Only applies to commands that accept ``--format``.  This avoids rewriting
+        ``--json`` for commands that pass args through to external binaries
+        (e.g. ``hf extensions exec``) or that simply don't support ``--format``.
+        """
+        if "--json" not in args:
+            return
+        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
+        if has_format_option:
+            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+            idx = args.index("--json")
+            args[idx : idx + 1] = ["--format", "json"]
+
+    @staticmethod
+    def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
+
+        Only applies to commands that have a ``--type`` / ``--repo-type`` option and
+        at least one repo-ID positional argument (any ``click.Argument`` whose name
+        ends with ``_id``, e.g. ``repo_id``, ``from_id``, ``to_id``).  When the
+        token that maps to such an argument matches ``{prefix}/org/repo`` (where
+        *prefix* is one of ``spaces``, ``datasets``, or ``models``), the prefix is
+        stripped and an implicit ``--type {type}`` is appended.  An error is raised
+        if ``--type`` is also provided explicitly or if multiple prefixed arguments
+        disagree on the repo type.
+
+        Only repo-ID positional slots are inspected so that other positional
+        arguments (filenames, local paths, patterns …) are never misinterpreted as
+        prefixed repo IDs.
+        """
+        has_type_option = any(isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params)
+        if not has_type_option:
+            return
+
+        # Locate all repo-ID positional arguments and their indices among Arguments.
+        repo_id_positions: set[int] = set()
+        arg_idx = 0
+        for param in cmd.params:
+            if isinstance(param, click.Argument):
+                if param.name in ("repo_id", "from_id", "to_id"):
+                    repo_id_positions.add(arg_idx)
+                arg_idx += 1
+
+        if not repo_id_positions:
+            return
+
+        # Build a set of option names that consume a following value token.
+        value_options: set[str] = set()
+        for param in cmd.params:
+            if isinstance(param, click.Option) and not param.is_flag:
+                for opt in (*param.opts, *param.secondary_opts):
+                    value_options.add(opt)
+
+        # Walk through args (skipping args[0] = command name) to map positional
+        # slots to their indices in `args`.
+        positional_count = 0
+        repo_id_arg_indices: list[int] = []
+        i = 1
+        while i < len(args):
+            arg = args[i]
+            if arg == "--":
+                break  # everything after -- is positional literal; stop rewriting
+            if arg.startswith("-"):
+                if "=" in arg or arg not in value_options:
+                    i += 1  # flag or --opt=val — single token
+                else:
+                    i += 2  # value-taking option — skip the value too
+            else:
+                if positional_count in repo_id_positions:
+                    repo_id_arg_indices.append(i)
+                positional_count += 1
+                i += 1
+
+        if not repo_id_arg_indices:
+            return
+
+        # Check each repo-ID arg for a type prefix and collect rewrites.
+        inferred_type: Optional[str] = None
+        first_prefix: Optional[str] = None
+        rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
+
+        for arg_index in repo_id_arg_indices:
+            parts = args[arg_index].split("/", 2)
+            if len(parts) != 3 or parts[0] not in constants.REPO_TYPES_MAPPING:
+                continue
+            prefix = parts[0]
+            mapped_type = constants.REPO_TYPES_MAPPING[prefix]
+            if inferred_type is not None and mapped_type != inferred_type:
+                raise click.UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
+            inferred_type = mapped_type
+            first_prefix = prefix
+            rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))
+
+        if not rewrites:
+            return
+
+        # Error if --type / --repo-type was also provided explicitly.
+        if any(
+            arg == "--type" or arg.startswith("--type=") or arg == "--repo-type" or arg.startswith("--repo-type=")
+            for arg in args
+        ):
+            raise click.UsageError(
+                f"Ambiguous repo type: got prefix '{first_prefix}/' in repo ID and explicit --type. Use one or the other."
+            )
+
+        # Apply all rewrites and append --type once.
+        for arg_index, new_value in rewrites:
+            args[arg_index] = new_value
+        args.extend(["--type", inferred_type])  # type: ignore
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         # Try exact match first
@@ -213,13 +325,13 @@ def fallback_typer_group_factory(
     return FallbackTyperGroup
 
 
-def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[typer.core.TyperCommand]:
+def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[TyperCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
     return type(
         f"TyperCommand{topic.capitalize()}",
-        (typer.core.TyperCommand,),
+        (TyperCommand,),
         {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
     )
 
@@ -227,7 +339,7 @@ def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[t
 class HFCliApp(typer.Typer):
     """Custom Typer app for Hugging Face CLI."""
 
-    def command(  # type: ignore[override]
+    def command(  # type: ignore
         self,
         name: Optional[str] = None,
         *,
@@ -267,9 +379,7 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(
-    help: str, epilog: Optional[str] = None, cls: Optional[type[typer.core.TyperGroup]] = None
-) -> "HFCliApp":
+def typer_factory(help: str, epilog: Optional[str] = None, cls: Optional[type[TyperGroup]] = None) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
@@ -309,7 +419,7 @@ class RepoType(str, Enum):
 RepoIdArg = Annotated[
     str,
     typer.Argument(
-        help="The ID of the repo (e.g. `username/repo-name`).",
+        help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
 
@@ -579,10 +689,10 @@ def api_object_to_dict(info: Any) -> dict[str, Any]:
     return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
-def make_expand_properties_parser(valid_properties: list[str]):
+def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
     """Create a callback to parse and validate comma-separated expand properties."""
 
-    def _parse_expand_properties(value: Optional[str]) -> Optional[list[str]]:
+    def _parse_expand_properties(value: Optional[str]) -> Optional[list[ExpandPropertyT]]:
         if value is None:
             return None
         properties = [p.strip() for p in value.split(",")]
@@ -591,7 +701,7 @@ def make_expand_properties_parser(valid_properties: list[str]):
                 raise typer.BadParameter(
                     f"Invalid expand property: '{prop}'. Valid values are: {', '.join(valid_properties)}"
                 )
-        return properties
+        return [cast(ExpandPropertyT, prop) for prop in properties]
 
     return _parse_expand_properties
 
@@ -603,7 +713,9 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found, notify the user and suggest updating.
+    If a newer version is found and stdin/stderr are attached to a TTY, prompt the user to update interactively.
+    Otherwise (non-TTY or update command cannot be determined), print a warning to stderr.
+
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
@@ -642,41 +754,117 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     data = response.json()
     latest_version = data["info"]["version"]
 
-    # If latest version is different from current, notify user
-    if current_version != latest_version:
-        if library == "huggingface_hub":
-            update_command = _get_huggingface_hub_update_command()
-        else:
-            update_command = _get_transformers_update_command()
+    if current_version == latest_version:
+        return
 
+    if library == "huggingface_hub":
+        update_command = _get_huggingface_hub_update_command()
+    else:
+        update_command = _get_transformers_update_command()
+
+    if sys.stdin.isatty() and sys.stderr.isatty() and update_command is not None:
+        _prompt_autoupdate(library, current_version, latest_version, update_command)
+    else:
+        display_cmd = " ".join(update_command) if update_command else None
+        update_hint = f"To update, run: {ANSI.bold(display_cmd)}" if display_cmd else ""
         click.echo(
             ANSI.yellow(
                 f"A new version of {library} ({latest_version}) is available! "
-                f"You are using version {current_version}.\n"
-                f"To update, run: {ANSI.bold(update_command)}\n",
-            )
+                f"You are using version {current_version}." + (f"\n{update_hint}" if update_hint else "") + "\n"
+            ),
+            file=sys.stderr,
         )
 
 
-def _get_huggingface_hub_update_command() -> str:
-    """Return the command to update huggingface_hub."""
+def _prompt_autoupdate(
+    library: str,
+    current_version: str,
+    latest_version: str,
+    update_command: list[str],
+) -> None:
+    """Interactively ask the user if they want to update, and run the update command if accepted.
+
+    After a successful update the CLI exits so the user can re-run their command with the new version.
+    All output goes to stderr to keep stdout clean for command output.
+    """
+    display_cmd = " ".join(update_command)
+
+    click.echo("", file=sys.stderr)
+    click.echo(
+        ANSI.yellow(f"  A new version of {library} is available: {current_version} → {latest_version}"),
+        file=sys.stderr,
+    )
+    click.echo("", file=sys.stderr)
+
+    click.echo(
+        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({display_cmd})") + " ",
+        file=sys.stderr,
+        nl=False,
+    )
+    try:
+        raw_answer = sys.stdin.readline()
+    except (EOFError, KeyboardInterrupt):
+        click.echo("", file=sys.stderr)
+        return
+
+    if raw_answer == "":
+        # EOF (e.g. Ctrl+D) — treat as cancellation, not acceptance
+        click.echo("", file=sys.stderr)
+        return
+
+    answer = raw_answer.strip().lower()  # Note: if user press 'Enter', raw_answer is `\n`
+    if answer in ("", "y", "yes"):
+        click.echo("", file=sys.stderr)
+        click.echo(ANSI.gray(f"  Running: {display_cmd}"), file=sys.stderr)
+        click.echo("", file=sys.stderr)
+        returncode = subprocess.call(update_command)
+        if returncode == 0:
+            click.echo("", file=sys.stderr)
+            click.echo(
+                ANSI.green(f"  ✓ Successfully updated {library} to {latest_version}. Please re-run your command."),
+                file=sys.stderr,
+            )
+            raise SystemExit(0)
+        else:
+            click.echo("", file=sys.stderr)
+            click.echo(
+                ANSI.red(f"  ✗ Update failed (exit code {returncode}). Please update manually."),
+                file=sys.stderr,
+            )
+    else:
+        click.echo(
+            ANSI.gray(f"  Skipped. You can update later with: {display_cmd}"),
+            file=sys.stderr,
+        )
+    click.echo("", file=sys.stderr)
+
+
+def _get_huggingface_hub_update_command() -> Optional[list[str]]:
+    """Return the command to update huggingface_hub as an argv list, or None if the installation method is unknown."""
     method = installation_method()
     if method == "brew":
-        return "brew upgrade hf"
+        return ["brew", "upgrade", "hf"]
     elif method == "hf_installer" and os.name == "nt":
-        return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex"'
+        return ["powershell", "-NoProfile", "-Command", "iwr -useb https://hf.co/cli/install.ps1 | iex"]
     elif method == "hf_installer":
-        return "curl -LsSf https://hf.co/cli/install.sh | bash -"
-    else:  # unknown => likely pip
-        return "pip install -U huggingface_hub"
+        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -"]
+    elif method == "pip":
+        return [sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"]
+    return None
 
 
-def _get_transformers_update_command() -> str:
-    """Return the command to update transformers."""
+def _get_transformers_update_command() -> Optional[list[str]]:
+    """Return the command to update transformers as an argv list, or None if the installation method is unknown."""
     method = installation_method()
     if method == "hf_installer" and os.name == "nt":
-        return 'powershell -NoProfile -Command "iwr -useb https://hf.co/cli/install.ps1 | iex" -WithTransformers'
+        return [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "iwr -useb https://hf.co/cli/install.ps1 | iex -WithTransformers",
+        ]
     elif method == "hf_installer":
-        return "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"
-    else:  # brew/unknown => likely pip
-        return "pip install -U transformers"
+        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
+    elif method == "pip":
+        return [sys.executable, "-m", "pip", "install", "-U", "transformers"]
+    return None

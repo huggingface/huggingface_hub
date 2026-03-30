@@ -102,7 +102,7 @@ def datasets_ls(
             search=search,
             sort=sort_key,
             limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
@@ -124,7 +124,7 @@ def datasets_info(
     """Get info about a dataset on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
-        info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore[arg-type]
+        info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore
     except RepositoryNotFoundError as e:
         raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except RevisionNotFoundError as e:

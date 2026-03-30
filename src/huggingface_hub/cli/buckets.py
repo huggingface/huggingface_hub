@@ -17,7 +17,6 @@
 import json
 import os
 import sys
-import tempfile
 from datetime import datetime
 from typing import Annotated, Optional, Union
 
@@ -33,7 +32,13 @@ from huggingface_hub._buckets import (
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
 )
-from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import (
+    SoftTemporaryDirectory,
+    StatusLine,
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+)
 
 from ._cli_utils import (
     FormatOpt,
@@ -330,7 +335,7 @@ def list_cmd(
 
     if is_file_mode:
         _list_files(
-            argument=argument,  # type: ignore[arg-type]
+            argument=argument,  # type: ignore
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
@@ -955,8 +960,7 @@ def cp(
         raise typer.BadParameter("Stdin upload requires a bucket destination.")
 
     if src_is_stdin and dst_is_bucket:
-        assert dst is not None
-        _, prefix = _parse_bucket_path(dst)
+        _, prefix = _parse_bucket_path(dst)  # type: ignore
         if prefix == "" or prefix.endswith("/"):
             raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
 
@@ -981,11 +985,12 @@ def cp(
             if not pbar_was_disabled:
                 disable_progress_bars()
             try:
-                with tempfile.TemporaryDirectory() as tmp_dir:
+                with SoftTemporaryDirectory() as tmp_dir:
                     tmp_path = os.path.join(tmp_dir, filename)
                     api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
                     with open(tmp_path, "rb") as f:
-                        sys.stdout.buffer.write(f.read())
+                        while chunk := f.read(32_000_000):  # 32MB chunks
+                            sys.stdout.buffer.write(chunk)
             finally:
                 if not pbar_was_disabled:
                     enable_progress_bars()
@@ -1016,7 +1021,7 @@ def cp(
 
     elif src_is_stdin:
         # Upload from stdin
-        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore
         data = sys.stdin.buffer.read()
 
         if quiet:
@@ -1035,7 +1040,7 @@ def cp(
         if not os.path.isfile(src):
             raise typer.BadParameter(f"Source file not found: {src}")
 
-        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore[arg-type]
+        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore
 
         if prefix == "":
             remote_path = os.path.basename(src)

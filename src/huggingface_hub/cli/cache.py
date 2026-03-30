@@ -21,7 +21,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import typer
 
@@ -280,7 +280,7 @@ def print_cache_entries_table(
         message = "No cached revisions found." if include_revisions else "No cached repositories found."
         print(message)
         return
-    table_rows: List[List[str]]
+    table_rows: List[List[Union[str, int]]]
     if include_revisions:
         headers = ["ID", "REVISION", "SIZE", "LAST_MODIFIED", "REFS"]
         table_rows = [
@@ -307,7 +307,7 @@ def print_cache_entries_table(
             for repo, _ in entries
         ]
 
-    print(tabulate(table_rows, headers=headers))  # type: ignore[arg-type]
+    print(tabulate(table_rows, headers=headers))
 
     unique_repos = {repo for repo, _ in entries}
     repo_count = len(unique_repos)

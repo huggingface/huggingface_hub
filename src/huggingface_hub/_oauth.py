@@ -167,7 +167,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         ) from e
     session_secret = (constants.OAUTH_CLIENT_SECRET or "") + "-v1"
     app.add_middleware(
-        SessionMiddleware,  # type: ignore[arg-type]
+        SessionMiddleware,  # type: ignore
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
         same_site="none",
         https_only=True,

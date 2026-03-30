@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.8.0.dev0"
+__version__ = "1.9.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -83,6 +83,7 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
+        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -858,6 +859,7 @@ __all__ = [
     "VisualQuestionAnsweringInputData",
     "VisualQuestionAnsweringOutputElement",
     "VisualQuestionAnsweringParameters",
+    "Volume",
     "WebhookInfo",
     "WebhookPayload",
     "WebhookPayloadComment",
@@ -1205,6 +1207,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401

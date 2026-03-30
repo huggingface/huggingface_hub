@@ -367,10 +367,10 @@ class ModelHubMixin:
         if is_simple_optional_type(expected_type):
             if value is None:
                 return None
-            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore[assignment]
+            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore
         # Dataclass => handle it
         if is_dataclass(expected_type):
-            return _load_dataclass(expected_type, value)  # type: ignore[return-value]
+            return _load_dataclass(expected_type, value)  # type: ignore
         # Otherwise => check custom decoders
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
             if inspect.isclass(expected_type) and issubclass(expected_type, type_):
@@ -820,6 +820,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
             safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
+        model.eval()  # type: ignore
         return model
 
 

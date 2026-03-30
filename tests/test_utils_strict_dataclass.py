@@ -222,6 +222,9 @@ def test_custom_validator_must_be_callable():
         (5, Optional[int]),
         (None, Optional[int]),
         (DummyClass(), Optional[DummyClass]),
+        # None type
+        (None, None),
+        (None, type(None)),  # types.NoneType only in 3.10+
         # Literal
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
@@ -291,6 +294,9 @@ def test_type_validator_valid(value, type_annotation):
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
+        # None type
+        (4, None),
+        (4, type(None)),  # types.NoneType only in 3.10+
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),

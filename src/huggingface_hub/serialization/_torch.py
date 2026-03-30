@@ -14,6 +14,7 @@
 """Contains pytorch-specific helpers."""
 
 import importlib
+import importlib.util
 import json
 import os
 import re

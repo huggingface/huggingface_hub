@@ -421,7 +421,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
-    def _open(  # type: ignore[override]
+    def _open(  # type: ignore
         self,
         path: str,
         mode: str = "rb",
@@ -1153,7 +1153,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         try:
             http_get(
                 url=self.url(resolve_remote_path.unresolve()),
-                temp_file=outfile,  # type: ignore[arg-type]
+                temp_file=outfile,  # type: ignore
                 displayed_filename=rpath,
                 expected_size=expected_size,
                 resume_size=0,

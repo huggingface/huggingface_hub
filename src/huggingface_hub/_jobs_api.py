@@ -15,11 +15,49 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
 from huggingface_hub.utils._datetime import parse_datetime
+
+
+@dataclass
+class Volume:
+    """
+    Describes a volume to mount in a Job container.
+
+    Args:
+        type (`str`):
+            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
+        source (`str`):
+            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
+        mount_path (`str`):
+            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
+        revision (`str` or `None`):
+            Git revision (only for repos, defaults to `"main"`).
+        read_only (`bool` or `None`):
+            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
+        path (`str` or `None`):
+            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
+    """
+
+    type: Literal["bucket", "model", "dataset", "space"]
+    source: str
+    mount_path: str
+    revision: Optional[str] = None
+    read_only: Optional[bool] = None
+    path: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs.get("type", "model")
+        self.source = kwargs["source"]
+        mount_path = kwargs.get("mountPath")
+        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
+        self.revision = kwargs.get("revision")
+        read_only = kwargs.get("readOnly")
+        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
+        self.path = kwargs.get("path")
 
 
 class JobStage(str, Enum):
@@ -84,6 +122,8 @@ class JobInfo:
             E.g. `"cpu-basic"`.
         labels (`dict[str, str]` or `None`):
             Labels to attach to the job (key-value pairs).
+        volumes (`list[Volume]` or `None`):
+            Volumes mounted in the job container (buckets, models, datasets, spaces).
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
@@ -119,6 +159,7 @@ class JobInfo:
     secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     labels: Optional[dict[str, str]]
+    volumes: Optional[list[Volume]]
     status: JobStatus
     owner: JobOwner
 
@@ -140,6 +181,8 @@ class JobInfo:
         self.secrets = kwargs.get("secrets")
         self.flavor = kwargs.get("flavor")
         self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
 
@@ -161,6 +204,7 @@ class JobSpec:
     tags: Optional[list[str]]
     arch: Optional[str]
     labels: Optional[dict[str, str]]
+    volumes: Optional[list[Volume]]
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -174,6 +218,8 @@ class JobSpec:
         self.tags = kwargs.get("tags")
         self.arch = kwargs.get("arch")
         self.labels = kwargs.get("labels")
+        volumes = kwargs.get("volumes")
+        self.volumes = [Volume(**v) for v in volumes] if volumes else None
 
 
 @dataclass
@@ -363,6 +409,7 @@ def _create_job_spec(
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
     labels: Optional[dict[str, str]] = None,
+    volumes: Optional[list[Volume]] = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -384,6 +431,19 @@ def _create_job_spec(
     # labels are optional
     if labels:
         job_spec["labels"] = labels
+    # volumes are optional
+    if volumes:
+        job_spec["volumes"] = [
+            {
+                "type": vol.type,
+                "source": vol.source,
+                "mountPath": vol.mount_path,
+                **({"revision": vol.revision} if vol.revision is not None else {}),
+                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
+                **({"path": vol.path} if vol.path is not None else {}),
+            }
+            for vol in volumes
+        ]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",
