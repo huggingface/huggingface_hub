@@ -19,7 +19,7 @@ import os
 import re
 import sys
 from enum import Enum
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, Union
 
 import typer
 
@@ -138,7 +138,7 @@ class Output:
             return
 
         if self.mode == OutputMode.human:
-            formatted_rows: list[list[str | int]] = [[_format_cell(v) for v in row] for row in rows]
+            formatted_rows: list[list[Union[str, int]]] = [[_format_cell(v) for v in row] for row in rows]
             screaming_headers = [_to_header(h) for h in headers]
             screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
             print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
