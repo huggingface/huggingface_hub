@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -119,41 +120,16 @@ def extension_install(
     if extension_exists:
         shutil.rmtree(extension_dir)
 
-    # Check if the repository has a root executable
-    try:
-        binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
-    except Exception:
-        binary = None
-
-    # Install extension as binary or Python
-    if binary is not None:
-        print("Binary found, installing as binary extension...")
-        manifest = _install_binary_extension(
-            owner=owner,
-            repo_name=repo_name,
-            short_name=short_name,
-            extension_dir=extension_dir,
-            binary=binary,
-        )
-        print(f"Binary extension installed successfully from {owner}/{repo_name}.")
-    else:
-        print("Binary not found, trying to install as Python extension...")
-        manifest = _install_python_extension(
-            owner=owner,
-            repo_name=repo_name,
-            short_name=short_name,
-            extension_dir=extension_dir,
-            branch=branch,
-        )
-        print(f"Python extension installed successfully from {owner}/{repo_name}.")
-
-    # Try to fetch a description from repo and save
-    description = _try_fetch_remote_description(
-        owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
+    manifest = _install_extension_from_github(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        extension_dir=extension_dir,
+        branch=branch,
+        description=description,
     )
-    manifest.description = description
-    manifest.save(extension_dir)
-
+    ext_type = manifest.type.capitalize()
+    print(f"{ext_type} extension installed successfully from {owner}/{repo_name}.")
     print(f"Run it with: hf {short_name}")
 
 
@@ -284,22 +260,85 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     command_name = args[0]
     if command_name.startswith("-"):
         return None
-    if command_name in known_commands:
+    all_known = {a.strip() for cmd in known_commands for a in cmd.split("|")}
+    if command_name in all_known:
         return None
 
     short_name = command_name[3:] if command_name.startswith("hf-") else command_name
     if not short_name:
         return None
 
+    executable_path: Optional[Path] = None
     try:
         executable_path = _resolve_installed_executable_path(short_name)
     except Exception:
-        return None
+        executable_path = _auto_install_huggingface_extension(short_name)
 
-    if not executable_path.is_file():
+    if executable_path is None or not executable_path.is_file():
         return None
 
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
+
+
+def _auto_install_huggingface_extension(short_name: str) -> Optional[Path]:
+    """Try to auto-install huggingface/hf-<name>. Returns executable path or None."""
+    owner, repo_name = DEFAULT_EXTENSION_OWNER, f"hf-{short_name}"
+    try:
+        extension_dir = _get_extension_dir(short_name)
+    except Exception:
+        return None
+    if extension_dir.exists():
+        return None
+    try:
+        response = get_session().get(
+            f"https://api.github.com/repos/{owner}/{repo_name}",
+            follow_redirects=True,
+            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        branch = response.json()["default_branch"]
+    except Exception:
+        return None
+    print(f"Installing extension '{short_name}' from {owner}/{repo_name}...", file=sys.stderr)
+    try:
+        manifest = _install_extension_from_github(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+        )
+        return Path(manifest.executable_path).expanduser()
+    except Exception:
+        shutil.rmtree(extension_dir, ignore_errors=True)
+        return None
+
+
+def _install_extension_from_github(
+    *,
+    owner: str,
+    repo_name: str,
+    short_name: str,
+    extension_dir: Path,
+    branch: str,
+    description: Optional[str] = None,
+) -> ExtensionManifest:
+    """Fetch, install (binary or Python), and save manifest for a GitHub extension."""
+    try:
+        binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
+    except Exception:
+        binary = None
+    if binary is not None:
+        manifest = _install_binary_extension(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, binary=binary
+        )
+    else:
+        manifest = _install_python_extension(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+        )
+    manifest.description = _try_fetch_remote_description(
+        owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
+    )
+    manifest.save(extension_dir)
+    return manifest
 
 
 def _fetch_remote_binary(owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
