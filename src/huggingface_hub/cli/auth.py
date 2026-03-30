@@ -161,11 +161,8 @@ def auth_whoami(
         raise typer.Exit(code=1)
 
     info = whoami(token)
-
-    if out.mode == OutputFormat.json:
-        out.dict(info)
-    else:
-        orgs = ",".join(org["name"] for org in info["orgs"])
-        out.result("Logged in", user=info["name"], orgs=orgs)
-        if ENDPOINT != "https://huggingface.co":
-            out.hint(f"Authenticated through private endpoint: {ENDPOINT}")
+    orgs = ",".join(org["name"] for org in info["orgs"])
+    out.dict(info)
+    out.result("Logged in", user=info["name"], orgs=orgs)
+    if ENDPOINT != "https://huggingface.co":
+        out.hint(f"Authenticated through private endpoint: {ENDPOINT}")

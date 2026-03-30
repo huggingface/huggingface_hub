@@ -15,7 +15,6 @@
 
 import datetime
 import json
-import os
 import re
 import sys
 from typing import Any, Optional, Sequence, Union
@@ -27,78 +26,21 @@ from huggingface_hub.utils import ANSI, is_agent, tabulate
 from ._cli_utils import OutputFormat
 
 
-_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
-
-_MAX_CELL_LENGTH = 35
-
-
-def _strip_ansi(text: str) -> str:
-    return _ANSI_RE.sub("", text)
-
-
-def _to_header(name: str) -> str:
-    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
-    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
-    return s.upper()
-
-
-def _format_value(value: Any) -> str:
-    """Convert a value to string for terminal display."""
-    if not value:
-        return ""
-    if isinstance(value, bool):
-        return "✔" if value else ""
-    if isinstance(value, datetime.datetime):
-        return value.strftime("%Y-%m-%d")
-    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
-        return value[:10]
-    if isinstance(value, list):
-        return ", ".join(_format_value(v) for v in value)
-    elif isinstance(value, dict):
-        if "name" in value:
-            return str(value["name"])
-        return json.dumps(value)
-    return str(value)
-
-
-def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value + truncate it for table display."""
-    cell = _format_value(value)
-    if len(cell) > max_len:
-        cell = cell[: max_len - 3] + "..."
-    return cell
-
-
 class Output:
     """Output sink for the `hf` CLI.
 
-    Mode resolution (first match wins):
-    1. Explicit `set_mode()` call (from a `--output` flag).
-    2. `HF_OUTPUT` environment variable.
-    3. `is_agent()` auto-detection → `agent` if detected, else `human`.
-
-    The resolved mode is cached after first access.
+    Mode is resolved once at init time based on `is_agent()` auto-detection
+    and can be overridden per-command via `set_mode()`.
     """
 
     def __init__(self) -> None:
-        self._mode: Optional[OutputFormat] = None
+        self.mode: OutputFormat = OutputFormat.agent if is_agent() else OutputFormat.human
 
-    @property
-    def mode(self) -> OutputFormat:
-        if self._mode is None or self._mode in (OutputFormat.auto, OutputFormat.table):
-            self._mode = self._resolve_mode()
-        return self._mode
-
-    def set_mode(self, mode: Optional[OutputFormat] = None) -> None:
-        """Set the output mode.  ``None``, ``auto``, and ``table`` trigger auto-detection."""
-        self._mode = mode
-
-    @staticmethod
-    def _resolve_mode() -> OutputFormat:
-        env = os.environ.get("HF_OUTPUT", "").strip().lower()
-        if env in ("human", "agent", "json", "quiet"):
-            return OutputFormat(env)
-        return OutputFormat.agent if is_agent() else OutputFormat.human
+    def set_mode(self, mode: OutputFormat) -> None:
+        """Override the output mode (called by commands that receive `--format`)."""
+        if mode in (OutputFormat.auto, OutputFormat.table):
+            return
+        self.mode = mode
 
     def text(self, human: str, agent: Optional[str] = None) -> None:
         """Print a free-form text message to stdout."""
@@ -131,25 +73,25 @@ class Output:
             return
 
         if self.mode == OutputFormat.human:
-            formatted_rows: list[list[Union[str, int]]] = [[_format_cell(v) for v in row] for row in rows]
+            formatted_rows: list[list[Union[str, int]]] = [[_format_table_cell(v) for v in row] for row in rows]
             screaming_headers = [_to_header(h) for h in headers]
             screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
             print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
         elif self.mode == OutputFormat.agent:
             print("\t".join(headers))
             for row in rows:
-                print("\t".join(self._format_agent_cell(v) for v in row))
+                print("\t".join(_format_agent_cell(v) for v in row))
         elif self.mode == OutputFormat.json:
             items = [dict(zip(headers, row)) for row in rows]
             print(json.dumps(items, default=str))
 
     def dict(self, data: dict[str, Any]) -> None:
-        """Print structured data as JSON to stdout."""
-        indent = 2 if self.mode == OutputFormat.human else None
-        print(json.dumps(data, indent=indent, default=str))
+        """Print structured data as JSON to stdout. Only prints in json mode."""
+        if self.mode == OutputFormat.json:
+            print(json.dumps(data, default=str))
 
     def result(self, message: str, **data: Any) -> None:
-        """Print a success summary to stdout."""
+        """Print a success summary to stdout. No-op in json mode (use ``dict()`` instead)."""
         if self.mode == OutputFormat.human:
             parts = [ANSI.green(f"✓ {message}")]
             for k, v in data.items():
@@ -159,8 +101,6 @@ class Output:
         elif self.mode == OutputFormat.agent:
             parts = [f"{k}={v}" for k, v in data.items() if v is not None]
             print(" ".join(parts) if parts else message)
-        elif self.mode == OutputFormat.json:
-            print(json.dumps(data, default=str) if data else "")
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""
@@ -196,14 +136,57 @@ class Output:
         else:
             print(f"Hint: {message}", file=sys.stderr)
 
-    @staticmethod
-    def _format_agent_cell(value: Any) -> str:
-        """Format a cell value for agent TSV output (lowercase bools, ISO timestamps)."""
-        if isinstance(value, bool):
-            return "true" if value else "false"
-        if isinstance(value, datetime.datetime):
-            return value.isoformat()
-        return str(value)
+
+# HELPERS
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+_MAX_CELL_LENGTH = 35
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+
+def _to_header(name: str) -> str:
+    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
+    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
+    return s.upper()
+
+
+def _format_table_value(value: Any) -> str:
+    """Convert a value to string for terminal display."""
+    if not value:
+        return ""
+    if isinstance(value, bool):
+        return "✔" if value else ""
+    if isinstance(value, datetime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
+        return value[:10]
+    if isinstance(value, list):
+        return ", ".join(_format_table_value(v) for v in value)
+    elif isinstance(value, dict):
+        if "name" in value:
+            return str(value["name"])
+        return json.dumps(value)
+    return str(value)
+
+
+def _format_table_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
+    """Format a value + truncate it for table display."""
+    cell = _format_table_value(value)
+    if len(cell) > max_len:
+        cell = cell[: max_len - 3] + "..."
+    return cell
+
+
+def _format_agent_cell(value: Any) -> str:
+    """Format a cell value for agent TSV output (lowercase bools, ISO timestamps)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, datetime.datetime):
+        return value.isoformat()
+    return str(value)
 
 
 out = Output()
