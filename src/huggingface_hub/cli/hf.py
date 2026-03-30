@@ -21,6 +21,7 @@ import typer
 from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
 from huggingface_hub.cli._errors import format_known_exception
+from huggingface_hub.cli._output import OutputMode, out
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
@@ -69,8 +70,11 @@ def app_callback(
     version: Annotated[
         Optional[bool], typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    output: Annotated[
+        Optional[OutputMode], typer.Option("--output", help="Output mode (human, agent, json).", hidden=True)
+    ] = None,
 ) -> None:
-    pass
+    out.set_mode(output)
 
 
 # top level single commands (defined in their respective files)
