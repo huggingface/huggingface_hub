@@ -180,8 +180,6 @@ class Output:
         """Print an error to stderr."""
         if self.mode == OutputMode.human:
             print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
-        elif self.mode == OutputMode.json:
-            print(json.dumps({"error": message}), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 

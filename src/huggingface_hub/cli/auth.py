@@ -153,8 +153,8 @@ def auth_whoami(
     format: FormatOpt = OutputFormat.table,
 ) -> None:
     """Find out which huggingface.co account you are logged in as."""
-    # Bridge legacy --format json to the new output mode system.
-    if format == OutputFormat.json:
+    # Bridge legacy --format json unless --output was explicitly set.
+    if format == OutputFormat.json and out._mode is None:
         out.set_mode(OutputMode.json)
 
     token = get_token()
