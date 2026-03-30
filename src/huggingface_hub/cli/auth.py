@@ -40,7 +40,7 @@ from huggingface_hub.hf_api import whoami
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
 from ._cli_utils import FormatOpt, OutputFormat, TokenOpt, typer_factory
-from ._output import OutputMode, out
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -150,12 +150,10 @@ def auth_list_cmd() -> None:
 
 @auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
 def auth_whoami(
-    format: FormatOpt = OutputFormat.table,
+    format: FormatOpt = OutputFormat.auto,
 ) -> None:
     """Find out which huggingface.co account you are logged in as."""
-    # Bridge legacy --format json unless --output was explicitly set.
-    if format == OutputFormat.json and out._mode is None:
-        out.set_mode(OutputMode.json)
+    out.set_mode(format)
 
     token = get_token()
     if token is None:
@@ -164,7 +162,7 @@ def auth_whoami(
 
     info = whoami(token)
 
-    if out.mode == OutputMode.json:
+    if out.mode == OutputFormat.json:
         out.dict(info)
     else:
         orgs = ",".join(org["name"] for org in info["orgs"])

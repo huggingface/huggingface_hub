@@ -18,12 +18,13 @@ import json
 import os
 import re
 import sys
-from enum import Enum
 from typing import Any, Optional, Sequence, Union
 
 import typer
 
 from huggingface_hub.utils import ANSI, is_agent, tabulate
+
+from ._cli_utils import OutputFormat
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
@@ -68,14 +69,6 @@ def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
     return cell
 
 
-class OutputMode(str, Enum):
-    """Output mode for the `hf` CLI."""
-
-    human = "human"
-    agent = "agent"
-    json = "json"
-
-
 class Output:
     """Output sink for the `hf` CLI.
 
@@ -88,30 +81,30 @@ class Output:
     """
 
     def __init__(self) -> None:
-        self._mode: Optional[OutputMode] = None
+        self._mode: Optional[OutputFormat] = None
 
     @property
-    def mode(self) -> OutputMode:
-        if self._mode is None:
+    def mode(self) -> OutputFormat:
+        if self._mode is None or self._mode in (OutputFormat.auto, OutputFormat.table):
             self._mode = self._resolve_mode()
         return self._mode
 
-    def set_mode(self, mode: Optional[OutputMode] = None) -> None:
-        """Set the output mode.  Pass `None` to reset to auto-detection."""
+    def set_mode(self, mode: Optional[OutputFormat] = None) -> None:
+        """Set the output mode.  ``None``, ``auto``, and ``table`` trigger auto-detection."""
         self._mode = mode
 
     @staticmethod
-    def _resolve_mode() -> OutputMode:
+    def _resolve_mode() -> OutputFormat:
         env = os.environ.get("HF_OUTPUT", "").strip().lower()
-        if env in OutputMode.__members__:
-            return OutputMode(env)
-        return OutputMode.agent if is_agent() else OutputMode.human
+        if env in ("human", "agent", "json", "quiet"):
+            return OutputFormat(env)
+        return OutputFormat.agent if is_agent() else OutputFormat.human
 
     def text(self, human: str, agent: Optional[str] = None) -> None:
         """Print a free-form text message to stdout."""
-        if self.mode == OutputMode.json:
+        if self.mode in (OutputFormat.json, OutputFormat.quiet):
             return
-        if self.mode == OutputMode.agent:
+        if self.mode == OutputFormat.agent:
             msg = agent if agent is not None else _strip_ansi(human)
         else:
             msg = human
@@ -131,54 +124,54 @@ class Output:
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
         """
         if not rows:
-            if self.mode == OutputMode.human:
+            if self.mode == OutputFormat.human:
                 print("No results found.")
-            elif self.mode == OutputMode.json:
+            elif self.mode == OutputFormat.json:
                 print("[]")
             return
 
-        if self.mode == OutputMode.human:
+        if self.mode == OutputFormat.human:
             formatted_rows: list[list[Union[str, int]]] = [[_format_cell(v) for v in row] for row in rows]
             screaming_headers = [_to_header(h) for h in headers]
             screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
             print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
-        elif self.mode == OutputMode.agent:
+        elif self.mode == OutputFormat.agent:
             print("\t".join(headers))
             for row in rows:
                 print("\t".join(self._format_agent_cell(v) for v in row))
-        elif self.mode == OutputMode.json:
+        elif self.mode == OutputFormat.json:
             items = [dict(zip(headers, row)) for row in rows]
             print(json.dumps(items, default=str))
 
     def dict(self, data: dict[str, Any]) -> None:
         """Print structured data as JSON to stdout."""
-        indent = 2 if self.mode == OutputMode.human else None
+        indent = 2 if self.mode == OutputFormat.human else None
         print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
-        if self.mode == OutputMode.human:
+        if self.mode == OutputFormat.human:
             parts = [ANSI.green(f"✓ {message}")]
             for k, v in data.items():
                 if v is not None:
                     parts.append(f"  {k}: {v}")
             print("\n".join(parts))
-        elif self.mode == OutputMode.agent:
+        elif self.mode == OutputFormat.agent:
             parts = [f"{k}={v}" for k, v in data.items() if v is not None]
             print(" ".join(parts) if parts else message)
-        elif self.mode == OutputMode.json:
+        elif self.mode == OutputFormat.json:
             print(json.dumps(data, default=str) if data else "")
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""
-        if self.mode == OutputMode.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.yellow(f"  Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr."""
-        if self.mode == OutputMode.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
@@ -187,7 +180,7 @@ class Output:
         """Interactive confirmation. Raises if in agent mode without ``--yes``."""
         if yes:
             return
-        if self.mode == OutputMode.human and sys.stdin.isatty():
+        if self.mode == OutputFormat.human and sys.stdin.isatty():
             choice = input(f"{message} [Y/n] ")
             if choice.lower() not in ("", "y", "yes"):
                 raise typer.Abort()
@@ -198,7 +191,7 @@ class Output:
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr."""
-        if self.mode == OutputMode.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.gray(f"  {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)
