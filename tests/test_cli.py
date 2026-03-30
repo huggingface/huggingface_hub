@@ -1863,7 +1863,7 @@ class TestPapersCommand:
         assert result.stdout.strip() == "2502.08025"
 
     def test_search_basic(self, runner: CliRunner) -> None:
-        paper = self._make_paper()
+        paper = self._make_paper(summary="A groundbreaking paper on attention mechanisms.")
         with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_papers.return_value = iter([paper])
@@ -1872,8 +1872,20 @@ class TestPapersCommand:
         assert result.exit_code == 0, result.output
         output = json.loads(result.stdout)
         assert output[0]["id"] == "2502.08025"
+        assert output[0]["summary"] == "A groundbreaking paper on attention mechanisms."
         _, kwargs = api.list_papers.call_args
         assert kwargs["query"] == "attention"
+
+    def test_search_table_includes_summary(self, runner: CliRunner) -> None:
+        paper = self._make_paper(summary="A groundbreaking paper on attention mechanisms.")
+        with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_papers.return_value = iter([paper])
+            result = runner.invoke(app, ["papers", "search", "attention"])
+
+        assert result.exit_code == 0, result.output
+        assert "SUMMARY" in result.output
+        assert "A groundbreaking paper on attention mechanisms." in result.output
 
     def test_search_with_limit(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.papers.get_hf_api") as api_cls:
