@@ -179,12 +179,13 @@ def papers_search(
     """Search papers on the Hub."""
     api = get_hf_api(token=token)
     results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
-    _HEADERS = ["id", "title", "upvotes", "published_at"]
+    _HEADERS = ["id", "title", "summary", "upvotes", "published_at"]
 
     def _paper_row(item: dict) -> list[str]:
         return [
             item.get("id", ""),
             _format_cell(item.get("title", ""), max_len=70),
+            _format_cell(item.get("summary", ""), max_len=70),
             str(item.get("upvotes", "")),
             _format_cell(item.get("published_at", "")),
         ]
