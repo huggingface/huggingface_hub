@@ -820,6 +820,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
             safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
+        model.eval()  # type: ignore
         return model
 
 
