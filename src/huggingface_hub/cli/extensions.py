@@ -272,7 +272,7 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     try:
         executable_path = _resolve_installed_executable_path(short_name)
     except Exception:
-        executable_path = _auto_install_huggingface_extension(short_name)
+        executable_path = _auto_install_official_extension(short_name)
 
     if executable_path is None or not executable_path.is_file():
         return None
@@ -280,7 +280,7 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
 
 
-def _auto_install_huggingface_extension(short_name: str) -> Optional[Path]:
+def _auto_install_official_extension(short_name: str) -> Optional[Path]:
     """Try to auto-install huggingface/hf-<name>. Returns executable path or None."""
     owner, repo_name = DEFAULT_EXTENSION_OWNER, f"hf-{short_name}"
     try:
