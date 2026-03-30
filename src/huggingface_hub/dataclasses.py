@@ -515,7 +515,13 @@ def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Literal type."""
-    if value not in args:
+    if isinstance(value, bool):
+        if value not in [arg for arg in args if isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif isinstance(value, int):
+        if value not in [arg for arg in args if isinstance(arg, int) and not isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif value not in args:
         raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
@@ -605,6 +611,10 @@ def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
+    if expected_type is int and isinstance(value, bool):
+        raise TypeError(
+            f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
+        )
     if not isinstance(value, expected_type):
         raise TypeError(
             f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
