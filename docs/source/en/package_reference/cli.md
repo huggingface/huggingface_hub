@@ -180,7 +180,7 @@ $ hf auth whoami [OPTIONS]
 
 **Options**:
 
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: auto]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -373,7 +373,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 * `-h, --human-readable`: Show sizes in human readable format.
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -547,7 +547,7 @@ $ hf cache list [OPTIONS]
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `--revisions / --no-revisions`: Include revisions in the output instead of aggregated repositories.  [default: no-revisions]
 * `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (repo IDs or revision hashes).
 * `--sort [accessed|accessed:asc|accessed:desc|modified|modified:asc|modified:desc|name|name:asc|name:desc|size|size:asc|size:desc]`: Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); 'name' defaults to 'asc' (alphabetical).
 * `--limit INTEGER`: Limit the number of results returned. Returns only the top N entries after sorting.
@@ -847,7 +847,7 @@ $ hf collections list [OPTIONS]
 * `--item TEXT`: Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").
 * `--sort [lastModified|trending|upvotes]`: Sort results by last modified, trending, or upvotes.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -996,7 +996,7 @@ $ hf datasets list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1029,7 +1029,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 
 * `--subset TEXT`: Filter parquet entries by subset/config.
 * `--split TEXT`: Filter parquet entries by split.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1061,7 +1061,7 @@ $ hf datasets sql [OPTIONS] SQL
 
 **Options**:
 
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1285,7 +1285,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1644,7 +1644,7 @@ $ hf endpoints list [OPTIONS]
 **Options**:
 
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1907,7 +1907,7 @@ $ hf extensions list [OPTIONS]
 
 **Options**:
 
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
@@ -1957,7 +1957,7 @@ $ hf extensions search [OPTIONS]
 
 **Options**:
 
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
@@ -2640,7 +2640,7 @@ $ hf models list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2721,7 +2721,7 @@ $ hf papers list [OPTIONS]
 * `--submitter TEXT`: Filter by username of the submitter.
 * `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2783,7 +2783,7 @@ $ hf papers search [OPTIONS] QUERY
 **Options**:
 
 * `--limit INTEGER`: Limit the number of results.  [default: 20]
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -3441,7 +3441,7 @@ $ hf spaces list [OPTIONS]
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -3761,7 +3761,7 @@ $ hf webhooks list [OPTIONS]
 
 **Options**:
 
-* `--format [auto|table|human|agent|json|quiet]`: Output format.  [default: table]
+* `--format [agent|auto|human|json|quiet|table]`: Output format.  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.

@@ -21,6 +21,7 @@ from typing import Any, Optional, Sequence, Union
 
 import typer
 
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, is_agent, tabulate
 
 from ._cli_utils import OutputFormat
@@ -125,8 +126,6 @@ class Output:
             if choice.lower() not in ("", "y", "yes"):
                 raise typer.Abort()
         else:
-            from huggingface_hub.errors import CLIError
-
             raise CLIError(f"{message} Use --yes to skip confirmation.")
 
     def hint(self, message: str) -> None:

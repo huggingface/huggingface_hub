@@ -570,16 +570,16 @@ def env_map_to_key_value_list(env_map: dict[str, Optional[str]]) -> Optional[lis
     return [{"key": k, "value": v or ""} for k, v in env_map.items()]
 
 
-# TODO: remove `table` when migrating all commandss to the new output framework and move OutputFormat to _output.py
+# TODO: remove `table` when migrating all commands to the new output framework and move OutputFormat to _output.py
 class OutputFormat(str, Enum):
     """Output format for CLI commands."""
 
-    auto = "auto"
-    table = "table"  # kept temporarily for backward compatibility
-    human = "human"
     agent = "agent"
+    auto = "auto"
+    human = "human"
     json = "json"
     quiet = "quiet"
+    table = "table"  # kept temporarily for backward compatibility
 
 
 FormatOpt = Annotated[
