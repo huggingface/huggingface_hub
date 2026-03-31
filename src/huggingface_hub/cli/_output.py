@@ -88,6 +88,9 @@ class Output:
             case AutoOutputFormat.json:
                 items = [dict(zip(headers, row)) for row in rows]
                 print(json.dumps(items, default=str))
+            case AutoOutputFormat.quiet:
+                for row in rows:
+                    print(row[0])
 
     def dict(self, data: dict[str, Any]) -> None:
         """Print structured data as JSON in all modes"""
