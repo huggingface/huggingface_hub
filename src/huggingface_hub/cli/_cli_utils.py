@@ -79,7 +79,7 @@ Learn more
 """
 
 
-TOPIC_T = Union[Literal["main", "help"], str]
+TOPIC_T = Literal["main", "help"] | str
 FallbackHandlerT = Callable[[list[str], set[str]], int | None]
 ExpandPropertyT = TypeVar("ExpandPropertyT", bound=str)
 
