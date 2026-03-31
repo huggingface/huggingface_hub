@@ -81,17 +81,15 @@ DiscussionNumArg = Annotated[
 
 
 def _format_status(status: str) -> str:
-    match status:
-        case "open":
-            return ANSI.green("open")
-        case "closed":
-            return ANSI.red("closed")
-        case "merged":
-            return ANSI.blue("merged")
-        case "draft":
-            return ANSI.yellow("draft")
-        case _:
-            return status
+    if status == "open":
+        return ANSI.green("open")
+    elif status == "closed":
+        return ANSI.red("closed")
+    elif status == "merged":
+        return ANSI.blue("merged")
+    elif status == "draft":
+        return ANSI.yellow("draft")
+    return status
 
 
 def _read_body(body: str | None, body_file: Path | None) -> str | None:

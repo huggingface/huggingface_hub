@@ -4,9 +4,9 @@ The v1.0 release is a major milestone for the `huggingface_hub` library. It mark
 
 This guide is intended to help you migrate your existing code to the new version. If you have any questions or feedback, please let us know by [opening an issue on GitHub](https://github.com/huggingface/huggingface_hub/issues).
 
-## Python 3.10+
+## Python 3.9+
 
-`huggingface_hub` now requires Python 3.10 or higher. Python 3.9 is no longer supported.
+`huggingface_hub` now requires Python 3.9 or higher. Python 3.8 is no longer supported.
 
 ## HTTPX migration
 

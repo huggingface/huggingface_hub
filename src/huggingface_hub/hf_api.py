@@ -3268,15 +3268,14 @@ class HfApi:
         >     - [`~utils.RevisionNotFoundError`]
         >       If the revision to download from cannot be found.
         """
-        match repo_type:
-            case None | "model":
-                method = self.model_info
-            case "dataset":
-                method = self.dataset_info  # type: ignore
-            case "space":
-                method = self.space_info  # type: ignore
-            case _:
-                raise ValueError("Unsupported repo type.")
+        if repo_type is None or repo_type == "model":
+            method = self.model_info
+        elif repo_type == "dataset":
+            method = self.dataset_info  # type: ignore
+        elif repo_type == "space":
+            method = self.space_info  # type: ignore
+        else:
+            raise ValueError("Unsupported repo type.")
         return method(
             repo_id,
             revision=revision,
