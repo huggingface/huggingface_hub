@@ -12704,6 +12704,16 @@ class HfApi:
                 progress_updater=[progress_updater] * len(non_zero_download_infos),
             )
 
+        # Truncate files to their expected size. The xet download writes bytes
+        # starting from offset 0 but does not truncate the file, so if the local
+        # file was previously larger than the remote, stale bytes remain at the end.
+        # See https://github.com/huggingface/huggingface_hub/issues/3995
+        for download_info in non_zero_download_infos:
+            dest_path = Path(download_info.destination_path)
+            if dest_path.stat().st_size > download_info.file_size:
+                with dest_path.open("r+b") as f:
+                    f.truncate(download_info.file_size)
+
     @validate_hf_hub_args
     def sync_bucket(
         self,

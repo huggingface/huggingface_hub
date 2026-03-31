@@ -289,6 +289,27 @@ def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read:
 
 
 @requires("hf_xet")
+def test_download_bucket_files_truncates_larger_local_file(api: HfApi, bucket_read: str, tmp_path):
+    """Test that download_bucket_files truncates a local file that is larger than the remote.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/3995.
+    When the local file is larger than the remote version, stale bytes should not
+    remain at the end after download.
+    """
+    local_path = tmp_path / "file.txt"
+
+    # Pre-create a local file that is larger than the remote "file.txt" (which contains b"content")
+    local_path.write_bytes(b"x" * 100)
+    assert local_path.stat().st_size == 100
+
+    # Download remote file (b"content" = 7 bytes) over the larger local file
+    api.download_bucket_files(bucket_read, [("file.txt", str(local_path))])
+
+    # File should be exactly the remote content, with no trailing stale bytes
+    assert local_path.read_bytes() == b"content"
+
+
+@requires("hf_xet")
 def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, bucket_read: str, tmp_path):
     """Test that download_bucket_files raises when raise_on_missing_files=True."""
     files = [
