@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +13,7 @@
 # limitations under the License.
 """Contains utilities to handle pagination on Huggingface Hub."""
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 import httpx
 
@@ -48,5 +47,5 @@ def paginate(path: str, params: dict, headers: dict) -> Iterable:
         next_page = _get_next_page(r)
 
 
-def _get_next_page(response: httpx.Response) -> Optional[str]:
+def _get_next_page(response: httpx.Response) -> str | None:
     return response.links.get("next", {}).get("url")

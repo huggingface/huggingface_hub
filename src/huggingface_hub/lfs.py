@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +15,11 @@
 
 import io
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import TYPE_CHECKING, BinaryIO, Iterable, Optional, TypedDict
+from typing import TYPE_CHECKING, BinaryIO, TypedDict
 from urllib.parse import unquote
 
 from huggingface_hub import constants
@@ -73,7 +73,7 @@ class UploadInfo:
     @classmethod
     def from_path(cls, path: str):
         size = getsize(path)
-        with io.open(path, "rb") as file:
+        with open(path, "rb") as file:
             sample = file.peek(512)[:512]
             sha = sha_fileobj(file)
         return cls(size=size, sha256=sha, sample=sample)
@@ -96,14 +96,14 @@ class UploadInfo:
 @validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
-    token: Optional[str],
+    token: str | None,
     repo_type: str,
     repo_id: str,
-    revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    headers: Optional[dict[str, str]] = None,
-    transfers: Optional[list[str]] = None,
-) -> tuple[list[dict], list[dict], Optional[str]]:
+    revision: str | None = None,
+    endpoint: str | None = None,
+    headers: dict[str, str] | None = None,
+    transfers: list[str] | None = None,
+) -> tuple[list[dict], list[dict], str | None]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
 
@@ -195,9 +195,9 @@ class CompletionPayloadT(TypedDict):
 def lfs_upload(
     operation: "CommitOperationAdd",
     lfs_batch_action: dict,
-    token: Optional[str] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
 ) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.

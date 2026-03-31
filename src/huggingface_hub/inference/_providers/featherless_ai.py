@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -16,13 +16,13 @@ class FeatherlessTextGenerationTask(BaseTextGenerationTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         params = filter_none(parameters.copy())
         params["max_tokens"] = params.pop("max_new_tokens", None)
 
         return {"prompt": inputs, **params, "model": provider_mapping_info.provider_id}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
             "generated_text": output["text"],

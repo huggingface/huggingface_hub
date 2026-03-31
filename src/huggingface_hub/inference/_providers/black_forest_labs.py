@@ -1,5 +1,5 @@
 import time
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -30,7 +30,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
@@ -39,7 +39,7 @@ class BlackForestLabsTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         """
         Polling mechanism for Black Forest Labs since the API is asynchronous.
         """

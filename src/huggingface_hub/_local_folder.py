@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2024-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,7 +55,6 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from .utils import WeakFileLock
 
@@ -151,11 +149,11 @@ class LocalUploadFileMetadata:
     size: int
 
     # Default values correspond to "we don't know yet"
-    timestamp: Optional[float] = None
-    should_ignore: Optional[bool] = None
-    sha256: Optional[str] = None
-    upload_mode: Optional[str] = None
-    remote_oid: Optional[str] = None
+    timestamp: float | None = None
+    should_ignore: bool | None = None
+    sha256: str | None = None
+    upload_mode: str | None = None
+    remote_oid: str | None = None
     is_uploaded: bool = False
     is_committed: bool = False
 
@@ -273,7 +271,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDownloadFileMetadata]:
+def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:

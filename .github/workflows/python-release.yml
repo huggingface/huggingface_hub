@@ -5,9 +5,6 @@ on:
     tags:
       - v*
 
-env:
-  PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
-
 jobs:
   python_release:
     runs-on: ubuntu-latest
@@ -17,7 +14,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: 3.9
+          python-version: "3.10"
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -29,5 +26,8 @@ jobs:
           pip install twine
 
       - name: Upload to PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
         run: |
-          twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
+          twine upload dist/*

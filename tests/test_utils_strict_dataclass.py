@@ -215,9 +215,12 @@ def test_custom_validator_must_be_callable():
         (5, int),
         (5.0, float),
         ("John", str),
+        (True, bool),
+        (False, bool),
         # Union types (typing.Union)
         (5, Union[int, str]),
         ("John", Union[int, str]),
+        (True, Union[bool, str]),
         # Optional
         (5, Optional[int]),
         (None, Optional[int]),
@@ -228,9 +231,12 @@ def test_custom_validator_must_be_callable():
         # Literal
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
+        (True, Literal[True, False]),
+        (False, Literal[True, False]),
         # List
         ([1, 2, 3], list[int]),
         ([1, 2, "3"], list[Union[int, str]]),
+        ([True, False], list[bool]),
         # Tuple
         ((1, 2, 3), tuple[int, int, int]),
         ((1, 2, "3"), tuple[int, int, str]),
@@ -290,10 +296,13 @@ def test_type_validator_valid(value, type_annotation):
         (5, float),
         (5.0, int),
         ("John", int),
+        (True, int),
+        (False, int),
         # Union types (typing.Union)
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
+        (True, Union[int, str]),
         # None type
         (4, None),
         (4, type(None)),  # types.NoneType only in 3.10+
@@ -303,6 +312,10 @@ def test_type_validator_valid(value, type_annotation):
         # Literal
         ("Ada", Literal["John", "Doe"]),
         (3, Literal[4, 5, 6]),
+        (True, Literal[1, 2, 3]),
+        (False, Literal[0, 1, 2]),
+        (1, Literal[True, False]),
+        (0, Literal[True, False]),
         # List
         (5, list[int]),
         ([1, 2, "3"], list[int]),
@@ -325,6 +338,12 @@ def test_type_validator_valid(value, type_annotation):
         # Sequence without type parameter
         (5, Sequence),  # not a sequence
         ({1, 2, 3}, Sequence),  # set is not a sequence
+        # Bool should not be accepted as int in containers
+        ([True, 1], list[int]),
+        ((True,), tuple[int]),
+        ({True}, set[int]),
+        ({"a": True}, dict[str, int]),
+        ([True], Sequence[int]),
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),

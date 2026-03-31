@@ -16,7 +16,6 @@
 import os
 import shutil
 import sys
-from typing import Optional, Union
 
 
 class StatusLine:
@@ -90,9 +89,9 @@ class ANSI:
 
 
 def tabulate(
-    rows: list[list[Union[str, int]]],
+    rows: list[list[str | int]],
     headers: list[str],
-    alignments: Optional[dict[str, str]] = None,
+    alignments: dict[str, str] | None = None,
 ) -> str:
     """
     Inspired by:
