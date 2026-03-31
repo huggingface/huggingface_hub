@@ -19,7 +19,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -268,7 +267,7 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     if not short_name:
         return None
 
-    executable_path: Optional[Path] = None
+    executable_path: Path | None = None
     try:
         executable_path = _resolve_installed_executable_path(short_name)
     except Exception:
@@ -280,7 +279,7 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
 
 
-def _auto_install_official_extension(short_name: str) -> Optional[Path]:
+def _auto_install_official_extension(short_name: str) -> Path | None:
     """Try to auto-install huggingface/hf-<name>. Returns executable path or None."""
     owner, repo_name = DEFAULT_EXTENSION_OWNER, f"hf-{short_name}"
     try:
@@ -301,7 +300,8 @@ def _auto_install_official_extension(short_name: str) -> Optional[Path]:
         branch = response.json()["default_branch"]
     except Exception:
         return None
-    print(f"Installing extension '{short_name}' from {owner}/{repo_name}...", file=sys.stderr)
+    if not typer.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?"):
+        return None
     try:
         manifest = _install_extension_from_github(
             owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
@@ -319,7 +319,7 @@ def _install_extension_from_github(
     short_name: str,
     extension_dir: Path,
     branch: str,
-    description: Optional[str] = None,
+    description: str | None = None,
 ) -> ExtensionManifest:
     """Fetch, install (binary or Python), and save manifest for a GitHub extension."""
     try:
