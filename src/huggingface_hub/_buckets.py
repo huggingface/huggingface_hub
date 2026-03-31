@@ -837,19 +837,20 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
         delete_paths: list[str] = []
 
         for op in plan.operations:
-            if op.action == "upload":
-                local_file = os.path.join(local_path, op.path)
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Uploading: {op.path} ({op.reason})")
-                add_files.append((local_file, remote_path))
-            elif op.action == "delete":
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Deleting: {op.path} ({op.reason})")
-                delete_paths.append(remote_path)
-            elif op.action == "skip" and verbose:
-                print(f"  Skipping: {op.path} ({op.reason})")
+            match op.action:
+                case "upload":
+                    local_file = os.path.join(local_path, op.path)
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Uploading: {op.path} ({op.reason})")
+                    add_files.append((local_file, remote_path))
+                case "delete":
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Deleting: {op.path} ({op.reason})")
+                    delete_paths.append(remote_path)
+                case "skip" if verbose:
+                    print(f"  Skipping: {op.path} ({op.reason})")
 
         # Execute batch operations
         if add_files or delete_paths:
