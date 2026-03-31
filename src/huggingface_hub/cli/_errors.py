@@ -35,7 +35,7 @@ def _format_repo_not_found(error: RepositoryNotFoundError) -> str:
         msg = f"{label} '{error.repo_id}' not found."
     else:
         msg = f"{label} not found."
-    msg += " If the repo is private, make sure you are authenticated and that the token you're using has the right access."
+    msg += " If the repo is private, make sure you are authenticated and your token has the required permissions"
     return msg
 
 
@@ -48,8 +48,8 @@ def _format_gated_repo(error: GatedRepoError) -> str:
 
 def _format_bucket_not_found(error: BucketNotFoundError) -> str:
     if error.bucket_id:
-        return f"Bucket '{error.bucket_id}' not found. If the bucket is private, make sure you are authenticated and that the token you're using has the right access."
-    return "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated and that the token you're using has the right access."
+        return f"Bucket '{error.bucket_id}' not found. If the bucket is private, make sure you are authenticated and your token has the required permissions."
+    return "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated and your token has the required permissions."
 
 
 def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:

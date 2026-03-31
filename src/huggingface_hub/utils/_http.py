@@ -815,7 +815,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + "\n\n"
                 + f"Bucket Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct bucket id (namespace/name)."
-                + "\nIf the bucket is private, make sure you are authenticated and that the token you're using has the right access."
+                + "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
             )
             bucket_err = _format(BucketNotFoundError, message, response)
             bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
@@ -838,7 +838,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] =
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
                 " `repo_type`.\nIf you are trying to access a private or gated repo,"
-                " make sure you are authenticated and that the token you're using has the right access."
+                " make sure you are authenticated and your token has the required permissions."
                 + "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             )
             repo_err = _format(RepositoryNotFoundError, message, response)
