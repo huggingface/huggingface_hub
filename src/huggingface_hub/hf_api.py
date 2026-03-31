@@ -4527,9 +4527,9 @@ class HfApi:
 
         > [!WARNING]
         > `create_commit` assumes that the repo already exists on the Hub. If you get a
-        > Client error 404, please make sure you are authenticated and that `repo_id` and
-        > `repo_type` are set correctly. If repo does not exist, create it first using
-        > [`~hf_api.create_repo`].
+        > Client error 404, please make sure you are authenticated, that the token you're using has the right access,
+        > and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        > create it first using [`~hf_api.create_repo`].
 
         > [!WARNING]
         > `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
@@ -5072,9 +5072,9 @@ class HfApi:
 
         > [!WARNING]
         > `upload_file` assumes that the repo already exists on the Hub. If you get a
-        > Client error 404, please make sure you are authenticated and that `repo_id` and
-        > `repo_type` are set correctly. If repo does not exist, create it first using
-        > [`~hf_api.create_repo`].
+        > Client error 404, please make sure you are authenticated, that the token you're using has the right access,
+        > and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        > create it first using [`~hf_api.create_repo`].
 
         Example:
 
