@@ -1642,7 +1642,6 @@ class TestAuthWhoamiCommand:
         parsed = json.loads(result.stdout)
         assert parsed["user"] == "testuser"
         assert parsed["orgs"] == "org1,org2"
-        assert parsed["orgs"] == "org1,org2"
 
     def test_whoami_not_logged_in(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
