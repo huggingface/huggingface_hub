@@ -45,7 +45,7 @@ Usage:
 import datetime
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
@@ -70,7 +70,7 @@ _SORT_OPTIONS = get_args(DailyPapersSort_T)
 PaperSortEnum = enum.Enum("PaperSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
 
 
-def _parse_date(value: Optional[str]) -> Optional[str]:
+def _parse_date(value: str | None) -> str | None:
     """Parse date option, converting 'today' to current date."""
     if value is None:
         return None
@@ -95,26 +95,26 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
 )
 def papers_ls(
     date: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Date in ISO format (YYYY-MM-DD) or 'today'.",
             callback=_parse_date,
         ),
     ] = None,
     week: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="ISO week to filter by, e.g. '2025-W09'."),
     ] = None,
     month: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'."),
     ] = None,
     submitter: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter by username of the submitter."),
     ] = None,
     sort: Annotated[
-        Optional[PaperSortEnum],
+        PaperSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
@@ -179,12 +179,13 @@ def papers_search(
     """Search papers on the Hub."""
     api = get_hf_api(token=token)
     results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
-    _HEADERS = ["id", "title", "upvotes", "published_at"]
+    _HEADERS = ["id", "title", "summary", "upvotes", "published_at"]
 
     def _paper_row(item: dict) -> list[str]:
         return [
             item.get("id", ""),
             _format_cell(item.get("title", ""), max_len=70),
+            _format_cell(item.get("summary", ""), max_len=70),
             str(item.get("upvotes", "")),
             _format_cell(item.get("published_at", "")),
         ]

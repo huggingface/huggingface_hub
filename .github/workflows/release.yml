@@ -251,7 +251,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - name: Install build dependencies
         run: pip install setuptools wheel twine
       - name: Build package

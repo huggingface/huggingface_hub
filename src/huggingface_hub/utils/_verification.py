@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from .. import constants
 from ..file_download import repo_folder_name
@@ -43,7 +43,7 @@ def collect_local_files(root: Path) -> dict[str, Path]:
     return {p.relative_to(root).as_posix(): p for p in root.rglob("*") if p.is_file()}
 
 
-def _resolve_commit_hash_from_cache(storage_folder: Path, revision: Optional[str]) -> str:
+def _resolve_commit_hash_from_cache(storage_folder: Path, revision: str | None) -> str:
     """
     Resolve a commit hash from a cache repo folder and an optional revision.
     """
@@ -141,9 +141,9 @@ def resolve_local_root(
     *,
     repo_id: str,
     repo_type: str,
-    revision: Optional[str],
-    cache_dir: Optional[Path],
-    local_dir: Optional[Path],
+    revision: str | None,
+    cache_dir: Path | None,
+    local_dir: Path | None,
 ) -> tuple[Path, str]:
     """
     Resolve the root directory to scan locally and the remote revision to verify.

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2025-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,9 +18,10 @@ import re
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Annotated, Any
 
 import typer
 
@@ -95,8 +95,8 @@ class CacheDeletionCounts:
     total_revision_count: int
 
 
-CacheEntry = Tuple[CachedRepoInfo, Optional[CachedRevisionInfo]]
-RepoRefsMap = Dict[CachedRepoInfo, frozenset[str]]
+CacheEntry = tuple[CachedRepoInfo, CachedRevisionInfo | None]
+RepoRefsMap = dict[CachedRepoInfo, frozenset[str]]
 
 
 def summarize_deletions(
@@ -134,9 +134,9 @@ def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, fro
 
 def build_cache_index(
     hf_cache_info: HFCacheInfo,
-) -> Tuple[
-    Dict[str, CachedRepoInfo],
-    Dict[str, Tuple[CachedRepoInfo, CachedRevisionInfo]],
+) -> tuple[
+    dict[str, CachedRepoInfo],
+    dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]],
 ]:
     """Create lookup tables so CLI commands can resolve repo ids and revisions quickly."""
     repo_lookup: dict[str, CachedRepoInfo] = {}
@@ -151,9 +151,9 @@ def build_cache_index(
 
 def collect_cache_entries(
     hf_cache_info: HFCacheInfo, *, include_revisions: bool
-) -> Tuple[List[CacheEntry], RepoRefsMap]:
+) -> tuple[list[CacheEntry], RepoRefsMap]:
     """Flatten cache metadata into rows consumed by `hf cache ls`."""
-    entries: List[CacheEntry] = []
+    entries: list[CacheEntry] = []
     repo_refs_map: RepoRefsMap = {}
     sorted_repos = sorted(hf_cache_info.repos, key=lambda repo: (repo.repo_type, repo.repo_id.lower()))
     for repo in sorted_repos:
@@ -177,7 +177,7 @@ def collect_cache_entries(
 
 def compile_cache_filter(
     expr: str, repo_refs_map: RepoRefsMap
-) -> Callable[[CachedRepoInfo, Optional[CachedRevisionInfo], float], bool]:
+) -> Callable[[CachedRepoInfo, CachedRevisionInfo | None, float], bool]:
     """Convert a `hf cache ls` filter expression into the yes/no test we apply to each cache entry before displaying it."""
     match = _FILTER_PATTERN.match(expr.strip())
     if not match:
@@ -204,7 +204,7 @@ def compile_cache_filter(
     if key in {"modified", "accessed"}:
         seconds = parse_duration(value_raw.strip())
 
-        def _time_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], now: float) -> bool:
+        def _time_filter(repo: CachedRepoInfo, revision: CachedRevisionInfo | None, now: float) -> bool:
             timestamp = (
                 repo.last_accessed
                 if key == "accessed"
@@ -224,7 +224,7 @@ def compile_cache_filter(
         if op != "=":
             raise ValueError(f"Only '=' is supported for 'type' filters. Got '{op}'.")
 
-        def _type_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
+        def _type_filter(repo: CachedRepoInfo, revision: CachedRevisionInfo | None, _: float) -> bool:
             return repo.repo_type.lower() == expected
 
         return _type_filter
@@ -233,7 +233,7 @@ def compile_cache_filter(
         if op != "=":
             raise ValueError(f"Only '=' is supported for 'refs' filters. Got {op}.")
 
-        def _refs_filter(repo: CachedRepoInfo, revision: Optional[CachedRevisionInfo], _: float) -> bool:
+        def _refs_filter(repo: CachedRepoInfo, revision: CachedRevisionInfo | None, _: float) -> bool:
             refs = revision.refs if revision is not None else repo_refs_map.get(repo, frozenset())
             return value_raw.lower() in [ref.lower() for ref in refs]
 
@@ -241,15 +241,15 @@ def compile_cache_filter(
 
 
 def _build_cache_export_payload(
-    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
-) -> List[Dict[str, Any]]:
+    entries: list[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+) -> list[dict[str, Any]]:
     """Normalize cache entries into serializable records for JSON/CSV exports."""
-    payload: List[Dict[str, Any]] = []
+    payload: list[dict[str, Any]] = []
     for repo, revision in entries:
         if include_revisions:
             if revision is None:
                 continue
-            record: Dict[str, Any] = {
+            record: dict[str, Any] = {
                 "repo_id": repo.repo_id,
                 "repo_type": repo.repo_type,
                 "revision": revision.commit_hash,
@@ -273,14 +273,14 @@ def _build_cache_export_payload(
 
 
 def print_cache_entries_table(
-    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+    entries: list[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
     """Render cache entries as a table and show a human-readable summary."""
     if not entries:
         message = "No cached revisions found." if include_revisions else "No cached repositories found."
         print(message)
         return
-    table_rows: List[List[Union[str, int]]]
+    table_rows: list[list[str | int]]
     if include_revisions:
         headers = ["ID", "REVISION", "SIZE", "LAST_MODIFIED", "REFS"]
         table_rows = [
@@ -323,7 +323,7 @@ def print_cache_entries_table(
 
 
 def print_cache_entries_json(
-    entries: List[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
+    entries: list[CacheEntry], *, include_revisions: bool, repo_refs_map: RepoRefsMap
 ) -> None:
     """Dump cache entries as JSON for scripting or automation."""
     payload = _build_cache_export_payload(entries, include_revisions=include_revisions, repo_refs_map=repo_refs_map)
@@ -331,7 +331,7 @@ def print_cache_entries_json(
     sys.stdout.write("\n")
 
 
-def _compare_numeric(left: Optional[float], op: str, right: float) -> bool:
+def _compare_numeric(left: float | None, op: str, right: float) -> bool:
     """Evaluate numeric comparisons for filters."""
     if left is None:
         return False
@@ -460,7 +460,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 )
 def ls(
     cache_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
@@ -472,7 +472,7 @@ def ls(
         ),
     ] = False,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -494,7 +494,7 @@ def ls(
         ),
     ] = False,
     sort: Annotated[
-        Optional[SortOptions],
+        SortOptions | None,
         typer.Option(
             help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
             "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
@@ -503,7 +503,7 @@ def ls(
         ),
     ] = None,
     limit: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
@@ -569,7 +569,7 @@ def rm(
         ),
     ],
     cache_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
@@ -639,7 +639,7 @@ def rm(
 @cache_cli.command(examples=["hf cache prune", "hf cache prune --dry-run"])
 def prune(
     cache_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
@@ -715,13 +715,13 @@ def verify(
     repo_type: RepoTypeOpt = RepoTypeOpt.model,
     revision: RevisionOpt = None,
     cache_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
         ),
     ] = None,
     local_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If set, verify files under this directory instead of the cache.",
         ),

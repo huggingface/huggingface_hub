@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
-
-from typing import Optional, Union
 
 from huggingface_hub.errors import LocalTokenNotFoundError
 
@@ -32,11 +29,11 @@ from ._validators import validate_hf_hub_args
 @validate_hf_hub_args
 def build_hf_headers(
     *,
-    token: Optional[Union[bool, str]] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[dict, str, None] = None,
-    headers: Optional[dict[str, str]] = None,
+    token: bool | str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Build headers dictionary to send in a HF Hub call.
@@ -124,7 +121,7 @@ def build_hf_headers(
     return hf_headers
 
 
-def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
+def get_token_to_send(token: bool | str | None) -> str | None:
     """Select the token to send from either `token` or the cache."""
     # Case token is explicitly provided
     if isinstance(token, str):
@@ -158,9 +155,9 @@ def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
 
 def _http_user_agent(
     *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[dict, str, None] = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
 ) -> str:
     """Format a user-agent string containing information about the installed packages.
 

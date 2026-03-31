@@ -35,7 +35,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
@@ -75,17 +75,17 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 )
 def collections_ls(
     owner: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter by owner username or organization."),
     ] = None,
     item: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help='Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").'
         ),
     ] = None,
     sort: Annotated[
-        Optional[CollectionSort],
+        CollectionSort | None,
         typer.Option(help="Sort results by last modified, trending, or upvotes."),
     ] = None,
     limit: LimitOpt = 10,
@@ -135,11 +135,11 @@ def collections_info(
 def collections_create(
     title: Annotated[str, typer.Argument(help="The title of the collection.")],
     namespace: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The namespace (username or organization). Defaults to the authenticated user."),
     ] = None,
     description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A description for the collection."),
     ] = None,
     private: Annotated[
@@ -176,23 +176,23 @@ def collections_create(
 def collections_update(
     collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     title: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The new title for the collection."),
     ] = None,
     description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The new description for the collection."),
     ] = None,
     position: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(help="The new position of the collection in the owner's list."),
     ] = None,
     private: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(help="Whether the collection should be private."),
     ] = None,
     theme: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
     token: TokenOpt = None,
@@ -250,7 +250,7 @@ def collections_add_item(
         typer.Argument(help="The type of item (model, dataset, space, paper, or collection)."),
     ],
     note: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A note to attach to the item (max 500 characters)."),
     ] = None,
     exists_ok: Annotated[
@@ -286,11 +286,11 @@ def collections_update_item(
         typer.Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
     ],
     note: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A new note for the item (max 500 characters)."),
     ] = None,
     position: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(help="The new position of the item in the collection."),
     ] = None,
     token: TokenOpt = None,
