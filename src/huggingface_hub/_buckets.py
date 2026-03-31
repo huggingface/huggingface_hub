@@ -120,6 +120,21 @@ class _BucketAddFile:
 
 
 @dataclass
+class _BucketUpdateFile:
+    path: str
+
+    xet_hash: Optional[str] = field(default=None)
+    size: Optional[int] = field(default=None)
+    mtime: int = field(init=False)
+    content_type: Optional[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        # guess content type from file path
+        self.content_type = mimetypes.guess_type(self.path)[0]
+        self.mtime = int(time.time() * 1000)
+
+
+@dataclass
 class _BucketDeleteFile:
     path: str
 

@@ -60,6 +60,7 @@ from ._buckets import (
     SyncPlan,
     _BucketAddFile,
     _BucketDeleteFile,
+    _BucketUpdateFile,
     _split_bucket_id_and_prefix,
     sync_bucket_internal,
 )
@@ -2012,6 +2013,16 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+
+@dataclass
+class FileRange:
+    start: int
+    end: int
+    content: bytes
+
+def __post_init__(self):
+    if len(self.content) != self.end - self.start:
+        raise ValueError("FileRange content should have length = end-start")
 
 
 class HfApi:
@@ -12592,6 +12603,96 @@ class HfApi:
                     }
                 yield json.dumps(payload).encode()
                 yield b"\n"
+
+        headers = {
+            "Content-Type": "application/x-ndjson",
+            **headers,
+        }
+        data = b"".join(_payload_as_ndjson())
+
+        response = http_backoff(
+            "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
+        )
+        hf_raise_for_status(response)
+
+    def _batch_bucket_file_ranges(
+        self,
+        bucket_id: str,
+        path: str,
+        *,
+        ranges: list[FileRange] = None,
+        token: Union[str, bool, None] = None,
+    ):
+        """Internal method: process a single batch of bucket file ranges (upload to XET + call /batch)."""
+        if not ranges:
+            return
+
+        try:
+            from hf_xet import PyRange, upload_ranges
+        except Exception:
+            raise ImportError("Bucket file ranges uploads require hf_xet from https://github.com/lhoestq/xet-core/tree/lhoestq/py-upload_ranges")
+
+        # Convert public API inputs to internal operation objects
+        pyranges: list[PyRange] = [PyRange(r.start, r.end, r.content) for r in ranges]
+
+        headers = self._build_hf_headers(token=token)
+
+        path_info = list(self.get_bucket_paths_info(bucket_id=bucket_id, paths=[path], token=token))[0]
+
+        try:
+            xet_connection_info = fetch_xet_connection_info_from_repo_info(
+                token_type=XetTokenType.WRITE,
+                repo_id=bucket_id,
+                repo_type="bucket",
+                headers=headers,
+                endpoint=self.endpoint,
+            )
+        except HfHubHTTPError as e:
+            if e.response.status_code == 401:
+                raise XetAuthorizationError(
+                    f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                    f"Please check that you have configured your access token with write access to the repo."
+                ) from e
+            raise
+
+        xet_endpoint = xet_connection_info.endpoint
+        access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
+
+        def token_refresher() -> tuple[str, int]:
+            new_xet_connection = fetch_xet_connection_info_from_repo_info(
+                token_type=XetTokenType.WRITE,
+                repo_id=bucket_id,
+                repo_type="bucket",
+                headers=headers,
+                endpoint=self.endpoint,
+            )
+            if new_xet_connection is None:
+                raise XetRefreshTokenError("Failed to refresh xet token")
+            return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+
+        # 2. Upload file ranges
+        xet_file_info = upload_ranges(
+            path_info.xet_hash,
+            path_info.size,
+            pyranges,
+            xet_endpoint,
+            access_token_info,
+            token_refresher,
+        )
+        op = _BucketUpdateFile(path=path, xet_hash=xet_file_info.hash, size=xet_file_info.file_size)
+
+        # 3. /batch call
+        def _payload_as_ndjson() -> Iterable[bytes]:
+            payload = {
+                "type": "addFile",
+                "path": op.path,
+                "xetHash": op.xet_hash,
+                "mtime": op.mtime,
+            }
+            if op.content_type is not None:
+                payload["contentType"] = op.content_type
+            yield json.dumps(payload).encode()
+            yield b"\n"
 
         headers = {
             "Content-Type": "application/x-ndjson",
