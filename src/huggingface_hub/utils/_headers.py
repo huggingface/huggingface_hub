@@ -17,6 +17,7 @@ from huggingface_hub.errors import LocalTokenNotFoundError
 
 from .. import constants
 from ._auth import get_token
+from ._detect_agent import detect_agent
 from ._runtime import (
     get_hf_hub_version,
     get_python_version,
@@ -182,6 +183,10 @@ def _http_user_agent(
     if not constants.HF_HUB_DISABLE_TELEMETRY:
         if is_torch_available():
             ua += f"; torch/{get_torch_version()}"
+
+        agent = detect_agent()
+        if agent:
+            ua += f"; agent/{agent}"
 
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
