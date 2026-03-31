@@ -35,7 +35,7 @@ def _format_repo_not_found(error: RepositoryNotFoundError) -> str:
         msg = f"{label} '{error.repo_id}' not found."
     else:
         msg = f"{label} not found."
-    msg += " If the repo is private, make sure you are authenticated and your token has the required permissions"
+    msg += " If the repo is private, make sure you are authenticated and your token has the required permissions."
     return msg
 
 
