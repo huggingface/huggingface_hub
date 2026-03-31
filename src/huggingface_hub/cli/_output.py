@@ -90,12 +90,12 @@ class Output:
                 print(json.dumps(items, default=str))
 
     def dict(self, data: dict[str, Any]) -> None:
-        """Print structured data as JSON to stdout. Only prints in json mode."""
-        if self.mode == AutoOutputFormat.json:
-            print(json.dumps(data, default=str))
+        """Print structured data as JSON in all modes"""
+        indent = 2 if self.mode == AutoOutputFormat.human else None
+        print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
-        """Print a success summary to stdout. No-op in json mode (use ``dict()`` instead)."""
+        """Print a success summary to stdout."""
         match self.mode:
             case AutoOutputFormat.human:
                 parts = [ANSI.green(f"✓ {message}")]
@@ -106,6 +106,8 @@ class Output:
             case AutoOutputFormat.agent:
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
                 print(" ".join(parts) if parts else message)
+            case AutoOutputFormat.json:
+                print(json.dumps(data, default=str) if data else "")
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""

@@ -1629,7 +1629,8 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
         assert result.exit_code == 0
         parsed = json.loads(result.stdout)
-        assert parsed == self.MOCK_WHOAMI
+        assert parsed["user"] == "testuser"
+        assert parsed["orgs"] == "org1,org2"
 
     def test_whoami_json_shorthand(self, runner: CliRunner) -> None:
         with (
@@ -1639,7 +1640,9 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--json"])
         assert result.exit_code == 0
         parsed = json.loads(result.stdout)
-        assert parsed == self.MOCK_WHOAMI
+        assert parsed["user"] == "testuser"
+        assert parsed["orgs"] == "org1,org2"
+        assert parsed["orgs"] == "org1,org2"
 
     def test_whoami_not_logged_in(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
