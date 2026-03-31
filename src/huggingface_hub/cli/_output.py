@@ -20,12 +20,9 @@ import sys
 from collections.abc import Sequence
 from typing import Any
 
-import typer
-
-from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, is_agent, tabulate
 
-from ._cli_utils import AutoOutputFormat
+from ._cli_utils import OutputFormatWithAuto
 
 
 class Output:
@@ -35,23 +32,23 @@ class Output:
     and can be overridden per-command via `set_mode()`.
     """
 
-    mode: AutoOutputFormat
+    mode: OutputFormatWithAuto
 
     def __init__(self) -> None:
         self.set_mode()
 
-    def set_mode(self, mode: AutoOutputFormat = AutoOutputFormat.auto) -> None:
+    def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
         """Override the output mode (called by commands that receive ``--format``)."""
-        if mode == AutoOutputFormat.auto:
-            mode = AutoOutputFormat.agent if is_agent() else AutoOutputFormat.human
+        if mode == OutputFormatWithAuto.auto:
+            mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
         self.mode = mode
 
     def text(self, human: str, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
         match self.mode:
-            case AutoOutputFormat.agent:
+            case OutputFormatWithAuto.agent:
                 print(agent if agent is not None else _strip_ansi(human))
-            case AutoOutputFormat.human:
+            case OutputFormatWithAuto.human:
                 print(human)
 
     def table(
@@ -69,77 +66,66 @@ class Output:
         """
         if not rows:
             match self.mode:
-                case AutoOutputFormat.agent | AutoOutputFormat.human:
+                case OutputFormatWithAuto.agent | OutputFormatWithAuto.human:
                     print("No results found.")
-                case AutoOutputFormat.json:
+                case OutputFormatWithAuto.json:
                     print("[]")
             return
 
         match self.mode:
-            case AutoOutputFormat.human:
+            case OutputFormatWithAuto.human:
                 formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
-            case AutoOutputFormat.agent:
+            case OutputFormatWithAuto.agent:
                 print("\t".join(headers))
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
-            case AutoOutputFormat.json:
+            case OutputFormatWithAuto.json:
                 items = [dict(zip(headers, row)) for row in rows]
                 print(json.dumps(items, default=str))
-            case AutoOutputFormat.quiet:
+            case OutputFormatWithAuto.quiet:
                 for row in rows:
                     print(row[0])
 
     def dict(self, data: dict[str, Any]) -> None:
         """Print structured data as JSON in all modes"""
-        indent = 2 if self.mode == AutoOutputFormat.human else None
+        indent = 2 if self.mode == OutputFormatWithAuto.human else None
         print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
         match self.mode:
-            case AutoOutputFormat.human:
+            case OutputFormatWithAuto.human:
                 parts = [ANSI.green(f"✓ {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
                 print("\n".join(parts))
-            case AutoOutputFormat.agent:
+            case OutputFormatWithAuto.agent:
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
                 print(" ".join(parts) if parts else message)
-            case AutoOutputFormat.json:
+            case OutputFormatWithAuto.json:
                 print(json.dumps(data, default=str) if data else "")
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""
-        if self.mode == AutoOutputFormat.human:
+        if self.mode == OutputFormatWithAuto.human:
             print(ANSI.yellow(f"  Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr."""
-        if self.mode == AutoOutputFormat.human:
+        if self.mode == OutputFormatWithAuto.human:
             print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
-    def confirm(self, message: str, *, yes: bool = False) -> None:
-        """Interactive confirmation. Raises if in agent mode without ``--yes``."""
-        if yes:
-            return
-        if self.mode == AutoOutputFormat.human and sys.stdin.isatty():
-            choice = input(f"{message} [Y/n] ")
-            if choice.lower() not in ("", "y", "yes"):
-                raise typer.Abort()
-        else:
-            raise CLIError(f"{message} Use --yes to skip confirmation.")
-
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr."""
-        if self.mode == AutoOutputFormat.human:
+        if self.mode == OutputFormatWithAuto.human:
             print(ANSI.gray(f"  {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)

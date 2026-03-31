@@ -580,8 +580,8 @@ class OutputFormat(str, Enum):
     json = "json"
 
 
-# TODO: remove OutputFormat once all commands are migrated to AutoOutputFormat.
-class AutoOutputFormat(str, Enum):
+# TODO: remove OutputFormat once all commands are migrated to OutputFormatWithAuto.
+class OutputFormatWithAuto(str, Enum):
     """Output format for CLI commands with auto detection of agent/human mode."""
 
     agent = "agent"
