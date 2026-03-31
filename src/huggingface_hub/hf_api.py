@@ -5278,8 +5278,8 @@ class HfApi:
 
         > [!WARNING]
         > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
-        > sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
-        > it first using [`~hf_api.create_repo`].
+        > sure you are authenticated, that your token has the required permissions, and that `repo_id` and `repo_type`
+        > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
 
         > [!TIP]
         > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
