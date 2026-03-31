@@ -46,10 +46,11 @@ class Output:
     def text(self, human: str, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
         match self.mode:
-            case OutputFormatWithAuto.agent:
+            case OutputFormatWithAuto.agent:  # agent alt or ANSI-stripped human
                 print(agent if agent is not None else _strip_ansi(human))
-            case OutputFormatWithAuto.human:
+            case OutputFormatWithAuto.human:  # as-is, may contain ANSI
                 print(human)
+            # json/quiet: no-op
 
     def table(
         self,
@@ -73,62 +74,62 @@ class Output:
             return
 
         match self.mode:
-            case OutputFormatWithAuto.human:
+            case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
                 formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
-            case OutputFormatWithAuto.agent:
+            case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
-            case OutputFormatWithAuto.json:
+            case OutputFormatWithAuto.json:  # compact JSON array
                 items = [dict(zip(headers, row)) for row in rows]
                 print(json.dumps(items, default=str))
-            case OutputFormatWithAuto.quiet:
+            case OutputFormatWithAuto.quiet:  # first column only, one per line
                 for row in rows:
                     print(row[0])
 
     def dict(self, data: dict[str, Any]) -> None:
-        """Print structured data as JSON in all modes"""
+        """Print structured data as JSON in all modes (indented for human, compact otherwise)."""
         indent = 2 if self.mode == OutputFormatWithAuto.human else None
         print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
         match self.mode:
-            case OutputFormatWithAuto.human:
+            case OutputFormatWithAuto.human:  # ✓ message + key: value lines
                 parts = [ANSI.green(f"✓ {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
                 print("\n".join(parts))
-            case OutputFormatWithAuto.agent:
+            case OutputFormatWithAuto.agent:  # key=val pairs, space-separated
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
                 print(" ".join(parts) if parts else message)
-            case OutputFormatWithAuto.json:
+            case OutputFormatWithAuto.json:  # json.dumps(data), message ignored
                 print(json.dumps(data, default=str) if data else "")
-            case OutputFormatWithAuto.quiet:
+            case OutputFormatWithAuto.quiet:  # first value only
                 values = list(data.values())
                 if values:
                     print(values[0])
 
     def warning(self, message: str) -> None:
-        """Print a non-fatal warning to stderr."""
+        """Print a non-fatal warning to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
             print(ANSI.yellow(f"  Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
-        """Print an error to stderr."""
+        """Print an error to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
             print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
-        """Print a helpful hint to stderr."""
+        """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
         if self.mode == OutputFormatWithAuto.human:
             print(ANSI.gray(f"  {message}"), file=sys.stderr)
         else:
