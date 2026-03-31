@@ -573,22 +573,28 @@ def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, 
     return [{"key": k, "value": v or ""} for k, v in env_map.items()]
 
 
-# TODO: remove `table` when migrating all commands to the new output framework and move OutputFormat to _output.py
 class OutputFormat(str, Enum):
-    """Output format for CLI commands."""
+    """Output format for CLI list commands."""
+
+    table = "table"
+    json = "json"
+
+
+# TODO: remove OutputFormat once all commands are migrated to AutoOutputFormat.
+class AutoOutputFormat(str, Enum):
+    """Output format for CLI commands with auto detection of agent/human mode."""
 
     agent = "agent"
     auto = "auto"
     human = "human"
     json = "json"
     quiet = "quiet"
-    table = "table"  # kept temporarily for backward compatibility
 
 
 FormatOpt = Annotated[
     OutputFormat,
     typer.Option(
-        help="Output format.",
+        help="Output format (table or json).",
     ),
 ]
 
