@@ -23,7 +23,7 @@ import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 import typer
 
@@ -61,7 +61,7 @@ class ExtensionManifest:
     type: Literal["binary", "python"]
     installed_at: datetime
     source: str
-    description: Optional[str] = None
+    description: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "ExtensionManifest":
@@ -277,7 +277,7 @@ def list_installed_extensions_for_help() -> list[tuple[str, str]]:
     return entries
 
 
-def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
+def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> int | None:
     if not args:
         return None
 
@@ -424,8 +424,8 @@ def _install_python_extension(
 
 
 def _try_fetch_remote_description(
-    owner: str, repo_name: str, branch: str, candidate_description: Optional[str]
-) -> Optional[str]:
+    owner: str, repo_name: str, branch: str, candidate_description: str | None
+) -> str | None:
     """Try to fetch project description either from:
     - manifest.json
     - pyproject.toml
@@ -482,7 +482,7 @@ def _get_extension_dir(short_name: str) -> Path:
     return target
 
 
-def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, Optional[str]]:
+def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, str | None]:
     try:
         response = get_session().get(
             f"https://api.github.com/repos/{owner}/{repo_name}",

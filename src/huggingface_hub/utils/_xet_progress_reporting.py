@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from typing import List, Optional
 
 from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
 
@@ -14,7 +13,7 @@ class XetProgressReporter:
     Shows summary progress bars when running in notebooks or GUIs, and detailed per-file progress in console environments.
     """
 
-    def __init__(self, n_lines: int = 10, description_width: int = 30, total_files: Optional[int] = None):
+    def __init__(self, n_lines: int = 10, description_width: int = 30, total_files: int | None = None):
         self.n_lines = n_lines
         self.description_width = description_width
         self.total_files = total_files
@@ -49,7 +48,7 @@ class XetProgressReporter:
 
         # Item bars (scrolling view)
         self.item_state: OrderedDict[str, PyItemProgressUpdate] = OrderedDict()
-        self.current_bars: List = [None] * self.n_lines
+        self.current_bars: list = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:
         """

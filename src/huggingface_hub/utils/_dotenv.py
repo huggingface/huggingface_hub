@@ -1,9 +1,8 @@
 # AI-generated module (ChatGPT)
 import re
-from typing import Optional
 
 
-def load_dotenv(dotenv_str: str, environ: Optional[dict[str, str]] = None) -> dict[str, str]:
+def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[str, str]:
     """
     Parse a DOTENV-format string and return a dictionary of key-value pairs.
     Handles quoted values, comments, export keyword, and blank lines.

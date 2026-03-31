@@ -14,7 +14,6 @@
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
 
 from pathlib import Path
-from typing import Optional, Union
 
 from ._commit_scheduler import CommitScheduler
 from .errors import EntryNotFoundError
@@ -127,16 +126,16 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
         self,
         repo_id: str,
         *,
-        logdir: Optional[str] = None,
-        commit_every: Union[int, float] = 5,
+        logdir: str | None = None,
+        commit_every: int | float = 5,
         squash_history: bool = False,
-        repo_type: Optional[str] = None,
-        repo_revision: Optional[str] = None,
-        repo_private: Optional[bool] = None,
-        path_in_repo: Optional[str] = "tensorboard",
-        repo_allow_patterns: Optional[Union[list[str], str]] = "*.tfevents.*",
-        repo_ignore_patterns: Optional[Union[list[str], str]] = None,
-        token: Optional[str] = None,
+        repo_type: str | None = None,
+        repo_revision: str | None = None,
+        repo_private: bool | None = None,
+        path_in_repo: str | None = "tensorboard",
+        repo_allow_patterns: list[str] | str | None = "*.tfevents.*",
+        repo_ignore_patterns: list[str] | str | None = None,
+        token: str | None = None,
         **kwargs,
     ):
         # Initialize SummaryWriter

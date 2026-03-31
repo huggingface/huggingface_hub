@@ -17,10 +17,10 @@ limitations under the License.
 # How to contribute to huggingface_hub, the GitHub repository?
 
 Everyone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.
-Answering questions, helping others, reaching out and improving the documentations are immensely valuable to the community.
+Answering questions, helping others, reaching out and improving the documentation are immensely valuable to the community.
 
 It also helps us if you spread the word: reference the library from blog posts
-on the awesome projects it made possible, shout out on Twitter every time it has
+on the awesome projects it made possible, shout out on social media every time it has
 helped you, or simply star the repo to say "thank you".
 
 Whichever way you choose to contribute, please be mindful to respect our
@@ -53,7 +53,7 @@ The `huggingface_hub` library is robust and reliable thanks to the users who not
 the problems they encounter. So thank you for reporting an issue.
 
 First, we would really appreciate it if you could **make sure the bug was not
-already reported** (use the search bar on Github under Issues).
+already reported** (use the search bar on GitHub under Issues).
 
 Did not find it? :( So we can act quickly on it, please follow these steps:
 
@@ -103,7 +103,7 @@ Follow these steps to start contributing:
    [information](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
    ```bash
-   $ git clone git@github.com:<your Github handle>/huggingface_hub.git
+   $ git clone git@github.com:<your GitHub handle>/huggingface_hub.git
    $ cd huggingface_hub
    $ git remote add upstream https://github.com/huggingface/huggingface_hub.git
    ```
