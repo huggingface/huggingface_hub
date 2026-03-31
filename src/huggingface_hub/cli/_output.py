@@ -108,6 +108,10 @@ class Output:
                 print(" ".join(parts) if parts else message)
             case OutputFormatWithAuto.json:
                 print(json.dumps(data, default=str) if data else "")
+            case OutputFormatWithAuto.quiet:
+                values = list(data.values())
+                if values:
+                    print(values[0])
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""
