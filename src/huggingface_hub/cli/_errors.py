@@ -14,7 +14,7 @@
 """CLI error handling utilities."""
 
 import traceback
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from huggingface_hub.errors import (
     BucketNotFoundError,
@@ -106,7 +106,7 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
 }
 
 
-def format_known_exception(error: Exception) -> Optional[str]:
+def format_known_exception(error: Exception) -> str | None:
     for exc_type, formatter in CLI_ERROR_MAPPINGS.items():
         if isinstance(error, exc_type):
             return formatter(error)

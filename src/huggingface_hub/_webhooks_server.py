@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +16,9 @@
 import atexit
 import inspect
 import os
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .utils import experimental, is_fastapi_available, is_gradio_available
 
@@ -104,7 +104,7 @@ class WebhooksServer:
     def __init__(
         self,
         ui: Optional["gr.Blocks"] = None,
-        webhook_secret: Optional[str] = None,
+        webhook_secret: str | None = None,
     ) -> None:
         self._ui = ui
 
@@ -112,7 +112,7 @@ class WebhooksServer:
         self.registered_webhooks: dict[str, Callable] = {}
         _warn_on_empty_secret(self.webhook_secret)
 
-    def add_webhook(self, path: Optional[str] = None) -> Callable:
+    def add_webhook(self, path: str | None = None) -> Callable:
         """
         Decorator to add a webhook to the [`WebhooksServer`] server.
 
@@ -224,7 +224,7 @@ class WebhooksServer:
 
 
 @experimental
-def webhook_endpoint(path: Optional[str] = None) -> Callable:
+def webhook_endpoint(path: str | None = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is a helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
@@ -308,7 +308,7 @@ def _get_global_app() -> WebhooksServer:
     return _global_app
 
 
-def _warn_on_empty_secret(webhook_secret: Optional[str]) -> None:
+def _warn_on_empty_secret(webhook_secret: str | None) -> None:
     if webhook_secret is None:
         print("Webhook secret is not defined. This means your webhook endpoints will be open to everyone.")
         print(

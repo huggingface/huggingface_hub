@@ -140,14 +140,14 @@ function Test-PythonVersion {
         $version = & $PythonCmd --version 2>&1
         if ($version -match "Python 3\.(\d+)\.") {
             $minorVersion = [int]$matches[1]
-            return $minorVersion -ge 9 # Python 3.9+
+            return $minorVersion -ge 10 # Python 3.10+
         }
         return $false
     } catch { return $false }
 }
 
 function Find-Python {
-    Write-Log "Looking for Python 3.9+ installation..."
+    Write-Log "Looking for Python 3.10+ installation..."
 
     # Try common Python commands
     $pythonCommands = @("python", "python3", "py")
@@ -168,7 +168,7 @@ function Find-Python {
             $version = py -3 --version 2>&1
             if ($version -match "Python 3\.(\d+)\.") {
                 $minorVersion = [int]$matches[1]
-                if ($minorVersion -ge 9) {
+                if ($minorVersion -ge 10) {
                     Write-Log "Found compatible Python: $version using Python Launcher"
                     return "py -3"
                 }
@@ -176,10 +176,10 @@ function Find-Python {
         } catch { }
     }
 
-    Write-Log "Python 3.9+ is required but not found." "ERROR"
+    Write-Log "Python 3.10+ is required but not found." "ERROR"
     Write-Log "Please install Python from https://python.org or Microsoft Store" "ERROR"
     Write-Log "Make sure to check 'Add Python to PATH' during installation" "ERROR"
-    throw "Python 3.9+ not found"
+    throw "Python 3.10+ not found"
 }
 
 function New-Directories {

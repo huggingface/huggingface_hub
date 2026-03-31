@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,7 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -54,20 +53,20 @@ def upload_large_folder(
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     token: TokenOpt = None,
     num_workers: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             help="Number of workers to use to hash, upload and commit files.",
         ),

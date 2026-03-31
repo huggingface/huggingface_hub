@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -77,7 +77,7 @@ class GatedChoices(str, enum.Enum):
 
 
 PublicOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         "--public",
         help="Whether to make the repo public. Ignored if the repo already exists.",
@@ -85,14 +85,14 @@ PublicOpt = Annotated[
 ]
 
 ProtectedOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         "--protected",
         help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
     ),
 ]
 SpaceHardwareOpt = Annotated[
-    Optional[SpaceHardware],
+    SpaceHardware | None,
     typer.Option(
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
@@ -100,7 +100,7 @@ SpaceHardwareOpt = Annotated[
 ]
 
 SpaceStorageOpt = Annotated[
-    Optional[SpaceStorage],
+    SpaceStorage | None,
     typer.Option(
         "--storage",
         help="Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
@@ -108,7 +108,7 @@ SpaceStorageOpt = Annotated[
 ]
 
 SpaceSleepTimeOpt = Annotated[
-    Optional[int],
+    int | None,
     typer.Option(
         "--sleep-time",
         help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
@@ -128,7 +128,7 @@ def repo_create(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
     space_sdk: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
@@ -144,7 +144,7 @@ def repo_create(
         ),
     ] = False,
     resource_group_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
@@ -187,7 +187,7 @@ def repo_create(
 def repo_duplicate(
     from_id: RepoIdArg,
     to_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.",
         ),
@@ -280,7 +280,7 @@ def repo_move(
 def repo_settings(
     repo_id: RepoIdArg,
     gated: Annotated[
-        Optional[GatedChoices],
+        GatedChoices | None,
         typer.Option(
             help="The gated status for the repository.",
         ),
@@ -321,13 +321,13 @@ def repo_delete_files(
     repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
     commit_message: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The description of the generated commit.",
         ),
@@ -429,7 +429,7 @@ def tag_create(
         ),
     ],
     message: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "-m",
             "--message",

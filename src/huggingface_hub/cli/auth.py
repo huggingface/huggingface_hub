@@ -31,7 +31,7 @@ Usage:
 """
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -83,7 +83,7 @@ def auth_login(
 )
 def auth_logout(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
@@ -91,7 +91,7 @@ def auth_logout(
     logout(token_name=token_name)
 
 
-def _select_token_name() -> Optional[str]:
+def _select_token_name() -> str | None:
     token_names = list(get_stored_tokens().keys())
 
     if not token_names:
@@ -121,7 +121,7 @@ def _select_token_name() -> Optional[str]:
 )
 def auth_switch_cmd(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Name of the token to switch to",
         ),

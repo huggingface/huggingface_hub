@@ -1,7 +1,6 @@
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import httpx
 
@@ -32,9 +31,7 @@ class XetConnectionInfo:
     endpoint: str
 
 
-def parse_xet_file_data_from_response(
-    response: httpx.Response, endpoint: Optional[str] = None
-) -> Optional[XetFileData]:
+def parse_xet_file_data_from_response(response: httpx.Response, endpoint: str | None = None) -> XetFileData | None:
     """
     Parse XET file metadata from an HTTP response.
 
@@ -69,7 +66,7 @@ def parse_xet_file_data_from_response(
     )
 
 
-def parse_xet_connection_info_from_headers(headers: dict[str, str]) -> Optional[XetConnectionInfo]:
+def parse_xet_connection_info_from_headers(headers: dict[str, str]) -> XetConnectionInfo | None:
     """
     Parse XET connection info from the HTTP headers or return None if not found.
     Args:
@@ -128,10 +125,10 @@ def fetch_xet_connection_info_from_repo_info(
     token_type: XetTokenType,
     repo_id: str,
     repo_type: str,
-    revision: Optional[str] = None,
+    revision: str | None = None,
     headers: dict[str, str],
-    endpoint: Optional[str] = None,
-    params: Optional[dict[str, str]] = None,
+    endpoint: str | None = None,
+    params: dict[str, str] | None = None,
 ) -> XetConnectionInfo:
     """
     Uses the repo info to request a xet access token from Hub.
@@ -174,8 +171,8 @@ def fetch_xet_connection_info_from_repo_info(
 def _fetch_xet_connection_info_with_url(
     url: str,
     headers: dict[str, str],
-    params: Optional[dict[str, str]] = None,
-    cache_key_prefix: Optional[str] = None,
+    params: dict[str, str] | None = None,
+    cache_key_prefix: str | None = None,
 ) -> XetConnectionInfo:
     """
     Requests the xet connection info from the supplied URL. This includes the
@@ -229,7 +226,7 @@ def _fetch_xet_connection_info_with_url(
     return metadata
 
 
-def reset_xet_connection_info_cache_for_repo(repo_type: Optional[str], repo_id: str) -> None:
+def reset_xet_connection_info_cache_for_repo(repo_type: str | None, repo_id: str) -> None:
     """Reset the XET connection info cache for the given repo type and repo id.
 
     Used when a repo is deleted.
@@ -242,9 +239,7 @@ def reset_xet_connection_info_cache_for_repo(repo_type: Optional[str], repo_id: 
             XET_CONNECTION_INFO_CACHE.pop(k, None)
 
 
-def _cache_key(
-    url: str, headers: dict[str, str], params: Optional[dict[str, str]], prefix: Optional[str] = None
-) -> str:
+def _cache_key(url: str, headers: dict[str, str], params: dict[str, str] | None, prefix: str | None = None) -> str:
     """Return a unique cache key for the given request parameters."""
     lower_headers = {k.lower(): v for k, v in headers.items()}  # casing is not guaranteed here
     auth_header = lower_headers.get("authorization", "")

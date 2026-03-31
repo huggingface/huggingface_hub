@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,7 @@ Kept for backward compatibility. Users are nudged to use `hf repos delete-files`
 """
 
 import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -50,13 +49,13 @@ def repo_files_delete(
     repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
     commit_message: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The description of the generated commit.",
         ),

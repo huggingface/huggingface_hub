@@ -20,7 +20,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -71,7 +71,7 @@ def write_msg(msg: dict):
     sys.stdout.flush()
 
 
-def read_msg() -> Optional[dict]:
+def read_msg() -> dict | None:
     """Read Line delimited JSON from stdin."""
     msg = json.loads(sys.stdin.readline().strip())
 

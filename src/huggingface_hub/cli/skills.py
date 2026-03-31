@@ -40,7 +40,7 @@ Usage:
 import os
 import shutil
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from click import Command, Context, Group
@@ -187,7 +187,7 @@ def _iter_optional_params(cmd: Command):
             yield p, long_name, short_name
 
 
-def _get_flag_names(cmd: Command, *, exclude: Optional[set[str]] = None) -> list[str]:
+def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
@@ -368,7 +368,7 @@ def skills_add(
         ),
     ] = False,
     dest: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             help="Install into a custom destination (path to skills directory).",
         ),
