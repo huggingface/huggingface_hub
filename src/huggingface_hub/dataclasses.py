@@ -9,6 +9,7 @@ from typing import (
     Any,
     ForwardRef,
     Literal,
+    Type,
     TypeVar,
     Union,
     get_args,
@@ -45,14 +46,14 @@ _TYPED_DICT_DEFAULT_VALUE = object()  # used as default value in TypedDict field
 
 # The overload decorator helps type checkers understand the different return types
 @overload
-def strict(cls: type[T]) -> type[T]: ...
+def strict(cls: Type[T]) -> Type[T]: ...
 
 
 @overload
-def strict(*, accept_kwargs: bool = False) -> Callable[[type[T]], type[T]]: ...
+def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
 
 
-def strict(cls: type[T] | None = None, *, accept_kwargs: bool = False) -> type[T] | Callable[[type[T]], type[T]]:
+def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T] | Callable[[Type[T]], Type[T]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -108,7 +109,7 @@ def strict(cls: type[T] | None = None, *, accept_kwargs: bool = False) -> type[T
     ```
     """
 
-    def wrap(cls: type[T]) -> type[T]:
+    def wrap(cls: Type[T]) -> Type[T]:
         if not hasattr(cls, "__dataclass_fields__"):
             raise StrictDataclassDefinitionError(
                 f"Class '{cls.__name__}' must be a dataclass before applying @strict."
@@ -333,7 +334,7 @@ def validate_typed_dict(schema: type[TypedDictType], data: dict) -> None:
 
 
 @lru_cache
-def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> type:
+def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     # Extract type hints from the TypedDict class
     type_hints = _get_typed_dict_annotations(schema)
 
