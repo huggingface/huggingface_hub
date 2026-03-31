@@ -163,6 +163,4 @@ def auth_whoami(
     info = whoami(token)
     orgs = ",".join(org["name"] for org in info["orgs"])
     out.dict(info)
-    out.result("Logged in", user=info["name"], orgs=orgs)
-    if ENDPOINT != "https://huggingface.co":
-        out.hint(f"Authenticated through private endpoint: {ENDPOINT}")
+    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=ENDPOINT)

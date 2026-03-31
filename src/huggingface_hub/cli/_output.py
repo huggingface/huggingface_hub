@@ -35,23 +35,24 @@ class Output:
     and can be overridden per-command via `set_mode()`.
     """
 
-    def __init__(self) -> None:
-        self.mode: OutputFormat = OutputFormat.agent if is_agent() else OutputFormat.human
+    mode: OutputFormat
 
-    def set_mode(self, mode: OutputFormat) -> None:
-        """Override the output mode (called by commands that receive `--format`)."""
+    def __init__(self) -> None:
+        self.set_mode()
+
+    def set_mode(self, mode: OutputFormat = OutputFormat.auto) -> None:
+        """Override the output mode (called by commands that receive ``--format``)."""
         if mode in (OutputFormat.auto, OutputFormat.table):
-            return
+            mode = OutputFormat.agent if is_agent() else OutputFormat.human
         self.mode = mode
 
     def text(self, human: str, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
-        if self.mode in (OutputFormat.json, OutputFormat.quiet):
-            return
-        if self.mode == OutputFormat.agent:
-            print(agent if agent is not None else _strip_ansi(human))
-        else:
-            print(human)
+        match self.mode:
+            case OutputFormat.agent:
+                print(agent if agent is not None else _strip_ansi(human))
+            case OutputFormat.human:
+                print(human)
 
     def table(
         self,
@@ -68,7 +69,7 @@ class Output:
         """
         if not rows:
             match self.mode:
-                case OutputFormat.human:
+                case OutputFormat.agent | OutputFormat.human:
                     print("No results found.")
                 case OutputFormat.json:
                     print("[]")
@@ -76,14 +77,14 @@ class Output:
 
         match self.mode:
             case OutputFormat.human:
-                formatted_rows: list[list[str | int]] = [[_format_table_cell(v) for v in row] for row in rows]
+                formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
             case OutputFormat.agent:
                 print("\t".join(headers))
                 for row in rows:
-                    print("\t".join(_format_agent_cell(v) for v in row))
+                    print("\t".join(_format_table_cell_agent(v) for v in row))
             case OutputFormat.json:
                 items = [dict(zip(headers, row)) for row in rows]
                 print(json.dumps(items, default=str))
@@ -155,7 +156,7 @@ def _to_header(name: str) -> str:
     return s.upper()
 
 
-def _format_table_value(value: Any) -> str:
+def _format_table_value_human(value: Any) -> str:
     """Convert a value to string for terminal display."""
     if not value:
         return ""
@@ -166,29 +167,27 @@ def _format_table_value(value: Any) -> str:
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
     if isinstance(value, list):
-        return ", ".join(_format_table_value(v) for v in value)
+        return ", ".join(_format_table_value_human(v) for v in value)
     elif isinstance(value, dict):
-        if "name" in value:
+        if "name" in value:  # Likely to be a user or org => print name
             return str(value["name"])
         return json.dumps(value)
     return str(value)
 
 
-def _format_table_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
+def _format_table_cell_human(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
     """Format a value + truncate it for table display."""
-    cell = _format_table_value(value)
+    cell = _format_table_value_human(value)
     if len(cell) > max_len:
         cell = cell[: max_len - 3] + "..."
     return cell
 
 
-def _format_agent_cell(value: Any) -> str:
-    """Format a cell value for agent TSV output (lowercase bools, ISO timestamps)."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
+def _format_table_cell_agent(value: Any) -> str:
+    """Format a cell value for agent TSV output (ISO timestamps, tabs escaped)."""
     if isinstance(value, datetime.datetime):
         return value.isoformat()
-    return str(value)
+    return str(value).replace("\t", " ")
 
 
 out = Output()

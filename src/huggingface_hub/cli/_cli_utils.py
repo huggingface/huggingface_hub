@@ -663,7 +663,7 @@ def print_as_table(
 def print_list_output(
     items: Sequence[dict[str, Any]],
     format: OutputFormat,
-    quiet: bool = False,
+    quiet: bool,
     id_key: str = "id",
     headers: list[str] | None = None,
     row_fn: Callable[[dict[str, Any]], list[str]] | None = None,
@@ -674,13 +674,13 @@ def print_list_output(
     Args:
         items: Sequence of dictionaries representing the items to display.
         format: Output format.
-        quiet: Deprecated — use ``format=OutputFormat.quiet`` instead.
+        quiet: If True, print only IDs (one per line).
         id_key: Key to use for extracting IDs in quiet mode.
         headers: Optional list of column names for headers. If not provided, auto-detected from keys.
         row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
         alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
     """
-    if quiet or format == OutputFormat.quiet:
+    if quiet:
         for item in items:
             print(item[id_key])
         return
