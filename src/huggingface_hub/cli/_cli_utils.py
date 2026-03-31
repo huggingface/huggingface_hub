@@ -112,6 +112,7 @@ class HFCliTyperGroup(TyperGroup):
 
         if cmd is not None:
             self._rewrite_json_shorthand(cmd, args)
+            self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
         return super().resolve_command(ctx, args)
@@ -132,6 +133,27 @@ class HFCliTyperGroup(TyperGroup):
                 raise click.UsageError("'--json' and '--format' are mutually exclusive.")
             idx = args.index("--json")
             args[idx : idx + 1] = ["--format", "json"]
+
+    @staticmethod
+    def _rewrite_quiet_shorthand(cmd: click.Command, args: list[str]) -> None:
+        """Rewrite ``-q`` / ``--quiet`` shorthand to ``--format quiet``.
+
+        Only applies to commands that accept ``--format`` but do NOT already
+        have their own ``--quiet`` / ``-q`` option.
+        """
+        has_quiet = "-q" in args or "--quiet" in args
+        if not has_quiet:
+            return
+        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
+        has_quiet_option = any(
+            isinstance(param, click.Option) and ("--quiet" in param.opts or "-q" in param.opts) for param in cmd.params
+        )
+        if has_format_option and not has_quiet_option:
+            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+                raise click.UsageError("'--quiet' and '--format' are mutually exclusive.")
+            flag = "-q" if "-q" in args else "--quiet"
+            idx = args.index(flag)
+            args[idx : idx + 1] = ["--format", "quiet"]
 
     @staticmethod
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
@@ -558,6 +580,17 @@ class OutputFormat(str, Enum):
     json = "json"
 
 
+# TODO: remove OutputFormat once all commands are migrated to OutputFormatWithAuto.
+class OutputFormatWithAuto(str, Enum):
+    """Output format for CLI commands with auto detection of agent/human mode."""
+
+    agent = "agent"
+    auto = "auto"
+    human = "human"
+    json = "json"
+    quiet = "quiet"
+
+
 FormatOpt = Annotated[
     OutputFormat,
     typer.Option(
@@ -646,7 +679,7 @@ def print_list_output(
 
     Args:
         items: Sequence of dictionaries representing the items to display.
-        format: Output format (table or json).
+        format: Output format.
         quiet: If True, print only IDs (one per line).
         id_key: Key to use for extracting IDs in quiet mode.
         headers: Optional list of column names for headers. If not provided, auto-detected from keys.

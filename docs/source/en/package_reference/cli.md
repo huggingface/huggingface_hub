@@ -180,7 +180,7 @@ $ hf auth whoami [OPTIONS]
 
 **Options**:
 
-* `--format [table|json]`: Output format (table or json).  [default: table]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
