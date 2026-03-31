@@ -161,5 +161,6 @@ def auth_whoami(
         raise typer.Exit(code=1)
 
     info = whoami(token)
-    orgs = ",".join(org["name"] for org in info["orgs"])
-    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=ENDPOINT)
+    orgs = ",".join(org["name"] for org in info["orgs"]) or None
+    endpoint = ENDPOINT if ENDPOINT != "https://huggingface.co" else None
+    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint)
