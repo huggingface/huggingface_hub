@@ -493,7 +493,7 @@ jobs:
           fi
 
           # Enable prerelease flag in workflow files
-          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+          find .github/workflows/ -type f -exec sed -i 's/uv pip install --prerelease=allow /uv pip install --prerelease=allow --prerelease=allow /g' {} +
           git add .github/workflows/
 
           git --no-pager diff --staged
