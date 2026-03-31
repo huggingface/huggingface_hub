@@ -17,7 +17,8 @@ import datetime
 import json
 import re
 import sys
-from typing import Any, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import typer
 
@@ -43,21 +44,20 @@ class Output:
             return
         self.mode = mode
 
-    def text(self, human: str, agent: Optional[str] = None) -> None:
+    def text(self, human: str, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
         if self.mode in (OutputFormat.json, OutputFormat.quiet):
             return
         if self.mode == OutputFormat.agent:
-            msg = agent if agent is not None else _strip_ansi(human)
+            print(agent if agent is not None else _strip_ansi(human))
         else:
-            msg = human
-        print(msg)
+            print(human)
 
     def table(
         self,
         headers: list[str],
         rows: Sequence[list[Any]],
-        alignments: Optional[dict[str, str]] = None,
+        alignments: dict[str, str] | None = None,
     ) -> None:
         """Print tabular data to stdout.
 
@@ -67,24 +67,26 @@ class Output:
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
         """
         if not rows:
-            if self.mode == OutputFormat.human:
-                print("No results found.")
-            elif self.mode == OutputFormat.json:
-                print("[]")
+            match self.mode:
+                case OutputFormat.human:
+                    print("No results found.")
+                case OutputFormat.json:
+                    print("[]")
             return
 
-        if self.mode == OutputFormat.human:
-            formatted_rows: list[list[Union[str, int]]] = [[_format_table_cell(v) for v in row] for row in rows]
-            screaming_headers = [_to_header(h) for h in headers]
-            screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-            print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
-        elif self.mode == OutputFormat.agent:
-            print("\t".join(headers))
-            for row in rows:
-                print("\t".join(_format_agent_cell(v) for v in row))
-        elif self.mode == OutputFormat.json:
-            items = [dict(zip(headers, row)) for row in rows]
-            print(json.dumps(items, default=str))
+        match self.mode:
+            case OutputFormat.human:
+                formatted_rows: list[list[str | int]] = [[_format_table_cell(v) for v in row] for row in rows]
+                screaming_headers = [_to_header(h) for h in headers]
+                screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+                print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
+            case OutputFormat.agent:
+                print("\t".join(headers))
+                for row in rows:
+                    print("\t".join(_format_agent_cell(v) for v in row))
+            case OutputFormat.json:
+                items = [dict(zip(headers, row)) for row in rows]
+                print(json.dumps(items, default=str))
 
     def dict(self, data: dict[str, Any]) -> None:
         """Print structured data as JSON to stdout. Only prints in json mode."""
@@ -93,15 +95,16 @@ class Output:
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout. No-op in json mode (use ``dict()`` instead)."""
-        if self.mode == OutputFormat.human:
-            parts = [ANSI.green(f"✓ {message}")]
-            for k, v in data.items():
-                if v is not None:
-                    parts.append(f"  {k}: {v}")
-            print("\n".join(parts))
-        elif self.mode == OutputFormat.agent:
-            parts = [f"{k}={v}" for k, v in data.items() if v is not None]
-            print(" ".join(parts) if parts else message)
+        match self.mode:
+            case OutputFormat.human:
+                parts = [ANSI.green(f"✓ {message}")]
+                for k, v in data.items():
+                    if v is not None:
+                        parts.append(f"  {k}: {v}")
+                print("\n".join(parts))
+            case OutputFormat.agent:
+                parts = [f"{k}={v}" for k, v in data.items() if v is not None]
+                print(" ".join(parts) if parts else message)
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr."""
