@@ -67,10 +67,11 @@ import multiprocessing.pool
 import shutil
 import time
 from collections import deque
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from fnmatch import fnmatch
 from queue import Empty, Queue
-from typing import Annotated, Any, Callable, Iterable, Optional, TypeVar, Union
+from typing import Annotated, Any, TypeVar
 
 import typer
 
@@ -100,7 +101,7 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 
-def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple[str, Optional[str]]:
+def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[str, str | None]:
     """Extract namespace from job_id if provided in 'namespace/job_id' format.
 
     Allows users to pass job IDs copied from the Hub UI (e.g. 'username/job_id')
@@ -140,21 +141,21 @@ ImageArg = Annotated[
 ]
 
 ImageOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Use a custom Docker image with `uv` installed.",
     ),
 ]
 
 FlavorOpt = Annotated[
-    Optional[SpaceHardware],
+    SpaceHardware | None,
     typer.Option(
         help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
     ),
 ]
 
 LabelsOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-l",
         "--label",
@@ -163,7 +164,7 @@ LabelsOpt = Annotated[
 ]
 
 TimeoutOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
@@ -179,14 +180,14 @@ DetachOpt = Annotated[
 ]
 
 NamespaceOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
     ),
 ]
 
 WithOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "--with",
         help="Run with the given packages installed",
@@ -194,7 +195,7 @@ WithOpt = Annotated[
 ]
 
 PythonOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         "-p",
         "--python",
@@ -203,14 +204,14 @@ PythonOpt = Annotated[
 ]
 
 SuspendOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Suspend (pause) the scheduled Job",
     ),
 ]
 
 ConcurrencyOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Allow multiple instances of this Job to run concurrently",
     ),
@@ -231,14 +232,14 @@ ScriptArg = Annotated[
 ]
 
 ScriptArgsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Arguments for the script",
     ),
 ]
 
 VolumesOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-v",
         "--volume",
@@ -265,7 +266,7 @@ JobIdArg = Annotated[
 ]
 
 JobIdsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Job IDs (or 'namespace/job_id')",
     ),
@@ -348,7 +349,7 @@ def jobs_logs(
         ),
     ] = False,
     tail: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "-n",
             "--tail",
@@ -400,9 +401,7 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
     return True
 
 
-def _print_output(
-    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
-) -> None:
+def _print_output(rows: list[list[str | int]], headers: list[str], aliases: list[str], fmt: str | None) -> None:
     """Print output according to the chosen format."""
     if fmt:
         # Use custom template if provided
@@ -428,7 +427,7 @@ def _clear_line(n: int) -> None:
 
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
-) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
+) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
         row = [
             job_id,
@@ -503,9 +502,9 @@ def jobs_stats(
     ]
     try:
         with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+            rows_per_job_id: dict[str, list[list[str | int]]] = {}
             for job_id in job_ids:
-                row: list[Union[str, int]] = [job_id]
+                row: list[str | int] = [job_id]
                 row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
                 rows_per_job_id[job_id] = [row]
             last_update_time = time.time()
@@ -554,7 +553,7 @@ def jobs_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -562,7 +561,7 @@ def jobs_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
@@ -671,7 +670,7 @@ def jobs_hardware() -> None:
     hardware_list = api.list_jobs_hardware()
     table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
     headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
-    rows: list[list[Union[str, int]]] = []
+    rows: list[list[str | int]] = []
 
     for hw in hardware_list:
         accelerator_info = "N/A"
@@ -861,7 +860,7 @@ def scheduled_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -869,7 +868,7 @@ def scheduled_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
@@ -1075,7 +1074,7 @@ def scheduled_uv_run(
 ### UTILS
 
 
-def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
+def _parse_volumes(volumes: list[str] | None) -> list[Volume] | None:
     """Parse volume specs from CLI arguments.
 
     Format: hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]
@@ -1176,7 +1175,7 @@ def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
     return result
 
 
-def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
+def _parse_labels_map(labels: list[str] | None) -> dict[str, str] | None:
     """Parse label key-value pairs from CLI arguments.
 
     Args:
@@ -1194,7 +1193,7 @@ def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
     return labels_map
 
 
-def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
+def _tabulate(rows: list[list[str | int]], headers: list[str]) -> str:
     """
     Inspired by:
 

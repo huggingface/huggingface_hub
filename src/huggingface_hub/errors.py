@@ -1,7 +1,6 @@
 """Contains all custom errors."""
 
 from pathlib import Path
-from typing import Optional, Union
 
 from httpx import HTTPError, Response
 
@@ -12,9 +11,9 @@ from httpx import HTTPError, Response
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
 
-    cache_dir: Union[str, Path]
+    cache_dir: str | Path
 
-    def __init__(self, msg: str, cache_dir: Union[str, Path], *args, **kwargs):
+    def __init__(self, msg: str, cache_dir: str | Path, *args, **kwargs):
         super().__init__(msg, *args, **kwargs)
         self.cache_dir = cache_dir
 
@@ -72,7 +71,7 @@ class HfHubHTTPError(HTTPError, OSError):
         message: str,
         *,
         response: Response,
-        server_message: Optional[str] = None,
+        server_message: str | None = None,
     ):
         self.request_id = (
             response.headers.get("x-request-id")
@@ -90,7 +89,7 @@ class HfHubHTTPError(HTTPError, OSError):
 
     @classmethod
     def _reconstruct_hf_hub_http_error(
-        cls, message: str, response: Response, server_message: Optional[str]
+        cls, message: str, response: Response, server_message: str | None
     ) -> "HfHubHTTPError":
         return cls(message, response=response, server_message=server_message)
 
@@ -210,7 +209,7 @@ class BucketNotFoundError(HfHubHTTPError):
     ```
     """
 
-    bucket_id: Optional[str] = None
+    bucket_id: str | None = None
 
 
 # REPOSITORY ERRORS
@@ -242,8 +241,8 @@ class RepositoryNotFoundError(HfHubHTTPError):
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
 
 
 class GatedRepoError(RepositoryNotFoundError):
@@ -312,8 +311,8 @@ class RevisionNotFoundError(HfHubHTTPError):
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
 
 
 # ENTRY ERRORS
@@ -358,8 +357,8 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
 
 
 class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):

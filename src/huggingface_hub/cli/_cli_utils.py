@@ -22,9 +22,10 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, Union, cast
 
 import click
 import typer
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
 
 
-def get_hf_api(token: Optional[str] = None) -> "HfApi":
+def get_hf_api(token: str | None = None) -> "HfApi":
     # Import here to avoid circular import
     from huggingface_hub.hf_api import HfApi
 
@@ -56,7 +57,7 @@ def get_hf_api(token: Optional[str] = None) -> "HfApi":
 CLI_REFERENCE_URL = "https://huggingface.co/docs/huggingface_hub/en/guides/cli"
 
 
-def generate_epilog(examples: list[str], docs_anchor: Optional[str] = None) -> str:
+def generate_epilog(examples: list[str], docs_anchor: str | None = None) -> str:
     """Generate an epilog with examples and a Learn More section.
 
     Args:
@@ -78,12 +79,12 @@ Learn more
 """
 
 
-TOPIC_T = Union[Literal["main", "help"], str]
-FallbackHandlerT = Callable[[list[str], set[str]], Optional[int]]
+TOPIC_T = Literal["main", "help"] | str
+FallbackHandlerT = Callable[[list[str], set[str]], int | None]
 ExpandPropertyT = TypeVar("ExpandPropertyT", bound=str)
 
 
-def _format_epilog_no_indent(epilog: Optional[str], ctx: click.Context, formatter: click.HelpFormatter) -> None:
+def _format_epilog_no_indent(epilog: str | None, ctx: click.Context, formatter: click.HelpFormatter) -> None:
     """Write the epilog without indentation."""
     if epilog:
         formatter.write_paragraph()
@@ -196,8 +197,8 @@ class HFCliTyperGroup(TyperGroup):
             return
 
         # Check each repo-ID arg for a type prefix and collect rewrites.
-        inferred_type: Optional[str] = None
-        first_prefix: Optional[str] = None
+        inferred_type: str | None = None
+        first_prefix: str | None = None
         rewrites: list[tuple[int, str]] = []  # (args index, new value without prefix)
 
         for arg_index in repo_id_arg_indices:
@@ -229,7 +230,7 @@ class HFCliTyperGroup(TyperGroup):
             args[arg_index] = new_value
         args.extend(["--type", inferred_type])  # type: ignore
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         # Try exact match first
         cmd = super().get_command(ctx, cmd_name)
         if cmd is not None:
@@ -303,7 +304,7 @@ class HFCliTyperGroup(TyperGroup):
 
 def fallback_typer_group_factory(
     fallback_handler: FallbackHandlerT,
-    extra_commands_provider: Optional[Callable[[], list[tuple[str, str]]]] = None,
+    extra_commands_provider: Callable[[], list[tuple[str, str]]] | None = None,
 ) -> type[HFCliTyperGroup]:
     """Return a Typer group class that runs a fallback handler before command resolution."""
 
@@ -325,7 +326,7 @@ def fallback_typer_group_factory(
     return FallbackTyperGroup
 
 
-def HFCliCommand(topic: TOPIC_T, examples: Optional[list[str]] = None) -> type[TyperCommand]:
+def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[TyperCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
@@ -341,20 +342,20 @@ class HFCliApp(typer.Typer):
 
     def command(  # type: ignore
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
         topic: TOPIC_T = "main",
-        examples: Optional[list[str]] = None,
-        context_settings: Optional[dict[str, Any]] = None,
-        help: Optional[str] = None,
-        epilog: Optional[str] = None,
-        short_help: Optional[str] = None,
+        examples: list[str] | None = None,
+        context_settings: dict[str, Any] | None = None,
+        help: str | None = None,
+        epilog: str | None = None,
+        short_help: str | None = None,
         options_metavar: str = "[OPTIONS]",
         add_help_option: bool = True,
         no_args_is_help: bool = False,
         hidden: bool = False,
         deprecated: bool = False,
-        rich_help_panel: Optional[str] = None,
+        rich_help_panel: str | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         # Generate epilog from examples if not explicitly provided
         if epilog is None and examples:
@@ -379,7 +380,7 @@ class HFCliApp(typer.Typer):
         return _inner
 
 
-def typer_factory(help: str, epilog: Optional[str] = None, cls: Optional[type[TyperGroup]] = None) -> "HFCliApp":
+def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | None = None) -> "HFCliApp":
     """Create a Typer app with consistent settings.
 
     Args:
@@ -434,21 +435,21 @@ RepoTypeOpt = Annotated[
 ]
 
 TokenOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="A User Access Token generated from https://huggingface.co/settings/tokens.",
     ),
 ]
 
 PrivateOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
     ),
 ]
 
 RevisionOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
@@ -461,17 +462,17 @@ LimitOpt = Annotated[
 ]
 
 AuthorOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(help="Filter by author or organization."),
 ]
 
 FilterOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
 ]
 
 SearchOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(help="Search query."),
 ]
 
@@ -479,7 +480,7 @@ SearchOpt = Annotated[
 # --- Env / Secrets shared options and parsing helpers (used by jobs, repos, etc.) ---
 
 EnvOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-e",
         "--env",
@@ -488,7 +489,7 @@ EnvOpt = Annotated[
 ]
 
 SecretsOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-s",
         "--secrets",
@@ -500,7 +501,7 @@ SecretsOpt = Annotated[
 ]
 
 EnvFileOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         "--env-file",
         help="Read in a file of environment variables.",
@@ -508,7 +509,7 @@ EnvFileOpt = Annotated[
 ]
 
 SecretsFileOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Read in a file of secret environment variables.",
     ),
@@ -526,16 +527,16 @@ def _get_extended_environ() -> dict[str, str]:
 
 
 def parse_env_map(
-    env: Optional[list[str]] = None,
-    env_file: Optional[str] = None,
-) -> dict[str, Optional[str]]:
+    env: list[str] | None = None,
+    env_file: str | None = None,
+) -> dict[str, str | None]:
     """Parse ``-e``/``--env``/``-s``/``--secrets`` and ``--env-file``/``--secrets-file`` CLI args into a dict.
 
     Uses an extended environment that includes the user's HF token so that
     bare ``--secrets HF_TOKEN`` resolves correctly.
     """
     extended_environ = _get_extended_environ()
-    env_map: dict[str, Optional[str]] = {}
+    env_map: dict[str, str | None] = {}
     if env_file:
         env_map.update(load_dotenv(Path(env_file).read_text(), environ=extended_environ))
     for env_value in env or []:
@@ -543,7 +544,7 @@ def parse_env_map(
     return env_map
 
 
-def env_map_to_key_value_list(env_map: dict[str, Optional[str]]) -> Optional[list[dict[str, str]]]:
+def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, str]] | None:
     """Convert an env/secrets dict to the ``[{"key": ..., "value": ...}]`` format used by the Hub API."""
     if not env_map:
         return None
@@ -612,7 +613,7 @@ def print_as_table(
     items: Sequence[dict[str, Any]],
     headers: list[str],
     row_fn: Callable[[dict[str, Any]], list[str]],
-    alignments: Optional[dict[str, str]] = None,
+    alignments: dict[str, str] | None = None,
 ) -> None:
     """Print items as a formatted table.
 
@@ -637,9 +638,9 @@ def print_list_output(
     format: OutputFormat,
     quiet: bool,
     id_key: str = "id",
-    headers: Optional[list[str]] = None,
-    row_fn: Optional[Callable[[dict[str, Any]], list[str]]] = None,
-    alignments: Optional[dict[str, str]] = None,
+    headers: list[str] | None = None,
+    row_fn: Callable[[dict[str, Any]], list[str]] | None = None,
+    alignments: dict[str, str] | None = None,
 ) -> None:
     """Print list command output in the specified format.
 
@@ -692,7 +693,7 @@ def api_object_to_dict(info: Any) -> dict[str, Any]:
 def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
     """Create a callback to parse and validate comma-separated expand properties."""
 
-    def _parse_expand_properties(value: Optional[str]) -> Optional[list[ExpandPropertyT]]:
+    def _parse_expand_properties(value: str | None) -> list[ExpandPropertyT] | None:
         if value is None:
             return None
         properties = [p.strip() for p in value.split(",")]
@@ -839,32 +840,34 @@ def _prompt_autoupdate(
     click.echo("", file=sys.stderr)
 
 
-def _get_huggingface_hub_update_command() -> Optional[list[str]]:
+def _get_huggingface_hub_update_command() -> list[str] | None:
     """Return the command to update huggingface_hub as an argv list, or None if the installation method is unknown."""
-    method = installation_method()
-    if method == "brew":
-        return ["brew", "upgrade", "hf"]
-    elif method == "hf_installer" and os.name == "nt":
-        return ["powershell", "-NoProfile", "-Command", "iwr -useb https://hf.co/cli/install.ps1 | iex"]
-    elif method == "hf_installer":
-        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -"]
-    elif method == "pip":
-        return [sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"]
-    return None
+    match installation_method():
+        case "brew":
+            return ["brew", "upgrade", "hf"]
+        case "hf_installer" if os.name == "nt":
+            return ["powershell", "-NoProfile", "-Command", "iwr -useb https://hf.co/cli/install.ps1 | iex"]
+        case "hf_installer":
+            return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -"]
+        case "pip":
+            return [sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"]
+        case _:
+            return None
 
 
-def _get_transformers_update_command() -> Optional[list[str]]:
+def _get_transformers_update_command() -> list[str] | None:
     """Return the command to update transformers as an argv list, or None if the installation method is unknown."""
-    method = installation_method()
-    if method == "hf_installer" and os.name == "nt":
-        return [
-            "powershell",
-            "-NoProfile",
-            "-Command",
-            "iwr -useb https://hf.co/cli/install.ps1 | iex -WithTransformers",
-        ]
-    elif method == "hf_installer":
-        return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
-    elif method == "pip":
-        return [sys.executable, "-m", "pip", "install", "-U", "transformers"]
-    return None
+    match installation_method():
+        case "hf_installer" if os.name == "nt":
+            return [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "iwr -useb https://hf.co/cli/install.ps1 | iex -WithTransformers",
+            ]
+        case "hf_installer":
+            return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
+        case "pip":
+            return [sys.executable, "-m", "pip", "install", "-U", "transformers"]
+        case _:
+            return None

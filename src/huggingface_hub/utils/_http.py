@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +21,11 @@ import re
 import threading
 import time
 import uuid
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
-from typing import Any, Callable, Generator, Mapping, Optional, TypeVar, Union
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 import httpx
@@ -68,8 +68,8 @@ class RateLimitInfo:
     resource_type: str
     remaining: int
     reset_in_seconds: int
-    limit: Optional[int] = None
-    window_seconds: Optional[int] = None
+    limit: int | None = None
+    window_seconds: int | None = None
 
 
 # Regex patterns for parsing rate limit headers
@@ -79,7 +79,7 @@ _RATELIMIT_REGEX = re.compile(r"\"(?P<resource_type>\w+)\"\s*;\s*r\s*=\s*(?P<r>\
 _RATELIMIT_POLICY_REGEX = re.compile(r"q\s*=\s*(?P<q>\d+).*?w\s*=\s*(?P<w>\d+)")
 
 
-def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInfo]:
+def parse_ratelimit_headers(headers: Mapping[str, str]) -> RateLimitInfo | None:
     """Parse rate limit information from HTTP response headers.
 
     Follows IETF draft: https://www.ietf.org/archive/id/draft-ietf-httpapi-ratelimit-headers-09.html
@@ -100,8 +100,8 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInf
     ```
     """
 
-    ratelimit: Optional[str] = None
-    policy: Optional[str] = None
+    ratelimit: str | None = None
+    policy: str | None = None
     for key in headers:
         lower_key = key.lower()
         if lower_key == "ratelimit":
@@ -120,8 +120,8 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> Optional[RateLimitInf
     remaining = int(match.group("r"))
     reset_in_seconds = int(match.group("t"))
 
-    limit: Optional[int] = None
-    window_seconds: Optional[int] = None
+    limit: int | None = None
+    window_seconds: int | None = None
 
     if policy:
         policy_match = _RATELIMIT_POLICY_REGEX.search(policy)
@@ -180,7 +180,7 @@ _BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/]+/[^/]
 _REPO_URL_SUBPATHS = {"resolve", "tree", "blob", "raw", "refs", "commit", "discussions", "settings", "revision"}
 
 
-def _parse_repo_info_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
+def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
     """Extract (repo_type, repo_id) from an API URL.
 
     Returns canonical repo_type values: "model", "dataset", "space" (or None).
@@ -205,7 +205,7 @@ def _parse_repo_info_from_url(url: str) -> tuple[Optional[str], Optional[str]]:
     return repo_type, repo_id
 
 
-def _parse_bucket_id_from_url(url: str) -> Optional[str]:
+def _parse_bucket_id_from_url(url: str) -> str | None:
     """Extract bucket_id (namespace/name) from a bucket API URL."""
     match = _BUCKET_ID_FROM_URL_REGEX.search(url)
     return match.group(1) if match else None
@@ -293,7 +293,7 @@ ASYNC_CLIENT_FACTORY_T = Callable[[], httpx.AsyncClient]
 _CLIENT_LOCK = threading.Lock()
 _GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = default_client_factory
 _GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = default_async_client_factory
-_GLOBAL_CLIENT: Optional[httpx.Client] = None
+_GLOBAL_CLIENT: httpx.Client | None = None
 
 
 def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
@@ -401,8 +401,8 @@ def _http_backoff_base(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
-    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
+    retry_on_exceptions: type[Exception] | tuple[type[Exception], ...] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     stream: bool = False,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
@@ -415,7 +415,7 @@ def _http_backoff_base(
 
     nb_tries = 0
     sleep_time = base_wait_time
-    ratelimit_reset: Optional[int] = None  # seconds to wait for rate limit reset if 429 response
+    ratelimit_reset: int | None = None  # seconds to wait for rate limit reset if 429 response
 
     # If `data` is used and is a file object (or any IO), it will be consumed on the
     # first HTTP request. We need to save the initial position so that the full content
@@ -498,8 +498,8 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
-    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
+    retry_on_exceptions: type[Exception] | tuple[type[Exception], ...] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> httpx.Response:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -579,8 +579,8 @@ def http_stream_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = _DEFAULT_RETRY_ON_EXCEPTIONS,
-    retry_on_status_codes: Union[int, tuple[int, ...]] = _DEFAULT_RETRY_ON_STATUS_CODES,
+    retry_on_exceptions: type[Exception] | tuple[type[Exception], ...] = _DEFAULT_RETRY_ON_EXCEPTIONS,
+    retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
 ) -> Generator[httpx.Response, None, None]:
     """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
@@ -705,7 +705,7 @@ def _httpx_follow_relative_redirects_with_backoff(
     return response
 
 
-def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
+def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
     """Replace the default endpoint in a URL by a custom one.
 
     This is useful when using a proxy and the Hugging Face Hub returns a URL with the default endpoint.
@@ -718,7 +718,7 @@ def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
     return url
 
 
-def hf_raise_for_status(response: httpx.Response, endpoint_name: Optional[str] = None) -> None:
+def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = None) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a potential HTTPError.
     Raised exception will be an instance of [`~errors.HfHubHTTPError`].
@@ -1030,7 +1030,7 @@ def _curlify(request: httpx.Request) -> str:
             v = "<TOKEN>"  # Hide authorization header, no matter its value (can be Bearer, Key, etc.)
         parts += [("-H", f"{k}: {v}")]
 
-    body: Optional[str] = None
+    body: str | None = None
     try:
         if request.content is not None:
             body = request.content.decode("utf-8", errors="ignore")
@@ -1057,7 +1057,7 @@ def _curlify(request: httpx.Request) -> str:
 RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
 
 
-def _adjust_range_header(original_range: Optional[str], resume_size: int) -> Optional[str]:
+def _adjust_range_header(original_range: str | None, resume_size: int) -> str | None:
     """
     Adjust HTTP Range header to account for resume position.
     """

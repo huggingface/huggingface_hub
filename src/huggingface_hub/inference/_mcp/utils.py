@@ -39,32 +39,34 @@ def format_result(result: "mcp_types.CallToolResult") -> str:
     formatted_parts: list[str] = []
 
     for item in content:
-        if item.type == "text":
-            formatted_parts.append(item.text)
+        match item.type:
+            case "text":
+                formatted_parts.append(item.text)
 
-        elif item.type == "image":
-            formatted_parts.append(
-                f"[Binary Content: Image {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
-                f"The task is complete and the content accessible to the User"
-            )
-
-        elif item.type == "audio":
-            formatted_parts.append(
-                f"[Binary Content: Audio {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
-                f"The task is complete and the content accessible to the User"
-            )
-
-        elif item.type == "resource":
-            resource = item.resource
-
-            if hasattr(resource, "text") and isinstance(resource.text, str):
-                formatted_parts.append(resource.text)
-
-            elif hasattr(resource, "blob") and isinstance(resource.blob, str):
+            case "image":
                 formatted_parts.append(
-                    f"[Binary Content ({resource.uri}): {resource.mimeType}, {_get_base64_size(resource.blob)} bytes]\n"
+                    f"[Binary Content: Image {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
                     f"The task is complete and the content accessible to the User"
                 )
+
+            case "audio":
+                formatted_parts.append(
+                    f"[Binary Content: Audio {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
+                    f"The task is complete and the content accessible to the User"
+                )
+
+            case "resource":
+                resource = item.resource
+
+                if hasattr(resource, "text") and isinstance(resource.text, str):
+                    formatted_parts.append(resource.text)
+
+                elif hasattr(resource, "blob") and isinstance(resource.blob, str):
+                    formatted_parts.append(
+                        f"[Binary Content ({resource.uri}): {resource.mimeType},"
+                        f" {_get_base64_size(resource.blob)} bytes]\n"
+                        f"The task is complete and the content accessible to the User"
+                    )
 
     return "\n".join(formatted_parts)
 

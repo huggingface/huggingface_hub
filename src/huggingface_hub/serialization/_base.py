@@ -13,15 +13,16 @@
 # limitations under the License.
 """Contains helpers to split tensors into shards."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from .. import logging
 
 
 TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
-StorageIDFn_T = Callable[[TensorT], Optional[Any]]
+StorageIDFn_T = Callable[[TensorT], Any | None]
 
 MAX_SHARD_SIZE = "5GB"
 SIZE_UNITS = {
@@ -52,7 +53,7 @@ def split_state_dict_into_shards_factory(
     get_storage_size: TensorSizeFn_T,
     filename_pattern: str,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
-    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
+    max_shard_size: int | str = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.

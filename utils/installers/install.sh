@@ -188,7 +188,7 @@ detect_os() {
 python_version_supported() {
     "$1" <<'PY' >/dev/null 2>&1
 import sys
-sys.exit(0 if sys.version_info >= (3, 9) else 1)
+sys.exit(0 if sys.version_info >= (3, 10) else 1)
 PY
 }
 
@@ -205,16 +205,16 @@ ensure_python() {
                 chosen="$candidate"
                 break
             else
-                log_warning "$candidate detected ($version_output) but Python 3.9+ is required."
+                log_warning "$candidate detected ($version_output) but Python 3.10+ is required."
             fi
         fi
     done
 
     if [ -z "$chosen" ]; then
-        log_error "Python 3.9+ is required but was not found."
+        log_error "Python 3.10+ is required but was not found."
         case "$(detect_os)" in
             macos)
-                log_info "On macOS: brew install python (or download Python 3.9+ from python.org)"
+                log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
                 ;;
             linux)
                 if command_exists apt-get || command_exists apt; then
@@ -224,11 +224,11 @@ ensure_python() {
                 elif command_exists yum; then
                     log_info "On CentOS/RHEL: sudo yum install python3 python3-pip"
                 else
-                    log_info "Install Python 3.9+ with your distro's package manager."
+                    log_info "Install Python 3.10+ with your distro's package manager."
                 fi
                 ;;
             *)
-                log_info "Install Python 3.9+ from https://www.python.org/downloads/"
+                log_info "Install Python 3.10+ from https://www.python.org/downloads/"
                 ;;
         esac
         exit 1

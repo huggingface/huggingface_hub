@@ -19,7 +19,6 @@ import os
 import warnings
 from pathlib import Path
 from threading import Lock
-from typing import Optional
 
 from .. import constants
 from ._runtime import is_colab_enterprise, is_google_colab
@@ -27,12 +26,12 @@ from ._runtime import is_colab_enterprise, is_google_colab
 
 _IS_GOOGLE_COLAB_CHECKED = False
 _GOOGLE_COLAB_SECRET_LOCK = Lock()
-_GOOGLE_COLAB_SECRET: Optional[str] = None
+_GOOGLE_COLAB_SECRET: str | None = None
 
 logger = logging.getLogger(__name__)
 
 
-def get_token() -> Optional[str]:
+def get_token() -> str | None:
     """
     Get token if user is logged in.
 
@@ -49,7 +48,7 @@ def get_token() -> Optional[str]:
     return _get_token_from_google_colab() or _get_token_from_environment() or _get_token_from_file()
 
 
-def _get_token_from_google_colab() -> Optional[str]:
+def _get_token_from_google_colab() -> str | None:
     """Get token from Google Colab secrets vault using `google.colab.userdata.get(...)`.
 
     Token is read from the vault only once per session and then stored in a global variable to avoid re-requesting
@@ -113,12 +112,12 @@ def _get_token_from_google_colab() -> Optional[str]:
         return _GOOGLE_COLAB_SECRET
 
 
-def _get_token_from_environment() -> Optional[str]:
+def _get_token_from_environment() -> str | None:
     # `HF_TOKEN` has priority (keep `HUGGING_FACE_HUB_TOKEN` for backward compatibility)
     return _clean_token(os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"))
 
 
-def _get_token_from_file() -> Optional[str]:
+def _get_token_from_file() -> str | None:
     try:
         return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
     except FileNotFoundError:
@@ -168,7 +167,7 @@ def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
         config.write(config_file)
 
 
-def _get_token_by_name(token_name: str) -> Optional[str]:
+def _get_token_by_name(token_name: str) -> str | None:
     """
     Get the token by name.
 
@@ -204,7 +203,7 @@ def _save_token(token: str, token_name: str) -> None:
     logger.info(f"The token `{token_name}` has been saved to {tokens_path}")
 
 
-def _clean_token(token: Optional[str]) -> Optional[str]:
+def _clean_token(token: str | None) -> str | None:
     """Clean token by removing trailing and leading spaces and newlines.
 
     If token is an empty string, return None.
