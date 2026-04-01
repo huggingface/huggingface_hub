@@ -60,18 +60,18 @@ class Volume:
 
     def to_dict(self) -> dict:
         """Serialize to the JSON payload expected by the Hub API."""
-        d: dict = {
+        data: dict = {
             "type": self.type,
             "source": self.source,
             "mountPath": self.mount_path,
         }
         if self.revision is not None:
-            d["revision"] = self.revision
+            data["revision"] = self.revision
         if self.read_only is not None:
-            d["readOnly"] = self.read_only
+            data["readOnly"] = self.read_only
         if self.path is not None:
-            d["path"] = self.path
-        return d
+            data["path"] = self.path
+        return data
 
 
 class JobStage(str, Enum):
