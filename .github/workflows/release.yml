@@ -299,6 +299,8 @@ jobs:
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    outputs:
+      drafted_prerelease: ${{ steps.check_draft.outputs.skip == 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -434,7 +436,7 @@ jobs:
   # ============================================================
   slack-message:
     needs: [prepare, release-notes]
-    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && needs.release-notes.outputs.drafted_prerelease == 'true' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
