@@ -3740,6 +3740,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
 
     @expect_deprecation("duplicate_space")
+    @expect_deprecation("duplicate_repo")
     def test_duplicate_space(self) -> None:
         self.api.duplicate_space(
             self.repo_id,
