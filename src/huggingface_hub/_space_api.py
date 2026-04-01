@@ -14,13 +14,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from huggingface_hub.utils import parse_datetime
-
-
-if TYPE_CHECKING:
-    from huggingface_hub._jobs_api import Volume
 
 
 class SpaceStage(str, Enum):
@@ -114,6 +110,59 @@ class SpaceStorage(str, Enum):
 
 
 @dataclass
+class Volume:
+    """
+    Describes a volume to mount in a Space or Job container.
+
+    Args:
+        type (`str`):
+            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
+        source (`str`):
+            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
+        mount_path (`str`):
+            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
+        revision (`str` or `None`):
+            Git revision (only for repos, defaults to `"main"`).
+        read_only (`bool` or `None`):
+            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
+        path (`str` or `None`):
+            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
+    """
+
+    type: Literal["bucket", "model", "dataset", "space"]
+    source: str
+    mount_path: str
+    revision: str | None = None
+    read_only: bool | None = None
+    path: str | None = None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs.get("type", "model")
+        self.source = kwargs["source"]
+        mount_path = kwargs.get("mountPath")
+        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
+        self.revision = kwargs.get("revision")
+        read_only = kwargs.get("readOnly")
+        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
+        self.path = kwargs.get("path")
+
+    def to_dict(self) -> dict:
+        """Serialize to the JSON payload expected by the Hub API."""
+        data: dict = {
+            "type": self.type,
+            "source": self.source,
+            "mountPath": self.mount_path,
+        }
+        if self.revision is not None:
+            data["revision"] = self.revision
+        if self.read_only is not None:
+            data["readOnly"] = self.read_only
+        if self.path is not None:
+            data["path"] = self.path
+        return data
+
+
+@dataclass
 class SpaceHotReloading:
     status: Literal["created", "canceled"]
     replica_statuses: list[tuple[str, str]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
@@ -158,12 +207,10 @@ class SpaceRuntime:
     sleep_time: int | None
     storage: SpaceStorage | None
     hot_reloading: SpaceHotReloading | None
-    volumes: list["Volume"] | None
+    volumes: list[Volume] | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
-        from huggingface_hub._jobs_api import Volume
-
         self.stage = data["stage"]
         self.hardware = data.get("hardware", {}).get("current")
         self.requested_hardware = data.get("hardware", {}).get("requested")

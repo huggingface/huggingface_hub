@@ -83,7 +83,6 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
-        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -109,6 +108,7 @@ _SUBMOD_ATTRS = {
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
+        "Volume",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -1211,7 +1211,6 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
-        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
@@ -1235,6 +1234,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (

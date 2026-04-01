@@ -77,8 +77,8 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, Volume, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable, Volume
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
