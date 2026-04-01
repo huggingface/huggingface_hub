@@ -12,7 +12,7 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.4.2,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.4.3,<2.0.0"
 
 install_requires = [
     "filelock>=3.10.0",
