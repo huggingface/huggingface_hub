@@ -1,5 +1,3 @@
-import sys
-
 from setuptools import find_packages, setup
 
 
@@ -14,7 +12,7 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.4.2,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.4.3,<2.0.0"
 
 install_requires = [
     "filelock>=3.10.0",
@@ -73,13 +71,10 @@ extras["testing"] = (
     ]
 )
 
-if sys.version_info >= (3, 10):
-    # We need gradio to test webhooks server
-    # But gradio 5.0+ only supports python 3.10+ so we don't want to test earlier versions
-    extras["gradio"] = [
-        "gradio>=5.0.0",
-        "requests",  # see https://github.com/gradio-app/gradio/pull/11830
-    ]
+extras["gradio"] = [
+    "gradio>=5.0.0",
+    "requests",  # see https://github.com/gradio-app/gradio/pull/11830
+]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
@@ -124,7 +119,7 @@ setup(
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
-    python_requires=">=3.9.0",
+    python_requires=">=3.10.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
@@ -134,7 +129,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

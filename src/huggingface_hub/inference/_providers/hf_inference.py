@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 from huggingface_hub import constants
@@ -27,11 +27,11 @@ class HFInferenceTask(TaskProviderHelper):
             task=task,
         )
 
-    def _prepare_api_key(self, api_key: Optional[str]) -> str:
+    def _prepare_api_key(self, api_key: str | None) -> str:
         # special case: for HF Inference we allow not providing an API key
-        return api_key or get_token()  # type: ignore[return-value]
+        return api_key or get_token()  # type: ignore
 
-    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
         if model is not None and model.startswith(("http://", "https://")):
             return InferenceProviderMapping(
                 provider="hf-inference", providerId=model, hf_model_id=model, task=self.task, status="live"
@@ -61,7 +61,7 @@ class HFInferenceTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -72,7 +72,7 @@ class HFInferenceTask(TaskProviderHelper):
 class HFInferenceBinaryInputTask(HFInferenceTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         return None
 
     def _prepare_payload_as_bytes(
@@ -80,8 +80,8 @@ class HFInferenceBinaryInputTask(HFInferenceTask):
         inputs: Any,
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[dict],
-    ) -> Optional[MimeBytes]:
+        extra_payload: dict | None,
+    ) -> MimeBytes | None:
         parameters = filter_none(parameters)
         extra_payload = extra_payload or {}
         has_parameters = len(parameters) > 0 or len(extra_payload) > 0
@@ -107,7 +107,7 @@ class HFInferenceConversational(HFInferenceTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         payload = filter_none(parameters)
         mapped_model = provider_mapping_info.provider_id
         payload_model = parameters.get("model") or mapped_model
@@ -156,7 +156,7 @@ def _build_chat_completion_url(model_url: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _fetch_recommended_models() -> dict[str, Optional[str]]:
+def _fetch_recommended_models() -> dict[str, str | None]:
     response = get_session().get(f"{constants.ENDPOINT}/api/tasks", headers=build_hf_headers())
     hf_raise_for_status(response)
     return {task: next(iter(details["widgetModels"]), None) for task, details in response.json().items()}
@@ -212,7 +212,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         if isinstance(inputs, bytes):
             raise ValueError(f"Unexpected binary input for task {self.task}.")
         if isinstance(inputs, Path):
@@ -222,7 +222,7 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         # See specs: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/tasks/feature-extraction/spec/input.json
         return {"inputs": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         if isinstance(response, bytes):
             return _bytes_to_dict(response)
         return response

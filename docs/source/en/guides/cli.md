@@ -10,6 +10,15 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > This guide covers the most important features of the `hf` CLI.
 > For a complete reference of all commands and options, see the [CLI reference](../package_reference/cli.md).
 
+> [!TIP]
+> Using the `hf` CLI with AI agents? Install the Skill and check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide.
+> ```bash
+> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> hf skills add
+> # includes the above + Claude Code
+> hf skills add --claude
+> ```
+
 ## Getting started
 
 ### Standalone installer (Recommended)
@@ -862,7 +871,7 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ## hf papers
 
-Use `hf papers` to list daily papers on the Hub.
+Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
 
 ### List papers
 
@@ -879,8 +888,44 @@ Use `hf papers` to list daily papers on the Hub.
 # List today's papers
 >>> hf papers ls --date=today
 
+# List papers from a specific week
+>>> hf papers ls --week=2025-W09
+
+# List papers from a specific month
+>>> hf papers ls --month=2025-02
+
+# List papers submitted by a specific user
+>>> hf papers ls --submitter=akhaliq
+
 # Limit results
 >>> hf papers ls --sort=trending --limit=5
+```
+
+### Search papers
+
+```bash
+# Search papers by keyword
+>>> hf papers search "vision language"
+
+# Limit search results
+>>> hf papers search "diffusion models" --limit=10
+
+# Output as JSON
+>>> hf papers search "attention" --format=json
+```
+
+### Get paper info
+
+```bash
+# Get structured metadata for a paper (returns JSON)
+>>> hf papers info 2601.15621
+```
+
+### Read paper as markdown
+
+```bash
+# Read the full paper content as markdown
+>>> hf papers read 2601.15621
 ```
 
 ## hf discussions
@@ -1534,6 +1579,36 @@ Available `--flavor` options:
 - TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
 
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+
+## Volumes
+
+Mount a volume on the Job's disk using `-v` or `--volume`.
+
+You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets) using the `hf://` URL scheme. For example:
+
+* mount a model repository: `-v hf://openai/gpt-oss-120b:/model`
+* mount a dataset repository: `-v hf://datasets/HuggingFaceFW/fineweb:/data`
+* mount a storage bucket: `-v hf://buckets/username/my-bucket:/mnt`
+* mount a space: `-v hf://spaces/username/my-space:/app`
+* mount a subfolder inside a repo: `-v hf://datasets/org/ds/train:/data`
+
+Then you can use the mounted volume as a local directory:
+
+```bash
+# Docker Job with a mounted volume as input
+>>> hf jobs run -v hf://datasets/HuggingFaceFW/fineweb:/dataset \
+...     duckdb/duckdb duckdb -c "SELECT * FROM '/dataset/**/*.parquet' LIMIT 5"
+
+# UV Job with a mounted volume to save checkpoints when training a model
+>>> hf jobs uv run -v hf://buckets/username/my-bucket:/training-outputs \
+...     sft.py --output-dir /training-outputs/training-v3-final ...
+```
+
+Models, datasets and spaces are always mounted read-only. Storage buckets are read+write by default — this is especially useful for data that changes frequently, as files can be overwritten or deleted in place.
+
+Use `:ro` to enable read-only:
+
+* mount a storage bucket in read-only: `-v hf://buckets/username/my-bucket:/mnt:ro`
 
 ### Labels
 

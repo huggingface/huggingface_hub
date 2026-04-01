@@ -7,11 +7,12 @@ import io
 import os
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Iterable, Iterator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -73,7 +74,7 @@ class CommitOperationDelete:
     """
 
     path_in_repo: str
-    is_folder: Union[bool, Literal["auto"]] = "auto"
+    is_folder: bool | Literal["auto"] = "auto"
 
     def __post_init__(self):
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
@@ -109,13 +110,13 @@ class CommitOperationCopy:
 
     src_path_in_repo: str
     path_in_repo: str
-    src_revision: Optional[str] = None
+    src_revision: str | None = None
     # set to the OID of the file to be copied if it has already been uploaded
     # useful to determine if a commit will be empty or not.
-    _src_oid: Optional[str] = None
+    _src_oid: str | None = None
     # set to the OID of the file to copy to if it has already been uploaded
     # useful to determine if a commit will be empty or not.
-    _dest_oid: Optional[str] = None
+    _dest_oid: str | None = None
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
@@ -148,21 +149,21 @@ class CommitOperationAdd:
     """
 
     path_in_repo: str
-    path_or_fileobj: Union[str, Path, bytes, BinaryIO]
+    path_or_fileobj: str | Path | bytes | BinaryIO
     upload_info: UploadInfo = field(init=False, repr=False)
 
     # Internal attributes
 
     # set to "lfs" or "regular" once known
-    _upload_mode: Optional[UploadMode] = field(init=False, repr=False, default=None)
+    _upload_mode: UploadMode | None = field(init=False, repr=False, default=None)
 
     # set to True if .gitignore rules prevent the file from being uploaded as LFS
     # (server-side check)
-    _should_ignore: Optional[bool] = field(init=False, repr=False, default=None)
+    _should_ignore: bool | None = field(init=False, repr=False, default=None)
 
     # set to the remote OID of the file if it has already been uploaded
     # useful to determine if a commit will be empty or not
-    _remote_oid: Optional[str] = field(init=False, repr=False, default=None)
+    _remote_oid: str | None = field(init=False, repr=False, default=None)
 
     # set to True once the file has been uploaded as LFS
     _is_uploaded: bool = field(init=False, repr=False, default=False)
@@ -265,7 +266,7 @@ class CommitOperationAdd:
             return base64.b64encode(file.read())
 
     @property
-    def _local_oid(self) -> Optional[str]:
+    def _local_oid(self) -> str | None:
         """Return the OID of the local file.
 
         This OID is then compared to `self._remote_oid` to check if the file has changed compared to the remote one.
@@ -361,10 +362,10 @@ def _upload_files(
     repo_type: str,
     repo_id: str,
     headers: dict[str, str],
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
     num_threads: int = 5,
-    revision: Optional[str] = None,
-    create_pr: Optional[bool] = None,
+    revision: str | None = None,
+    create_pr: bool | None = None,
 ):
     """
     Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
@@ -442,7 +443,7 @@ def _upload_lfs_files(
     actions: list[dict[str, Any]],
     oid2addop: dict[str, CommitOperationAdd],
     headers: dict[str, str],
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
     num_threads: int = 5,
 ):
     """
@@ -527,9 +528,9 @@ def _upload_xet_files(
     repo_type: str,
     repo_id: str,
     headers: dict[str, str],
-    endpoint: Optional[str] = None,
-    revision: Optional[str] = None,
-    create_pr: Optional[bool] = None,
+    endpoint: str | None = None,
+    revision: str | None = None,
+    create_pr: bool | None = None,
 ):
     """
     Uploads the content of `additions` to the Hub using the xet storage protocol.
@@ -696,9 +697,9 @@ def _fetch_upload_modes(
     repo_id: str,
     headers: dict[str, str],
     revision: str,
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
     create_pr: bool = False,
-    gitignore_content: Optional[str] = None,
+    gitignore_content: str | None = None,
 ) -> None:
     """
     Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob,
@@ -733,7 +734,7 @@ def _fetch_upload_modes(
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: dict[str, UploadMode] = {}
     should_ignore_info: dict[str, bool] = {}
-    oid_info: dict[str, Optional[str]] = {}
+    oid_info: dict[str, str | None] = {}
 
     for chunk in chunk_iterable(additions, 256):
         payload: dict = {
@@ -782,8 +783,8 @@ def _fetch_files_to_copy(
     repo_id: str,
     headers: dict[str, str],
     revision: str,
-    endpoint: Optional[str] = None,
-) -> dict[tuple[str, Optional[str]], Union["RepoFile", bytes]]:
+    endpoint: str | None = None,
+) -> dict[tuple[str, str | None], Union["RepoFile", bytes]]:
     """
     Fetch information about the files to copy.
 
@@ -817,9 +818,9 @@ def _fetch_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
-    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
+    files_to_copy: dict[tuple[str, str | None], Union["RepoFile", bytes]] = {}
     # Store (path, revision) -> oid mapping
-    oid_info: dict[tuple[str, Optional[str]], Optional[str]] = {}
+    oid_info: dict[tuple[str, str | None], str | None] = {}
     # 1. Fetch OIDs for destination paths in batches.
     dest_paths = [op.path_in_repo for op in copies]
     for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
@@ -879,10 +880,10 @@ def _fetch_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: dict[tuple[str, Optional[str]], Union["RepoFile", bytes]],
+    files_to_copy: dict[tuple[str, str | None], Union["RepoFile", bytes]],
     commit_message: str,
-    commit_description: Optional[str] = None,
-    parent_commit: Optional[str] = None,
+    commit_description: str | None = None,
+    parent_commit: str | None = None,
 ) -> Iterable[dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.

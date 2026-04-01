@@ -53,12 +53,14 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    DatasetLeaderboardEntry,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
     InferenceEndpoint,
     InferenceProviderMapping,
     ModelInfo,
+    Organization,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -463,6 +465,24 @@ class CommitApiTest(HfApiCommonTest):
 
         self._api.delete_repo(repo_id, token=ENTERPRISE_TOKEN)
 
+    def test_create_repo_with_visibility(self):
+        repo_id = repo_name()
+        url = self._api.create_repo(repo_id, visibility="private")
+        info = self._api.model_info(url.repo_id, expand="private")
+        assert info.private
+        self._api.delete_repo(url.repo_id)
+
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings_with_visibility(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        self._api.update_repo_settings(repo_id=repo_id, visibility="private")
+        info = self._api.model_info(repo_id, expand="private")
+        assert info.private
+
+        self._api.update_repo_settings(repo_id=repo_id, visibility="public")
+        info = self._api.model_info(repo_id, expand="private")
+        assert not info.private
+
     @use_tmp_repo()
     def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -764,7 +784,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(exc_ctx.exception.response.status_code, 412)
         self.assertIn(
             # Check the server message is added to the exception
-            "A commit has happened since. Please refresh and try again.",
+            "The branch was updated since you opened this page. Please refresh and try again.",
             str(exc_ctx.exception),
         )
 
@@ -784,8 +804,8 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated."
-            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            " repo, make sure you are authenticated and your token has the required permissions."
+            "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
@@ -2325,6 +2345,30 @@ class HfApiPublicProductionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._api.dataset_info("HuggingFaceH4/no_robots", expand=["author"], files_metadata=True)
 
+    @with_production_testing
+    def test_get_dataset_leaderboard(self):
+        leaderboard = HfApi().get_dataset_leaderboard("allenai/olmOCR-bench")
+        assert isinstance(leaderboard, list)
+        assert len(leaderboard) > 0
+        entry = leaderboard[0]
+        assert isinstance(entry, DatasetLeaderboardEntry)
+        assert isinstance(entry.rank, int)
+        assert entry.rank == 1
+        assert isinstance(entry.model_id, str)
+        assert isinstance(entry.value, (int, float))
+        assert isinstance(entry.filename, str)
+        assert isinstance(entry.verified, bool)
+        assert isinstance(entry.source, dict)
+        assert isinstance(entry.author, (User, Organization))
+        # Optional fields should be accessible (may be None)
+        assert entry.pull_request is None or isinstance(entry.pull_request, int)
+        assert entry.notes is None or isinstance(entry.notes, str)
+
+    @with_production_testing
+    def test_get_dataset_leaderboard_not_found(self):
+        with self.assertRaises(RepositoryNotFoundError):
+            HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
+
     def test_space_info(self) -> None:
         space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
         assert space.id == "HuggingFaceH4/zephyr-chat"
@@ -3646,6 +3690,21 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    def test_protected_visibility_is_only_supported_for_spaces(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, r"Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'."
+        ):
+            self.api.create_repo(self.repo_id, visibility="protected")
+        self.post_mock.assert_not_called()
+
+    def test_private_and_visibility_are_mutually_exclusive(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Received both `private` and `visibility` arguments. Please provide only one of them.",
+        ):
+            self.api.create_repo(self.repo_id, private=True, visibility="private")
+        self.post_mock.assert_not_called()
+
     def test_create_space_with_secrets_and_variables(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3702,7 +3761,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             headers=self.api._build_hf_headers(),
             json={
                 "repository": f"{USER}/new_repo_id",
-                "private": True,
+                "visibility": "private",
                 "hardware": "t4-medium",
                 "storageTier": "large",
                 "sleepTimeSeconds": 123,

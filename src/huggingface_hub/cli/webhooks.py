@@ -39,7 +39,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args, get_type_hints
+from typing import Annotated, get_args, get_type_hints
 
 import typer
 
@@ -90,7 +90,7 @@ def _parse_watch(values: list[str]) -> list[WebhookWatchedItem]:
         kind, name = v.split(":", 1)
         if kind not in valid_types:
             raise typer.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
-        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore[arg-type]
+        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore
     return items
 
 
@@ -163,25 +163,25 @@ def webhooks_create(
         ),
     ],
     url: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="URL to send webhook payloads to. Mutually exclusive with --job-id."),
     ] = None,
     job_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--job-id",
             help="ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.",
         ),
     ] = None,
     domain: Annotated[
-        Optional[list[WebhookDomain]],
+        list[WebhookDomain] | None,
         typer.Option(
             "--domain",
             help="Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.",
         ),
     ] = None,
     secret: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Optional secret used to sign webhook payloads."),
     ] = None,
     token: TokenOpt = None,
@@ -213,11 +213,11 @@ def webhooks_create(
 def webhooks_update(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to update.")],
     url: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="New URL to send webhook payloads to."),
     ] = None,
     watch: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "--watch",
             help=(
@@ -227,14 +227,14 @@ def webhooks_update(
         ),
     ] = None,
     domain: Annotated[
-        Optional[list[WebhookDomain]],
+        list[WebhookDomain] | None,
         typer.Option(
             "--domain",
             help="New list of domains to watch: 'repo' or 'discussions'. Repeatable.",
         ),
     ] = None,
     secret: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="New secret used to sign webhook payloads."),
     ] = None,
     token: TokenOpt = None,

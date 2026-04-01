@@ -25,14 +25,31 @@ Usage:
 
     # list today's papers, ordered by upvotes
     hf papers ls --date=today
+
+    # list papers from a specific week
+    hf papers ls --week=2025-W09
+
+    # list papers by a specific submitter
+    hf papers ls --submitter=someuser
+
+    # search papers
+    hf papers search "vision language"
+
+    # get info about a paper
+    hf papers info 2502.08025
+
+    # read a paper as markdown
+    hf papers read 2502.08025
 """
 
 import datetime
 import enum
-from typing import Annotated, Optional, get_args
+import json
+from typing import Annotated, get_args
 
 import typer
 
+from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
@@ -53,7 +70,7 @@ _SORT_OPTIONS = get_args(DailyPapersSort_T)
 PaperSortEnum = enum.Enum("PaperSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
 
 
-def _parse_date(value: Optional[str]) -> Optional[str]:
+def _parse_date(value: str | None) -> str | None:
     """Parse date option, converting 'today' to current date."""
     if value is None:
         return None
@@ -71,19 +88,33 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
         "hf papers ls",
         "hf papers ls --sort trending",
         "hf papers ls --date 2025-01-23",
+        "hf papers ls --week 2025-W09",
+        "hf papers ls --submitter akhaliq",
         "hf papers ls --format json",
     ],
 )
 def papers_ls(
     date: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Date in ISO format (YYYY-MM-DD) or 'today'.",
             callback=_parse_date,
         ),
     ] = None,
+    week: Annotated[
+        str | None,
+        typer.Option(help="ISO week to filter by, e.g. '2025-W09'."),
+    ] = None,
+    month: Annotated[
+        str | None,
+        typer.Option(help="Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'."),
+    ] = None,
+    submitter: Annotated[
+        str | None,
+        typer.Option(help="Filter by username of the submitter."),
+    ] = None,
     sort: Annotated[
-        Optional[PaperSortEnum],
+        PaperSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
@@ -98,6 +129,9 @@ def papers_ls(
         api_object_to_dict(paper_info)
         for paper_info in api.list_daily_papers(
             date=date,
+            week=week,
+            month=month,
+            submitter=submitter,
             sort=sort_key,
             limit=limit,
         )
@@ -106,14 +140,14 @@ def papers_ls(
 
     def _paper_row(item: dict) -> list[str]:
         submitted_by = item.get("submitted_by") or {}
-        submitter = submitted_by.get("fullname") or submitted_by.get("username") or ""
+        submitter_name = submitted_by.get("fullname") or submitted_by.get("username") or ""
         return [
             item.get("id", ""),
             _format_cell(item.get("title", ""), max_len=60),
             str(item.get("upvotes", "")),
             str(item.get("comments", "")),
             _format_cell(item.get("published_at", "")),
-            submitter,
+            submitter_name,
         ]
 
     print_list_output(
@@ -125,3 +159,85 @@ def papers_ls(
         row_fn=_paper_row,
         alignments={"upvotes": "right", "comments": "right"},
     )
+
+
+@papers_cli.command(
+    "search",
+    examples=[
+        'hf papers search "vision language"',
+        'hf papers search "attention mechanism" --limit 10',
+        'hf papers search "diffusion" --format json',
+    ],
+)
+def papers_search(
+    query: Annotated[str, typer.Argument(help="Search query string.")],
+    limit: LimitOpt = 20,
+    format: FormatOpt = OutputFormat.table,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Search papers on the Hub."""
+    api = get_hf_api(token=token)
+    results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
+    _HEADERS = ["id", "title", "summary", "upvotes", "published_at"]
+
+    def _paper_row(item: dict) -> list[str]:
+        return [
+            item.get("id", ""),
+            _format_cell(item.get("title", ""), max_len=70),
+            _format_cell(item.get("summary", ""), max_len=70),
+            str(item.get("upvotes", "")),
+            _format_cell(item.get("published_at", "")),
+        ]
+
+    print_list_output(
+        results,
+        format=format,
+        quiet=quiet,
+        id_key="id",
+        headers=_HEADERS,
+        row_fn=_paper_row,
+        alignments={"upvotes": "right"},
+    )
+
+
+@papers_cli.command(
+    "info",
+    examples=[
+        "hf papers info 2601.15621",
+    ],
+)
+def papers_info(
+    paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    token: TokenOpt = None,
+) -> None:
+    """Get info about a paper on the Hub. Output is in JSON format."""
+    api = get_hf_api(token=token)
+    try:
+        info = api.paper_info(id=paper_id)
+    except HfHubHTTPError as e:
+        if e.response.status_code == 404:
+            raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
+        raise
+    print(json.dumps(api_object_to_dict(info), indent=2))
+
+
+@papers_cli.command(
+    "read",
+    examples=[
+        "hf papers read 2601.15621",
+    ],
+)
+def papers_read(
+    paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    token: TokenOpt = None,
+) -> None:
+    """Read a paper as markdown."""
+    api = get_hf_api(token=token)
+    try:
+        content = api.read_paper(id=paper_id)
+    except HfHubHTTPError as e:
+        if e.response.status_code == 404:
+            raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
+        raise
+    print(content)

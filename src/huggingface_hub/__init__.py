@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.8.0.dev0"
+__version__ = "1.9.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -83,6 +83,7 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
+        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -176,6 +177,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetInfo",
+        "DatasetLeaderboardEntry",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -243,6 +245,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -299,6 +302,7 @@ _SUBMOD_ATTRS = {
         "pause_space",
         "permanently_delete_lfs_files",
         "preupload_lfs_files",
+        "read_paper",
         "reject_access_request",
         "rename_discussion",
         "repo_exists",
@@ -671,6 +675,7 @@ __all__ = [
     "DatasetCard",
     "DatasetCardData",
     "DatasetInfo",
+    "DatasetLeaderboardEntry",
     "DeleteCacheStrategy",
     "DepthEstimationInput",
     "DepthEstimationOutput",
@@ -854,6 +859,7 @@ __all__ = [
     "VisualQuestionAnsweringInputData",
     "VisualQuestionAnsweringOutputElement",
     "VisualQuestionAnsweringParameters",
+    "Volume",
     "WebhookInfo",
     "WebhookPayload",
     "WebhookPayloadComment",
@@ -943,6 +949,7 @@ __all__ = [
     "get_bucket_file_metadata",
     "get_bucket_paths_info",
     "get_collection",
+    "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
     "get_full_repo_name",
@@ -1024,6 +1031,7 @@ __all__ = [
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "read_dduf_file",
+    "read_paper",
     "reject_access_request",
     "rename_discussion",
     "repo_exists",
@@ -1199,6 +1207,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
@@ -1288,6 +1297,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
+        DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1355,6 +1365,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
@@ -1411,6 +1422,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_space,  # noqa: F401
         permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        read_paper,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401

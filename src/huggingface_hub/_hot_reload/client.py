@@ -15,7 +15,8 @@
 
 import json
 from collections import deque
-from typing import Iterator, Literal, Optional, TypedDict, Union
+from collections.abc import Iterator
+from typing import Literal, TypedDict
 
 import httpx
 
@@ -49,7 +50,7 @@ class ReloadClient:
         host: str,
         subdomain: str,
         replica_hash: str,
-        token: Optional[str],
+        token: str | None,
     ):
         base_host = host.replace(subdomain, f"{subdomain}--{HOT_RELOADING_PORT}")
         self.replica_hash = replica_hash
@@ -72,8 +73,8 @@ def multi_replica_reload_events(
     host: str,
     subdomain: str,
     replica_hashes: list[str],
-    token: Optional[str],
-) -> Iterator[Union[MultiReplicaStreamEvent, MultiReplicaStreamReplicaHash, MultiReplicaStreamFullMatch]]:
+    token: str | None,
+) -> Iterator[MultiReplicaStreamEvent | MultiReplicaStreamReplicaHash | MultiReplicaStreamFullMatch]:
     clients = [
         ReloadClient(
             host=host,

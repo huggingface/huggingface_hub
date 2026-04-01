@@ -1,7 +1,7 @@
 import os
 import re
 import typing
-from typing import Literal, Optional
+from typing import Literal
 
 
 # Possible values for env variables
@@ -11,13 +11,13 @@ ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 ENV_VARS_TRUE_AND_AUTO_VALUES = ENV_VARS_TRUE_VALUES.union({"AUTO"})
 
 
-def _is_true(value: Optional[str]) -> bool:
+def _is_true(value: str | None) -> bool:
     if value is None:
         return False
     return value.upper() in ENV_VARS_TRUE_VALUES
 
 
-def _as_int(value: Optional[str]) -> Optional[int]:
+def _as_int(value: str | None) -> int | None:
     if value is None:
         return None
     return int(value)
@@ -118,6 +118,7 @@ REPO_TYPES_MAPPING = {
     "spaces": REPO_TYPE_SPACE,
     "models": REPO_TYPE_MODEL,
 }
+
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
@@ -224,7 +225,7 @@ if _staging_mode:
 # them programmatically.
 # TL;DR: env variable has priority over code
 __HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
-HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
+HF_HUB_DISABLE_PROGRESS_BARS: bool | None = (
     _is_true(__HF_HUB_DISABLE_PROGRESS_BARS) if __HF_HUB_DISABLE_PROGRESS_BARS is not None else None
 )
 
@@ -258,7 +259,7 @@ HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEF
 HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
 
 # Allows to add information about the requester in the user-agent (e.g. partner name)
-HF_HUB_USER_AGENT_ORIGIN: Optional[str] = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
+HF_HUB_USER_AGENT_ORIGIN: str | None = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.

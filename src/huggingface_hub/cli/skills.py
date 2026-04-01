@@ -34,7 +34,7 @@ Usage:
 import os
 import shutil
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from click import Command, Context, Group
@@ -48,10 +48,34 @@ from ._cli_utils import typer_factory
 
 DEFAULT_SKILL_ID = "hf-cli"
 
-_SKILL_YAML_PREFIX = """\
+_SKILL_DESCRIPTION = (
+    "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing"
+    " models, datasets, spaces, buckets, repos, papers, jobs, and more on the Hugging Face Hub."
+    " Use when: handling authentication;"
+    " managing local cache;"
+    " managing Hugging Face Buckets;"
+    " running or scheduling jobs on Hugging Face infrastructure;"
+    " managing Hugging Face repos;"
+    " discussions and pull requests;"
+    " browsing models, datasets and spaces;"
+    " reading, searching, or browsing academic papers;"
+    " managing collections;"
+    " querying datasets;"
+    " configuring spaces;"
+    " setting up webhooks;"
+    " or deploying and managing HF Inference Endpoints."
+    " Make sure to use this skill whenever the user mentions"
+    " 'hf', 'huggingface', 'Hugging Face', 'huggingface-cli', or 'hugging face cli',"
+    " or wants to do anything related to the Hugging Face ecosystem and to AI and ML in general."
+    " Also use for cloud storage needs like training checkpoints, data pipelines, or agent traces."
+    " Use even if the user doesn't explicitly ask for a CLI command."
+    " Replaces the deprecated `huggingface-cli`."
+)
+
+_SKILL_YAML_PREFIX = f"""\
 ---
 name: hf-cli
-description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub. Replaces now deprecated `huggingface-cli` command."
+description: "{_SKILL_DESCRIPTION}"
 ---
 
 Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.
@@ -62,6 +86,17 @@ Use `hf --help` to view available functions. Note that auth commands are now all
 """
 
 _SKILL_TIPS = """
+## Mounting repos as local filesystems
+
+To mount Hub repositories or buckets as local filesystems — no download, no copy, no waiting — use `hf-mount`. Files are fetched on demand. GitHub: https://github.com/huggingface/hf-mount
+
+Install: `curl -fsSL https://raw.githubusercontent.com/huggingface/hf-mount/main/install.sh | sh`
+
+Some command examples:
+- `hf-mount start repo openai-community/gpt2 /tmp/gpt2` — mount a repo (read-only)
+- `hf-mount start --hf-token $HF_TOKEN bucket myuser/my-bucket /tmp/data` — mount a bucket (read-write)
+- `hf-mount status` / `hf-mount stop /tmp/data` — list or unmount
+
 ## Tips
 
 - Use `hf <command> --help` for full options, descriptions, usage, and real-world examples
@@ -137,7 +172,7 @@ def _iter_optional_params(cmd: Command):
             yield p, long_name, short_name
 
 
-def _get_flag_names(cmd: Command, *, exclude: Optional[set[str]] = None) -> list[str]:
+def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
@@ -332,7 +367,7 @@ def skills_add(
         ),
     ] = False,
     dest: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             help="Install into a custom destination (path to skills directory).",
         ),

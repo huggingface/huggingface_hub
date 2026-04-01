@@ -14,13 +14,15 @@
 """Contains pytorch-specific helpers."""
 
 import importlib
+import importlib.util
 import json
 import os
 import re
 from collections import defaultdict, namedtuple
+from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Union
 
 from packaging import version
 
@@ -38,15 +40,15 @@ if TYPE_CHECKING:
 
 def save_torch_model(
     model: "torch.nn.Module",
-    save_directory: Union[str, Path],
+    save_directory: str | Path,
     *,
-    filename_pattern: Optional[str] = None,
+    filename_pattern: str | None = None,
     force_contiguous: bool = True,
-    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
-    metadata: Optional[dict[str, str]] = None,
+    max_shard_size: int | str = MAX_SHARD_SIZE,
+    metadata: dict[str, str] | None = None,
     safe_serialization: bool = True,
     is_main_process: bool = True,
-    shared_tensors_to_discard: Optional[list[str]] = None,
+    shared_tensors_to_discard: list[str] | None = None,
 ):
     """
     Saves a given torch model to disk, handling sharding and shared tensors issues.
@@ -132,15 +134,15 @@ def save_torch_model(
 
 def save_torch_state_dict(
     state_dict: dict[str, "torch.Tensor"],
-    save_directory: Union[str, Path],
+    save_directory: str | Path,
     *,
-    filename_pattern: Optional[str] = None,
+    filename_pattern: str | None = None,
     force_contiguous: bool = True,
-    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
-    metadata: Optional[dict[str, str]] = None,
+    max_shard_size: int | str = MAX_SHARD_SIZE,
+    metadata: dict[str, str] | None = None,
     safe_serialization: bool = True,
     is_main_process: bool = True,
-    shared_tensors_to_discard: Optional[list[str]] = None,
+    shared_tensors_to_discard: list[str] | None = None,
 ) -> None:
     """
     Save a model state dictionary to the disk, handling sharding and shared tensors issues.
@@ -291,7 +293,7 @@ def split_torch_state_dict_into_shards(
     state_dict: dict[str, "torch.Tensor"],
     *,
     filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
-    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
+    max_shard_size: int | str = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -362,14 +364,14 @@ def split_torch_state_dict_into_shards(
 
 def load_torch_model(
     model: "torch.nn.Module",
-    checkpoint_path: Union[str, os.PathLike],
+    checkpoint_path: str | os.PathLike,
     *,
     strict: bool = False,
     safe: bool = True,
     weights_only: bool = False,
-    map_location: Optional[Union[str, "torch.device"]] = None,
+    map_location: Union[str, "torch.device"] | None = None,
     mmap: bool = False,
-    filename_pattern: Optional[str] = None,
+    filename_pattern: str | None = None,
 ) -> NamedTuple:
     """
     Load a checkpoint into a model, handling both sharded and non-sharded checkpoints.
@@ -505,7 +507,7 @@ def _load_sharded_checkpoint(
     # The index file contains mapping of parameter names to shard files
     index_path = filename_pattern.format(suffix="") + ".index.json"
     index_file = os.path.join(save_directory, index_path)
-    with open(index_file, "r", encoding="utf-8") as f:
+    with open(index_file, encoding="utf-8") as f:
         index = json.load(f)
 
     # 2. Validate keys if in strict mode
@@ -538,11 +540,11 @@ def _load_sharded_checkpoint(
 
 
 def load_state_dict_from_file(
-    checkpoint_file: Union[str, os.PathLike],
-    map_location: Optional[Union[str, "torch.device"]] = None,
+    checkpoint_file: str | os.PathLike,
+    map_location: Union[str, "torch.device"] | None = None,
     weights_only: bool = False,
     mmap: bool = False,
-) -> Union[dict[str, "torch.Tensor"], Any]:
+) -> dict[str, "torch.Tensor"] | Any:
     """
     Loads a checkpoint file, handling both safetensors and pickle checkpoint formats.
 
@@ -682,7 +684,7 @@ def _validate_keys_for_strict_loading(
         raise RuntimeError(error_message)
 
 
-def _get_unique_id(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
+def _get_unique_id(tensor: "torch.Tensor") -> int | tuple[Any, ...]:
     """Returns a unique id for plain tensor
     or a (potentially nested) Tuple of unique id for the flattened Tensor
     if the input is a wrapper tensor subclass Tensor
@@ -723,7 +725,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
     return unique_id
 
 
-def get_torch_storage_id(tensor: "torch.Tensor") -> Optional[tuple["torch.device", Union[int, tuple[Any, ...]], int]]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> tuple["torch.device", int | tuple[Any, ...], int] | None:
     """
     Return unique identifier to a tensor storage.
 
@@ -776,7 +778,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
             return tensor.nelement() * _get_dtype_size(tensor.dtype)
 
 
-@lru_cache()
+@lru_cache
 def is_torch_tpu_available(check_device=True):
     """
     Checks if `torch_xla` is installed and potentially if a TPU is in the environment
@@ -797,7 +799,7 @@ def is_torch_tpu_available(check_device=True):
     return False
 
 
-def storage_ptr(tensor: "torch.Tensor") -> Union[int, tuple[Any, ...]]:
+def storage_ptr(tensor: "torch.Tensor") -> int | tuple[Any, ...]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
@@ -826,7 +828,7 @@ def _clean_state_dict_for_safetensors(
     state_dict: dict[str, "torch.Tensor"],
     metadata: dict[str, str],
     force_contiguous: bool = True,
-    shared_tensors_to_discard: Optional[list[str]] = None,
+    shared_tensors_to_discard: list[str] | None = None,
 ):
     """Remove shared tensors from state_dict and update metadata accordingly (for reloading).
 
@@ -927,8 +929,8 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
 def _remove_duplicate_names(
     state_dict: dict[str, "torch.Tensor"],
     *,
-    preferred_names: Optional[list[str]] = None,
-    discard_names: Optional[list[str]] = None,
+    preferred_names: list[str] | None = None,
+    discard_names: list[str] | None = None,
 ) -> dict[str, list[str]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L80
@@ -943,7 +945,7 @@ def _remove_duplicate_names(
     shareds = _find_shared_tensors(state_dict)
     to_remove = defaultdict(list)
     for shared in shareds:
-        complete_names = set([name for name in shared if _is_complete(state_dict[name])])
+        complete_names = {name for name in shared if _is_complete(state_dict[name])}
         if not complete_names:
             raise RuntimeError(
                 "Error while trying to find names to remove to save state dict, but found no suitable name to keep"
@@ -973,7 +975,7 @@ def _remove_duplicate_names(
     return to_remove
 
 
-@lru_cache()
+@lru_cache
 def _get_dtype_size(dtype: "torch.dtype") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344

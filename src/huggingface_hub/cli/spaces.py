@@ -34,7 +34,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Annotated, Literal, Optional, Union, get_args
+from typing import Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -75,7 +75,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
@@ -97,7 +97,7 @@ def spaces_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
-        Optional[SpaceSortEnum],
+        SpaceSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
@@ -219,9 +219,9 @@ def dev_mode(
 @spaces_cli.command(
     "hot-reload",
     examples=[
-        "hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file",
-        "hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo",
-        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo",
+        "hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file",
+        "hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely",
+        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py",
     ],
 )
 def spaces_hot_reload(
@@ -232,13 +232,13 @@ def spaces_hot_reload(
         ),
     ],
     filename: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches."
         ),
     ] = None,
     local_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -260,6 +260,10 @@ def spaces_hot_reload(
     This command patches the live Python process using https://github.com/breuleux/jurigged
     (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
     (meaning that Gradio demo object changes are reflected in the UI)
+
+    The command creates a remote commit.
+    If you are working from a local clone, run `git pull --autostash` afterwards
+    to bring the commit back and keep your local git state in sync.
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
@@ -338,8 +342,8 @@ def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
-    local_path: Optional[str],
-    token: Optional[str],
+    local_path: str | None,
+    token: str | None,
 ) -> None:
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -416,7 +420,7 @@ PREFERRED_EDITORS = (
 
 
 @functools.cache
-def _get_editor_command() -> Optional[str]:
+def _get_editor_command() -> str | None:
     for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
         if command := os.getenv(env, "").strip():
             return command
@@ -426,7 +430,7 @@ def _get_editor_command() -> Optional[str]:
     return None
 
 
-def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
+def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return "no-tty"
     if (editor_command := _get_editor_command()) is None:

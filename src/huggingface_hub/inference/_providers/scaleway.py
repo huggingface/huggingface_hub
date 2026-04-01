@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 
@@ -18,11 +18,11 @@ class ScalewayFeatureExtractionTask(TaskProviderHelper):
         return "/v1/embeddings"
 
     def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[Dict]:
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
         parameters = filter_none(parameters)
         return {"input": inputs, "model": provider_mapping_info.provider_id, **parameters}
 
-    def get_response(self, response: Union[bytes, Dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         embeddings = _as_dict(response)["data"]
         return [embedding["embedding"] for embedding in embeddings]

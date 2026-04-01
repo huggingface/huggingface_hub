@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2025-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +15,11 @@
 
 import re
 import time
-from typing import Dict
 
 
 RE_NUMBER_WITH_UNIT = re.compile(r"(\d+)([a-z]+)", re.IGNORECASE)
 
-BYTE_UNITS: Dict[str, int] = {
+BYTE_UNITS: dict[str, int] = {
     "k": 1_000,
     "m": 1_000_000,
     "g": 1_000_000_000,
@@ -29,7 +27,7 @@ BYTE_UNITS: Dict[str, int] = {
     "p": 1_000_000_000_000_000,
 }
 
-TIME_UNITS: Dict[str, int] = {
+TIME_UNITS: dict[str, int] = {
     "s": 1,
     "m": 60,
     "h": 60 * 60,
@@ -50,7 +48,7 @@ def parse_duration(value: str) -> int:
     return _parse_with_unit(value, TIME_UNITS)
 
 
-def _parse_with_unit(value: str, units: Dict[str, int]) -> int:
+def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     """Parse a numeric value with optional unit."""
     stripped = value.strip()
     if not stripped:

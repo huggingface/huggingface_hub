@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
@@ -58,7 +58,7 @@ DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, ty
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
@@ -82,7 +82,7 @@ def datasets_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
-        Optional[DatasetSortEnum],
+        DatasetSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
@@ -102,7 +102,7 @@ def datasets_ls(
             search=search,
             sort=sort_key,
             limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
@@ -124,7 +124,7 @@ def datasets_info(
     """Get info about a dataset on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
-        info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore[arg-type]
+        info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore
     except RepositoryNotFoundError as e:
         raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except RevisionNotFoundError as e:
@@ -143,8 +143,8 @@ def datasets_info(
 )
 def datasets_parquet(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
-    subset: Annotated[Optional[str], typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
-    split: Annotated[Optional[str], typer.Option(help="Filter parquet entries by split.")] = None,
+    subset: Annotated[str | None, typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
+    split: Annotated[str | None, typer.Option(help="Filter parquet entries by split.")] = None,
     format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
     token: TokenOpt = None,

@@ -17,7 +17,6 @@ import os
 import subprocess
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -57,7 +56,7 @@ _HF_LOGO_ASCII = """
 
 
 def login(
-    token: Optional[str] = None,
+    token: str | None = None,
     *,
     add_to_git_credential: bool = False,
     skip_if_logged_in: bool = True,
@@ -117,7 +116,7 @@ def login(
         interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
-def logout(token_name: Optional[str] = None) -> None:
+def logout(token_name: str | None = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
@@ -148,12 +147,12 @@ def logout(token_name: Optional[str] = None) -> None:
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "You are automatically logged in using a Google Colab secret.\n"
             "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
         )
     if _get_token_from_environment() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
@@ -492,4 +491,4 @@ def _set_store_as_git_credential_helper_globally() -> None:
     try:
         run_subprocess("git config --global credential.helper store")
     except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
+        raise OSError(exc.stderr)

@@ -26,7 +26,7 @@ Usage:
 
 import enum
 import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
@@ -57,7 +57,7 @@ ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
@@ -81,11 +81,11 @@ def models_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     num_parameters: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
     ] = None,
     sort: Annotated[
-        Optional[ModelSortEnum],
+        ModelSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
@@ -106,7 +106,7 @@ def models_ls(
             num_parameters=num_parameters,
             sort=sort_key,
             limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
@@ -128,7 +128,7 @@ def models_info(
     """Get info about a model on the Hub. Output is in JSON format."""
     api = get_hf_api(token=token)
     try:
-        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore[arg-type]
+        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore
     except RepositoryNotFoundError as e:
         raise CLIError(f"Model '{model_id}' not found.") from e
     except RevisionNotFoundError as e:

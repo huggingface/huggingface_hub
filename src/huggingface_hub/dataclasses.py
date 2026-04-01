@@ -1,16 +1,14 @@
 import collections.abc
 import inspect
-import sys
 import types
+from collections.abc import Callable
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
     Annotated,
     Any,
-    Callable,
     ForwardRef,
     Literal,
-    Optional,
     Type,
     TypeVar,
     Union,
@@ -55,9 +53,7 @@ def strict(cls: Type[T]) -> Type[T]: ...
 def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
 
 
-def strict(
-    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
-) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
+def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T] | Callable[[Type[T]], Type[T]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -152,7 +148,7 @@ def strict(
             # If validation passed, set the attribute
             original_setattr(self, name, value)
 
-        cls.__setattr__ = __strict_setattr__  # type: ignore[method-assign]
+        cls.__setattr__ = __strict_setattr__  # type: ignore
 
         if accept_kwargs:
             # (optional) Override __init__ to accept arbitrary keyword arguments
@@ -193,7 +189,7 @@ def strict(
 
                 self.__post_init__(**additional_kwargs)
 
-            cls.__init__ = __init__  # type: ignore[method-assign]
+            cls.__init__ = __init__  # type: ignore
 
             # Define a default __post_init__ if not defined
             if not hasattr(cls, "__post_init__"):
@@ -226,7 +222,7 @@ def strict(
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
             if cls.__dataclass_params__.repr is True:  # type: ignore [attr-defined]
-                cls.__repr__ = __repr__  # type: ignore [method-assign]
+                cls.__repr__ = __repr__  # type: ignore
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
@@ -245,7 +241,7 @@ def strict(
                 )
             class_validators.append(method)
 
-        cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
+        cls.__class_validators__ = class_validators  # type: ignore
 
         # Add `validate` method to the class, but first check if it already exists
         def validate(self: T) -> None:
@@ -385,14 +381,14 @@ def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
 
 
 def validated_field(
-    validator: Union[list[Validator_T], Validator_T],
-    default: Union[Any, _MISSING_TYPE] = MISSING,
-    default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+    validator: list[Validator_T] | Validator_T,
+    default: Any | _MISSING_TYPE = MISSING,
+    default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
     init: bool = True,
     repr: bool = True,
-    hash: Optional[bool] = None,
+    hash: bool | None = None,
     compare: bool = True,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -437,13 +433,13 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Union[Any, _MISSING_TYPE] = MISSING,
-        default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+        default: Any | _MISSING_TYPE = MISSING,
+        default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
         init: bool = True,
         repr: bool = True,
-        hash: Optional[bool] = None,
+        hash: bool | None = None,
         compare: bool = True,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         **kwargs: Any,
     ):
         return validated_field(
@@ -468,6 +464,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
+    elif expected_type is None:
+        _validate_none(name, value)
     elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
@@ -484,6 +482,16 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         type_validator(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
+
+
+def _validate_none(name: str, value: Any) -> None:
+    """Validate None type.
+
+    'None' is not a type, it's a special value. Type should be `NoneType` instead.
+    But in type annotations 'None' is accepted so we must support it.
+    """
+    if value is not None:
+        raise TypeError(f"Field '{name}' expected None, got {type(value).__name__}")
 
 
 def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
@@ -503,7 +511,13 @@ def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Literal type."""
-    if value not in args:
+    if isinstance(value, bool):
+        if value not in [arg for arg in args if isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif isinstance(value, int):
+        if value not in [arg for arg in args if isinstance(arg, int) and not isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif value not in args:
         raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
@@ -593,6 +607,10 @@ def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
+    if expected_type is int and isinstance(value, bool):
+        raise TypeError(
+            f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
+        )
     if not isinstance(value, expected_type):
         raise TypeError(
             f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
@@ -651,9 +669,8 @@ _BASIC_TYPE_VALIDATORS: dict[Any, Callable[[str, Any, tuple[Any, ...]], None]] =
     collections.abc.Sequence: _validate_sequence,
 }
 
-if sys.version_info >= (3, 10):
-    # TODO: make it first class citizen when bumping to Python 3.10+
-    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
+# TODO: make it first class citizen when bumping to Python 3.10+
+_BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [

@@ -17,7 +17,7 @@ class AudioClassificationParameters(BaseInferenceType):
 
     function_to_apply: Optional["AudioClassificationOutputTransform"] = None
     """The function to apply to the model outputs in order to retrieve the scores."""
-    top_k: Optional[int] = None
+    top_k: int | None = None
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -29,7 +29,7 @@ class AudioClassificationInput(BaseInferenceType):
     """The input audio data as a base64-encoded string. If no `parameters` are provided, you can
     also provide the audio data as a raw bytes payload.
     """
-    parameters: Optional[AudioClassificationParameters] = None
+    parameters: AudioClassificationParameters | None = None
     """Additional inference parameters for Audio Classification"""
 
 

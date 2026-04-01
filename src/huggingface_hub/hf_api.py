@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +22,7 @@ import struct
 import time
 import warnings
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -33,14 +33,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    Callable,
-    Iterable,
-    Iterator,
     Literal,
-    Optional,
-    Type,
     TypeVar,
-    Union,
     overload,
 )
 from urllib.parse import quote
@@ -83,7 +77,7 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, Volume, _create_job_spec
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -150,6 +144,7 @@ if TYPE_CHECKING:
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
+RepoVisibility_T = Literal["public", "private", "protected"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -249,11 +244,29 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
-
 logger = logging.get_logger(__name__)
 
 
-def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tuple[Optional[str], Optional[str], str]:
+def _resolve_repo_visibility(
+    *,
+    private: bool | None,
+    visibility: RepoVisibility_T | None,
+    repo_type: str | None,
+) -> RepoVisibility_T | None:
+    if private is not None and visibility is not None:
+        raise ValueError("Received both `private` and `visibility` arguments. Please provide only one of them.")
+
+    if visibility is None:
+        if private is None:
+            return None
+        return "private" if private else "public"
+
+    if visibility == "protected" and repo_type != constants.REPO_TYPE_SPACE:
+        raise ValueError("Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'.")
+    return visibility
+
+
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple[str | None, str | None, str]:
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -309,7 +322,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> tu
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
-    namespace: Optional[str]
+    namespace: str | None
     if is_hf_url:
         # For URLs, we need to extract repo_type, namespace, repo_id
         # Expected format after stripping endpoint: [repo_type]/namespace/repo_id or namespace/repo_id
@@ -411,8 +424,8 @@ class BlobLfsInfo(dict):
 class BlobSecurityInfo(dict):
     safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
     status: str
-    av_scan: Optional[dict]
-    pickle_import_scan: Optional[dict]
+    av_scan: dict | None
+    pickle_import_scan: dict | None
 
     def __post_init__(self):  # hack to make BlogSecurityInfo backward compatible
         self.update(asdict(self))
@@ -421,10 +434,10 @@ class BlobSecurityInfo(dict):
 @dataclass
 class TransformersInfo(dict):
     auto_model: str
-    custom_class: Optional[str] = None
+    custom_class: str | None = None
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
-    pipeline_tag: Optional[str] = None
-    processor: Optional[str] = None
+    pipeline_tag: str | None = None
+    processor: str | None = None
 
     def __post_init__(self):  # hack to make TransformersInfo backward compatible
         self.update(asdict(self))
@@ -481,15 +494,15 @@ class CommitInfo(str):
     commit_message: str
     commit_description: str
     oid: str
-    _endpoint: Optional[str] = field(default=None, repr=False)
-    pr_url: Optional[str] = None
+    _endpoint: str | None = field(default=None, repr=False)
+    pr_url: str | None = None
 
     # Computed from `commit_url` in `__post_init__`
     repo_url: RepoUrl = field(init=False)
 
     # Computed from `pr_url` in `__post_init__`
-    pr_revision: Optional[str] = field(init=False)
-    pr_num: Optional[int] = field(init=False)
+    pr_revision: str | None = field(init=False)
+    pr_num: int | None = field(init=False)
 
     def __new__(cls, *args, commit_url: str, **kwargs):
         return str.__new__(cls, commit_url)
@@ -533,12 +546,12 @@ class AccessRequest:
 
     username: str
     fullname: str
-    email: Optional[str]
+    email: str | None
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
 
     # Additional fields filled by the user in the gate form
-    fields: Optional[dict[str, Any]] = None
+    fields: dict[str, Any] | None = None
 
 
 @dataclass
@@ -580,11 +593,11 @@ class WebhookInfo:
     """
 
     id: str
-    url: Optional[str]
-    job: Optional[JobSpec]
+    url: str | None
+    job: JobSpec | None
     watched: list[WebhookWatchedItem]
     domains: list[constants.WEBHOOK_DOMAIN_T]
-    secret: Optional[str]
+    secret: str | None
     disabled: bool
 
 
@@ -628,11 +641,11 @@ class RepoUrl(str):
             If `repo_type` is unknown.
     """
 
-    def __new__(cls, url: Any, endpoint: Optional[str] = None):
+    def __new__(cls, url: Any, endpoint: str | None = None):
         url = fix_hf_endpoint_in_url(url, endpoint=endpoint)
-        return super(RepoUrl, cls).__new__(cls, url)
+        return super().__new__(cls, url)
 
-    def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
+    def __init__(self, url: Any, endpoint: str | None = None) -> None:
         super().__init__()
         # Parse URL
         self.endpoint = endpoint or constants.ENDPOINT
@@ -676,9 +689,9 @@ class RepoSibling:
     """
 
     rfilename: str
-    size: Optional[int] = None
-    blob_id: Optional[str] = None
-    lfs: Optional[BlobLfsInfo] = None
+    size: int | None = None
+    blob_id: str | None = None
+    lfs: BlobLfsInfo | None = None
 
 
 @dataclass
@@ -708,10 +721,10 @@ class RepoFile:
     path: str
     size: int
     blob_id: str
-    lfs: Optional[BlobLfsInfo] = None
-    xet_hash: Optional[str] = None
-    last_commit: Optional[LastCommitInfo] = None
-    security: Optional[BlobSecurityInfo] = None
+    lfs: BlobLfsInfo | None = None
+    xet_hash: str | None = None
+    last_commit: LastCommitInfo | None = None
+    security: BlobSecurityInfo | None = None
 
     def __init__(self, **kwargs):
         self.path = kwargs.pop("path")
@@ -761,7 +774,7 @@ class RepoFolder:
 
     path: str
     tree_id: str
-    last_commit: Optional[LastCommitInfo] = None
+    last_commit: LastCommitInfo | None = None
 
     def __init__(self, **kwargs):
         self.path = kwargs.pop("path")
@@ -776,15 +789,15 @@ class RepoFolder:
 
 @dataclass
 class InferenceProviderMapping:
-    provider: "PROVIDER_T"  # Provider name
+    provider: PROVIDER_T  # Provider name
     hf_model_id: str  # ID of the model on the Hugging Face Hub
     provider_id: str  # ID of the model on the provider's side
     status: Literal["error", "live", "staging"]
     task: str
 
-    adapter: Optional[str] = None
-    adapter_weights_path: Optional[str] = None
-    type: Optional[Literal["single-model", "tag-filter"]] = None
+    adapter: str | None = None
+    adapter_weights_path: str | None = None
+    type: Literal["single-model", "tag-filter"] | None = None
 
     def __init__(self, **kwargs):
         self.provider = kwargs.pop("provider")
@@ -882,38 +895,38 @@ class ModelInfo:
     """
 
     id: str
-    author: Optional[str]
-    base_models: Optional[list[str]]
-    card_data: Optional[ModelCardData]
-    children_model_count: Optional[int]
-    config: Optional[dict]
-    created_at: Optional[datetime]
-    disabled: Optional[bool]
-    downloads: Optional[int]
-    downloads_all_time: Optional[int]
-    eval_results: Optional[list[EvalResultEntry]]
-    gated: Optional[Literal["auto", "manual", False]]
-    gguf: Optional[dict]
-    inference: Optional[Literal["warm"]]
-    inference_provider_mapping: Optional[list[InferenceProviderMapping]]
-    last_modified: Optional[datetime]
-    library_name: Optional[str]
-    likes: Optional[int]
-    mask_token: Optional[str]
-    model_index: Optional[dict]
-    pipeline_tag: Optional[str]
-    private: Optional[bool]
-    resource_group: Optional[dict]
-    safetensors: Optional[SafeTensorsInfo]
-    security_repo_status: Optional[dict]
-    sha: Optional[str]
-    siblings: Optional[list[RepoSibling]]
-    spaces: Optional[list[str]]
-    tags: Optional[list[str]]
-    transformers_info: Optional[TransformersInfo]
-    trending_score: Optional[int]
-    used_storage: Optional[int]
-    widget_data: Optional[Any]
+    author: str | None
+    base_models: list[str] | None
+    card_data: ModelCardData | None
+    children_model_count: int | None
+    config: dict | None
+    created_at: datetime | None
+    disabled: bool | None
+    downloads: int | None
+    downloads_all_time: int | None
+    eval_results: list[EvalResultEntry] | None
+    gated: Literal["auto", "manual", False] | None
+    gguf: dict | None
+    inference: Literal["warm"] | None
+    inference_provider_mapping: list[InferenceProviderMapping] | None
+    last_modified: datetime | None
+    library_name: str | None
+    likes: int | None
+    mask_token: str | None
+    model_index: dict | None
+    pipeline_tag: str | None
+    private: bool | None
+    resource_group: dict | None
+    safetensors: SafeTensorsInfo | None
+    security_repo_status: dict | None
+    sha: str | None
+    siblings: list[RepoSibling] | None
+    spaces: list[str] | None
+    tags: list[str] | None
+    transformers_info: TransformersInfo | None
+    trending_score: int | None
+    used_storage: int | None
+    widget_data: Any | None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1070,25 +1083,25 @@ class DatasetInfo:
     """
 
     id: str
-    author: Optional[str]
-    card_data: Optional[DatasetCardData]
-    citation: Optional[str]
-    created_at: Optional[datetime]
-    description: Optional[str]
-    disabled: Optional[bool]
-    downloads: Optional[int]
-    downloads_all_time: Optional[int]
-    gated: Optional[Literal["auto", "manual", False]]
-    last_modified: Optional[datetime]
-    likes: Optional[int]
-    paperswithcode_id: Optional[str]
-    private: Optional[bool]
-    resource_group: Optional[dict]
-    sha: Optional[str]
-    siblings: Optional[list[RepoSibling]]
-    tags: Optional[list[str]]
-    trending_score: Optional[int]
-    used_storage: Optional[int]
+    author: str | None
+    card_data: DatasetCardData | None
+    citation: str | None
+    created_at: datetime | None
+    description: str | None
+    disabled: bool | None
+    downloads: int | None
+    downloads_all_time: int | None
+    gated: Literal["auto", "manual", False] | None
+    last_modified: datetime | None
+    likes: int | None
+    paperswithcode_id: str | None
+    private: bool | None
+    resource_group: dict | None
+    sha: str | None
+    siblings: list[RepoSibling] | None
+    tags: list[str] | None
+    trending_score: int | None
+    used_storage: int | None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1202,26 +1215,26 @@ class SpaceInfo:
     """
 
     id: str
-    author: Optional[str]
-    card_data: Optional[SpaceCardData]
-    created_at: Optional[datetime]
-    datasets: Optional[list[str]]
-    disabled: Optional[bool]
-    gated: Optional[Literal["auto", "manual", False]]
-    host: Optional[str]
-    last_modified: Optional[datetime]
-    likes: Optional[int]
-    models: Optional[list[str]]
-    private: Optional[bool]
-    resource_group: Optional[dict]
-    runtime: Optional[SpaceRuntime]
-    sdk: Optional[str]
-    sha: Optional[str]
-    siblings: Optional[list[RepoSibling]]
-    subdomain: Optional[str]
-    tags: Optional[list[str]]
-    trending_score: Optional[int]
-    used_storage: Optional[int]
+    author: str | None
+    card_data: SpaceCardData | None
+    created_at: datetime | None
+    datasets: list[str] | None
+    disabled: bool | None
+    gated: Literal["auto", "manual", False] | None
+    host: str | None
+    last_modified: datetime | None
+    likes: int | None
+    models: list[str] | None
+    private: bool | None
+    resource_group: dict | None
+    runtime: SpaceRuntime | None
+    sdk: str | None
+    sha: str | None
+    siblings: list[RepoSibling] | None
+    subdomain: str | None
+    tags: list[str] | None
+    trending_score: int | None
+    used_storage: int | None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1301,7 +1314,7 @@ class CollectionItem:
     item_id: str  # repo_id or paper id
     item_type: str
     position: int
-    note: Optional[str] = None
+    note: str | None = None
 
     def __init__(
         self,
@@ -1309,7 +1322,7 @@ class CollectionItem:
         id: str,
         type: CollectionItemType_T,
         position: int,
-        note: Optional[dict] = None,
+        note: dict | None = None,
         **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
@@ -1363,7 +1376,7 @@ class Collection:
     private: bool
     theme: str
     upvotes: int
-    description: Optional[str] = None
+    description: str | None = None
 
     def __init__(self, **kwargs) -> None:
         self.slug = kwargs.pop("slug")
@@ -1429,7 +1442,7 @@ class GitRefs:
     branches: list[GitRefInfo]
     converts: list[GitRefInfo]
     tags: list[GitRefInfo]
-    pull_requests: Optional[list[GitRefInfo]] = None
+    pull_requests: list[GitRefInfo] | None = None
 
 
 @dataclass
@@ -1461,8 +1474,8 @@ class GitCommitInfo:
     title: str
     message: str
 
-    formatted_title: Optional[str]
-    formatted_message: Optional[str]
+    formatted_title: str | None
+    formatted_message: str | None
 
 
 @dataclass
@@ -1530,16 +1543,16 @@ class Organization:
     avatar_url: str
     name: str
     fullname: str
-    details: Optional[str] = None
-    is_verified: Optional[bool] = None
-    is_following: Optional[bool] = None
-    num_users: Optional[int] = None
-    num_models: Optional[int] = None
-    num_spaces: Optional[int] = None
-    num_datasets: Optional[int] = None
-    num_followers: Optional[int] = None
-    num_papers: Optional[int] = None
-    plan: Optional[str] = None
+    details: str | None = None
+    is_verified: bool | None = None
+    is_following: bool | None = None
+    num_users: int | None = None
+    num_models: int | None = None
+    num_spaces: int | None = None
+    num_datasets: int | None = None
+    num_followers: int | None = None
+    num_papers: int | None = None
+    plan: str | None = None
 
     def __init__(self, **kwargs) -> None:
         self.avatar_url = kwargs.pop("avatarUrl", "")
@@ -1604,18 +1617,18 @@ class User:
     username: str
     fullname: str
     avatar_url: str
-    details: Optional[str] = None
-    is_following: Optional[bool] = None
-    is_pro: Optional[bool] = None
-    num_models: Optional[int] = None
-    num_datasets: Optional[int] = None
-    num_spaces: Optional[int] = None
-    num_discussions: Optional[int] = None
-    num_papers: Optional[int] = None
-    num_upvotes: Optional[int] = None
-    num_likes: Optional[int] = None
-    num_following: Optional[int] = None
-    num_followers: Optional[int] = None
+    details: str | None = None
+    is_following: bool | None = None
+    is_pro: bool | None = None
+    num_models: int | None = None
+    num_datasets: int | None = None
+    num_spaces: int | None = None
+    num_discussions: int | None = None
+    num_papers: int | None = None
+    num_upvotes: int | None = None
+    num_likes: int | None = None
+    num_following: int | None = None
+    num_followers: int | None = None
     orgs: list[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
@@ -1660,10 +1673,10 @@ class PaperAuthor:
     """
 
     name: str
-    user: Optional[User]
-    status: Optional[str]
-    status_last_changed_at: Optional[datetime]
-    hidden: Optional[bool]
+    user: User | None
+    status: str | None
+    status_last_changed_at: datetime | None
+    hidden: bool | None
 
     def __init__(self, **kwargs) -> None:
         self.name = kwargs.pop("name", "")
@@ -1720,22 +1733,22 @@ class PaperInfo:
     """
 
     id: str
-    authors: Optional[list[PaperAuthor]]
-    published_at: Optional[datetime]
-    title: Optional[str]
-    summary: Optional[str]
-    upvotes: Optional[int]
-    discussion_id: Optional[str]
-    source: Optional[str]
-    comments: Optional[int]
-    submitted_at: Optional[datetime]
-    submitted_by: Optional[User]
-    ai_summary: Optional[str]
-    ai_keywords: Optional[list[str]]
-    organization: Optional[Organization]
-    project_page: Optional[str]
-    github_repo: Optional[str]
-    github_stars: Optional[int]
+    authors: list[PaperAuthor] | None
+    published_at: datetime | None
+    title: str | None
+    summary: str | None
+    upvotes: int | None
+    discussion_id: str | None
+    source: str | None
+    comments: int | None
+    submitted_at: datetime | None
+    submitted_by: User | None
+    ai_summary: str | None
+    ai_keywords: list[str] | None
+    organization: Organization | None
+    project_page: str | None
+    github_repo: str | None
+    github_stars: int | None
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
@@ -1812,7 +1825,7 @@ class LFSFileInfo:
     filename: str
     oid: str
     pushed_at: datetime
-    ref: Optional[str]
+    ref: str | None
     size: int
 
     def __init__(self, **kwargs) -> None:
@@ -1822,6 +1835,68 @@ class LFSFileInfo:
         self.pushed_at = parse_datetime(kwargs.pop("pushedAt"))
         self.ref = kwargs.pop("ref", None)
         self.size = kwargs.pop("size")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
+class DatasetLeaderboardEntry:
+    """Contains information about a single entry in a dataset leaderboard on the Hub.
+
+    A leaderboard ranks models based on their evaluation scores on a given benchmark dataset.
+    This object is returned by [`get_dataset_leaderboard`]. To get evaluation results for a
+    specific model across benchmarks, see [`ModelInfo.eval_results`] (via [`model_info`] with
+    `expand=["evalResults"]`) and [`EvalResultEntry`].
+
+    Attributes:
+        rank (`int`):
+            Rank of the model on the leaderboard (1-indexed).
+        model_id (`str`):
+            ID of the model (e.g. `"meta-llama/Llama-3-8b"`).
+        value (`float`):
+            Evaluation score value.
+        filename (`str`):
+            Name of the result file containing the evaluation data.
+        verified (`bool`):
+            Whether the result has been verified.
+        source (`dict[str, Any]`):
+            Information about the source of the evaluation result. Contains keys like
+            `"url"`, `"name"`, and `"isExternal"`.
+        author (`User` or `Organization`):
+            The model author, parsed based on the `"type"` field in the API response.
+        pull_request (`int`, *optional*):
+            Pull request number associated with the leaderboard entry, if any.
+        notes (`str`, *optional*):
+            Notes associated with the leaderboard entry, if any.
+    """
+
+    rank: int
+    model_id: str
+    value: float
+    filename: str
+    verified: bool
+    source: dict[str, Any]
+    author: User | Organization
+    pull_request: int | None = None
+    notes: str | None = None
+
+    def __init__(self, **kwargs) -> None:
+        self.rank = kwargs.pop("rank")
+        self.model_id = kwargs.pop("modelId")
+        self.value = kwargs.pop("value")
+        self.filename = kwargs.pop("filename")
+        self.verified = kwargs.pop("verified")
+        self.source = kwargs.pop("source")
+        author_data = dict(kwargs.pop("author"))
+        author_type = author_data.get("type")
+        if author_type == "org":
+            self.author = Organization(**author_data)
+        else:
+            author_data["user"] = author_data.pop("name", "")
+            self.author = User(**author_data)
+        self.pull_request = kwargs.pop("pullRequest", None)
+        self.notes = kwargs.pop("notes", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -1972,12 +2047,12 @@ class HfApi:
 
     def __init__(
         self,
-        endpoint: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        library_name: Optional[str] = None,
-        library_version: Optional[str] = None,
-        user_agent: Union[dict, str, None] = None,
-        headers: Optional[dict[str, str]] = None,
+        endpoint: str | None = None,
+        token: str | bool | None = None,
+        library_name: str | None = None,
+        library_version: str | None = None,
+        user_agent: dict | str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
@@ -1985,7 +2060,7 @@ class HfApi:
         self.library_version = library_version
         self.user_agent = user_agent
         self.headers = headers
-        self._thread_pool: Optional[ThreadPoolExecutor] = None
+        self._thread_pool: ThreadPoolExecutor | None = None
 
         # /whoami-v2 is the only endpoint for which we may want to cache results
         self._whoami_cache: dict[str, dict] = {}
@@ -2031,7 +2106,7 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
-    def whoami(self, token: Union[bool, str, None] = None, *, cache: bool = False) -> dict:
+    def whoami(self, token: bool | str | None = None, *, cache: bool = False) -> dict:
         """
         Call HF API to know "whoami".
 
@@ -2127,27 +2202,27 @@ class HfApi:
         self,
         *,
         # Search-query parameter
-        filter: Union[str, Iterable[str], None] = None,
-        author: Optional[str] = None,
-        apps: Optional[Union[str, list[str]]] = None,
-        gated: Optional[bool] = None,
-        inference: Optional[Literal["warm"]] = None,
-        inference_provider: Optional[Union[Literal["all"], "PROVIDER_T", list["PROVIDER_T"]]] = None,
-        model_name: Optional[str] = None,
-        trained_dataset: Optional[Union[str, list[str]]] = None,
-        search: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        num_parameters: Optional[str] = None,
-        emissions_thresholds: Optional[tuple[float, float]] = None,
+        filter: str | Iterable[str] | None = None,
+        author: str | None = None,
+        apps: str | list[str] | None = None,
+        gated: bool | None = None,
+        inference: Literal["warm"] | None = None,
+        inference_provider: Literal["all"] | PROVIDER_T | list[PROVIDER_T] | None = None,
+        model_name: str | None = None,
+        trained_dataset: str | list[str] | None = None,
+        search: str | None = None,
+        pipeline_tag: str | None = None,
+        num_parameters: str | None = None,
+        emissions_thresholds: tuple[float, float] | None = None,
         # Sorting and pagination parameters
-        sort: Optional[ModelSort_T] = None,
-        limit: Optional[int] = None,
+        sort: ModelSort_T | None = None,
+        limit: int | None = None,
         # Additional data to fetch
-        expand: Optional[list[ExpandModelProperty_T]] = None,
-        full: Optional[bool] = None,
+        expand: list[ExpandModelProperty_T] | None = None,
+        full: bool | None = None,
         cardData: bool = False,
         fetch_config: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -2330,25 +2405,25 @@ class HfApi:
         self,
         *,
         # Search-query parameter
-        filter: Union[str, Iterable[str], None] = None,
-        author: Optional[str] = None,
-        benchmark: Optional[Union[Literal[True], Literal["official"], str]] = None,
-        dataset_name: Optional[str] = None,
-        gated: Optional[bool] = None,
-        language_creators: Optional[Union[str, list[str]]] = None,
-        language: Optional[Union[str, list[str]]] = None,
-        multilinguality: Optional[Union[str, list[str]]] = None,
-        size_categories: Optional[Union[str, list[str]]] = None,
-        task_categories: Optional[Union[str, list[str]]] = None,
-        task_ids: Optional[Union[str, list[str]]] = None,
-        search: Optional[str] = None,
+        filter: str | Iterable[str] | None = None,
+        author: str | None = None,
+        benchmark: Literal[True] | Literal["official"] | str | None = None,
+        dataset_name: str | None = None,
+        gated: bool | None = None,
+        language_creators: str | list[str] | None = None,
+        language: str | list[str] | None = None,
+        multilinguality: str | list[str] | None = None,
+        size_categories: str | list[str] | None = None,
+        task_categories: str | list[str] | None = None,
+        task_ids: str | list[str] | None = None,
+        search: str | None = None,
         # Sorting and pagination parameters
-        sort: Optional[DatasetSort_T] = None,
-        limit: Optional[int] = None,
+        sort: DatasetSort_T | None = None,
+        limit: int | None = None,
         # Additional data to fetch
-        expand: Optional[list[ExpandDatasetProperty_T]] = None,
-        full: Optional[bool] = None,
-        token: Union[bool, str, None] = None,
+        expand: list[ExpandDatasetProperty_T] | None = None,
+        full: bool | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -2537,8 +2612,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        config: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        config: str | None = None,
+        token: bool | str | None = None,
     ) -> list[DatasetParquetEntry]:
         """List parquet files available for a dataset on the Hub.
 
@@ -2601,19 +2676,19 @@ class HfApi:
         self,
         *,
         # Search-query parameter
-        filter: Union[str, Iterable[str], None] = None,
-        author: Optional[str] = None,
-        search: Optional[str] = None,
-        datasets: Union[str, Iterable[str], None] = None,
-        models: Union[str, Iterable[str], None] = None,
+        filter: str | Iterable[str] | None = None,
+        author: str | None = None,
+        search: str | None = None,
+        datasets: str | Iterable[str] | None = None,
+        models: str | Iterable[str] | None = None,
         linked: bool = False,
         # Sorting and pagination parameters
-        sort: Optional[SpaceSort_T] = None,
-        limit: Optional[int] = None,
+        sort: SpaceSort_T | None = None,
+        limit: int | None = None,
         # Additional data to fetch
-        expand: Optional[list[ExpandSpaceProperty_T]] = None,
-        full: Optional[bool] = None,
-        token: Union[bool, str, None] = None,
+        expand: list[ExpandSpaceProperty_T] | None = None,
+        full: bool | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[SpaceInfo]:
         """
         List spaces hosted on the Huggingface Hub, given some filters.
@@ -2705,8 +2780,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> None:
         """
         Unlike a given repo on the Hub (e.g. remove from favorite list).
@@ -2754,9 +2829,9 @@ class HfApi:
     @validate_hf_hub_args
     def list_liked_repos(
         self,
-        user: Optional[str] = None,
+        user: str | None = None,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> UserLikes:
         """
         List all public repos liked by a user on huggingface.co.
@@ -2832,8 +2907,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[User]:
         """
         List all users who liked a given repo on the hugging Face Hub.
@@ -2871,12 +2946,12 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        revision: Optional[str] = None,
-        timeout: Optional[float] = None,
-        securityStatus: Optional[bool] = None,
+        revision: str | None = None,
+        timeout: float | None = None,
+        securityStatus: bool | None = None,
         files_metadata: bool = False,
-        expand: Optional[list[ExpandModelProperty_T]] = None,
-        token: Union[bool, str, None] = None,
+        expand: list[ExpandModelProperty_T] | None = None,
+        token: bool | str | None = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -2946,11 +3021,11 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        revision: Optional[str] = None,
-        timeout: Optional[float] = None,
+        revision: str | None = None,
+        timeout: float | None = None,
         files_metadata: bool = False,
-        expand: Optional[list[ExpandDatasetProperty_T]] = None,
-        token: Union[bool, str, None] = None,
+        expand: list[ExpandDatasetProperty_T] | None = None,
+        token: bool | str | None = None,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co.
@@ -3012,15 +3087,73 @@ class HfApi:
         return DatasetInfo(**data)
 
     @validate_hf_hub_args
+    def get_dataset_leaderboard(
+        self,
+        repo_id: str,
+        *,
+        token: bool | str | None = None,
+        timeout: float | None = None,
+    ) -> list[DatasetLeaderboardEntry]:
+        """Get the leaderboard for a dataset on the Hub.
+
+        The leaderboard ranks models based on their evaluation scores on the given benchmark
+        dataset. Not all datasets have leaderboards — only benchmark datasets with evaluation
+        results submitted to them. This gives a dataset-centric view of scores; for a model-centric
+        view, use [`model_info`] with `expand=["evalResults"]`.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`. For example: `"allenai/olmOCR-bench"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `list[DatasetLeaderboardEntry]`: A list of [`DatasetLeaderboardEntry`] objects representing
+            the leaderboard entries, sorted by rank.
+
+        > [!TIP]
+        > Raises the following errors:
+        >
+        >     - [`~utils.RepositoryNotFoundError`]
+        >       If the repository cannot be found. This may be because it doesn't exist,
+        >       or because it is set to `private` and you do not have access.
+        >     - [`~utils.HfHubHTTPError`]
+        >       If the dataset does not have a leaderboard.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench")
+            >>> leaderboard[0].model_id
+            'datalab-to/chandra-ocr-2'
+            >>> leaderboard[0].rank
+            1
+            ```
+        """
+        headers = self._build_hf_headers(token=token)
+        path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
+        r = get_session().get(path, headers=headers, timeout=timeout)
+        hf_raise_for_status(r)
+        data = r.json()
+        return [DatasetLeaderboardEntry(**entry) for entry in data]
+
+    @validate_hf_hub_args
     def space_info(
         self,
         repo_id: str,
         *,
-        revision: Optional[str] = None,
-        timeout: Optional[float] = None,
+        revision: str | None = None,
+        timeout: float | None = None,
         files_metadata: bool = False,
-        expand: Optional[list[ExpandSpaceProperty_T]] = None,
-        token: Union[bool, str, None] = None,
+        expand: list[ExpandSpaceProperty_T] | None = None,
+        token: bool | str | None = None,
     ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co.
@@ -3086,13 +3219,13 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        timeout: Optional[float] = None,
+        revision: str | None = None,
+        repo_type: str | None = None,
+        timeout: float | None = None,
         files_metadata: bool = False,
-        expand: Optional[Union[ExpandModelProperty_T, ExpandDatasetProperty_T, ExpandSpaceProperty_T]] = None,
-        token: Union[bool, str, None] = None,
-    ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
+        expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
+        token: bool | str | None = None,
+    ) -> ModelInfo | DatasetInfo | SpaceInfo:
         """
         Get the info object for a given repo of a given type.
 
@@ -3135,20 +3268,21 @@ class HfApi:
         >     - [`~utils.RevisionNotFoundError`]
         >       If the revision to download from cannot be found.
         """
-        if repo_type is None or repo_type == "model":
-            method = self.model_info
-        elif repo_type == "dataset":
-            method = self.dataset_info  # type: ignore
-        elif repo_type == "space":
-            method = self.space_info  # type: ignore
-        else:
-            raise ValueError("Unsupported repo type.")
+        match repo_type:
+            case None | "model":
+                method = self.model_info
+            case "dataset":
+                method = self.dataset_info  # type: ignore
+            case "space":
+                method = self.space_info  # type: ignore
+            case _:
+                raise ValueError("Unsupported repo type.")
         return method(
             repo_id,
             revision=revision,
             token=token,
             timeout=timeout,
-            expand=expand,  # type: ignore[arg-type]
+            expand=expand,  # type: ignore
             files_metadata=files_metadata,
         )
 
@@ -3157,8 +3291,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
     ) -> bool:
         """
         Checks if a repository exists on the Hugging Face Hub.
@@ -3202,8 +3336,8 @@ class HfApi:
         repo_id: str,
         revision: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
     ) -> bool:
         """
         Checks if a specific revision exists on a repo on the Hugging Face Hub.
@@ -3249,9 +3383,9 @@ class HfApi:
         repo_id: str,
         filename: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        token: str | bool | None = None,
     ) -> bool:
         """
         Checks if a file exists in a repository on the Hugging Face Hub.
@@ -3306,9 +3440,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        revision: str | None = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
     ) -> list[str]:
         """
         Get the list of files in a given repo.
@@ -3342,14 +3476,14 @@ class HfApi:
     def list_repo_tree(
         self,
         repo_id: str,
-        path_in_repo: Optional[str] = None,
+        path_in_repo: str | None = None,
         *,
         recursive: bool = False,
         expand: bool = False,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-    ) -> Iterable[Union[RepoFile, RepoFolder]]:
+        revision: str | None = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
+    ) -> Iterable[RepoFile | RepoFolder]:
         """
         List a repo tree's files and folders and get information about them.
 
@@ -3475,12 +3609,12 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        local_dir: Optional[Union[str, Path]] = None,
-        cache_dir: Optional[Union[str, Path]] = None,
-        token: Union[str, bool, None] = None,
-    ) -> "FolderVerification":
+        repo_type: str | None = None,
+        revision: str | None = None,
+        local_dir: str | Path | None = None,
+        cache_dir: str | Path | None = None,
+        token: str | bool | None = None,
+    ) -> FolderVerification:
         """
         Verify local files for a repo against Hub checksums.
 
@@ -3549,9 +3683,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
+        repo_type: str | None = None,
         include_pull_requests: bool = False,
-        token: Union[str, bool, None] = None,
+        token: str | bool | None = None,
     ) -> GitRefs:
         """
         Get the list of refs of a given repo (both tags and branches).
@@ -3621,9 +3755,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        revision: Optional[str] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
+        revision: str | None = None,
         formatted: bool = False,
     ) -> list[GitCommitInfo]:
         """
@@ -3706,13 +3840,13 @@ class HfApi:
     def get_paths_info(
         self,
         repo_id: str,
-        paths: Union[list[str], str],
+        paths: list[str] | str,
         *,
         expand: bool = False,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-    ) -> list[Union[RepoFile, RepoFolder]]:
+        revision: str | None = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
+    ) -> list[RepoFile | RepoFolder]:
         """
         Get information about a repo's paths.
 
@@ -3784,10 +3918,10 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        branch: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        branch: str | None = None,
+        commit_message: str | None = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
     ) -> None:
         """Squash commit history on a branch for a repo on the Hub.
 
@@ -3864,8 +3998,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[LFSFileInfo]:
         """
         List all LFS files in a repo on the Hub.
@@ -3920,8 +4054,8 @@ class HfApi:
         lfs_files: Iterable[LFSFileInfo],
         *,
         rewrite_history: bool = True,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Permanently delete LFS files from a repo on the Hub.
@@ -3986,17 +4120,18 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        token: Union[str, bool, None] = None,
-        private: Optional[bool] = None,
-        repo_type: Optional[str] = None,
+        token: str | bool | None = None,
+        private: bool | None = None,
+        visibility: RepoVisibility_T | None = None,
+        repo_type: str | None = None,
         exist_ok: bool = False,
-        resource_group_id: Optional[str] = None,
-        space_sdk: Optional[str] = None,
-        space_hardware: Optional[SpaceHardware] = None,
-        space_storage: Optional[SpaceStorage] = None,
-        space_sleep_time: Optional[int] = None,
-        space_secrets: Optional[list[dict[str, str]]] = None,
-        space_variables: Optional[list[dict[str, str]]] = None,
+        resource_group_id: str | None = None,
+        space_sdk: str | None = None,
+        space_hardware: SpaceHardware | None = None,
+        space_storage: SpaceStorage | None = None,
+        space_sleep_time: int | None = None,
+        space_secrets: list[dict[str, str]] | None = None,
+        space_variables: list[dict[str, str]] | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4010,7 +4145,11 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             private (`bool`, *optional*):
-                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. If `None`
+                (default), the repo will be public unless the organization's default is private. This value is ignored
+                if the repo already exists.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -4051,9 +4190,11 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         json: dict[str, Any] = {"name": name, "organization": organization}
-        if private is not None:
-            json["private"] = private
+        if resolved_visibility is not None:
+            json["visibility"] = resolved_visibility
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -4130,8 +4271,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
         missing_ok: bool = False,
     ) -> None:
         """
@@ -4181,16 +4322,17 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        gated: Optional[Literal["auto", "manual", False]] = None,
-        private: Optional[bool] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
+        gated: Literal["auto", "manual", False] | None = None,
+        private: bool | None = None,
+        visibility: RepoVisibility_T | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
     ) -> None:
         """
         Update the settings of a repository, including gated access and visibility.
 
         To give more control over how repos are used, the Hub allows repo authors to enable
-        access requests for their repos, and also to set the visibility of the repo to private.
+        access requests for their repos, and also to change the visibility of the repo.
 
         Args:
             repo_id (`str`):
@@ -4201,7 +4343,9 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Whether the repository should be private.
+                Whether the repository should be private. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the repository. Can be `"public"` or `"private"`, or `"protected"` for Spaces.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
@@ -4227,6 +4371,8 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Prepare the JSON payload for the PUT request
         payload: dict = {}
 
@@ -4235,8 +4381,8 @@ class HfApi:
                 raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
             payload["gated"] = gated
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         if len(payload) == 0:
             raise ValueError("At least one setting must be updated.")
@@ -4256,8 +4402,8 @@ class HfApi:
         from_id: str,
         to_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
     ):
         """
         Moving a repository from namespace1/repo_name1 to namespace2/repo_name2
@@ -4320,15 +4466,15 @@ class HfApi:
         operations: Iterable[CommitOperation],
         *,
         commit_message: str,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
         num_threads: int = 5,
-        parent_commit: Optional[str] = None,
+        parent_commit: str | None = None,
         run_as_future: Literal[False] = ...,
-        _hot_reload: Optional[bool] = None,
+        _hot_reload: bool | None = None,
     ) -> CommitInfo: ...
 
     @overload
@@ -4338,15 +4484,15 @@ class HfApi:
         operations: Iterable[CommitOperation],
         *,
         commit_message: str,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
         num_threads: int = 5,
-        parent_commit: Optional[str] = None,
+        parent_commit: str | None = None,
         run_as_future: Literal[True] = ...,
-        _hot_reload: Optional[bool] = None,
+        _hot_reload: bool | None = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4357,16 +4503,16 @@ class HfApi:
         operations: Iterable[CommitOperation],
         *,
         commit_message: str,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
         num_threads: int = 5,
-        parent_commit: Optional[str] = None,
+        parent_commit: str | None = None,
         run_as_future: bool = False,
-        _hot_reload: Optional[bool] = None,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+        _hot_reload: bool | None = None,
+    ) -> CommitInfo | Future[CommitInfo]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -4376,9 +4522,9 @@ class HfApi:
 
         > [!WARNING]
         > `create_commit` assumes that the repo already exists on the Hub. If you get a
-        > Client error 404, please make sure you are authenticated and that `repo_id` and
-        > `repo_type` are set correctly. If repo does not exist, create it first using
-        > [`~hf_api.create_repo`].
+        > Client error 404, please make sure you are authenticated, that your token has the required permissions,
+        > and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        > create it first using [`~hf_api.create_repo`].
 
         > [!WARNING]
         > `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
@@ -4586,7 +4732,7 @@ class HfApi:
                 commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
                 commit_message=commit_message,
                 commit_description=commit_description,
-                oid=info.sha,  # type: ignore[arg-type]
+                oid=info.sha,  # type: ignore
                 _endpoint=self.endpoint,
             )
 
@@ -4650,13 +4796,13 @@ class HfApi:
         repo_id: str,
         additions: Iterable[CommitOperationAdd],
         *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
         num_threads: int = 5,
         free_memory: bool = True,
-        gitignore_content: Optional[str] = None,
+        gitignore_content: str | None = None,
     ):
         """Pre-upload LFS files to S3 in preparation on a future commit.
 
@@ -4803,36 +4949,36 @@ class HfApi:
     def upload_file(  # type: ignore
         self,
         *,
-        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_or_fileobj: str | Path | bytes | BinaryIO,
         path_in_repo: str,
         repo_id: str,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
         run_as_future: Literal[False] = ...,
-        _hot_reload: Optional[bool] = None,
+        _hot_reload: bool | None = None,
     ) -> CommitInfo: ...
 
     @overload
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_or_fileobj: str | Path | bytes | BinaryIO,
         path_in_repo: str,
         repo_id: str,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
         run_as_future: Literal[True] = ...,
-        _hot_reload: Optional[bool] = None,
+        _hot_reload: bool | None = None,
     ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
@@ -4840,19 +4986,19 @@ class HfApi:
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_or_fileobj: str | Path | bytes | BinaryIO,
         path_in_repo: str,
         repo_id: str,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
         run_as_future: bool = False,
-        _hot_reload: Optional[bool] = None,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+        _hot_reload: bool | None = None,
+    ) -> CommitInfo | Future[CommitInfo]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -4921,9 +5067,9 @@ class HfApi:
 
         > [!WARNING]
         > `upload_file` assumes that the repo already exists on the Hub. If you get a
-        > Client error 404, please make sure you are authenticated and that `repo_id` and
-        > `repo_type` are set correctly. If repo does not exist, create it first using
-        > [`~hf_api.create_repo`].
+        > Client error 404, please make sure you are authenticated, that your token has the required permissions,
+        > and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        > create it first using [`~hf_api.create_repo`].
 
         Example:
 
@@ -4984,18 +5130,18 @@ class HfApi:
         self,
         *,
         repo_id: str,
-        folder_path: Union[str, Path],
-        path_in_repo: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        delete_patterns: Optional[Union[list[str], str]] = None,
+        folder_path: str | Path,
+        path_in_repo: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        delete_patterns: list[str] | str | None = None,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
 
@@ -5004,18 +5150,18 @@ class HfApi:
         self,
         *,
         repo_id: str,
-        folder_path: Union[str, Path],
-        path_in_repo: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        delete_patterns: Optional[Union[list[str], str]] = None,
+        folder_path: str | Path,
+        path_in_repo: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        delete_patterns: list[str] | str | None = None,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
 
@@ -5025,20 +5171,20 @@ class HfApi:
         self,
         *,
         repo_id: str,
-        folder_path: Union[str, Path],
-        path_in_repo: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        delete_patterns: Optional[Union[list[str], str]] = None,
+        folder_path: str | Path,
+        path_in_repo: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        delete_patterns: list[str] | str | None = None,
         run_as_future: bool = False,
-    ) -> Union[CommitInfo, Future[CommitInfo]]:
+    ) -> CommitInfo | Future[CommitInfo]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -5127,8 +5273,8 @@ class HfApi:
 
         > [!WARNING]
         > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
-        > sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
-        > it first using [`~hf_api.create_repo`].
+        > sure you are authenticated, that your token has the required permissions, and that `repo_id` and `repo_type`
+        > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
 
         > [!TIP]
         > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
@@ -5201,7 +5347,7 @@ class HfApi:
 
         # Optimize operations: if some files will be overwritten, we don't need to delete them first
         if len(add_operations) > 0:
-            added_paths = set(op.path_in_repo for op in add_operations)
+            added_paths = {op.path_in_repo for op in add_operations}
             delete_operations = [
                 delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
             ]
@@ -5227,13 +5373,13 @@ class HfApi:
         path_in_repo: str,
         repo_id: str,
         *,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
     ) -> CommitInfo:
         """
         Deletes a file in the given repo.
@@ -5314,13 +5460,13 @@ class HfApi:
         repo_id: str,
         delete_patterns: list[str],
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
     ) -> CommitInfo:
         """
         Delete files from a repository on the Hub.
@@ -5393,13 +5539,13 @@ class HfApi:
         path_in_repo: str,
         repo_id: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
     ) -> CommitInfo:
         """
         Deletes a folder in the given repo.
@@ -5458,14 +5604,14 @@ class HfApi:
     def upload_large_folder(
         self,
         repo_id: str,
-        folder_path: Union[str, Path],
+        folder_path: str | Path,
         *,
         repo_type: str,  # Repo type is required!
-        revision: Optional[str] = None,
-        private: Optional[bool] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        num_workers: Optional[int] = None,
+        revision: str | None = None,
+        private: bool | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        num_workers: int | None = None,
         print_report: bool = True,
         print_report_every: int = 60,
     ) -> None:
@@ -5576,8 +5722,8 @@ class HfApi:
         self,
         *,
         url: str,
-        token: Union[bool, str, None] = None,
-        timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
+        token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_ETAG_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -5615,16 +5761,16 @@ class HfApi:
         repo_id: str,
         filename: str,
         *,
-        subfolder: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        subfolder: str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         force_download: bool = False,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: Literal[False] = False,
     ) -> str: ...
 
@@ -5634,16 +5780,16 @@ class HfApi:
         repo_id: str,
         filename: str,
         *,
-        subfolder: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        subfolder: str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         force_download: bool = False,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: Literal[True],
     ) -> DryRunFileInfo: ...
 
@@ -5653,18 +5799,18 @@ class HfApi:
         repo_id: str,
         filename: str,
         *,
-        subfolder: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        subfolder: str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         force_download: bool = False,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: bool = False,
-    ) -> Union[str, DryRunFileInfo]:
+    ) -> str | DryRunFileInfo:
         """Download a given file if it's not already present in the local cache.
 
         The new cache file layout looks like this:
@@ -5794,18 +5940,18 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: Literal[False] = False,
     ) -> str: ...
 
@@ -5814,18 +5960,18 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: Literal[True],
     ) -> list[DryRunFileInfo]: ...
 
@@ -5834,20 +5980,20 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        cache_dir: Union[str, Path, None] = None,
-        local_dir: Union[str, Path, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
         etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
         local_files_only: bool = False,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
-        tqdm_class: Optional[type[base_tqdm]] = None,
+        tqdm_class: type[base_tqdm] | None = None,
         dry_run: bool = False,
-    ) -> Union[str, list[DryRunFileInfo]]:
+    ) -> str | list[DryRunFileInfo]:
         """Download repo files.
 
         Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
@@ -5956,9 +6102,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        token: bool | str | None = None,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6097,9 +6243,9 @@ class HfApi:
         repo_id: str,
         filename: str,
         *,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        token: bool | str | None = None,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6170,9 +6316,9 @@ class HfApi:
         repo_id: str,
         *,
         branch: str,
-        revision: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        revision: str | None = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
         exist_ok: bool = False,
     ) -> None:
         """
@@ -6250,8 +6396,8 @@ class HfApi:
         repo_id: str,
         *,
         branch: str,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> None:
         """
         Delete a branch from a repo on the Hub.
@@ -6302,10 +6448,10 @@ class HfApi:
         repo_id: str,
         *,
         tag: str,
-        tag_message: Optional[str] = None,
-        revision: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        tag_message: str | None = None,
+        revision: str | None = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
         exist_ok: bool = False,
     ) -> None:
         """
@@ -6376,8 +6522,8 @@ class HfApi:
         repo_id: str,
         *,
         tag: str,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> None:
         """
         Delete a tag from a repo on the Hub.
@@ -6424,8 +6570,8 @@ class HfApi:
         self,
         model_id: str,
         *,
-        organization: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        organization: str | None = None,
+        token: bool | str | None = None,
     ):
         """
         Returns the repository name for a given model ID and optional
@@ -6462,11 +6608,11 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        author: Optional[str] = None,
-        discussion_type: Optional[constants.DiscussionTypeFilter] = None,
-        discussion_status: Optional[constants.DiscussionStatusFilter] = None,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        author: str | None = None,
+        discussion_type: constants.DiscussionTypeFilter | None = None,
+        discussion_status: constants.DiscussionStatusFilter | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterator[Discussion]:
         """
         Fetches Discussions and Pull Requests for the given repo.
@@ -6528,7 +6674,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
 
-        params: dict[str, Union[str, int]] = {}
+        params: dict[str, str | int] = {}
         if discussion_type is not None:
             params["type"] = discussion_type
         if discussion_status is not None:
@@ -6571,8 +6717,8 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> DiscussionWithDetails:
         """Fetches a Discussion's / Pull Request 's details from the Hub.
 
@@ -6647,9 +6793,9 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: Union[bool, str, None] = None,
-        description: Optional[str] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        description: str | None = None,
+        repo_type: str | None = None,
         pull_request: bool = False,
     ) -> DiscussionWithDetails:
         """Creates a Discussion or Pull Request.
@@ -6736,9 +6882,9 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: Union[bool, str, None] = None,
-        description: Optional[str] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        description: str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionWithDetails:
         """Creates a Pull Request . Pull Requests created programmatically will be in `"draft"` status.
 
@@ -6794,9 +6940,9 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         resource: str,
-        body: Optional[dict] = None,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        body: dict | None = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> httpx.Response:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
@@ -6821,8 +6967,8 @@ class HfApi:
         discussion_num: int,
         comment: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionComment:
         """Creates a new comment on the given Discussion.
 
@@ -6897,8 +7043,8 @@ class HfApi:
         discussion_num: int,
         new_title: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionTitleChange:
         """Renames a Discussion.
 
@@ -6964,9 +7110,9 @@ class HfApi:
         discussion_num: int,
         new_status: Literal["open", "closed"],
         *,
-        token: Union[bool, str, None] = None,
-        comment: Optional[str] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        comment: str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionStatusChange:
         """Closes or re-opens a Discussion or Pull Request.
 
@@ -7038,9 +7184,9 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         *,
-        token: Union[bool, str, None] = None,
-        comment: Optional[str] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        comment: str | None = None,
+        repo_type: str | None = None,
     ):
         """Merges a Pull Request.
 
@@ -7093,8 +7239,8 @@ class HfApi:
         comment_id: str,
         new_content: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionComment:
         """Edits a comment on a Discussion / Pull Request.
 
@@ -7149,8 +7295,8 @@ class HfApi:
         discussion_num: int,
         comment_id: str,
         *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
+        token: bool | str | None = None,
+        repo_type: str | None = None,
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
 
@@ -7209,8 +7355,8 @@ class HfApi:
         key: str,
         value: str,
         *,
-        description: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        description: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """Adds or updates a secret in a Space.
 
@@ -7243,7 +7389,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def delete_space_secret(self, repo_id: str, key: str, *, token: Union[bool, str, None] = None) -> None:
+    def delete_space_secret(self, repo_id: str, key: str, *, token: bool | str | None = None) -> None:
         """Deletes a secret from a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -7269,7 +7415,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def get_space_variables(self, repo_id: str, *, token: Union[bool, str, None] = None) -> dict[str, SpaceVariable]:
+    def get_space_variables(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceVariable]:
         """Gets all variables from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -7298,8 +7444,8 @@ class HfApi:
         key: str,
         value: str,
         *,
-        description: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        description: str | None = None,
+        token: bool | str | None = None,
     ) -> dict[str, SpaceVariable]:
         """Adds or updates a variable in a Space.
 
@@ -7334,7 +7480,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def delete_space_variable(
-        self, repo_id: str, key: str, *, token: Union[bool, str, None] = None
+        self, repo_id: str, key: str, *, token: bool | str | None = None
     ) -> dict[str, SpaceVariable]:
         """Deletes a variable from a Space.
 
@@ -7362,7 +7508,7 @@ class HfApi:
         return {k: SpaceVariable(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
-    def get_space_runtime(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
+    def get_space_runtime(self, repo_id: str, *, token: bool | str | None = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
         Args:
@@ -7388,8 +7534,8 @@ class HfApi:
         repo_id: str,
         hardware: SpaceHardware,
         *,
-        token: Union[bool, str, None] = None,
-        sleep_time: Optional[int] = None,
+        token: bool | str | None = None,
+        sleep_time: int | None = None,
     ) -> SpaceRuntime:
         """Request new hardware for a Space.
 
@@ -7433,9 +7579,7 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def set_space_sleep_time(
-        self, repo_id: str, sleep_time: int, *, token: Union[bool, str, None] = None
-    ) -> SpaceRuntime:
+    def set_space_sleep_time(self, repo_id: str, sleep_time: int, *, token: bool | str | None = None) -> SpaceRuntime:
         """Set a custom sleep time for a Space running on upgraded hardware..
 
         Your Space will go to sleep after X seconds of inactivity. You are not billed when your Space is in "sleep"
@@ -7481,7 +7625,7 @@ class HfApi:
         return runtime
 
     @validate_hf_hub_args
-    def pause_space(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
+    def pause_space(self, repo_id: str, *, token: bool | str | None = None) -> SpaceRuntime:
         """Pause your Space.
 
         A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
@@ -7520,7 +7664,7 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def enable_space_dev_mode(self, repo_id: str, *, token: Union[bool, str, None] = None) -> SpaceRuntime:
+    def enable_space_dev_mode(self, repo_id: str, *, token: bool | str | None = None) -> SpaceRuntime:
         """Enable dev mode on a Space.
 
         Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
@@ -7563,7 +7707,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Disable dev mode on a Space.
 
@@ -7604,7 +7748,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def restart_space(
-        self, repo_id: str, *, token: Union[bool, str, None] = None, factory_reboot: bool = False
+        self, repo_id: str, *, token: bool | str | None = None, factory_reboot: bool = False
     ) -> SpaceRuntime:
         """Restart your Space.
 
@@ -7652,17 +7796,18 @@ class HfApi:
     def duplicate_repo(
         self,
         from_id: str,
-        to_id: Optional[str] = None,
+        to_id: str | None = None,
         *,
-        repo_type: Optional[str] = None,
-        private: Optional[bool] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        private: bool | None = None,
+        visibility: RepoVisibility_T | None = None,
+        token: bool | str | None = None,
         exist_ok: bool = False,
-        space_hardware: Optional[SpaceHardware] = None,
-        space_storage: Optional[SpaceStorage] = None,
-        space_sleep_time: Optional[int] = None,
-        space_secrets: Optional[list[dict[str, str]]] = None,
-        space_variables: Optional[list[dict[str, str]]] = None,
+        space_hardware: SpaceHardware | None = None,
+        space_storage: SpaceStorage | None = None,
+        space_sleep_time: int | None = None,
+        space_secrets: list[dict[str, str]] | None = None,
+        space_variables: list[dict[str, str]] | None = None,
     ) -> RepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -7680,7 +7825,10 @@ class HfApi:
                 `None` or `"model"` if duplicating a model. Default is `None`.
             private (`bool`, *optional*):
                 Whether the new repo should be private or not. Defaults to the same
-                privacy as the original repo.
+                privacy as the original repo. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new repo. Can be `"public"` or `"private"`, or `"protected"` for Spaces. Defaults
+                to the same visibility as the original repo.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7742,6 +7890,8 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
         # Map repo_type to API path segment
         api_prefix = {
             None: "models",
@@ -7763,8 +7913,8 @@ class HfApi:
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
 
         # Space-specific options
         function_args = [
@@ -7812,16 +7962,17 @@ class HfApi:
     def duplicate_space(
         self,
         from_id: str,
-        to_id: Optional[str] = None,
+        to_id: str | None = None,
         *,
-        private: Optional[bool] = None,
-        token: Union[bool, str, None] = None,
+        private: bool | None = None,
+        visibility: RepoVisibility_T | None = None,
+        token: bool | str | None = None,
         exist_ok: bool = False,
-        hardware: Optional[SpaceHardware] = None,
-        storage: Optional[SpaceStorage] = None,
-        sleep_time: Optional[int] = None,
-        secrets: Optional[list[dict[str, str]]] = None,
-        variables: Optional[list[dict[str, str]]] = None,
+        hardware: SpaceHardware | None = None,
+        storage: SpaceStorage | None = None,
+        sleep_time: int | None = None,
+        secrets: list[dict[str, str]] | None = None,
+        variables: list[dict[str, str]] | None = None,
     ) -> RepoUrl:
         """Duplicate a Space.
 
@@ -7835,7 +7986,10 @@ class HfApi:
                 ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
                 name as the original Space, but in your account.
             private (`bool`, *optional*):
-                Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
+                Whether the new Space should be private or not. Defaults to the same privacy as the original Space. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private", "protected"]`, *optional*):
+                Visibility of the new Space. Can be `"public"`, `"private"`, or `"protected"`. Defaults to the same
+                visibility as the original Space.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7879,7 +8033,7 @@ class HfApi:
         RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 
         # Can set custom destination id and visibility flag.
-        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", visibility="private")
         RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
         ```
 
@@ -7893,6 +8047,7 @@ class HfApi:
             from_id=from_id,
             repo_type="space",
             private=private,
+            visibility=visibility,
             token=token,
             exist_ok=exist_ok,
             space_hardware=hardware,
@@ -7909,7 +8064,7 @@ class HfApi:
         repo_id: str,
         storage: SpaceStorage,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Request persistent storage for a Space.
 
@@ -7944,7 +8099,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Delete persistent storage for a Space.
 
@@ -7975,7 +8130,7 @@ class HfApi:
     #######################
 
     def list_inference_endpoints(
-        self, namespace: Optional[str] = None, *, token: Union[bool, str, None] = None
+        self, namespace: str | None = None, *, token: bool | str | None = None
     ) -> list[InferenceEndpoint]:
         """Lists all inference endpoints for the given namespace.
 
@@ -8043,24 +8198,24 @@ class HfApi:
         instance_type: str,
         region: str,
         vendor: str,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
         min_replica: int = 1,
         max_replica: int = 1,
-        scaling_metric: Optional[InferenceEndpointScalingMetric] = None,
-        scaling_threshold: Optional[float] = None,
-        scale_to_zero_timeout: Optional[int] = None,
-        revision: Optional[str] = None,
-        task: Optional[str] = None,
-        custom_image: Optional[dict] = None,
-        env: Optional[dict[str, str]] = None,
-        secrets: Optional[dict[str, str]] = None,
+        scaling_metric: InferenceEndpointScalingMetric | None = None,
+        scaling_threshold: float | None = None,
+        scale_to_zero_timeout: int | None = None,
+        revision: str | None = None,
+        task: str | None = None,
+        custom_image: dict | None = None,
+        env: dict[str, str] | None = None,
+        secrets: dict[str, str] | None = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
-        domain: Optional[str] = None,
-        path: Optional[str] = None,
-        cache_http_responses: Optional[bool] = None,
-        tags: Optional[list[str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        domain: str | None = None,
+        path: str | None = None,
+        cache_http_responses: bool | None = None,
+        tags: list[str] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> InferenceEndpoint:
         """Create a new Inference Endpoint.
 
@@ -8277,10 +8432,10 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        name: Optional[str] = None,
-        accelerator: Union[Literal["cpu", "gpu", "neuron"], str, None] = None,
-        token: Union[bool, str, None] = None,
-        namespace: Optional[str] = None,
+        name: str | None = None,
+        accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        token: bool | str | None = None,
+        namespace: str | None = None,
     ) -> InferenceEndpoint:
         """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
 
@@ -8331,7 +8486,7 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: Union[bool, str, None] = None) -> list[str]:
+    def list_inference_catalog(self, *, token: bool | str | None = None) -> list[str]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
@@ -8360,7 +8515,7 @@ class HfApi:
         return response.json()["models"]
 
     def get_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self, name: str, *, namespace: str | None = None, token: bool | str | None = None
     ) -> InferenceEndpoint:
         """Get information about an Inference Endpoint.
 
@@ -8411,30 +8566,30 @@ class HfApi:
         name: str,
         *,
         # Compute update
-        accelerator: Optional[str] = None,
-        instance_size: Optional[str] = None,
-        instance_type: Optional[str] = None,
-        min_replica: Optional[int] = None,
-        max_replica: Optional[int] = None,
-        scale_to_zero_timeout: Optional[int] = None,
-        scaling_metric: Optional[InferenceEndpointScalingMetric] = None,
-        scaling_threshold: Optional[float] = None,
+        accelerator: str | None = None,
+        instance_size: str | None = None,
+        instance_type: str | None = None,
+        min_replica: int | None = None,
+        max_replica: int | None = None,
+        scale_to_zero_timeout: int | None = None,
+        scaling_metric: InferenceEndpointScalingMetric | None = None,
+        scaling_threshold: float | None = None,
         # Model update
-        repository: Optional[str] = None,
-        framework: Optional[str] = None,
-        revision: Optional[str] = None,
-        task: Optional[str] = None,
-        custom_image: Optional[dict] = None,
-        env: Optional[dict[str, str]] = None,
-        secrets: Optional[dict[str, str]] = None,
+        repository: str | None = None,
+        framework: str | None = None,
+        revision: str | None = None,
+        task: str | None = None,
+        custom_image: dict | None = None,
+        env: dict[str, str] | None = None,
+        secrets: dict[str, str] | None = None,
         # Route update
-        domain: Optional[str] = None,
-        path: Optional[str] = None,
+        domain: str | None = None,
+        path: str | None = None,
         # Other
-        cache_http_responses: Optional[bool] = None,
-        tags: Optional[list[str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        cache_http_responses: bool | None = None,
+        tags: list[str] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
@@ -8553,7 +8708,7 @@ class HfApi:
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
     def delete_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self, name: str, *, namespace: str | None = None, token: bool | str | None = None
     ) -> None:
         """Delete an Inference Endpoint.
 
@@ -8581,7 +8736,7 @@ class HfApi:
         hf_raise_for_status(response)
 
     def pause_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self, name: str, *, namespace: str | None = None, token: bool | str | None = None
     ) -> InferenceEndpoint:
         """Pause an Inference Endpoint.
 
@@ -8619,9 +8774,9 @@ class HfApi:
         self,
         name: str,
         *,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         running_ok: bool = True,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> InferenceEndpoint:
         """Resume an Inference Endpoint.
 
@@ -8662,7 +8817,7 @@ class HfApi:
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
     def scale_to_zero_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self, name: str, *, namespace: str | None = None, token: bool | str | None = None
     ) -> InferenceEndpoint:
         """Scale Inference Endpoint to zero.
 
@@ -8696,7 +8851,7 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
-    def _get_namespace(self, token: Union[bool, str, None] = None) -> str:
+    def _get_namespace(self, token: bool | str | None = None) -> str:
         """Get the default namespace for the current user."""
         me = self.whoami(token=token)
         if me["type"] == "user":
@@ -8714,11 +8869,11 @@ class HfApi:
     def list_collections(
         self,
         *,
-        owner: Union[list[str], str, None] = None,
-        item: Union[list[str], str, None] = None,
-        sort: Optional[CollectionSort_T] = None,
-        limit: Optional[int] = None,
-        token: Union[bool, str, None] = None,
+        owner: list[str] | str | None = None,
+        item: list[str] | str | None = None,
+        sort: CollectionSort_T | None = None,
+        limit: int | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[Collection]:
         """List collections on the Huggingface Hub, given some filters.
 
@@ -8766,7 +8921,7 @@ class HfApi:
         for position, collection_data in enumerate(items):
             yield Collection(position=position, **collection_data)
 
-    def get_collection(self, collection_slug: str, *, token: Union[bool, str, None] = None) -> Collection:
+    def get_collection(self, collection_slug: str, *, token: bool | str | None = None) -> Collection:
         """Gets information about a Collection on the Hub.
 
         Args:
@@ -8809,11 +8964,11 @@ class HfApi:
         self,
         title: str,
         *,
-        namespace: Optional[str] = None,
-        description: Optional[str] = None,
+        namespace: str | None = None,
+        description: str | None = None,
         private: bool = False,
         exists_ok: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> Collection:
         """Create a new Collection on the Hub.
 
@@ -8877,12 +9032,12 @@ class HfApi:
         self,
         collection_slug: str,
         *,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        position: Optional[int] = None,
-        private: Optional[bool] = None,
-        theme: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        title: str | None = None,
+        description: str | None = None,
+        position: int | None = None,
+        private: bool | None = None,
+        theme: str | None = None,
+        token: bool | str | None = None,
     ) -> Collection:
         """Update metadata of a collection on the Hub.
 
@@ -8942,7 +9097,7 @@ class HfApi:
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
 
     def delete_collection(
-        self, collection_slug: str, *, missing_ok: bool = False, token: Union[bool, str, None] = None
+        self, collection_slug: str, *, missing_ok: bool = False, token: bool | str | None = None
     ) -> None:
         """Delete a collection on the Hub.
 
@@ -8985,9 +9140,9 @@ class HfApi:
         item_id: str,
         item_type: CollectionItemType_T,
         *,
-        note: Optional[str] = None,
+        note: str | None = None,
         exists_ok: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> Collection:
         """Add an item to a collection on the Hub.
 
@@ -9066,9 +9221,9 @@ class HfApi:
         collection_slug: str,
         item_object_id: str,
         *,
-        note: Optional[str] = None,
-        position: Optional[int] = None,
-        token: Union[bool, str, None] = None,
+        note: str | None = None,
+        position: int | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """Update an item in a collection.
 
@@ -9120,7 +9275,7 @@ class HfApi:
         item_object_id: str,
         *,
         missing_ok: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> None:
         """Delete an item from a collection.
 
@@ -9172,7 +9327,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_pending_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> Iterable[AccessRequest]:
         """
         Get pending access requests for a given gated repo.
@@ -9236,7 +9391,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_accepted_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> Iterable[AccessRequest]:
         """
         Get accepted access requests for a given gated repo.
@@ -9298,7 +9453,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_rejected_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> Iterable[AccessRequest]:
         """
         Get rejected access requests for a given gated repo.
@@ -9362,8 +9517,8 @@ class HfApi:
         self,
         repo_id: str,
         status: Literal["accepted", "rejected", "pending"],
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[AccessRequest]:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -9386,7 +9541,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def cancel_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> None:
         """
         Cancel an access request from a user for a given gated repo.
@@ -9426,7 +9581,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def accept_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> None:
         """
         Accept an access request from a user for a given gated repo.
@@ -9472,9 +9627,9 @@ class HfApi:
         repo_id: str,
         user: str,
         *,
-        repo_type: Optional[str] = None,
-        rejection_reason: Optional[str],
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        rejection_reason: str | None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Reject an access request from a user for a given gated repo.
@@ -9524,9 +9679,9 @@ class HfApi:
         repo_id: str,
         user: str,
         status: Literal["accepted", "rejected", "pending"],
-        repo_type: Optional[str] = None,
-        rejection_reason: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        rejection_reason: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -9549,7 +9704,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def grant_access(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
     ) -> None:
         """
         Grant access to a user for a given gated repo.
@@ -9603,7 +9758,7 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def get_webhook(self, webhook_id: str, *, token: bool | str | None = None) -> WebhookInfo:
         """Get a webhook by its id.
 
         Args:
@@ -9656,7 +9811,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> list[WebhookInfo]:
+    def list_webhooks(self, *, token: bool | str | None = None) -> list[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -9710,12 +9865,12 @@ class HfApi:
     def create_webhook(
         self,
         *,
-        url: Optional[str] = None,
-        job_id: Optional[str] = None,
-        watched: list[Union[dict, WebhookWatchedItem]],
-        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
-        secret: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        url: str | None = None,
+        job_id: str | None = None,
+        watched: list[dict | WebhookWatchedItem],
+        domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
+        secret: str | None = None,
+        token: bool | str | None = None,
     ) -> WebhookInfo:
         """Create a new webhook.
 
@@ -9845,11 +10000,11 @@ class HfApi:
         self,
         webhook_id: str,
         *,
-        url: Optional[str] = None,
-        watched: Optional[list[Union[dict, WebhookWatchedItem]]] = None,
-        domains: Optional[list[constants.WEBHOOK_DOMAIN_T]] = None,
-        secret: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        url: str | None = None,
+        watched: list[dict | WebhookWatchedItem] | None = None,
+        domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
+        secret: str | None = None,
+        token: bool | str | None = None,
     ) -> WebhookInfo:
         """Update an existing webhook.
 
@@ -9930,7 +10085,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def enable_webhook(self, webhook_id: str, *, token: bool | str | None = None) -> WebhookInfo:
         """Enable a webhook (makes it "active").
 
         Args:
@@ -9983,7 +10138,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def disable_webhook(self, webhook_id: str, *, token: bool | str | None = None) -> WebhookInfo:
         """Disable a webhook (makes it "disabled").
 
         Args:
@@ -10036,7 +10191,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def delete_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> None:
+    def delete_webhook(self, webhook_id: str, *, token: bool | str | None = None) -> None:
         """Delete a webhook.
 
         Args:
@@ -10068,10 +10223,10 @@ class HfApi:
 
     def _build_hf_headers(
         self,
-        token: Union[bool, str, None] = None,
-        library_name: Optional[str] = None,
-        library_version: Optional[str] = None,
-        user_agent: Union[dict, str, None] = None,
+        token: bool | str | None = None,
+        library_name: str | None = None,
+        library_version: str | None = None,
+        user_agent: dict | str | None = None,
     ) -> dict[str, str]:
         """
         Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client
@@ -10091,11 +10246,11 @@ class HfApi:
     def _prepare_folder_deletions(
         self,
         repo_id: str,
-        repo_type: Optional[str],
-        revision: Optional[str],
+        repo_type: str | None,
+        revision: str | None,
         path_in_repo: str,
-        delete_patterns: Optional[Union[list[str], str]],
-        token: Union[bool, str, None] = None,
+        delete_patterns: list[str] | str | None,
+        token: bool | str | None = None,
     ) -> list[CommitOperationDelete]:
         """Generate the list of Delete operations for a commit to delete files from a repo.
 
@@ -10130,12 +10285,12 @@ class HfApi:
 
     def _prepare_upload_folder_additions(
         self,
-        folder_path: Union[str, Path],
+        folder_path: str | Path,
         path_in_repo: str,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> list[CommitOperationAdd]:
         """Generate the list of Add operations for a commit to upload a folder.
 
@@ -10192,7 +10347,7 @@ class HfApi:
         logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
         return operations
 
-    def _validate_yaml(self, content: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None):
+    def _validate_yaml(self, content: str, *, repo_type: str | None = None, token: bool | str | None = None):
         """
         Validate YAML from `README.md`, used before file hashing and upload.
 
@@ -10234,7 +10389,7 @@ class HfApi:
             message = "\n".join([f"- {error.get('message')}" for error in errors])
             raise ValueError(f"Invalid metadata in README.md.\n{message}") from e
 
-    def get_user_overview(self, username: str, token: Union[bool, str, None] = None) -> User:
+    def get_user_overview(self, username: str, token: bool | str | None = None) -> User:
         """
         Get an overview of a user on the Hub.
 
@@ -10261,7 +10416,7 @@ class HfApi:
         return User(**r.json())
 
     @validate_hf_hub_args
-    def get_organization_overview(self, organization: str, token: Union[bool, str, None] = None) -> Organization:
+    def get_organization_overview(self, organization: str, token: bool | str | None = None) -> Organization:
         """
         Get an overview of an organization on the Hub.
 
@@ -10288,7 +10443,7 @@ class HfApi:
         return Organization(**r.json())
 
     @validate_hf_hub_args
-    def list_organization_followers(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+    def list_organization_followers(self, organization: str, token: bool | str | None = None) -> Iterable[User]:
         """
         List followers of an organization on the Hub.
 
@@ -10316,7 +10471,7 @@ class HfApi:
         ):
             yield User(**follower)
 
-    def list_organization_members(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+    def list_organization_members(self, organization: str, token: bool | str | None = None) -> Iterable[User]:
         """
         List of members of an organization on the Hub.
 
@@ -10344,7 +10499,7 @@ class HfApi:
         ):
             yield User(**member)
 
-    def list_user_followers(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+    def list_user_followers(self, username: str, token: bool | str | None = None) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
 
@@ -10372,7 +10527,7 @@ class HfApi:
         ):
             yield User(**follower)
 
-    def list_user_following(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
+    def list_user_following(self, username: str, token: bool | str | None = None) -> Iterable[User]:
         """
         Get the list of users followed by a user on the Hub.
 
@@ -10403,9 +10558,9 @@ class HfApi:
     def list_papers(
         self,
         *,
-        query: Optional[str] = None,
-        limit: Optional[int] = None,
-        token: Union[bool, str, None] = None,
+        query: str | None = None,
+        limit: int | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[PaperInfo]:
         """
         List daily papers on the Hugging Face Hub given a search query.
@@ -10471,17 +10626,37 @@ class HfApi:
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
+    def read_paper(self, id: str) -> str:
+        """
+        Get the markdown content of a paper page on the Hub.
+
+        Args:
+            id (`str`):
+                ArXiv id of the paper.
+
+        Returns:
+            `str`: The paper page content as markdown.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                HTTP 404 If the paper does not exist on the Hub.
+        """
+        path = f"{self.endpoint}/papers/{id}.md"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        return r.text
+
     def list_daily_papers(
         self,
         *,
-        date: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        week: Optional[str] = None,
-        month: Optional[str] = None,
-        submitter: Optional[str] = None,
-        sort: Optional[DailyPapersSort_T] = None,
-        p: Optional[int] = None,
-        limit: Optional[int] = None,
+        date: str | None = None,
+        token: bool | str | None = None,
+        week: str | None = None,
+        month: str | None = None,
+        submitter: str | None = None,
+        sort: DailyPapersSort_T | None = None,
+        p: int | None = None,
+        limit: int | None = None,
     ) -> Iterable[PaperInfo]:
         """
         List the daily papers published on a given date on the Hugging Face Hub.
@@ -10544,8 +10719,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        repo_type: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
         write: bool = False,
     ) -> None:
         """
@@ -10620,13 +10795,14 @@ class HfApi:
         *,
         image: str,
         command: list[str],
-        env: Optional[dict[str, Any]] = None,
-        secrets: Optional[dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        labels: Optional[dict[str, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        env: dict[str, Any] | None = None,
+        secrets: dict[str, Any] | None = None,
+        flavor: SpaceHardware | None = None,
+        timeout: int | float | str | None = None,
+        labels: dict[str, str] | None = None,
+        volumes: list[Volume] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> JobInfo:
         """
         Run compute Jobs on Hugging Face infrastructure.
@@ -10657,6 +10833,11 @@ class HfApi:
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
 
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -10682,6 +10863,17 @@ class HfApi:
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
+            Run a Job with volumes:
+
+            ```python
+            >>> from huggingface_hub import Volume, run_job
+            >>> dataset_volume = Volume(type="dataset", source="HuggingFaceFW/fineweb", mount_path="/data")
+            >>> output_bucket_volume = Volume(type="bucket", source="username/my-bucket", mount_path="/output")
+            >>> image = "duckdb/duckdb"
+            >>> command = ["duckdb", "-c", "COPY (SELECT * FROM '/data/**/*.parquet' LIMIT 5) TO '/output/first-rows.parquet'"]
+            >>> run_job(image=image, command=command, volumes=[dataset_volume, output_bucket_volume])
+            ```
+
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -10693,6 +10885,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -10710,10 +10903,10 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code_or_error: tuple[Union[int, Type[Exception]], ...],
+        double_check_job_has_finished_on_status_code_or_error: tuple[int | type[Exception], ...],
         follow: bool = True,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -10785,9 +10978,9 @@ class HfApi:
         self,
         *,
         job_id: str,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         follow: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> Iterable[str]:
         """
         Fetch all the logs from a compute Job on Hugging Face infrastructure.
@@ -10854,8 +11047,8 @@ class HfApi:
         self,
         *,
         job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         """
         Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
@@ -10919,9 +11112,9 @@ class HfApi:
     def list_jobs(
         self,
         *,
-        timeout: Optional[int] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        timeout: int | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> list[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
@@ -10948,7 +11141,7 @@ class HfApi:
         response.raise_for_status()
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
-    def list_jobs_hardware(self, token: Union[bool, str, None] = None) -> list[JobHardware]:
+    def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
         """
         List available hardware options for Jobs on Hugging Face infrastructure.
 
@@ -10980,8 +11173,8 @@ class HfApi:
         self,
         *,
         job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> JobInfo:
         """
         Inspect a compute Job on Hugging Face infrastructure.
@@ -11031,8 +11224,8 @@ class HfApi:
         self,
         *,
         job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Cancel a compute Job on Hugging Face infrastructure.
@@ -11061,17 +11254,18 @@ class HfApi:
         self,
         script: str,
         *,
-        script_args: Optional[list[str]] = None,
-        dependencies: Optional[list[str]] = None,
-        python: Optional[str] = None,
-        image: Optional[str] = None,
-        env: Optional[dict[str, Any]] = None,
-        secrets: Optional[dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        labels: Optional[dict[str, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        script_args: list[str] | None = None,
+        dependencies: list[str] | None = None,
+        python: str | None = None,
+        image: str | None = None,
+        env: dict[str, Any] | None = None,
+        secrets: dict[str, Any] | None = None,
+        flavor: SpaceHardware | None = None,
+        timeout: int | float | str | None = None,
+        labels: dict[str, str] | None = None,
+        volumes: list[Volume] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -11109,6 +11303,11 @@ class HfApi:
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
 
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -11145,6 +11344,16 @@ class HfApi:
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
             >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
             ```
+
+            Mount volumes, e.g. to save model checkpoints during training:
+
+            ```python
+            >>> from huggingface_hub import Volume, run_uv_job
+            >>> script = "my_sft.py"
+            >>> script_args = ["--output_dir", "/training-outputs/training-v3-final", ...]
+            >>> checkpoints_bucket = Volume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
+            >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
+            ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
@@ -11170,6 +11379,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
             namespace=namespace,
             token=token,
         )
@@ -11180,15 +11390,16 @@ class HfApi:
         image: str,
         command: list[str],
         schedule: str,
-        suspend: Optional[bool] = None,
-        concurrency: Optional[bool] = None,
-        env: Optional[dict[str, Any]] = None,
-        secrets: Optional[dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        labels: Optional[dict[str, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        suspend: bool | None = None,
+        concurrency: bool | None = None,
+        env: dict[str, Any] | None = None,
+        secrets: dict[str, Any] | None = None,
+        flavor: SpaceHardware | None = None,
+        timeout: int | float | str | None = None,
+        labels: dict[str, str] | None = None,
+        volumes: list[Volume] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> ScheduledJobInfo:
         """
         Create scheduled compute Jobs on Hugging Face infrastructure.
@@ -11228,6 +11439,11 @@ class HfApi:
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
+
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11274,6 +11490,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -11295,9 +11512,9 @@ class HfApi:
     def list_scheduled_jobs(
         self,
         *,
-        timeout: Optional[int] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        timeout: int | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> list[ScheduledJobInfo]:
         """
         List scheduled compute Jobs on Hugging Face infrastructure.
@@ -11328,8 +11545,8 @@ class HfApi:
         self,
         *,
         scheduled_job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> ScheduledJobInfo:
         """
         Inspect a scheduled compute Job on Hugging Face infrastructure.
@@ -11367,8 +11584,8 @@ class HfApi:
         self,
         *,
         scheduled_job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Delete a scheduled compute Job on Hugging Face infrastructure.
@@ -11397,8 +11614,8 @@ class HfApi:
         self,
         *,
         scheduled_job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Suspend (pause) a scheduled compute Job on Hugging Face infrastructure.
@@ -11426,8 +11643,8 @@ class HfApi:
         self,
         *,
         scheduled_job_id: str,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Resume (unpause) a scheduled compute Job on Hugging Face infrastructure.
@@ -11456,20 +11673,21 @@ class HfApi:
         self,
         script: str,
         *,
-        script_args: Optional[list[str]] = None,
+        script_args: list[str] | None = None,
         schedule: str,
-        suspend: Optional[bool] = None,
-        concurrency: Optional[bool] = None,
-        dependencies: Optional[list[str]] = None,
-        python: Optional[str] = None,
-        image: Optional[str] = None,
-        env: Optional[dict[str, Any]] = None,
-        secrets: Optional[dict[str, Any]] = None,
-        flavor: Optional[SpaceHardware] = None,
-        timeout: Optional[Union[int, float, str]] = None,
-        labels: Optional[dict[str, str]] = None,
-        namespace: Optional[str] = None,
-        token: Union[bool, str, None] = None,
+        suspend: bool | None = None,
+        concurrency: bool | None = None,
+        dependencies: list[str] | None = None,
+        python: str | None = None,
+        image: str | None = None,
+        env: dict[str, Any] | None = None,
+        secrets: dict[str, Any] | None = None,
+        flavor: SpaceHardware | None = None,
+        timeout: int | float | str | None = None,
+        labels: dict[str, str] | None = None,
+        volumes: list[Volume] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
@@ -11516,6 +11734,11 @@ class HfApi:
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
+
+            volumes (`list[Volume]`, *optional*):
+                Hugging Face Buckets or Repos to mount as volumes in the job container.
+                Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
+                `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11578,6 +11801,7 @@ class HfApi:
             flavor=flavor,
             timeout=timeout,
             labels=labels,
+            volumes=volumes,
             namespace=namespace,
             token=token,
         )
@@ -11586,13 +11810,13 @@ class HfApi:
         self,
         *,
         script: str,
-        script_args: Optional[list[str]],
-        dependencies: Optional[list[str]],
-        python: Optional[str],
-        env: Optional[dict[str, Any]],
-        secrets: Optional[dict[str, Any]],
-        namespace: Optional[str],
-        token: Union[bool, str, None],
+        script_args: list[str] | None,
+        dependencies: list[str] | None,
+        python: str | None,
+        env: dict[str, Any] | None,
+        secrets: dict[str, Any] | None,
+        namespace: str | None,
+        token: bool | str | None,
     ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
         env = env or {}
         secrets = secrets or {}
@@ -11641,10 +11865,10 @@ class HfApi:
                             break
                 else:
                     remote_to_local_file_names[remote_file_path.name] = local_file_to_include
-            local_to_remote_file_names = dict(
-                (local_file_to_include, remote_file_name)
+            local_to_remote_file_names = {
+                local_file_to_include: remote_file_name
                 for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
-            )
+            }
 
             # Replace local paths with remote paths in command
             if script in local_to_remote_file_names:
@@ -11676,10 +11900,10 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        private: Optional[bool] = None,
-        resource_group_id: Optional[str] = None,
+        private: bool | None = None,
+        resource_group_id: str | None = None,
         exist_ok: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> BucketUrl:
         """Create a bucket on the Hub.
 
@@ -11765,7 +11989,7 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> BucketInfo:
         """Get information about a specific bucket on the Hub.
 
@@ -11811,9 +12035,9 @@ class HfApi:
     @validate_hf_hub_args
     def list_buckets(
         self,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> Iterable[BucketInfo]:
         """List buckets on the Hub under a certain namespace.
 
@@ -11852,7 +12076,7 @@ class HfApi:
         bucket_id: str,
         *,
         missing_ok: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> None:
         """Delete a bucket from the Hub.
 
@@ -11895,7 +12119,7 @@ class HfApi:
         from_id: str,
         to_id: str,
         *,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> None:
         """Move a bucket from "namespace1/repo_name1" to "namespace2/repo_name2"
 
@@ -11950,11 +12174,11 @@ class HfApi:
     def list_bucket_tree(
         self,
         bucket_id: str,
-        prefix: Optional[str] = None,
+        prefix: str | None = None,
         *,
-        recursive: Optional[bool] = None,
-        token: Union[str, bool, None] = None,
-    ) -> Iterable[Union[BucketFile, BucketFolder]]:
+        recursive: bool | None = None,
+        token: str | bool | None = None,
+    ) -> Iterable[BucketFile | BucketFolder]:
         """List files in a bucket.
 
         Args:
@@ -12005,7 +12229,7 @@ class HfApi:
         bucket_id: str,
         paths: Iterable[str],
         *,
-        token: Union[str, bool, None] = None,
+        token: str | bool | None = None,
     ) -> Iterable[BucketFile]:
         """
         Get information about a bucket's paths.
@@ -12056,9 +12280,9 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
-        delete: Optional[list[str]] = None,
-        token: Union[str, bool, None] = None,
+        add: list[tuple[str | Path | bytes, str]] | None = None,
+        delete: list[str] | None = None,
+        token: str | bool | None = None,
     ):
         """Add and/or delete files in a bucket.
 
@@ -12134,14 +12358,14 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        add: Optional[list[tuple[Union[str, Path, bytes], str]]] = None,
-        delete: Optional[list[str]] = None,
-        token: Union[str, bool, None] = None,
-        _progress: Optional["XetProgressReporter"] = None,
+        add: list[tuple[str | Path | bytes, str]] | None = None,
+        delete: list[str] | None = None,
+        token: str | bool | None = None,
+        _progress: XetProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
-        operations: list[Union[_BucketAddFile, _BucketDeleteFile]] = []
+        operations: list[_BucketAddFile | _BucketDeleteFile] = []
         if add:
             for source, destination in add:
                 operations.append(_BucketAddFile(source=source, destination=destination))
@@ -12279,7 +12503,7 @@ class HfApi:
         bucket_id: str,
         remote_path: str,
         *,
-        token: Union[str, bool, None] = None,
+        token: str | bool | None = None,
     ) -> BucketFileMetadata:
         """Fetch metadata of a file in a bucket.
 
@@ -12329,10 +12553,10 @@ class HfApi:
     def download_bucket_files(
         self,
         bucket_id: str,
-        files: list[tuple[Union[str, BucketFile], Union[str, Path]]],
+        files: list[tuple[str | BucketFile, str | Path]],
         *,
         raise_on_missing_files: bool = False,
-        token: Union[str, bool, None] = None,
+        token: str | bool | None = None,
     ) -> None:
         """Download files from a bucket.
 
@@ -12404,7 +12628,7 @@ class HfApi:
                     warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
 
         xet_download_infos = []
-        first_valid_bucket_file: Optional[BucketFile] = None
+        first_valid_bucket_file: BucketFile | None = None
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
                 if remote_file not in bucket_files_by_path:
@@ -12483,23 +12707,23 @@ class HfApi:
     @validate_hf_hub_args
     def sync_bucket(
         self,
-        source: Optional[str] = None,
-        dest: Optional[str] = None,
+        source: str | None = None,
+        dest: str | None = None,
         *,
         delete: bool = False,
         ignore_times: bool = False,
         ignore_sizes: bool = False,
         existing: bool = False,
         ignore_existing: bool = False,
-        include: Optional[list[str]] = None,
-        exclude: Optional[list[str]] = None,
-        filter_from: Optional[str] = None,
-        plan: Optional[str] = None,
-        apply: Optional[str] = None,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+        filter_from: str | None = None,
+        plan: str | None = None,
+        apply: str | None = None,
         dry_run: bool = False,
         verbose: bool = False,
         quiet: bool = False,
-        token: Union[bool, str, None] = None,
+        token: bool | str | None = None,
     ) -> SyncPlan:
         """Sync files between a local directory and a bucket.
 
@@ -12610,7 +12834,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     return f"refs/pr/{re_match[1]}"
 
 
-def parse_local_safetensors_file_metadata(path: Union[str, Path]) -> SafetensorsFileMetadata:
+def parse_local_safetensors_file_metadata(path: str | Path) -> SafetensorsFileMetadata:
     """
     Parse metadata from a local safetensors file.
 
@@ -12662,7 +12886,7 @@ def parse_local_safetensors_file_metadata(path: Union[str, Path]) -> Safetensors
     return _parse_safetensors_header(metadata_as_bytes, filename, context_msg)
 
 
-def get_local_safetensors_metadata(path: Union[str, Path]) -> SafetensorsRepoMetadata:
+def get_local_safetensors_metadata(path: str | Path) -> SafetensorsRepoMetadata:
     """
     Parse metadata for a local safetensors file or folder.
 
@@ -12773,12 +12997,14 @@ model_info = api.model_info
 list_datasets = api.list_datasets
 list_dataset_parquet_files = api.list_dataset_parquet_files
 dataset_info = api.dataset_info
+get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
+read_paper = api.read_paper
 list_daily_papers = api.list_daily_papers
 
 repo_exists = api.repo_exists

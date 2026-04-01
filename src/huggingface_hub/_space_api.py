@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from huggingface_hub.utils import parse_datetime
 
@@ -62,7 +61,9 @@ class SpaceHardware(str, Enum):
     # CPU
     CPU_BASIC = "cpu-basic"
     CPU_UPGRADE = "cpu-upgrade"
+    CPU_PERFORMANCE = "cpu-performance"
     CPU_XL = "cpu-xl"
+    SPRX8 = "sprx8"
 
     # ZeroGPU
     ZERO_A10G = "zero-a10g"
@@ -80,8 +81,15 @@ class SpaceHardware(str, Enum):
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
-    A100x4 = "a100x4"
-    A100x8 = "a100x8"
+    A100X4 = "a100x4"
+    A100X8 = "a100x8"
+    H200 = "h200"
+    H200X2 = "h200x2"
+    H200X4 = "h200x4"
+    H200X8 = "h200x8"
+
+    # Neuron
+    INF2X6 = "inf2x6"
 
 
 class SpaceStorage(str, Enum):
@@ -138,11 +146,11 @@ class SpaceRuntime:
     """
 
     stage: SpaceStage
-    hardware: Optional[SpaceHardware]
-    requested_hardware: Optional[SpaceHardware]
-    sleep_time: Optional[int]
-    storage: Optional[SpaceStorage]
-    hot_reloading: Optional[SpaceHotReloading]
+    hardware: SpaceHardware | None
+    requested_hardware: SpaceHardware | None
+    sleep_time: int | None
+    storage: SpaceStorage | None
+    hot_reloading: SpaceHotReloading | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -173,8 +181,8 @@ class SpaceVariable:
 
     key: str
     value: str
-    description: Optional[str]
-    updated_at: Optional[datetime]
+    description: str | None
+    updated_at: datetime | None
 
     def __init__(self, key: str, values: dict) -> None:
         self.key = key

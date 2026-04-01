@@ -1,7 +1,7 @@
 import copy
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.utils import logging, yaml_dump
 
@@ -84,52 +84,52 @@ class EvalResult:
 
     # A pretty name for the task.
     # Example: Speech Recognition
-    task_name: Optional[str] = None
+    task_name: str | None = None
 
     # The name of the dataset configuration used in `load_dataset()`.
     # Example: fr in `load_dataset("common_voice", "fr")`.
     # See the `datasets` docs for more info:
     # https://huggingface.co/docs/datasets/package_reference/loading_methods#datasets.load_dataset.name
-    dataset_config: Optional[str] = None
+    dataset_config: str | None = None
 
     # The split used in `load_dataset()`.
     # Example: test
-    dataset_split: Optional[str] = None
+    dataset_split: str | None = None
 
     # The revision (AKA Git Sha) of the dataset used in `load_dataset()`.
     # Example: 5503434ddd753f426f4b38109466949a1217c2bb
-    dataset_revision: Optional[str] = None
+    dataset_revision: str | None = None
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    dataset_args: Optional[dict[str, Any]] = None
+    dataset_args: dict[str, Any] | None = None
 
     # A pretty name for the metric.
     # Example: Test WER
-    metric_name: Optional[str] = None
+    metric_name: str | None = None
 
     # The name of the metric configuration used in `load_metric()`.
     # Example: bleurt-large-512 in `load_metric("bleurt", "bleurt-large-512")`.
     # See the `datasets` docs for more info: https://huggingface.co/docs/datasets/v2.1.0/en/loading#load-configurations
-    metric_config: Optional[str] = None
+    metric_config: str | None = None
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    metric_args: Optional[dict[str, Any]] = None
+    metric_args: dict[str, Any] | None = None
 
     # Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
-    verified: Optional[bool] = None
+    verified: bool | None = None
 
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
-    verify_token: Optional[str] = None
+    verify_token: str | None = None
 
     # The name of the source of the evaluation result.
     # Example: Open LLM Leaderboard
-    source_name: Optional[str] = None
+    source_name: str | None = None
 
     # The URL of the source of the evaluation result.
     # Example: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
-    source_url: Optional[str] = None
+    source_url: str | None = None
 
     @property
     def unique_identifier(self) -> tuple:
@@ -195,7 +195,7 @@ class CardData:
         """
         pass
 
-    def to_yaml(self, line_break=None, original_order: Optional[list[str]] = None) -> str:
+    def to_yaml(self, line_break=None, original_order: list[str] | None = None) -> str:
         """Dumps CardData to a YAML block for inclusion in a README.md file.
 
         Args:
@@ -246,8 +246,8 @@ class CardData:
 
 
 def _validate_eval_results(
-    eval_results: Optional[Union[EvalResult, list[EvalResult]]],
-    model_name: Optional[str],
+    eval_results: EvalResult | list[EvalResult] | None,
+    model_name: str | None,
 ) -> list[EvalResult]:
     if eval_results is None:
         return []
@@ -329,18 +329,18 @@ class ModelCardData(CardData):
     def __init__(
         self,
         *,
-        base_model: Optional[Union[str, list[str]]] = None,
-        datasets: Optional[Union[str, list[str]]] = None,
-        eval_results: Optional[list[EvalResult]] = None,
-        language: Optional[Union[str, list[str]]] = None,
-        library_name: Optional[str] = None,
-        license: Optional[str] = None,
-        license_name: Optional[str] = None,
-        license_link: Optional[str] = None,
-        metrics: Optional[list[str]] = None,
-        model_name: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        base_model: str | list[str] | None = None,
+        datasets: str | list[str] | None = None,
+        eval_results: list[EvalResult] | None = None,
+        language: str | list[str] | None = None,
+        library_name: str | None = None,
+        license: str | None = None,
+        license_name: str | None = None,
+        license_link: str | None = None,
+        metrics: list[str] | None = None,
+        model_name: str | None = None,
+        pipeline_tag: str | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -434,19 +434,19 @@ class DatasetCardData(CardData):
     def __init__(
         self,
         *,
-        language: Optional[Union[str, list[str]]] = None,
-        license: Optional[Union[str, list[str]]] = None,
-        annotations_creators: Optional[Union[str, list[str]]] = None,
-        language_creators: Optional[Union[str, list[str]]] = None,
-        multilinguality: Optional[Union[str, list[str]]] = None,
-        size_categories: Optional[Union[str, list[str]]] = None,
-        source_datasets: Optional[list[str]] = None,
-        task_categories: Optional[Union[str, list[str]]] = None,
-        task_ids: Optional[Union[str, list[str]]] = None,
-        paperswithcode_id: Optional[str] = None,
-        pretty_name: Optional[str] = None,
-        train_eval_index: Optional[dict] = None,
-        config_names: Optional[Union[str, list[str]]] = None,
+        language: str | list[str] | None = None,
+        license: str | list[str] | None = None,
+        annotations_creators: str | list[str] | None = None,
+        language_creators: str | list[str] | None = None,
+        multilinguality: str | list[str] | None = None,
+        size_categories: str | list[str] | None = None,
+        source_datasets: list[str] | None = None,
+        task_categories: str | list[str] | None = None,
+        task_ids: str | list[str] | None = None,
+        paperswithcode_id: str | None = None,
+        pretty_name: str | None = None,
+        train_eval_index: dict | None = None,
+        config_names: str | list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -524,17 +524,17 @@ class SpaceCardData(CardData):
     def __init__(
         self,
         *,
-        title: Optional[str] = None,
-        sdk: Optional[str] = None,
-        sdk_version: Optional[str] = None,
-        python_version: Optional[str] = None,
-        app_file: Optional[str] = None,
-        app_port: Optional[int] = None,
-        license: Optional[str] = None,
-        duplicated_from: Optional[str] = None,
-        models: Optional[list[str]] = None,
-        datasets: Optional[list[str]] = None,
-        tags: Optional[list[str]] = None,
+        title: str | None = None,
+        sdk: str | None = None,
+        sdk_version: str | None = None,
+        python_version: str | None = None,
+        app_file: str | None = None,
+        app_port: int | None = None,
+        license: str | None = None,
+        duplicated_from: str | None = None,
+        models: list[str] | None = None,
+        datasets: list[str] | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -760,7 +760,7 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
     return _remove_none(model_index)
 
 
-def _to_unique_list(tags: Optional[list[str]]) -> Optional[list[str]]:
+def _to_unique_list(tags: list[str] | None) -> list[str] | None:
     if tags is None:
         return tags
     unique_tags = []  # make tags unique + keep order explicitly
