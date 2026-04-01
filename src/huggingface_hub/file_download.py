@@ -542,9 +542,19 @@ def xet_get(
     xet_headers.pop("authorization", None)
 
     with progress_cm as progress:
+        _last_size = 0
 
         def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
+            nonlocal _last_size
+            if progress_bytes > 0:
+                progress.update(progress_bytes)
+            elif incomplete_path.exists():
+                # xet may report 0 bytes; fall back to actual file size on disk
+                current_size = incomplete_path.stat().st_size
+                delta = current_size - _last_size
+                if delta > 0:
+                    _last_size = current_size
+                    progress.update(delta)
 
         download_files(
             xet_download_info,

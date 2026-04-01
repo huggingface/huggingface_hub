@@ -303,6 +303,6 @@ def _get_progress_bar_context(
         total=total,
         initial=initial,
         desc=desc,
-        disable=is_tqdm_disabled(log_level=log_level),
+        disable=is_tqdm_disabled(log_level=log_level) if tqdm_class is None else False,
         name=name,
     )
