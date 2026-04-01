@@ -8184,17 +8184,7 @@ class HfApi:
             ... )
             ```
         """
-        payload = [
-            {
-                "type": vol.type,
-                "source": vol.source,
-                "mountPath": vol.mount_path,
-                **({"revision": vol.revision} if vol.revision is not None else {}),
-                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
-                **({"path": vol.path} if vol.path is not None else {}),
-            }
-            for vol in volumes
-        ]
+        payload = [vol.to_dict() for vol in volumes]
         r = get_session().put(
             f"{self.endpoint}/api/spaces/{repo_id}/volumes",
             headers=self._build_hf_headers(token=token),

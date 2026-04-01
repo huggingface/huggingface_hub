@@ -58,6 +58,21 @@ class Volume:
         self.read_only = read_only if read_only is not None else kwargs.get("read_only")
         self.path = kwargs.get("path")
 
+    def to_dict(self) -> dict:
+        """Serialize to the JSON payload expected by the Hub API."""
+        d: dict = {
+            "type": self.type,
+            "source": self.source,
+            "mountPath": self.mount_path,
+        }
+        if self.revision is not None:
+            d["revision"] = self.revision
+        if self.read_only is not None:
+            d["readOnly"] = self.read_only
+        if self.path is not None:
+            d["path"] = self.path
+        return d
+
 
 class JobStage(str, Enum):
     """
@@ -432,17 +447,7 @@ def _create_job_spec(
         job_spec["labels"] = labels
     # volumes are optional
     if volumes:
-        job_spec["volumes"] = [
-            {
-                "type": vol.type,
-                "source": vol.source,
-                "mountPath": vol.mount_path,
-                **({"revision": vol.revision} if vol.revision is not None else {}),
-                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
-                **({"path": vol.path} if vol.path is not None else {}),
-            }
-            for vol in volumes
-        ]
+        job_spec["volumes"] = [vol.to_dict() for vol in volumes]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",
