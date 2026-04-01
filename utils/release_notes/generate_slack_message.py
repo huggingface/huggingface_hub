@@ -36,13 +36,11 @@ DEFAULT_PING_LIST: list[tuple[str, str, str | None]] = [
 
 
 def build_ping_section(
-    rc_version: str,
     ping_list: list[tuple[str, str, str | None]] | None = None,
 ) -> str:
     """Build the "Pinging:" block with CI compare URLs and closing line.
 
     Args:
-        rc_version: The RC version string (e.g., "1.7.0.rc0") used to construct branch names.
         ping_list: List of (label, slack_mention, repo_name_or_None). Defaults to DEFAULT_PING_LIST.
 
     Returns:
@@ -157,7 +155,7 @@ def main(version: str, rc_version: str, input_file: Path | None = None, output_f
     body = body_file.read_text().strip()
 
     # Build pinging section
-    ping_section = build_ping_section(rc_version)
+    ping_section = build_ping_section()
 
     # Combine and write final message
     final_message = f"{body}\n\n{ping_section}\n"
