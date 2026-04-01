@@ -14,49 +14,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 from huggingface_hub import constants
-from huggingface_hub._space_api import SpaceHardware
+from huggingface_hub._space_api import SpaceHardware, Volume
 from huggingface_hub.utils._datetime import parse_datetime
-
-
-@dataclass
-class Volume:
-    """
-    Describes a volume to mount in a Job container.
-
-    Args:
-        type (`str`):
-            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
-        source (`str`):
-            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
-        mount_path (`str`):
-            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
-        revision (`str` or `None`):
-            Git revision (only for repos, defaults to `"main"`).
-        read_only (`bool` or `None`):
-            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
-        path (`str` or `None`):
-            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
-    """
-
-    type: Literal["bucket", "model", "dataset", "space"]
-    source: str
-    mount_path: str
-    revision: str | None = None
-    read_only: bool | None = None
-    path: str | None = None
-
-    def __init__(self, **kwargs) -> None:
-        self.type = kwargs.get("type", "model")
-        self.source = kwargs["source"]
-        mount_path = kwargs.get("mountPath")
-        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
-        self.revision = kwargs.get("revision")
-        read_only = kwargs.get("readOnly")
-        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
-        self.path = kwargs.get("path")
 
 
 class JobStage(str, Enum):
@@ -432,17 +394,7 @@ def _create_job_spec(
         job_spec["labels"] = labels
     # volumes are optional
     if volumes:
-        job_spec["volumes"] = [
-            {
-                "type": vol.type,
-                "source": vol.source,
-                "mountPath": vol.mount_path,
-                **({"revision": vol.revision} if vol.revision is not None else {}),
-                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
-                **({"path": vol.path} if vol.path is not None else {}),
-            }
-            for vol in volumes
-        ]
+        job_spec["volumes"] = [vol.to_dict() for vol in volumes]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",
