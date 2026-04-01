@@ -14,9 +14,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from huggingface_hub.utils import parse_datetime
+
+
+if TYPE_CHECKING:
+    from huggingface_hub._jobs_api import Volume
 
 
 class SpaceStage(str, Enum):
@@ -140,6 +144,9 @@ class SpaceRuntime:
             Number of seconds the Space will be kept alive after the last request. By default (if value is `None`), the
             Space will never go to sleep if it's running on an upgraded hardware, while it will go to sleep after 48
             hours on a free 'cpu-basic' hardware. For more details, see https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
+        volumes (`list[Volume]` or `None`):
+            List of volumes mounted in the Space. Each volume is a [`Volume`] object describing its type, source,
+            mount path, and optional settings. `None` if no volumes are attached.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
@@ -151,15 +158,20 @@ class SpaceRuntime:
     sleep_time: int | None
     storage: SpaceStorage | None
     hot_reloading: SpaceHotReloading | None
+    volumes: list["Volume"] | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
+        from huggingface_hub._jobs_api import Volume
+
         self.stage = data["stage"]
         self.hardware = data.get("hardware", {}).get("current")
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
         self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
+        raw_volumes = data.get("volumes")
+        self.volumes = [Volume(**v) for v in raw_volumes] if raw_volumes is not None else None
         self.raw = data
 
 

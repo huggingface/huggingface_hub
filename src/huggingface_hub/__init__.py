@@ -229,6 +229,7 @@ _SUBMOD_ATTRS = {
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
+        "delete_space_volumes",
         "delete_tag",
         "delete_webhook",
         "disable_space_dev_mode",
@@ -319,6 +320,7 @@ _SUBMOD_ATTRS = {
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
+        "set_space_volumes",
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
@@ -927,6 +929,7 @@ __all__ = [
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
+    "delete_space_volumes",
     "delete_tag",
     "delete_webhook",
     "disable_space_dev_mode",
@@ -1053,6 +1056,7 @@ __all__ = [
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
+    "set_space_volumes",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
@@ -1349,6 +1353,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
+        delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
         disable_space_dev_mode,  # noqa: F401
@@ -1439,6 +1444,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
+        set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401

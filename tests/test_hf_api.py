@@ -3671,6 +3671,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("create_repo")
     def test_create_space_with_storage(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3805,6 +3806,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
 
+    @expect_deprecation("request_space_storage")
     def test_request_space_storage(self) -> None:
         runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
         self.post_mock.assert_called_once_with(
@@ -3814,6 +3816,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
         assert runtime.storage == SpaceStorage.LARGE
 
+    @expect_deprecation("delete_space_storage")
     def test_delete_space_storage(self) -> None:
         runtime = self.api.delete_space_storage(self.repo_id)
         self.delete_mock.assert_called_once_with(
