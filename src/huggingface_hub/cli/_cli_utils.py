@@ -95,6 +95,47 @@ def _format_epilog_no_indent(epilog: str | None, ctx: click.Context, formatter: 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
+def _enrich_no_such_option_error(error: click.NoSuchOption) -> None:
+    """Append the full list of available options to a ``NoSuchOption`` error message.
+
+    Click already suggests close matches via ``difflib``.  This replaces the short
+    suggestion with the complete option list so agents (and humans) can discover
+    what flags a command accepts.
+    """
+    if getattr(error, "_hf_enriched", False):
+        return
+    error._hf_enriched = True  # type: ignore[attr-defined]
+
+    cmd = error.ctx.command  # type: ignore[union-attr]
+    options = [(", ".join(p.opts), p.help or "") for p in cmd.params if isinstance(p, click.Option) and not p.hidden]
+    if not options:
+        return
+    cmd_path = error.ctx.command_path  # type: ignore[union-attr]
+    lines = [f"\n\nAvailable options for '{cmd_path}':"]
+    for names, help_text in sorted(options):
+        lines.append(f"  {names:30s} {help_text}")
+    lines.append(f"\nRun '{cmd_path} --help' for full details.")
+    error.message += "\n".join(lines)
+    # Clear possibilities so Click's format_message() doesn't append a redundant
+    # "Did you mean ...?" after the full list.
+    error.possibilities = []
+
+
+def _enrich_no_such_command_error(error: click.UsageError, group: "HFCliTyperGroup", ctx: click.Context) -> None:
+    """Append the list of available subcommands to a "No such command" error message."""
+    commands = [(name, group.get_command(ctx, name)) for name in group.list_commands(ctx)]
+    visible = [(name, cmd) for name, cmd in commands if cmd is not None and not cmd.hidden]
+    if not visible:
+        return
+    cmd_path = ctx.command_path
+    lines = [f"\n\nAvailable commands for '{cmd_path}':"]
+    for name, cmd in visible:
+        help_text = cmd.get_short_help_str(limit=80)
+        lines.append(f"  {name:20s} {help_text}")
+    lines.append(f"\nRun '{cmd_path} --help' for full details.")
+    error.message += "\n".join(lines)
+
+
 class HFCliTyperGroup(TyperGroup):
     """
     Typer Group that:
@@ -104,7 +145,16 @@ class HFCliTyperGroup(TyperGroup):
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
+    - enriches "No such option" errors with the full list of available options.
     """
+
+    def invoke(self, ctx: click.Context) -> None:
+        try:
+            return super().invoke(ctx)
+        except click.NoSuchOption as e:
+            if e.ctx is not None and e.ctx.command is not None:
+                _enrich_no_such_option_error(e)
+            raise
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
         cmd_name = args[0] if args and not args[0].startswith("-") else None
@@ -115,7 +165,12 @@ class HFCliTyperGroup(TyperGroup):
             self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
-        return super().resolve_command(ctx, args)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError as e:
+            if cmd_name is not None and "No such command" in str(e):
+                _enrich_no_such_command_error(e, self, ctx)
+            raise
 
     @staticmethod
     def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
