@@ -130,4 +130,4 @@ def models_info(
         raise CLIError(f"Model '{model_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
-    out.dict(api_object_to_dict(info))
+    out.dict(info)
