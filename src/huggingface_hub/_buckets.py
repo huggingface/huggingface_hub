@@ -123,10 +123,10 @@ class _BucketAddFile:
 class _BucketUpdateFile:
     path: str
 
-    xet_hash: Optional[str] = field(default=None)
-    size: Optional[int] = field(default=None)
+    xet_hash: str | None = field(default=None)
+    size: int | None = field(default=None)
     mtime: int = field(init=False)
-    content_type: Optional[str] = field(init=False)
+    content_type: str | None = field(init=False)
 
     def __post_init__(self) -> None:
         # guess content type from file path
