@@ -333,3 +333,24 @@ def test_bucket_add_file_content_type(source, destination, expected_content_type
 
     entry = _BucketAddFile(source=source, destination=destination)
     assert entry.content_type == expected_content_type
+
+
+@requires("hf_xet")
+def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: str, tmp_path):
+    """Regression test for  https://github.com/huggingface/huggingface_hub/issues/3995.
+
+    Before this change if the local file was large than the remote one, only the first bytes of the local
+    file were updated, leaving a corrupted file.
+    """
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("1234567890")
+
+    # Upload local file by path
+    api.batch_bucket_files(bucket_write, add=[(file_path, "file.txt")])
+
+    # Overwrite local file with larger content
+    file_path.write_text("a" * 40)
+
+    # Download from bucket should restore original content
+    api.download_bucket_files(bucket_write, files=[("file.txt", str(file_path))])
+    assert file_path.read_text() == "1234567890"

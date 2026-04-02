@@ -299,6 +299,8 @@ jobs:
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    outputs:
+      drafted_prerelease: ${{ steps.check_draft.outputs.skip == 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -377,20 +379,30 @@ jobs:
 
           ARGS=(
             "$TAG"
-            --title "v${VERSION}"
             --draft
             --prerelease
           )
 
           if [[ -n "$NOTES_FILE" ]]; then
             echo "Using generated release notes from $NOTES_FILE"
-            ARGS+=(--notes-file "$NOTES_FILE")
+            # Extract title from first line (strip "# " prefix) and use rest as body
+            TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
+            tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
+            ARGS+=(--title "$TITLE" --notes-file "${NOTES_FILE}.body")
           else
             echo "No generated notes found, using GitHub auto-generated notes"
-            ARGS+=(--generate-notes)
+            ARGS+=(--title "v${VERSION}" --generate-notes)
           fi
 
           gh release create "${ARGS[@]}"
+
+      - name: Upload release notes artifact
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: .release-notes/
+          retention-days: 7
 
       # --- Minor release: update existing draft to point to the final tag ---
       - name: Promote draft release to final version
@@ -410,7 +422,6 @@ jobs:
             echo "Updating existing draft release from $EXISTING_TAG to $TAG"
             gh release edit "$EXISTING_TAG" \
               --tag "$TAG" \
-              --title "v${VERSION}" \
               --prerelease=false
           else
             echo "::warning::No draft release found for v${MINOR}. Creating new release with auto-generated notes."
@@ -419,6 +430,56 @@ jobs:
               --draft \
               --generate-notes
           fi
+
+  # ============================================================
+  # 4b. SLACK MESSAGE — generate Slack announcement for prereleases
+  # ============================================================
+  slack-message:
+    needs: [prepare, release-notes]
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && needs.release-notes.outputs.drafted_prerelease == 'true' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Download release notes artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .release-notes/
+
+      - name: Generate Slack message
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          # Convert 1.7.0.rc0 -> 1.7.0rc0 for pip
+          RC_PIP_VERSION=$(echo "$VERSION" | sed -E 's/\.rc/rc/')
+          python -m utils.release_notes.generate_slack_message \
+            --version "v${BASE_VERSION}" \
+            --rc-version "${RC_PIP_VERSION}"
+
+      - name: Print Slack message to summary
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          echo "## Slack Announcement" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ".release-notes/SLACK_MESSAGE_v${BASE_VERSION}.md" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
   # ============================================================
   # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.

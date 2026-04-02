@@ -12,7 +12,8 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import Volume, _create_job_spec
+from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
