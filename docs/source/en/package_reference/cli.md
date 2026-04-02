@@ -3240,28 +3240,30 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Download a skill and install it for an AI...
-* `preview`: Print the generated SKILL.md to stdout.
+* `add`: Download a Hugging Face skill and install...
+* `preview`: Print the generated `hf-cli` SKILL.md to...
+* `upgrade`: Upgrade installed Hugging Face marketplace...
 
 ### `hf skills add`
 
-Download a skill and install it for an AI assistant.
+Download a Hugging Face skill and install it for an AI assistant.
 
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
 
 **Usage**:
 
 ```console
-$ hf skills add [OPTIONS]
+$ hf skills add [OPTIONS] [NAME]
 ```
+
+**Arguments**:
+
+* `[NAME]`: Marketplace skill name.
 
 **Options**:
 
 * `--claude`: Install for Claude.
-* `--codex`: Install for Codex.
-* `--cursor`: Install for Cursor.
-* `--opencode`: Install for OpenCode.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
@@ -3269,9 +3271,10 @@ $ hf skills add [OPTIONS]
 
 Examples
   $ hf skills add
+  $ hf skills add huggingface-gradio --dest=~/my-skills
   $ hf skills add --global
-  $ hf skills add --claude --cursor
-  $ hf skills add --codex --opencode --cursor --global
+  $ hf skills add --claude
+  $ hf skills add huggingface-gradio --claude --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3280,7 +3283,7 @@ Learn more
 
 ### `hf skills preview`
 
-Print the generated SKILL.md to stdout.
+Print the generated `hf-cli` SKILL.md to stdout.
 
 **Usage**:
 
@@ -3291,6 +3294,38 @@ $ hf skills preview [OPTIONS]
 **Options**:
 
 * `--help`: Show this message and exit.
+
+### `hf skills upgrade`
+
+Upgrade installed Hugging Face marketplace skills.
+
+**Usage**:
+
+```console
+$ hf skills upgrade [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Optional installed skill name to upgrade.
+
+**Options**:
+
+* `--claude`: Upgrade skills installed for Claude.
+* `-g, --global`: Use global skills directories instead of the current project.
+* `--dest PATH`: Upgrade skills in a custom skills directory.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills upgrade
+  $ hf skills upgrade hf-cli
+  $ hf skills upgrade huggingface-gradio --dest=~/my-skills
+  $ hf skills upgrade --claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ## `hf spaces`
 
