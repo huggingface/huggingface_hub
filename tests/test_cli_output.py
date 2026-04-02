@@ -197,26 +197,28 @@ def test_dict(check):
 def test_text(check):
     check(
         lambda out: out.text("hello"),
-        human="""
-        hello
-        """,
-        agent="""
-        hello
-        """,
+        human="hello",
+        agent="hello",
         json="",
         quiet="",
     )
 
 
-def test_text_with_agent_override(check):
+def test_text_human_only(check):
     check(
-        lambda out: out.text("Hello, Human!", agent="Hello, Agent!"),
-        human="""
-        Hello, Human!
-        """,
-        agent="""
-        Hello, Agent!
-        """,
+        lambda out: out.text(human="Hello, Human!"),
+        human="Hello, Human!",
+        agent="",
+        json="",
+        quiet="",
+    )
+
+
+def test_text_agent_only(check):
+    check(
+        lambda out: out.text(agent="Hello, Agent!"),
+        human="",
+        agent="Hello, Agent!",
         json="",
         quiet="",
     )
