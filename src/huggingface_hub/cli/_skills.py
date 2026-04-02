@@ -337,7 +337,7 @@ def _evaluate_update(skill_dir: Path, marketplace_skills: dict[str, MarketplaceS
     except Exception as exc:
         return replace(base, status="source_unreachable", detail=str(exc), current_revision=current_revision)
 
-    status = "up_to_date" if available_revision == current_revision else "update_available"
+    status: SkillUpdateStatus = "up_to_date" if available_revision == current_revision else "update_available"
     return replace(
         base,
         status=status,
