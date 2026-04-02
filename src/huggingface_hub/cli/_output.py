@@ -18,11 +18,21 @@ import json
 import re
 import sys
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
 
 from huggingface_hub.utils import ANSI, is_agent, tabulate
 
-from ._cli_utils import OutputFormatWithAuto
+
+# TODO: remove OutputFormat in _cli_utils.py once all commands are migrated to OutputFormatWithAuto.
+class OutputFormatWithAuto(str, Enum):
+    """Output format for CLI commands with auto detection of agent/human mode."""
+
+    agent = "agent"
+    auto = "auto"
+    human = "human"
+    json = "json"
+    quiet = "quiet"
 
 
 class Output:
