@@ -657,6 +657,8 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     for repo_path in cache_dir.iterdir():
         if repo_path.name == ".locks":  # skip './.locks/' folder
             continue
+        if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
+            continue
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:

@@ -94,6 +94,10 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
         cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
+    # If symlinks are explicitly disabled by the user, always return False
+    if constants.HF_HUB_DISABLE_SYMLINKS:
+        return False
+
     # Check symlink compatibility only once (per cache directory) at first time use
     if cache_dir not in _are_symlinks_supported_in_dir:
         _are_symlinks_supported_in_dir[cache_dir] = True
@@ -640,7 +644,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     except ValueError:
         # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
         # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
-        _support_symlinks = os.name != "nt"
+        _support_symlinks = os.name != "nt" and not constants.HF_HUB_DISABLE_SYMLINKS
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
