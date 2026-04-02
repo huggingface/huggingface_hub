@@ -16,7 +16,12 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
+from ._local_folder import (
+    _create_cachedir_tag,
+    get_local_download_paths,
+    read_download_metadata,
+    write_download_metadata,
+)
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -1030,6 +1035,9 @@ def _hf_hub_download_to_cache_dir(
     """
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    _create_cachedir_tag(Path(cache_dir))
 
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
