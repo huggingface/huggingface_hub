@@ -118,11 +118,10 @@ class HFCliTyperGroup(TyperGroup):
                 cmd = e.ctx.command
                 # If the error is on a Group, show its subcommands instead.
                 if isinstance(cmd, click.Group):
-                    sub_ctx = e.ctx
                     items = [
                         (name, sub.get_short_help_str(limit=80))
-                        for name in cmd.list_commands(sub_ctx)
-                        if (sub := cmd.get_command(sub_ctx, name)) is not None and not sub.hidden
+                        for name in cmd.list_commands(e.ctx)
+                        if (sub := cmd.get_command(e.ctx, name)) is not None and not sub.hidden
                     ]
                     _enrich_usage_error(e, "commands", items)
                 else:
@@ -146,11 +145,15 @@ class HFCliTyperGroup(TyperGroup):
         try:
             return super().resolve_command(ctx, args)
         except click.UsageError as e:
-            # TyperGroup fuzzy-matches against raw keys like "list | ls" which
-            # breaks difflib.  Re-do the match against expanded alias names.
-            if cmd is None and cmd_name is not None and "Did you mean" not in e.message:
-                all_names = [alias for key in self.commands for alias in _ALIAS_SPLIT.split(key)]
-                matches = difflib.get_close_matches(cmd_name, all_names)
+            if cmd is None and cmd_name is not None:
+                # Suggest close matches using expanded alias names, excluding hidden commands.
+                visible_names = [
+                    alias
+                    for key, registered in self.commands.items()
+                    if not registered.hidden
+                    for alias in _ALIAS_SPLIT.split(key)
+                ]
+                matches = difflib.get_close_matches(cmd_name, visible_names)
                 if matches:
                     suggestions = ", ".join(f"'{m}'" for m in matches)
                     e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
@@ -485,6 +488,10 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
+        # Disable TyperGroup's suggest_commands, it matches against raw aliased
+        # keys ("list | ls") leaking pipe syntax into user-facing messages.
+        # HFCliTyperGroup.resolve_command() handles suggestions with expanded names.
+        suggest_commands=False,
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
