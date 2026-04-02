@@ -828,3 +828,53 @@ def test_load_torch_model_index_selection(
     load_torch_model(model, tmp_path, safe=safe, filename_pattern=filename_pattern)
     mock_load.assert_called_once()
     assert mock_load.call_args.kwargs["filename_pattern"] == expected_filename_pattern
+
+
+class TestShardedCheckpointValidation:
+    """Regression tests for shard filename validation in sharded checkpoint loading.
+
+    See https://github.com/huggingface/hackerone/issues/141 for more details.
+
+    Ensures that crafted index files cannot trick the loader into deserializing
+    unsafe pickle payloads or accessing files outside the checkpoint directory.
+    """
+
+    def test_safetensors_index_rejects_bin_shard(self, tmp_path):
+        """A safetensors index file referencing a .bin shard must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "model-00001-of-00001.bin",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+        (tmp_path / "model-00001-of-00001.bin").touch()
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.safetensors' extension"):
+            load_torch_model(Mock(), tmp_path)
+
+    def test_safetensors_index_rejects_path_traversal(self, tmp_path):
+        """A shard filename with '..' path traversal must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "../malicious.safetensors",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)
+
+    def test_safetensors_index_rejects_absolute_path(self, tmp_path):
+        """A shard filename with an absolute path must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "/tmp/malicious.safetensors",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)

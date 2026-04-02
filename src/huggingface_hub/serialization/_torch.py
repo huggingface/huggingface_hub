@@ -510,14 +510,32 @@ def _load_sharded_checkpoint(
     with open(index_file, encoding="utf-8") as f:
         index = json.load(f)
 
-    # 2. Validate keys if in strict mode
+    # 2. Validate shard filenames from the index
+    # This prevents path traversal attacks and extension confusion attacks
+    # (e.g. a safetensors index referencing .bin pickle files)
+    expected_extension = Path(filename_pattern.format(suffix="")).suffix  # e.g. ".safetensors"
+    shard_files = list(set(index["weight_map"].values()))
+    for shard_file in shard_files:
+        # Reject path traversal (e.g. "../malicious.bin", absolute paths)
+        if os.path.isabs(shard_file) or ".." in Path(shard_file).parts:
+            raise ValueError(
+                f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
+                "Shard filenames must be relative paths without '..' components."
+            )
+        # Reject extension mismatch (e.g. .bin shard in a .safetensors index)
+        if not shard_file.endswith(expected_extension):
+            raise ValueError(
+                f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
+                f"Expected '{expected_extension}' extension to match the index format."
+            )
+
+    # 3. Validate keys if in strict mode
     # This is done before loading any shards to fail fast
     if strict:
         _validate_keys_for_strict_loading(model, index["weight_map"].keys())
 
-    # 3. Load each shard using `load_state_dict`
+    # 4. Load each shard using `load_state_dict`
     # Get unique shard files (multiple parameters can be in same shard)
-    shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
         # Load shard into memory
         shard_path = os.path.join(save_directory, shard_file)
@@ -531,7 +549,7 @@ def _load_sharded_checkpoint(
         # Explicitly remove the state dict from memory
         del state_dict
 
-    # 4. Return compatibility info
+    # 5. Return compatibility info
     loaded_keys = set(index["weight_map"].keys())
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
