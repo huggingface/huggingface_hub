@@ -15,6 +15,7 @@
 
 import dataclasses
 import datetime
+import difflib
 import importlib.metadata
 import json
 import os
@@ -95,47 +96,6 @@ def _format_epilog_no_indent(epilog: str | None, ctx: click.Context, formatter: 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-def _enrich_no_such_option_error(error: click.NoSuchOption) -> None:
-    """Append the full list of available options to a ``NoSuchOption`` error message.
-
-    Click already suggests close matches via ``difflib``.  This replaces the short
-    suggestion with the complete option list so agents (and humans) can discover
-    what flags a command accepts.
-    """
-    if getattr(error, "_hf_enriched", False):
-        return
-    error._hf_enriched = True  # type: ignore[attr-defined]
-
-    cmd = error.ctx.command  # type: ignore[union-attr]
-    options = [(", ".join(p.opts), p.help or "") for p in cmd.params if isinstance(p, click.Option) and not p.hidden]
-    if not options:
-        return
-    cmd_path = error.ctx.command_path  # type: ignore[union-attr]
-    lines = [f"\n\nAvailable options for '{cmd_path}':"]
-    for names, help_text in sorted(options):
-        lines.append(f"  {names:30s} {help_text}")
-    lines.append(f"\nRun '{cmd_path} --help' for full details.")
-    error.message += "\n".join(lines)
-    # Clear possibilities so Click's format_message() doesn't append a redundant
-    # "Did you mean ...?" after the full list.
-    error.possibilities = []
-
-
-def _enrich_no_such_command_error(error: click.UsageError, group: "HFCliTyperGroup", ctx: click.Context) -> None:
-    """Append the list of available subcommands to a "No such command" error message."""
-    commands = [(name, group.get_command(ctx, name)) for name in group.list_commands(ctx)]
-    visible = [(name, cmd) for name, cmd in commands if cmd is not None and not cmd.hidden]
-    if not visible:
-        return
-    cmd_path = ctx.command_path
-    lines = [f"\n\nAvailable commands for '{cmd_path}':"]
-    for name, cmd in visible:
-        help_text = cmd.get_short_help_str(limit=80)
-        lines.append(f"  {name:20s} {help_text}")
-    lines.append(f"\nRun '{cmd_path} --help' for full details.")
-    error.message += "\n".join(lines)
-
-
 class HFCliTyperGroup(TyperGroup):
     """
     Typer Group that:
@@ -145,7 +105,7 @@ class HFCliTyperGroup(TyperGroup):
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
-    - enriches "No such option" errors with the full list of available options.
+    - enriches "No such option" / "No such command" errors with available options or commands.
     """
 
     def invoke(self, ctx: click.Context) -> None:
@@ -153,7 +113,23 @@ class HFCliTyperGroup(TyperGroup):
             return super().invoke(ctx)
         except click.NoSuchOption as e:
             if e.ctx is not None and e.ctx.command is not None:
-                _enrich_no_such_option_error(e)
+                cmd = e.ctx.command
+                # If the error is on a Group, show its subcommands instead.
+                if isinstance(cmd, click.Group):
+                    sub_ctx = e.ctx
+                    items = [
+                        (name, sub.get_short_help_str(limit=80))
+                        for name in cmd.list_commands(sub_ctx)
+                        if (sub := cmd.get_command(sub_ctx, name)) is not None and not sub.hidden
+                    ]
+                    _enrich_usage_error(e, "commands", items)
+                else:
+                    items = [
+                        record
+                        for p in cmd.get_params(e.ctx)
+                        if isinstance(p, click.Option) and not p.hidden and (record := p.get_help_record(e.ctx))
+                    ]
+                    _enrich_usage_error(e, "options", items)
             raise
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
@@ -168,8 +144,20 @@ class HFCliTyperGroup(TyperGroup):
         try:
             return super().resolve_command(ctx, args)
         except click.UsageError as e:
-            if cmd_name is not None and "No such command" in str(e):
-                _enrich_no_such_command_error(e, self, ctx)
+            # TyperGroup fuzzy-matches against raw keys like "list | ls" which
+            # breaks difflib.  Re-do the match against expanded alias names.
+            if cmd is None and cmd_name is not None and "Did you mean" not in e.message:
+                all_names = [alias for key in self.commands for alias in _ALIAS_SPLIT.split(key)]
+                matches = difflib.get_close_matches(cmd_name, all_names)
+                if matches:
+                    suggestions = ", ".join(f"'{m}'" for m in matches)
+                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                items = [
+                    (name, sub.get_short_help_str(limit=80))
+                    for name in self.list_commands(ctx)
+                    if (sub := self.get_command(ctx, name)) is not None and not sub.hidden
+                ]
+                _enrich_usage_error(e, "commands", items)
             raise
 
     @staticmethod
@@ -377,6 +365,21 @@ class HFCliTyperGroup(TyperGroup):
             primary = _ALIAS_SPLIT.split(name)[0]
             primary_names.append(primary)
         return sorted(primary_names)
+
+
+def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
+    """Append a list of available options or commands to a usage error message."""
+    if not items or f"Available {label} for" in error.message:
+        return
+    cmd_path = error.ctx.command_path  # type: ignore[union-attr]
+    lines = [f"\n\nAvailable {label} for '{cmd_path}':"]
+    for name, help_text in items:
+        lines.append(f"  {name:30s} {help_text}")
+    lines.append(f"\nRun '{cmd_path} --help' for full details.")
+    if isinstance(error, click.NoSuchOption) and error.possibilities:
+        lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
+        error.possibilities = []
+    error.message += "\n".join(lines)
 
 
 def fallback_typer_group_factory(
