@@ -26,9 +26,11 @@ from pathlib import Path, WindowsPath
 import pytest
 
 from huggingface_hub._local_folder import (
+    CACHEDIR_TAG_CONTENT,
     LocalDownloadFileMetadata,
     LocalDownloadFilePaths,
     LocalUploadFilePaths,
+    _create_cachedir_tag,
     _huggingface_dir,
     get_local_download_paths,
     get_local_upload_paths,
@@ -48,6 +50,26 @@ def test_creates_huggingface_dir_with_gitignore(tmp_path: Path):
     # Whole folder must be ignored
     assert (huggingface_dir / ".gitignore").exists()
     assert (huggingface_dir / ".gitignore").read_text() == "*"
+
+    # CACHEDIR.TAG must exist so backup tools can skip this directory
+    assert (huggingface_dir / "CACHEDIR.TAG").exists()
+    assert (huggingface_dir / "CACHEDIR.TAG").read_text() == CACHEDIR_TAG_CONTENT
+
+
+def test_create_cachedir_tag(tmp_path: Path):
+    """Test CACHEDIR.TAG is created and not overwritten."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    _create_cachedir_tag(cache_dir)
+    tag_path = cache_dir / "CACHEDIR.TAG"
+    assert tag_path.exists()
+    assert tag_path.read_text().startswith("Signature: 8a477f597d28d172789f06886806bc55\n")
+
+    # Calling again does not overwrite
+    tag_path.write_text("custom content")
+    _create_cachedir_tag(cache_dir)
+    assert tag_path.read_text() == "custom content"
 
 
 def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):

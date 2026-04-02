@@ -73,7 +73,7 @@ jobs:
       since_tag: ${{ steps.version.outputs.since_tag }}
       bump_type: ${{ steps.version.outputs.bump_type }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: main
           fetch-depth: 0
@@ -246,10 +246,10 @@ jobs:
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.10"
       - name: Install build dependencies
@@ -269,10 +269,10 @@ jobs:
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.10"
       - name: Install build dependencies
@@ -302,7 +302,7 @@ jobs:
     outputs:
       drafted_prerelease: ${{ steps.check_draft.outputs.skip == 'false' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -337,7 +337,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         with:
           python-version: "3.12"
@@ -398,7 +398,7 @@ jobs:
 
       - name: Upload release notes artifact
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: release-notes
           path: .release-notes/
@@ -439,11 +439,11 @@ jobs:
     if: ${{ needs.prepare.outputs.is_prerelease == 'true' && needs.release-notes.outputs.drafted_prerelease == 'true' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.12"
 
@@ -454,7 +454,7 @@ jobs:
         run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Download release notes artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: release-notes
           path: .release-notes/
@@ -509,7 +509,7 @@ jobs:
           exit 1
 
       - name: Checkout target repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -579,12 +579,12 @@ jobs:
     steps:
       - name: Create GitHub App token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
         with:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: main
           token: ${{ steps.app_token.outputs.token }}
@@ -634,12 +634,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout huggingface_hub
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.12"
 
@@ -653,14 +653,14 @@ jobs:
 
       - name: Create GitHub App token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
         with:
           app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
           private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
           repositories: skills
 
       - name: Checkout skills repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           repository: huggingface/skills
           token: ${{ steps.app_token.outputs.token }}
@@ -677,7 +677,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7
         with:
           token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
