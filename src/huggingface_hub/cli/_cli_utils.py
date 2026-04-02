@@ -35,7 +35,7 @@ from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._output import OutputFormatWithAuto
+from ._output import OutputFormatWithAuto, out
 
 
 logger = logging.get_logger()
@@ -591,8 +591,6 @@ FormatOpt = Annotated[
 
 
 def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
-    from ._output import out  # lazy import to avoid circular dependency at module load time
-
     out.set_mode(value)
     return value
 
