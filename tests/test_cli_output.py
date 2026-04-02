@@ -208,6 +208,20 @@ def test_text(check):
     )
 
 
+def test_text_with_agent_override(check):
+    check(
+        lambda out: out.text("Hello, Human!", agent="Hello, Agent!"),
+        human="""
+        Hello, Human!
+        """,
+        agent="""
+        Hello, Agent!
+        """,
+        json="",
+        quiet="",
+    )
+
+
 def test_text_agent_strips_ansi(check):
     check(
         lambda out: out.text("\033[1mbold\033[0m"),
@@ -232,7 +246,7 @@ def test_warning(check):
         lambda out: out.warning("3 files were ignored by .gitignore patterns"),
         stderr=True,
         human="""
-          Warning: 3 files were ignored by .gitignore patterns
+        Warning: 3 files were ignored by .gitignore patterns
         """,
         agent="""
         Warning: 3 files were ignored by .gitignore patterns
@@ -251,7 +265,7 @@ def test_error(check):
         lambda out: out.error("Not logged in"),
         stderr=True,
         human="""
-          Error: Not logged in
+        Error: Not logged in
         """,
         agent="""
         Error: Not logged in
@@ -270,7 +284,7 @@ def test_hint(check):
         lambda out: out.hint("Set HF_DEBUG=1 for full traceback."),
         stderr=True,
         human="""
-          Set HF_DEBUG=1 for full traceback.
+        Hint: Set HF_DEBUG=1 for full traceback.
         """,
         agent="""
         Hint: Set HF_DEBUG=1 for full traceback.
