@@ -1036,10 +1036,6 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
-    Path(cache_dir).mkdir(parents=True, exist_ok=True)
-    _create_cachedir_tag(Path(cache_dir))
-
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
     if os.name == "nt":
@@ -1166,6 +1162,9 @@ def _hf_hub_download_to_cache_dir(
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+
+    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    _create_cachedir_tag(Path(cache_dir))
 
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
