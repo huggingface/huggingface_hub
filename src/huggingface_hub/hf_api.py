@@ -77,8 +77,8 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, Volume, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
+from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable, Volume
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -128,7 +128,7 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_method
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -4115,6 +4115,11 @@ class HfApi:
             response = get_session().post(url, headers=headers, json=payload)
             hf_raise_for_status(response)
 
+    @_deprecate_arguments(
+        version="2.0",
+        deprecated_args={"space_storage"},
+        custom_message="Use `set_space_volumes` to mount volumes on a Space after creation.",
+    )
     @validate_hf_hub_args
     def create_repo(
         self,
@@ -4166,7 +4171,7 @@ class HfApi:
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
             space_storage (`SpaceStorage` or `str`, *optional*):
-                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
+                <Deprecated, use `set_space_volumes` instead> Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
             space_sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
@@ -7792,6 +7797,11 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    @_deprecate_arguments(
+        version="2.0",
+        deprecated_args={"space_storage"},
+        custom_message="Use `set_space_volumes` to mount volumes on a Space after duplication.",
+    )
     @validate_hf_hub_args
     def duplicate_repo(
         self,
@@ -7840,7 +7850,7 @@ class HfApi:
                 Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
                 [`SpaceHardware`] for a complete list.
             space_storage (`SpaceStorage` or `str`, *optional*):
-                Choice of persistent storage tier if repo_type is "space". Example:
+                <Deprecated, use `set_space_volumes` instead> Choice of persistent storage tier if repo_type is "space". Example:
                 `"small"`. See [`SpaceStorage`] for a complete list.
             space_sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep.
@@ -8058,6 +8068,7 @@ class HfApi:
             **kwargs,
         )
 
+    @_deprecate_method(version="2.0", message="Use `set_space_volumes` instead.")
     @validate_hf_hub_args
     def request_space_storage(
         self,
@@ -8067,6 +8078,9 @@ class HfApi:
         token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Request persistent storage for a Space.
+
+        > [!WARNING]
+        > `request_space_storage` is deprecated and will be removed in version 2.0. Use [`set_space_volumes`] instead.
 
         Args:
             repo_id (`str`):
@@ -8080,10 +8094,6 @@ class HfApi:
                 To disable authentication, pass `False`.
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
-
-        > [!TIP]
-        > It is not possible to decrease persistent storage after its granted. To do so, you must delete it
-        > via [`delete_space_storage`].
         """
         payload: dict[str, SpaceStorage] = {"tier": storage}
         r = get_session().post(
@@ -8094,6 +8104,7 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    @_deprecate_method(version="2.0", message="Use `delete_space_volumes` instead.")
     @validate_hf_hub_args
     def delete_space_storage(
         self,
@@ -8102,6 +8113,9 @@ class HfApi:
         token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Delete persistent storage for a Space.
+
+        > [!WARNING]
+        > `delete_space_storage` is deprecated and will be removed in version 2.0. Use [`delete_space_volumes`] instead.
 
         Args:
             repo_id (`str`):
@@ -8116,10 +8130,103 @@ class HfApi:
         Raises:
             [`BadRequestError`]
                 If space has no persistent storage.
-
         """
         r = get_session().delete(
             f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def set_space_volumes(
+        self,
+        repo_id: str,
+        volumes: list[Volume],
+        *,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        """Set volumes for a Space.
+
+        Sets (or replaces) the list of volumes mounted in the Space. Each volume gives the Space's container access
+        to a Hub resource (model, dataset, or storage bucket).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"username/my-space"`.
+            volumes (`list[Volume]`):
+                List of [`Volume`] objects to mount. Each volume has a `type` (`"bucket"`, `"model"`, `"dataset"`, or
+                `"space"`), a `source` (repo or bucket ID), a `mount_path` (path inside the container), and optional
+                `revision`, `read_only`, and `path` fields.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        Raises:
+            [`BadRequestError`]:
+                If the Space is a static Space (volumes are not supported on static Spaces).
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi, Volume
+            >>> api = HfApi()
+            >>> api.set_space_volumes(
+            ...     "username/my-space",
+            ...     volumes=[
+            ...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+            ...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+            ...     ],
+            ... )
+            ```
+        """
+        payload = [vol.to_dict() for vol in volumes]
+        r = get_session().put(
+            f"{self.endpoint}/api/spaces/{repo_id}/volumes",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def delete_space_volumes(
+        self,
+        repo_id: str,
+        *,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        """Remove all volumes from a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"username/my-space"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        Raises:
+            [`BadRequestError`]:
+                If the Space has no volumes attached.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.delete_space_volumes("username/my-space")
+            ```
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/volumes",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
@@ -13082,6 +13189,8 @@ duplicate_repo = api.duplicate_repo
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+set_space_volumes = api.set_space_volumes
+delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
 
