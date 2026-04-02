@@ -24,6 +24,12 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
     def test_are_symlinks_supported_default(self) -> None:
         self.assertTrue(are_symlinks_supported())
 
+    @patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_SYMLINKS", True)
+    @patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {HF_HUB_CACHE: True})
+    def test_are_symlinks_supported_disabled_by_env(self) -> None:
+        """Setting HF_HUB_DISABLE_SYMLINKS=1 forces are_symlinks_supported() to return False."""
+        self.assertFalse(are_symlinks_supported())
+
     @patch("huggingface_hub.file_download.os.symlink")
     @patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {})
     def test_are_symlinks_supported_windows_specific_dir(self, mock_symlink: Mock) -> None:
