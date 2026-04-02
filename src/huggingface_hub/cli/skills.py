@@ -349,7 +349,7 @@ def skills_preview() -> None:
         "hf skills add huggingface-gradio --dest=~/my-skills",
         "hf skills add --global",
         "hf skills add --claude",
-        "hf skills add --claude --global",
+        "hf skills add huggingface-gradio --claude --global",
     ],
 )
 def skills_add(
