@@ -179,7 +179,7 @@ def papers_info(
         if e.response.status_code == 404:
             raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
         raise
-    out.dict(api_object_to_dict(info))
+    out.dict(info)
 
 
 @papers_cli.command(
