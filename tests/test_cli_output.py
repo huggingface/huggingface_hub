@@ -156,7 +156,7 @@ def test_table(check):
 
 def test_table_empty(check):
     check(
-        lambda out: out.table([], headers=["id"]),
+        lambda out: out.table([]),
         human="""
         No results found.
         """,
