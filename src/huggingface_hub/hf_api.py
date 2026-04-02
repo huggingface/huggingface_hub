@@ -12072,7 +12072,7 @@ class HfApi:
 
         bucket_id = f"{namespace}/{self._HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = str(uuid.uuid4())
-        scripts_prefix = f"_scripts/{subfolder_id}"
+        scripts_prefix = f"scripts/{subfolder_id}"
 
         self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token)
 
