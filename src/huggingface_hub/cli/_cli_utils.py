@@ -111,13 +111,20 @@ class HFCliTyperGroup(TyperGroup):
     """
 
     def invoke(self, ctx: click.Context) -> None:
+        """Enrich unknown-option errors with available options or subcommands.
+
+        Catches `NoSuchOption` raised during subcommand `make_context()`
+        (option parsing).  For leaf commands (e.g. `hf repos create --test`)
+        we list the command's options; for groups (e.g. `hf cache --test`)
+        we list subcommands since groups have no user-facing options.
+        """
         try:
             return super().invoke(ctx)
         except click.NoSuchOption as e:
             if e.ctx is not None and e.ctx.command is not None:
                 cmd = e.ctx.command
-                # If the error is on a Group, show its subcommands instead.
                 if isinstance(cmd, click.Group):
+                    # Group has no user-facing options -> show subcommands instead
                     items = [
                         (name, sub.get_short_help_str(limit=80))
                         for name in cmd.list_commands(e.ctx)
@@ -125,6 +132,7 @@ class HFCliTyperGroup(TyperGroup):
                     ]
                     _enrich_usage_error(e, "commands", items)
                 else:
+                    # Leaf command -> show its options using Click's rich formatting
                     items = [
                         record
                         for p in cmd.get_params(e.ctx)
@@ -145,8 +153,9 @@ class HFCliTyperGroup(TyperGroup):
         try:
             return super().resolve_command(ctx, args)
         except click.UsageError as e:
+            # Unknown subcommand -> add fuzzy suggestions and list available commands.
             if cmd is None and cmd_name is not None:
-                # Suggest close matches using expanded alias names, excluding hidden commands.
+                # Expand aliases ("list | ls" → ["list", "ls"]) for accurate fuzzy matching.
                 visible_names = [
                     alias
                     for key, registered in self.commands.items()
