@@ -16,7 +16,12 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
+from ._local_folder import (
+    _create_cachedir_tag,
+    get_local_download_paths,
+    read_download_metadata,
+    write_download_metadata,
+)
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -1162,6 +1167,9 @@ def _hf_hub_download_to_cache_dir(
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
+    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    _create_cachedir_tag(Path(cache_dir))
+
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
@@ -1490,8 +1498,7 @@ def try_to_load_from_cache(
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
-    object_id = repo_id.replace("/", "--")
-    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    repo_cache = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None

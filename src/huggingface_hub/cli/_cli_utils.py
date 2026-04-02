@@ -35,6 +35,8 @@ from huggingface_hub import __version__, constants
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
 
+from ._output import OutputFormatWithAuto, out
+
 
 logger = logging.get_logger()
 
@@ -580,21 +582,24 @@ class OutputFormat(str, Enum):
     json = "json"
 
 
-# TODO: remove OutputFormat once all commands are migrated to OutputFormatWithAuto.
-class OutputFormatWithAuto(str, Enum):
-    """Output format for CLI commands with auto detection of agent/human mode."""
-
-    agent = "agent"
-    auto = "auto"
-    human = "human"
-    json = "json"
-    quiet = "quiet"
-
-
 FormatOpt = Annotated[
     OutputFormat,
     typer.Option(
         help="Output format (table or json).",
+    ),
+]
+
+
+def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
+    out.set_mode(value)
+    return value
+
+
+FormatWithAutoOpt = Annotated[
+    OutputFormatWithAuto,
+    typer.Option(
+        help="Output format.",
+        callback=_set_output_mode,
     ),
 ]
 

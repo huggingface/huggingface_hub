@@ -61,6 +61,13 @@ from .utils import WeakFileLock
 
 logger = logging.getLogger(__name__)
 
+CACHEDIR_TAG_CONTENT = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by huggingface_hub.\n"
+    "# For information about cache directory tags, see:\n"
+    "#\thttps://bford.info/cachedir/\n"
+)
+
 
 @dataclass
 class LocalDownloadFilePaths:
@@ -426,6 +433,9 @@ def _huggingface_dir(local_dir: Path) -> Path:
     path = local_dir / ".cache" / "huggingface"
     path.mkdir(exist_ok=True, parents=True)
 
+    # Create a CACHEDIR.TAG so backup tools can skip this directory.
+    _create_cachedir_tag(path)
+
     # Create a .gitignore file in the .cache/huggingface directory if it doesn't exist
     # Should be thread-safe enough like this.
     gitignore = path / ".gitignore"
@@ -443,6 +453,20 @@ def _huggingface_dir(local_dir: Path) -> Path:
         except OSError:
             pass
     return path
+
+
+def _create_cachedir_tag(cache_dir: Path) -> None:
+    """Create a CACHEDIR.TAG file in ``cache_dir`` if one does not already exist.
+
+    The tag follows the `Cache Directory Tagging Standard <http://www.brynosaurus.com/cachedir/>`_
+    so that backup tools can recognize and skip cache directories.
+    """
+    tag_path = cache_dir / "CACHEDIR.TAG"
+    if not tag_path.exists():
+        try:
+            tag_path.write_text(CACHEDIR_TAG_CONTENT)
+        except OSError:
+            pass
 
 
 def _short_hash(filename: str) -> str:
