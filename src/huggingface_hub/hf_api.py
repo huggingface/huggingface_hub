@@ -4118,7 +4118,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `space_volumes` to mount volumes on a Space at creation or `set_space_volumes` after creation.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def create_repo(
@@ -7809,7 +7809,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `space_volumes` to mount volumes on a Space at duplication or `set_space_volumes` after duplication.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def duplicate_repo(
