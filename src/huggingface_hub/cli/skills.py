@@ -291,7 +291,7 @@ def _remove_existing(path: Path, force: bool) -> None:
     if not (path.exists() or path.is_symlink()):
         return
     if not force:
-        raise SystemExit(f"Skill already exists at {path}.\nRe-run with --force to overwrite.")
+        raise CLIError(f"Skill already exists at {path}.\nRe-run with --force to overwrite.")
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
     else:
@@ -304,7 +304,7 @@ def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     try:
         return _skills.install_marketplace_skill(skill, skills_dir, force=force)
     except FileExistsError as exc:
-        raise SystemExit(f"{exc}\nRe-run with --force to overwrite.") from exc
+        raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
 
 
 def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path: Path, force: bool) -> Path:
@@ -385,10 +385,9 @@ def skills_add(
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
     If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
-    if dest:
+    if dest is not None:
         if claude or global_:
-            print("--dest cannot be combined with --claude or --global.")
-            raise typer.Exit(code=1)
+            raise CLIError("--dest cannot be combined with --claude or --global.")
         skill_dest = _install_to(dest, name, force)
         print(f"Installed '{name}' to {skill_dest}")
         return
@@ -435,16 +434,13 @@ def skills_upgrade(
     ] = None,
 ) -> None:
     """Upgrade installed Hugging Face marketplace skills."""
-        roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
+    roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
-        results = _skills.apply_updates(roots, selector=name)
-        if not results:
-            print("No installed skills found.")
-            return
+    results = _skills.apply_updates(roots, selector=name)
+    if not results:
+        print("No installed skills found.")
+        return
 
-        for result in results:
-            detail = f" ({result.detail})" if result.detail else ""
-            print(f"{result.name}: {result.status}{detail}")
-    except CLIError as exc:
-        print(str(exc))
-        raise typer.Exit(code=1) from exc
+    for result in results:
+        detail = f" ({result.detail})" if result.detail else ""
+        print(f"{result.name}: {result.status}{detail}")

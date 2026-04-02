@@ -1,11 +1,12 @@
 """Internal helpers for Hugging Face marketplace skill installation and upgrades."""
+
 import base64
 import io
 import json
 import shutil
 import tarfile
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
@@ -163,10 +164,14 @@ def write_installed_skill_manifest(skill_dir: Path, manifest: InstalledSkillMani
 
 
 def _load_marketplace_payload() -> dict[str, Any]:
-    payload = _github_api_get_json(
+    response = _fetch_from_skills_repo(
         f"contents/{MARKETPLACE_PATH}",
         params={"ref": DEFAULT_SKILLS_REF},
     )
+    try:
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001
+        raise CLIError(f"Failed to decode GitHub API response for 'contents/{MARKETPLACE_PATH}': {exc}") from exc
     if not isinstance(payload, dict):
         raise CLIError("Invalid marketplace response: expected a JSON object.")
 
@@ -229,7 +234,7 @@ def _validate_installed_skill_dir(skill_dir: Path) -> None:
 
 
 def _extract_remote_github_path(revision: str, source_path: str, install_dir: Path) -> None:
-    tar_bytes = _github_api_get(f"tarball/{revision}").content
+    tar_bytes = _fetch_from_skills_repo(f"tarball/{revision}").content
     _extract_tar_subpath(tar_bytes, source_path=source_path, install_dir=install_dir)
 
 
@@ -363,10 +368,14 @@ def _filter_updates(updates: list[SkillUpdateInfo], selector: str | None) -> lis
 
 
 def _resolve_available_revision(skill: MarketplaceSkill) -> str:
-    payload = _github_api_get_json(
+    response = _fetch_from_skills_repo(
         "commits",
         params={"sha": DEFAULT_SKILLS_REF, "path": skill.repo_path, "per_page": 1},
     )
+    try:
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001
+        raise CLIError(f"Failed to decode GitHub API response for 'commits': {exc}") from exc
     if not isinstance(payload, list) or not payload:
         raise CLIError(f"Unable to resolve the current revision for skill '{skill.name}'.")
 
@@ -394,7 +403,7 @@ def _parse_installed_skill_manifest(payload: dict[str, Any]) -> InstalledSkillMa
     )
 
 
-def _fetch_from_skills_repo(endpoint: str, params: dict[str, Any] | None = None, *, as_json: bool = False) -> Any:
+def _fetch_from_skills_repo(endpoint: str, params: dict[str, Any] | None = None) -> Any:
     url = f"https://api.github.com/repos/{DEFAULT_SKILLS_REPO_OWNER}/{DEFAULT_SKILLS_REPO_NAME}/{endpoint.lstrip('/')}"
     try:
         response = get_session().get(
@@ -407,9 +416,4 @@ def _fetch_from_skills_repo(endpoint: str, params: dict[str, Any] | None = None,
         response.raise_for_status()
     except Exception as exc:  # noqa: BLE001
         raise CLIError(f"Failed to fetch '{endpoint}' from {DEFAULT_SKILLS_REPO_ID}: {exc}") from exc
-    if as_json:
-        try:
-            return response.json()
-        except Exception as exc:  # noqa: BLE001
-            raise CLIError(f"Failed to decode GitHub API response for '{endpoint}': {exc}") from exc
-    return response.content
+    return response

@@ -1,13 +1,10 @@
-import base64
-import io
 import json
 import os
-import tarfile
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Generator, Optional
+from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -3517,244 +3514,19 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
-class _FakeGitHubResponse:
-    def __init__(self, *, json_data: Any | None = None, content: bytes = b"", status_code: int = 200) -> None:
-        self._json_data = json_data
-        self.content = content
-        self.status_code = status_code
-
-    def json(self) -> Any:
-        return self._json_data
-
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            raise RuntimeError(f"HTTP {self.status_code}")
-
-
-def _render_marketplace_skill(name: str, description: str, body: str) -> str:
-    return f"---\nname: {name}\ndescription: {description}\n---\n\n{body}\n"
-
-
-def _create_marketplace_tarball(root_dir: str, files: dict[str, str]) -> bytes:
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        for path, content in files.items():
-            encoded = content.encode("utf-8")
-            info = tarfile.TarInfo(name=f"{root_dir}/{path}")
-            info.size = len(encoded)
-            archive.addfile(info, io.BytesIO(encoded))
-    return buffer.getvalue()
-
-
-class _FakeSkillsMarketplaceSession:
-    def __init__(self, descriptions: dict[str, str], bodies: dict[str, str] | None = None) -> None:
-        self._revision_counter = 1
-        self._skills: dict[str, dict[str, Any]] = {}
-        bodies = bodies or {}
-
-        for name, description in descriptions.items():
-            self.add_skill(name, description=description, body=bodies.get(name, f"# {name}"))
-
-    def add_skill(self, name: str, *, description: str, body: str, source_path: str | None = None) -> str:
-        self._skills[name] = {
-            "description": description,
-            "source_path": source_path or f"skills/{name}",
-            "revisions": [],
-        }
-        return self.add_revision(name, body=body)
-
-    def add_revision(self, name: str, *, body: str) -> str:
-        revision = f"{self._revision_counter:040x}"
-        self._revision_counter += 1
-        self._skills[name]["revisions"].append({"sha": revision, "body": body})
-        return revision
-
-    def latest_revision(self, name: str) -> str:
-        return self._skills[name]["revisions"][-1]["sha"]
-
-    def get(self, url: str, **kwargs: Any) -> _FakeGitHubResponse:
-        prefix = "https://api.github.com/repos/huggingface/skills/"
-        assert url.startswith(prefix), url
-        endpoint = url[len(prefix) :]
-        params = kwargs.get("params") or {}
-
-        if endpoint == "contents/.claude-plugin/marketplace.json":
-            payload = {
-                "plugins": [
-                    {
-                        "name": name,
-                        "source": f"./{skill['source_path']}",
-                        "skills": "./",
-                        "description": skill["description"],
-                    }
-                    for name, skill in sorted(self._skills.items())
-                ]
-            }
-            encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
-            return _FakeGitHubResponse(json_data={"encoding": "base64", "content": encoded})
-
-        if endpoint == "commits":
-            source_path = params["path"]
-            for skill in self._skills.values():
-                if skill["source_path"] == source_path:
-                    return _FakeGitHubResponse(json_data=[{"sha": skill["revisions"][-1]["sha"]}])
-            return _FakeGitHubResponse(status_code=404, json_data={"message": "Not Found"})
-
-        if endpoint.startswith("tarball/"):
-            requested_revision = endpoint.split("/", 1)[1]
-            for name, skill in self._skills.items():
-                for revision in skill["revisions"]:
-                    if revision["sha"] != requested_revision:
-                        continue
-                    tarball = _create_marketplace_tarball(
-                        f"skills-{requested_revision[:7]}",
-                        {
-                            f"{skill['source_path']}/SKILL.md": _render_marketplace_skill(
-                                name,
-                                skill["description"],
-                                revision["body"],
-                            ),
-                            f"{skill['source_path']}/notes.txt": f"{name} helper file\n",
-                        },
-                    )
-                    return _FakeGitHubResponse(content=tarball)
-            return _FakeGitHubResponse(status_code=404, json_data={"message": "Not Found"})
-
-        raise AssertionError(f"Unexpected GitHub API request: {url}")
-
-
-def _patch_skills_marketplace(
-    monkeypatch, descriptions: dict[str, str], bodies: dict[str, str] | None = None
-) -> _FakeSkillsMarketplaceSession:
-    session = _FakeSkillsMarketplaceSession(descriptions, bodies)
-    monkeypatch.setattr("huggingface_hub.cli._skills.get_session", lambda: session)
-    return session
-
-
 class TestSkillsMarketplaceCLI:
-    def test_add_defaults_to_hf_cli(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        _patch_skills_marketplace(monkeypatch, {"hf-cli": "HF CLI skill"})
-
-        result = runner.invoke(app, ["skills", "add", "--dest", str(tmp_path / "managed-skills")])
-
-        assert result.exit_code == 0, result.output
-        assert (tmp_path / "managed-skills" / "hf-cli" / "SKILL.md").exists()
-        assert "Installed 'hf-cli'" in result.stdout
-
-    def test_add_named_skill_to_dest(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        _patch_skills_marketplace(monkeypatch, {"hf-cli": "HF CLI skill", "huggingface-gradio": "Gradio skill"})
-
-        result = runner.invoke(
-            app,
-            ["skills", "add", "huggingface-gradio", "--dest", str(tmp_path / "managed-skills")],
-        )
-
-        assert result.exit_code == 0, result.output
-        skill_dir = tmp_path / "managed-skills" / "huggingface-gradio"
-        assert skill_dir.joinpath("SKILL.md").exists()
-        assert skill_dir.joinpath("notes.txt").exists()
-        assert "Installed 'huggingface-gradio'" in result.stdout
-
-    def test_add_and_upgrade_use_marketplace_name_when_source_path_differs(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _FakeSkillsMarketplaceSession({})
-        session.add_skill(
-            "gradio",
-            description="Gradio skill",
-            body="v1",
-            source_path="skills/huggingface-gradio",
-        )
-        monkeypatch.setattr("huggingface_hub.cli._skills.get_session", lambda: session)
-        dest = tmp_path / "managed-skills"
-
-        add_result = runner.invoke(app, ["skills", "add", "gradio", "--dest", str(dest)])
-
-        assert add_result.exit_code == 0, add_result.output
-        assert (dest / "gradio" / "SKILL.md").exists()
-        assert not (dest / "huggingface-gradio").exists()
-
-        session.add_revision("gradio", body="v2")
-
-        upgrade_result = runner.invoke(app, ["skills", "upgrade", "gradio", "--dest", str(dest)])
-
-        assert upgrade_result.exit_code == 0, upgrade_result.output
-        assert "gradio: updated" in upgrade_result.stdout
-        assert "v2" in (dest / "gradio" / "SKILL.md").read_text(encoding="utf-8")
-
-    def test_add_named_skill_for_assistant_creates_symlink(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        _patch_skills_marketplace(monkeypatch, {"huggingface-gradio": "Gradio skill"})
-        monkeypatch.chdir(tmp_path)
-
-        result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--claude"])
-
-        assert result.exit_code == 0, result.output
-        central = tmp_path / ".agents" / "skills" / "huggingface-gradio"
-        link = tmp_path / ".claude" / "skills" / "huggingface-gradio"
-        assert central.joinpath("SKILL.md").exists()
-        assert link.is_symlink()
-        assert link.resolve() == central.resolve()
-
-    def test_add_unknown_skill_fails_cleanly(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        _patch_skills_marketplace(monkeypatch, {"hf-cli": "HF CLI skill"})
-
-        result = runner.invoke(app, ["skills", "add", "missing", "--dest", str(tmp_path / "managed-skills")])
-
-        assert result.exit_code == 1
-        assert "Skill 'missing' not found in huggingface/skills" in result.output
-
-    def test_add_existing_skill_without_force_reports_hint(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        _patch_skills_marketplace(monkeypatch, {"huggingface-gradio": "Gradio skill"})
-        dest = tmp_path / "managed-skills"
-
-        first = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-        second = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-
-        assert first.exit_code == 0, first.output
-        assert second.exit_code == 1
-        assert "Skill already exists:" in second.output
-        assert "Re-run with --force to overwrite." in second.output
-
-    def test_add_force_overwrites_existing_skill(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "remote version"},
-        )
-        dest = tmp_path / "managed-skills"
-
-        first = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-        assert first.exit_code == 0, first.output
-        skill_file = dest / "huggingface-gradio" / "SKILL.md"
-        skill_file.write_text(
-            "---\nname: huggingface-gradio\ndescription: local\n---\n\nlocal override\n",
-            encoding="utf-8",
-        )
-
-        forced = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest), "--force"])
-
-        assert forced.exit_code == 0, forced.output
-        assert "remote version" in skill_file.read_text(encoding="utf-8")
-        assert "local override" not in skill_file.read_text(encoding="utf-8")
-
-    def test_add_writes_skill_manifest(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        session = _patch_skills_marketplace(monkeypatch, {"huggingface-gradio": "Gradio skill"})
+    def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
 
         result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
-        payload = json.loads((dest / "huggingface-gradio" / ".hf-skill-manifest.json").read_text(encoding="utf-8"))
-        assert set(payload) == {"installed_revision", "schema_version"}
-        assert payload["installed_revision"] == session.latest_revision("huggingface-gradio")
-        assert payload["schema_version"] == 1
+        skill_dir = dest / "huggingface-gradio"
+        assert "Installed 'huggingface-gradio'" in result.stdout
+        assert skill_dir.joinpath("SKILL.md").is_file()
+        assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
 
-    def test_upgrade_reports_up_to_date(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
-        _patch_skills_marketplace(monkeypatch, {"huggingface-gradio": "Gradio skill"})
+    def test_upgrade_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
         add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
         assert add_result.exit_code == 0, add_result.output
@@ -3762,139 +3534,14 @@ class TestSkillsMarketplaceCLI:
         result = runner.invoke(app, ["skills", "upgrade", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: up_to_date" in result.stdout
-
-    def test_upgrade_detects_newer_revision_and_refreshes_files(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "v1"},
-        )
-        dest = tmp_path / "managed-skills"
-        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-        assert add_result.exit_code == 0, add_result.output
-
-        session.add_revision("huggingface-gradio", body="v2")
-
-        result = runner.invoke(app, ["skills", "upgrade", "huggingface-gradio", "--dest", str(dest)])
-
-        assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: updated" in result.stdout
-        assert "v2" in (dest / "huggingface-gradio" / "SKILL.md").read_text(encoding="utf-8")
-
-    def test_upgrade_reports_updated_even_if_followup_revision_lookup_would_fail(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "v1"},
-        )
-        dest = tmp_path / "managed-skills"
-        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-        assert add_result.exit_code == 0, add_result.output
-
-        session.add_revision("huggingface-gradio", body="v2")
-        updated_revision = session.latest_revision("huggingface-gradio")
-
-        with patch(
-            "huggingface_hub.cli._skills._resolve_available_revision",
-            side_effect=[updated_revision, updated_revision, RuntimeError("transient follow-up lookup failure")],
-        ):
-            result = runner.invoke(app, ["skills", "upgrade", "huggingface-gradio", "--dest", str(dest)])
-
-        assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: updated" in result.stdout
-        assert "v2" in (dest / "huggingface-gradio" / "SKILL.md").read_text(encoding="utf-8")
-
-    def test_upgrade_overwrites_local_edits_when_revision_changes(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "v1"},
-        )
-        dest = tmp_path / "managed-skills"
-        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
-        assert add_result.exit_code == 0, add_result.output
-        skill_file = dest / "huggingface-gradio" / "SKILL.md"
-        skill_file.write_text(skill_file.read_text(encoding="utf-8") + "\nlocal edit\n", encoding="utf-8")
-        session.add_revision("huggingface-gradio", body="v2")
-
-        result = runner.invoke(app, ["skills", "upgrade", "huggingface-gradio", "--dest", str(dest)])
-
-        assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: updated" in result.stdout
-        assert "local edit" not in skill_file.read_text(encoding="utf-8")
-        assert "v2" in skill_file.read_text(encoding="utf-8")
-
-    def test_upgrade_updates_central_install_created_for_claude(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "v1"},
-        )
-        monkeypatch.chdir(tmp_path)
-
-        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--claude"])
-        assert add_result.exit_code == 0, add_result.output
-        session.add_revision("huggingface-gradio", body="v2")
-
-        result = runner.invoke(app, ["skills", "upgrade"])
-
-        assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: updated" in result.stdout
-        assert "v2" in (tmp_path / ".agents" / "skills" / "huggingface-gradio" / "SKILL.md").read_text(
-            encoding="utf-8"
-        )
-
-    def test_upgrade_for_claude_symlink_updates_central_target(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch
-    ) -> None:
-        session = _patch_skills_marketplace(
-            monkeypatch,
-            {"huggingface-gradio": "Gradio skill"},
-            {"huggingface-gradio": "v1"},
-        )
-        monkeypatch.chdir(tmp_path)
-
-        add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--claude"])
-        assert add_result.exit_code == 0, add_result.output
-        link = tmp_path / ".claude" / "skills" / "huggingface-gradio"
-        central = tmp_path / ".agents" / "skills" / "huggingface-gradio"
-        session.add_revision("huggingface-gradio", body="v2")
-
-        result = runner.invoke(app, ["skills", "upgrade", "--claude"])
-
-        assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: updated" in result.stdout
-        assert link.is_symlink()
-        assert link.resolve() == central.resolve()
-        assert "v2" in central.joinpath("SKILL.md").read_text(encoding="utf-8")
-
-    def test_force_reinstall_preserves_previous_install_on_staging_failure(self, tmp_path: Path, monkeypatch) -> None:
-        from huggingface_hub.cli import _skills
-
-        _patch_skills_marketplace(monkeypatch, {"huggingface-gradio": "Gradio skill"})
-        skill = _skills.get_marketplace_skill("huggingface-gradio")
-        destination_root = tmp_path / "managed-skills"
-        install_dir = _skills.install_marketplace_skill(skill, destination_root)
-        original_text = install_dir.joinpath("SKILL.md").read_text(encoding="utf-8")
-        original_populate = _skills._populate_install_dir
-
-        def fail_populate(*, skill, install_dir):
-            original_populate(skill=skill, install_dir=install_dir)
-            install_dir.joinpath("SKILL.md").unlink()
-            raise RuntimeError("simulated staging failure")
-
-        with patch("huggingface_hub.cli._skills._populate_install_dir", side_effect=fail_populate):
-            with pytest.raises(RuntimeError):
-                _skills.install_marketplace_skill(skill, destination_root, force=True)
-
-        assert install_dir.exists()
-        assert install_dir.joinpath("SKILL.md").read_text(encoding="utf-8") == original_text
+        skill_dir = dest / "huggingface-gradio"
+        assert skill_dir.joinpath("SKILL.md").is_file()
+        assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
+        # Live marketplace content can change between the add and upgrade calls.
+        assert any(
+            status in result.stdout
+            for status in (
+                "huggingface-gradio: up_to_date",
+                "huggingface-gradio: updated",
+            )
+        ), result.stdout

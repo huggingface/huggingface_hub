@@ -3274,7 +3274,7 @@ Examples
   $ hf skills add huggingface-gradio --dest=~/my-skills
   $ hf skills add --global
   $ hf skills add --claude
-  $ hf skills add huggingface-gradio --claude --global
+  $ hf skills add --claude --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
