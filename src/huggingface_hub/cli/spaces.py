@@ -50,8 +50,8 @@ from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disabl
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormatWithAuto,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
@@ -60,7 +60,7 @@ from ._cli_utils import (
     make_expand_properties_parser,
     typer_factory,
 )
-from ._output import out
+from ._output import OutputFormatWithAuto, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -99,11 +99,10 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
-    out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -131,11 +130,10 @@ def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
-    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a space on the Hub."""
-    out.set_mode(format)
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]

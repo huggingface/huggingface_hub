@@ -52,14 +52,14 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormatWithAuto,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     typer_factory,
 )
-from ._output import out
+from ._output import OutputFormatWithAuto, out
 
 
 _SORT_OPTIONS = get_args(DailyPapersSort_T)
@@ -114,11 +114,10 @@ def papers_ls(
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
-    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List daily papers on the Hub."""
-    out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = []
@@ -152,11 +151,10 @@ def papers_ls(
 def papers_search(
     query: Annotated[str, typer.Argument(help="Search query string.")],
     limit: LimitOpt = 20,
-    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Search papers on the Hub."""
-    out.set_mode(format)
     api = get_hf_api(token=token)
     results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
     out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"], alignments={"upvotes": "right"})
@@ -170,11 +168,10 @@ def papers_search(
 )
 def papers_info(
     paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
-    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a paper on the Hub."""
-    out.set_mode(format)
     api = get_hf_api(token=token)
     try:
         info = api.paper_info(id=paper_id)
@@ -203,4 +200,4 @@ def papers_read(
         if e.response.status_code == 404:
             raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
         raise
-    print(content)
+    out.text(content)
