@@ -156,6 +156,14 @@ In practice, your cache should look like the following tree:
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 ```
 
+### CACHEDIR.TAG
+
+`huggingface_hub` automatically creates a
+[`CACHEDIR.TAG`](https://bford.info/cachedir/) file inside the cache directory. This
+tag follows the *Cache Directory Tagging Standard* and tells backup tools (e.g. Borg,
+restic, rsync) that the directory contains re-downloadable cache data and can safely be
+excluded from backups.
+
 ### Limitations
 
 In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,

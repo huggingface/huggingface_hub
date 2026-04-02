@@ -94,7 +94,7 @@ class Output:
 
         if headers is None:
             all_columns = list(items[0].keys())
-            headers = [col for col in all_columns if any(item.get(col) for item in items)]
+            headers = [col for col in all_columns if any(item.get(col) is not None for item in items)]
         rows = [[item.get(h) for h in headers] for item in items]
 
         match self.mode:
