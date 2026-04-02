@@ -131,11 +131,11 @@ def papers_ls(
     ):
         item = api_object_to_dict(paper_info)
         submitted_by = item.get("submitted_by") or {}
-        item["submitted_by"] = submitted_by.get("fullname") or submitted_by.get("username") or ""
+        item["submitted_by_name"] = submitted_by.get("fullname") or submitted_by.get("username") or ""
         results.append(item)
     out.table(
         results,
-        headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by"],
+        headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by_name"],
         alignments={"upvotes": "right", "comments": "right"},
     )
 
