@@ -4203,11 +4203,11 @@ class HfApi:
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
 
-        json: dict[str, Any] = {"name": name, "organization": organization}
+        payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
-            json["visibility"] = resolved_visibility
+            payload["visibility"] = resolved_visibility
         if repo_type is not None:
-            json["type"] = repo_type
+            payload["type"] = repo_type
         if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
@@ -4216,38 +4216,42 @@ class HfApi:
                 )
             if space_sdk not in constants.SPACES_SDK_TYPES:
                 raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
-            json["sdk"] = space_sdk
+            payload["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
-            "space_volumes",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
-            json.update({k: v for k, v in zip(json_keys, values) if v is not None})
-            if space_volumes is not None:
-                json["volumes"] = [vol.to_dict() for vol in space_volumes]
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
+            if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
+                warnings.warn(
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                    UserWarning,
+                )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         if resource_group_id is not None:
-            json["resourceGroupId"] = resource_group_id
+            payload["resourceGroupId"] = resource_group_id
 
         headers = self._build_hf_headers(token=token)
         while True:
-            r = get_session().post(path, headers=headers, json=json)
+            r = get_session().post(path, headers=headers, json=payload)
             if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
@@ -7942,21 +7946,20 @@ class HfApi:
             payload["visibility"] = resolved_visibility
 
         # Space-specific options
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
-            "space_volumes",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
-            payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
-            if space_volumes is not None:
-                payload["volumes"] = [vol.to_dict() for vol in space_volumes]
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
             if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
                 warnings.warn(
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
@@ -7965,8 +7968,7 @@ class HfApi:
                     UserWarning,
                 )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         r = get_session().post(
