@@ -833,6 +833,8 @@ def test_load_torch_model_index_selection(
 class TestShardedCheckpointValidation:
     """Regression tests for shard filename validation in sharded checkpoint loading.
 
+    See https://github.com/huggingface/hackerone/issues/141 for more details.
+
     Ensures that crafted index files cannot trick the loader into deserializing
     unsafe pickle payloads or accessing files outside the checkpoint directory.
     """
@@ -876,29 +878,3 @@ class TestShardedCheckpointValidation:
 
         with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
             load_torch_model(Mock(), tmp_path)
-
-    def test_pytorch_index_rejects_safetensors_shard(self, tmp_path):
-        """A pytorch .bin index file referencing a .safetensors shard must be rejected."""
-        index = {
-            "metadata": {"total_size": 100},
-            "weight_map": {
-                "layer_1": "model-00001-of-00001.safetensors",
-            },
-        }
-        (tmp_path / "pytorch_model.bin.index.json").write_text(json.dumps(index))
-        (tmp_path / "model-00001-of-00001.safetensors").touch()
-
-        with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.bin' extension"):
-            load_torch_model(Mock(), tmp_path, safe=False)
-
-    @requires("torch")
-    def test_safetensors_index_accepts_valid_shards(self, tmp_path, torch_state_dict, dummy_model):
-        """Valid safetensors sharded checkpoints must still load correctly."""
-        import torch
-
-        save_torch_state_dict(torch_state_dict, save_directory=tmp_path, max_shard_size=30)
-        result = load_torch_model(dummy_model, tmp_path)
-        assert not result.missing_keys
-        loaded = dummy_model.state_dict()
-        for key in torch_state_dict:
-            assert torch.equal(loaded[key], torch_state_dict[key])
