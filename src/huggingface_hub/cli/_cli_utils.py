@@ -15,6 +15,7 @@
 
 import dataclasses
 import datetime
+import difflib
 import importlib.metadata
 import json
 import os
@@ -107,7 +108,39 @@ class HFCliTyperGroup(TyperGroup):
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
+    - enriches "No such option" / "No such command" errors with available options or commands.
     """
+
+    def invoke(self, ctx: click.Context) -> None:
+        """Enrich unknown-option errors with available options or subcommands.
+
+        Catches `NoSuchOption` raised during subcommand `make_context()`
+        (option parsing).  For leaf commands (e.g. `hf repos create --test`)
+        we list the command's options; for groups (e.g. `hf cache --test`)
+        we list subcommands since groups have no user-facing options.
+        """
+        try:
+            return super().invoke(ctx)
+        except click.NoSuchOption as e:
+            if e.ctx is not None and e.ctx.command is not None:
+                cmd = e.ctx.command
+                if isinstance(cmd, click.Group):
+                    # Group has no user-facing options -> show subcommands instead
+                    items = [
+                        (name, sub.get_short_help_str(limit=80))
+                        for name in cmd.list_commands(e.ctx)
+                        if (sub := cmd.get_command(e.ctx, name)) is not None and not sub.hidden
+                    ]
+                    _enrich_usage_error(e, "commands", items)
+                else:
+                    # Leaf command -> show its options using Click's rich formatting
+                    items = [
+                        record
+                        for p in cmd.get_params(e.ctx)
+                        if isinstance(p, click.Option) and not p.hidden and (record := p.get_help_record(e.ctx))
+                    ]
+                    _enrich_usage_error(e, "options", items)
+            raise
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
         cmd_name = args[0] if args and not args[0].startswith("-") else None
@@ -118,7 +151,29 @@ class HFCliTyperGroup(TyperGroup):
             self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
-        return super().resolve_command(ctx, args)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError as e:
+            # Unknown subcommand -> add fuzzy suggestions and list available commands.
+            if cmd is None and cmd_name is not None:
+                # Expand aliases ("list | ls" → ["list", "ls"]) for accurate fuzzy matching.
+                visible_names = [
+                    alias
+                    for key, registered in self.commands.items()
+                    if not registered.hidden
+                    for alias in _ALIAS_SPLIT.split(key)
+                ]
+                matches = difflib.get_close_matches(cmd_name, visible_names)
+                if matches:
+                    suggestions = ", ".join(f"'{m}'" for m in matches)
+                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                items = [
+                    (name, sub.get_short_help_str(limit=80))
+                    for name in self.list_commands(ctx)
+                    if (sub := self.get_command(ctx, name)) is not None and not sub.hidden
+                ]
+                _enrich_usage_error(e, "commands", items)
+            raise
 
     @staticmethod
     def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
@@ -327,6 +382,21 @@ class HFCliTyperGroup(TyperGroup):
         return sorted(primary_names)
 
 
+def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
+    """Append a list of available options or commands to a usage error message."""
+    if not items or error.ctx is None or f"Available {label} for" in error.message:
+        return
+    cmd_path = error.ctx.command_path
+    lines = [f"\n\nAvailable {label} for '{cmd_path}':"]
+    for name, help_text in items:
+        lines.append(f"  {name:30s} {help_text}")
+    lines.append(f"\nRun '{cmd_path} --help' for full details.")
+    if isinstance(error, click.NoSuchOption) and error.possibilities:
+        lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
+        error.possibilities = []
+    error.message += "\n".join(lines)
+
+
 def fallback_typer_group_factory(
     fallback_handler: FallbackHandlerT,
     extra_commands_provider: Callable[[], list[tuple[str, str]]] | None = None,
@@ -428,6 +498,10 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
+        # Disable TyperGroup's suggest_commands, it matches against raw aliased
+        # keys ("list | ls") leaking pipe syntax into user-facing messages.
+        # HFCliTyperGroup.resolve_command() handles suggestions with expanded names.
+        suggest_commands=False,
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
