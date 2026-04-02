@@ -240,6 +240,9 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
+# Opt-in to bucket-based script transport for Jobs (experimental)
+HF_JOBS_USE_BUCKET_TRANSPORT: bool = _is_true(os.environ.get("HF_JOBS_USE_BUCKET_TRANSPORT"))
+
 # hf_transfer is not used anymore. Let's warn user is case they set the env variable
 if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
     import warnings
