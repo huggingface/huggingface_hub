@@ -89,6 +89,10 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
         cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
+    # If symlinks are explicitly disabled by the user, always return False
+    if constants.HF_HUB_DISABLE_SYMLINKS:
+        return False
+
     # Check symlink compatibility only once (per cache directory) at first time use
     if cache_dir not in _are_symlinks_supported_in_dir:
         _are_symlinks_supported_in_dir[cache_dir] = True
