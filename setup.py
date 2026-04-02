@@ -49,6 +49,8 @@ extras["hf_xet"] = [HF_XET_VERSION]
 
 extras["mcp"] = ["mcp>=1.8.0"]
 
+extras["oci"] = ["ocifs>=1.3.0"]
+
 extras["testing"] = (
     extras["oauth"]
     + [

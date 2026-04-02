@@ -31,6 +31,7 @@ _package_versions = {}
 
 _CANDIDATES = {
     "aiohttp": {"aiohttp"},
+    "ocifs": {"ocifs"},
     "fastai": {"fastai"},
     "fastapi": {"fastapi"},
     "fastcore": {"fastcore"},
@@ -97,6 +98,15 @@ def is_aiohttp_available() -> bool:
 
 def get_aiohttp_version() -> str:
     return _get_version("aiohttp")
+
+
+# ocifs (OCI Object Storage)
+def is_ocifs_available() -> bool:
+    return is_package_available("ocifs")
+
+
+def get_ocifs_version() -> str:
+    return _get_version("ocifs")
 
 
 # FastAI

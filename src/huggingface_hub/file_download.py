@@ -970,6 +970,28 @@ def hf_hub_download(
         headers=headers,
     )
 
+    if local_dir is not None and str(local_dir).startswith("oci://"):
+        from .oci_file_system import _hf_hub_download_to_oci
+
+        return _hf_hub_download_to_oci(  # type: ignore[return-value]
+            repo_id,
+            filename=filename,
+            oci_uri=str(local_dir),
+            subfolder=subfolder if subfolder else None,
+            repo_type=repo_type,
+            revision=revision,
+            cache_dir=cache_dir,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            etag_timeout=etag_timeout,
+            force_download=force_download,
+            token=token,
+            local_files_only=local_files_only,
+            headers=headers,
+            endpoint=endpoint,
+        )
+
     if local_dir is not None:
         return _hf_hub_download_to_local_dir(
             # Destination

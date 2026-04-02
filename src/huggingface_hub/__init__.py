@@ -532,6 +532,11 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
+    "oci_file_system": [
+        "is_oci_uri",
+        "upload_file_to_oci",
+        "upload_folder_to_oci",
+    ],
     "repocard": [
         "DatasetCard",
         "ModelCard",
@@ -980,6 +985,7 @@ __all__ = [
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
+    "is_oci_uri",
     "is_offline_mode",
     "list_accepted_access_requests",
     "list_bucket_tree",
@@ -1073,7 +1079,9 @@ __all__ = [
     "update_repo_settings",
     "update_webhook",
     "upload_file",
+    "upload_file_to_oci",
     "upload_folder",
+    "upload_folder_to_oci",
     "upload_large_folder",
     "verify_repo_checksums",
     "webhook_endpoint",
@@ -1228,6 +1236,11 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_huggingface_oauth,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
+    from .oci_file_system import (
+        is_oci_uri,  # noqa: F401
+        upload_file_to_oci,  # noqa: F401
+        upload_folder_to_oci,  # noqa: F401
+    )
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401

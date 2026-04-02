@@ -49,6 +49,7 @@ def snapshot_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     dry_run: Literal[False] = False,
+    storage_options: dict | None = None,
 ) -> str: ...
 
 
@@ -74,6 +75,7 @@ def snapshot_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     dry_run: Literal[True] = True,
+    storage_options: dict | None = None,
 ) -> list[DryRunFileInfo]: ...
 
 
@@ -99,6 +101,7 @@ def snapshot_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     dry_run: bool = False,
+    storage_options: dict | None = None,
 ) -> str | list[DryRunFileInfo]: ...
 
 
@@ -124,6 +127,7 @@ def snapshot_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     dry_run: bool = False,
+    storage_options: dict | None = None,
 ) -> str | list[DryRunFileInfo]:
     """Download repo files.
 
@@ -209,6 +213,31 @@ def snapshot_download(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             if some parameter value is invalid.
     """
+    # Route to OCI Object Storage when local_dir is an oci:// URI
+    if local_dir is not None and str(local_dir).startswith("oci://"):
+        from .oci_file_system import _snapshot_download_to_oci
+
+        return _snapshot_download_to_oci(  # type: ignore[return-value]
+            repo_id,
+            oci_uri=str(local_dir),
+            repo_type=repo_type,
+            revision=revision,
+            cache_dir=cache_dir,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            etag_timeout=etag_timeout,
+            force_download=force_download,
+            token=token,
+            local_files_only=local_files_only,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            max_workers=max_workers,
+            headers=headers,
+            endpoint=endpoint,
+            storage_options=storage_options,
+        )
+
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
     if revision is None:
