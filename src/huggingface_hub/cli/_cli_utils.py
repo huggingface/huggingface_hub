@@ -383,9 +383,9 @@ class HFCliTyperGroup(TyperGroup):
 
 def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
     """Append a list of available options or commands to a usage error message."""
-    if not items or f"Available {label} for" in error.message:
+    if not items or error.ctx is None or f"Available {label} for" in error.message:
         return
-    cmd_path = error.ctx.command_path  # type: ignore[union-attr]
+    cmd_path = error.ctx.command_path
     lines = [f"\n\nAvailable {label} for '{cmd_path}':"]
     for name, help_text in items:
         lines.append(f"  {name:30s} {help_text}")
