@@ -13,6 +13,7 @@
 # limitations under the License.
 """Output framework for the `hf` CLI."""
 
+import dataclasses
 import datetime
 import json
 import re
@@ -75,13 +76,15 @@ class Output:
         items: Sequence[dict[str, Any]],
         *,
         headers: list[str] | None = None,
+        id_key: str | None = None,
         alignments: dict[str, str] | None = None,
     ) -> None:
         """Print tabular data to stdout.
 
         Args:
             items: List of dicts. Headers are auto-detected from keys if not provided.
-            headers: Explicit column names. If None, derived from dict keys (empty columns filtered).
+            headers: Explicit column names. If None, derived from dict keys (all-None columns filtered).
+            id_key: Key to print in quiet mode. If None, uses the first header.
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
         """
         if not items:
@@ -109,12 +112,18 @@ class Output:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
             case OutputFormatWithAuto.json:  # compact JSON array
                 print(json.dumps(list(items), default=str))
-            case OutputFormatWithAuto.quiet:  # first column only, one per line
-                for row in rows:
-                    print(row[0])
+            case OutputFormatWithAuto.quiet:  # id_key column (or first column), one per line
+                quiet_key = id_key or headers[0]
+                for item in items:
+                    print(item.get(quiet_key, ""))
 
-    def dict(self, data: dict[str, Any]) -> None:
-        """Print structured data as JSON in all modes (indented for human, compact otherwise)."""
+    def dict(self, data: Any) -> None:
+        """Print structured data as JSON in all modes (indented for human, compact otherwise).
+
+        Accepts a dict or a dataclass.
+        """
+        if dataclasses.is_dataclass(data) and not isinstance(data, type):
+            data = _dataclass_to_dict(data)
         indent = 2 if self.mode == OutputFormatWithAuto.human else None
         print(json.dumps(data, indent=indent, default=str))
 
@@ -160,6 +169,23 @@ class Output:
 
 
 # HELPERS
+
+
+def _serialize_value(v: object) -> object:
+    """Recursively serialize a value to be JSON-compatible."""
+    if isinstance(v, datetime.datetime):
+        return v.isoformat()
+    elif isinstance(v, dict):
+        return {key: _serialize_value(val) for key, val in v.items() if val is not None}
+    elif isinstance(v, list):
+        return [_serialize_value(item) for item in v]
+    return v
+
+
+def _dataclass_to_dict(info: Any) -> dict[str, Any]:
+    """Convert a dataclass to a json-serializable dict."""
+    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
+
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 _MAX_CELL_LENGTH = 35

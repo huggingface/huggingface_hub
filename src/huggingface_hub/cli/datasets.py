@@ -150,9 +150,9 @@ def datasets_parquet(
     entries = api.list_dataset_parquet_files(repo_id=dataset_id, config=subset)
     filtered = [entry for entry in entries if split is None or entry.split == split]
     results = [
-        {"url": entry.url, "subset": entry.config, "split": entry.split, "size": entry.size} for entry in filtered
+        {"subset": entry.config, "split": entry.split, "url": entry.url, "size": entry.size} for entry in filtered
     ]
-    out.table(results, headers=["url", "subset", "split", "size"])
+    out.table(results, headers=["subset", "split", "url", "size"], id_key="url")
 
 
 @datasets_cli.command(
