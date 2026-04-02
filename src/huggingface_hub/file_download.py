@@ -1037,6 +1037,7 @@ def _hf_hub_download_to_cache_dir(
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
     # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    Path(cache_dir).mkdir(parents=True, exist_ok=True)
     _create_cachedir_tag(Path(cache_dir))
 
     # cross-platform transcription of filename, to be used as a local file path.
