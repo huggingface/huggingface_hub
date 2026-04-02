@@ -205,7 +205,7 @@ class BucketNotFoundError(HfHubHTTPError):
 
     Bucket Not Found for url: https://huggingface.co/api/buckets/namespace/name.
     Please make sure you specified the correct bucket id (namespace/name).
-    If the bucket is private, make sure you are authenticated.
+    If the bucket is private, make sure you are authenticated and your token has the required permissions.
     ```
     """
 
@@ -236,7 +236,7 @@ class RepositoryNotFoundError(HfHubHTTPError):
 
     Repository Not Found for url: https://huggingface.co/api/models/%3Cnon_existent_repository%3E.
     Please make sure you specified the correct `repo_id` and `repo_type`.
-    If the repo is private, make sure you are authenticated.
+    If the repo is private, make sure you are authenticated and your token has the required permissions.
     Invalid username or password.
     ```
     """

@@ -804,8 +804,8 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated."
-            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            " repo, make sure you are authenticated and your token has the required permissions."
+            "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
@@ -3671,6 +3671,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("create_repo")
     def test_create_space_with_storage(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3739,6 +3740,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
 
     @expect_deprecation("duplicate_space")
+    @expect_deprecation("duplicate_repo")
     def test_duplicate_space(self) -> None:
         self.api.duplicate_space(
             self.repo_id,
@@ -3805,6 +3807,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
 
+    @expect_deprecation("request_space_storage")
     def test_request_space_storage(self) -> None:
         runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
         self.post_mock.assert_called_once_with(
@@ -3814,6 +3817,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
         assert runtime.storage == SpaceStorage.LARGE
 
+    @expect_deprecation("delete_space_storage")
     def test_delete_space_storage(self) -> None:
         runtime = self.api.delete_space_storage(self.repo_id)
         self.delete_mock.assert_called_once_with(

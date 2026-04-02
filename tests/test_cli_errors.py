@@ -36,7 +36,7 @@ class TestFormatRepoNotFound:
         err = _make_error(RepositoryNotFoundError, repo_id="user/repo", repo_type="model")
         assert (
             _format_repo_not_found(err)
-            == "Model 'user/repo' not found. If the repo is private, make sure you are authenticated."
+            == "Model 'user/repo' not found. If the repo is private, make sure you are authenticated and your token has the required permissions."
         )
 
     def test_with_repo_id_dataset(self):

@@ -75,8 +75,7 @@ from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import SpaceHardware, constants
-from huggingface_hub._jobs_api import Volume
+from huggingface_hub import SpaceHardware, Volume, constants
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size

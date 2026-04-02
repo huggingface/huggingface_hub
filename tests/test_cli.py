@@ -13,7 +13,8 @@ from typer.testing import CliRunner
 
 from huggingface_hub import constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import Volume, _create_job_spec
+from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -1630,7 +1631,8 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
         assert result.exit_code == 0
         parsed = json.loads(result.stdout)
-        assert parsed == self.MOCK_WHOAMI
+        assert parsed["user"] == "testuser"
+        assert parsed["orgs"] == "org1,org2"
 
     def test_whoami_json_shorthand(self, runner: CliRunner) -> None:
         with (
@@ -1640,20 +1642,20 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--json"])
         assert result.exit_code == 0
         parsed = json.loads(result.stdout)
-        assert parsed == self.MOCK_WHOAMI
+        assert parsed["user"] == "testuser"
+        assert parsed["orgs"] == "org1,org2"
 
     def test_whoami_not_logged_in(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
             result = runner.invoke(app, ["auth", "whoami"])
-        assert result.exit_code == 0
-        assert "Not logged in" in result.stdout
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
 
     def test_whoami_not_logged_in_json(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
             result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
-        assert result.exit_code == 0
-        parsed = json.loads(result.stdout)
-        assert parsed == {"error": "Not logged in"}
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
 
 
 class TestModelsLsCommand:

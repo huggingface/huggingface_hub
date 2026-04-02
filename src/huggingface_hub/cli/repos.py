@@ -103,7 +103,7 @@ SpaceStorageOpt = Annotated[
     SpaceStorage | None,
     typer.Option(
         "--storage",
-        help="Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
+        help="(Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
     ),
 ]
 
