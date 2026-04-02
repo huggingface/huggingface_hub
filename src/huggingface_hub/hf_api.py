@@ -12621,7 +12621,7 @@ class HfApi:
         path: str,
         *,
         ranges: list[FileRange] = None,
-        token: Union[str, bool, None] = None,
+        token: str | bool | None = None,
     ):
         """Internal method: process a single batch of bucket file ranges (upload to XET + call /batch)."""
         if not ranges:
