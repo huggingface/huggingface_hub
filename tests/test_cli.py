@@ -14,11 +14,11 @@ from typer.testing import CliRunner
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import _create_job_spec
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli._cli_utils import RepoType
+from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_namespace_from_job_id, _parse_volumes
+from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -1308,6 +1308,8 @@ class TestRepoCreateCommand:
                     "3600",
                     "--secrets",
                     "HF_TOKEN=secret_val",
+                    "--volume",
+                    "hf://gpt2:/model",
                     "-e",
                     "THEME=dark",
                     "-e",
@@ -1329,6 +1331,7 @@ class TestRepoCreateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
+            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
@@ -1350,6 +1353,7 @@ class TestRepoCreateCommand:
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
+            space_volumes=None,
         )
 
 
@@ -1373,6 +1377,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
+            space_volumes=None,
         )
 
     def test_repo_duplicate_explicit_namespace(self, runner: CliRunner) -> None:
@@ -1407,6 +1412,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
+            space_volumes=None,
         )
 
     def test_repo_duplicate_with_space_options(self, runner: CliRunner) -> None:
@@ -1429,6 +1435,8 @@ class TestRepoDuplicateCommand:
                     "l4x4",
                     "--storage",
                     "small",
+                    "--volume",
+                    "hf://gpt2:/model",
                     "--sleep-time",
                     "3600",
                     "--secrets",
@@ -1451,6 +1459,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
             space_variables=[{"key": "THEME", "value": "dark"}],
+            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_duplicate_secret_from_env(self, runner: CliRunner) -> None:
@@ -1488,6 +1497,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=None,
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
             space_variables=None,
+            space_volumes=None,
         )
 
 
@@ -1954,10 +1964,9 @@ class TestDatasetsParquetCommand:
             result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
 
         assert result.exit_code == 0
-        assert "SUBSET" in result.stdout
-        assert "URL" in result.stdout
         assert "datasets" in result.stdout
         assert "train" in result.stdout
+        assert "1234" in result.stdout
 
     def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
@@ -1976,9 +1985,9 @@ class TestDatasetsParquetCommand:
         payload = json.loads(result.stdout)
         assert payload == [
             {
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
                 "subset": "models",
                 "split": "train",
-                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
                 "size": 5678,
             }
         ]
@@ -2003,8 +2012,8 @@ class TestDatasetsSqlCommand:
         result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
 
         assert result.exit_code == 0
-        assert "SECTOR" in result.stdout
-        assert "COUNT" in result.stdout
+        assert "Health Care" in result.stdout
+        assert "25" in result.stdout
 
     @with_production_testing
     def test_datasets_sql_json(self, runner: CliRunner) -> None:
@@ -2945,11 +2954,11 @@ class TestParseNamespaceFromJobId:
 
 
 class TestParseVolumes:
-    """Unit tests for _parse_volumes."""
+    """Unit tests for parse_volumes."""
 
     def test_none_and_empty(self) -> None:
-        assert _parse_volumes(None) is None
-        assert _parse_volumes([]) is None
+        assert parse_volumes(None) is None
+        assert parse_volumes([]) is None
 
     @pytest.mark.parametrize(
         "spec, expected_type, expected_source, expected_mount, expected_path",
@@ -2979,7 +2988,7 @@ class TestParseVolumes:
         expected_mount: str,
         expected_path: Optional[str],
     ) -> None:
-        vols = _parse_volumes([spec])
+        vols = parse_volumes([spec])
         assert len(vols) == 1
         assert vols[0].type == expected_type
         assert vols[0].source == expected_source
@@ -2989,23 +2998,23 @@ class TestParseVolumes:
     @pytest.mark.parametrize("spec", ["hf://gpt2", "hf://gpt2:data"])
     def test_invalid_mount_path(self, spec: str) -> None:
         with pytest.raises(CLIError, match="Invalid volume format"):
-            _parse_volumes([spec])
+            parse_volumes([spec])
 
     @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
     def test_missing_hf_prefix(self, spec: str) -> None:
         with pytest.raises(CLIError, match="must start with 'hf://'"):
-            _parse_volumes([spec])
+            parse_volumes([spec])
 
     def test_read_only_suffix(self) -> None:
-        vols = _parse_volumes(["hf://datasets/org/ds:/data:ro"])
+        vols = parse_volumes(["hf://datasets/org/ds:/data:ro"])
         assert vols[0].read_only is True
 
     def test_read_write_suffix(self) -> None:
-        vols = _parse_volumes(["hf://buckets/org/b:/mnt:rw"])
+        vols = parse_volumes(["hf://buckets/org/b:/mnt:rw"])
         assert vols[0].read_only is False
 
     def test_multiple_volumes(self) -> None:
-        vols = _parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
+        vols = parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
 
         assert vols == [
             Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),

@@ -950,7 +950,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf datasets info`
 
-Get info about a dataset on the Hub. Output is in JSON format.
+Get info about a dataset on the Hub.
 
 **Usage**:
 
@@ -966,6 +966,7 @@ $ hf datasets info [OPTIONS] DATASET_ID
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -996,8 +997,7 @@ $ hf datasets list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1029,8 +1029,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 
 * `--subset TEXT`: Filter parquet entries by subset/config.
 * `--split TEXT`: Filter parquet entries by split.
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1061,7 +1060,7 @@ $ hf datasets sql [OPTIONS] SQL
 
 **Options**:
 
-* `--format [table|json]`: Output format (table or json).  [default: table]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2593,7 +2592,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 ### `hf models info`
 
-Get info about a model on the Hub. Output is in JSON format.
+Get info about a model on the Hub.
 
 **Usage**:
 
@@ -2609,6 +2608,7 @@ $ hf models info [OPTIONS] MODEL_ID
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2640,8 +2640,7 @@ $ hf models list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2678,7 +2677,7 @@ $ hf papers [OPTIONS] COMMAND [ARGS]...
 
 ### `hf papers info`
 
-Get info about a paper on the Hub. Output is in JSON format.
+Get info about a paper on the Hub.
 
 **Usage**:
 
@@ -2692,6 +2691,7 @@ $ hf papers info [OPTIONS] PAPER_ID
 
 **Options**:
 
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2721,8 +2721,7 @@ $ hf papers list [OPTIONS]
 * `--submitter TEXT`: Filter by username of the submitter.
 * `--sort [publishedAt|trending]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 50]
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2783,8 +2782,7 @@ $ hf papers search [OPTIONS] QUERY
 **Options**:
 
 * `--limit INTEGER`: Limit the number of results.  [default: 20]
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2934,12 +2932,14 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
+  $ hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3040,11 +3040,13 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
+  $ hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3430,7 +3432,7 @@ Learn more
 
 ### `hf spaces info`
 
-Get info about a space on the Hub. Output is in JSON format.
+Get info about a space on the Hub.
 
 **Usage**:
 
@@ -3446,6 +3448,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -3476,8 +3479,7 @@ $ hf spaces list [OPTIONS]
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
