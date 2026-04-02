@@ -4118,7 +4118,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after creation.",
+        custom_message="Use `space_volumes` to mount volumes on a Space at creation or `set_space_volumes` after creation.",
     )
     @validate_hf_hub_args
     def create_repo(
@@ -4137,6 +4137,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4183,6 +4184,11 @@ class HfApi:
             space_variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at creation time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4221,12 +4227,15 @@ class HfApi:
             "space_sleep_time",
             "space_secrets",
             "space_variables",
+            "space_volumes",
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
             json.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            if space_volumes is not None:
+                json["volumes"] = [vol.to_dict() for vol in space_volumes]
         else:
             provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
 
@@ -7800,7 +7809,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after duplication.",
+        custom_message="Use `space_volumes` to mount volumes on a Space at duplication or `set_space_volumes` after duplication.",
     )
     @validate_hf_hub_args
     def duplicate_repo(
@@ -7818,6 +7827,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -7868,6 +7878,11 @@ class HfApi:
                 the form `{"key": ..., "value": ..., "description": ...}` where description
                 is optional. Only applicable if repo_type is "space".
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at duplication time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -7933,12 +7948,15 @@ class HfApi:
             "space_sleep_time",
             "space_secrets",
             "space_variables",
+            "space_volumes",
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
             payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            if space_volumes is not None:
+                payload["volumes"] = [vol.to_dict() for vol in space_volumes]
             if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
                 warnings.warn(
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"

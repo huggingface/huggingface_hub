@@ -2934,12 +2934,14 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
+  $ hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3040,11 +3042,13 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
+  $ hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
