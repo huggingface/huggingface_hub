@@ -12065,7 +12065,7 @@ class HfApi:
         """Upload script files to a bucket and return volumes to mount plus the scripts prefix.
 
         Creates a bucket ``{namespace}/jobs-artifacts`` (if it doesn't exist) and uploads
-        each script to ``_scripts/{uuid}/{remote_name}`` inside it. Returns a :class:`Volume`
+        each script to ``scripts/{uuid}/{remote_name}`` inside it. Returns a :class:`Volume`
         that mounts the bucket at ``/artifacts`` so the job can access the scripts directly.
         """
         import uuid

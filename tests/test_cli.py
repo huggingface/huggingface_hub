@@ -2948,8 +2948,8 @@ class TestBucketTransport:
         assert call_kwargs.kwargs["bucket_id"] == "test-user/jobs-artifacts"
         add_ops = call_kwargs.kwargs["add"]
         assert len(add_ops) == 1
-        # Uploaded file path starts with _scripts/
-        assert add_ops[0][1].startswith("_scripts/")
+        # Uploaded file path starts with scripts/
+        assert add_ops[0][1].startswith("scripts/")
         assert add_ops[0][1].endswith("/train.py")
 
         # Command is plain uv run (no bash -c wrapper)
@@ -2959,7 +2959,7 @@ class TestBucketTransport:
         assert "torch>=2.1" in command
         # Script path references the mount
         script_arg = [arg for arg in command if "train.py" in arg][0]
-        assert script_arg.startswith("/artifacts/_scripts/")
+        assert script_arg.startswith("/artifacts/scripts/")
 
         # No LOCAL_FILES_ENCODED in env
         assert "LOCAL_FILES_ENCODED" not in env
