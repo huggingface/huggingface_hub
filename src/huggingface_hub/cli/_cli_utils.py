@@ -598,6 +598,22 @@ FormatOpt = Annotated[
     ),
 ]
 
+
+def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
+    from ._output import out
+
+    out.set_mode(value)
+    return value
+
+
+FormatWithAutoOpt = Annotated[
+    OutputFormatWithAuto,
+    typer.Option(
+        help="Output format.",
+        callback=_set_output_mode,
+    ),
+]
+
 QuietOpt = Annotated[
     bool,
     typer.Option(
