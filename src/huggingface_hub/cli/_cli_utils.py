@@ -589,6 +589,14 @@ VolumesOpt = Annotated[
     ),
 ]
 
+_HF_PREFIX = "hf://"
+_HF_VOLUME_TYPES = {
+    "models": constants.REPO_TYPE_MODEL,
+    "datasets": constants.REPO_TYPE_DATASET,
+    "spaces": constants.REPO_TYPE_SPACE,
+    "buckets": "bucket",
+}
+
 
 def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     """Parse volume specs from CLI arguments.
@@ -614,14 +622,6 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     if not volumes:
         return None
 
-    HF_PREFIX = "hf://"
-    HF_TYPES_MAPPING = {
-        "models": constants.REPO_TYPE_MODEL,
-        "datasets": constants.REPO_TYPE_DATASET,
-        "spaces": constants.REPO_TYPE_SPACE,
-        "buckets": "bucket",
-    }
-
     result: list[Volume] = []
     for raw_spec in volumes:
         # Strip :ro/:rw suffix
@@ -635,12 +635,12 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
             spec = spec[:-3]
 
         # Validate hf:// prefix
-        if not spec.startswith(HF_PREFIX):
+        if not spec.startswith(_HF_PREFIX):
             raise CLIError(
                 f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
                 f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
             )
-        spec = spec[len(HF_PREFIX) :]
+        spec = spec[len(_HF_PREFIX) :]
 
         # Find the mount path: look for :/ pattern
         colon_slash_idx = spec.find(":/")
@@ -661,8 +661,8 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
             path = None
         else:
             first_segment = source_part[:slash_idx]
-            if first_segment in HF_TYPES_MAPPING:
-                vol_type_str = HF_TYPES_MAPPING[first_segment]
+            if first_segment in _HF_VOLUME_TYPES:
+                vol_type_str = _HF_VOLUME_TYPES[first_segment]
                 remaining = source_part[slash_idx + 1 :]
             else:
                 # First segment isn't a known type -> model type
