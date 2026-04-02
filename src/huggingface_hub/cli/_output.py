@@ -177,7 +177,7 @@ def _to_header(name: str) -> str:
 
 def _format_table_value_human(value: Any) -> str:
     """Convert a value to string for terminal display."""
-    if not value:
+    if value is None:
         return ""
     if isinstance(value, bool):
         return "✔" if value else ""
