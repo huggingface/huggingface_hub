@@ -54,24 +54,30 @@ class Output:
 
     def table(
         self,
-        headers: list[str],
-        rows: Sequence[list[Any]],
+        items: Sequence[dict[str, Any]],
+        *,
+        headers: list[str] | None = None,
         alignments: dict[str, str] | None = None,
     ) -> None:
         """Print tabular data to stdout.
 
         Args:
-            headers: Column names.
-            rows: List of rows, each a list of raw values.
+            items: List of dicts. Headers are auto-detected from keys if not provided.
+            headers: Explicit column names. If None, derived from dict keys (empty columns filtered).
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
         """
-        if not rows:
+        if not items:
             match self.mode:
                 case OutputFormatWithAuto.agent | OutputFormatWithAuto.human:
                     print("No results found.")
                 case OutputFormatWithAuto.json:
                     print("[]")
             return
+
+        if headers is None:
+            all_columns = list(items[0].keys())
+            headers = [col for col in all_columns if any(item.get(col) for item in items)]
+        rows = [[item.get(h) for h in headers] for item in items]
 
         match self.mode:
             case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
@@ -84,8 +90,7 @@ class Output:
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
             case OutputFormatWithAuto.json:  # compact JSON array
-                items = [dict(zip(headers, row)) for row in rows]
-                print(json.dumps(items, default=str))
+                print(json.dumps(list(items), default=str))
             case OutputFormatWithAuto.quiet:  # first column only, one per line
                 for row in rows:
                     print(row[0])

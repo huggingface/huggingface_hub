@@ -25,7 +25,6 @@ Usage:
 """
 
 import enum
-import json
 from typing import Annotated, get_args
 
 import typer
@@ -36,19 +35,17 @@ from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
+    OutputFormatWithAuto,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
@@ -90,11 +87,11 @@ def models_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -109,7 +106,7 @@ def models_ls(
             expand=expand,  # type: ignore
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @models_cli.command(
@@ -123,9 +120,11 @@ def models_info(
     model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a model on the Hub. Output is in JSON format."""
+    """Get info about a model on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     try:
         info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore
@@ -133,4 +132,4 @@ def models_info(
         raise CLIError(f"Model '{model_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(api_object_to_dict(info))

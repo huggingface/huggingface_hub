@@ -1954,10 +1954,9 @@ class TestDatasetsParquetCommand:
             result = runner.invoke(app, ["datasets", "parquet", "cfahlgren1/hub-stats"])
 
         assert result.exit_code == 0
-        assert "SUBSET" in result.stdout
-        assert "URL" in result.stdout
         assert "datasets" in result.stdout
         assert "train" in result.stdout
+        assert "1234" in result.stdout
 
     def test_datasets_parquet_json_output(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
@@ -1976,9 +1975,9 @@ class TestDatasetsParquetCommand:
         payload = json.loads(result.stdout)
         assert payload == [
             {
+                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
                 "subset": "models",
                 "split": "train",
-                "url": "https://huggingface.co/datasets/cfahlgren1/hub-stats/resolve/refs%2Fconvert%2Fparquet/models/train/0.parquet",
                 "size": 5678,
             }
         ]
@@ -2003,8 +2002,8 @@ class TestDatasetsSqlCommand:
         result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
 
         assert result.exit_code == 0
-        assert "SECTOR" in result.stdout
-        assert "COUNT" in result.stdout
+        assert "Health Care" in result.stdout
+        assert "25" in result.stdout
 
     @with_production_testing
     def test_datasets_sql_json(self, runner: CliRunner) -> None:

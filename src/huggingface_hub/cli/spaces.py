@@ -26,7 +26,6 @@ Usage:
 
 import enum
 import functools
-import json
 import os
 import shlex
 import shutil
@@ -51,19 +50,17 @@ from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disabl
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
+    OutputFormatWithAuto,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -102,11 +99,11 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -120,7 +117,7 @@ def spaces_ls(
             expand=expand,  # type: ignore[arg-type]
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @spaces_cli.command(
@@ -134,9 +131,11 @@ def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a space on the Hub. Output is in JSON format."""
+    """Get info about a space on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
@@ -144,7 +143,7 @@ def spaces_info(
         raise CLIError(f"Space '{space_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(api_object_to_dict(info))
 
 
 @spaces_cli.command(

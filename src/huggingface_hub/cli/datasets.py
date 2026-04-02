@@ -25,7 +25,6 @@ Usage:
 """
 
 import enum
-import json
 from typing import Annotated, get_args
 
 import typer
@@ -37,19 +36,17 @@ from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
+    OutputFormatWithAuto,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
@@ -87,11 +84,11 @@ def datasets_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List datasets on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -105,7 +102,7 @@ def datasets_ls(
             expand=expand,  # type: ignore
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @datasets_cli.command(
@@ -119,9 +116,11 @@ def datasets_info(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a dataset on the Hub. Output is in JSON format."""
+    """Get info about a dataset on the Hub."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     try:
         info = api.dataset_info(repo_id=dataset_id, revision=revision, expand=expand)  # type: ignore
@@ -129,7 +128,7 @@ def datasets_info(
         raise CLIError(f"Dataset '{dataset_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{dataset_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(api_object_to_dict(info))
 
 
 @datasets_cli.command(
@@ -145,18 +144,18 @@ def datasets_parquet(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     subset: Annotated[str | None, typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[str | None, typer.Option(help="Filter parquet entries by split.")] = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List parquet file URLs available for a dataset."""
+    out.set_mode(format)
     api = get_hf_api(token=token)
     entries = api.list_dataset_parquet_files(repo_id=dataset_id, config=subset)
     filtered = [entry for entry in entries if split is None or entry.split == split]
     results = [
-        {"subset": entry.config, "split": entry.split, "url": entry.url, "size": entry.size} for entry in filtered
+        {"url": entry.url, "subset": entry.config, "split": entry.split, "size": entry.size} for entry in filtered
     ]
-    print_list_output(results, format=format, quiet=quiet, id_key="url")
+    out.table(results, headers=["url", "subset", "split", "size"])
 
 
 @datasets_cli.command(
@@ -168,13 +167,13 @@ def datasets_parquet(
 )
 def datasets_sql(
     sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
-    format: FormatOpt = OutputFormat.table,
+    format: Annotated[OutputFormatWithAuto, typer.Option(help="Output format.")] = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
+    out.set_mode(format)
     try:
         result = execute_raw_sql_query(sql_query=sql, token=token)
     except ImportError as e:
         raise CLIError(str(e)) from e
-
-    print_list_output(result, format=format, quiet=False)
+    out.table(result)
