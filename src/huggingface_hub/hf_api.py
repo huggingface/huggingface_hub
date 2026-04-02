@@ -4229,8 +4229,8 @@ class HfApi:
             "space_variables",
             "space_volumes",
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
             json.update({k: v for k, v in zip(json_keys, values) if v is not None})
@@ -7950,8 +7950,8 @@ class HfApi:
             "space_variables",
             "space_volumes",
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables", "volumes"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables, space_volumes]
 
         if repo_type == "space":
             payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
