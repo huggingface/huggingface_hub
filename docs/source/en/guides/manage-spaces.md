@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 In this guide, we will see how to manage your Space runtime
 ([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
-[hardware](https://huggingface.co/docs/hub/spaces-gpus), and [storage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)) using `huggingface_hub`.
+[hardware](https://huggingface.co/docs/hub/spaces-gpus), and volumes) using `huggingface_hub`.
 
 ## A simple example: configure secrets and hardware.
 
@@ -132,7 +132,6 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
@@ -141,7 +140,6 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     repo_type="space",
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
@@ -201,40 +199,41 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 
-**6. Add persistent storage to your Space**
+**6. Mount volumes in your Space**
 
-You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
-
-```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
-```
-
-You can also delete your storage, losing all the data permanently.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
-```
-
-Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
-you must delete the storage first then request the new desired tier.
-
-**Bonus: request storage when creating or duplicating the Space!**
+You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code.
 
 ```py
->>> api.create_repo(
+>>> from huggingface_hub import Volume
+>>> api.set_space_volumes(
 ...     repo_id=repo_id,
-...     repo_type="space",
-...     space_sdk="gradio"
-...     space_storage="large",
+...     volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="dataset", source="username/my-dataset", mount_path="/data", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/output"),
+...     ],
 ... )
 ```
+
+You can check which volumes are currently mounted via the Space runtime:
+
 ```py
->>> api.duplicate_repo(
-...     from_id=repo_id,
-...     repo_type="space",
-...     space_storage="large",
-... )
+>>> runtime = api.get_space_runtime(repo_id=repo_id)
+>>> runtime.volumes
+[Volume(type='model', source='username/my-model', mount_path='/models', read_only=True), ...]
 ```
+
+To remove all volumes from your Space:
+
+```py
+>>> api.delete_space_volumes(repo_id=repo_id)
+```
+
+> [!NOTE]
+> Models, datasets, and Spaces are always mounted as read-only. Only storage buckets support read-write mounts.
+
+> [!WARNING]
+> Setting volumes replaces any previously mounted volumes. To add a volume to an existing list, first read the current volumes from the runtime and include them in the new list.
 
 ## More advanced: temporarily upgrade your Space !
 
