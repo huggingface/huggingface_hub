@@ -121,17 +121,19 @@ def papers_ls(
     out.set_mode(format)
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
-    results = [
-        api_object_to_dict(paper_info)
-        for paper_info in api.list_daily_papers(
-            date=date,
-            week=week,
-            month=month,
-            submitter=submitter,
-            sort=sort_key,
-            limit=limit,
-        )
-    ]
+    results = []
+    for paper_info in api.list_daily_papers(
+        date=date,
+        week=week,
+        month=month,
+        submitter=submitter,
+        sort=sort_key,
+        limit=limit,
+    ):
+        item = api_object_to_dict(paper_info)
+        submitted_by = item.get("submitted_by") or {}
+        item["submitted_by"] = submitted_by.get("fullname") or submitted_by.get("username") or ""
+        results.append(item)
     out.table(
         results,
         headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by"],
