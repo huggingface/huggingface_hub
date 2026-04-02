@@ -513,7 +513,7 @@ def _load_sharded_checkpoint(
     # 2. Validate shard filenames from the index
     # This prevents path traversal attacks and extension confusion attacks
     # (e.g. a safetensors index referencing .bin pickle files)
-    expected_extension = "." + filename_pattern.format(suffix="").split(".")[-1]  # e.g. ".safetensors"
+    expected_extension = Path(filename_pattern.format(suffix="")).suffix  # e.g. ".safetensors"
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
         # Reject path traversal (e.g. "../malicious.bin", absolute paths)
