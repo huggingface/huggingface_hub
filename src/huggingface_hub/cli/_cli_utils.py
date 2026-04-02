@@ -32,7 +32,8 @@ import click
 import typer
 from typer.core import TyperCommand, TyperGroup
 
-from huggingface_hub import __version__, constants
+from huggingface_hub import Volume, __version__, constants
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
 
@@ -647,6 +648,122 @@ def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, 
     if not env_map:
         return None
     return [{"key": k, "value": v or ""} for k, v in env_map.items()]
+
+
+VolumesOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        "-v",
+        "--volume",
+        help="Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
+        "TYPE is one of: models, datasets, spaces, buckets. "
+        "TYPE defaults to models if omitted. "
+        "models, datasets and spaces are always mounted read-only. buckets are read+write by default."
+        "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
+    ),
+]
+
+_HF_PREFIX = "hf://"
+_HF_VOLUME_TYPES = {
+    "models": constants.REPO_TYPE_MODEL,
+    "datasets": constants.REPO_TYPE_DATASET,
+    "spaces": constants.REPO_TYPE_SPACE,
+    "buckets": "bucket",
+}
+
+
+def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
+    """Parse volume specs from CLI arguments.
+
+    Format: hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]
+    Where TYPE is one of: models, datasets, spaces, buckets (defaults to models if omitted).
+    SOURCE is the repo/bucket identifier (e.g. 'username/my-model').
+    PATH is an optional subfolder inside the repo/bucket.
+    MOUNT_PATH starts with '/'.
+    Optional ':ro' or ':rw' suffix for read-only or read-write.
+
+    Examples:
+        hf://gpt2:/data                          (model, implicit type)
+        hf://my-org/my-model:/data                (model, implicit type)
+        hf://models/my-org/my-model:/data         (model, explicit type)
+        hf://datasets/my-org/my-dataset:/data:ro
+        hf://buckets/my-org/my-bucket:/mnt
+        hf://spaces/my-org/my-space:/app
+        hf://datasets/org/ds/train:/data          (with path inside repo)
+        hf://buckets/org/b/sub/dir:/mnt           (with path inside bucket)
+    """
+
+    if not volumes:
+        return None
+
+    result: list[Volume] = []
+    for raw_spec in volumes:
+        # Strip :ro/:rw suffix
+        spec = raw_spec
+        read_only = None
+        if spec.endswith(":ro"):
+            read_only = True
+            spec = spec[:-3]
+        elif spec.endswith(":rw"):
+            read_only = False
+            spec = spec[:-3]
+
+        # Validate hf:// prefix
+        if not spec.startswith(_HF_PREFIX):
+            raise CLIError(
+                f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
+                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+            )
+        spec = spec[len(_HF_PREFIX) :]
+
+        # Find the mount path: look for :/ pattern
+        colon_slash_idx = spec.find(":/")
+        if colon_slash_idx == -1:
+            raise CLIError(
+                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+            )
+        source_part = spec[:colon_slash_idx]
+        mount_path = spec[colon_slash_idx + 1 :]
+
+        # Parse type from source_part (first segment before /)
+        # Then split remaining into source (namespace/name or name) and optional path.
+        slash_idx = source_part.find("/")
+        if slash_idx == -1:
+            # No slash: bare source like "gpt2" -> model type
+            vol_type_str = constants.REPO_TYPE_MODEL
+            source = source_part
+            path = None
+        else:
+            first_segment = source_part[:slash_idx]
+            if first_segment in _HF_VOLUME_TYPES:
+                vol_type_str = _HF_VOLUME_TYPES[first_segment]
+                remaining = source_part[slash_idx + 1 :]
+            else:
+                # First segment isn't a known type -> model type
+                vol_type_str = constants.REPO_TYPE_MODEL
+                remaining = source_part
+
+            # Split remaining into source (namespace/name) and optional path.
+            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
+            # Any extra segments are the path inside the repo/bucket.
+            parts = remaining.split("/", 2)
+            if len(parts) >= 3:
+                source = parts[0] + "/" + parts[1]
+                path = parts[2]
+            else:
+                source = remaining
+                path = None
+
+        result.append(
+            Volume(
+                type=vol_type_str,
+                source=source,
+                mount_path=mount_path,
+                read_only=read_only,
+                path=path,
+            )
+        )
+    return result
 
 
 class OutputFormat(str, Enum):

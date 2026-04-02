@@ -201,16 +201,27 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 
 **6. Mount volumes in your Space**
 
-You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code.
+You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code. Volumes can be set directly when creating or duplicating a Space:
 
 ```py
 >>> from huggingface_hub import Volume
->>> api.set_space_volumes(
+>>> api.create_repo(
 ...     repo_id=repo_id,
-...     volumes=[
+...     repo_type="space",
+...     space_sdk="gradio",
+...     space_volumes=[
 ...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
-...         Volume(type="dataset", source="username/my-dataset", mount_path="/data", read_only=True),
-...         Volume(type="bucket", source="username/my-bucket", mount_path="/output"),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+...     ],
+... )
+```
+```py
+>>> api.duplicate_repo(
+...     from_id=repo_id,
+...     repo_type="space",
+...     space_volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
 ...     ],
 ... )
 ```
@@ -221,6 +232,19 @@ You can check which volumes are currently mounted via the Space runtime:
 >>> runtime = api.get_space_runtime(repo_id=repo_id)
 >>> runtime.volumes
 [Volume(type='model', source='username/my-model', mount_path='/models', read_only=True), ...]
+```
+
+If you need to update volumes on an existing Space, use [`set_space_volumes`]. Note that this replaces all previously mounted volumes.
+
+```py
+>>> api.set_space_volumes(
+...     repo_id=repo_id,
+...     volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="dataset", source="username/my-dataset", mount_path="/data", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/output"),
+...     ],
+... )
 ```
 
 To remove all volumes from your Space:
