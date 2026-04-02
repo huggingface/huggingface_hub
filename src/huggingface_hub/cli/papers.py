@@ -44,7 +44,6 @@ Usage:
 
 import datetime
 import enum
-import json
 from typing import Annotated, get_args
 
 import typer
@@ -53,17 +52,14 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
-    FormatOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     TokenOpt,
-    _format_cell,
     api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 _SORT_OPTIONS = get_args(DailyPapersSort_T)
@@ -118,45 +114,28 @@ def papers_ls(
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List daily papers on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
-    results = [
-        api_object_to_dict(paper_info)
-        for paper_info in api.list_daily_papers(
-            date=date,
-            week=week,
-            month=month,
-            submitter=submitter,
-            sort=sort_key,
-            limit=limit,
-        )
-    ]
-    _HEADERS = ["id", "title", "upvotes", "comments", "published_at", "submitted_by"]
-
-    def _paper_row(item: dict) -> list[str]:
+    results = []
+    for paper_info in api.list_daily_papers(
+        date=date,
+        week=week,
+        month=month,
+        submitter=submitter,
+        sort=sort_key,
+        limit=limit,
+    ):
+        item = api_object_to_dict(paper_info)
         submitted_by = item.get("submitted_by") or {}
-        submitter_name = submitted_by.get("fullname") or submitted_by.get("username") or ""
-        return [
-            item.get("id", ""),
-            _format_cell(item.get("title", ""), max_len=60),
-            str(item.get("upvotes", "")),
-            str(item.get("comments", "")),
-            _format_cell(item.get("published_at", "")),
-            submitter_name,
-        ]
-
-    print_list_output(
+        item["submitted_by_name"] = submitted_by.get("fullname") or submitted_by.get("username") or ""
+        results.append(item)
+    out.table(
         results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=_HEADERS,
-        row_fn=_paper_row,
+        headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by_name"],
         alignments={"upvotes": "right", "comments": "right"},
     )
 
@@ -172,33 +151,13 @@ def papers_ls(
 def papers_search(
     query: Annotated[str, typer.Argument(help="Search query string.")],
     limit: LimitOpt = 20,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Search papers on the Hub."""
     api = get_hf_api(token=token)
     results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
-    _HEADERS = ["id", "title", "summary", "upvotes", "published_at"]
-
-    def _paper_row(item: dict) -> list[str]:
-        return [
-            item.get("id", ""),
-            _format_cell(item.get("title", ""), max_len=70),
-            _format_cell(item.get("summary", ""), max_len=70),
-            str(item.get("upvotes", "")),
-            _format_cell(item.get("published_at", "")),
-        ]
-
-    print_list_output(
-        results,
-        format=format,
-        quiet=quiet,
-        id_key="id",
-        headers=_HEADERS,
-        row_fn=_paper_row,
-        alignments={"upvotes": "right"},
-    )
+    out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"], alignments={"upvotes": "right"})
 
 
 @papers_cli.command(
@@ -209,9 +168,10 @@ def papers_search(
 )
 def papers_info(
     paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a paper on the Hub. Output is in JSON format."""
+    """Get info about a paper on the Hub."""
     api = get_hf_api(token=token)
     try:
         info = api.paper_info(id=paper_id)
@@ -219,7 +179,7 @@ def papers_info(
         if e.response.status_code == 404:
             raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
         raise
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(info)
 
 
 @papers_cli.command(
@@ -240,4 +200,4 @@ def papers_read(
         if e.response.status_code == 404:
             raise CLIError(f"Paper '{paper_id}' not found on the Hub.") from e
         raise
-    print(content)
+    out.text(content)
