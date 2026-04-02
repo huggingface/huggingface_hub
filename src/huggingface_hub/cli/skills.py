@@ -323,7 +323,7 @@ def _resolve_update_roots(
     *,
     claude: bool,
     global_: bool,
-    dest: Optional[Path],
+    dest: Path | None,
 ) -> list[Path]:
     if dest is not None:
         if claude or global_:
@@ -385,27 +385,23 @@ def skills_add(
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
     If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
-    try:
-        if dest:
-            if claude or global_:
-                print("--dest cannot be combined with --claude or --global.")
-                raise typer.Exit(code=1)
-            skill_dest = _install_to(dest, name, force)
-            print(f"Installed '{name}' to {skill_dest}")
-            return
+    if dest:
+        if claude or global_:
+            print("--dest cannot be combined with --claude or --global.")
+            raise typer.Exit(code=1)
+        skill_dest = _install_to(dest, name, force)
+        print(f"Installed '{name}' to {skill_dest}")
+        return
 
-        # Install to central location
-        central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-        central_skill_path = _install_to(central_path, name, force)
-        print(f"Installed '{name}' to central location: {central_skill_path}")
+    # Install to central location
+    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+    central_skill_path = _install_to(central_path, name, force)
+    print(f"Installed '{name}' to central location: {central_skill_path}")
 
-        if claude:
-            agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
-            link_path = _create_symlink(agent_target, name, central_skill_path, force)
-            print(f"Created symlink: {link_path}")
-    except CLIError as exc:
-        print(str(exc))
-        raise typer.Exit(code=1) from exc
+    if claude:
+        agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
+        link_path = _create_symlink(agent_target, name, central_skill_path, force)
+        print(f"Created symlink: {link_path}")
 
 
 @skills_cli.command(
@@ -419,7 +415,7 @@ def skills_add(
 )
 def skills_upgrade(
     name: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(help="Optional installed skill name to upgrade.", show_default=False),
     ] = None,
     claude: Annotated[bool, typer.Option("--claude", help="Upgrade skills installed for Claude.")] = False,
@@ -432,19 +428,14 @@ def skills_upgrade(
         ),
     ] = False,
     dest: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             help="Upgrade skills in a custom skills directory.",
         ),
     ] = None,
 ) -> None:
     """Upgrade installed Hugging Face marketplace skills."""
-    try:
-        roots = _resolve_update_roots(
-            claude=claude,
-            global_=global_,
-            dest=dest,
-        )
+        roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
         results = _skills.apply_updates(roots, selector=name)
         if not results:

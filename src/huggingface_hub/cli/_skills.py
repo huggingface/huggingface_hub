@@ -1,7 +1,4 @@
 """Internal helpers for Hugging Face marketplace skill installation and upgrades."""
-
-from __future__ import annotations
-
 import base64
 import io
 import json
@@ -17,8 +14,7 @@ from huggingface_hub.utils import get_session
 
 
 DEFAULT_SKILLS_REPO_ID = "huggingface/skills"
-DEFAULT_SKILLS_REPO_OWNER = "huggingface"
-DEFAULT_SKILLS_REPO_NAME = "skills"
+DEFAULT_SKILLS_REPO_OWNER, DEFAULT_SKILLS_REPO_NAME = DEFAULT_SKILLS_REPO_ID.split("/")
 DEFAULT_SKILLS_REF = "main"
 MARKETPLACE_PATH = ".claude-plugin/marketplace.json"
 GITHUB_API_TIMEOUT = 10
@@ -230,11 +226,10 @@ def _validate_installed_skill_dir(skill_dir: Path) -> None:
     skill_file = skill_dir / "SKILL.md"
     if not skill_file.is_file():
         raise RuntimeError(f"Installed skill is missing SKILL.md: {skill_file}")
-    skill_file.read_text(encoding="utf-8")
 
 
 def _extract_remote_github_path(revision: str, source_path: str, install_dir: Path) -> None:
-    tar_bytes = _github_api_get_bytes(f"tarball/{revision}")
+    tar_bytes = _github_api_get(f"tarball/{revision}").content
     _extract_tar_subpath(tar_bytes, source_path=source_path, install_dir=install_dir)
 
 
@@ -316,20 +311,16 @@ def _iter_unique_skill_dirs(roots: list[Path]) -> list[Path]:
 
 
 def _evaluate_update(skill_dir: Path, marketplace_skills: dict[str, MarketplaceSkill]) -> SkillUpdateInfo:
+    base = SkillUpdateInfo(name=skill_dir.name, skill_dir=skill_dir, status="unmanaged")
+
     manifest, error = read_installed_skill_manifest(skill_dir)
     if manifest is None:
-        return SkillUpdateInfo(
-            name=skill_dir.name,
-            skill_dir=skill_dir,
-            status="invalid_metadata" if error is not None else "unmanaged",
-            detail=error,
-        )
+        return replace(base, status="invalid_metadata" if error else "unmanaged", detail=error)
 
     skill = marketplace_skills.get(skill_dir.name.lower())
     if skill is None:
-        return SkillUpdateInfo(
-            name=skill_dir.name,
-            skill_dir=skill_dir,
+        return replace(
+            base,
             status="source_unreachable",
             detail=f"Skill '{skill_dir.name}' is no longer available in {DEFAULT_SKILLS_REPO_ID}.",
             current_revision=manifest.installed_revision,
@@ -339,82 +330,29 @@ def _evaluate_update(skill_dir: Path, marketplace_skills: dict[str, MarketplaceS
     try:
         available_revision = _resolve_available_revision(skill)
     except Exception as exc:
-        return SkillUpdateInfo(
-            name=skill_dir.name,
-            skill_dir=skill_dir,
-            status="source_unreachable",
-            detail=str(exc),
-            current_revision=current_revision,
-        )
+        return replace(base, status="source_unreachable", detail=str(exc), current_revision=current_revision)
 
-    if available_revision == current_revision:
-        return SkillUpdateInfo(
-            name=skill_dir.name,
-            skill_dir=skill_dir,
-            status="up_to_date",
-            current_revision=current_revision,
-            available_revision=available_revision,
-        )
-
-    return SkillUpdateInfo(
-        name=skill_dir.name,
-        skill_dir=skill_dir,
-        status="update_available",
-        detail="update available",
+    status = "up_to_date" if available_revision == current_revision else "update_available"
+    return replace(
+        base,
+        status=status,
+        detail="update available" if status == "update_available" else None,
         current_revision=current_revision,
         available_revision=available_revision,
     )
 
 
 def _apply_single_update(update: SkillUpdateInfo) -> SkillUpdateInfo:
-    if update.status in {"up_to_date", "unmanaged", "invalid_metadata", "source_unreachable"}:
+    if update.status != "update_available":
         return update
-
-    manifest, error = read_installed_skill_manifest(update.skill_dir)
-    if manifest is None:
-        detail = error or "missing skill manifest"
-        return SkillUpdateInfo(
-            name=update.name,
-            skill_dir=update.skill_dir,
-            status="invalid_metadata",
-            detail=detail,
-            current_revision=update.current_revision,
-            available_revision=update.available_revision,
-        )
 
     try:
         skill = get_marketplace_skill(update.skill_dir.name)
         install_marketplace_skill(skill, update.skill_dir.parent, force=True)
     except Exception as exc:
-        return SkillUpdateInfo(
-            name=update.name,
-            skill_dir=update.skill_dir,
-            status="source_unreachable",
-            detail=str(exc),
-            current_revision=update.current_revision,
-            available_revision=update.available_revision,
-        )
+        return replace(update, status="source_unreachable", detail=str(exc))
 
-    refreshed_manifest, manifest_error = read_installed_skill_manifest(update.skill_dir)
-    if refreshed_manifest is None:
-        detail = manifest_error or "missing skill manifest after upgrade"
-        return SkillUpdateInfo(
-            name=update.name,
-            skill_dir=update.skill_dir,
-            status="invalid_metadata",
-            detail=detail,
-            current_revision=update.current_revision,
-            available_revision=update.available_revision,
-        )
-
-    return SkillUpdateInfo(
-        name=update.name,
-        skill_dir=update.skill_dir,
-        status="updated",
-        detail="updated",
-        current_revision=update.current_revision,
-        available_revision=refreshed_manifest.installed_revision,
-    )
+    return replace(update, status="updated", detail="updated")
 
 
 def _filter_updates(updates: list[SkillUpdateInfo], selector: str | None) -> list[SkillUpdateInfo]:
@@ -456,19 +394,7 @@ def _parse_installed_skill_manifest(payload: dict[str, Any]) -> InstalledSkillMa
     )
 
 
-def _github_api_get_json(endpoint: str, params: dict[str, Any] | None = None) -> Any:
-    response = _github_api_get(endpoint, params=params)
-    try:
-        return response.json()
-    except Exception as exc:  # noqa: BLE001
-        raise CLIError(f"Failed to decode GitHub API response for '{endpoint}': {exc}") from exc
-
-
-def _github_api_get_bytes(endpoint: str, params: dict[str, Any] | None = None) -> bytes:
-    return _github_api_get(endpoint, params=params).content
-
-
-def _github_api_get(endpoint: str, params: dict[str, Any] | None = None):
+def _fetch_from_skills_repo(endpoint: str, params: dict[str, Any] | None = None, *, as_json: bool = False) -> Any:
     url = f"https://api.github.com/repos/{DEFAULT_SKILLS_REPO_OWNER}/{DEFAULT_SKILLS_REPO_NAME}/{endpoint.lstrip('/')}"
     try:
         response = get_session().get(
@@ -481,4 +407,9 @@ def _github_api_get(endpoint: str, params: dict[str, Any] | None = None):
         response.raise_for_status()
     except Exception as exc:  # noqa: BLE001
         raise CLIError(f"Failed to fetch '{endpoint}' from {DEFAULT_SKILLS_REPO_ID}: {exc}") from exc
-    return response
+    if as_json:
+        try:
+            return response.json()
+        except Exception as exc:  # noqa: BLE001
+            raise CLIError(f"Failed to decode GitHub API response for '{endpoint}': {exc}") from exc
+    return response.content
