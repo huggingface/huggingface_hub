@@ -117,21 +117,21 @@ class Output:
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.yellow(f"  Warning: {message}"), file=sys.stderr)
+            print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
+            print(ANSI.red(f"Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.gray(f"  {message}"), file=sys.stderr)
+            print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)
 
