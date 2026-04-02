@@ -4118,7 +4118,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after creation.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def create_repo(
@@ -4137,6 +4137,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4183,6 +4184,11 @@ class HfApi:
             space_variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at creation time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4197,11 +4203,11 @@ class HfApi:
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
 
-        json: dict[str, Any] = {"name": name, "organization": organization}
+        payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
-            json["visibility"] = resolved_visibility
+            payload["visibility"] = resolved_visibility
         if repo_type is not None:
-            json["type"] = repo_type
+            payload["type"] = repo_type
         if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
@@ -4210,35 +4216,42 @@ class HfApi:
                 )
             if space_sdk not in constants.SPACES_SDK_TYPES:
                 raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
-            json["sdk"] = space_sdk
+            payload["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
 
         if repo_type == "space":
-            json.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
+            if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
+                warnings.warn(
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                    UserWarning,
+                )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         if resource_group_id is not None:
-            json["resourceGroupId"] = resource_group_id
+            payload["resourceGroupId"] = resource_group_id
 
         headers = self._build_hf_headers(token=token)
         while True:
-            r = get_session().post(path, headers=headers, json=json)
+            r = get_session().post(path, headers=headers, json=payload)
             if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
@@ -7800,7 +7813,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after duplication.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def duplicate_repo(
@@ -7818,6 +7831,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -7868,6 +7882,11 @@ class HfApi:
                 the form `{"key": ..., "value": ..., "description": ...}` where description
                 is optional. Only applicable if repo_type is "space".
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at duplication time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -7927,18 +7946,20 @@ class HfApi:
             payload["visibility"] = resolved_visibility
 
         # Space-specific options
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
 
         if repo_type == "space":
-            payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
             if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
                 warnings.warn(
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
@@ -7947,8 +7968,7 @@ class HfApi:
                     UserWarning,
                 )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         r = get_session().post(
