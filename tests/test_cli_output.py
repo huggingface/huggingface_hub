@@ -117,13 +117,22 @@ def test_result(check):
 
 
 def test_table(check):
-    headers = ["id", "downloads", "likes", "pipeline_tag"]
-    rows = [
-        ["openai/gpt-oss-120b", 4133088, 4631, "text-generation"],
-        ["CohereLabs/cohere-transcribe-03-2026", 58683, 670, "automatic-speech-recognition"],
+    items = [
+        {
+            "id": "openai/gpt-oss-120b",
+            "downloads": 4133088,
+            "likes": 4631,
+            "pipeline_tag": "text-generation",
+        },
+        {
+            "id": "CohereLabs/cohere-transcribe-03-2026",
+            "downloads": 58683,
+            "likes": 670,
+            "pipeline_tag": "automatic-speech-recognition",
+        },
     ]
     check(
-        lambda out: out.table(headers, rows),
+        lambda out: out.table(items, headers=["id", "downloads", "likes", "pipeline_tag"]),
         human="""
         ID                                  DOWNLOADS LIKES PIPELINE_TAG
         ----------------------------------- --------- ----- ----------------------------
@@ -147,7 +156,7 @@ def test_table(check):
 
 def test_table_empty(check):
     check(
-        lambda out: out.table(["id"], []),
+        lambda out: out.table([], headers=["id"]),
         human="""
         No results found.
         """,
