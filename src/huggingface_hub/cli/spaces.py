@@ -277,6 +277,10 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if version.parse(sdk_version) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
+        if (current_sha := space_info.sha) is None:
+            raise CLIError(f"Unexpected `None` running SHA for Space {space_id}")
+    else:
+        current_sha = None
 
     if local_file:
         local_path = local_file
@@ -322,6 +326,7 @@ def spaces_hot_reload(
         repo_id=space_id,
         path_or_fileobj=local_path,
         path_in_repo=filename,
+        parent_commit=current_sha,
         _hot_reload=True,
     )
 
@@ -329,6 +334,7 @@ def spaces_hot_reload(
         _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
+            current_sha=current_sha,
             commit_sha=commit_info.oid,
             local_path=local_path if local_file else os.path.basename(local_path),
             token=token,
@@ -338,11 +344,18 @@ def spaces_hot_reload(
 def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
+    current_sha: str | None,
     commit_sha: str,
     local_path: str | None,
     token: str | None,
 ) -> None:
-    space_info = api.space_info(space_id)
+    while (space_info := api.space_info(space_id)).sha == current_sha:
+        if current_sha is None:
+            break
+        typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK)
+        time.sleep(2)
+    if space_info.sha != commit_sha:
+        raise CLIError(f"Expected SHA {commit_sha} after hot-reload but got {space_info.sha}")
     if (runtime := space_info.runtime) is None:
         raise CLIError(f"Unable to read SpaceRuntime from {space_id} infos")
     if (hot_reloading := runtime.hot_reloading) is None:
