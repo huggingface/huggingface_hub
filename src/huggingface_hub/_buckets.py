@@ -114,9 +114,27 @@ class _BucketAddFile:
         if self.content_type is None:  # or default to destination path content type
             self.content_type = mimetypes.guess_type(self.destination)[0]
 
-        self.mtime = int(
-            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
-        )
+        self.mtime = int(time.time() * 1000)
+        if isinstance(self.source, str):
+            try:
+                self.mtime = int(os.path.getmtime(self.source) * 1000)
+            except FileNotFoundError:
+                pass
+
+
+@dataclass
+class _BucketCopyFile:
+    destination: str
+    xet_hash: str
+    source_repo_type: str  # "model", "dataset", "space", "bucket"
+    source_repo_id: str
+    size: int | None = field(default=None)
+    mtime: int = field(init=False)
+    content_type: str | None = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = mimetypes.guess_type(self.destination)[0]
+        self.mtime = int(time.time() * 1000)
 
 
 @dataclass

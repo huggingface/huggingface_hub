@@ -876,10 +876,64 @@ def test_cp_download_creates_parent_dirs(bucket_with_files: str, tmp_path: Path)
 # -- Validation error tests --
 
 
-def test_cp_error_remote_to_remote():
-    """Both src and dst are bucket paths."""
-    result = cli("hf buckets cp hf://buckets/user/a/file.txt hf://buckets/user/b/file.txt")
+def test_cp_remote_bucket_to_bucket(api: HfApi):
+    source_bucket = api.create_bucket(bucket_name()).bucket_id
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(source_bucket, add=[(b"aaa", "logs/a.txt"), (b"bbb", "logs/sub/b.txt"), (b"ccc", "c.txt")])
+
+    result = cli(
+        f"hf buckets cp hf://buckets/{source_bucket}/logs hf://buckets/{destination_bucket}/backup/",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Copied: hf://buckets/{source_bucket}/logs -> hf://buckets/{destination_bucket}/backup/" in result.output
+    files = _remote_files(api, destination_bucket)
+    assert files >= {"backup/a.txt", "backup/sub/b.txt"}
+    assert "backup/c.txt" not in files
+
+
+def test_cp_remote_repo_to_bucket(api: HfApi):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="cp-copy")).repo_id
+    branch = "cp-copy-branch"
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+
+    try:
+        api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
+        api.create_branch(repo_id=repo_id, branch=branch)
+        api.upload_file(
+            repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch
+        )
+
+        result = cli(
+            f"hf buckets cp hf://{repo_id}@{branch}/nested/from-branch.txt hf://buckets/{destination_bucket}/copied.txt"
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Copied: hf://{repo_id}@{branch}/nested/from-branch.txt -> hf://buckets/{destination_bucket}/copied.txt"
+        ) in result.output
+    finally:
+        api.delete_repo(repo_id=repo_id)
+
+
+def test_cp_error_bucket_to_repo(api: HfApi, bucket_write: str):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="cp-copy-dst")).repo_id
+    try:
+        api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
+        result = cli(f"hf buckets cp hf://buckets/{bucket_write}/file.txt hf://{repo_id}/file.txt")
+        assert result.exit_code != 0
+        assert "destination must be a bucket" in result.output.lower()
+    finally:
+        api.delete_repo(repo_id=repo_id)
+
+
+def test_cp_error_remote_folder_requires_destination_suffix(api: HfApi):
+    source_bucket = api.create_bucket(bucket_name()).bucket_id
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(source_bucket, add=[(b"aaa", "folder/a.txt")])
+
+    result = cli(f"hf buckets cp hf://buckets/{source_bucket}/folder hf://buckets/{destination_bucket}/target")
     assert result.exit_code != 0
+    assert "destination to end with '/'" in result.output
 
 
 def test_cp_error_both_local(tmp_path: Path):

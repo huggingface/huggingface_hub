@@ -673,7 +673,8 @@ To filter by prefix, append the prefix to the bucket path:
 
 ### Copy single files
 
-Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
+Use `hf buckets cp` to copy individual files to and from a bucket, or to copy any file hosted on the Hub to a Bucket.
+Bucket paths use the `hf://buckets/` prefix.
 
 To upload a file:
 
@@ -702,6 +703,21 @@ You can also stream to stdout or from stdin using `-`:
 # Upload from stdin
 >>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
 ```
+
+To copy from a repo or a bucket on the Hub:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+```
+
+Notes:
+
+- Folder copy requires destination to end with `/`.
+- Bucket-to-repo copy is not supported.
 
 ### Sync directories
 

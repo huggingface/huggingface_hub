@@ -208,7 +208,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `cp`: Copy a single file to or from a bucket.
+* `cp`: Copy files to or from buckets.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
@@ -219,7 +219,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf buckets cp`
 
-Copy a single file to or from a bucket.
+Copy files to or from buckets.
 
 **Usage**:
 
@@ -229,8 +229,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, hf://buckets/... path, or - for stdin  [required]
-* `[DST]`: Destination: local path, hf://buckets/... path, or - for stdout
+* `SRC`: Source: local file, HF handle (hf://...), or - for stdin  [required]
+* `[DST]`: Destination: local path, HF handle (hf://...), or - for stdout
 
 **Options**:
 
@@ -247,6 +247,8 @@ Examples
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
   $ hf buckets cp - hf://buckets/user/my-bucket/config.json
+  $ hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/
+  $ hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
