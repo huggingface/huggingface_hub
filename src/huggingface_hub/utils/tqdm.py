@@ -297,6 +297,11 @@ def _get_progress_bar_context(
         #   Makes it easier to use the same code path for both cases but in the later
         #   case, the progress bar is not closed when exiting the context manager.
 
+    # If tqdm_class is explicitly None, don't create any progress bar
+    # This prevents "bad value(s) in fds_to_keep" errors in Textual worker threads
+    if tqdm_class is None:
+        return nullcontext(None)
+
     return (tqdm_class or tqdm)(  # type: ignore
         unit=unit,
         unit_scale=unit_scale,

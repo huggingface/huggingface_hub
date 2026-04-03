@@ -8,15 +8,22 @@ from .tqdm import tqdm
 
 class XetProgressReporter:
     """
-    Reports on progress for Xet uploads.
+    Reports on progress for Xet uploads/downloads.
 
     Shows summary progress bars when running in notebooks or GUIs, and detailed per-file progress in console environments.
     """
 
-    def __init__(self, n_lines: int = 10, description_width: int = 30, total_files: int | None = None):
+    def __init__(
+        self,
+        n_lines: int = 10,
+        description_width: int = 30,
+        total_files: int | None = None,
+        mode: str = "upload",
+    ):
         self.n_lines = n_lines
         self.description_width = description_width
         self.total_files = total_files
+        self.mode = mode
 
         self.per_file_progress = is_google_colab() or not is_notebook()
 
@@ -30,13 +37,16 @@ class XetProgressReporter:
             "bar_format": "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}",
         }
 
+        # Label based on mode
+        transfer_label = "Downloading" if mode == "download" else "New Data Upload"
+
         # Overall progress bars
         self.data_processing_bar = tqdm(
             total=0, desc=self.format_desc("Processing Files (0 / 0)", False), position=0, **self.tqdm_settings
         )
 
-        self.upload_bar = tqdm(
-            total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
+        self.transfer_bar = tqdm(
+            total=0, desc=self.format_desc(transfer_label, False), position=1, **self.tqdm_settings
         )
 
         self.known_items: set[str] = set()
@@ -153,18 +163,18 @@ class XetProgressReporter:
         self.data_processing_bar.set_postfix_str(postfix(total_update.total_bytes_completion_rate), refresh=False)
         self.data_processing_bar.update(total_update.total_bytes_completion_increment)
 
-        self.upload_bar.total = self._total_transfer_bytes_offset + total_update.total_transfer_bytes
-        self.upload_bar.set_postfix_str(postfix(total_update.total_transfer_bytes_completion_rate), refresh=False)
-        self.upload_bar.update(total_update.total_transfer_bytes_completion_increment)
+        self.transfer_bar.total = self._total_transfer_bytes_offset + total_update.total_transfer_bytes
+        self.transfer_bar.set_postfix_str(postfix(total_update.total_transfer_bytes_completion_rate), refresh=False)
+        self.transfer_bar.update(total_update.total_transfer_bytes_completion_increment)
 
     def notify_upload_complete(self):
         """Call between upload_files/upload_bytes calls to accumulate totals across chunks."""
         self._total_bytes_offset = self.data_processing_bar.total or 0
-        self._total_transfer_bytes_offset = self.upload_bar.total or 0
+        self._total_transfer_bytes_offset = self.transfer_bar.total or 0
 
     def close(self, _success):
         self.data_processing_bar.close()
-        self.upload_bar.close()
+        self.transfer_bar.close()
 
         if self.per_file_progress:
             for bar in self.current_bars:

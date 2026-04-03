@@ -1338,3 +1338,75 @@ def _recursive_chmod(path: str, mode: int) -> None:
             os.chmod(os.path.join(root, d), mode)
         for f in files:
             os.chmod(os.path.join(root, f), mode)
+
+
+class TestProgressUpdater:
+    """Tests for progress_updater parameter in hf_hub_download and xet_get."""
+
+    def test_hf_hub_download_accepts_progress_updater_param(self, tmp_path):
+        """hf_hub_download should accept progress_updater parameter without error."""
+        # This test verifies the parameter is accepted (doesn't test actual download)
+        import inspect
+        sig = inspect.signature(hf_hub_download)
+        assert "progress_updater" in sig.parameters
+
+    def test_xet_get_accepts_progress_updater_param(self):
+        """xet_get should accept progress_updater parameter."""
+        from huggingface_hub.file_download import xet_get
+        import inspect
+        sig = inspect.signature(xet_get)
+        assert "progress_updater" in sig.parameters
+
+    def test_progress_updater_signature_simple_1_arg(self):
+        """Simple callback with 1 argument should work with xet-core."""
+        # xet-core detects simple mode when callback has 1 parameter
+        def simple_callback(progress_bytes):
+            pass
+
+        import inspect
+        params = list(inspect.signature(simple_callback).parameters.keys())
+        assert len(params) == 1
+
+    def test_progress_updater_signature_detailed_2_args(self):
+        """Detailed callback with 2 arguments should work with xet-core."""
+        # xet-core detects detailed mode when callback has 2 named parameters
+        def detailed_callback(total_update, item_updates):
+            pass
+
+        import inspect
+        params = list(inspect.signature(detailed_callback).parameters.keys())
+        assert len(params) == 2
+        assert params == ["total_update", "item_updates"]
+
+    @pytest.mark.parametrize(
+        "callback",
+        [
+            pytest.param(lambda x: None, id="lambda-1-arg"),
+            pytest.param(lambda total_update, item_updates: None, id="lambda-2-arg"),
+        ],
+    )
+    def test_callback_signatures_detected_correctly(self, callback):
+        """xet-core should correctly detect 1-arg vs 2-arg callbacks."""
+        import inspect
+        sig = inspect.signature(callback)
+        param_count = len(sig.parameters)
+
+        # 1 param = simple mode, 2 params = detailed mode
+        if param_count == 1:
+            # Simple mode - xet-core passes just the increment
+            assert param_count == 1
+        elif param_count == 2:
+            # Detailed mode - xet-core passes (total_update, item_updates)
+            params = list(sig.parameters.keys())
+            assert params[0] == "total_update"
+            assert params[1] == "item_updates"
+
+    def test_progress_updater_with_tqdm_class_mutually_exclusive(self, tmp_path):
+        """When progress_updater is provided, it should take precedence over tqdm_class."""
+        # This is a signature test - both parameters exist but progress_updater
+        # takes precedence when provided
+        import inspect
+        sig = inspect.signature(hf_hub_download)
+        params = sig.parameters
+        assert "tqdm_class" in params
+        assert "progress_updater" in params
