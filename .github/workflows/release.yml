@@ -211,7 +211,7 @@ jobs:
             patch-release)    TYPE_EMOJI="🐛" TYPE_LABEL="Patch" ;;
           esac
 
-          TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*\n>Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+          TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
 
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
@@ -967,10 +967,10 @@ jobs:
           esac
 
           if [[ "$FAILED" == "true" ]]; then
-            TEXT="❌ *${TYPE_LABEL} \`${TAG}\` failed*\n>Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+            TEXT="❌ *${TYPE_LABEL} \`${TAG}\` failed*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
             REACTION="x"
           else
-            TEXT="✅ *${TYPE_LABEL} \`${TAG}\` completed*\n>Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+            TEXT="✅ *${TYPE_LABEL} \`${TAG}\` completed*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
             REACTION="white_check_mark"
           fi
 
