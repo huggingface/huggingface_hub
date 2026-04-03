@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 In this guide, we will see how to manage your Space runtime
 ([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
-[hardware](https://huggingface.co/docs/hub/spaces-gpus), and [storage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)) using `huggingface_hub`.
+[hardware](https://huggingface.co/docs/hub/spaces-gpus), and volumes) using `huggingface_hub`.
 
 ## A simple example: configure secrets and hardware.
 
@@ -26,10 +26,10 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 **1. (bis) Duplicate a Space.**
 
 This can prove useful if you want to build up from an existing Space instead of starting from scratch.
-It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
+It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_repo`] for more details.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
 **2. Upload your code using your preferred solution.**
@@ -82,10 +82,11 @@ Secrets and variables can be set when creating or duplicating a space:
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
 ... )
 ```
 
@@ -131,16 +132,15 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time="7200", # 2 hours in secs
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
@@ -191,46 +191,73 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time="3600",
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
 ... )
 ```
 
-**6. Add persistent storage to your Space**
+**6. Mount volumes in your Space**
 
-You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
-
-```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
-```
-
-You can also delete your storage, losing all the data permanently.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
-```
-
-Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
-you must delete the storage first then request the new desired tier.
-
-**Bonus: request storage when creating or duplicating the Space!**
+You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code. Volumes can be set directly when creating or duplicating a Space:
 
 ```py
+>>> from huggingface_hub import Volume
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
-...     space_storage="large",
+...     space_sdk="gradio",
+...     space_volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+...     ],
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     storage="large",
+...     repo_type="space",
+...     space_volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+...     ],
 ... )
 ```
+
+You can check which volumes are currently mounted via the Space runtime:
+
+```py
+>>> runtime = api.get_space_runtime(repo_id=repo_id)
+>>> runtime.volumes
+[Volume(type='model', source='username/my-model', mount_path='/models', read_only=True), ...]
+```
+
+If you need to update volumes on an existing Space, use [`set_space_volumes`]. Note that this replaces all previously mounted volumes.
+
+```py
+>>> api.set_space_volumes(
+...     repo_id=repo_id,
+...     volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="dataset", source="username/my-dataset", mount_path="/data", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/output"),
+...     ],
+... )
+```
+
+To remove all volumes from your Space:
+
+```py
+>>> api.delete_space_volumes(repo_id=repo_id)
+```
+
+> [!NOTE]
+> Models, datasets, and Spaces are always mounted as read-only. Only storage buckets support read-write mounts.
+
+> [!WARNING]
+> Setting volumes replaces any previously mounted volumes. To add a volume to an existing list, first read the current volumes from the runtime and include them in the new list.
 
 ## More advanced: temporarily upgrade your Space !
 

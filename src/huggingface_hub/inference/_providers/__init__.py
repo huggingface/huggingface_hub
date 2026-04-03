@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
@@ -37,6 +37,7 @@ from .nebius import (
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
+from .nvidia import NvidiaConversationalTask
 from .openai import OpenAIConversationalTask
 from .ovhcloud import OVHcloudConversationalTask
 from .publicai import PublicAIConversationalTask
@@ -76,6 +77,7 @@ PROVIDER_T = Literal[
     "nebius",
     "novita",
     "nscale",
+    "nvidia",
     "openai",
     "ovhcloud",
     "publicai",
@@ -171,6 +173,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": NscaleConversationalTask(),
         "text-to-image": NscaleTextToImageTask(),
     },
+    "nvidia": {
+        "conversational": NvidiaConversationalTask(),
+    },
     "openai": {
         "conversational": OpenAIConversationalTask(),
     },
@@ -213,9 +218,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(
-    provider: Optional[PROVIDER_OR_POLICY_T], task: str, model: Optional[str]
-) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model: str | None) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:

@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import yaml
 
@@ -112,7 +112,7 @@ class RepoCard:
     def __str__(self):
         return self.content
 
-    def save(self, filepath: Union[Path, str]):
+    def save(self, filepath: Path | str):
         r"""Save a RepoCard to a file.
 
         Args:
@@ -135,9 +135,9 @@ class RepoCard:
     @classmethod
     def load(
         cls,
-        repo_id_or_path: Union[str, Path],
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        repo_id_or_path: str | Path,
+        repo_type: str | None = None,
+        token: str | None = None,
         ignore_metadata_errors: bool = False,
     ):
         """Initialize a RepoCard from a Hugging Face Hub repo's README.md or a local filepath.
@@ -186,7 +186,7 @@ class RepoCard:
         with card_path.open(mode="r", newline="", encoding="utf-8") as f:
             return cls(f.read(), ignore_metadata_errors=ignore_metadata_errors)
 
-    def validate(self, repo_type: Optional[str] = None):
+    def validate(self, repo_type: str | None = None):
         """Validates card against Hugging Face Hub's card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by [`huggingface_hub.repocard.RepoCard.push_to_hub`].
@@ -226,13 +226,13 @@ class RepoCard:
     def push_to_hub(
         self,
         repo_id: str,
-        token: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | None = None,
+        repo_type: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
     ):
         """Push a RepoCard to a Hugging Face Hub repo.
 
@@ -290,8 +290,8 @@ class RepoCard:
     def from_template(
         cls,
         card_data: CardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a RepoCard from a template. By default, it uses the default template.
@@ -339,8 +339,8 @@ class ModelCard(RepoCard):
     def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: ModelCardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a ModelCard from a template. By default, it uses the default template, which can be found here:
@@ -420,8 +420,8 @@ class DatasetCard(RepoCard):
     def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: DatasetCardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a DatasetCard from a template. By default, it uses the default template, which can be found here:
@@ -503,7 +503,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
         return "\n"
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[dict]:
+def metadata_load(local_path: str | Path) -> dict | None:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
@@ -516,7 +516,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[dict]:
         return None
 
 
-def metadata_save(local_path: Union[str, Path], data: dict) -> None:
+def metadata_save(local_path: str | Path, data: dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
     in the existing file. Docs about open() with newline="" parameter:
@@ -527,7 +527,7 @@ def metadata_save(local_path: Union[str, Path], data: dict) -> None:
     content = ""
     # try to detect existing newline character
     if os.path.exists(local_path):
-        with open(local_path, "r", newline="", encoding="utf8") as readme:
+        with open(local_path, newline="", encoding="utf8") as readme:
             content = readme.read()
             if isinstance(readme.newlines, tuple):
                 line_break = readme.newlines[0]
@@ -558,12 +558,12 @@ def metadata_eval_result(
     metrics_value: Any,
     dataset_pretty_name: str,
     dataset_id: str,
-    metrics_config: Optional[str] = None,
+    metrics_config: str | None = None,
     metrics_verified: bool = False,
-    dataset_config: Optional[str] = None,
-    dataset_split: Optional[str] = None,
-    dataset_revision: Optional[str] = None,
-    metrics_verification_token: Optional[str] = None,
+    dataset_config: str | None = None,
+    dataset_split: str | None = None,
+    dataset_revision: str | None = None,
+    metrics_verification_token: str | None = None,
 ) -> dict:
     """
     Creates a metadata dict with the result from a model evaluated on a dataset.
@@ -681,14 +681,14 @@ def metadata_update(
     repo_id: str,
     metadata: dict,
     *,
-    repo_type: Optional[str] = None,
+    repo_type: str | None = None,
     overwrite: bool = False,
-    token: Optional[str] = None,
-    commit_message: Optional[str] = None,
-    commit_description: Optional[str] = None,
-    revision: Optional[str] = None,
+    token: str | None = None,
+    commit_message: str | None = None,
+    commit_description: str | None = None,
+    revision: str | None = None,
     create_pr: bool = False,
-    parent_commit: Optional[str] = None,
+    parent_commit: str | None = None,
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
@@ -767,7 +767,7 @@ def metadata_update(
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
         # Cast to the concrete expected card type to satisfy type checkers.
-        card = card_class.from_template(CardData())  # type: ignore[return-value]
+        card = card_class.from_template(CardData())  # type: ignore
 
     for key, value in metadata.items():
         if key == "model-index":

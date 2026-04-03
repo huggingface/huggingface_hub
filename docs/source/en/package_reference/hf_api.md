@@ -53,6 +53,14 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.BucketUrl
 
+### DatasetLeaderboardEntry
+
+[[autodoc]] huggingface_hub.hf_api.DatasetLeaderboardEntry
+
+### EvalResultEntry
+
+[[autodoc]] huggingface_hub.hf_api.EvalResultEntry
+
 ### SyncOperation
 
 [[autodoc]] huggingface_hub.SyncOperation

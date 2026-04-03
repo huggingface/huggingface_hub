@@ -7,7 +7,7 @@ for more information on Pull Requests, Discussions, and the community tab.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Optional, TypedDict, Union
+from typing import Literal, TypedDict
 
 from . import constants
 from .utils import parse_datetime
@@ -67,7 +67,7 @@ class Discussion:
     endpoint: str
 
     @property
-    def git_reference(self) -> Optional[str]:
+    def git_reference(self) -> str | None:
         """
         If this is a Pull Request , returns the git reference to which changes can be pushed.
         Returns `None` otherwise.
@@ -137,10 +137,10 @@ class DiscussionWithDetails(Discussion):
     """
 
     events: list["DiscussionEvent"]
-    conflicting_files: Union[list[str], bool, None]
-    target_branch: Optional[str]
-    merge_commit_oid: Optional[str]
-    diff: Optional[str]
+    conflicting_files: list[str] | bool | None
+    target_branch: str | None
+    merge_commit_oid: str | None
+    diff: str | None
 
 
 class DiscussionEventArgs(TypedDict):

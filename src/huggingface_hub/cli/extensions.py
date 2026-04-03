@@ -19,18 +19,18 @@ import os
 import re
 import shutil
 import subprocess
+import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Annotated, Optional
+from typing import Annotated, Literal
 
 import typer
 
-from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import get_session, tabulate
+from huggingface_hub.errors import CLIError, CLIExtensionInstallError
+from huggingface_hub.utils import StatusLine, get_session, logging
 
-from ._cli_utils import typer_factory
+from ._cli_utils import FormatOpt, OutputFormat, QuietOpt, print_list_output, typer_factory
 
 
 DEFAULT_EXTENSION_OWNER = "huggingface"
@@ -38,10 +38,16 @@ EXTENSIONS_ROOT = Path("~/.local/share/hf/extensions")
 MANIFEST_FILENAME = "manifest.json"
 EXTENSIONS_HELP = (
     "Manage hf CLI extensions.\n\n"
-    "Security Warning: extensions are third-party executables. "
+    "Security Warning: extensions are third-party executables or Python packages. "
     "Install only from sources you trust."
 )
 extensions_cli = typer_factory(help=EXTENSIONS_HELP)
+_EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
+_EXTENSIONS_GITHUB_TOPIC = "hf-extension"
+_EXTENSIONS_DOWNLOAD_TIMEOUT = 10
+_EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -52,9 +58,26 @@ class ExtensionManifest:
     short_name: str
     executable_name: str
     executable_path: str
-    type: str  # "binary" (future: "python"?), not sure yet how to handle different types of extensions
-    installed_at: str
+    type: Literal["binary", "python"]
+    installed_at: datetime
     source: str
+    description: str | None = None
+
+    @classmethod
+    def load(cls, path: Path) -> "ExtensionManifest":
+        manifest_path = path / MANIFEST_FILENAME
+        if not manifest_path.is_file():
+            raise CLIError(f"Manifest file not found at {manifest_path}. Your extension may be corrupted.")
+        data = json.loads(manifest_path.read_text())
+        data["installed_at"] = datetime.fromisoformat(data["installed_at"])
+        return ExtensionManifest(**data)
+
+    def save(self, path: Path) -> None:
+        manifest_path = path / MANIFEST_FILENAME
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        data = asdict(self)
+        data["installed_at"] = self.installed_at.isoformat()
+        manifest_path.write_text(json.dumps(data, indent=2, sort_keys=True))
 
 
 @extensions_cli.command(
@@ -62,6 +85,7 @@ class ExtensionManifest:
     examples=[
         "hf extensions install hf-claude",
         "hf extensions install hanouticelina/hf-claude",
+        "hf extensions install alvarobartt/hf-mem",
     ],
 )
 def extension_install(
@@ -74,7 +98,8 @@ def extension_install(
 ) -> None:
     """Install an extension from a public GitHub repository.
 
-    Security warning: this installs a third-party executable. Install only from sources you trust.
+    Security warning: this installs a third-party executable or Python package.
+    Install only from sources you trust.
     """
     owner, repo_name, short_name = _normalize_repo_id(repo_id)
     root_ctx = ctx.find_root()
@@ -85,45 +110,26 @@ def extension_install(
         )
 
     extension_dir = _get_extension_dir(short_name)
-    if extension_dir.exists():
-        if not force:
-            raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
+    extension_exists = extension_dir.exists()
+    if extension_exists and not force:
+        raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
+
+    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
+
+    if extension_exists:
         shutil.rmtree(extension_dir)
 
-    executable_name = _get_executable_name(short_name)
-    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/main/{executable_name}"
-    try:
-        response = get_session().get(raw_url, follow_redirects=True)
-        response.raise_for_status()
-    except Exception as e:
-        raise CLIError(f"Failed to download '{executable_name}' from '{owner}/{repo_name}': {e}") from e
-
-    with TemporaryDirectory() as tmp_dir:
-        tmp_executable = Path(tmp_dir) / executable_name
-        tmp_executable.write_bytes(response.content)
-        if os.name != "nt":
-            os.chmod(tmp_executable, 0o755)
-
-        manifest = ExtensionManifest(
-            owner=owner,
-            repo=repo_name,
-            repo_id=f"{owner}/{repo_name}",
-            short_name=short_name,
-            executable_name=executable_name,
-            executable_path=str(_get_extension_executable_path(short_name)),
-            type="binary",
-            installed_at=datetime.now(timezone.utc).isoformat(),
-            source=f"https://github.com/{owner}/{repo_name}",
-        )
-        _persist_installed_extension(
-            extension_dir=extension_dir,
-            source_executable=tmp_executable,
-            manifest=manifest,
-        )
-
-    print(f"Installed extension '{owner}/{repo_name}'.")
+    manifest = _install_extension_from_github(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        extension_dir=extension_dir,
+        branch=branch,
+        description=description,
+    )
+    ext_type = manifest.type.capitalize()
+    print(f"{ext_type} extension installed successfully from {owner}/{repo_name}.")
     print(f"Run it with: hf {short_name}")
-    print(f"Or with: hf extensions exec {short_name}")
 
 
 @extensions_cli.command(
@@ -143,7 +149,7 @@ def extension_exec(
 ) -> None:
     """Execute an installed extension."""
     short_name = _normalize_extension_name(name)
-    executable_path = _get_extension_executable_path(short_name)
+    executable_path = _resolve_installed_executable_path(short_name)
 
     if not executable_path.is_file():
         raise CLIError(f"Extension '{short_name}' is not installed.")
@@ -152,39 +158,54 @@ def extension_exec(
     raise typer.Exit(code=exit_code)
 
 
-@extensions_cli.command("list", examples=["hf extensions list"])
-def extension_list() -> None:
+@extensions_cli.command("list | ls", examples=["hf extensions list"])
+def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
     """List installed extension commands."""
-    root_dir = _get_extensions_root()
-    if not root_dir.is_dir():
-        print("No extensions installed.")
-        return
+    rows = [
+        {
+            "command": f"hf {manifest.short_name}",
+            "source": str(manifest.repo_id),
+            "type": str(manifest.type),
+            "installed": manifest.installed_at.strftime("%Y-%m-%d"),
+            "description": manifest.description,
+        }
+        for manifest in _list_installed_extensions()
+    ]
+    print_list_output(rows, format=format, quiet=quiet, id_key="command")
+
+
+@extensions_cli.command("search", examples=["hf extensions search"])
+def extension_search(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
+    """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
+    response = get_session().get(
+        "https://api.github.com/search/repositories",
+        params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
+        follow_redirects=True,
+        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    installed = {m.short_name for m in _list_installed_extensions()}
 
     rows = []
-    for extension_dir in sorted(root_dir.iterdir()):
-        if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
-            continue
+    for repo in data.get("items", []):
+        repo_name = repo["name"]
+        short_name = repo_name[3:] if repo_name.startswith("hf-") else repo_name
+        rows.append(
+            {
+                "name": short_name,
+                "repo": repo["full_name"],
+                "stars": repo.get("stargazers_count", 0),
+                "description": repo.get("description") or "",
+                "installed": "yes" if short_name in installed else "",
+            }
+        )
 
-        short_name = extension_dir.name[3:]
-        manifest_path = extension_dir / MANIFEST_FILENAME
-
-        repository = ""
-        installed_at = ""
-        if manifest_path.is_file():
-            data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            repository = str(data.get("repo_id", ""))
-            installed_at = str(data.get("installed_at", ""))
-
-        rows.append([f"hf {short_name}", repository, installed_at])
-
-    if not rows:
-        print("No extensions installed.")
-        return
-
-    print(tabulate(rows, headers=["COMMAND", "REPOSITORY", "INSTALLED_AT"]))  # type: ignore[arg-type]
+    print_list_output(rows, format=format, quiet=quiet, id_key="repo", alignments={"stars": "right"})
 
 
-@extensions_cli.command("remove", examples=["hf extensions remove claude"])
+@extensions_cli.command("remove | rm", examples=["hf extensions remove claude"])
 def extension_remove(
     name: Annotated[
         str,
@@ -205,40 +226,284 @@ def extension_remove(
 ### HELPER FUNCTIONS
 
 
-def _dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> Optional[int]:
+def _list_installed_extensions() -> list[ExtensionManifest]:
+    """Return manifests for all validly-installed extensions, sorted by directory name."""
+    root_dir = EXTENSIONS_ROOT.expanduser()
+    if not root_dir.is_dir():
+        return []
+    manifests = []
+    for extension_dir in sorted(root_dir.iterdir()):
+        if not extension_dir.is_dir() or not extension_dir.name.startswith("hf-"):
+            continue
+        try:
+            manifests.append(ExtensionManifest.load(extension_dir))
+        except Exception as e:
+            logger.debug(f"Failed to load manifest for extension '{extension_dir.name}': {e}")
+            continue
+    return manifests
+
+
+def list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    entries = []
+    for manifest in _list_installed_extensions():
+        tag = f"[extension {manifest.repo_id}]"
+        help_text = f"{manifest.description} {tag}" if manifest.description is not None else tag
+        entries.append((manifest.short_name, help_text))
+    return entries
+
+
+def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[str]) -> int | None:
     if not args:
         return None
 
     command_name = args[0]
     if command_name.startswith("-"):
         return None
-    if command_name in known_commands:
+    all_known = {a.strip() for cmd in known_commands for a in cmd.split("|")}
+    if command_name in all_known:
         return None
 
     short_name = command_name[3:] if command_name.startswith("hf-") else command_name
     if not short_name:
         return None
 
-    executable_path = _get_extension_executable_path(short_name)
-    if not executable_path.is_file():
+    executable_path: Path | None = None
+    try:
+        executable_path = _resolve_installed_executable_path(short_name)
+    except Exception:
+        executable_path = _auto_install_official_extension(short_name)
+
+    if executable_path is None or not executable_path.is_file():
         return None
 
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
 
 
-def _persist_installed_extension(extension_dir: Path, source_executable: Path, manifest: ExtensionManifest) -> None:
-    executable_path = extension_dir / manifest.executable_name
-    manifest_path = extension_dir / MANIFEST_FILENAME
-
+def _auto_install_official_extension(short_name: str) -> Path | None:
+    """Try to auto-install huggingface/hf-<name>. Returns executable path or None."""
+    owner, repo_name = DEFAULT_EXTENSION_OWNER, f"hf-{short_name}"
     try:
-        extension_dir.mkdir(parents=True, exist_ok=False)
-        shutil.copy2(source_executable, executable_path)
-        if os.name != "nt":
-            os.chmod(executable_path, 0o755)
-        manifest_path.write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        extension_dir = _get_extension_dir(short_name)
+    except Exception:
+        return None
+    if extension_dir.exists():
+        return None
+    try:
+        response = get_session().get(
+            f"https://api.github.com/repos/{owner}/{repo_name}",
+            follow_redirects=True,
+            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        branch = response.json()["default_branch"]
+    except Exception:
+        return None
+    if not typer.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?"):
+        return None
+    try:
+        manifest = _install_extension_from_github(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+        )
+        return Path(manifest.executable_path).expanduser()
     except Exception:
         shutil.rmtree(extension_dir, ignore_errors=True)
+        return None
+
+
+def _install_extension_from_github(
+    *,
+    owner: str,
+    repo_name: str,
+    short_name: str,
+    extension_dir: Path,
+    branch: str,
+    description: str | None = None,
+) -> ExtensionManifest:
+    """Fetch, install (binary or Python), and save manifest for a GitHub extension."""
+    try:
+        binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
+    except Exception:
+        binary = None
+    if binary is not None:
+        manifest = _install_binary_extension(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, binary=binary
+        )
+    else:
+        manifest = _install_python_extension(
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+        )
+    manifest.description = _try_fetch_remote_description(
+        owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
+    )
+    manifest.save(extension_dir)
+    return manifest
+
+
+def _fetch_remote_binary(owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
+    executable_name = _get_executable_name(short_name)
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
+    response = get_session().get(raw_url, follow_redirects=True, timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT)
+    response.raise_for_status()
+    return response.content
+
+
+def _install_binary_extension(
+    *, owner: str, repo_name: str, short_name: str, extension_dir: Path, binary: bytes
+) -> ExtensionManifest:
+    # Save extension binary
+    executable_name = _get_executable_name(short_name)
+    extension_dir.mkdir(parents=True, exist_ok=False)
+    executable_path = extension_dir / executable_name
+    executable_path.write_bytes(binary)
+
+    # Make it executable
+    if os.name != "nt":
+        os.chmod(executable_path, 0o755)
+
+    # Create manifest
+    return ExtensionManifest(
+        owner=owner,
+        repo=repo_name,
+        repo_id=f"{owner}/{repo_name}",
+        short_name=short_name,
+        executable_name=executable_name,
+        executable_path=str(executable_path),
+        type="binary",
+        installed_at=datetime.now(timezone.utc),
+        source=f"https://github.com/{owner}/{repo_name}",
+    )
+
+
+def _install_python_extension(
+    *, owner: str, repo_name: str, short_name: str, extension_dir: Path, branch: str
+) -> ExtensionManifest:
+    source_url = f"https://github.com/{owner}/{repo_name}/archive/refs/heads/{branch}.zip"
+    venv_dir = extension_dir / "venv"
+    installed = False
+
+    status = StatusLine()
+    try:
+        status.update(f"Creating virtual environment in {venv_dir}")
+        if extension_dir.exists():
+            shutil.rmtree(extension_dir, ignore_errors=True)
+        extension_dir.mkdir(parents=True, exist_ok=False)
+
+        uv_path = shutil.which("uv")
+        venv_python = _get_venv_python_path(venv_dir)
+        if uv_path:
+            subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
+            status.done(f"Virtual environment created in {venv_dir}")
+
+            status.update(f"Installing package from {source_url}")
+            subprocess.run(
+                [uv_path, "pip", "install", "--python", str(venv_python), source_url],
+                check=True,
+                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
+            )
+        else:
+            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
+            status.done(f"Virtual environment created in {venv_dir}")
+
+            status.update(f"Installing package from {source_url}")
+            subprocess.run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--disable-pip-version-check",
+                    "--no-input",
+                    source_url,
+                ],
+                check=True,
+                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
+            )
+        status.done(f"Package installed from {source_url}")
+
+        executable_name = _get_executable_name(short_name)
+        venv_executable = _get_venv_extension_executable_path(venv_dir, short_name)
+        if not venv_executable.is_file():
+            raise CLIError(
+                f"Installed package from '{owner}/{repo_name}' does not expose the required console script "
+                f"'{executable_name}'."
+            )
+
+        manifest = ExtensionManifest(
+            owner=owner,
+            repo=repo_name,
+            repo_id=f"{owner}/{repo_name}",
+            short_name=short_name,
+            executable_name=executable_name,
+            executable_path=str(venv_executable.resolve()),
+            type="python",
+            installed_at=datetime.now(timezone.utc),
+            source=f"https://github.com/{owner}/{repo_name}",
+        )
+        installed = True
+        return manifest
+    except CLIError:
         raise
+    except subprocess.TimeoutExpired as e:
+        raise CLIExtensionInstallError(
+            f"Pip install timed out after {_EXTENSIONS_PIP_INSTALL_TIMEOUT}s for '{owner}/{repo_name}'. "
+            "See pip output above for details."
+        ) from e
+    except subprocess.CalledProcessError as e:
+        raise CLIExtensionInstallError(
+            f"Failed to install pip package from '{owner}/{repo_name}' (exit code {e.returncode}). "
+            "See pip output above for details."
+        ) from e
+    except Exception as e:
+        raise CLIExtensionInstallError(f"Failed to set up pip extension from '{owner}/{repo_name}': {e}") from e
+    finally:
+        if not installed:
+            shutil.rmtree(extension_dir, ignore_errors=True)
+
+
+def _try_fetch_remote_description(
+    owner: str, repo_name: str, branch: str, candidate_description: str | None
+) -> str | None:
+    """Try to fetch project description either from:
+    - manifest.json
+    - pyproject.toml
+
+    Only best effort, no error handling.
+    """
+    # from manifest.json
+    try:
+        response = get_session().get(
+            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{MANIFEST_FILENAME}",
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        data = response.json()
+        description = data.get("description")
+        if isinstance(description, str):
+            return description
+    except Exception:
+        pass
+
+    # from pyproject.toml
+    try:
+        response = get_session().get(
+            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/pyproject.toml",
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+
+        # Weak parser but ok for "best effort"
+        for line in response.text.splitlines():
+            line = line.strip()
+            if line.startswith("description"):
+                _, _, value = line.partition("=")
+                return value.strip().strip("\"'")
+    except Exception:
+        pass
+
+    # fallback to value fetched from GH API directly
+    return candidate_description
 
 
 def _get_extensions_root() -> Path:
@@ -256,6 +521,20 @@ def _get_extension_dir(short_name: str) -> Path:
     return target
 
 
+def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, str | None]:
+    try:
+        response = get_session().get(
+            f"https://api.github.com/repos/{owner}/{repo_name}",
+            follow_redirects=True,
+            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["default_branch"], data.get("description")
+    except Exception:
+        return _EXTENSIONS_DEFAULT_BRANCH, None
+
+
 def _get_executable_name(short_name: str) -> str:
     name = f"hf-{short_name}"
     if os.name == "nt":
@@ -263,8 +542,23 @@ def _get_executable_name(short_name: str) -> str:
     return name
 
 
-def _get_extension_executable_path(short_name: str) -> Path:
-    return _get_extension_dir(short_name) / _get_executable_name(short_name)
+def _resolve_installed_executable_path(short_name: str) -> Path:
+    extension_dir = _get_extension_dir(short_name)
+    manifest = ExtensionManifest.load(extension_dir)
+    return Path(manifest.executable_path).expanduser()
+
+
+def _get_venv_python_path(venv_dir: Path) -> Path:
+    if os.name == "nt":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+def _get_venv_extension_executable_path(venv_dir: Path, short_name: str) -> Path:
+    executable_name = _get_executable_name(short_name)
+    if os.name == "nt":
+        return venv_dir / "Scripts" / executable_name
+    return venv_dir / "bin" / executable_name
 
 
 _ALLOWED_EXTENSION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")

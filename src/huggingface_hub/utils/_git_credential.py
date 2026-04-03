@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +15,6 @@
 
 import re
 import subprocess
-from typing import Optional
 
 from ..constants import ENDPOINT
 from ._subprocess import run_interactive_subprocess, run_subprocess
@@ -34,7 +32,7 @@ GIT_CREDENTIAL_REGEX = re.compile(
 )
 
 
-def list_credential_helpers(folder: Optional[str] = None) -> list[str]:
+def list_credential_helpers(folder: str | None = None) -> list[str]:
     """Return the list of git credential helpers configured.
 
     See https://git-scm.com/docs/gitcredentials.
@@ -51,10 +49,10 @@ def list_credential_helpers(folder: Optional[str] = None) -> list[str]:
         parsed = _parse_credential_output(output)
         return parsed
     except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
+        raise OSError(exc.stderr)
 
 
-def set_git_credential(token: str, username: str = "hf_user", folder: Optional[str] = None) -> None:
+def set_git_credential(token: str, username: str = "hf_user", folder: str | None = None) -> None:
     """Save a username/token pair in git credential for HF Hub registry.
 
     Credentials are saved in all configured helpers (store, cache, macOS keychain,...).
@@ -77,7 +75,7 @@ def set_git_credential(token: str, username: str = "hf_user", folder: Optional[s
         stdin.flush()
 
 
-def unset_git_credential(username: str = "hf_user", folder: Optional[str] = None) -> None:
+def unset_git_credential(username: str = "hf_user", folder: str | None = None) -> None:
     """Erase credentials from git credential for HF Hub registry.
 
     Credentials are erased from the configured helpers (store, cache, macOS
@@ -115,7 +113,7 @@ def _parse_credential_output(output: str) -> list[str]:
     #       Example: `credential.https://huggingface.co.helper=store`
     #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
     return sorted(  # Sort for nice printing
-        set(  # Might have some duplicates
+        {  # Might have some duplicates
             match[0] for match in GIT_CREDENTIAL_REGEX.findall(output)
-        )
+        }
     )

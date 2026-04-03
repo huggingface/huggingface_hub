@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -91,7 +90,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
     return _inner_fn  # type: ignore
 
 
-def validate_repo_id(repo_id: str) -> None:
+def validate_repo_id(repo_id: str | None) -> None:
     """Validate `repo_id` is valid.
 
     This is not meant to replace the proper validation made on the Hub but rather to
@@ -121,6 +120,10 @@ def validate_repo_id(repo_id: str) -> None:
     - https://github.com/huggingface/moon-landing/blob/main/server/lib/Names.ts#L27
     - https://github.com/huggingface/moon-landing/blob/main/server/views/components/NewRepoForm/NewRepoForm.svelte#L138
     """
+    if repo_id is None:
+        # Repo id is not always required
+        return
+
     if not isinstance(repo_id, str):
         # Typically, a Path is not a repo_id
         raise HFValidationError(f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'.")

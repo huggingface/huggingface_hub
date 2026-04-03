@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2026-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,10 +22,11 @@ import mimetypes
 import os
 import sys
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
 from .errors import BucketNotFoundError
@@ -99,13 +99,13 @@ class BucketInfo:
 
 @dataclass
 class _BucketAddFile:
-    source: Union[str, Path, bytes]
+    source: str | Path | bytes
     destination: str
 
-    xet_hash: Optional[str] = field(default=None)
-    size: Optional[int] = field(default=None)
+    xet_hash: str | None = field(default=None)
+    size: int | None = field(default=None)
     mtime: int = field(init=False)
-    content_type: Optional[str] = field(init=False)
+    content_type: str | None = field(init=False)
 
     def __post_init__(self) -> None:
         self.content_type = None
@@ -197,8 +197,8 @@ class BucketFile:
     path: str
     size: int
     xet_hash: str
-    mtime: Optional[datetime]
-    uploaded_at: Optional[datetime]
+    mtime: datetime | None
+    uploaded_at: datetime | None
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -221,7 +221,7 @@ class BucketFolder:
 
     type: Literal["directory"]
     path: str
-    uploaded_at: Optional[datetime]
+    uploaded_at: datetime | None
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -266,11 +266,11 @@ class SyncOperation:
 
     action: Literal["upload", "download", "delete", "skip"]
     path: str
-    size: Optional[int] = None
+    size: int | None = None
     reason: str = ""
-    local_mtime: Optional[str] = None
-    remote_mtime: Optional[str] = None
-    bucket_file: Optional[BucketFile] = None  # BucketFile when available (not serialized to plan file)
+    local_mtime: str | None = None
+    remote_mtime: str | None = None
+    bucket_file: BucketFile | None = None  # BucketFile when available (not serialized to plan file)
 
 
 @dataclass
@@ -282,7 +282,7 @@ class SyncPlan:
     timestamp: str
     operations: list[SyncOperation] = field(default_factory=list)
 
-    def summary(self) -> dict[str, Union[int, str]]:
+    def summary(self) -> dict[str, int | str]:
         uploads = sum(1 for op in self.operations if op.action == "upload")
         downloads = sum(1 for op in self.operations if op.action == "download")
         deletes = sum(1 for op in self.operations if op.action == "delete")
@@ -307,9 +307,9 @@ class FilterMatcher:
 
     def __init__(
         self,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
-        filter_rules: Optional[list[tuple[str, str]]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
+        filter_rules: list[tuple[str, str]] | None = None,
     ):
         """Initialize the filter matcher.
 
@@ -453,7 +453,7 @@ def _compare_files_for_sync(
     ignore_sizes: bool,
     ignore_times: bool,
     ignore_existing: bool,
-    bucket_file: Optional[Any] = None,
+    bucket_file: Any | None = None,
 ) -> SyncOperation:
     """Compare source and dest files and return the appropriate sync operation.
 
@@ -521,8 +521,8 @@ def _compute_sync_plan(
     ignore_sizes: bool = False,
     existing: bool = False,
     ignore_existing: bool = False,
-    filter_matcher: Optional[FilterMatcher] = None,
-    status: Optional[Any] = None,
+    filter_matcher: FilterMatcher | None = None,
+    status: Any | None = None,
 ) -> SyncPlan:
     """Compute the sync plan by comparing source and destination.
 
@@ -542,7 +542,7 @@ def _compute_sync_plan(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-    remote_total: Optional[int] = None
+    remote_total: int | None = None
     if is_upload:
         # Local -> Remote
         local_path = os.path.abspath(source)
@@ -825,7 +825,7 @@ def _load_plan(plan_file: str) -> SyncPlan:
 # =============================================================================
 
 
-def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: Optional[Any] = None) -> None:
+def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: Any | None = None) -> None:
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
@@ -836,23 +836,24 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: O
         prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
 
         # Collect operations
-        add_files: list[tuple[Union[str, Path, bytes], str]] = []
+        add_files: list[tuple[str | Path | bytes, str]] = []
         delete_paths: list[str] = []
 
         for op in plan.operations:
-            if op.action == "upload":
-                local_file = os.path.join(local_path, op.path)
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Uploading: {op.path} ({op.reason})")
-                add_files.append((local_file, remote_path))
-            elif op.action == "delete":
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Deleting: {op.path} ({op.reason})")
-                delete_paths.append(remote_path)
-            elif op.action == "skip" and verbose:
-                print(f"  Skipping: {op.path} ({op.reason})")
+            match op.action:
+                case "upload":
+                    local_file = os.path.join(local_path, op.path)
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Uploading: {op.path} ({op.reason})")
+                    add_files.append((local_file, remote_path))
+                case "delete":
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Deleting: {op.path} ({op.reason})")
+                    delete_paths.append(remote_path)
+                case "skip" if verbose:
+                    print(f"  Skipping: {op.path} ({op.reason})")
 
         # Execute batch operations
         if add_files or delete_paths:
@@ -878,7 +879,7 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: O
         os.makedirs(local_path, exist_ok=True)
 
         # Collect download operations
-        download_files: list[tuple[Union[str, BucketFile], Union[str, Path]]] = []
+        download_files: list[tuple[str | BucketFile, str | Path]] = []
         delete_files: list[str] = []
 
         for op in plan.operations:
@@ -940,8 +941,8 @@ def _print_plan_summary(plan: SyncPlan) -> None:
 
 
 def sync_bucket_internal(
-    source: Optional[str] = None,
-    dest: Optional[str] = None,
+    source: str | None = None,
+    dest: str | None = None,
     *,
     api: "HfApi",
     delete: bool = False,
@@ -949,15 +950,15 @@ def sync_bucket_internal(
     ignore_sizes: bool = False,
     existing: bool = False,
     ignore_existing: bool = False,
-    include: Optional[list[str]] = None,
-    exclude: Optional[list[str]] = None,
-    filter_from: Optional[str] = None,
-    plan: Optional[str] = None,
-    apply: Optional[str] = None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    filter_from: str | None = None,
+    plan: str | None = None,
+    apply: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
     quiet: bool = False,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
 ) -> SyncPlan:
     """Sync files between a local directory and a bucket.
 

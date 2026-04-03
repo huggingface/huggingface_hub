@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
@@ -106,7 +106,7 @@ class InferenceEndpoint:
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
     health_route: str = field(init=False)
-    url: Optional[str] = field(init=False)
+    url: str | None = field(init=False)
 
     # Other fields
     framework: str = field(repr=False, init=False)
@@ -120,12 +120,12 @@ class InferenceEndpoint:
     raw: dict = field(repr=False)
 
     # Internal fields
-    _token: Union[str, bool, None] = field(repr=False, compare=False)
+    _token: str | bool | None = field(repr=False, compare=False)
     _api: "HfApi" = field(repr=False, compare=False)
 
     @classmethod
     def from_raw(
-        cls, raw: dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
+        cls, raw: dict, namespace: str, token: str | bool | None = None, api: Optional["HfApi"] = None
     ) -> "InferenceEndpoint":
         """Initialize object from raw dictionary."""
         if api is None:
@@ -161,7 +161,7 @@ class InferenceEndpoint:
 
         return InferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     @property
@@ -183,10 +183,10 @@ class InferenceEndpoint:
 
         return AsyncInferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
-    def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
+    def wait(self, timeout: int | None = None, refresh_every: int = 5) -> "InferenceEndpoint":
         """Wait for the Inference Endpoint to be deployed.
 
         Information from the server will be fetched every 1s. If the Inference Endpoint is not deployed after `timeout`
@@ -254,19 +254,19 @@ class InferenceEndpoint:
         self,
         *,
         # Compute update
-        accelerator: Optional[str] = None,
-        instance_size: Optional[str] = None,
-        instance_type: Optional[str] = None,
-        min_replica: Optional[int] = None,
-        max_replica: Optional[int] = None,
-        scale_to_zero_timeout: Optional[int] = None,
+        accelerator: str | None = None,
+        instance_size: str | None = None,
+        instance_type: str | None = None,
+        min_replica: int | None = None,
+        max_replica: int | None = None,
+        scale_to_zero_timeout: int | None = None,
         # Model update
-        repository: Optional[str] = None,
-        framework: Optional[str] = None,
-        revision: Optional[str] = None,
-        task: Optional[str] = None,
-        custom_image: Optional[dict] = None,
-        secrets: Optional[dict[str, str]] = None,
+        repository: str | None = None,
+        framework: str | None = None,
+        revision: str | None = None,
+        task: str | None = None,
+        custom_image: dict | None = None,
+        secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 

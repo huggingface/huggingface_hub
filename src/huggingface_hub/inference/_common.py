@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,9 +18,10 @@ import io
 import json
 import logging
 import mimetypes
+from collections.abc import AsyncIterable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Iterable, Literal, NoReturn, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, Union, overload
 
 import httpx
 
@@ -57,9 +57,9 @@ logger = logging.getLogger(__name__)
 class RequestParameters:
     url: str
     task: str
-    model: Optional[str]
-    json: Optional[Union[str, dict, list]]
-    data: Optional[bytes]
+    model: str | None
+    json: str | dict | list | None
+    data: bytes | None
     headers: dict[str, Any]
 
 
@@ -78,9 +78,9 @@ class MimeBytes(bytes):
     ```
     """
 
-    mime_type: Optional[str]
+    mime_type: str | None
 
-    def __new__(cls, data: bytes, mime_type: Optional[str] = None):
+    def __new__(cls, data: bytes, mime_type: str | None = None):
         obj = super().__new__(cls, data)
         obj.mime_type = mime_type
         if isinstance(data, MimeBytes) and mime_type is None:
@@ -123,7 +123,7 @@ def _open_as_mime_bytes(content: ContentT) -> MimeBytes: ...  # means "if input 
 def _open_as_mime_bytes(content: Literal[None]) -> Literal[None]: ...  # means "if input is None, output is None"
 
 
-def _open_as_mime_bytes(content: Optional[ContentT]) -> Optional[MimeBytes]:
+def _open_as_mime_bytes(content: ContentT | None) -> MimeBytes | None:
     """Open `content` as a binary file, either from a URL, a local path, raw bytes, or a PIL Image.
 
     Do nothing if `content` is None.
@@ -249,7 +249,7 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _as_dict(response: Union[bytes, dict]) -> dict:
+def _as_dict(response: bytes | dict) -> dict:
     return json.loads(response) if isinstance(response, bytes) else response
 
 
@@ -258,7 +258,7 @@ def _as_dict(response: Union[bytes, dict]) -> dict:
 
 def _stream_text_generation_response(
     output_lines: Iterable[str], details: bool
-) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
+) -> Iterable[str] | Iterable[TextGenerationStreamOutput]:
     """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
     for line in output_lines:
@@ -272,7 +272,7 @@ def _stream_text_generation_response(
 
 async def _async_stream_text_generation_response(
     output_lines: AsyncIterable[str], details: bool
-) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
+) -> AsyncIterable[str] | AsyncIterable[TextGenerationStreamOutput]:
     """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
     async for line in output_lines:
@@ -284,9 +284,7 @@ async def _async_stream_text_generation_response(
             yield output
 
 
-def _format_text_generation_stream_output(
-    line: str, details: bool
-) -> Optional[Union[str, TextGenerationStreamOutput]]:
+def _format_text_generation_stream_output(line: str, details: bool) -> str | TextGenerationStreamOutput | None:
     if not line.startswith("data:"):
         return None  # empty line
 
@@ -334,7 +332,7 @@ async def _async_stream_chat_completion_response(
 
 def _format_chat_completion_stream_output(
     line: str,
-) -> Optional[ChatCompletionStreamOutput]:
+) -> ChatCompletionStreamOutput | None:
     if not line.startswith("data:"):
         return None  # empty line
 
@@ -375,14 +373,14 @@ async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response)
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_UNSUPPORTED_TEXT_GENERATION_KWARGS: dict[Optional[str], list[str]] = {}
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: dict[str | None, list[str]] = {}
 
 
-def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: list[str]) -> None:
+def _set_unsupported_text_generation_kwargs(model: str | None, unsupported_kwargs: list[str]) -> None:
     _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
-def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> list[str]:
+def _get_unsupported_text_generation_kwargs(model: str | None) -> list[str]:
     return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
 
 
@@ -422,7 +420,7 @@ def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
     raise http_error
 
 
-def _parse_text_generation_error(error: Optional[str], error_type: Optional[str]) -> TextGenerationError:
+def _parse_text_generation_error(error: str | None, error_type: str | None) -> TextGenerationError:
     if error_type == "generation":
         return GenerationError(error)  # type: ignore
     if error_type == "incomplete_generation":

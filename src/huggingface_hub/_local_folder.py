@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2024-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,12 +55,18 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from .utils import WeakFileLock
 
 
 logger = logging.getLogger(__name__)
+
+CACHEDIR_TAG_CONTENT = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by huggingface_hub.\n"
+    "# For information about cache directory tags, see:\n"
+    "#\thttps://bford.info/cachedir/\n"
+)
 
 
 @dataclass
@@ -151,11 +156,11 @@ class LocalUploadFileMetadata:
     size: int
 
     # Default values correspond to "we don't know yet"
-    timestamp: Optional[float] = None
-    should_ignore: Optional[bool] = None
-    sha256: Optional[str] = None
-    upload_mode: Optional[str] = None
-    remote_oid: Optional[str] = None
+    timestamp: float | None = None
+    should_ignore: bool | None = None
+    sha256: str | None = None
+    upload_mode: str | None = None
+    remote_oid: str | None = None
     is_uploaded: bool = False
     is_committed: bool = False
 
@@ -273,7 +278,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDownloadFileMetadata]:
+def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:
@@ -428,6 +433,9 @@ def _huggingface_dir(local_dir: Path) -> Path:
     path = local_dir / ".cache" / "huggingface"
     path.mkdir(exist_ok=True, parents=True)
 
+    # Create a CACHEDIR.TAG so backup tools can skip this directory.
+    _create_cachedir_tag(path)
+
     # Create a .gitignore file in the .cache/huggingface directory if it doesn't exist
     # Should be thread-safe enough like this.
     gitignore = path / ".gitignore"
@@ -445,6 +453,20 @@ def _huggingface_dir(local_dir: Path) -> Path:
         except OSError:
             pass
     return path
+
+
+def _create_cachedir_tag(cache_dir: Path) -> None:
+    """Create a CACHEDIR.TAG file in ``cache_dir`` if one does not already exist.
+
+    The tag follows the `Cache Directory Tagging Standard <http://www.brynosaurus.com/cachedir/>`_
+    so that backup tools can recognize and skip cache directories.
+    """
+    tag_path = cache_dir / "CACHEDIR.TAG"
+    if not tag_path.exists():
+        try:
+            tag_path.write_text(CACHEDIR_TAG_CONTENT)
+        except OSError:
+            pass
 
 
 def _short_hash(filename: str) -> str:

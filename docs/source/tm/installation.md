@@ -2,7 +2,7 @@
 
 நீங்கள் தொடங்குவதற்கு முன், தகுந்த தொகுப்புகளை நிறுவுவதன் மூலம் உங்கள் சூழலை அமைக்க வேண்டும்.
 
-`huggingface_hub` **Python 3.9+** மின்பொருள்களில் சோதிக்கப்பட்டுள்ளது.
+`huggingface_hub` **Python 3.10+** மின்பொருள்களில் சோதிக்கப்பட்டுள்ளது.
 
 ### பிப் மூலம் நிறுவு
 
@@ -13,19 +13,19 @@
 முதலில், உங்கள் திட்ட அடைவரிசையில் (project directory) ஒரு மெய்நிகர் சூழலை உருவாக்கத் தொடங்குங்கள்:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 மெய்நிகர் சூழலை செயல்படுத்தவும். Linux மற்றும் macOS-இல்:
 
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 விண்டோஸ்-இல் மெய்நிகர் சூழலை செயல்படுத்த:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 இப்போது நீங்கள் `huggingface_hub`-ஐ [PyPi பதிவகத்திலிருந்து](https://pypi.org/project/huggingface-hub/) நிறுவ தயாராக இருக்கிறீர்கள்.

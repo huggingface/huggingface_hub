@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -23,7 +23,7 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
         # there is no v1/ route for novita
         return "/v3/openai/completions"
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
             "generated_text": output["text"],
@@ -52,10 +52,10 @@ class NovitaTextToVideoTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         return {"prompt": inputs, **filter_none(parameters)}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         response_dict = _as_dict(response)
         if not (
             isinstance(response_dict, dict)

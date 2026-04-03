@@ -11,7 +11,7 @@ Spec is: github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 To launch debugger while developing:
 
 ``` [lfs "customtransfer.multipart"]
-path = /path/to/huggingface_hub/.env/bin/python args = -m debugpy --listen 5678
+path = /path/to/huggingface_hub/.venv/bin/python args = -m debugpy --listen 5678
 --wait-for-client
 /path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
 lfs-multipart-upload ```"""
@@ -20,7 +20,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -71,7 +71,7 @@ def write_msg(msg: dict):
     sys.stdout.flush()
 
 
-def read_msg() -> Optional[dict]:
+def read_msg() -> dict | None:
     """Read Line delimited JSON from stdin."""
     msg = json.loads(sys.stdin.readline().strip())
 

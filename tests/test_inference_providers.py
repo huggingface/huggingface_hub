@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hyperbolic import HyperbolicTextGenera
 from huggingface_hub.inference._providers.nebius import NebiusFeatureExtractionTask, NebiusTextToImageTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
+from huggingface_hub.inference._providers.nvidia import NvidiaConversationalTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
 from huggingface_hub.inference._providers.ovhcloud import OVHcloudConversationalTask
 from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
@@ -1429,6 +1430,20 @@ class TestOpenAIProvider:
     def test_prepare_url(self):
         helper = OpenAIConversationalTask()
         assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
+
+
+class TestNvidiaProvider:
+    def test_prepare_hf_url(self):
+        helper = NvidiaConversationalTask()
+        assert helper._prepare_url("hf_token", "private/huggingface/nvidia/nemotron-3-nano-30b-a3b") == (
+            "https://router.huggingface.co/nvidia/v1/chat/completions"
+        )
+
+    def test_prepare_url(self):
+        helper = NvidiaConversationalTask()
+        assert helper._prepare_url("nvapi_XXXXXX", "private/huggingface/nvidia/nemotron-3-nano-30b-a3b") == (
+            "https://integrate.api.nvidia.com/v1/chat/completions"
+        )
 
 
 class TestOVHcloudAIEndpointsProvider:

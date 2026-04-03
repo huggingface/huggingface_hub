@@ -9,14 +9,19 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, Optional, Union, overload
+from typing import Any, BinaryIO, Literal, NoReturn, overload
 from urllib.parse import quote, urlparse
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
+from ._local_folder import (
+    _create_cachedir_tag,
+    get_local_download_paths,
+    read_download_metadata,
+    write_download_metadata,
+)
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -72,7 +77,7 @@ _are_symlinks_supported_in_dir: dict[str, bool] = {}
 _ETAG_RETRY_TIMEOUT = 60
 
 
-def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
+def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     """Return whether the symlinks are supported on the machine.
 
     Since symlinks support can change depending on the mounted disk, we need to check
@@ -88,6 +93,10 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
+
+    # If symlinks are explicitly disabled by the user, always return False
+    if constants.HF_HUB_DISABLE_SYMLINKS:
+        return False
 
     # Check symlink compatibility only once (per cache directory) at first time use
     if cache_dir not in _are_symlinks_supported_in_dir:
@@ -151,11 +160,11 @@ class HfFileMetadata:
             Xet information for the file. This is only set if the file is stored using Xet storage.
     """
 
-    commit_hash: Optional[str]
-    etag: Optional[str]
+    commit_hash: str | None
+    etag: str | None
     location: str
-    size: Optional[int]
-    xet_file_data: Optional[XetFileData]
+    size: int | None
+    xet_file_data: XetFileData | None
 
 
 @dataclass
@@ -191,10 +200,10 @@ def hf_hub_url(
     repo_id: str,
     filename: str,
     *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    endpoint: str | None = None,
 ) -> str:
     """Construct the URL of a file from the given information.
 
@@ -272,7 +281,7 @@ def hf_hub_url(
     return url
 
 
-def _get_file_length_from_http_response(response: httpx.Response) -> Optional[int]:
+def _get_file_length_from_http_response(response: httpx.Response) -> int | None:
     """
     Get the length of the file from the HTTP response headers.
 
@@ -313,12 +322,12 @@ def http_get(
     temp_file: BinaryIO,
     *,
     resume_size: int = 0,
-    headers: Optional[dict[str, Any]] = None,
-    expected_size: Optional[int] = None,
-    displayed_filename: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: dict[str, Any] | None = None,
+    expected_size: int | None = None,
+    displayed_filename: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
-    _tqdm_bar: Optional[tqdm] = None,
+    _tqdm_bar: tqdm | None = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -376,7 +385,7 @@ def http_get(
             temp_file.truncate()
             resume_size = 0
 
-        total: Optional[int] = _get_file_length_from_http_response(response)
+        total: int | None = _get_file_length_from_http_response(response)
 
         if displayed_filename is None:
             displayed_filename = url
@@ -437,7 +446,7 @@ def http_get(
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():
-        raise EnvironmentError(
+        raise OSError(
             consistency_error_message.format(
                 actual_size=temp_file.tell(),
             )
@@ -449,10 +458,10 @@ def xet_get(
     incomplete_path: Path,
     xet_file_data: XetFileData,
     headers: dict[str, str],
-    expected_size: Optional[int] = None,
-    displayed_filename: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
-    _tqdm_bar: Optional[tqdm] = None,
+    expected_size: int | None = None,
+    displayed_filename: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    _tqdm_bar: tqdm | None = None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -556,7 +565,7 @@ def xet_get(
         )
 
 
-def _normalize_etag(etag: Optional[str]) -> Optional[str]:
+def _normalize_etag(etag: str | None) -> str | None:
     """Normalize ETag HTTP header, so it can be used to create nice filepaths.
 
     The HTTP spec allows two forms of ETag:
@@ -635,7 +644,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     except ValueError:
         # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
         # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
-        _support_symlinks = os.name != "nt"
+        _support_symlinks = os.name != "nt" and not constants.HF_HUB_DISABLE_SYMLINKS
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
@@ -704,7 +713,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return constants.REPO_ID_SEPARATOR.join(parts)
 
 
-def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
+def _check_disk_space(expected_size: int, target_dir: str | Path) -> None:
     """Check disk usage and log a warning if there is not enough disk space to download the file.
 
     Args:
@@ -734,21 +743,21 @@ def hf_hub_download(
     repo_id: str,
     filename: str,
     *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    user_agent: Union[dict, str, None] = None,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    user_agent: dict | str | None = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -758,21 +767,21 @@ def hf_hub_download(
     repo_id: str,
     filename: str,
     *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    user_agent: Union[dict, str, None] = None,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    user_agent: dict | str | None = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
 
@@ -782,23 +791,23 @@ def hf_hub_download(
     repo_id: str,
     filename: str,
     *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    user_agent: Union[dict, str, None] = None,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    user_agent: dict | str | None = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
-) -> Union[str, DryRunFileInfo]: ...
+) -> str | DryRunFileInfo: ...
 
 
 @validate_hf_hub_args
@@ -806,23 +815,23 @@ def hf_hub_download(
     repo_id: str,
     filename: str,
     *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    user_agent: Union[dict, str, None] = None,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    user_agent: dict | str | None = None,
     force_download: bool = False,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
-) -> Union[str, DryRunFileInfo]:
+) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
 
     The new cache file layout looks like this:
@@ -1014,16 +1023,16 @@ def _hf_hub_download_to_cache_dir(
     repo_type: str,
     revision: str,
     # HTTP info
-    endpoint: Optional[str],
+    endpoint: str | None,
     etag_timeout: float,
     headers: dict[str, str],
-    token: Optional[Union[bool, str]],
+    token: bool | str | None,
     # Additional options
     local_files_only: bool,
     force_download: bool,
-    tqdm_class: Optional[type[base_tqdm]],
+    tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-) -> Union[str, DryRunFileInfo]:
+) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
     Method should not be called directly. Please use `hf_hub_download` instead.
@@ -1158,6 +1167,9 @@ def _hf_hub_download_to_cache_dir(
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
+    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    _create_cachedir_tag(Path(cache_dir))
+
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
@@ -1220,24 +1232,24 @@ def _hf_hub_download_to_cache_dir(
 def _hf_hub_download_to_local_dir(
     *,
     # Destination
-    local_dir: Union[str, Path],
+    local_dir: str | Path,
     # File info
     repo_id: str,
     repo_type: str,
     filename: str,
     revision: str,
     # HTTP info
-    endpoint: Optional[str],
+    endpoint: str | None,
     etag_timeout: float,
     headers: dict[str, str],
-    token: Union[bool, str, None],
+    token: bool | str | None,
     # Additional options
     cache_dir: str,
     force_download: bool,
     local_files_only: bool,
-    tqdm_class: Optional[type[base_tqdm]],
+    tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-) -> Union[str, DryRunFileInfo]:
+) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
     Method should not be called directly. Please use `hf_hub_download` instead.
@@ -1431,10 +1443,10 @@ def _hf_hub_download_to_local_dir(
 def try_to_load_from_cache(
     repo_id: str,
     filename: str,
-    cache_dir: Union[str, Path, None] = None,
-    revision: Optional[str] = None,
-    repo_type: Optional[str] = None,
-) -> Union[str, _CACHED_NO_EXIST_T, None]:
+    cache_dir: str | Path | None = None,
+    revision: str | None = None,
+    repo_type: str | None = None,
+) -> str | _CACHED_NO_EXIST_T | None:
     """
     Explores the cache to return the latest cached file for a given revision if found.
 
@@ -1486,8 +1498,7 @@ def try_to_load_from_cache(
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
-    object_id = repo_id.replace("/", "--")
-    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    repo_cache = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None
@@ -1523,13 +1534,13 @@ def try_to_load_from_cache(
 @validate_hf_hub_args
 def get_hf_file_metadata(
     url: str,
-    token: Union[bool, str, None] = None,
-    timeout: Optional[float] = constants.HF_HUB_ETAG_TIMEOUT,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[dict, str, None] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    token: bool | str | None = None,
+    timeout: float | None = constants.HF_HUB_ETAG_TIMEOUT,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
     retry_on_errors: bool = False,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
@@ -1601,21 +1612,22 @@ def _get_metadata_or_catch_error(
     filename: str,
     repo_type: str,
     revision: str,
-    endpoint: Optional[str],
-    etag_timeout: Optional[float],
+    endpoint: str | None,
+    etag_timeout: float | None,
     headers: dict[str, str],  # mutated inplace!
-    token: Union[bool, str, None],
+    token: bool | str | None,
     local_files_only: bool,
-    relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
-    storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
+    relative_filename: str | None = None,  # only used to store `.no_exists` in cache
+    storage_folder: str | None = None,  # only used to store `.no_exists` in cache
     retry_on_errors: bool = False,
-) -> Union[
+) -> (
     # Either an exception is caught and returned
-    tuple[None, None, None, None, None, Exception],
+    tuple[None, None, None, None, None, Exception]
+    |
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
-    tuple[str, str, str, int, Optional[XetFileData], None],
-]:
+    tuple[str, str, str, int, XetFileData | None, None]
+):
     """Get metadata for a file on the Hub, safely handling network issues.
 
     Returns either the etag, commit_hash and expected size of the file, or the error
@@ -1639,11 +1651,11 @@ def _get_metadata_or_catch_error(
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
-    etag: Optional[str] = None
-    commit_hash: Optional[str] = None
-    expected_size: Optional[int] = None
-    head_error_call: Optional[Exception] = None
-    xet_file_data: Optional[XetFileData] = None
+    etag: str | None = None
+    commit_hash: str | None = None
+    expected_size: int | None = None
+    head_error_call: Exception | None = None
+    xet_file_data: XetFileData | None = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1738,7 +1750,7 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
-    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore [return-value]
+    return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore
 
 
 def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
@@ -1778,12 +1790,12 @@ def _download_to_tmp_and_move(
     destination_path: Path,
     url_to_download: str,
     headers: dict[str, str],
-    expected_size: Optional[int],
+    expected_size: int | None,
     filename: str,
     force_download: bool,
-    etag: Optional[str],
-    xet_file_data: Optional[XetFileData],
-    tqdm_class: Optional[type[base_tqdm]] = None,
+    etag: str | None,
+    xet_file_data: XetFileData | None,
+    tqdm_class: type[base_tqdm] | None = None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1852,7 +1864,7 @@ def _download_to_tmp_and_move(
     _chmod_and_move(incomplete_path, destination_path)
 
 
-def _int_or_none(value: Optional[str]) -> Optional[int]:
+def _int_or_none(value: str | None) -> int | None:
     try:
         return int(value)  # type: ignore
     except (TypeError, ValueError):

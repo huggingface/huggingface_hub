@@ -6,6 +6,9 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
 
+> [!TIP]
+> This guide covers the Python-specific cache management tools provided by `huggingface_hub`. For a language-agnostic overview of how the Hugging Face Hub cache system works, see the [Hub documentation on local caching](https://huggingface.co/docs/hub/local-cache).
+
 ## File-based caching
 
 The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
@@ -152,6 +155,14 @@ In practice, your cache should look like the following tree:
                 ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 ```
+
+### CACHEDIR.TAG
+
+`huggingface_hub` automatically creates a
+[`CACHEDIR.TAG`](https://bford.info/cachedir/) file inside the cache directory. This
+tag follows the *Cache Directory Tagging Standard* and tells backup tools (e.g. Borg,
+restic, rsync) that the directory contains re-downloadable cache data and can safely be
+excluded from backups.
 
 ### Limitations
 

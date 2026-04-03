@@ -84,7 +84,8 @@ def _normalize_command_aliases(content: str) -> str:
     )
 
     # Transform section headers: `## `hf cmd | alias`` or `### `hf parent cmd | alias``
-    # and add alias info to the description on the next non-empty line
+    # and add alias info to the description on the next non-empty line.
+    # Match the *last* aliased segment so parent aliases (e.g. `repos | repo`) are preserved.
     def _transform_section(match: re.Match) -> str:
         hashes = match.group(1)  # "##" or "###"
         prefix = match.group(2)  # "hf" or "hf parent"
@@ -104,24 +105,29 @@ def _normalize_command_aliases(content: str) -> str:
         return f"{new_header}{whitespace}{new_description}"
 
     content = re.sub(
-        r"^(#{2,}) `(hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
+        r"^(#{2,}) `(hf(?: [\w-]+(?: \| [\w-]+)?)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
         _transform_section,
         content,
         flags=re.MULTILINE,
     )
 
-    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`
-    def _transform_usage(match: re.Match) -> str:
-        prefix = match.group(1)  # "$ hf" or "$ hf parent"
-        full_name = match.group(2)  # "cmd | alias"
-        suffix = match.group(3)  # " [OPTIONS]..." or similar
+    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`.
+    # Strip aliases from all command segments (e.g. `repos | repo tag list | ls` -> `repos tag list`).
+    def _strip_usage_aliases(command: str) -> str:
+        previous = ""
+        normalized = command
+        while normalized != previous:
+            previous = normalized
+            normalized = re.sub(r"\b([\w-]+)\s+\|\s+[\w-]+\b", r"\1", normalized)
+        return re.sub(r" +", " ", normalized).strip()
 
-        parts = [p.strip() for p in full_name.split("|")]
-        primary = parts[0]
-        return f"{prefix} {primary}{suffix}"
+    def _transform_usage(match: re.Match) -> str:
+        command = match.group(1)  # "$ hf ...", potentially with aliases
+        suffix = match.group(2)  # " [OPTIONS]..." or " <ARG>..."
+        return f"{_strip_usage_aliases(command)}{suffix}"
 
     content = re.sub(
-        r"^(\$ hf(?: [\w-]+)*) ([\w-]+(?: \| [\w-]+)+)( .*)$",
+        r"^(\$ hf(?: [\w-]+(?: \| [\w-]+)?)*)((?: (?:\[|<).*)?)$",
         _transform_usage,
         content,
         flags=re.MULTILINE,

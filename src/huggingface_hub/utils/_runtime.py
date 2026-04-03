@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +14,7 @@
 """Check presence of installed packages at runtime."""
 
 import importlib.metadata
+import importlib.util
 import os
 import platform
 import sys
@@ -316,19 +316,21 @@ def is_colab_enterprise() -> bool:
 # Check how huggingface_hub has been installed
 
 
-def installation_method() -> Literal["brew", "hf_installer", "unknown"]:
+def installation_method() -> Literal["brew", "hf_installer", "pip", "unknown"]:
     """Return the installation method of the current environment.
 
     - "hf_installer" if installed via the official installer script
     - "brew" if installed via Homebrew
+    - "pip" if pip is available (default fallback for standard Python environments)
     - "unknown" otherwise
     """
     if _is_brew_installation():
         return "brew"
-    elif _is_hf_installer_installation():
+    if _is_hf_installer_installation():
         return "hf_installer"
-    else:
-        return "unknown"
+    if _is_pip_available():
+        return "pip"
+    return "unknown"
 
 
 def _is_brew_installation() -> bool:
@@ -356,6 +358,11 @@ def _is_hf_installer_installation() -> bool:
     return marker.exists()
 
 
+def _is_pip_available() -> bool:
+    """Return `True` if pip is importable in the current environment."""
+    return importlib.util.find_spec("pip") is not None
+
+
 def dump_environment_info() -> dict[str, Any]:
     """Dump information about the machine to help debugging issues.
 
@@ -365,7 +372,7 @@ def dump_environment_info() -> dict[str, Any]:
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
     from huggingface_hub import get_token, whoami
-    from huggingface_hub.utils import list_credential_helpers
+    from huggingface_hub.utils import is_agent, list_credential_helpers
 
     token = get_token()
 
@@ -400,6 +407,8 @@ def dump_environment_info() -> dict[str, Any]:
     except Exception:
         pass
 
+    info["Run by AI agent ?"] = "Yes" if is_agent() else "No"
+
     # How huggingface_hub has been installed?
     info["Installation method"] = installation_method()
 
@@ -418,6 +427,7 @@ def dump_environment_info() -> dict[str, Any]:
     info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
     info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
     info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
+    info["HF_HUB_DISABLE_SYMLINKS"] = constants.HF_HUB_DISABLE_SYMLINKS
     info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
     info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN

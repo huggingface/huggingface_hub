@@ -1,6 +1,7 @@
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List, Literal, Optional, Union, overload
+from typing import Literal, overload
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -30,23 +31,23 @@ LARGE_REPO_THRESHOLD = 1000  # After this limit, we don't consider `repo_info.si
 def snapshot_download(
     repo_id: str,
     *,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Optional[Union[dict, str]] = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
-    token: Optional[Union[bool, str]] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
-    tqdm_class: Optional[type[base_tqdm]] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -55,23 +56,23 @@ def snapshot_download(
 def snapshot_download(
     repo_id: str,
     *,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Optional[Union[dict, str]] = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
-    token: Optional[Union[bool, str]] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
-    tqdm_class: Optional[type[base_tqdm]] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
     dry_run: Literal[True] = True,
 ) -> list[DryRunFileInfo]: ...
 
@@ -80,50 +81,50 @@ def snapshot_download(
 def snapshot_download(
     repo_id: str,
     *,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Optional[Union[dict, str]] = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
-    token: Optional[Union[bool, str]] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
-    tqdm_class: Optional[type[base_tqdm]] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
     dry_run: bool = False,
-) -> Union[str, list[DryRunFileInfo]]: ...
+) -> str | list[DryRunFileInfo]: ...
 
 
 @validate_hf_hub_args
 def snapshot_download(
     repo_id: str,
     *,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    local_dir: Union[str, Path, None] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Optional[Union[dict, str]] = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
     etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
-    token: Optional[Union[bool, str]] = None,
+    token: bool | str | None = None,
     local_files_only: bool = False,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
-    tqdm_class: Optional[type[base_tqdm]] = None,
-    headers: Optional[dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
     dry_run: bool = False,
-) -> Union[str, list[DryRunFileInfo]]:
+) -> str | list[DryRunFileInfo]:
     """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
@@ -231,8 +232,8 @@ def snapshot_download(
         token=token,
     )
 
-    repo_info: Union[ModelInfo, DatasetInfo, SpaceInfo, None] = None
-    api_call_error: Optional[Exception] = None
+    repo_info: ModelInfo | DatasetInfo | SpaceInfo | None = None
+    api_call_error: Exception | None = None
     if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
@@ -322,7 +323,8 @@ def snapshot_download(
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
             raise LocalEntryNotFoundError(
-                "An error happened while trying to locate the files on the Hub and we cannot find the appropriate"
+                f"Got: {api_call_error.__class__.__name__}: {api_call_error}"
+                "\nAn error happened while trying to locate the files on the Hub and we cannot find the appropriate"
                 " snapshot folder for the specified revision on the local disk. Please check your internet connection"
                 " and try again."
             ) from api_call_error
@@ -375,7 +377,7 @@ def snapshot_download(
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
-    results: List[Union[str, DryRunFileInfo]] = []
+    results: list[str | DryRunFileInfo] = []
 
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
     tqdm_class = tqdm_class or hf_tqdm
@@ -418,7 +420,7 @@ def snapshot_download(
         def __exit__(self, exc_type, exc_value, traceback):
             pass
 
-        def update(self, n: Optional[Union[int, float]] = 1) -> None:
+        def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
     # we pass the commit_hash to hf_hub_download

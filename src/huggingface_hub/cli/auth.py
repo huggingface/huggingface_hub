@@ -30,7 +30,7 @@ Usage:
     hf auth whoami
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -38,8 +38,9 @@ from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
-from ..utils import ANSI, get_stored_tokens, get_token, logging
-from ._cli_utils import TokenOpt, typer_factory
+from ..utils import get_stored_tokens, get_token, logging
+from ._cli_utils import FormatWithAutoOpt, OutputFormatWithAuto, TokenOpt, typer_factory
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -54,6 +55,7 @@ auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
         "hf auth login",
         "hf auth login --token $HF_TOKEN",
         "hf auth login --token $HF_TOKEN --add-to-git-credential",
+        "hf auth login --force",
     ],
 )
 def auth_login(
@@ -64,9 +66,15 @@ def auth_login(
             help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            help="Force re-login even if already logged in.",
+        ),
+    ] = False,
 ) -> None:
     """Login using a token from huggingface.co/settings/tokens."""
-    login(token=token, add_to_git_credential=add_to_git_credential)
+    login(token=token, add_to_git_credential=add_to_git_credential, skip_if_logged_in=not force)
 
 
 @auth_cli.command(
@@ -75,7 +83,7 @@ def auth_login(
 )
 def auth_logout(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
@@ -83,7 +91,7 @@ def auth_logout(
     logout(token_name=token_name)
 
 
-def _select_token_name() -> Optional[str]:
+def _select_token_name() -> str | None:
     token_names = list(get_stored_tokens().keys())
 
     if not token_names:
@@ -113,7 +121,7 @@ def _select_token_name() -> Optional[str]:
 )
 def auth_switch_cmd(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Name of the token to switch to",
         ),
@@ -134,24 +142,24 @@ def auth_switch_cmd(
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
-@auth_cli.command("list", examples=["hf auth list"])
+@auth_cli.command("list | ls", examples=["hf auth list"])
 def auth_list_cmd() -> None:
     """List all stored access tokens."""
     auth_list()
 
 
-@auth_cli.command("whoami", examples=["hf auth whoami"])
-def auth_whoami() -> None:
+@auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
+def auth_whoami(
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+) -> None:
     """Find out which huggingface.co account you are logged in as."""
+
     token = get_token()
     if token is None:
-        print("Not logged in")
-        raise typer.Exit()
-    info = whoami(token)
-    print(ANSI.bold("user: "), info["name"])
-    orgs = [org["name"] for org in info["orgs"]]
-    if orgs:
-        print(ANSI.bold("orgs: "), ",".join(orgs))
+        out.error("Not logged in")
+        raise typer.Exit(code=1)
 
-    if ENDPOINT != "https://huggingface.co":
-        print(f"Authenticated through private endpoint: {ENDPOINT}")
+    info = whoami(token)
+    orgs = ",".join(org["name"] for org in info["orgs"]) or None
+    endpoint = ENDPOINT if ENDPOINT != "https://huggingface.co" else None
+    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint)

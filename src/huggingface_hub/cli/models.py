@@ -25,8 +25,7 @@ Usage:
 """
 
 import enum
-import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
@@ -36,19 +35,17 @@ from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
@@ -57,9 +54,9 @@ ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
@@ -69,24 +66,28 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
 
 
 @models_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',
+        "hf models ls --num-parameters min:6B,max:128B --sort likes",
     ],
 )
 def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    num_parameters: Annotated[
+        str | None,
+        typer.Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
+    ] = None,
     sort: Annotated[
-        Optional[ModelSortEnum],
+        ModelSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""
@@ -95,31 +96,38 @@ def models_ls(
     results = [
         api_object_to_dict(model_info)
         for model_info in api.list_models(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            num_parameters=num_parameters,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @models_cli.command(
     "info",
     examples=[
         "hf models info meta-llama/Llama-3.2-1B-Instruct",
-        "hf models info gpt2 --expand downloads,likes,tags",
+        "hf models info Qwen/Qwen3.5-9B --expand downloads,likes,tags",
     ],
 )
 def models_info(
     model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a model on the Hub."""
     api = get_hf_api(token=token)
     try:
-        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore[arg-type]
+        info = api.model_info(repo_id=model_id, revision=revision, expand=expand)  # type: ignore
     except RepositoryNotFoundError as e:
         raise CLIError(f"Model '{model_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(info)

@@ -53,12 +53,14 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    DatasetLeaderboardEntry,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
     InferenceEndpoint,
     InferenceProviderMapping,
     ModelInfo,
+    Organization,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -99,6 +101,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -462,6 +465,24 @@ class CommitApiTest(HfApiCommonTest):
 
         self._api.delete_repo(repo_id, token=ENTERPRISE_TOKEN)
 
+    def test_create_repo_with_visibility(self):
+        repo_id = repo_name()
+        url = self._api.create_repo(repo_id, visibility="private")
+        info = self._api.model_info(url.repo_id, expand="private")
+        assert info.private
+        self._api.delete_repo(url.repo_id)
+
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings_with_visibility(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        self._api.update_repo_settings(repo_id=repo_id, visibility="private")
+        info = self._api.model_info(repo_id, expand="private")
+        assert info.private
+
+        self._api.update_repo_settings(repo_id=repo_id, visibility="public")
+        info = self._api.model_info(repo_id, expand="private")
+        assert not info.private
+
     @use_tmp_repo()
     def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -763,7 +784,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(exc_ctx.exception.response.status_code, 412)
         self.assertIn(
             # Check the server message is added to the exception
-            "A commit has happened since. Please refresh and try again.",
+            "The branch was updated since you opened this page. Please refresh and try again.",
             str(exc_ctx.exception),
         )
 
@@ -783,8 +804,8 @@ class CommitApiTest(HfApiCommonTest):
             f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
             " make sure you specified the correct `repo_id` and"
             " `repo_type`.\nIf you are trying to access a private or gated"
-            " repo, make sure you are authenticated."
-            " For more details, see https://huggingface.co/docs/huggingface_hub/authentication"
+            " repo, make sure you are authenticated and your token has the required permissions."
+            "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             "\nNote: Creating a commit assumes that the repo already exists on the Huggingface Hub."
             " Please use `create_repo` if it's not the case."
         )
@@ -1870,6 +1891,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             assert "bert" in model.id.lower()
 
+    def test_list_models_num_parameters(self):
+        models = list(self._api.list_models(num_parameters="min:6B,max:128B", limit=5))
+        assert len(models) == 5
+        assert all(isinstance(model, ModelInfo) for model in models)
+
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -2066,6 +2092,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["foo"])
         assert cm.exception.response.status_code == 400
 
+    def test_model_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official ModelInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandModelProperty_T))
+
+        dataclass_fields = {f.name for f in ModelInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official ModelInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
+
     def test_model_info_expand_cannot_be_used_with_other_params(self):
         # `expand` cannot be used with other params
         with self.assertRaises(ValueError):
@@ -2092,6 +2133,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    def test_list_dataset_parquet_files(self):
+        entries = self._api.list_dataset_parquet_files(
+            repo_id="nvidia/Llama-Nemotron-Post-Training-Dataset", token=False
+        )
+        assert len(entries) > 0
+        assert entries[0].config
+        assert entries[0].split
+        assert entries[0].url.endswith(".parquet")
+        assert entries[0].size > 0
+
     def test_filter_datasets_by_author_and_name(self):
         datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
         assert len(datasets) > 0
@@ -2114,6 +2165,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert mock_paginate.call_count == 2
         assert mock_paginate.call_args_list[0][1]["params"] == {"filter": ["benchmark:official"]}
         assert mock_paginate.call_args_list[1][1]["params"] == {"filter": ["benchmark:official"]}
+
+    def test_list_models_num_parameters_are_forwarded(self):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(self._api.list_models(num_parameters="min:6B,max:128B"))
+
+        assert mock_paginate.call_count == 1
+        assert mock_paginate.call_args[1]["params"] == {"num_parameters": "min:6B,max:128B"}
 
     def test_filter_datasets_by_language_creator(self):
         datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
@@ -2266,10 +2325,49 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self._api.dataset_info("HuggingFaceH4/no_robots", expand=["foo"])
         assert cm.exception.response.status_code == 400
 
+    def test_dataset_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official DatasetInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandDatasetProperty_T))
+
+        dataclass_fields = {f.name for f in DatasetInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official DatasetInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
+
     def test_dataset_info_expand_cannot_be_used_with_files_metadata(self):
         # `expand` cannot be used with other `files_metadata`
         with self.assertRaises(ValueError):
             self._api.dataset_info("HuggingFaceH4/no_robots", expand=["author"], files_metadata=True)
+
+    @with_production_testing
+    def test_get_dataset_leaderboard(self):
+        leaderboard = HfApi().get_dataset_leaderboard("allenai/olmOCR-bench")
+        assert isinstance(leaderboard, list)
+        assert len(leaderboard) > 0
+        entry = leaderboard[0]
+        assert isinstance(entry, DatasetLeaderboardEntry)
+        assert isinstance(entry.rank, int)
+        assert entry.rank == 1
+        assert isinstance(entry.model_id, str)
+        assert isinstance(entry.value, (int, float))
+        assert isinstance(entry.filename, str)
+        assert isinstance(entry.verified, bool)
+        assert isinstance(entry.source, dict)
+        assert isinstance(entry.author, (User, Organization))
+        # Optional fields should be accessible (may be None)
+        assert entry.pull_request is None or isinstance(entry.pull_request, int)
+        assert entry.notes is None or isinstance(entry.notes, str)
+
+    @with_production_testing
+    def test_get_dataset_leaderboard_not_found(self):
+        with self.assertRaises(RepositoryNotFoundError):
+            HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
 
     def test_space_info(self) -> None:
         space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
@@ -2297,6 +2395,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
         with self.assertRaises(HfHubHTTPError) as cm:
             self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["foo"])
         assert cm.exception.response.status_code == 400
+
+    def test_space_info_expand_all_are_official_attributes(self):
+        """All expand properties should be official SpaceInfo attributes, not just __dict__ extras."""
+        all_expand_values = list(get_args(ExpandSpaceProperty_T))
+
+        dataclass_fields = {f.name for f in SpaceInfo.__dataclass_fields__.values()}
+        missing_attrs = []
+        for expand_param in all_expand_values:
+            attr_name = _to_snake_case(expand_param)
+            if attr_name not in dataclass_fields:
+                missing_attrs.append(f"{expand_param!r} -> {attr_name!r}")
+        assert not missing_attrs, (
+            f"The following expand parameters are not official SpaceInfo attributes "
+            f"(they fall through to __dict__.update): {missing_attrs}"
+        )
 
     def test_space_info_expand_cannot_be_used_with_files_metadata(self):
         # `expand` cannot be used with other files_metadata
@@ -2433,7 +2546,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "enzostvs/deepsite"
+        space_id = "black-forest-labs/FLUX.1-dev"
 
         spaces = [space for space in self._api.list_spaces(search=space_id) if space.id == space_id]
         assert spaces[0].models is None
@@ -2783,6 +2896,10 @@ class UploadFolderMockedTest(unittest.TestCase):
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
 
+@pytest.mark.skip(
+    # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
+    reason="Skipping git clone test on CI."
+)
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path
@@ -3554,6 +3671,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("create_repo")
     def test_create_space_with_storage(self) -> None:
         self.api.create_repo(
             self.repo_id,
@@ -3572,6 +3690,21 @@ class TestSpaceAPIMocked(unittest.TestCase):
                 "storageTier": "large",
             },
         )
+
+    def test_protected_visibility_is_only_supported_for_spaces(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, r"Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'."
+        ):
+            self.api.create_repo(self.repo_id, visibility="protected")
+        self.post_mock.assert_not_called()
+
+    def test_private_and_visibility_are_mutually_exclusive(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Received both `private` and `visibility` arguments. Please provide only one of them.",
+        ):
+            self.api.create_repo(self.repo_id, private=True, visibility="private")
+        self.post_mock.assert_not_called()
 
     def test_create_space_with_secrets_and_variables(self) -> None:
         self.api.create_repo(
@@ -3606,6 +3739,8 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    @expect_deprecation("duplicate_space")
+    @expect_deprecation("duplicate_repo")
     def test_duplicate_space(self) -> None:
         self.api.duplicate_space(
             self.repo_id,
@@ -3628,7 +3763,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             headers=self.api._build_hf_headers(),
             json={
                 "repository": f"{USER}/new_repo_id",
-                "private": True,
+                "visibility": "private",
                 "hardware": "t4-medium",
                 "storageTier": "large",
                 "sleepTimeSeconds": 123,
@@ -3672,6 +3807,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
 
+    @expect_deprecation("request_space_storage")
     def test_request_space_storage(self) -> None:
         runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
         self.post_mock.assert_called_once_with(
@@ -3681,6 +3817,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
         assert runtime.storage == SpaceStorage.LARGE
 
+    @expect_deprecation("delete_space_storage")
     def test_delete_space_storage(self) -> None:
         runtime = self.api.delete_space_storage(self.repo_id)
         self.delete_mock.assert_called_once_with(
@@ -3958,6 +4095,7 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
+    @expect_deprecation("duplicate_space")
     @unittest.skip("Duplicating Space doesn't work on staging.")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
@@ -3993,6 +4131,7 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
         self._api.delete_repo(repo_id=to_repo_id, repo_type="space")
 
+    @expect_deprecation("duplicate_space")
     def test_duplicate_space_from_missing_repo(self) -> None:
         """Check `duplicate_space` fails when the from_repo doesn't exist."""
 
@@ -4791,3 +4930,10 @@ class HfApiVerifyChecksumsTest(HfApiCommonTest):
 
         res = self._api.verify_repo_checksums(repo_id=repo_id, revision=commit, cache_dir=storage.parent)
         assert res.revision == commit and res.checked_count == 1 and not res.mismatches
+
+
+def _to_snake_case(name: str) -> str:
+    """Convert camelCase to snake_case (e.g. 'downloadsAllTime' -> 'downloads_all_time', 'model-index' -> 'model_index')."""
+    import re
+
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).replace("-", "_").lower()

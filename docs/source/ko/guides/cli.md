@@ -80,10 +80,10 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 [Homebrew](https://brew.sh/)를 사용하여 CLI를 설치할 수도 있습니다:
 
 ```bash
->>> brew install huggingface-cli
+>>> brew install hf
 ```
 
-Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 확인할 수 있습니다.
+Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/hf)에서 확인할 수 있습니다.
 
 ## hf auth login [[hf-login]]
 
@@ -141,10 +141,9 @@ orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 
 이 명령어를 사용하여 로그아웃할 수 있습니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
 
-하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조]((../package_reference/environment_variables#hftoken))). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거하면 됩니다.
+하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조](<(../package_reference/environment_variables#hftoken)>)). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거하면 됩니다.
 
 ## hf download [[hf-download]]
-
 
 `hf download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. [다운로드](./download) 가이드에서 설명된 [`hf_hub_download`], [`snapshot_download`] 헬퍼 함수를 사용하여 반환된 경로를 터미널에 출력합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 

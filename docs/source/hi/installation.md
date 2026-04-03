@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 आरंभ करने से पहले, आपको उपयुक्त पैकेज स्थापित करके अपना परिवेश सेटअप करना होगा।
 
-`huggingface_hub` का परीक्षण **Python 3.9+** पर किया गया है।
+`huggingface_hub` का परीक्षण **Python 3.10+** पर किया गया है।
 
 ## पिप के साथ स्थापित करें
 
@@ -17,19 +17,19 @@ rendered properly in your Markdown viewer.
 अपनी प्रोजेक्ट निर्देशिका में एक वर्चुअल वातावरण बनाकर प्रारंभ करें:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 वर्चुअल वातावरण सक्रिय करें. Linux और macOS पर:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 वर्चुअल वातावरण सक्रिय करें Windows पर:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 अब आप `huggingface_hub` [PyPi रजिस्ट्री से](https://pypi.org/project/huggingface-hub/), इंस्टॉल करने के लिए तैयार हैं:

@@ -13,6 +13,11 @@ and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
 This page will guide you through all environment variables specific to `huggingface_hub`
 and their meaning.
 
+> [!TIP]
+> All environment variables are read at import time of `huggingface_hub`. Any modification
+> made afterwards will not be taken into account. Make sure to set your environment variables
+> before importing `huggingface_hub`.
+
 ## Generic
 
 ### HF_INFERENCE_ENDPOINT
@@ -142,6 +147,13 @@ would need to explicitly pass `token=True` argument in your script.
 
 For time-consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
 You can disable all the progress bars at once by setting `HF_HUB_DISABLE_PROGRESS_BARS=1`.
+
+### HF_HUB_DISABLE_SYMLINKS
+
+If set, `huggingface_hub` will never create symlinks in the cache. Instead, files will be duplicated or moved directly into snapshot directories. This is a power-user feature making the cache directory run in a degraded mode where huge files ends-up duplicated on your hard-drive.
+
+An example use case is when a shared network drive (e.g. NAS) is used as `HF_HUB_CACHE` across machines running different operating
+systems. Symlinks created on Linux are not always traversable on Windows, leading to errors. Setting `HF_HUB_DISABLE_SYMLINKS=1` avoids this problem at the cost of disk-space deduplication.
 
 ### HF_HUB_DISABLE_SYMLINKS_WARNING
 

@@ -21,21 +21,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.14"]
+        python-version: ["3.10", "3.14"]
         test_name: ["Everything else", "Inference only", "Xet only"]
         include:
-          - python-version: "3.14" # LFS not ran on 3.9
+          - python-version: "3.14" # LFS not ran on 3.10
             test_name: "lfs"
-          - python-version: "3.9" # test torch~=1.11 on python 3.9 only.
-            test_name: "Python 3.9, torch_1.11"
+          - python-version: "3.10" # test torch~=1.11 on python 3.10 only.
+            test_name: "Python 3.10, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
             test_name: "torch_latest"
           - python-version: "3.13" # gradio not supported on 3.14 -> test it on 3.13
             test_name: "gradio"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -115,7 +115,7 @@ jobs:
               eval "$PYTEST ../tests/test_webhooks_server.py"
             ;;
 
-            "Python 3.9, torch_1.11" | torch_latest)
+            "Python 3.10, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
@@ -130,7 +130,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe  # v5
         with:
           files: ./coverage.xml
           verbose: true
@@ -146,13 +146,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.14"]
+        python-version: ["3.10", "3.14"]
         test_name: ["Everything else", "Xet only"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -199,7 +199,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe  # v5
         with:
           files: ./coverage.xml
           verbose: true

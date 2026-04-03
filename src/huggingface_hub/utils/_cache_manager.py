@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +18,7 @@ import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
@@ -509,7 +508,7 @@ class HFCacheInfo:
                     [
                         repo.repo_id,
                         repo.repo_type,
-                        "{:>12}".format(repo.size_on_disk_str),
+                        f"{repo.size_on_disk_str:>12}",
                         repo.nb_files,
                         repo.last_accessed_str,
                         repo.last_modified_str,
@@ -536,7 +535,7 @@ class HFCacheInfo:
                         repo.repo_id,
                         repo.repo_type,
                         revision.commit_hash,
-                        "{:>12}".format(revision.size_on_disk_str),
+                        f"{revision.size_on_disk_str:>12}",
                         revision.nb_files,
                         revision.last_modified_str,
                         ", ".join(sorted(revision.refs)),
@@ -558,7 +557,7 @@ class HFCacheInfo:
             )
 
 
-def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
+def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     """Scan the entire HF cache-system and return a [`~HFCacheInfo`] structure.
 
     Use `scan_cache_dir` in order to programmatically scan your cache-system. The cache
@@ -657,6 +656,8 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     warnings: list[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
         if repo_path.name == ".locks":  # skip './.locks/' folder
+            continue
+        if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
         try:
             repos.add(_scan_cached_repo(repo_path))
@@ -769,7 +770,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                 files=frozenset(cached_files),
                 refs=frozenset(refs_by_hash.pop(revision_path.name, set())),
                 size_on_disk=sum(
-                    blob_stats[blob_path].st_size for blob_path in set(file.blob_path for file in cached_files)
+                    blob_stats[blob_path].st_size for blob_path in {file.blob_path for file in cached_files}
                 ),
                 snapshot_path=revision_path,
                 last_modified=revision_last_modified,

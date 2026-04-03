@@ -10,17 +10,19 @@ This script:
 """
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .fetch_prs import fetch_prs_since_tag
 from .validate_notes import validate_release_notes
 
 
-OUTPUT_DIR = Path(".release-notes")
+OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 TMP_DIR = OUTPUT_DIR / "tmp"
 
 
@@ -59,31 +61,48 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     return f"{prefix}{major}.{minor}.{patch}"
 
 
-def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | None = None) -> bool:
+def run_opencode_skill(
+    skill_name: str,
+    version: str,
+    missing_prs: list[int] | None = None,
+    extra_prs: list[int] | None = None,
+) -> bool:
     """Run an OpenCode skill non-interactively.
 
     Args:
         skill_name: Name of the skill to run (e.g., "hf-release-notes")
         version: Target version for release notes
         missing_prs: List of missing PR numbers (for validation skill)
+        extra_prs: List of extra PR numbers to remove (for validation skill)
 
     Returns:
         True if successful, False otherwise
     """
-    if missing_prs:
-        # Validation skill - add missing PRs
-        prompt = (
-            f"Run the {skill_name} skill. "
-            f"Add the following missing PRs to the release notes at .release-notes/RELEASE_NOTES_{version}.md: "
-            f"{', '.join(f'#{pr}' for pr in missing_prs)}. "
-            f"Read their details from .release-notes/tmp/pr_<number>.json files."
-        )
+    if missing_prs or extra_prs:
+        # Validation skill - fix missing and/or extra PRs
+        parts = [
+            f"Run the {skill_name} skill. ",
+            f"The output directory is {OUTPUT_DIR}. ",
+            f"Fix the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md. ",
+        ]
+        if missing_prs:
+            parts.append(
+                f"Add the following missing PRs: {', '.join(f'#{pr}' for pr in missing_prs)}. "
+                f"Read their details from {TMP_DIR}/pr_<number>.json files. "
+            )
+        if extra_prs:
+            parts.append(
+                f"Remove the following extra PRs that do not belong to this release: "
+                f"{', '.join(f'#{pr}' for pr in extra_prs)}. "
+            )
+        prompt = "".join(parts)
     else:
         # Main generation skill
         prompt = (
             f"Run the {skill_name} skill. "
-            f"Generate release notes for {version} from PR files in .release-notes/tmp/. "
-            f"Output to .release-notes/RELEASE_NOTES_{version}.md"
+            f"The output directory is {OUTPUT_DIR}. "
+            f"Generate release notes for {version} from PR files in {TMP_DIR}/. "
+            f"Output to {OUTPUT_DIR}/RELEASE_NOTES_{version}.md"
         )
 
     # Check if opencode is available
@@ -94,7 +113,11 @@ def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | N
         return False
 
     # Run opencode non-interactively
-    cmd = [opencode_cmd, "run", prompt]
+    cmd = [opencode_cmd]
+    model = os.environ.get("RELEASE_NOTES_MODEL")
+    if model:
+        cmd.extend(["--model", model])
+    cmd.extend(["run", prompt])
     print(f"Running: {' '.join(cmd)}")
 
     try:
@@ -119,7 +142,12 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    # 1. Setup directories
+    t_total_start = time.monotonic()
+
+    # 1. Clean up and setup directories
+    if OUTPUT_DIR.exists():
+        print("Cleaning up previous release notes...")
+        shutil.rmtree(OUTPUT_DIR)
     print("Setting up directories...")
     setup_directories()
 
@@ -129,11 +157,13 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
 
     # 3. Fetch all PRs since tag
     print(f"\nFetching PRs since {since_tag}...")
+    t_fetch_start = time.monotonic()
     try:
         pr_numbers = fetch_prs_since_tag(since_tag)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+    t_fetch = time.monotonic() - t_fetch_start
 
     if not pr_numbers:
         print("No PRs found since the specified tag")
@@ -143,34 +173,74 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
 
     # 4. Generate initial draft with OpenCode
     print("\nGenerating release notes with OpenCode...")
+    t_agent_start = time.monotonic()
+    agent_calls = 0
     if not run_opencode_skill("hf-release-notes", version):
         print("Failed to generate initial release notes", file=sys.stderr)
         return 1
+    agent_calls += 1
 
     # 5. Validation loop
+    validation_iterations = 0
+    missing_at_end = []
+    extra_at_end = []
     for i in range(max_iterations):
+        validation_iterations += 1
         print(f"\nValidation iteration {i + 1}/{max_iterations}...")
-        missing = validate_release_notes(version)
+        missing, extra = validate_release_notes(version)
 
-        if not missing:
-            print("All PRs included in release notes")
+        if not missing and not extra:
+            print("Release notes match the manifest exactly")
             break
 
-        print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if missing:
+            print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if extra:
+            print(f"Extra {len(extra)} PRs: {', '.join(f'#{pr}' for pr in extra)}")
 
         if i < max_iterations - 1:
-            print("Running validation skill to add missing PRs...")
-            if not run_opencode_skill("hf-release-notes:validate", version, missing):
+            print("Running validation skill to fix release notes...")
+            if not run_opencode_skill("hf-release-notes:validate", version, missing or None, extra or None):
                 print("Warning: Validation skill failed", file=sys.stderr)
+            agent_calls += 1
     else:
-        # Loop completed without all PRs included
-        missing = validate_release_notes(version)
-        if missing:
-            print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
-            print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+        # Loop completed without exact match
+        missing, extra = validate_release_notes(version)
+        if missing or extra:
+            missing_at_end = missing
+            extra_at_end = extra
+            if missing:
+                print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
+                print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+            if extra:
+                print(f"\nWarning: Still {len(extra)} extra PRs after {max_iterations} iterations")
+                print(f"Extra: {', '.join(f'#{pr}' for pr in extra)}")
+    t_agent = time.monotonic() - t_agent_start
 
     # 6. Final output
     output_file = OUTPUT_DIR / f"RELEASE_NOTES_{version}.md"
+    output_size = output_file.stat().st_size if output_file.exists() else 0
+    t_total = time.monotonic() - t_total_start
+
+    # 7. Print summary
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+    print(f"  Version:               {version} ({bump_type} bump from {since_tag})")
+    print(f"  Output dir:            {OUTPUT_DIR}")
+    print(f"  Model:                 {os.environ.get('RELEASE_NOTES_MODEL', '(default)')}")
+    print(f"  PRs fetched:           {len(pr_numbers)}")
+    print(f"  PRs missing:           {len(missing_at_end)}")
+    print(f"  PRs extra:             {len(extra_at_end)}")
+    print(f"  Agent calls:           {agent_calls}")
+    print(f"  Validation iterations: {validation_iterations}")
+    print(f"  Fetch time:            {t_fetch:.1f}s")
+    print(f"  Agent time:            {t_agent:.1f}s")
+    print(f"  Total time:            {t_total:.1f}s")
+    print(f"  Output file:           {output_file}")
+    print(f"  Output size:           {output_size:,} bytes")
+    print("=" * 60)
+
     print(f"\nRelease notes saved to {output_file}")
     return 0
 

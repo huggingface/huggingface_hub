@@ -1,19 +1,21 @@
-# vX.Y.Z: <Tagline>
+# [vX.Y.Z] <Tagline>
 
 ## <Emoji> <Highlight title>
 
-<2-5 sentence summary of the user-visible change.>
+<2-5 sentence prose summary of the user-visible change. Write flowing text, not bullet
+points. Only use bullets if truly listing 4+ distinct sub-features.>
 
 ```bash
-# Optional example when relevant
+# Optional code example when relevant (cherry-pick from doc diffs if available)
 hf <command> <args>
 ```
 
 - <PR title> by @author in #1234
+- <Another related PR title> by @author in #5678
 
 ## <Emoji> <Highlight title>
 
-<Summary>
+<Prose summary.>
 
 - <PR title> by @author in #1234
 

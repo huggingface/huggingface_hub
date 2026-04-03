@@ -26,14 +26,14 @@ Usage:
 
 import enum
 import functools
-import json
 import os
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Annotated, Literal, Optional, Union, get_args
+import time
+from typing import Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -41,27 +41,26 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
+from huggingface_hub._space_api import SpaceStage
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
-from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -73,19 +72,18 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
-        help=f"Comma-separated properties to expand. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
+        help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
 ]
-
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 
 
 @spaces_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',
@@ -96,13 +94,12 @@ def spaces_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
-        Optional[SpaceSortEnum],
+        SpaceSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
@@ -111,10 +108,15 @@ def spaces_ls(
     results = [
         api_object_to_dict(space_info)
         for space_info in api.list_spaces(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @spaces_cli.command(
@@ -128,6 +130,7 @@ def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a space on the Hub."""
@@ -138,15 +141,84 @@ def spaces_info(
         raise CLIError(f"Space '{space_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(info)
+
+
+@spaces_cli.command(
+    "dev-mode",
+    examples=[
+        "hf spaces dev-mode my-user-name/deepsite",
+    ],
+)
+def dev_mode(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    stop: Annotated[bool, typer.Option(help="Stop dev mode.")] = False,
+    token: TokenOpt = None,
+):
+    """
+    Enable or disable dev mode on a Space.
+
+    Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+    restart your application without stopping the Space container itself. This feature is available as part of a PRO
+    or Team & Enterprise plan.
+
+    See docs: https://huggingface.co/docs/hub/spaces-dev-mode
+    """
+    api = get_hf_api(token=token)
+    if stop:
+        api.disable_space_dev_mode(space_id)
+        print(f"Dev mode disabled for '{space_id}'")
+        return
+    api.enable_space_dev_mode(space_id)
+    info = api.space_info(space_id)
+    folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
+    folder_query_param = f"folder={folder}" if folder else ""
+    print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
+    intermediate_statuses_and_messages = {
+        SpaceStage.BUILDING: "building...",
+        SpaceStage.RUNNING_BUILDING: "building...",
+        SpaceStage.APP_STARTING: "app starting...",
+        SpaceStage.RUNNING_APP_STARTING: "app starting...",
+    }
+    status = StatusLine()
+    while True:
+        info = api.space_info(space_id)
+        if info.runtime is None:
+            print("Runtime of the space unavailable")
+            return
+        if info.runtime.stage not in intermediate_statuses_and_messages:
+            break
+        status.update(intermediate_statuses_and_messages[info.runtime.stage])
+        time.sleep(1)
+    if info.runtime.stage != SpaceStage.RUNNING:
+        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
+        return
+    status.done("Dev mode ready!")
+    print("Connect to dev environment:")
+    print("")
+    print("Web:")
+    vscode_web_url = f"https://huggingface.co/spaces/{info.id}/dev-mode/vscode-web"
+    if folder_query_param:
+        vscode_web_url += f"?{folder_query_param}"
+    ssh_host = f"{info.subdomain}@ssh.hf.space"
+    print(f"  * VSCode: {vscode_web_url}")
+    print("")
+    print("Local:")
+    print("1. Add your SSH key to https://huggingface.co/settings/keys")
+    print(f"2. SSH with `ssh -i <your_key> {ssh_host}`")
+    print("   Or open")
+    print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{ssh_host}{folder}")
+    print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
+    print("")
+    print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
 
 
 @spaces_cli.command(
     "hot-reload",
     examples=[
-        "hf spaces hot-reload username/repo-name app.py               # Open an interactive editor to the remote app.py file",
-        "hf spaces hot-reload username/repo-name -f app.py            # Take local version from ./app.py and patch app.py in remote repo",
-        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py and patch app.py in remote repo",
+        "hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file",
+        "hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely",
+        "hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py",
     ],
 )
 def spaces_hot_reload(
@@ -157,13 +229,13 @@ def spaces_hot_reload(
         ),
     ],
     filename: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches."
         ),
     ] = None,
     local_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -185,6 +257,10 @@ def spaces_hot_reload(
     This command patches the live Python process using https://github.com/breuleux/jurigged
     (AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
     (meaning that Gradio demo object changes are reflected in the UI)
+
+    The command creates a remote commit.
+    If you are working from a local clone, run `git pull --autostash` afterwards
+    to bring the commit back and keep your local git state in sync.
     """
 
     typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
@@ -263,8 +339,8 @@ def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
-    local_path: Optional[str],
-    token: Optional[str],
+    local_path: str | None,
+    token: str | None,
 ) -> None:
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -341,7 +417,7 @@ PREFERRED_EDITORS = (
 
 
 @functools.cache
-def _get_editor_command() -> Optional[str]:
+def _get_editor_command() -> str | None:
     for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
         if command := os.getenv(env, "").strip():
             return command
@@ -351,7 +427,7 @@ def _get_editor_command() -> Optional[str]:
     return None
 
 
-def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
+def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return "no-tty"
     if (editor_command := _get_editor_command()) is None:

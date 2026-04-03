@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.6.0.dev0"
+__version__ = "1.9.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -108,6 +108,7 @@ _SUBMOD_ATTRS = {
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
+        "Volume",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -176,6 +177,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetInfo",
+        "DatasetLeaderboardEntry",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -228,12 +230,16 @@ _SUBMOD_ATTRS = {
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
+        "delete_space_volumes",
         "delete_tag",
         "delete_webhook",
+        "disable_space_dev_mode",
         "disable_webhook",
         "download_bucket_files",
+        "duplicate_repo",
         "duplicate_space",
         "edit_discussion_comment",
+        "enable_space_dev_mode",
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
@@ -241,6 +247,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -263,6 +270,7 @@ _SUBMOD_ATTRS = {
         "list_buckets",
         "list_collections",
         "list_daily_papers",
+        "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
@@ -296,6 +304,7 @@ _SUBMOD_ATTRS = {
         "pause_space",
         "permanently_delete_lfs_files",
         "preupload_lfs_files",
+        "read_paper",
         "reject_access_request",
         "rename_discussion",
         "repo_exists",
@@ -312,6 +321,7 @@ _SUBMOD_ATTRS = {
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
+        "set_space_volumes",
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
@@ -668,6 +678,7 @@ __all__ = [
     "DatasetCard",
     "DatasetCardData",
     "DatasetInfo",
+    "DatasetLeaderboardEntry",
     "DeleteCacheStrategy",
     "DepthEstimationInput",
     "DepthEstimationOutput",
@@ -851,6 +862,7 @@ __all__ = [
     "VisualQuestionAnsweringInputData",
     "VisualQuestionAnsweringOutputElement",
     "VisualQuestionAnsweringParameters",
+    "Volume",
     "WebhookInfo",
     "WebhookPayload",
     "WebhookPayloadComment",
@@ -919,13 +931,17 @@ __all__ = [
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
+    "delete_space_volumes",
     "delete_tag",
     "delete_webhook",
+    "disable_space_dev_mode",
     "disable_webhook",
     "download_bucket_files",
     "dump_environment_info",
+    "duplicate_repo",
     "duplicate_space",
     "edit_discussion_comment",
+    "enable_space_dev_mode",
     "enable_webhook",
     "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
@@ -938,6 +954,7 @@ __all__ = [
     "get_bucket_file_metadata",
     "get_bucket_paths_info",
     "get_collection",
+    "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
     "get_full_repo_name",
@@ -971,6 +988,7 @@ __all__ = [
     "list_buckets",
     "list_collections",
     "list_daily_papers",
+    "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
@@ -1018,6 +1036,7 @@ __all__ = [
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "read_dduf_file",
+    "read_paper",
     "reject_access_request",
     "rename_discussion",
     "repo_exists",
@@ -1039,6 +1058,7 @@ __all__ = [
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
+    "set_space_volumes",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
@@ -1216,6 +1236,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1282,6 +1303,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
+        DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1334,12 +1356,16 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
+        delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
+        disable_space_dev_mode,  # noqa: F401
         disable_webhook,  # noqa: F401
         download_bucket_files,  # noqa: F401
+        duplicate_repo,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
@@ -1347,6 +1373,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
@@ -1369,6 +1396,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_buckets,  # noqa: F401
         list_collections,  # noqa: F401
         list_daily_papers,  # noqa: F401
+        list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
@@ -1402,6 +1430,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_space,  # noqa: F401
         permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        read_paper,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
@@ -1418,6 +1447,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
+        set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401

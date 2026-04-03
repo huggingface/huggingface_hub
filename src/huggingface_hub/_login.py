@@ -17,7 +17,6 @@ import os
 import subprocess
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -57,10 +56,10 @@ _HF_LOGO_ASCII = """
 
 
 def login(
-    token: Optional[str] = None,
+    token: str | None = None,
     *,
     add_to_git_credential: bool = False,
-    skip_if_logged_in: bool = False,
+    skip_if_logged_in: bool = True,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -90,8 +89,9 @@ def login(
             is configured, a warning will be displayed to the user. If `token` is `None`,
             the value of `add_to_git_credential` is ignored and will be prompted again
             to the end user.
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -116,7 +116,7 @@ def login(
         interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
-def logout(token_name: Optional[str] = None) -> None:
+def logout(token_name: str | None = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
@@ -147,12 +147,12 @@ def logout(token_name: Optional[str] = None) -> None:
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "You are automatically logged in using a Google Colab secret.\n"
             "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
         )
     if _get_token_from_environment() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
@@ -232,7 +232,7 @@ def auth_list() -> None:
 ###
 
 
-def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -243,11 +243,12 @@ def interpreter_login(*, skip_if_logged_in: bool = False) -> None:
     For more details, see [`login`].
 
     Args:
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
-    if not skip_if_logged_in and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     print(_HF_LOGO_ASCII)
@@ -294,7 +295,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login(*, skip_if_logged_in: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -305,8 +306,9 @@ def notebook_login(*, skip_if_logged_in: bool = False) -> None:
     For more details, see [`login`].
 
     Args:
-        skip_if_logged_in (`bool`, defaults to `False`):
+        skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -316,8 +318,8 @@ def notebook_login(*, skip_if_logged_in: bool = False) -> None:
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not skip_if_logged_in and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
@@ -489,4 +491,4 @@ def _set_store_as_git_credential_helper_globally() -> None:
     try:
         run_subprocess("git config --global credential.helper store")
     except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
+        raise OSError(exc.stderr)

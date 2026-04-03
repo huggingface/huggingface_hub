@@ -17,6 +17,8 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _parse_bucket_id_from_url,
+    _parse_repo_info_from_url,
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -638,3 +640,65 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 1
         assert warnings == ["Another warning."]
         assert "Topic4" in _WARNED_TOPICS
+
+
+class TestParseRepoInfoFromUrl:
+    def test_api_model_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo") == ("model", "user/repo")
+
+    def test_api_dataset_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo") == ("dataset", "user/repo")
+
+    def test_api_space_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/spaces/user/repo") == ("space", "user/repo")
+
+    def test_api_model_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased") == (
+            "model",
+            "bert-base-cased",
+        )
+
+    def test_api_model_with_resolve_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/user/repo/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "user/repo"
+
+    def test_api_dataset_with_tree_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/tree/main")
+        assert repo_type == "dataset"
+        assert repo_id == "user/repo"
+
+    def test_api_model_single_name_with_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "bert-base-cased"
+
+    def test_non_matching_url(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/some/other/path") == (None, None)
+
+    def test_staging_url(self):
+        assert _parse_repo_info_from_url("https://hub-ci.huggingface.co/api/models/user/repo") == (
+            "model",
+            "user/repo",
+        )
+
+
+class TestParseBucketIdFromUrl:
+    def test_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_subpath(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+            == "namespace/name"
+        )
+
+    def test_non_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/models/user/repo") is None
+
+    def test_http_url(self):
+        assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"

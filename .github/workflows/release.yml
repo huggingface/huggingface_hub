@@ -1,0 +1,698 @@
+# Unified release workflow for huggingface_hub.
+#
+# This workflow handles the full release lifecycle through a single workflow_dispatch trigger. It supports three release
+# types: "minor-prerelease" to publish a release candidate, "minor-release" to publish the final version, and
+# "patch-release" to publish a bugfix on an existing release branch.
+#
+# For a typical minor release, the process is as follows. First, trigger a "minor-prerelease" run from main. This creates
+# a release branch (e.g., v1.6-release), bumps the version to an RC (e.g., 1.6.0.rc0), publishes it to PyPI, creates a
+# draft GitHub release with AI-generated notes, and opens test branches in downstream repositories (transformers,
+# datasets, diffusers, sentence-transformers). Subsequent prereleases for the same minor version reuse the existing
+# draft release (no duplicate). Once the RC has been validated MANUALLY, trigger a "minor-release" run. This promotes
+# the version to the final release (e.g., 1.6.0), publishes to PyPI, updates the existing draft release
+# to point to the final tag, and opens a PR to bump main to the next dev version (e.g., 1.7.0.dev0).
+#
+# For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
+# the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release.
+#
+# The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
+# (huggingface-hub-bot) for PR creation in the post-release job. Since events triggered by GITHUB_TOKEN do not
+# cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml) will not fire and
+# can serve as a manual fallback if needed.
+#
+# Required secrets:
+# - PYPI_TOKEN_DIST_HUGGINGFACE_HUB      : publish `huggingface_hub` package to PyPI
+# - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
+# - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
+# - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
+# - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
+# - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
+# - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
+# - APP_SECRET_PREM_HUB_SKILLS_REPO      : GitHub App private key for the skills repo
+# 
+# An additional secret for OpenCode authentication is needed for automated release notes generation
+# (see the release-notes job below).
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Type of release"
+        required: true
+        type: choice
+        options:
+          - minor-prerelease
+          - minor-release
+          - patch-release
+      version_override:
+        description: "Override version (e.g., 1.6.0.rc1, 1.5.1). Leave empty for auto-detect."
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run — validate version detection without publishing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ============================================================
+  # 1. PREPARE — detect version, create branch, bump, commit, tag, push
+  # ============================================================
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      branch: ${{ steps.version.outputs.branch }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      since_tag: ${{ steps.version.outputs.since_tag }}
+      bump_type: ${{ steps.version.outputs.bump_type }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect version
+        id: version
+        run: |
+          set -euo pipefail
+          RELEASE_TYPE="${{ inputs.release_type }}"
+          VERSION_OVERRIDE="${{ inputs.version_override }}"
+
+          if [[ -n "$VERSION_OVERRIDE" ]]; then
+            # Strip 'v' prefix if present
+            VERSION=$(echo "$VERSION_OVERRIDE" | sed 's/^v//')
+          else
+            case "$RELEASE_TYPE" in
+              minor-prerelease)
+                # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
+                DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+
+                # Find existing RC tags for this base version to determine next RC number
+                LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
+                if [[ -n "$LATEST_RC" ]]; then
+                  RC_NUM=$(echo "$LATEST_RC" | grep -oP '\.rc\K[0-9]+')
+                  RC_NUM=$((RC_NUM + 1))
+                else
+                  RC_NUM=0
+                fi
+
+                VERSION="${BASE_VERSION}.rc${RC_NUM}"
+                ;;
+              minor-release)
+                # Read dev version from __init__.py to scope the RC lookup to this minor version
+                DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+                LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
+                if [[ -z "$LATEST_RC" ]]; then
+                  echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
+                  exit 1
+                fi
+                # v1.6.0.rc0 → 1.6.0
+                VERSION=$(echo "$LATEST_RC" | sed -E 's/^v//;s/\.rc.*//')
+                ;;
+              patch-release)
+                # Find the latest stable (non-RC) release tag
+                LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+                if [[ -z "$LATEST_RELEASE" ]]; then
+                  echo "::error::No release tag found."
+                  exit 1
+                fi
+                CURRENT=$(echo "$LATEST_RELEASE" | sed 's/^v//')
+                IFS='.' read -r MAJOR MINOR_NUM PATCH_NUM <<< "$CURRENT"
+                PATCH_NUM=$((PATCH_NUM + 1))
+                VERSION="${MAJOR}.${MINOR_NUM}.${PATCH_NUM}"
+                ;;
+            esac
+          fi
+
+          # Derive tag, branch, and prerelease flag
+          TAG="v${VERSION}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+          BRANCH="v${MINOR}-release"
+
+          if [[ "$VERSION" == *.rc* ]]; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+
+          # Determine since_tag (for release notes) and bump_type
+          if [[ "$RELEASE_TYPE" == "patch-release" ]]; then
+            # Patch: PRs since the latest tag on this branch
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E "^v${MINOR}\.[0-9]+$" | head -1 || echo "")
+            BUMP_TYPE="patch"
+          else
+            # Prerelease or release: PRs since the last stable release
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+            BUMP_TYPE="minor"
+          fi
+
+          # Validate: tag must not already exist
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists! Use version_override to specify a different version."
+            exit 1
+          fi
+
+          # Set outputs
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "since_tag=$SINCE_TAG" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+          # Step summary
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Type | \`$RELEASE_TYPE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | \`$TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`$BRANCH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Since tag | \`$SINCE_TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prerelease | \`$IS_PRERELEASE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dry run | \`${{ inputs.dry_run }}\` |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create or checkout release branch
+        run: |
+          BRANCH="${{ steps.version.outputs.branch }}"
+          RELEASE_TYPE="${{ inputs.release_type }}"
+
+          if [[ "$RELEASE_TYPE" == "minor-prerelease" ]]; then
+            # For minor-prerelease: create branch from main if it doesn't exist, or reuse existing
+            if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+              echo "Branch $BRANCH already exists, checking out..."
+              git fetch origin "$BRANCH"
+              git checkout "$BRANCH"
+              git pull origin "$BRANCH"
+            else
+              echo "Creating branch $BRANCH from main..."
+              git checkout -b "$BRANCH"
+            fi
+          else
+            # For release/patch: branch must already exist
+            if ! git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+              echo "::error::Branch $BRANCH does not exist. Run a prerelease first."
+              exit 1
+            fi
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git pull origin "$BRANCH"
+          fi
+
+      - name: Update version in __init__.py
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i -E "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" src/huggingface_hub/__init__.py
+          echo "Updated version to:"
+          grep "__version__" src/huggingface_hub/__init__.py
+
+      - name: Commit, tag, and push
+        if: ${{ !inputs.dry_run }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          BRANCH="${{ steps.version.outputs.branch }}"
+          IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
+
+          git add src/huggingface_hub/__init__.py
+          git commit -m "Release: ${TAG}"
+
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            git tag "$TAG" -m "${TAG} pre-release"
+          else
+            git tag "$TAG" -m "${TAG} release"
+          fi
+
+          git push -u --tags origin "$BRANCH"
+
+  # ============================================================
+  # 2. PUBLISH — PyPI (huggingface_hub)
+  # ============================================================
+  publish-pypi:
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.10"
+      - name: Install build dependencies
+        run: pip install setuptools wheel twine
+      - name: Build package
+        run: python setup.py sdist bdist_wheel
+      - name: Upload to PyPI
+        run: twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
+
+  # ============================================================
+  # 3. PUBLISH — PyPI (hf CLI)
+  # ============================================================
+  publish-hf-cli:
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.10"
+      - name: Install build dependencies
+        run: pip install setuptools wheel twine
+      - name: Build hf CLI package
+        run: cd utils/hf && python setup.py sdist bdist_wheel
+      - name: Upload to PyPI
+        run: cd utils/hf && twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HF }}
+
+  # ============================================================
+  # 4. RELEASE NOTES — manage GitHub releases
+  #
+  # Strategy per release type (one GitHub release per minor version):
+  #   - patch-release:    create a new draft release with GitHub auto-generated notes.
+  #   - minor-prerelease: if no draft release exists for this minor version, generate
+  #                        notes using the AI script and create a draft prerelease.
+  #                        Subsequent prereleases for the same minor are no-ops.
+  #   - minor-release:    find the existing draft prerelease and update its tag/title
+  #                        to the final version (removing prerelease flag).
+  # ============================================================
+  release-notes:
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    outputs:
+      drafted_prerelease: ${{ steps.check_draft.outputs.skip == 'false' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      # --- Patch release: create release with GitHub auto-generated notes ---
+      - name: Create GitHub release (patch)
+        if: ${{ inputs.release_type == 'patch-release' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ needs.prepare.outputs.tag }}" \
+            --title "v${{ needs.prepare.outputs.version }}" \
+            --draft \
+            --generate-notes
+
+      # --- Prerelease: generate notes only if no draft exists for this minor ---
+      - name: Check for existing draft release
+        if: ${{ inputs.release_type == 'minor-prerelease' }}
+        id: check_draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MINOR=$(echo "${{ needs.prepare.outputs.version }}" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+          # Look for any existing GitHub release (draft or published) matching this minor version
+          EXISTING=$(gh release list --json tagName,isDraft --limit 100 \
+            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          if [[ -n "$EXISTING" ]]; then
+            echo "Draft release already exists for v${MINOR}: $EXISTING — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "No existing release for v${MINOR} — will generate notes"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: pip install PyGithub
+
+      - name: Install OpenCode
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Generate release notes with OpenCode
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+        run: |
+          python -m utils.release_notes.generate_release_notes \
+            --since "${{ needs.prepare.outputs.since_tag }}" \
+            --${{ needs.prepare.outputs.bump_type }}
+
+      - name: Create draft GitHub release (prerelease)
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          # Find generated notes file (if any)
+          NOTES_FILE=""
+          for f in .release-notes/RELEASE_NOTES_*.md; do
+            if [[ -f "$f" ]]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+
+          ARGS=(
+            "$TAG"
+            --draft
+            --prerelease
+          )
+
+          if [[ -n "$NOTES_FILE" ]]; then
+            echo "Using generated release notes from $NOTES_FILE"
+            # Extract title from first line (strip "# " prefix) and use rest as body
+            TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
+            tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
+            ARGS+=(--title "$TITLE" --notes-file "${NOTES_FILE}.body")
+          else
+            echo "No generated notes found, using GitHub auto-generated notes"
+            ARGS+=(--title "v${VERSION}" --generate-notes)
+          fi
+
+          gh release create "${ARGS[@]}"
+
+      - name: Upload release notes artifact
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: release-notes
+          path: .release-notes/
+          retention-days: 7
+
+      # --- Minor release: update existing draft to point to the final tag ---
+      - name: Promote draft release to final version
+        if: ${{ inputs.release_type == 'minor-release' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          # Find the existing draft release for this minor version
+          EXISTING_TAG=$(gh release list --json tagName,isDraft --limit 100 \
+            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -n "$EXISTING_TAG" ]]; then
+            echo "Updating existing draft release from $EXISTING_TAG to $TAG"
+            gh release edit "$EXISTING_TAG" \
+              --tag "$TAG" \
+              --prerelease=false
+          else
+            echo "::warning::No draft release found for v${MINOR}. Creating new release with auto-generated notes."
+            gh release create "$TAG" \
+              --title "v${VERSION}" \
+              --draft \
+              --generate-notes
+          fi
+
+  # ============================================================
+  # 4b. SLACK MESSAGE — generate Slack announcement for prereleases
+  # ============================================================
+  slack-message:
+    needs: [prepare, release-notes]
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && needs.release-notes.outputs.drafted_prerelease == 'true' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Download release notes artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: release-notes
+          path: .release-notes/
+
+      - name: Generate Slack message
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          # Convert 1.7.0.rc0 -> 1.7.0rc0 for pip
+          RC_PIP_VERSION=$(echo "$VERSION" | sed -E 's/\.rc/rc/')
+          python -m utils.release_notes.generate_slack_message \
+            --version "v${BASE_VERSION}" \
+            --rc-version "${RC_PIP_VERSION}"
+
+      - name: Print Slack message to summary
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          echo "## Slack Announcement" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ".release-notes/SLACK_MESSAGE_v${BASE_VERSION}.md" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
+  # ============================================================
+  test-downstream:
+    needs: [prepare, publish-pypi]
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target-repo: ["transformers", "datasets", "diffusers", "sentence-transformers"]
+    steps:
+      - name: Wait for prerelease to be available on PyPI
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          echo "Waiting for huggingface-hub==${VERSION} on PyPI..."
+          for i in $(seq 1 20); do
+            if pip install "huggingface-hub==${VERSION}" 2>/dev/null; then
+              echo "Package available on PyPI!"
+              exit 0
+            fi
+            echo "Not available yet, retrying in 15s... ($i/20)"
+            sleep 15
+          done
+          echo "::error::Package not available on PyPI after 5 minutes"
+          exit 1
+
+      - name: Checkout target repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: huggingface/${{ matrix.target-repo }}
+          path: ${{ matrix.target-repo }}
+          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
+
+      - name: Configure Git
+        run: |
+          cd ${{ matrix.target-repo }}
+          git config user.name "Hugging Face Bot (RC Testing)"
+          git config user.email "bot@huggingface.co"
+
+      - name: Create test branch and update dependencies
+        run: |
+          cd ${{ matrix.target-repo }}
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
+
+          git checkout -b "$BRANCH_NAME"
+
+          # Update setup.py if exists
+          if [ -f "setup.py" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+            git add setup.py
+          fi
+
+          # transformers-specific
+          if [ "${{ matrix.target-repo }}" = "transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
+            git add src/transformers/dependency_versions_table.py
+          fi
+
+          # diffusers-specific
+          if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
+            sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
+            git add src/diffusers/dependency_versions_table.py
+          fi
+
+          # sentence-transformers-specific
+          if [ "${{ matrix.target-repo }}" = "sentence-transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" pyproject.toml
+            git add pyproject.toml
+          fi
+
+          # Enable prerelease flag in workflow files
+          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+          git add .github/workflows/
+
+          git --no-pager diff --staged
+          git commit -m "Test hfh ${VERSION}"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+      - name: Print URLs
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
+          echo "### ${{ matrix.target-repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "- [Actions](https://github.com/huggingface/${{ matrix.target-repo }}/actions)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Compare](https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME})" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # 6. POST-RELEASE — open PR to bump main to next dev version
+  # ============================================================
+  post-release:
+    needs: [prepare, publish-pypi]
+    if: ${{ inputs.release_type == 'minor-release' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: main
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "huggingface-hub-bot[bot]"
+          git config user.email "huggingface-hub-bot[bot]@users.noreply.github.com"
+
+      - name: Create version bump PR
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          NEXT_MINOR=$((MINOR + 1))
+          DEV_VERSION="${MAJOR}.${NEXT_MINOR}.0.dev0"
+
+          # Guard: skip if main already has an equal or higher version (e.g. version_override for older minor)
+          CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          if [[ "$CURRENT_MINOR" -ge "$NEXT_MINOR" ]]; then
+            echo "::warning::main is already at ${CURRENT_VERSION} (>= ${DEV_VERSION}). Skipping version bump."
+            exit 0
+          fi
+
+          PR_BRANCH="post-release-v${VERSION}"
+          git checkout -b "$PR_BRANCH"
+
+          sed -i -E "s/__version__ = \".*\"/__version__ = \"${DEV_VERSION}\"/" src/huggingface_hub/__init__.py
+          git add src/huggingface_hub/__init__.py
+          git commit -m "Post-release: bump version to ${DEV_VERSION}"
+          git push -u origin "$PR_BRANCH"
+
+          gh pr create \
+            --title "Post-release: bump version to ${DEV_VERSION}" \
+            --body "Automated version bump after v${VERSION} release." \
+            --base main
+
+  # ============================================================
+  # 7. SYNC HF CLI SKILL — update skill docs in skills repo
+  # ============================================================
+  sync-hf-cli-skill:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate skill docs
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
+      - name: Checkout skills repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: huggingface/skills
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+
+      - name: Copy generated files
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Check for changes
+        id: check_changes
+        working-directory: skills-repo
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: "Sync HF CLI Skill (${{ needs.prepare.outputs.tag }})"
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
+
+            Triggered by changes to `src/huggingface_hub/cli/`
+
+            ---
+            This PR was created automatically by the [release](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/release.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          labels: |
+            automated
+            cli-sync

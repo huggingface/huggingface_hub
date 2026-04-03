@@ -64,31 +64,36 @@ Usage:
 import json
 import multiprocessing
 import multiprocessing.pool
-import os
 import shutil
 import time
 from collections import deque
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from fnmatch import fnmatch
-from pathlib import Path
 from queue import Empty, Queue
-from typing import Annotated, Any, Callable, Dict, Iterable, Optional, TypeVar, Union
+from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import SpaceHardware, get_token
+from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
-from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._cli_utils import (
+    EnvFileOpt,
+    EnvOpt,
     OutputFormat,
     QuietOpt,
+    SecretsFileOpt,
+    SecretsOpt,
     TokenOpt,
+    VolumesOpt,
     _format_cell,
     api_object_to_dict,
     get_hf_api,
+    parse_env_map,
+    parse_volumes,
     print_list_output,
     typer_factory,
 )
@@ -97,7 +102,7 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 
-def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple[str, Optional[str]]:
+def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[str, str | None]:
     """Extract namespace from job_id if provided in 'namespace/job_id' format.
 
     Allows users to pass job IDs copied from the Hub UI (e.g. 'username/job_id')
@@ -137,39 +142,21 @@ ImageArg = Annotated[
 ]
 
 ImageOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Use a custom Docker image with `uv` installed.",
     ),
 ]
 
 FlavorOpt = Annotated[
-    Optional[SpaceHardware],
+    SpaceHardware | None,
     typer.Option(
         help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
     ),
 ]
 
-EnvOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-e",
-        "--env",
-        help="Set environment variables. E.g. --env ENV=value",
-    ),
-]
-
-SecretsOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-s",
-        "--secrets",
-        help="Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.",
-    ),
-]
-
 LabelsOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-l",
         "--label",
@@ -177,23 +164,8 @@ LabelsOpt = Annotated[
     ),
 ]
 
-EnvFileOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        "--env-file",
-        help="Read in a file of environment variables.",
-    ),
-]
-
-SecretsFileOpt = Annotated[
-    Optional[str],
-    typer.Option(
-        help="Read in a file of secret environment variables.",
-    ),
-]
-
 TimeoutOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
@@ -209,14 +181,14 @@ DetachOpt = Annotated[
 ]
 
 NamespaceOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
     ),
 ]
 
 WithOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "--with",
         help="Run with the given packages installed",
@@ -224,7 +196,7 @@ WithOpt = Annotated[
 ]
 
 PythonOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         "-p",
         "--python",
@@ -233,14 +205,14 @@ PythonOpt = Annotated[
 ]
 
 SuspendOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Suspend (pause) the scheduled Job",
     ),
 ]
 
 ConcurrencyOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Allow multiple instances of this Job to run concurrently",
     ),
@@ -261,11 +233,12 @@ ScriptArg = Annotated[
 ]
 
 ScriptArgsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Arguments for the script",
     ),
 ]
+
 
 CommandArg = Annotated[
     list[str],
@@ -282,7 +255,7 @@ JobIdArg = Annotated[
 ]
 
 JobIdsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Job IDs (or 'namespace/job_id')",
     ),
@@ -306,6 +279,7 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
         "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
+        "hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
     ],
 )
 def jobs_run(
@@ -314,6 +288,7 @@ def jobs_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -323,18 +298,8 @@ def jobs_run(
     token: TokenOpt = None,
 ) -> None:
     """Run a Job."""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_job(
@@ -343,6 +308,7 @@ def jobs_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -372,7 +338,7 @@ def jobs_logs(
         ),
     ] = False,
     tail: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "-n",
             "--tail",
@@ -424,9 +390,7 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
     return True
 
 
-def _print_output(
-    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
-) -> None:
+def _print_output(rows: list[list[str | int]], headers: list[str], aliases: list[str], fmt: str | None) -> None:
     """Print output according to the chosen format."""
     if fmt:
         # Use custom template if provided
@@ -452,7 +416,7 @@ def _clear_line(n: int) -> None:
 
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
-) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
+) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
         row = [
             job_id,
@@ -527,9 +491,9 @@ def jobs_stats(
     ]
     try:
         with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+            rows_per_job_id: dict[str, list[list[str | int]]] = {}
             for job_id in job_ids:
-                row: list[Union[str, int]] = [job_id]
+                row: list[str | int] = [job_id]
                 row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
                 rows_per_job_id[job_id] = [row]
             last_update_time = time.time()
@@ -578,7 +542,7 @@ def jobs_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -586,18 +550,12 @@ def jobs_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
-    json_flag: Annotated[
-        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
-    ] = False,
 ) -> None:
     """List Jobs."""
-    if json_flag:
-        format = "json"
-
     api = get_hf_api(token=token)
     # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
@@ -681,7 +639,7 @@ def jobs_ps(
 
     # Custom template format
     if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
     else:
         output_format = OutputFormat.json if format == "json" else OutputFormat.table
         print_list_output(
@@ -701,7 +659,7 @@ def jobs_hardware() -> None:
     hardware_list = api.list_jobs_hardware()
     table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
     headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
-    rows: list[list[Union[str, int]]] = []
+    rows: list[list[str | int]] = []
 
     for hw in hardware_list:
         accelerator_info = "N/A"
@@ -780,6 +738,7 @@ jobs_cli.add_typer(uv_app, name="uv")
         "hf jobs uv run my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
+        "hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py",
     ],
 )
 def jobs_uv_run(
@@ -790,6 +749,7 @@ def jobs_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -800,17 +760,8 @@ def jobs_uv_run(
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.run_uv_job(
@@ -822,6 +773,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -854,6 +806,7 @@ def scheduled_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -862,17 +815,8 @@ def scheduled_run(
     token: TokenOpt = None,
 ) -> None:
     """Schedule a Job."""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     scheduled_job = api.create_scheduled_job(
@@ -884,6 +828,7 @@ def scheduled_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -904,7 +849,7 @@ def scheduled_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -912,18 +857,12 @@ def scheduled_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
-    json_flag: Annotated[
-        bool, typer.Option("--json", hidden=True, help="Output as JSON (alias for --format json).")
-    ] = False,
 ) -> None:
     """List scheduled Jobs"""
-    if json_flag:
-        format = "json"
-
     api = get_hf_api(token=token)
     scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
     filters: list[tuple[str, str, str]] = []
@@ -990,7 +929,7 @@ def scheduled_ps(
 
     # Custom template format (e.g. --format '{{.id}} {{.schedule}}')
     if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore[arg-type,misc]
+        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
     else:
         output_format = OutputFormat.json if format == "json" else OutputFormat.table
         print_list_output(
@@ -1087,6 +1026,7 @@ def scheduled_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
+    volume: VolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -1096,17 +1036,8 @@ def scheduled_uv_run(
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map: dict[str, Optional[str]] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=os.environ.copy()))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=os.environ.copy()))
-    secrets_map: dict[str, Optional[str]] = {}
-    extended_environ = _get_extended_environ()
-    if secrets_file:
-        secrets_map.update(load_dotenv(Path(secrets_file).read_text(), environ=extended_environ))
-    for secret in secrets or []:
-        secrets_map.update(load_dotenv(secret, environ=extended_environ))
+    env_map = parse_env_map(env, env_file)
+    secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
     job = api.create_scheduled_uv_job(
@@ -1121,6 +1052,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
+        volumes=parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -1131,7 +1063,7 @@ def scheduled_uv_run(
 ### UTILS
 
 
-def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
+def _parse_labels_map(labels: list[str] | None) -> dict[str, str] | None:
     """Parse label key-value pairs from CLI arguments.
 
     Args:
@@ -1149,7 +1081,7 @@ def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
     return labels_map
 
 
-def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
+def _tabulate(rows: list[list[str | int]], headers: list[str]) -> str:
     """
     Inspired by:
 
@@ -1174,13 +1106,6 @@ def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
         ]
         lines.append(row_format.format(*row_format_args))
     return "\n".join(lines)
-
-
-def _get_extended_environ() -> Dict[str, str]:
-    extended_environ = os.environ.copy()
-    if (token := get_token()) is not None:
-        extended_environ["HF_TOKEN"] = token
-    return extended_environ
 
 
 T = TypeVar("T")
