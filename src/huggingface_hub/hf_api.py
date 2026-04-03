@@ -142,7 +142,7 @@ if TYPE_CHECKING:
     from .utils._xet_progress_reporting import XetProgressReporter
 
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
 
@@ -1294,16 +1294,18 @@ class SpaceInfo:
 @dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
+    Contains information about an item of a Collection (model, dataset, Space, paper, collection or bucket).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id, a collection slug
+            or a bucket id.
             e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"`, `"collection"`
+            or `"bucket"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -9278,9 +9280,11 @@ class HfApi:
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_id (`str`):
                 Id of the item to add to the collection. Use the repo_id for repos/spaces/datasets,
-                the paper id for papers, or the slug of another collection (e.g. `"moonshotai/kimi-k2"`).
+                the paper id for papers, the slug of another collection (e.g. `"moonshotai/kimi-k2"`)
+                or a bucket id (e.g. `"namespace/bucket-name"`).
             item_type (`str`):
-                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
+                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"`, `"collection"`
+                or `"bucket"`.
             note (`str`, *optional*):
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             exists_ok (`bool`, *optional*):
