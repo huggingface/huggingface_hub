@@ -299,8 +299,6 @@ jobs:
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
-    outputs:
-      drafted_prerelease: ${{ steps.check_draft.outputs.skip == 'false' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
