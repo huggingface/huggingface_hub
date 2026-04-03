@@ -475,6 +475,8 @@ jobs:
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
           # Convert 1.7.0.rc0 -> 1.7.0rc0 for pip
           RC_PIP_VERSION=$(echo "$VERSION" | sed -E 's/\.rc/rc/')
+          # Create output directory (.release-notes/ is in .gitignore so absent after checkout)
+          mkdir -p .release-notes
           python -m utils.release_notes.generate_slack_message \
             --version "v${BASE_VERSION}" \
             --rc-version "${RC_PIP_VERSION}" \
