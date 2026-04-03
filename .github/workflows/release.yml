@@ -226,15 +226,6 @@ jobs:
             echo "message_ts=$TS" >> $GITHUB_OUTPUT
           fi
 
-          # Add rocket reaction to the message
-          curl -s -X POST https://slack.com/api/reactions.add \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg channel "$SLACK_CHANNEL_ID" \
-              --arg timestamp "$TS" \
-              '{channel: $channel, name: "rocket", timestamp: $timestamp}')" > /dev/null
-
       - name: Create or checkout release branch
         run: |
           BRANCH="${{ steps.version.outputs.branch }}"
