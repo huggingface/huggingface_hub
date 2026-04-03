@@ -415,8 +415,8 @@ jobs:
           MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 
           # Find the existing draft release for this minor version
-          EXISTING_TAG=$(gh release list --json tagName,isDraft --limit 100 \
-            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          EXISTING_TAG=$(gh release list --json tagName --limit 100 \
+            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
 
           if [[ -n "$EXISTING_TAG" ]]; then
             echo "Updating existing draft release from $EXISTING_TAG to $TAG"
