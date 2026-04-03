@@ -931,6 +931,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update Slack message with final status
+        continue-on-error: true
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
@@ -941,9 +942,11 @@ jobs:
           RELEASE_TYPE="${{ inputs.release_type }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Check if any job failed or was cancelled
+          # Check if any job failed or was cancelled (including prepare itself,
+          # which can fail after posting the Slack message, e.g. during git push)
           FAILED=false
           for result in \
+            "${{ needs.prepare.result }}" \
             "${{ needs.publish-pypi.result }}" \
             "${{ needs.publish-hf-cli.result }}" \
             "${{ needs.release-notes.result }}" \
