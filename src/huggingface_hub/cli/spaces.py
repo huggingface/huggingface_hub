@@ -326,6 +326,7 @@ def spaces_hot_reload(
         repo_id=space_id,
         path_or_fileobj=local_path,
         path_in_repo=filename,
+        parent_commit=current_sha,
         _hot_reload=True,
     )
 
