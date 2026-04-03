@@ -35,8 +35,6 @@ from typing import (
     BinaryIO,
     Literal,
     Optional,
-    Sequence,
-    Type,
     TypeVar,
     overload,
 )
@@ -62,6 +60,7 @@ from ._buckets import (
     BucketUrl,
     SyncPlan,
     _BucketAddFile,
+    _BucketCopyFile,
     _BucketDeleteFile,
     _split_bucket_id_and_prefix,
     sync_bucket_internal,
@@ -414,7 +413,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     return repo_type, namespace, repo_id
 
 
-def _parse_hf_copy_handle(hf_handle: str) -> Union[_BucketCopyHandle, _RepoCopyHandle]:
+def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
     if not hf_handle.startswith("hf://"):
         raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
 
@@ -12499,13 +12498,7 @@ class HfApi:
                 yield BucketFile(**path_info)
 
     @validate_hf_hub_args
-    def copy_files(
-        self,
-        source: str,
-        destination: str,
-        *,
-        token: Union[str, bool, None] = None,
-    ) -> None:
+    def copy_files(self, source: str, destination: str, *, token: str | bool | None = None) -> None:
         """Copy files between locations on the Hub.
 
         Copy files from a bucket or repository (model, dataset, space) to a bucket. Both individual files and
@@ -12559,7 +12552,8 @@ class HfApi:
         destination_path = destination_handle.path
         destination_is_directory = destination_handle.is_directory or destination_path == ""
 
-        all_adds: list[Union[_BucketAddFile, tuple[str, str]]] = []
+        all_adds: list[_BucketAddFile | tuple[str, str]] = []
+        all_copies: list[_BucketCopyFile] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: Optional[str], is_single_file: bool) -> str:
             basename = src_file_path.rsplit("/", 1)[-1]
@@ -12587,9 +12581,17 @@ class HfApi:
                 return rel_path
             return f"{destination_path.rstrip('/')}/{rel_path}"
 
-        def _hash_copy(target_path: str, xet_hash: str, size: int) -> _BucketAddFile:
+        def _copy_by_hash(
+            target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
+        ) -> _BucketCopyFile:
             """Server-side copy by xet hash — no data transfer needed."""
-            return _BucketAddFile(source=b"", destination=target_path, xet_hash=xet_hash, size=size)
+            return _BucketCopyFile(
+                destination=target_path,
+                xet_hash=xet_hash,
+                source_repo_type=source_repo_type,
+                source_repo_id=source_repo_id,
+                size=size,
+            )
 
         def _download_from_repo(file_path: str) -> str:
             """Download a repo file to local cache, return the cache path."""
@@ -12602,9 +12604,13 @@ class HfApi:
             )
 
         def _add_repo_file(file: RepoFile, target_path: str) -> None:
-            """Queue a repo file: hash-copy if xet-backed, otherwise download first."""
+            """Queue a repo file: copy-by-hash if xet-backed, otherwise download first."""
             if file.xet_hash is not None:
-                all_adds.append(_hash_copy(target_path, file.xet_hash, file.size))
+                all_copies.append(
+                    _copy_by_hash(
+                        target_path, file.xet_hash, file.size, source_handle.repo_type, source_handle.repo_id
+                    )
+                )
             else:
                 all_adds.append((_download_from_repo(file.path), target_path))
 
@@ -12617,7 +12623,11 @@ class HfApi:
                 # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
-                all_adds.append(_hash_copy(target_path, source_file.xet_hash, source_file.size))
+                all_copies.append(
+                    _copy_by_hash(
+                        target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
+                    )
+                )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
                 if source_path != "" and not destination_is_directory:
@@ -12630,12 +12640,14 @@ class HfApi:
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    all_adds.append(_hash_copy(target_path, item.xet_hash, item.size))
+                    all_copies.append(
+                        _copy_by_hash(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
+                    )
 
-        # === Source is a repo: hash-copy if xet-backed, download otherwise ===
+        # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
         else:
             source_path = source_handle.path
-            source_path_info: list[Union[RepoFile, RepoFolder]] = []
+            source_path_info: list[RepoFile | RepoFolder] = []
             if source_path != "":
                 source_path_info = self.get_paths_info(
                     repo_id=source_handle.repo_id,
@@ -12666,7 +12678,10 @@ class HfApi:
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
                     _add_repo_file(item, target_path)
 
-        # Single batched call at the end for all collected adds
+        # Send copies first (no upload needed), then adds (may need upload)
+        if all_copies:
+            for copy_chunk in chunk_iterable(all_copies, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(destination_bucket_id, copy=list(copy_chunk), token=token)
         if all_adds:
             for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
                 self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
@@ -12677,12 +12692,14 @@ class HfApi:
         bucket_id: str,
         *,
         add: list[tuple[str | Path | bytes, str]] | None = None,
+        copy: list[tuple[str, str, str, str]] | None = None,
         delete: list[str] | None = None,
         token: str | bool | None = None,
     ):
-        """Add and/or delete files in a bucket.
+        """Add, copy, and/or delete files in a bucket.
 
-        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded or deleted,
+        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded,
+        copied, or deleted while others haven't.
 
         Args:
             bucket_id (`str`):
@@ -12690,6 +12707,15 @@ class HfApi:
             add (`list` of `tuple`, *optional*):
                 Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
                 file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
+            copy (`list` of `tuple`, *optional*):
+                Files to copy by xet hash. Each element is a `(source_repo_type, source_repo_id, xet_hash,
+                destination)` tuple where:
+                - `source_repo_type` is the type of the source repository: `"model"`, `"dataset"`, `"space"`, or
+                  `"bucket"`.
+                - `source_repo_id` is the ID of the source repository or bucket (e.g. `"username/my-model"`).
+                - `xet_hash` is the xet hash of the file to copy.
+                - `destination` is the destination path in the bucket.
+                This is a server-side operation — no data is downloaded or re-uploaded.
             delete (`list` of `str`, *optional*):
                 Paths of files to delete from the bucket.
             token (`bool` or `str`, *optional*):
@@ -12711,6 +12737,15 @@ class HfApi:
             ...     ],
             ... )
 
+            # Copy xet files from another bucket or repo (server-side, no data transfer)
+            >>> batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     copy=[
+            ...         ("bucket", "username/source-bucket", "xet-hash-abc123", "models/model.safetensors"),
+            ...         ("model", "username/my-model", "xet-hash-def456", "models/config.safetensors"),
+            ...     ],
+            ... )
+
             # Delete files
             >>> batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
 
@@ -12723,16 +12758,31 @@ class HfApi:
             ```
         """
         add = [] if add is None else add
+        copy = [] if copy is None else copy
         delete = [] if delete is None else delete
 
+        # Convert public copy tuples to internal _BucketCopyFile objects
+        copy_operations = [
+            _BucketCopyFile(
+                destination=destination,
+                xet_hash=xet_hash,
+                source_repo_type=source_repo_type,
+                source_repo_id=source_repo_id,
+            )
+            for source_repo_type, source_repo_id, xet_hash, destination in copy
+        ]
+
         # Small batch: do everything in one call
-        if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            add_payload: Optional[list[tuple[Union[str, Path, bytes], str]]] = add if len(add) > 0 else None
-            delete_payload: Optional[list[str]] = delete if len(delete) > 0 else None
-            self._batch_bucket_files(bucket_id, add=add_payload, delete=delete_payload, token=token)
+        if len(add) + len(copy_operations) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            add_payload: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = (
+                list(add) if len(add) > 0 else None
+            )
+            copy_payload: list[_BucketCopyFile] | None = copy_operations if len(copy_operations) > 0 else None
+            delete_payload: list[str] | None = delete if len(delete) > 0 else None
+            self._batch_bucket_files(bucket_id, add=add_payload, copy=copy_payload, delete=delete_payload, token=token)
             return
 
-        # Large batch: chunk adds first, then deletes
+        # Large batch: chunk copies first (no upload), then adds, then deletes
         from .utils._xet_progress_reporting import XetProgressReporter
 
         if add and not are_progress_bars_disabled():
@@ -12741,8 +12791,11 @@ class HfApi:
             progress = None
 
         try:
+            for copy_chunk in chunk_iterable(copy_operations, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
+
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                add_chunk_list: list[tuple[Union[str, Path, bytes], str]] = list(add_chunk)
+                add_chunk_list: list[tuple[str | Path | bytes, str] | _BucketAddFile] = list(add_chunk)
                 self._batch_bucket_files(bucket_id, add=add_chunk_list, token=token, _progress=progress)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
@@ -12758,13 +12811,14 @@ class HfApi:
         bucket_id: str,
         *,
         add: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = None,
+        copy: list[_BucketCopyFile] | None = None,
         delete: list[str] | None = None,
         token: str | bool | None = None,
         _progress: XetProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
-        operations: list[_BucketAddFile | _BucketDeleteFile] = []
+        operations: list[_BucketAddFile | _BucketCopyFile | _BucketDeleteFile] = []
         if add:
             for item in add:
                 if isinstance(item, _BucketAddFile):
@@ -12772,6 +12826,8 @@ class HfApi:
                 else:
                     source, destination = item
                     operations.append(_BucketAddFile(source=source, destination=destination))
+        if copy:
+            operations.extend(copy)
         if delete:
             for path in delete:
                 operations.append(_BucketDeleteFile(path=path))
@@ -12886,6 +12942,14 @@ class HfApi:
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
+                elif isinstance(op, _BucketCopyFile):
+                    payload = {
+                        "type": "copyFile",
+                        "path": op.destination,
+                        "xetHash": op.xet_hash,
+                        "sourceRepoType": op.source_repo_type,
+                        "sourceRepoId": op.source_repo_id,
+                    }
                 else:
                     payload = {
                         "type": "deleteFile",
