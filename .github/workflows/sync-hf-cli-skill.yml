@@ -53,8 +53,15 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Copy generated files
         run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Regenerate skills repo artifacts
+        working-directory: skills-repo
+        run: ./scripts/publish.sh
 
       - name: Check for changes
         id: check_changes
