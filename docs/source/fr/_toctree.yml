@@ -6,7 +6,45 @@
       title: Démarrage rapide
     - local: installation
       title: Installation
-- title: "Guides"
+- title: "Guides pratiques"
   sections:
+    - local: guides/overview
+      title: Vue d'ensemble
+    - local: guides/download
+      title: Télécharger des fichiers
+    - local: guides/upload
+      title: Uploader des fichiers
+    - local: guides/cli
+      title: Utiliser le CLI
+    - local: guides/hf_file_system
+      title: HfFileSystem
+    - local: guides/repository
+      title: Dépôt
+    - local: guides/search
+      title: Rechercher
+    - local: guides/inference
+      title: Inférence
+    - local: guides/inference_endpoints
+      title: Inference Endpoints
+    - local: guides/jobs
+      title: Jobs
+    - local: guides/community
+      title: Onglet Communauté
+    - local: guides/collections
+      title: Collections
+    - local: guides/manage-cache
+      title: Cache
+    - local: guides/model-cards
+      title: Cartes de modèle
+    - local: guides/manage-spaces
+      title: Gérer votre Space
     - local: guides/integrations
-      title: Intégrer dans une librarie
+      title: Intégrer une bibliothèque
+    - local: guides/webhooks
+      title: Webhooks
+- title: "Guides conceptuels"
+  sections:
+    - local: concepts/git_vs_http
+      title: Paradigme Git vs HTTP
+    - local: concepts/migration
+      title: Migration vers huggingface_hub v1.0
