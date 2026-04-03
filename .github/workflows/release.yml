@@ -396,14 +396,6 @@ jobs:
 
           gh release create "${ARGS[@]}"
 
-      - name: Upload release notes artifact
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        with:
-          name: release-notes
-          path: .release-notes/
-          retention-days: 7
-
       # --- Minor release: update existing draft to point to the final tag ---
       - name: Promote draft release to final version
         if: ${{ inputs.release_type == 'minor-release' }}
@@ -436,7 +428,9 @@ jobs:
   # ============================================================
   slack-message:
     needs: [prepare, release-notes]
-    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && needs.release-notes.outputs.drafted_prerelease == 'true' && !inputs.dry_run }}
+    # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
+    # This also allows re-running this job after manually editing the draft release notes.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -453,11 +447,24 @@ jobs:
       - name: Install OpenCode
         run: curl -fsSL https://opencode.ai/install | bash
 
-      - name: Download release notes artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
-        with:
-          name: release-notes
-          path: .release-notes/
+      - name: Fetch draft release notes from GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          # Find the draft release for this minor version
+          RELEASE_TAG=$(gh release list --json tagName,isDraft --limit 100 \
+            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::error::No draft release found for v${MINOR}. Ensure a prerelease draft exists."
+            exit 1
+          fi
+
+          echo "Found draft release: $RELEASE_TAG"
+          gh release view "$RELEASE_TAG" --json body -q '.body' > notes.md
 
       - name: Generate Slack message
         env:
@@ -470,7 +477,8 @@ jobs:
           RC_PIP_VERSION=$(echo "$VERSION" | sed -E 's/\.rc/rc/')
           python -m utils.release_notes.generate_slack_message \
             --version "v${BASE_VERSION}" \
-            --rc-version "${RC_PIP_VERSION}"
+            --rc-version "${RC_PIP_VERSION}" \
+            --input notes.md
 
       - name: Print Slack message to summary
         run: |
