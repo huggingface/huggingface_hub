@@ -235,3 +235,46 @@ class TestTqdmGroup(CapsysBaseTest):
         captured = self.capsys.readouterr()
         assert captured.out == ""
         assert "10/10" in captured.err
+
+
+class TestGetProgressBarContext:
+    """Tests for _get_progress_bar_context."""
+
+    def test_explicit_tqdm_class_uses_disable_false(self) -> None:
+        """Test that explicit tqdm_class gets disable=False, fixing #4050.
+
+        When a user explicitly provides a custom tqdm_class, it should be
+        used with disable=False to avoid silent disabling in non-TTY environments.
+        """
+        from huggingface_hub.utils.tqdm import _get_progress_bar_context
+
+        class CustomTqdm:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.disable = kwargs.get("disable")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=30,
+            tqdm_class=CustomTqdm,
+        ) as progress:
+            assert progress is not None
+            assert progress.disable is False
+
+    def test_default_tqdm_uses_tty_detection(self) -> None:
+        """Test that default tqdm (no explicit class) uses TTY auto-detection."""
+        from huggingface_hub.utils.tqdm import _get_progress_bar_context
+
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=30,
+        ) as progress:
+            assert progress is not None
+            # Default tqdm should use TTY auto-detection (disable=None)
+            # which gets resolved based on isatty()

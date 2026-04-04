@@ -7,9 +7,10 @@ import stat
 import time
 import uuid
 import warnings
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, ContextManager, Literal, NoReturn, Protocol, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -54,6 +55,21 @@ from .utils._http import (
 from .utils._runtime import is_xet_available
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
+
+
+if TYPE_CHECKING:
+    from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
+
+
+class ProgressCallback(Protocol):
+    """Protocol for download progress callbacks.
+
+    The callback receives two arguments on every progress update:
+    - ``downloaded``: cumulative bytes downloaded so far.
+    - ``total``: total file size in bytes, or ``None`` if unknown.
+    """
+
+    def __call__(self, downloaded: int, total: int | None) -> None: ...
 
 
 logger = logging.get_logger(__name__)
@@ -328,6 +344,7 @@ def http_get(
     tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
     _tqdm_bar: tqdm | None = None,
+    progress_updater: ProgressCallback | None = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -405,14 +422,18 @@ def http_get(
             f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
             " Please retry with `force_download=True`."
         )
-        progress_cm = _get_progress_bar_context(
-            desc=displayed_filename,
-            log_level=logger.getEffectiveLevel(),
-            total=total,
-            initial=resume_size,
-            name="huggingface_hub.http_get",
-            tqdm_class=tqdm_class,
-            _tqdm_bar=_tqdm_bar,
+        progress_cm: ContextManager[tqdm | None] = (
+            nullcontext(None)
+            if progress_updater is not None
+            else _get_progress_bar_context(
+                desc=displayed_filename,
+                log_level=logger.getEffectiveLevel(),
+                total=total,
+                initial=resume_size,
+                name="huggingface_hub.http_get",
+                tqdm_class=tqdm_class,
+                _tqdm_bar=_tqdm_bar,
+            )
         )
 
         with progress_cm as progress:
@@ -420,9 +441,13 @@ def http_get(
             try:
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                     if chunk:  # filter out keep-alive new chunks
-                        progress.update(len(chunk))
+                        chunk_size = len(chunk)
+                        if progress is not None:
+                            progress.update(chunk_size)
                         temp_file.write(chunk)
-                        new_resume_size += len(chunk)
+                        new_resume_size += chunk_size
+                        if progress_updater is not None:
+                            progress_updater(new_resume_size, total if total is not None else expected_size)
                         # Some data has been downloaded from the server so we reset the number of retries.
                         _nb_retries = 5
             except (httpx.ConnectError, httpx.TimeoutException) as e:
@@ -443,6 +468,7 @@ def http_get(
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
                     _tqdm_bar=_tqdm_bar,
+                    progress_updater=progress_updater,
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():
@@ -451,6 +477,26 @@ def http_get(
                 actual_size=temp_file.tell(),
             )
         )
+
+
+def _make_xet_progress_adapter(
+    callback: ProgressCallback, total: int | None
+) -> Callable[["PyTotalProgressUpdate", list["PyItemProgressUpdate"]], None]:
+    """Adapt a ProgressCallback for xet-core's 2-arg detailed callback.
+
+    Uses the detailed (2-arg) xet-core callback signature to get fine-grained
+    network-level progress instead of coarse disk-write progress.
+    """
+    cumulative = 0
+
+    def wrapper(total_update: "PyTotalProgressUpdate", item_updates: list["PyItemProgressUpdate"]) -> None:
+        nonlocal cumulative
+        increment = total_update.total_transfer_bytes_completion_increment
+        if increment > 0:
+            cumulative += int(increment)
+            callback(cumulative, total_update.total_transfer_bytes or total)
+
+    return wrapper
 
 
 def xet_get(
@@ -462,6 +508,7 @@ def xet_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _tqdm_bar: tqdm | None = None,
+    progress_updater: ProgressCallback | None = None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -479,6 +526,10 @@ def xet_get(
         displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
+        progress_updater (`ProgressCallback`, *optional*):
+            A callback receiving ``(cumulative_downloaded_bytes, total_bytes_or_none)``
+            on every progress update.  When set, takes precedence over ``tqdm_class``
+            and the default tqdm progress bar is suppressed.
 
     **How it works:**
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
@@ -537,32 +588,43 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    progress_cm = _get_progress_bar_context(
-        desc=displayed_filename,
-        log_level=logger.getEffectiveLevel(),
-        total=expected_size,
-        initial=0,
-        name="huggingface_hub.xet_get",
-        tqdm_class=tqdm_class,
-        _tqdm_bar=_tqdm_bar,
-    )
-
     xet_headers = headers.copy()
     xet_headers.pop("authorization", None)
 
-    with progress_cm as progress:
-
-        def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
-
+    # xet-core dispatches by callback signature: tqdm uses 1-arg, progress_updater
+    # uses 2-arg for finer granularity, so the two paths can't share a context manager.
+    if progress_updater is not None:
+        callbacks: list = [_make_xet_progress_adapter(progress_updater, expected_size)]
         download_files(
             xet_download_info,
             endpoint=connection_info.endpoint,
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
-            progress_updater=[progress_updater],
+            progress_updater=callbacks,
             request_headers=xet_headers,
         )
+    else:
+        with _get_progress_bar_context(
+            desc=displayed_filename,
+            log_level=logger.getEffectiveLevel(),
+            total=expected_size,
+            initial=0,
+            name="huggingface_hub.xet_get",
+            tqdm_class=tqdm_class,
+            _tqdm_bar=_tqdm_bar,
+        ) as progress:
+
+            def _tqdm_progress_updater(progress_bytes: float) -> None:
+                progress.update(progress_bytes)
+
+            download_files(
+                xet_download_info,
+                endpoint=connection_info.endpoint,
+                token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
+                token_refresher=token_refresher,
+                progress_updater=[_tqdm_progress_updater],
+                request_headers=xet_headers,
+            )
 
 
 def _normalize_etag(etag: str | None) -> str | None:
@@ -758,6 +820,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    progress_updater: ProgressCallback | None = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -782,6 +845,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    progress_updater: ProgressCallback | None = None,
     dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
 
@@ -806,6 +870,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    progress_updater: ProgressCallback | None = None,
     dry_run: bool = False,
 ) -> str | DryRunFileInfo: ...
 
@@ -830,6 +895,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    progress_updater: ProgressCallback | None = None,
     dry_run: bool = False,
 ) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
@@ -911,6 +977,10 @@ def hf_hub_download(
             argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
             Defaults to the custom HF progress bar that can be disabled by setting
             `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+        progress_updater (`ProgressCallback`, *optional*):
+            A callback receiving ``(cumulative_downloaded_bytes, total_bytes_or_none)``
+            on every progress update.  When set, takes precedence over ``tqdm_class``
+            and the default tqdm progress bar is suppressed.
         dry_run (`bool`, *optional*, defaults to `False`):
             If `True`, perform a dry run without actually downloading the file. Returns a
             [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -989,6 +1059,7 @@ def hf_hub_download(
             force_download=force_download,
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
+            progress_updater=progress_updater,
             dry_run=dry_run,
         )
     else:
@@ -1009,6 +1080,7 @@ def hf_hub_download(
             local_files_only=local_files_only,
             force_download=force_download,
             tqdm_class=tqdm_class,
+            progress_updater=progress_updater,
             dry_run=dry_run,
         )
 
@@ -1031,6 +1103,7 @@ def _hf_hub_download_to_cache_dir(
     local_files_only: bool,
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
+    progress_updater: ProgressCallback | None,
     dry_run: bool,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
@@ -1222,6 +1295,7 @@ def _hf_hub_download_to_cache_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            progress_updater=progress_updater,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1248,6 +1322,7 @@ def _hf_hub_download_to_local_dir(
     force_download: bool,
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
+    progress_updater: ProgressCallback | None,
     dry_run: bool,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
@@ -1433,6 +1508,7 @@ def _hf_hub_download_to_local_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            progress_updater=progress_updater,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1796,6 +1872,7 @@ def _download_to_tmp_and_move(
     etag: str | None,
     xet_file_data: XetFileData | None,
     tqdm_class: type[base_tqdm] | None = None,
+    progress_updater: ProgressCallback | None = None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1842,6 +1919,7 @@ def _download_to_tmp_and_move(
                 expected_size=expected_size,
                 displayed_filename=filename,
                 tqdm_class=tqdm_class,
+                progress_updater=progress_updater,
             )
         else:
             if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
@@ -1858,6 +1936,7 @@ def _download_to_tmp_and_move(
                 headers=headers,
                 expected_size=expected_size,
                 tqdm_class=tqdm_class,
+                progress_updater=progress_updater,
             )
 
     logger.debug(f"Download complete. Moving file to {destination_path}")

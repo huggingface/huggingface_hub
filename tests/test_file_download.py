@@ -31,6 +31,7 @@ from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntr
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
+    XetFileData,
     _check_disk_space,
     _create_symlink,
     _get_pointer_path,
@@ -41,7 +42,12 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
+from huggingface_hub.utils import (
+    SoftTemporaryDirectory,
+    WeakFileLock,
+    get_session,
+    hf_raise_for_status,
+)
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -1338,3 +1344,64 @@ def _recursive_chmod(path: str, mode: int) -> None:
             os.chmod(os.path.join(root, d), mode)
         for f in files:
             os.chmod(os.path.join(root, f), mode)
+
+
+class TestProgressUpdater:
+    """Tests for progress_updater parameter in hf_hub_download and xet_get."""
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_hf_hub_download_accepts_progress_updater_param(self, mock_meta, mock_symlink, mock_download, tmp_path):
+        """Verify progress_updater parameter is passed through to download function."""
+        callback = Mock()
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            XetFileData(file_hash="abc", refresh_route="route"),
+            None,
+        )
+
+        hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+            progress_updater=callback,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is callback
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_progress_updater_takes_precedence_over_tqdm_class(self, mock_meta, mock_symlink, mock_download, tmp_path):
+        """When both provided, progress_updater takes precedence and tqdm_class is ignored."""
+        callback = Mock()
+        custom_tqdm = Mock()
+
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            None,
+            None,
+        )
+
+        hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+            tqdm_class=custom_tqdm,
+            progress_updater=callback,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is callback
