@@ -32,7 +32,6 @@ from .utils import (
     logging,
     validate_hf_hub_args,
 )
-from .utils._lfs import SliceFileObj
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -383,13 +382,16 @@ def _upload_parts_iteratively(
     headers = []
     with operation.as_file(with_tqdm=True) as fileobj:
         for part_idx, part_upload_url in enumerate(sorted_parts_urls):
-            with SliceFileObj(
-                fileobj,
-                seek_from=chunk_size * part_idx,
-                read_limit=chunk_size,
-            ) as fileobj_slice:
-                # S3 might raise a transient 500 error -> let's retry if that happens
-                part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
-                hf_raise_for_status(part_upload_res)
-                headers.append(part_upload_res.headers)
+            # Read chunk sequentially instead of using SliceFileObj + seek.
+            # On Windows, file.seek() with offset >= 2GB can fail due to 32-bit
+            # signed integer limits in some APIs (see issue #3871).
+            chunk_data = fileobj.read(chunk_size)
+            if not chunk_data:
+                raise ValueError(
+                    f"Unexpected end of file while reading part {part_idx + 1} of multipart upload"
+                )
+            # S3 might raise a transient 500 error -> let's retry if that happens
+            part_upload_res = http_backoff("PUT", part_upload_url, data=chunk_data)
+            hf_raise_for_status(part_upload_res)
+            headers.append(part_upload_res.headers)
     return headers  # type: ignore

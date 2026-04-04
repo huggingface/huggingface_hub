@@ -28,7 +28,6 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import get_session, hf_raise_for_status, logging
-from ..utils._lfs import SliceFileObj
 
 
 logger = logging.get_logger(__name__)
@@ -139,29 +138,32 @@ def lfs_multipart_upload() -> None:
         parts = []
         with open(filepath, "rb") as file:
             for i, presigned_url in enumerate(presigned_urls):
-                with SliceFileObj(
-                    file,
-                    seek_from=i * chunk_size,
-                    read_limit=chunk_size,
-                ) as data:
-                    r = get_session().put(presigned_url, data=data)
-                    hf_raise_for_status(r)
-                    parts.append(
-                        {
-                            "etag": r.headers.get("etag"),
-                            "partNumber": i + 1,
-                        }
+                # Read chunk sequentially instead of using SliceFileObj + seek.
+                # On Windows, file.seek() with offset >= 2GB can fail due to 32-bit
+                # signed integer limits in some APIs (see issue #3871).
+                chunk_data = file.read(chunk_size)
+                if not chunk_data:
+                    raise ValueError(
+                        f"Unexpected end of file while reading part {i + 1} of multipart upload"
                     )
-                    # In order to support progress reporting while data is uploading / downloading,
-                    # the transfer process should post messages to stdout
-                    write_msg(
-                        {
-                            "event": "progress",
-                            "oid": oid,
-                            "bytesSoFar": (i + 1) * chunk_size,
-                            "bytesSinceLast": chunk_size,
-                        }
-                    )
+                r = get_session().put(presigned_url, data=chunk_data)
+                hf_raise_for_status(r)
+                parts.append(
+                    {
+                        "etag": r.headers.get("etag"),
+                        "partNumber": i + 1,
+                    }
+                )
+                # In order to support progress reporting while data is uploading / downloading,
+                # the transfer process should post messages to stdout
+                write_msg(
+                    {
+                        "event": "progress",
+                        "oid": oid,
+                        "bytesSoFar": (i + 1) * chunk_size,
+                        "bytesSinceLast": chunk_size,
+                    }
+                )
 
         r = get_session().post(
             completion_url,
