@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -23,50 +23,50 @@ class TextGenerationInputGrammarType(BaseInferenceType):
 
 @dataclass_with_extra
 class TextGenerationInputGenerateParameters(BaseInferenceType):
-    adapter_id: str | None = None
+    adapter_id: Optional[str] = None
     """Lora adapter id"""
-    best_of: int | None = None
+    best_of: Optional[int] = None
     """Generate best_of sequences and return the one if the highest token logprobs."""
-    decoder_input_details: bool | None = None
+    decoder_input_details: Optional[bool] = None
     """Whether to return decoder input token logprobs and ids."""
-    details: bool | None = None
+    details: Optional[bool] = None
     """Whether to return generation details."""
-    do_sample: bool | None = None
+    do_sample: Optional[bool] = None
     """Activate logits sampling."""
-    frequency_penalty: float | None = None
+    frequency_penalty: Optional[float] = None
     """The parameter for frequency penalty. 1.0 means no penalty
     Penalize new tokens based on their existing frequency in the text so far,
     decreasing the model's likelihood to repeat the same line verbatim.
     """
-    grammar: TextGenerationInputGrammarType | None = None
-    max_new_tokens: int | None = None
+    grammar: Optional[TextGenerationInputGrammarType] = None
+    max_new_tokens: Optional[int] = None
     """Maximum number of tokens to generate."""
-    repetition_penalty: float | None = None
+    repetition_penalty: Optional[float] = None
     """The parameter for repetition penalty. 1.0 means no penalty.
     See [this paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
     """
-    return_full_text: bool | None = None
+    return_full_text: Optional[bool] = None
     """Whether to prepend the prompt to the generated text"""
-    seed: int | None = None
+    seed: Optional[int] = None
     """Random sampling seed."""
-    stop: list[str] | None = None
+    stop: Optional[list[str]] = None
     """Stop generating tokens if a member of `stop` is generated."""
-    temperature: float | None = None
+    temperature: Optional[float] = None
     """The value used to module the logits distribution."""
-    top_k: int | None = None
+    top_k: Optional[int] = None
     """The number of highest probability vocabulary tokens to keep for top-k-filtering."""
-    top_n_tokens: int | None = None
+    top_n_tokens: Optional[int] = None
     """The number of highest probability vocabulary tokens to keep for top-n-filtering."""
-    top_p: float | None = None
+    top_p: Optional[float] = None
     """Top-p value for nucleus sampling."""
-    truncate: int | None = None
+    truncate: Optional[int] = None
     """Truncate inputs tokens to the given size."""
-    typical_p: float | None = None
+    typical_p: Optional[float] = None
     """Typical Decoding mass
     See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666)
     for more information.
     """
-    watermark: bool | None = None
+    watermark: Optional[bool] = None
     """Watermarking with [A Watermark for Large Language
     Models](https://arxiv.org/abs/2301.10226).
     """
@@ -81,8 +81,8 @@ class TextGenerationInput(BaseInferenceType):
     """
 
     inputs: str
-    parameters: TextGenerationInputGenerateParameters | None = None
-    stream: bool | None = None
+    parameters: Optional[TextGenerationInputGenerateParameters] = None
+    stream: Optional[bool] = None
 
 
 TextGenerationOutputFinishReason = Literal["length", "eos_token", "stop_sequence"]
@@ -110,8 +110,8 @@ class TextGenerationOutputBestOfSequence(BaseInferenceType):
     generated_tokens: int
     prefill: list[TextGenerationOutputPrefillToken]
     tokens: list[TextGenerationOutputToken]
-    seed: int | None = None
-    top_tokens: list[list[TextGenerationOutputToken]] | None = None
+    seed: Optional[int] = None
+    top_tokens: Optional[list[list[TextGenerationOutputToken]]] = None
 
 
 @dataclass_with_extra
@@ -120,9 +120,9 @@ class TextGenerationOutputDetails(BaseInferenceType):
     generated_tokens: int
     prefill: list[TextGenerationOutputPrefillToken]
     tokens: list[TextGenerationOutputToken]
-    best_of_sequences: list[TextGenerationOutputBestOfSequence] | None = None
-    seed: int | None = None
-    top_tokens: list[list[TextGenerationOutputToken]] | None = None
+    best_of_sequences: Optional[list[TextGenerationOutputBestOfSequence]] = None
+    seed: Optional[int] = None
+    top_tokens: Optional[list[list[TextGenerationOutputToken]]] = None
 
 
 @dataclass_with_extra
@@ -134,7 +134,7 @@ class TextGenerationOutput(BaseInferenceType):
     """
 
     generated_text: str
-    details: TextGenerationOutputDetails | None = None
+    details: Optional[TextGenerationOutputDetails] = None
 
 
 @dataclass_with_extra
@@ -142,7 +142,7 @@ class TextGenerationStreamOutputStreamDetails(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_tokens: int
     input_length: int
-    seed: int | None = None
+    seed: Optional[int] = None
 
 
 @dataclass_with_extra
@@ -163,6 +163,6 @@ class TextGenerationStreamOutput(BaseInferenceType):
 
     index: int
     token: TextGenerationStreamOutputToken
-    details: TextGenerationStreamOutputStreamDetails | None = None
-    generated_text: str | None = None
-    top_tokens: list[TextGenerationStreamOutputToken] | None = None
+    details: Optional[TextGenerationStreamOutputStreamDetails] = None
+    generated_text: Optional[str] = None
+    top_tokens: Optional[list[TextGenerationStreamOutputToken]] = None
