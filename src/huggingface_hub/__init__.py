@@ -58,8 +58,10 @@ _SUBMOD_ATTRS = {
         "BucketFolder",
         "BucketInfo",
         "BucketUrl",
+        "ImportStats",
         "SyncOperation",
         "SyncPlan",
+        "import_from_s3",
     ],
     "_commit_scheduler": [
         "CommitScheduler",
@@ -743,6 +745,7 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
+    "ImportStats",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -977,6 +980,7 @@ __all__ = [
     "hf_hub_url",
     "hf_raise_for_status",
     "hffs",
+    "import_from_s3",
     "inspect_job",
     "inspect_scheduled_job",
     "interpreter_login",
@@ -1188,8 +1192,10 @@ if TYPE_CHECKING:  # pragma: no cover
         BucketFolder,  # noqa: F401
         BucketInfo,  # noqa: F401
         BucketUrl,  # noqa: F401
+        ImportStats,  # noqa: F401
         SyncOperation,  # noqa: F401
         SyncPlan,  # noqa: F401
+        import_from_s3,  # noqa: F401
     )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
