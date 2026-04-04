@@ -28,6 +28,10 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.HfFileMetadata
 
+### ProgressCallback
+
+[[autodoc]] huggingface_hub.ProgressCallback
+
 ## Caching
 
 The methods displayed above are designed to work with a caching system that prevents

@@ -162,6 +162,7 @@ _SUBMOD_ATTRS = {
     "file_download": [
         "DryRunFileInfo",
         "HfFileMetadata",
+        "ProgressCallback",
         "_CACHED_NO_EXIST",
         "get_hf_file_metadata",
         "hf_hub_download",
@@ -771,6 +772,7 @@ __all__ = [
     "Organization",
     "PYTORCH_WEIGHTS_NAME",
     "Padding",
+    "ProgressCallback",
     "PyTorchModelHubMixin",
     "QuestionAnsweringInput",
     "QuestionAnsweringInputData",
@@ -1287,6 +1289,7 @@ if TYPE_CHECKING:  # pragma: no cover
         _CACHED_NO_EXIST,  # noqa: F401
         DryRunFileInfo,  # noqa: F401
         HfFileMetadata,  # noqa: F401
+        ProgressCallback,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
         hf_hub_url,  # noqa: F401
