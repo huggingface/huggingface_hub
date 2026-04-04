@@ -57,6 +57,7 @@ from huggingface_hub.inference._providers.replicate import (
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from huggingface_hub.inference._providers.textclf import TextCLFConversationalTask, TextCLFTextGenerationTask
 from huggingface_hub.inference._providers.together import TogetherTextToImageTask
 from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAIImageToImageTask,
@@ -1728,6 +1729,16 @@ class TestSambanovaProvider:
             == "https://router.huggingface.co/sambanova/v1/embeddings"
         )
 
+class TestTextCLFProvider:
+    def test_prepare_url_text_generation(self):
+        helper = TextCLFTextGenerationTask()
+        url = helper._prepare_url("textclf_token", "username/repo_name")
+        assert url == "https://api.textclf.com/v1/chat/completions"
+
+    def test_prepare_url_conversational(self):
+        helper = TextCLFConversationalTask()
+        url = helper._prepare_url("textclf_token", "username/repo_name")
+        assert url == "https://api.textclf.com/v1/chat/completions"
 
 class TestTogetherProvider:
     def test_prepare_route_text_to_image(self):

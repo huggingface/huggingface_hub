@@ -126,6 +126,10 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "sambanova": {
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
+    "textclf": {
+        "text-generation": "meta-llama/Llama-3.1-8B-Instruct",
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+    },
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
