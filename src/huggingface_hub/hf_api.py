@@ -100,7 +100,7 @@ from .errors import (
     XetAuthorizationError,
     XetRefreshTokenError,
 )
-from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url, make_xet_progress_callback
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -12823,16 +12823,14 @@ class HfApi:
         )
 
         with progress_cm as progress:
-
-            def progress_updater(progress_bytes: float):
-                progress.update(progress_bytes)
-
             download_files(
                 non_zero_download_infos,
                 endpoint=connection_info.endpoint,
                 token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
                 token_refresher=token_refresher,
-                progress_updater=[progress_updater] * len(non_zero_download_infos),
+                progress_updater=[
+                    make_xet_progress_callback(progress, info.file_size) for info in non_zero_download_infos
+                ],
             )
 
     @validate_hf_hub_args
