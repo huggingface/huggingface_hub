@@ -323,7 +323,7 @@ def _get_progress_bar_context(
         #   Makes it easier to use the same code path for both cases but in the later
         #   case, the progress bar is not closed when exiting the context manager.
 
-    return _create_progress_bar(  # type: ignore[return-value]
+    return _create_progress_bar(  # type: ignore
         cls=tqdm_class or tqdm,
         log_level=log_level,
         name=name,
