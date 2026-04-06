@@ -1,3 +1,6 @@
+import io
+import logging
+import sys
 import time
 import unittest
 from pathlib import Path
@@ -5,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 from pytest import CaptureFixture
+from tqdm.auto import tqdm as vanilla_tqdm
 
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
@@ -14,6 +18,7 @@ from huggingface_hub.utils import (
     tqdm,
     tqdm_stream_file,
 )
+from huggingface_hub.utils.tqdm import _get_progress_bar_context
 
 
 class CapsysBaseTest(unittest.TestCase):
@@ -235,3 +240,36 @@ class TestTqdmGroup(CapsysBaseTest):
         captured = self.capsys.readouterr()
         assert captured.out == ""
         assert "10/10" in captured.err
+
+
+class TestCreateProgressBarCustomClass:
+    """Regression tests for https://github.com/huggingface/huggingface_hub/issues/4050."""
+
+    def test_custom_tqdm_class_not_disabled_in_non_tty(self):
+        """Custom tqdm_class should not be silently disabled in non-TTY."""
+        fake_stderr = io.StringIO()
+        with patch.object(sys, "stderr", fake_stderr):
+            bar = _get_progress_bar_context(
+                desc="test",
+                log_level=logging.INFO,
+                total=100,
+                tqdm_class=vanilla_tqdm,
+                name="huggingface_hub.test",
+            )
+            with bar as pbar:
+                assert not pbar.disable
+                pbar.update(50)
+                pbar.update(50)
+                assert pbar.n == 100
+
+    def test_custom_tqdm_class_no_name_kwarg(self):
+        """Custom tqdm_class should not receive HF-specific 'name' kwarg."""
+        bar = _get_progress_bar_context(
+            desc="test",
+            log_level=logging.INFO,
+            total=10,
+            tqdm_class=vanilla_tqdm,
+            name="huggingface_hub.test",
+        )
+        with bar as pbar:
+            pbar.update(10)

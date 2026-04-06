@@ -18,8 +18,9 @@ from .errors import (
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
-from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
-from .utils import tqdm as hf_tqdm
+from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils.tqdm import _create_progress_bar
+from .utils.tqdm import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
@@ -385,14 +386,15 @@ def snapshot_download(
     # Create a progress bar for the bytes downloaded
     # This progress bar is shared across threads/files and gets updated each time we fetch
     # metadata for a file.
-    bytes_progress = tqdm_class(
+    bytes_progress = _create_progress_bar(
+        cls=tqdm_class,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.snapshot_download",
         desc="Downloading (incomplete total...)",
-        disable=is_tqdm_disabled(log_level=logger.getEffectiveLevel()),
         total=0,
         initial=0,
         unit="B",
         unit_scale=True,
-        name="huggingface_hub.snapshot_download",
     )
 
     class _AggregatedTqdm:
