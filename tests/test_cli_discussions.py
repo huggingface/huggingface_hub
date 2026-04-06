@@ -82,12 +82,12 @@ def test_list_discussions(repo_with_discussion: tuple):
     repo_id, _, _ = repo_with_discussion
     result = cli(f"hf discussions list {repo_id}")
     assert result.exit_code == 0, result.output
-    assert "#" in result.output
+    assert "Test discussion" in result.output
 
 
 def test_list_discussions_quiet(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(disc_num) in nums
@@ -107,7 +107,7 @@ def test_list_discussions_json(repo_with_discussion: tuple):
 
 def test_list_filter_kind_discussion(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --kind discussion --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --kind discussion --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(disc_num) in nums
@@ -116,7 +116,7 @@ def test_list_filter_kind_discussion(repo_with_discussion: tuple):
 
 def test_list_filter_kind_pull_request(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --kind pull_request --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --kind pull_request --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(pr_num) in nums
@@ -125,7 +125,7 @@ def test_list_filter_kind_pull_request(repo_with_discussion: tuple):
 
 def test_list_filter_status_closed(repo_with_discussion: tuple):
     repo_id, _, _ = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status closed --quiet")
+    result = cli(f"hf discussions list {repo_id} --status closed --format quiet")
     assert result.exit_code == 0
     # All our test discussions are open, so closed should return nothing
     assert result.output.strip() == ""

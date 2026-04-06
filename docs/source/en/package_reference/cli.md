@@ -806,7 +806,7 @@ $ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 
 ### `hf collections info`
 
-Get info about a collection on the Hub. Output is in JSON format.
+Get info about a collection on the Hub.
 
 **Usage**:
 
@@ -820,6 +820,7 @@ $ hf collections info [OPTIONS] COLLECTION_SLUG
 
 **Options**:
 
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -847,8 +848,7 @@ $ hf collections list [OPTIONS]
 * `--item TEXT`: Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").
 * `--sort [lastModified|trending|upvotes]`: Sort results by last modified, trending, or upvotes.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1284,8 +1284,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1643,8 +1642,7 @@ $ hf endpoints list [OPTIONS]
 **Options**:
 
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1906,8 +1904,7 @@ $ hf extensions list [OPTIONS]
 
 **Options**:
 
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -1956,8 +1953,7 @@ $ hf extensions search [OPTIONS]
 
 **Options**:
 
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3640,7 +3636,7 @@ $ hf webhooks [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a webhook permanently.
 * `disable`: Disable an active webhook.
 * `enable`: Enable a disabled webhook.
-* `info`: Show full details for a single webhook as...
+* `info`: Show full details for a single webhook.
 * `list`: List all webhooks for the current user. [alias: ls]
 * `update`: Update an existing webhook.
 
@@ -3761,7 +3757,7 @@ Learn more
 
 ### `hf webhooks info`
 
-Show full details for a single webhook as JSON.
+Show full details for a single webhook.
 
 **Usage**:
 
@@ -3775,6 +3771,7 @@ $ hf webhooks info [OPTIONS] WEBHOOK_ID
 
 **Options**:
 
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -3798,15 +3795,14 @@ $ hf webhooks list [OPTIONS]
 
 **Options**:
 
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf webhooks ls
   $ hf webhooks ls --format json
-  $ hf webhooks ls -q
+  $ hf webhooks ls --format quiet
 
 Learn more
   Use `hf <command> --help` for more information about a command.
