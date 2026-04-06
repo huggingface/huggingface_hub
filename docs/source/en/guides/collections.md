@@ -125,6 +125,27 @@ It will return a [`Collection`] object with the high-level metadata (title, desc
 'https://huggingface.co/collections/owner/iccv-2023-15e23b46cb98efca45'
 ```
 
+## Update a collection
+
+Once a collection is created, you can update its metadata using [`update_collection_metadata`]. You can change the title, description, visibility, position, and theme:
+
+```py
+>>> from huggingface_hub import update_collection_metadata
+>>> collection = update_collection_metadata(
+...     collection_slug="username/iccv-2023-64f9a55bb3115b4f513ec026",
+...     title="ICCV Oct. 2023",
+...     description="Portfolio of models, datasets, papers and demos I presented at ICCV Oct. 2023",
+...     private=False,
+...     theme="pink",
+... )
+>>> collection.slug
+"username/iccv-oct-2023-64f9a55bb3115b4f513ec026"
+# ^collection slug got updated but not the trailing ID
+```
+
+> [!TIP]
+> Changing the title will update the slug of the collection, but the trailing ID will remain the same. Your existing links will keep working since the Hub resolves collections by the trailing ID.
+
 ## Manage items in a collection
 
 Now that we have a [`Collection`], we want to add items to it and organize them.
@@ -219,3 +240,42 @@ A collection can be deleted using [`delete_collection`].
 >>> from huggingface_hub import delete_collection
 >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
 ```
+
+## Manage collections from the CLI
+
+All of the above operations are also available from the `hf` command-line interface:
+
+```bash
+# List collections
+>>> hf collections ls
+>>> hf collections ls --owner nvidia
+>>> hf collections ls --item models/teknium/OpenHermes-2.5-Mistral-7B --limit 10
+
+# Get info about a collection
+>>> hf collections info username/my-collection-slug
+
+# Create a collection
+>>> hf collections create "My Models"
+>>> hf collections create "My Models" --description "A collection of my favorite models" --private
+
+# Update a collection's metadata
+>>> hf collections update username/my-collection --title "New Title"
+>>> hf collections update username/my-collection --private --theme green
+
+# Add an item to a collection
+>>> hf collections add-item username/my-collection moonshotai/kimi-k2 model
+>>> hf collections add-item username/my-collection Qwen/DeepPlanning dataset --note "Useful dataset"
+
+# Update an item's note or position
+>>> hf collections update-item username/my-collection ITEM_OBJECT_ID --note "Updated note"
+>>> hf collections update-item username/my-collection ITEM_OBJECT_ID --position 0
+
+# Delete an item from a collection
+>>> hf collections delete-item username/my-collection ITEM_OBJECT_ID
+
+# Delete a collection
+>>> hf collections delete username/my-collection
+>>> hf collections delete username/my-collection --missing-ok
+```
+
+Use `--format json` for machine-readable output. For the full list of options, run `hf collections <command> --help`. For more details, see the [CLI guide](./cli#hf-collections).

@@ -1032,6 +1032,69 @@ To view the diff of a pull request directly in your terminal, use `hf discussion
 >>> hf discussions diff username/my-model 5
 ```
 
+## hf collections
+
+Use `hf collections` to browse, create, update, and delete collections on the Hugging Face Hub. Collections let you group related models, datasets, Spaces, and papers together.
+
+### List collections
+
+```bash
+# List your collections
+>>> hf collections ls
+
+# List collections for a specific owner
+>>> hf collections ls --owner nvidia
+
+# Filter by item
+>>> hf collections ls --item models/teknium/OpenHermes-2.5-Mistral-7B --limit 10
+```
+
+### Get collection info
+
+```bash
+>>> hf collections info username/my-collection-slug
+```
+
+### Create a collection
+
+```bash
+>>> hf collections create "My Models"
+>>> hf collections create "My Models" --description "A collection of my favorite models" --private
+>>> hf collections create "Org Collection" --namespace my-org
+```
+
+### Update a collection
+
+```bash
+>>> hf collections update username/my-collection --title "New Title"
+>>> hf collections update username/my-collection --description "Updated description"
+>>> hf collections update username/my-collection --private --theme green
+```
+
+### Add, update, and delete items
+
+```bash
+# Add an item (type is one of: model, dataset, space, paper)
+>>> hf collections add-item username/my-collection moonshotai/kimi-k2 model
+>>> hf collections add-item username/my-collection Qwen/DeepPlanning dataset --note "Useful dataset"
+
+# Update an item's note or position
+>>> hf collections update-item username/my-collection ITEM_OBJECT_ID --note "Updated note"
+>>> hf collections update-item username/my-collection ITEM_OBJECT_ID --position 0
+
+# Delete an item
+>>> hf collections delete-item username/my-collection ITEM_OBJECT_ID
+```
+
+### Delete a collection
+
+```bash
+>>> hf collections delete username/my-collection
+>>> hf collections delete username/my-collection --missing-ok
+```
+
+Use `--format json` for machine-readable output. For more details, see the [Collections guide](./collections).
+
 ## hf repos
 
 `hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
@@ -1052,6 +1115,22 @@ Create a private dataset or a Space:
 ```
 
 Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
+
+### Duplicate a repo
+
+```bash
+>>> hf repos duplicate openai/gdpval --type dataset
+Successfully duplicated openai/gdpval to Wauplin/gdpval on the Hub.
+```
+
+Duplicate a Space with hardware, secrets, and volumes:
+
+```bash
+>>> hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
+>>> hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data
+```
+
+Use `--exist-ok` to skip if the destination repo already exists.
 
 ### Delete a repo
 
@@ -1330,10 +1409,10 @@ Tag v1.0 created on bigcode/the-stack
 
 ### List tags
 
-To list all tags for a repository, use the `-l` or `--list` option:
+To list all tags for a repository, use the `list` (or `ls`) subcommand:
 
 ```bash
->>> hf repos tag create Wauplin/gradio-space-ci -l --repo-type space
+>>> hf repos tag list Wauplin/gradio-space-ci --repo-type space
 Tags for space Wauplin/gradio-space-ci:
 0.2.2
 0.2.1
@@ -1345,10 +1424,10 @@ Tags for space Wauplin/gradio-space-ci:
 
 ### Delete a tag
 
-To delete a tag, use the `-d` or `--delete` option:
+To delete a tag, use the `delete` subcommand:
 
 ```bash
->>> hf repos tag create -d Wauplin/my-cool-model v1.0
+>>> hf repos tag delete Wauplin/my-cool-model v1.0
 You are about to delete tag v1.0 on model Wauplin/my-cool-model
 Proceed? [Y/n] y
 Tag v1.0 deleted on Wauplin/my-cool-model
