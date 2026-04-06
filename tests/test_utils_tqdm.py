@@ -262,6 +262,19 @@ class TestCreateProgressBarCustomClass:
                 pbar.update(50)
                 assert pbar.n == 100
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", True)
+    def test_custom_tqdm_class_ignores_hf_disable_signal(self):
+        """Custom tqdm_class is not affected by HF_HUB_DISABLE_PROGRESS_BARS."""
+        bar = _get_progress_bar_context(
+            desc="test",
+            log_level=logging.INFO,
+            total=10,
+            tqdm_class=vanilla_tqdm,
+            name="huggingface_hub.test",
+        )
+        with bar as pbar:
+            assert not pbar.disable
+
     def test_custom_tqdm_class_no_name_kwarg(self):
         """Custom tqdm_class should not receive HF-specific 'name' kwarg."""
         bar = _get_progress_bar_context(
