@@ -38,7 +38,6 @@ Usage:
 """
 
 import enum
-import json
 from typing import Annotated, get_args, get_type_hints
 
 import typer
@@ -47,15 +46,12 @@ from huggingface_hub.constants import WEBHOOK_DOMAIN_T
 from huggingface_hub.hf_api import WebhookWatchedItem
 
 from ._cli_utils import (
-    FormatOpt,
-    OutputFormat,
-    QuietOpt,
+    FormatWithAutoOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -102,32 +98,26 @@ webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
     examples=[
         "hf webhooks ls",
         "hf webhooks ls --format json",
-        "hf webhooks ls -q",
+        "hf webhooks ls --format quiet",
     ],
 )
 def webhooks_ls(
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List all webhooks for the current user."""
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(w) for w in api.list_webhooks()]
-    print_list_output(
-        results,
-        format=format,
-        quiet=quiet,
-        headers=["id", "url", "disabled", "domains", "watched"],
-        row_fn=lambda item: [
-            item.get("id", ""),
-            item.get("url") or "(job)",
-            str(item.get("disabled", False)),
-            ", ".join(item.get("domains") or []),
-            ", ".join(
-                f"{w['type']}:{w['name']}" if isinstance(w, dict) else str(w) for w in (item.get("watched") or [])
-            ),
-        ],
-    )
+    results = [
+        {
+            "id": w.id,
+            "url": w.url or "(job)",
+            "disabled": w.disabled,
+            "domains": ", ".join(w.domains or []),
+            "watched": ", ".join(f"{wi.type}:{wi.name}" for wi in (w.watched or [])),
+        }
+        for w in api.list_webhooks()
+    ]
+    out.table(results)
 
 
 @webhooks_cli.command(
@@ -138,12 +128,13 @@ def webhooks_ls(
 )
 def webhooks_info(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook.")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Show full details for a single webhook as JSON."""
+    """Show full details for a single webhook."""
     api = get_hf_api(token=token)
     webhook = api.get_webhook(webhook_id)
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.dict(webhook)
 
 
 @webhooks_cli.command(
@@ -198,8 +189,8 @@ def webhooks_create(
     watched_items = _parse_watch(watch)
     domains = [d.value for d in domain] if domain else None
     webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)  # type: ignore
-    print(f"Webhook created: {webhook.id}")
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.result("Webhook created", id=webhook.id)
+    out.dict(webhook)
 
 
 @webhooks_cli.command(
@@ -244,8 +235,8 @@ def webhooks_update(
     watched_items = _parse_watch(watch) if watch else None
     domains = [d.value for d in domain] if domain else None
     webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)  # type: ignore
-    print(f"Webhook updated: {webhook.id}")
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.result("Webhook updated", id=webhook.id)
+    out.dict(webhook)
 
 
 @webhooks_cli.command(
@@ -261,7 +252,7 @@ def webhooks_enable(
     """Enable a disabled webhook."""
     api = get_hf_api(token=token)
     webhook = api.enable_webhook(webhook_id)
-    print(f"Webhook enabled: {webhook.id}")
+    out.result("Webhook enabled", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -277,7 +268,7 @@ def webhooks_disable(
     """Disable an active webhook."""
     api = get_hf_api(token=token)
     webhook = api.disable_webhook(webhook_id)
-    print(f"Webhook disabled: {webhook.id}")
+    out.result("Webhook disabled", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -307,4 +298,4 @@ def webhooks_delete(
             raise typer.Abort()
     api = get_hf_api(token=token)
     api.delete_webhook(webhook_id)
-    print(f"Webhook deleted: {webhook_id}")
+    out.result("Webhook deleted", id=webhook_id)

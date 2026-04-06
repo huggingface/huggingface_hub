@@ -27,20 +27,17 @@ from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
-    FormatOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     TokenOpt,
-    _format_cell,
     api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 class DiscussionStatus(str, enum.Enum):
@@ -181,8 +178,7 @@ def discussion_list(
     author: AuthorOpt = None,
     limit: LimitOpt = 30,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List discussions and pull requests on a repo."""
@@ -217,21 +213,10 @@ def discussion_list(
             break
 
     items = [api_object_to_dict(d) for d in discussions]
-
-    print_list_output(
+    out.table(
         items,
-        format=format,
-        quiet=quiet,
-        id_key="num",
         headers=["num", "title", "is_pull_request", "status", "author", "created_at"],
-        row_fn=lambda item: [
-            f"#{item['num']}",
-            _format_cell(item.get("title", ""), max_len=50),
-            "PR" if item.get("is_pull_request") else "",
-            _format_status(str(item.get("status", ""))),
-            str(item.get("author", "")),
-            _format_cell(item.get("created_at", "")),
-        ],
+        id_key="num",
         alignments={"num": "right"},
     )
 
@@ -360,10 +345,8 @@ def discussion_create(
         pull_request=pull_request,
     )
     kind = "pull request" if pull_request else "discussion"
-    print(f"Created {kind} {ANSI.bold(f'#{discussion.num}')} on {ANSI.bold(repo_id)}")
-    if pull_request:
-        print(f"Push changes to: {ANSI.bold(f'refs/pr/{discussion.num}')}")
-    print(f"View on Hub: {ANSI.blue(discussion.url)}")
+    ref = f"refs/pr/{discussion.num}" if pull_request else None
+    out.result(f"Created {kind} #{discussion.num} on {repo_id}", num=discussion.num, url=discussion.url, ref=ref)
 
 
 @discussions_cli.command(
@@ -404,7 +387,7 @@ def discussion_comment(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Commented on #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Commented on #{num} on {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -449,7 +432,7 @@ def discussion_close(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Closed #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Closed #{num} on {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -494,7 +477,7 @@ def discussion_reopen(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Reopened #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Reopened #{num} on {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -523,7 +506,7 @@ def discussion_rename(
         new_title=new_title,
         repo_type=repo_type.value,
     )
-    print(f"Renamed #{num} to {ANSI.bold(new_title)} in {ANSI.bold(repo_id)}")
+    out.result(f"Renamed #{num} on {repo_id}", num=num, repo=repo_id, title=new_title)
 
 
 @discussions_cli.command(
@@ -567,7 +550,7 @@ def discussion_merge(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Merged #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Merged #{num} on {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -590,6 +573,6 @@ def discussion_diff(
         repo_type=repo_type.value,
     )
     if details.diff:
-        print(details.diff)
+        out.text(details.diff)
     else:
-        print("No diff available.")
+        out.text("No diff available.")
