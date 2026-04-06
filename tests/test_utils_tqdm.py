@@ -235,3 +235,66 @@ class TestTqdmGroup(CapsysBaseTest):
         captured = self.capsys.readouterr()
         assert captured.out == ""
         assert "10/10" in captured.err
+
+
+class TestGetProgressBarContext:
+    """Tests for _get_progress_bar_context."""
+
+    def test_explicit_tqdm_class_not_disabled_in_non_tty(self) -> None:
+        """Test that explicit tqdm_class is not silently disabled in non-TTY environments."""
+        from huggingface_hub.utils.tqdm import _get_progress_bar_context
+
+        class CustomTqdm:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.disable = kwargs.get("disable")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=30,
+            tqdm_class=CustomTqdm,
+        ) as progress:
+            assert progress is not None
+            assert progress.disable is False
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", True)
+    def test_explicit_tqdm_class_respects_global_disable(self) -> None:
+        """Test that explicit tqdm_class is still disabled when HF_HUB_DISABLE_PROGRESS_BARS is set."""
+        from huggingface_hub.utils.tqdm import _get_progress_bar_context
+
+        class CustomTqdm:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.disable = kwargs.get("disable")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=30,
+            tqdm_class=CustomTqdm,
+        ) as progress:
+            assert progress is not None
+            assert progress.disable is True
+
+    def test_default_tqdm_uses_tty_detection(self) -> None:
+        """Test that default tqdm (no explicit class) uses TTY auto-detection."""
+        from huggingface_hub.utils.tqdm import _get_progress_bar_context
+
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=30,
+        ) as progress:
+            assert progress is not None
+            # Default tqdm should use TTY auto-detection (disable=None)
+            # which gets resolved based on isatty()

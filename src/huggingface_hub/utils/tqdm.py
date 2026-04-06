@@ -297,7 +297,20 @@ def _get_progress_bar_context(
         #   Makes it easier to use the same code path for both cases but in the later
         #   case, the progress bar is not closed when exiting the context manager.
 
-    return (tqdm_class or tqdm)(  # type: ignore
+    # If tqdm_class is explicitly provided, always enable (don't defer to TTY auto-detection).
+    # This fixes silent disabling in non-TTY environments when user provides custom class.
+    if tqdm_class is not None:
+        return tqdm_class(  # type: ignore
+            unit=unit,
+            unit_scale=unit_scale,
+            total=total,
+            initial=initial,
+            desc=desc,
+            disable=are_progress_bars_disabled(name),
+        )
+
+    # Default tqdm with TTY auto-detection
+    return tqdm(  # type: ignore
         unit=unit,
         unit_scale=unit_scale,
         total=total,

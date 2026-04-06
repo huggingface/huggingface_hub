@@ -31,6 +31,7 @@ from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntr
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
+    XetFileData,
     _check_disk_space,
     _create_symlink,
     _get_pointer_path,
@@ -41,7 +42,12 @@ from huggingface_hub.file_download import (
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
+from huggingface_hub.utils import (
+    SoftTemporaryDirectory,
+    WeakFileLock,
+    get_session,
+    hf_raise_for_status,
+)
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -1338,3 +1344,178 @@ def _recursive_chmod(path: str, mode: int) -> None:
             os.chmod(os.path.join(root, d), mode)
         for f in files:
             os.chmod(os.path.join(root, f), mode)
+
+
+class TestProgressUpdater:
+    """Tests for progress_updater parameter in hf_hub_download and xet_get."""
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_hf_hub_download_accepts_progress_updater_param(self, mock_meta, mock_symlink, mock_download, tmp_path):
+        """Verify progress_updater parameter is passed through to download function."""
+        callback = Mock()
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            XetFileData(file_hash="abc", refresh_route="route"),
+            None,
+        )
+
+        hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+            progress_updater=callback,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is callback
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_hf_api_hf_hub_download_forwards_progress_updater(self, mock_meta, mock_symlink, mock_download, tmp_path):
+        """Verify HfApi.hf_hub_download forwards progress_updater to the module-level function."""
+        from huggingface_hub import HfApi
+
+        callback = Mock()
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            XetFileData(file_hash="abc", refresh_route="route"),
+            None,
+        )
+
+        api = HfApi()
+        api.hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+            progress_updater=callback,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is callback
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_hf_api_hf_hub_download_defaults_progress_updater_to_none(
+        self, mock_meta, mock_symlink, mock_download, tmp_path
+    ):
+        """Verify HfApi.hf_hub_download passes None when progress_updater is not provided."""
+        from huggingface_hub import HfApi
+
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            None,
+            None,
+        )
+
+        api = HfApi()
+        api.hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is None
+
+    @patch("huggingface_hub.file_download._download_to_tmp_and_move")
+    @patch("huggingface_hub.file_download._create_symlink")
+    @patch("huggingface_hub.file_download._get_metadata_or_catch_error")
+    def test_progress_updater_takes_precedence_over_tqdm_class(self, mock_meta, mock_symlink, mock_download, tmp_path):
+        """When both provided, progress_updater takes precedence and tqdm_class is ignored."""
+        callback = Mock()
+        custom_tqdm = Mock()
+
+        mock_meta.return_value = (
+            "https://example.com/file",
+            "def",
+            "abc",
+            100,
+            None,
+            None,
+        )
+
+        hf_hub_download(
+            "org/repo",
+            filename="file.bin",
+            cache_dir=tmp_path,
+            force_download=True,
+            tqdm_class=custom_tqdm,
+            progress_updater=callback,
+        )
+
+        mock_download.assert_called_once()
+        _, kwargs = mock_download.call_args
+        assert kwargs["progress_updater"] is callback
+
+    @patch("huggingface_hub.file_download.http_stream_backoff")
+    def test_http_get_invokes_progress_updater_with_correct_values(self, mock_stream_backoff):
+        """Test that http_get calls progress_updater with cumulative bytes and expected_size."""
+
+        def _iter_content() -> Iterable[bytes]:
+            yield b"a" * 1024
+            yield b"b" * 1024
+            yield b"c" * 512
+
+        mock_response = Mock()
+        mock_response.headers = {"Content-Length": "2560"}
+        mock_response.iter_bytes.return_value = _iter_content()
+        mock_stream_backoff.return_value.__enter__.return_value = mock_response
+        mock_stream_backoff.return_value.__exit__.return_value = None
+
+        temp_file = io.BytesIO()
+        calls: list[tuple[int, int | None]] = []
+
+        http_get(
+            "https://example.com/file",
+            temp_file=temp_file,
+            expected_size=2560,
+            progress_updater=lambda d, t: calls.append((d, t)),
+        )
+
+        assert calls == [(1024, 2560), (2048, 2560), (2560, 2560)]
+        assert temp_file.tell() == 2560
+
+    @patch("huggingface_hub.file_download.http_stream_backoff")
+    def test_http_get_progress_updater_falls_back_to_total_when_no_expected_size(self, mock_stream_backoff):
+        """When expected_size is None, falls back to HTTP Content-Length."""
+
+        def _iter_content() -> Iterable[bytes]:
+            yield b"y" * 200
+
+        mock_response = Mock()
+        mock_response.headers = {"Content-Length": "200"}
+        mock_response.iter_bytes.return_value = _iter_content()
+        mock_stream_backoff.return_value.__enter__.return_value = mock_response
+        mock_stream_backoff.return_value.__exit__.return_value = None
+
+        temp_file = io.BytesIO()
+        calls: list[tuple[int, int | None]] = []
+
+        http_get(
+            "https://example.com/file",
+            temp_file=temp_file,
+            expected_size=None,
+            progress_updater=lambda d, t: calls.append((d, t)),
+        )
+
+        # Falls back to Content-Length since expected_size is None
+        assert calls == [(200, 200)]

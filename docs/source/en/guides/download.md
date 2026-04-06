@@ -136,6 +136,29 @@ After completing the download, you can safely remove the `.cache/huggingface/` f
 > [!TIP]
 > Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
 
+## Custom progress tracking
+
+By default, `hf_hub_download` displays a `tqdm` progress bar. If you need programmatic progress
+updates instead (for example, to update a custom UI), use the `progress_updater` parameter:
+
+```python
+>>> from huggingface_hub import hf_hub_download
+>>> def my_progress(downloaded_bytes: int, total_bytes: int | None) -> None:
+...     if total_bytes:
+...         print(f"{downloaded_bytes / total_bytes * 100:.1f}%")
+>>> hf_hub_download(
+...     repo_id="lysandre/arxiv-nlp",
+...     filename="config.json",
+...     progress_updater=my_progress,
+... )
+```
+
+When `progress_updater` is provided, the default tqdm progress bar is suppressed. The callback
+receives cumulative downloaded bytes and the total file size (or `None` if unknown).
+
+> [!NOTE]
+> When `progress_updater` is provided, it takes precedence over `tqdm_class` and the default tqdm bar is suppressed.
+
 ## Download from the CLI
 
 You can use the `hf download` command from the terminal to directly download files from the Hub.

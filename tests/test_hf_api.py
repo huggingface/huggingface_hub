@@ -3556,6 +3556,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_files_only=False,
             headers=None,
             tqdm_class=None,
+            progress_updater=None,
             dry_run=False,
         )
 

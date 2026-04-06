@@ -100,7 +100,7 @@ from .errors import (
     XetAuthorizationError,
     XetRefreshTokenError,
 )
-from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .file_download import DryRunFileInfo, HfFileMetadata, ProgressCallback, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -5791,6 +5791,7 @@ class HfApi:
         token: bool | str | None = None,
         local_files_only: bool = False,
         tqdm_class: type[base_tqdm] | None = None,
+        progress_updater: ProgressCallback | None = None,
         dry_run: Literal[False] = False,
     ) -> str: ...
 
@@ -5810,6 +5811,7 @@ class HfApi:
         token: bool | str | None = None,
         local_files_only: bool = False,
         tqdm_class: type[base_tqdm] | None = None,
+        progress_updater: ProgressCallback | None = None,
         dry_run: Literal[True],
     ) -> DryRunFileInfo: ...
 
@@ -5829,6 +5831,7 @@ class HfApi:
         token: bool | str | None = None,
         local_files_only: bool = False,
         tqdm_class: type[base_tqdm] | None = None,
+        progress_updater: ProgressCallback | None = None,
         dry_run: bool = False,
     ) -> str | DryRunFileInfo:
         """Download a given file if it's not already present in the local cache.
@@ -5902,6 +5905,10 @@ class HfApi:
                 argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
                 Defaults to the custom HF progress bar that can be disabled by setting
                 `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+            progress_updater (`ProgressCallback`, *optional*):
+                A callback receiving ``(cumulative_downloaded_bytes, total_bytes_or_none)``
+                on every progress update.  When set, takes precedence over ``tqdm_class``
+                and the default tqdm progress bar is suppressed.
             dry_run (`bool`, *optional*, defaults to `False`):
                 If `True`, perform a dry run without actually downloading the file. Returns a
                 [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -5952,6 +5959,7 @@ class HfApi:
             headers=self.headers,
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
+            progress_updater=progress_updater,
             dry_run=dry_run,
         )
 
