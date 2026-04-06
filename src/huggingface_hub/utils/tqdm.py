@@ -280,7 +280,7 @@ def tqdm_stream_file(path: Path | str) -> Iterator[io.BufferedReader]:
 
 
 def _create_progress_bar(*, cls: type[old_tqdm], log_level: int, name: str | None = None, **kwargs) -> old_tqdm:
-    """Create a progress bar, handling custom vs HF subclass differences.
+    """Create a progress bar.
 
     For our `tqdm` subclass (or subclasses of it): respects all disable signals
     (`HF_HUB_DISABLE_PROGRESS_BARS`, `disable_progress_bars()`, log level) and uses
