@@ -140,33 +140,19 @@ def test_info_discussion(repo_with_discussion: tuple):
     repo_id, disc_num, _ = repo_with_discussion
     result = cli(f"hf discussions info {repo_id} {disc_num}")
     assert result.exit_code == 0, result.output
-    assert "Test discussion" in result.output
-    assert f"#{disc_num}" in result.output
-    assert "View on Hub:" in result.output
+    data = json.loads(result.output)
+    assert data["num"] == disc_num
+    assert data["title"] == "Test discussion"
 
 
 def test_info_pr(repo_with_discussion: tuple):
     repo_id, _, pr_num = repo_with_discussion
     result = cli(f"hf discussions info {repo_id} {pr_num}")
     assert result.exit_code == 0, result.output
-    assert "Test PR" in result.output
-    assert "Pull Request" in result.output
-
-
-def test_info_json(repo_with_discussion: tuple):
-    repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions info {repo_id} {disc_num} --format json")
-    assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["num"] == disc_num
-    assert data["title"] == "Test discussion"
-
-
-def test_info_no_color(repo_with_discussion: tuple):
-    repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions info {repo_id} {disc_num} --no-color")
-    assert result.exit_code == 0, result.output
-    assert "\u001b[" not in result.output
+    assert data["num"] == pr_num
+    assert data["title"] == "Test PR"
+    assert data["is_pull_request"] is True
 
 
 # =============================================================================

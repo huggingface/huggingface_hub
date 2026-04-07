@@ -1244,18 +1244,13 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--comments`: Show all comments.
-* `--diff`: Show the diff (for pull requests).
-* `--no-color`: Disable colored output.
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--format [text|json]`: Output format (text or json).  [default: text]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf discussions info username/my-model 5
-  $ hf discussions info username/my-model 5 --comments
-  $ hf discussions info username/my-model 5 --diff
   $ hf discussions info username/my-model 5 --format json
 
 Learn more
