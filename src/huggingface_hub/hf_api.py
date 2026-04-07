@@ -8160,6 +8160,20 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    def _space_runtime_after_mutation(
+        self,
+        repo_id: str,
+        response: httpx.Response,
+        *,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        if not response.content:
+            return self.get_space_runtime(repo_id, token=token)
+        data = response.json()
+        if isinstance(data, dict) and "stage" in data:
+            return SpaceRuntime(data)
+        return self.get_space_runtime(repo_id, token=token)
+
     @validate_hf_hub_args
     def set_space_volumes(
         self,
@@ -8213,7 +8227,7 @@ class HfApi:
             json=payload,
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
+        return self._space_runtime_after_mutation(repo_id, r, token=token)
 
     @validate_hf_hub_args
     def delete_space_volumes(
@@ -8252,7 +8266,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
+        return self._space_runtime_after_mutation(repo_id, r, token=token)
 
     #######################
     # Inference Endpoints #

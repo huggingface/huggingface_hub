@@ -29,9 +29,10 @@ from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+import httpx
 import pytest
 
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, Volume, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -3451,6 +3452,63 @@ iface.launch()
         time.sleep(0.5)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
+
+
+class TestSpaceVolumesRuntimeResponse(HfApiCommonTest):
+    _dummy_put_request = httpx.Request("PUT", "https://huggingface.co/api/spaces/user/space/volumes")
+
+    @patch("huggingface_hub.hf_api.HfApi.get_space_runtime")
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_set_space_volumes_partial_json_fetches_runtime(
+        self, mock_get_session: Mock, mock_get_runtime: Mock
+    ) -> None:
+        mock_get_session.return_value.put.return_value = httpx.Response(
+            200, json={"volumes": []}, request=self._dummy_put_request
+        )
+        mock_runtime = Mock(spec=SpaceRuntime)
+        mock_get_runtime.return_value = mock_runtime
+
+        out = self._api.set_space_volumes(
+            "user/space",
+            [Volume(type="bucket", source="user/b", mount_path="/data")],
+        )
+        self.assertIs(out, mock_runtime)
+        mock_get_runtime.assert_called_once_with("user/space", token=None)
+
+    @patch("huggingface_hub.hf_api.HfApi.get_space_runtime")
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_set_space_volumes_empty_body_fetches_runtime(
+        self, mock_get_session: Mock, mock_get_runtime: Mock
+    ) -> None:
+        mock_get_session.return_value.put.return_value = httpx.Response(
+            200, content=b"", request=self._dummy_put_request
+        )
+        mock_runtime = Mock(spec=SpaceRuntime)
+        mock_get_runtime.return_value = mock_runtime
+
+        out = self._api.set_space_volumes(
+            "user/space",
+            [Volume(type="bucket", source="user/b", mount_path="/data")],
+        )
+        self.assertIs(out, mock_runtime)
+        mock_get_runtime.assert_called_once_with("user/space", token=None)
+
+    @patch("huggingface_hub.hf_api.HfApi.get_space_runtime")
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_set_space_volumes_full_runtime_skips_fetch(self, mock_get_session: Mock, mock_get_runtime: Mock) -> None:
+        mock_get_session.return_value.put.return_value = httpx.Response(
+            200,
+            json={"stage": "RUNNING", "hardware": {"current": "cpu-basic", "requested": None}},
+            request=self._dummy_put_request,
+        )
+
+        out = self._api.set_space_volumes(
+            "user/space",
+            [Volume(type="bucket", source="user/b", mount_path="/data")],
+        )
+        self.assertIsInstance(out, SpaceRuntime)
+        self.assertEqual(out.stage, "RUNNING")
+        mock_get_runtime.assert_not_called()
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
