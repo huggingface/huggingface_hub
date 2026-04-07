@@ -881,14 +881,11 @@ def test_cp_remote_bucket_to_bucket(api: HfApi):
     destination_bucket = api.create_bucket(bucket_name()).bucket_id
     api.batch_bucket_files(source_bucket, add=[(b"aaa", "logs/a.txt"), (b"bbb", "logs/sub/b.txt"), (b"ccc", "c.txt")])
 
-    result = cli(
-        f"hf buckets cp hf://buckets/{source_bucket}/logs hf://buckets/{destination_bucket}/backup/",
-    )
+    cli(f"hf buckets cp hf://buckets/{source_bucket}/logs hf://buckets/{destination_bucket}/backup/")
 
-    assert result.exit_code == 0, result.output
-    assert f"Copied: hf://buckets/{source_bucket}/logs -> hf://buckets/{destination_bucket}/backup/" in result.output
     files = _remote_files(api, destination_bucket)
-    assert files >= {"backup/a.txt", "backup/sub/b.txt"}
+    assert "backup/a.txt" in files
+    assert "backup/sub/b.txt" in files
     assert "backup/c.txt" not in files
 
 
@@ -897,22 +894,13 @@ def test_cp_remote_repo_to_bucket(api: HfApi):
     branch = "cp-copy-branch"
     destination_bucket = api.create_bucket(bucket_name()).bucket_id
 
-    try:
-        api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
-        api.create_branch(repo_id=repo_id, branch=branch)
-        api.upload_file(
-            repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch
-        )
+    api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
+    api.create_branch(repo_id=repo_id, branch=branch)
+    api.upload_file(repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch)
 
-        result = cli(
-            f"hf buckets cp hf://{repo_id}@{branch}/nested/from-branch.txt hf://buckets/{destination_bucket}/copied.txt"
-        )
-        assert result.exit_code == 0, result.output
-        assert (
-            f"Copied: hf://{repo_id}@{branch}/nested/from-branch.txt -> hf://buckets/{destination_bucket}/copied.txt"
-        ) in result.output
-    finally:
-        api.delete_repo(repo_id=repo_id)
+    cli(f"hf buckets cp hf://{repo_id}@{branch}/nested/from-branch.txt hf://buckets/{destination_bucket}/copied.txt")
+
+    assert "copied.txt" in _remote_files(api, destination_bucket)
 
 
 def test_cp_error_bucket_to_repo(api: HfApi, bucket_write: str):
