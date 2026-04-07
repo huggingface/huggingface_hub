@@ -695,14 +695,14 @@ Add an item to a collection.
 **Usage**:
 
 ```console
-$ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dataset|space|paper|collection}
+$ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dataset|space|paper|collection|bucket}
 ```
 
 **Arguments**:
 
 * `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
 * `ITEM_ID`: The ID of the item to add (repo_id for repos, paper ID for papers).  [required]
-* `ITEM_TYPE:{model|dataset|space|paper|collection}`: The type of item (model, dataset, space, paper, or collection).  [required]
+* `ITEM_TYPE:{model|dataset|space|paper|collection|bucket}`: The type of item (model, dataset, space, paper, collection, or bucket).  [required]
 
 **Options**:
 

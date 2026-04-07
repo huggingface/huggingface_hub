@@ -179,6 +179,10 @@ If you want to benefit from the symlink-based cache-system on a Windows machine,
 either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
 or to run Python as an administrator.
 
+If you want to proactively use the no-symlink cache mode (e.g. on a shared filesystem that doesn't handle symlinks
+well), you can set the [`HF_HUB_DISABLE_SYMLINKS`](../package_reference/environment_variables#hfhubdisablesymlinks) environment variable to `1`. Files will be copied into `snapshots/`
+directly instead of symlinking to `blobs/`.
+
 When symlinks are not supported, a warning message is displayed to the user to alert
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.

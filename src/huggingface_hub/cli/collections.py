@@ -244,7 +244,7 @@ def collections_add_item(
     ],
     item_type: Annotated[
         CollectionItemType,
-        typer.Argument(help="The type of item (model, dataset, space, paper, or collection)."),
+        typer.Argument(help="The type of item (model, dataset, space, paper, collection, or bucket)."),
     ],
     note: Annotated[
         str | None,

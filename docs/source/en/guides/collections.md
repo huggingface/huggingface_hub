@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Collections
 
-A collection is a group of related items on the Hub (models, datasets, Spaces, papers) that are organized together on the same page. Collections are useful for creating your own portfolio, bookmarking content in categories, or presenting a curated list of items you want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more detail what collections are and how they look on the Hub.
+A collection is a group of related items on the Hub (models, datasets, Spaces, papers, collections, buckets) that are organized together on the same page. Collections are useful for creating your own portfolio, bookmarking content in categories, or presenting a curated list of items you want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more detail what collections are and how they look on the Hub.
 
 You can directly manage collections in the browser, but in this guide, we will focus on how to manage them programmatically.
 
@@ -46,12 +46,12 @@ CollectionItem(
 
 The [`Collection`] object returned by [`get_collection`] contains:
 - high-level metadata: `slug`, `owner`, `title`, `description`, etc.
-- a list of [`CollectionItem`] objects; each item represents a model, a dataset, a Space, or a paper.
+- a list of [`CollectionItem`] objects; each item represents a model, a dataset, a Space, a paper, a collection, or a bucket.
 
 All collection items are guaranteed to have:
 - a unique `item_object_id`: this is the id of the collection item in the database
-- an `item_id`: this is the id on the Hub of the underlying item (model, dataset, Space, paper); it is not necessarily unique, and only the `item_id`/`item_type` pair is unique
-- an `item_type`: model, dataset, Space, paper
+- an `item_id`: this is the id on the Hub of the underlying item (model, dataset, Space, paper, collection, bucket); it is not necessarily unique, and only the `item_id`/`item_type` pair is unique
+- an `item_type`: model, dataset, Space, paper, collection, bucket
 - the `position` of the item in the collection, which can be updated to reorganize your collection (see [`update_collection_item`] below)
 
 A `note` can also be attached to the item. This is useful to add additional information about the item (a comment, a link to a blog post, etc.). The attribute still has a `None` value if an item doesn't have a note.
@@ -96,6 +96,7 @@ Parameter `sort` must be one of  `"last_modified"`,  `"trending"` or `"upvotes"`
 * `"spaces/julien-c/open-gpt-rhyming-robot"`
 * `"datasets/squad"`
 * `"papers/2311.12983"`
+* `"buckets/namespace/bucket-name"`
 
 For more details, please check out [`list_collections`] reference.
 
@@ -149,6 +150,7 @@ Items have to be added one by one using [`add_collection_item`]. You only need t
 ... )
 >>> add_collection_item(collection.slug, item_id="lmsys/lmsys-chat-1m", item_type="dataset")
 >>> add_collection_item(collection.slug, item_id="warp-ai/wuerstchen", item_type="space") # same item_id, different item_type
+>>> add_collection_item(collection.slug, item_id="namespace/my-bucket", item_type="bucket")
 ```
 
 If an item already exists in a collection (same `item_id`/`item_type` pair), an HTTP 409 error will be raised. You can choose to ignore this error by setting `exists_ok=True`.
