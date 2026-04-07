@@ -314,7 +314,13 @@ def spaces_hot_reload(
                 enable_progress_bars()
         editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
-            raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
+            persistent_temp_dir = tempfile.mkdtemp()
+            shutil.copytree(temp_dir.name, persistent_temp_dir, dirs_exist_ok=True)
+            local_path = os.path.join(persistent_temp_dir, filename)
+            typer.secho("No TTY detected. Non-interactive fallback:")
+            typer.secho(f"- Edit {local_path}")
+            typer.secho(f"- Run `hf spaces hot-reload {space_id} {filename} -f {local_path}`")
+            return
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to hot-reload from local path")
         if editor_res != 0:
