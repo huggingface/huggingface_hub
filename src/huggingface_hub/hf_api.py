@@ -423,9 +423,9 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
         raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
 
     parts = path.split("/")
-    repo_type: Literal["model", "dataset", "space"] = constants.REPO_TYPE_MODEL
+    repo_type: str = constants.REPO_TYPE_MODEL
     if parts[0] in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]  # type: ignore
+        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
         parts = parts[1:]
 
     if len(parts) < 2:
@@ -458,7 +458,7 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
 
     repo_path = "/".join(remaining_parts).strip("/")
     return _RepoCopyHandle(
-        repo_type=repo_type,
+        repo_type=repo_type,  # type: ignore
         repo_id=f"{namespace}/{repo_name}",
         revision=revision,
         path=repo_path,
@@ -12598,10 +12598,10 @@ class HfApi:
         def _download_from_repo(file_path: str) -> str:
             """Download a repo file to local cache, return the cache path."""
             return self.hf_hub_download(
-                repo_id=source_handle.repo_id,
-                repo_type=source_handle.repo_type,
+                repo_id=source_handle.repo_id,  # type: ignore
+                repo_type=source_handle.repo_type,  # type: ignore
                 filename=file_path,
-                revision=source_handle.revision,
+                revision=source_handle.revision,  # type: ignore
                 token=token,
             )
 
@@ -12610,7 +12610,11 @@ class HfApi:
             if file.xet_hash is not None:
                 all_copies.append(
                     _copy_by_hash(
-                        target_path, file.xet_hash, file.size, source_handle.repo_type, source_handle.repo_id
+                        target_path,
+                        file.xet_hash,
+                        file.size,
+                        source_handle.repo_type,  # type: ignore
+                        source_handle.repo_id,  # type: ignore
                     )
                 )
             else:
@@ -12649,9 +12653,9 @@ class HfApi:
         # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
         else:
             source_path = source_handle.path
-            source_path_info: list[RepoFile | RepoFolder] = []
+            source_repo_path_info: list[RepoFile | RepoFolder] = []
             if source_path != "":
-                source_path_info = self.get_paths_info(
+                source_repo_path_info = self.get_paths_info(
                     repo_id=source_handle.repo_id,
                     paths=[source_path],
                     repo_type=source_handle.repo_type,
@@ -12659,14 +12663,14 @@ class HfApi:
                     token=token,
                 )
 
-            if len(source_path_info) == 1 and isinstance(source_path_info[0], RepoFile):
+            if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
                 # Source path matched a single file
-                target_path = _resolve_target_path(source_path_info[0].path, None, is_single_file=True)
-                _add_repo_file(source_path_info[0], target_path)
+                target_path = _resolve_target_path(source_repo_path_info[0].path, None, is_single_file=True)
+                _add_repo_file(source_repo_path_info[0], target_path)
             else:
                 # Source path is a folder — list and copy all files recursively
                 destination_is_directory = True
-                for item in self.list_repo_tree(
+                for repo_item in self.list_repo_tree(
                     repo_id=source_handle.repo_id,
                     path_in_repo=source_path,
                     recursive=True,
@@ -12674,10 +12678,10 @@ class HfApi:
                     revision=source_handle.revision,
                     token=token,
                 ):
-                    if not isinstance(item, RepoFile):
+                    if not isinstance(repo_item, RepoFile):
                         continue
-                    target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    _add_repo_file(item, target_path)
+                    target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
+                    _add_repo_file(repo_item, target_path)
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:
@@ -12804,18 +12808,18 @@ class HfApi:
         # Convert public API inputs to internal operation objects
         operations: list[_BucketAddFile | _BucketCopyFile | _BucketDeleteFile] = []
         if add:
-            for item in add:
-                if isinstance(item, _BucketAddFile):
-                    operations.append(item)
+            for add_item in add:
+                if isinstance(add_item, _BucketAddFile):
+                    operations.append(add_item)
                 else:
-                    source, destination = item
+                    source, destination = add_item
                     operations.append(_BucketAddFile(source=source, destination=destination))
         if copy:
-            for item in copy:
-                if isinstance(item, _BucketCopyFile):
-                    operations.append(item)
+            for copy_item in copy:
+                if isinstance(copy_item, _BucketCopyFile):
+                    operations.append(copy_item)
                 else:
-                    source_repo_type, source_repo_id, xet_hash, destination = item
+                    source_repo_type, source_repo_id, xet_hash, destination = copy_item
                     operations.append(
                         _BucketCopyFile(
                             destination=destination,
@@ -12825,11 +12829,11 @@ class HfApi:
                         )
                     )
         if delete:
-            for path in delete:
-                if isinstance(path, _BucketDeleteFile):
-                    operations.append(path)
+            for delete_item in delete:
+                if isinstance(delete_item, _BucketDeleteFile):
+                    operations.append(delete_item)
                 else:
-                    operations.append(_BucketDeleteFile(path=path))
+                    operations.append(_BucketDeleteFile(path=delete_item))
 
         if not operations:
             return
