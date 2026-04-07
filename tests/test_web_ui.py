@@ -210,3 +210,45 @@ class TestWebUICLI:
 
         assert result.exit_code == 0
         assert "web-ui" in result.stdout
+
+    def test_browser_url_normalization(self):
+        """Test that wildcard hosts map to localhost browser URLs."""
+        from huggingface_hub.cli.web_ui import _browser_url
+
+        assert _browser_url("0.0.0.0", 7860) == "http://127.0.0.1:7860"
+        assert _browser_url("127.0.0.1", 7860) == "http://127.0.0.1:7860"
+
+    def test_open_browser_waits_for_server(self, monkeypatch):
+        """Test that the browser is only opened after the health endpoint responds."""
+        import types
+
+        from huggingface_hub.cli import web_ui
+
+        responses = [
+            types.SimpleNamespace(status_code=503),
+            types.SimpleNamespace(status_code=200),
+        ]
+        opened_urls = []
+        sleeps = []
+
+        monkeypatch.setattr(web_ui.httpx, "get", lambda *args, **kwargs: responses.pop(0))
+        monkeypatch.setattr(web_ui.webbrowser, "open", lambda url, new=2: opened_urls.append(url))
+        monkeypatch.setattr(web_ui, "sleep", lambda seconds: sleeps.append(seconds))
+
+        web_ui._open_browser_when_ready("127.0.0.1", 7860)
+
+        assert opened_urls == ["http://127.0.0.1:7860"]
+        assert sleeps == [0.2]
+
+    def test_open_browser_timeout(self, monkeypatch):
+        """Test that the browser is not opened if the server never becomes ready."""
+        from huggingface_hub.cli import web_ui
+
+        opened_urls = []
+
+        monkeypatch.setattr(web_ui, "_wait_for_server_ready", lambda port: False)
+        monkeypatch.setattr(web_ui.webbrowser, "open", lambda url, new=2: opened_urls.append(url))
+
+        web_ui._open_browser_when_ready("127.0.0.1", 7860)
+
+        assert opened_urls == []

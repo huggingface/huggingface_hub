@@ -15,14 +15,54 @@
 
 import sys
 import webbrowser
+from threading import Thread
+from time import monotonic, sleep
 from typing import Annotated
 
+import httpx
 import typer
 
 from huggingface_hub._web_ui.server import create_app
 
 
 web_ui_cli = typer.Typer(help="Launch web-based UI for Hugging Face Hub commands")
+
+
+def _browser_url(host: str, port: int) -> str:
+    if host in {"0.0.0.0", "127.0.0.1", "localhost"}:
+        browser_host = "127.0.0.1"
+    else:
+        browser_host = host
+    return f"http://{browser_host}:{port}"
+
+
+def _wait_for_server_ready(port: int, timeout_seconds: int = 30) -> bool:
+    health_url = f"http://127.0.0.1:{port}/api/health"
+    deadline = timeout_seconds + monotonic()
+
+    while monotonic() < deadline:
+        try:
+            response = httpx.get(health_url, timeout=1.0)
+            if response.status_code == 200:
+                return True
+        except httpx.HTTPError:
+            pass
+        sleep(0.2)
+
+    return False
+
+
+def _open_browser_when_ready(host: str, port: int) -> None:
+    if not _wait_for_server_ready(port):
+        typer.echo("Warning: web UI did not become ready before the browser launcher timed out.", err=True)
+        return
+
+    url = _browser_url(host, port)
+    try:
+        typer.echo(f"\nOpening browser at {url}...", err=False)
+        webbrowser.open(url, new=2)
+    except Exception as e:
+        typer.echo(f"Warning: could not open browser automatically: {e}", err=True)
 
 
 @web_ui_cli.command()
@@ -55,14 +95,9 @@ def run(
 
         app = create_app()
 
-        # Try to open browser if requested
+        # Open the browser only after the health endpoint is reachable.
         if open_browser:
-            try:
-                url = f"http://{host}:{port}"
-                typer.echo(f"\nOpening browser at {url}...", err=False)
-                webbrowser.open(url, new=2)
-            except Exception as e:
-                typer.echo(f"Warning: could not open browser automatically: {e}", err=True)
+            Thread(target=_open_browser_when_ready, args=(host, port), daemon=True).start()
 
         # Start the server
         uvicorn.run(
