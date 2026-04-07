@@ -95,7 +95,6 @@ from .errors import (
     XetRefreshTokenError,
 )
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
-from .hf_file_system import SPECIAL_REFS_REVISION_REGEX
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -240,6 +239,15 @@ _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 
+# Regex used to match special revisions with "/" in them (see #1710)
+SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
+    |
+    (^refs\/pr\/\d+)          # PR revisions
+    """,
+    re.VERBOSE,
+)
 
 logger = logging.get_logger(__name__)
 
@@ -416,7 +424,7 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
     parts = path.split("/")
     repo_type: Literal["model", "dataset", "space"] = constants.REPO_TYPE_MODEL
     if parts[0] in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
+        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]  # type: ignore
         parts = parts[1:]
 
     if len(parts) < 2:
@@ -12538,7 +12546,11 @@ class HfApi:
             else:
                 destination_is_directory = (
                     next(
-                        self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token),
+                        iter(
+                            self.list_bucket_tree(
+                                destination_bucket_id, prefix=destination_path, recursive=False, token=token
+                            )
+                        ),
                         None,
                     )
                     is not None
