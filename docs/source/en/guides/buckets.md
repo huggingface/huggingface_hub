@@ -355,8 +355,8 @@ You can also copy xet files from another bucket or repository using the `copy` p
 >>> batch_bucket_files(
 ...     "username/my-bucket",
 ...     copy=[
-...         ("bucket", "username/source-bucket", "<xethash1>", "models/model.safetensors"),
-...         ("model", "username/my-model", "<xethash1>", "models/config.safetensors"),
+...         ("bucket", "username/source-bucket", "<xethash_1>", "models/model.safetensors"),
+...         ("model", "username/my-model", "<xethash_2>", "models/config.safetensors"),
 ...     ],
 ... )
 ```
