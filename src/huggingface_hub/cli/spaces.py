@@ -357,7 +357,7 @@ def _spaces_hot_reload_summary(
     token: str | None,
 ) -> None:
     while (space_info := api.space_info(space_id)).sha == current_sha:
-        if current_sha is None:
+        if current_sha is None or current_sha == commit_sha:
             break
         typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK, err=True)
         time.sleep(2)
