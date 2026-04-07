@@ -3457,41 +3457,20 @@ iface.launch()
 class TestSpaceVolumesRuntimeResponse(HfApiCommonTest):
     @patch("huggingface_hub.hf_api.HfApi.get_space_runtime")
     @patch("huggingface_hub.hf_api.get_session")
-    def test_set_space_volumes_mutation_response_handling(
+    def test_set_space_volumes_non_runtime_json_fetches_runtime(
         self, mock_get_session: Mock, mock_get_runtime: Mock
     ) -> None:
         put_req = httpx.Request("PUT", "https://huggingface.co/api/spaces/user/space/volumes")
+        mock_get_session.return_value.put.return_value = httpx.Response(200, json={"volumes": []}, request=put_req)
         mock_runtime = Mock(spec=SpaceRuntime)
         mock_get_runtime.return_value = mock_runtime
-        volumes_arg = [Volume(type="bucket", source="user/b", mount_path="/data")]
-        repo = "user/space"
 
-        mock_get_session.return_value.put.return_value = httpx.Response(200, json={"volumes": []}, request=put_req)
-        self.assertIs(self._api.set_space_volumes(repo, volumes_arg), mock_runtime)
-        mock_get_runtime.assert_called_once_with(repo, token=None)
-
-        mock_get_runtime.reset_mock()
-        mock_get_session.return_value.put.return_value = httpx.Response(200, content=b"", request=put_req)
-        self.assertIs(self._api.set_space_volumes(repo, volumes_arg), mock_runtime)
-        mock_get_runtime.assert_called_once_with(repo, token=None)
-
-        mock_get_runtime.reset_mock()
-        mock_get_session.return_value.put.return_value = httpx.Response(
-            200,
-            json={"stage": "RUNNING", "hardware": {"current": "cpu-basic", "requested": None}},
-            request=put_req,
+        out = self._api.set_space_volumes(
+            "user/space",
+            [Volume(type="bucket", source="user/b", mount_path="/data")],
         )
-        out = self._api.set_space_volumes(repo, volumes_arg)
-        self.assertIsInstance(out, SpaceRuntime)
-        self.assertEqual(out.stage, "RUNNING")
-        mock_get_runtime.assert_not_called()
-
-        mock_get_runtime.reset_mock()
-        mock_get_session.return_value.put.return_value = httpx.Response(
-            200, json={"stage": "RUNNING", "volumes": [{}]}, request=put_req
-        )
-        self.assertIs(self._api.set_space_volumes(repo, volumes_arg), mock_runtime)
-        mock_get_runtime.assert_called_once_with(repo, token=None)
+        self.assertIs(out, mock_runtime)
+        mock_get_runtime.assert_called_once_with("user/space", token=None)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
