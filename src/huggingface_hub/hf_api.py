@@ -29,15 +29,7 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    BinaryIO,
-    Literal,
-    Optional,
-    TypeVar,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
 from urllib.parse import quote, unquote
 
 import httpcore
@@ -444,7 +436,7 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
 
     namespace, repo_name_with_revision = parts[0], parts[1]
     remaining_parts = parts[2:]
-    revision: Optional[str] = None
+    revision: str | None = None
     if "@" in repo_name_with_revision:
         repo_name, revision = repo_name_with_revision.split("@", 1)
     else:
@@ -12554,7 +12546,7 @@ class HfApi:
         all_adds: list[_BucketAddFile | tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
 
-        def _resolve_target_path(src_file_path: str, src_root_path: Optional[str], is_single_file: bool) -> str:
+        def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
             basename = src_file_path.rsplit("/", 1)[-1]
             if is_single_file:
                 if destination_path == "":

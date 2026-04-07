@@ -674,7 +674,6 @@ To filter by prefix, append the prefix to the bucket path:
 ### Copy single files
 
 Use `hf buckets cp` to copy individual files to and from a bucket, or to copy any file hosted on the Hub to a Bucket.
-Bucket paths use the `hf://buckets/` prefix.
 
 To upload a file:
 
