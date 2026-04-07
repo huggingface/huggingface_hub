@@ -294,7 +294,7 @@ def webhooks_delete(
     if not yes:
         confirm = typer.confirm(f"Are you sure you want to delete webhook '{webhook_id}'?")
         if not confirm:
-            print("Aborted.")
+            out.text("Aborted.")
             raise typer.Abort()
     api = get_hf_api(token=token)
     api.delete_webhook(webhook_id)
