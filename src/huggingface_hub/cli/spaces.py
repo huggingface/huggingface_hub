@@ -337,7 +337,12 @@ def spaces_hot_reload(
         _hot_reload=True,
     )
 
+    if local_file is not None and local_file.resolve().is_relative_to(Path.cwd()):
+        typer.secho(f"Created commit {commit_info.oid} in remote Space repository.")
+        typer.secho("Consider running `git pull --autostash` to stay synced if you are working from a local clone.")
+
     if not skip_summary:
+        typer.secho("Hot-reload summary:")
         _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
