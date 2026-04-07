@@ -366,15 +366,94 @@ def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
 
 
 @requires("hf_xet")
-def test_copy_files_folder_requires_destination_suffix(api: HfApi, bucket_write: str):
+def test_copy_files_folder_to_nonexistent_dest(api: HfApi, bucket_write: str):
+    """source=folder, dest doesn't exist => files copied under dest path."""
     destination_bucket = api.create_bucket(bucket_name()).bucket_id
-    api.batch_bucket_files(bucket_write, add=[(b"x", "folder/x.txt")])
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
 
-    with pytest.raises(ValueError, match="destination to end with '/'"):
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder",
+        f"hf://buckets/{destination_bucket}/target-folder",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert destination_files >= {"target-folder/a.txt", "target-folder/sub/b.txt"}
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str):
+    """source=folder, dest is an existing folder => files merged under dest path."""
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
+    api.batch_bucket_files(destination_bucket, add=[(b"existing", "target-folder/existing.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder",
+        f"hf://buckets/{destination_bucket}/target-folder",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert destination_files >= {"target-folder/existing.txt", "target-folder/a.txt", "target-folder/sub/b.txt"}
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_existing_file_dest_raises(api: HfApi, bucket_write: str):
+    """source=folder, dest is an existing file => must raise."""
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt")])
+    api.batch_bucket_files(destination_bucket, add=[(b"existing-file", "target-file")])
+
+    with pytest.raises(ValueError, match="Cannot copy a folder to a file destination"):
         api.copy_files(
             f"hf://buckets/{bucket_write}/folder",
-            f"hf://buckets/{destination_bucket}/target-folder",
+            f"hf://buckets/{destination_bucket}/target-file",
         )
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str):
+    """source=file, dest is an existing file => must work (overwrite)."""
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"new-content", "source.txt")])
+    api.batch_bucket_files(destination_bucket, add=[(b"old-content", "dest.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{destination_bucket}/dest.txt",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert "dest.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_nonexistent_dest(api: HfApi, bucket_write: str):
+    """source=file, dest doesn't exist => must work (creates file)."""
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{destination_bucket}/new-file.txt",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert "new-file.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_folder_dest(api: HfApi, bucket_write: str):
+    """source=file, dest is a folder (trailing '/') => file added to folder."""
+    destination_bucket = api.create_bucket(bucket_name()).bucket_id
+    api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{destination_bucket}/folder/",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(destination_bucket)}
+    assert "folder/source.txt" in destination_files
 
 
 @pytest.mark.parametrize(

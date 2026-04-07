@@ -12502,7 +12502,7 @@ class HfApi:
         """Copy files between locations on the Hub.
 
         Copy files from a bucket or repository (model, dataset, space) to a bucket. Both individual files and
-        entire folders are supported. When copying a folder, the destination path must end with `/`.
+        entire folders are supported.
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
@@ -12512,7 +12512,7 @@ class HfApi:
                 or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
             destination (`str`):
                 Destination location as an `hf://` handle pointing to a bucket
-                (e.g. `"hf://buckets/my-bucket/target/path"`). Must end with `/` when copying a folder.
+                (e.g. `"hf://buckets/my-bucket/target/path"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12522,7 +12522,7 @@ class HfApi:
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
                 If the destination is not a bucket, if the source/destination handles are invalid, or if a folder
-                copy is attempted without a trailing `/` on the destination.
+                copy targets an existing file in the destination bucket.
 
         Example:
             ```python
@@ -12564,8 +12564,6 @@ class HfApi:
                     return f"{destination_path.rstrip('/')}/{basename}"
                 return destination_path
 
-            if not destination_is_directory:
-                raise ValueError("Folder copy requires destination to end with '/'.")
             if src_root_path is None:
                 rel_path = src_file_path
             elif src_file_path.startswith(src_root_path + "/"):
@@ -12630,8 +12628,14 @@ class HfApi:
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
-                if source_path != "" and not destination_is_directory:
-                    raise ValueError("Folder copy requires destination to end with '/'.")
+                if source_path != "":
+                    # Always verify the destination is not an existing file in the bucket.
+                    dest_info = list(
+                        self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token)
+                    )
+                    if dest_info:
+                        raise ValueError(f"Cannot copy a folder to a file destination '{destination_path}'.")
+                    destination_is_directory = True
                 for item in self.list_bucket_tree(
                     source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
                 ):
@@ -12663,8 +12667,14 @@ class HfApi:
                 _add_repo_file(source_path_info[0], target_path)
             else:
                 # Source path is a folder — list and copy all files recursively
-                if source_path and not destination_is_directory:
-                    raise ValueError("Folder copy requires destination to end with '/'.")
+                if source_path:
+                    # Always verify the destination is not an existing file in the bucket.
+                    dest_info = list(
+                        self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token)
+                    )
+                    if dest_info:
+                        raise ValueError(f"Cannot copy a folder to a file destination '{destination_path}'.")
+                    destination_is_directory = True
                 for item in self.list_repo_tree(
                     repo_id=source_handle.repo_id,
                     path_in_repo=source_path,

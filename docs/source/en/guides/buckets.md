@@ -348,19 +348,20 @@ Use [`batch_bucket_files`] to upload files to a bucket. You can upload from loca
 ... )
 ```
 
-You can also copy xet files from another bucket or repository using the `copy` parameter. This is a server-side
-operation — no data is downloaded or re-uploaded:
+You can also copy xet files from another bucket or repository using the `copy` parameter. This is a server-side operation — no data is downloaded or re-uploaded:
 
 ```python
 # Copy files by xet hash (source_repo_type, source_repo_id, xet_hash, destination)
 >>> batch_bucket_files(
 ...     "username/my-bucket",
 ...     copy=[
-...         ("bucket", "username/source-bucket", "xet-hash-abc123", "models/model.safetensors"),
-...         ("model", "username/my-model", "xet-hash-def456", "models/config.safetensors"),
+...         ("bucket", "username/source-bucket", "<xethash1>", "models/model.safetensors"),
+...         ("model", "username/my-model", "<xethash1>", "models/config.safetensors"),
 ...     ],
 ... )
 ```
+
+Xet hashes can be retrieved using `list_repo_tree`.
 
 You can also delete files while uploading others.
 
@@ -516,7 +517,7 @@ The same is available from the CLI:
 
 Notes:
 
-- Folder copy requires destination to end with `/`.
+- When copying a folder, the destination is checked remotely to determine whether it is an existing file. If it is, an error is raised. Otherwise, it is treated as a directory.
 - Bucket-to-repo copy is not yet supported.
 - Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.

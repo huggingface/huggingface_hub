@@ -716,7 +716,7 @@ To copy from a repo or a bucket on the Hub:
 
 Notes:
 
-- Folder copy requires destination to end with `/`.
+- When copying a folder, the destination is checked remotely to determine whether it is an existing file. If it is, an error is raised. Otherwise, it is treated as a directory.
 - Bucket-to-repo copy is not supported.
 
 ### Sync directories
