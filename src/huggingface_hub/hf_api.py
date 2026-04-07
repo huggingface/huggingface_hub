@@ -12513,20 +12513,19 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
+            >>> from huggingface_hub import copy_files
 
             # Copy a single file between buckets
-            >>> api.copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
+            >>> copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
 
             # Copy a folder from a bucket to another bucket
-            >>> api.copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
+            >>> copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
 
             # Copy a file from a model repo to a bucket
-            >>> api.copy_files("hf://username/my-model/model.safetensors", "hf://buckets/my-bucket/")
+            >>> copy_files("hf://username/my-model/model.safetensors", "hf://buckets/my-bucket/")
 
             # Copy an entire dataset to a bucket
-            >>> api.copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
+            >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
         source_handle = _parse_hf_copy_handle(source)
@@ -12615,6 +12614,7 @@ class HfApi:
                     )
                 )
             else:
+                # TODO: optimize this to download in parallel (low prio)
                 all_adds.append((_download_from_repo(file.path), target_path))
 
         # === Source is a bucket: always hash-based copy (no download needed) ===
@@ -12742,8 +12742,8 @@ class HfApi:
             >>> batch_bucket_files(
             ...     "username/my-bucket",
             ...     copy=[
-            ...         ("bucket", "username/source-bucket", "xet-hash-abc123", "models/model.safetensors"),
-            ...         ("model", "username/my-model", "xet-hash-def456", "models/config.safetensors"),
+            ...         ("bucket", "username/source-bucket", "<xethash_1>", "models/model.safetensors"),
+            ...         ("model", "username/my-model", "<xethash_2>", "models/config.safetensors"),
             ...     ],
             ... )
 
@@ -12758,29 +12758,15 @@ class HfApi:
             ... )
             ```
         """
-        add = [] if add is None else add
-        copy = [] if copy is None else copy
-        delete = [] if delete is None else delete
-
-        # Convert public copy tuples to internal _BucketCopyFile objects
-        copy_operations = [
-            _BucketCopyFile(
-                destination=destination,
-                xet_hash=xet_hash,
-                source_repo_type=source_repo_type,
-                source_repo_id=source_repo_id,
-            )
-            for source_repo_type, source_repo_id, xet_hash, destination in copy
-        ]
+        add = add or []
+        copy = copy or []
+        delete = delete or []
 
         # Small batch: do everything in one call
-        if len(add) + len(copy_operations) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            add_payload: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = (
-                list(add) if len(add) > 0 else None
+        if len(add) + len(copy) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            self._batch_bucket_files(
+                bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token
             )
-            copy_payload: list[_BucketCopyFile] | None = copy_operations if len(copy_operations) > 0 else None
-            delete_payload: list[str] | None = delete if len(delete) > 0 else None
-            self._batch_bucket_files(bucket_id, add=add_payload, copy=copy_payload, delete=delete_payload, token=token)
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
@@ -12792,7 +12778,7 @@ class HfApi:
             progress = None
 
         try:
-            for copy_chunk in chunk_iterable(copy_operations, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+            for copy_chunk in chunk_iterable(copy, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
 
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
@@ -12812,7 +12798,7 @@ class HfApi:
         bucket_id: str,
         *,
         add: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = None,
-        copy: list[_BucketCopyFile] | None = None,
+        copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
         delete: list[str] | None = None,
         token: str | bool | None = None,
         _progress: XetProgressReporter | None = None,
@@ -12828,7 +12814,19 @@ class HfApi:
                     source, destination = item
                     operations.append(_BucketAddFile(source=source, destination=destination))
         if copy:
-            operations.extend(copy)
+            for item in copy:
+                if isinstance(item, _BucketCopyFile):
+                    operations.append(item)
+                else:
+                    source_repo_type, source_repo_id, xet_hash, destination = item
+                    operations.append(
+                        _BucketCopyFile(
+                            destination=destination,
+                            xet_hash=xet_hash,
+                            source_repo_type=source_repo_type,
+                            source_repo_id=source_repo_id,
+                        )
+                    )
         if delete:
             for path in delete:
                 operations.append(_BucketDeleteFile(path=path))
