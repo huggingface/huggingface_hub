@@ -198,7 +198,7 @@ local debugging but is to keep in mind for later.
 
 > [!WARNING]
 > By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-> server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
+> server manually by calling `decorated_function.launch()`. Since a unique server is used, you only have to start the server
 > once even if you have multiple endpoints.
 
 
@@ -303,7 +303,7 @@ async def goodbye(payload: WebhookPayload):
     return {"message": "goodbye"}
 
 # 5. Start server (optional)
-app.run()
+app.launch()
 ```
 
 1. We define a custom UI using Gradio blocks. This UI will be displayed on the landing page of the server.
