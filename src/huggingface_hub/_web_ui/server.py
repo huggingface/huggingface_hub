@@ -18,6 +18,7 @@
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +50,24 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def _is_allowed_websocket_origin(websocket: WebSocket) -> bool:
+    """Return True when the WebSocket Origin matches the current request host."""
+    origin = websocket.headers.get("origin")
+    host = websocket.headers.get("host")
+
+    if not origin or not host:
+        return False
+
+    parsed_origin = urlparse(origin)
+    parsed_host = urlparse(f"//{host}")
+
+    return (
+        parsed_origin.scheme in {"http", "https"}
+        and parsed_origin.hostname == parsed_host.hostname
+        and parsed_origin.port == parsed_host.port
+    )
 
 
 def create_app() -> FastAPI:
@@ -92,6 +111,10 @@ def create_app() -> FastAPI:
     @app.websocket("/ws/execute")
     async def websocket_endpoint(websocket: WebSocket):
         """WebSocket endpoint for command execution with streaming output."""
+        if not _is_allowed_websocket_origin(websocket):
+            await websocket.close(code=1008)
+            return
+
         await manager.connect(websocket)
         try:
             while True:

@@ -155,6 +155,40 @@ class TestServer:
         assert "commands" in data
         assert isinstance(data["commands"], dict)
 
+    def test_websocket_accepts_same_origin(self, monkeypatch):
+        """Test that the websocket accepts same-origin connections."""
+        from fastapi.testclient import TestClient
+
+        from huggingface_hub._web_ui import server as web_server
+
+        async def fake_execute_command(command):
+            yield "hello from websocket\n"
+            yield web_server.EXIT_CODE_PREFIX + "0"
+
+        monkeypatch.setattr(web_server.CommandExecutor, "execute_command", fake_execute_command)
+
+        app = web_server.create_app()
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws/execute", headers={"origin": "http://testserver"}) as websocket:
+            websocket.send_json({"command": ["--version"]})
+
+            assert websocket.receive_json() == {"output": "hello from websocket\n"}
+            assert websocket.receive_json() == {"status": "completed"}
+
+    def test_websocket_rejects_cross_origin(self):
+        """Test that the websocket rejects cross-site origins."""
+        from fastapi.testclient import TestClient
+
+        from huggingface_hub._web_ui.server import create_app
+
+        app = create_app()
+        client = TestClient(app)
+
+        with pytest.raises(Exception):
+            with client.websocket_connect("/ws/execute", headers={"origin": "http://evil.example"}):
+                pass
+
 
 class TestWebUICLI:
     """Test the web UI CLI command."""
