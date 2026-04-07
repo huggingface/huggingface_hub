@@ -8297,7 +8297,7 @@ class HfApi:
             ... )
             ```
         """
-        payload = [vol.to_dict() for vol in volumes]
+        payload = {"volumes": [vol.to_dict() for vol in volumes]}
         r = get_session().put(
             f"{self.endpoint}/api/spaces/{repo_id}/volumes",
             headers=self._build_hf_headers(token=token),

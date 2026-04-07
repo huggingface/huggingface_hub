@@ -214,7 +214,6 @@ In order to standardize all environment variables within the Hugging Face ecosys
 | `HUGGINGFACE_HUB_CACHE`     | `HF_HUB_CACHE`     |
 | `HUGGINGFACE_ASSETS_CACHE`  | `HF_ASSETS_CACHE`  |
 | `HUGGING_FACE_HUB_TOKEN`    | `HF_TOKEN`         |
-| `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
 ## From external tools
 
