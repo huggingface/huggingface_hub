@@ -517,7 +517,6 @@ The same is available from the CLI:
 
 Notes:
 
-- When copying a folder, the destination is checked remotely to determine whether it is an existing file. If it is, an error is raised. Otherwise, it is treated as a directory.
 - Bucket-to-repo copy is not yet supported.
 - Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.

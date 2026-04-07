@@ -397,20 +397,6 @@ def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str
 
 
 @requires("hf_xet")
-def test_copy_files_folder_to_existing_file_dest_raises(api: HfApi, bucket_write: str):
-    """source=folder, dest is an existing file => must raise."""
-    destination_bucket = api.create_bucket(bucket_name()).bucket_id
-    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt")])
-    api.batch_bucket_files(destination_bucket, add=[(b"existing-file", "target-file")])
-
-    with pytest.raises(ValueError, match="Cannot copy a folder to a file destination"):
-        api.copy_files(
-            f"hf://buckets/{bucket_write}/folder",
-            f"hf://buckets/{destination_bucket}/target-file",
-        )
-
-
-@requires("hf_xet")
 def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str):
     """source=file, dest is an existing file => must work (overwrite)."""
     destination_bucket = api.create_bucket(bucket_name()).bucket_id
