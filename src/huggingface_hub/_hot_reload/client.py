@@ -27,6 +27,7 @@ from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
 HOT_RELOADING_PORT = 7887
+CLIENT_TIMEOUT = 10
 
 
 class MultiReplicaStreamEvent(TypedDict):
@@ -57,6 +58,7 @@ class ReloadClient:
         self.client = httpx.Client(
             base_url=f"{base_host}/--replicas/+{replica_hash}",
             headers=build_hf_headers(token=token),
+            timeout=CLIENT_TIMEOUT,
         )
 
     def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
