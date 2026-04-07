@@ -93,7 +93,7 @@ def run(
             )
             raise typer.Exit(code=1) from e
 
-        app = create_app()
+        app = create_app(host=host, port=port)
 
         # Open the browser only after the health endpoint is reachable.
         if open_browser:

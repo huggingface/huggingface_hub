@@ -114,6 +114,20 @@ class TestServer:
         app = create_app()
         assert app is not None
 
+    def test_create_app_uses_custom_startup_url(self, capsys):
+        """Test that the startup banner reflects the configured host and port."""
+        from fastapi.testclient import TestClient
+
+        from huggingface_hub._web_ui.server import create_app
+
+        app = create_app(host="127.0.0.1", port=9000)
+
+        with TestClient(app):
+            pass
+
+        captured = capsys.readouterr()
+        assert "Open your browser and go to: http://127.0.0.1:9000" in captured.out
+
     def test_app_has_routes(self):
         """Test that the app has expected routes."""
         from huggingface_hub._web_ui.server import create_app

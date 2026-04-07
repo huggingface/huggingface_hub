@@ -81,14 +81,23 @@ def _resolve_frontend_static_path(full_path: str, frontend_root: Path | None = N
     return candidate
 
 
-def create_app() -> FastAPI:
+def _display_url(host: str, port: int) -> str:
+    if host in {"0.0.0.0", "127.0.0.1", "localhost"}:
+        browser_host = "127.0.0.1"
+    else:
+        browser_host = host
+
+    return f"http://{browser_host}:{port}"
+
+
+def create_app(host: str = "127.0.0.1", port: int = 7860) -> FastAPI:
     """Create and configure the FastAPI application."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Startup
         print("\nHugging Face Web UI is running.")
-        print("Open your browser and go to: http://localhost:7860")
+        print(f"Open your browser and go to: {_display_url(host, port)}")
         yield
         # Shutdown
         print("\nWeb UI shutting down...")
