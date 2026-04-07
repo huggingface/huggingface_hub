@@ -12796,7 +12796,7 @@ class HfApi:
         *,
         add: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = None,
         copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
-        delete: list[str] | None = None,
+        delete: list[str | _BucketDeleteFile] | None = None,
         token: str | bool | None = None,
         _progress: XetProgressReporter | None = None,
     ):
@@ -12826,7 +12826,10 @@ class HfApi:
                     )
         if delete:
             for path in delete:
-                operations.append(_BucketDeleteFile(path=path))
+                if isinstance(path, _BucketDeleteFile):
+                    operations.append(path)
+                else:
+                    operations.append(_BucketDeleteFile(path=path))
 
         if not operations:
             return
