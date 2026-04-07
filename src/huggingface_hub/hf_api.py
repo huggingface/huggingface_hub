@@ -8170,8 +8170,11 @@ class HfApi:
         if not response.content:
             return self.get_space_runtime(repo_id, token=token)
         data = response.json()
-        if isinstance(data, dict) and "stage" in data:
-            return SpaceRuntime(data)
+        if isinstance(data, dict):
+            try:
+                return SpaceRuntime(data)
+            except (KeyError, TypeError, ValueError):
+                pass
         return self.get_space_runtime(repo_id, token=token)
 
     @validate_hf_hub_args

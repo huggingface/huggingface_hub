@@ -3510,6 +3510,26 @@ class TestSpaceVolumesRuntimeResponse(HfApiCommonTest):
         self.assertEqual(out.stage, "RUNNING")
         mock_get_runtime.assert_not_called()
 
+    @patch("huggingface_hub.hf_api.HfApi.get_space_runtime")
+    @patch("huggingface_hub.hf_api.get_session")
+    def test_set_space_volumes_stage_but_invalid_nested_fetches_runtime(
+        self, mock_get_session: Mock, mock_get_runtime: Mock
+    ) -> None:
+        mock_get_session.return_value.put.return_value = httpx.Response(
+            200,
+            json={"stage": "RUNNING", "volumes": [{}]},
+            request=self._dummy_put_request,
+        )
+        mock_runtime = Mock(spec=SpaceRuntime)
+        mock_get_runtime.return_value = mock_runtime
+
+        out = self._api.set_space_volumes(
+            "user/space",
+            [Volume(type="bucket", source="user/b", mount_path="/data")],
+        )
+        self.assertIs(out, mock_runtime)
+        mock_get_runtime.assert_called_once_with("user/space", token=None)
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestCommitInBackground(HfApiCommonTest):
