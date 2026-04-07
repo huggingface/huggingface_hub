@@ -95,6 +95,7 @@ from .errors import (
     XetRefreshTokenError,
 )
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .hf_file_system import SPECIAL_REFS_REVISION_REGEX
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -239,15 +240,6 @@ _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 100
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 
-_HF_COPY_REPO_TYPE_PREFIXES: dict[str, Literal["model", "dataset", "space"]] = {
-    "model": constants.REPO_TYPE_MODEL,
-    "models": constants.REPO_TYPE_MODEL,
-    "dataset": constants.REPO_TYPE_DATASET,
-    "datasets": constants.REPO_TYPE_DATASET,
-    "space": constants.REPO_TYPE_SPACE,
-    "spaces": constants.REPO_TYPE_SPACE,
-}
-_SPECIAL_REFS_REVISION_REGEX = re.compile(r"(^refs\/convert\/\w+)|(^refs\/pr\/\d+)")
 
 logger = logging.get_logger(__name__)
 
@@ -415,7 +407,6 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
         return _BucketCopyHandle(
             bucket_id=bucket_id,
             path=bucket_path.strip("/"),
-            is_directory=hf_handle.endswith("/") and bucket_path != "",
         )
 
     path = path.strip("/")
@@ -424,14 +415,13 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
 
     parts = path.split("/")
     repo_type: Literal["model", "dataset", "space"] = constants.REPO_TYPE_MODEL
-    if parts[0] in _HF_COPY_REPO_TYPE_PREFIXES:
-        repo_type = _HF_COPY_REPO_TYPE_PREFIXES[parts[0]]
+    if parts[0] in constants.REPO_TYPES_MAPPING:
+        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
         parts = parts[1:]
 
     if len(parts) < 2:
         raise ValueError(
-            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' "
-            "or with explicit repo type prefix."
+            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' or with explicit repo type prefix."
         )
 
     namespace, repo_name_with_revision = parts[0], parts[1]
@@ -446,7 +436,7 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
         revision = constants.DEFAULT_REVISION
     elif remaining_parts:
         maybe_special_ref = f"{unquote(revision)}/{remaining_parts[0]}"
-        match = _SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
+        match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
         if match is not None:
             special_ref = match.group()
             revision = special_ref
@@ -463,7 +453,6 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
         repo_id=f"{namespace}/{repo_name}",
         revision=revision,
         path=repo_path,
-        is_directory=hf_handle.endswith("/") and repo_path != "",
     )
 
 
@@ -733,7 +722,6 @@ class RepoUrl(str):
 class _BucketCopyHandle:
     bucket_id: str
     path: str
-    is_directory: bool
 
 
 @dataclass(frozen=True)
@@ -742,7 +730,6 @@ class _RepoCopyHandle:
     repo_id: str
     revision: str
     path: str
-    is_directory: bool
 
 
 @dataclass
@@ -12541,7 +12528,21 @@ class HfApi:
 
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
-        destination_is_directory = destination_handle.is_directory or destination_path == ""
+        if destination_path == "":
+            destination_is_directory = True
+        else:
+            # Check if destination path is an existing file or a directory in the bucket
+            dest_path_info = list(self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token))
+            if dest_path_info:
+                destination_is_directory = False
+            else:
+                destination_is_directory = (
+                    next(
+                        self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token),
+                        None,
+                    )
+                    is not None
+                )
 
         all_adds: list[_BucketAddFile | tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
