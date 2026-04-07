@@ -158,19 +158,18 @@ Unlike the synchronous client, the lifecycle of the async client is not managed 
 ## Handle HTTP errors
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
-`requests` with additional information sent back by the server.
+`httpx` with additional information sent back by the server.
 
 ### Raise for status
 
 [`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
-request made to the Hub. It wraps the base `requests.raise_for_status` to provide
+request made to the Hub. It wraps the base `httpx.Response.raise_for_status` to provide
 additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
 
 ```py
-import requests
-from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
+from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
-response = requests.post(...)
+response = get_session().post(...)
 try:
     hf_raise_for_status(response)
 except HfHubHTTPError as e:

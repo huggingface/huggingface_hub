@@ -63,11 +63,11 @@ Or via CLI:
 >>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
-When you create a repository, you can set your repository visibility with the `private` parameter.
+When you create a repository, you can set your repository visibility with the `visibility` parameter:
 
 ```py
 >>> from huggingface_hub import create_repo
->>> create_repo("lysandre/test-private", private=True)
+>>> create_repo("lysandre/test-private", visibility="private")
 ```
 
 Or via CLI:
@@ -89,6 +89,12 @@ Specify the `repo_id` of the repository you want to delete:
 
 ```py
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
+```
+
+Pass `missing_ok=True` to silently ignore the call if the repository doesn't exist:
+
+```py
+>>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset", missing_ok=True)
 ```
 
 Or via CLI:
