@@ -44,7 +44,7 @@ def ls(
     try:
         endpoints = api.list_inference_endpoints(namespace=namespace, token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Listing failed: {error}")
+        out.error(f"Listing failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     results = []
@@ -206,7 +206,7 @@ def deploy_from_catalog(
             token=token,
         )
     except HfHubHTTPError as error:
-        typer.echo(f"Deployment failed: {error}")
+        out.error(f"Deployment failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
@@ -220,7 +220,7 @@ def list_catalog(
     try:
         models = api.list_inference_catalog(token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Catalog fetch failed: {error}")
+        out.error(f"Catalog fetch failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     out.dict({"models": models})
@@ -244,7 +244,7 @@ def describe(
     try:
         endpoint = api.get_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Fetch failed: {error}")
+        out.error(f"Fetch failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
@@ -349,7 +349,7 @@ def update(
             token=token,
         )
     except HfHubHTTPError as error:
-        typer.echo(f"Update failed: {error}")
+        out.error(f"Update failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
     out.dict(endpoint.raw)
 
@@ -368,17 +368,17 @@ def delete(
     if not yes:
         confirmation = typer.prompt(f"Delete endpoint '{name}'? Type the name to confirm.")
         if confirmation != name:
-            typer.echo("Aborted.")
+            out.text("Aborted.")
             raise typer.Exit(code=2)
 
     api = get_hf_api(token=token)
     try:
         api.delete_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Delete failed: {error}")
+        out.error(f"Delete failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
-    typer.echo(f"Deleted '{name}'.")
+    out.result(f"Deleted '{name}'", name=name)
 
 
 @ie_cli.command(examples=["hf endpoints pause my-endpoint"])
@@ -392,7 +392,7 @@ def pause(
     try:
         endpoint = api.pause_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Pause failed: {error}")
+        out.error(f"Pause failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
@@ -421,7 +421,7 @@ def resume(
             running_ok=not fail_if_already_running,
         )
     except HfHubHTTPError as error:
-        typer.echo(f"Resume failed: {error}")
+        out.error(f"Resume failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
     out.dict(endpoint.raw)
 
@@ -437,7 +437,7 @@ def scale_to_zero(
     try:
         endpoint = api.scale_to_zero_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
-        typer.echo(f"Scale To Zero failed: {error}")
+        out.error(f"Scale To Zero failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
