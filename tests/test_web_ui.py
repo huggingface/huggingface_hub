@@ -155,6 +155,45 @@ class TestServer:
         assert "commands" in data
         assert isinstance(data["commands"], dict)
 
+    def test_resolve_frontend_static_path_allows_safe_paths(self, tmp_path):
+        """Test that safe frontend-relative paths resolve within the root."""
+        from huggingface_hub._web_ui.server import _resolve_frontend_static_path
+
+        frontend_root = tmp_path / "frontend"
+        frontend_root.mkdir()
+        asset_path = frontend_root / "app.js"
+        asset_path.write_text("console.log('ok');", encoding="utf-8")
+
+        resolved = _resolve_frontend_static_path("app.js", frontend_root)
+
+        assert resolved == asset_path.resolve()
+
+    def test_resolve_frontend_static_path_rejects_absolute_path(self, tmp_path):
+        """Test that absolute paths are rejected."""
+        from huggingface_hub._web_ui.server import _resolve_frontend_static_path
+
+        frontend_root = tmp_path / "frontend"
+        frontend_root.mkdir()
+        forbidden = frontend_root.parent / "secret.txt"
+        forbidden.write_text("nope", encoding="utf-8")
+
+        resolved = _resolve_frontend_static_path(str(forbidden), frontend_root)
+
+        assert resolved is None
+
+    def test_resolve_frontend_static_path_rejects_traversal(self, tmp_path):
+        """Test that traversal outside the root is rejected."""
+        from huggingface_hub._web_ui.server import _resolve_frontend_static_path
+
+        frontend_root = tmp_path / "frontend"
+        frontend_root.mkdir()
+        outside = tmp_path / "secret.txt"
+        outside.write_text("nope", encoding="utf-8")
+
+        resolved = _resolve_frontend_static_path("../secret.txt", frontend_root)
+
+        assert resolved is None
+
     def test_websocket_accepts_same_origin(self, monkeypatch):
         """Test that the websocket accepts same-origin connections."""
         from fastapi.testclient import TestClient

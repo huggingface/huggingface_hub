@@ -70,6 +70,17 @@ def _is_allowed_websocket_origin(websocket: WebSocket) -> bool:
     )
 
 
+def _resolve_frontend_static_path(full_path: str, frontend_root: Path | None = None) -> Path | None:
+    """Return a frontend file path only if it stays within the frontend root."""
+    root = (frontend_root or Path(__file__).parent / "frontend").resolve()
+    candidate = (root / full_path).resolve()
+
+    if not candidate.is_file() or not candidate.is_relative_to(root):
+        return None
+
+    return candidate
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
@@ -162,9 +173,8 @@ def create_app() -> FastAPI:
     @app.get("/{full_path:path}", response_class=HTMLResponse)
     async def serve_static(full_path: str):
         """Serve static files or fallback to index.html for SPA routing."""
-        # Try to serve actual files first
-        static_path = Path(__file__).parent / "frontend" / full_path
-        if static_path.exists() and static_path.is_file():
+        static_path = _resolve_frontend_static_path(full_path)
+        if static_path is not None:
             return FileResponse(static_path)
 
         # Fallback to index.html for SPA
