@@ -33,6 +33,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from typing import Annotated, Literal, get_args
 
 import typer
@@ -235,7 +236,7 @@ def spaces_hot_reload(
         ),
     ] = None,
     local_file: Annotated[
-        str | None,
+        Path | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -283,8 +284,8 @@ def spaces_hot_reload(
         current_sha = None
 
     if local_file:
-        local_path = local_file
-        filename = local_file if filename is None else filename
+        local_path = str(local_file)
+        filename = local_path if filename is None else filename
     elif filename:
         if not skip_checks:
             try:
@@ -336,7 +337,7 @@ def spaces_hot_reload(
             space_id=space_id,
             current_sha=current_sha,
             commit_sha=commit_info.oid,
-            local_path=local_path if local_file else os.path.basename(local_path),
+            local_path=local_path if local_file else filename,
             token=token,
         )
 
