@@ -406,6 +406,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
 
 def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
+    # TODO: Harmonize hf:// parsing. See https://github.com/huggingface/huggingface_hub/issues/3971
     if not hf_handle.startswith("hf://"):
         raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
 
