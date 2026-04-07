@@ -295,13 +295,9 @@ def _create_progress_bar(*, cls: type[old_tqdm], log_level: int, name: str | Non
     if not (isinstance(cls, type) and issubclass(cls, tqdm)):
         return cls(**kwargs)  # type: ignore[return-value]
 
-    # HF subclass: apply all disable signals + TTY auto-detection.
-    if are_progress_bars_disabled(name) or log_level == logging.NOTSET:
-        disable: bool | None = True
-    elif os.getenv("TQDM_POSITION") == "-1":
-        disable = False
-    else:
-        disable = None
+    # HF subclass: keep the historical log-level / TTY behavior. Group-based
+    # disabling is already handled in `tqdm.__init__`.
+    disable = is_tqdm_disabled(log_level)
     return cls(disable=disable, name=name, **kwargs)  # type: ignore[return-value]
 
 

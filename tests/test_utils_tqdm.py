@@ -241,6 +241,17 @@ class TestTqdmGroup(CapsysBaseTest):
         assert captured.out == ""
         assert "10/10" in captured.err
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_progress_bar_context_respects_group(self) -> None:
+        disable_progress_bars("foo.bar")
+        with _get_progress_bar_context(
+            desc="test",
+            log_level=logging.INFO,
+            total=10,
+            name="foo.bar.something",
+        ) as pbar:
+            assert pbar.disable
+
 
 class TestCreateProgressBarCustomClass:
     """Regression tests for https://github.com/huggingface/huggingface_hub/issues/4050."""
