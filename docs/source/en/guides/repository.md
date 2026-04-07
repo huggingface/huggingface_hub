@@ -63,33 +63,17 @@ Or via CLI:
 >>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
-When you create a repository, you can set your repository visibility with the `private` parameter or the more flexible `visibility` parameter (which also supports `"protected"` for Spaces):
+When you create a repository, you can set your repository visibility with the `visibility` parameter:
 
 ```py
 >>> from huggingface_hub import create_repo
->>> create_repo("lysandre/test-private", private=True)
-
-# Or using visibility for more control (supports "public", "private", "protected")
->>> create_repo("lysandre/test-protected-space", repo_type="space", space_sdk="gradio", visibility="protected")
+>>> create_repo("lysandre/test-private", visibility="private")
 ```
 
 Or via CLI:
 
 ```bash
 >>> hf repos create lysandre/test-private --private
-```
-
-You can also mount volumes at creation time for Spaces using the `space_volumes` parameter:
-
-```py
->>> from huggingface_hub import create_repo
->>> from huggingface_hub import Volume
->>> create_repo(
-...     "lysandre/my-space",
-...     repo_type="space",
-...     space_sdk="gradio",
-...     space_volumes=[Volume(type="model", source="gpt2", mount_path="/models")],
-... )
 ```
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
@@ -123,7 +107,7 @@ Or via CLI:
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
 This is possible using the [`duplicate_repo`] method. It will duplicate the whole repository, preserving the full git history.
-This works for models, datasets, and Spaces.
+This works for models, datasets, and Spaces. For Spaces, you will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
 
 ```py
 >>> from huggingface_hub import duplicate_repo
@@ -136,28 +120,6 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 >>> duplicate_repo("openai/gdpval", repo_type="dataset")
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
-
-Use `exist_ok=True` to skip if the destination repo already exists. You can also set the `visibility` parameter to `"public"`, `"private"`, or `"protected"` (Spaces only):
-
-```py
->>> duplicate_repo("openai/gdpval", repo_type="dataset", exist_ok=True, visibility="private")
-```
-
-For Spaces, you can configure hardware, secrets, environment variables, and volumes at duplication time:
-
-```py
->>> from huggingface_hub import duplicate_repo, Volume
->>> duplicate_repo(
-...     "multimodalart/dreambooth-training",
-...     repo_type="space",
-...     space_hardware="t4-medium",
-...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_***"}],
-...     space_variables=[{"key": "MODEL_ID", "value": "runwayml/stable-diffusion-v1-5"}],
-...     space_volumes=[Volume(type="model", source="gpt2", mount_path="/models")],
-... )
-```
-
-Check out our [Manage your Space](./manage-spaces) guide for more details on Space settings.
 
 ## Upload and download files
 

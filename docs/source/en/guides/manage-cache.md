@@ -180,7 +180,7 @@ either need to [activate Developer Mode](https://docs.microsoft.com/en-us/window
 or to run Python as an administrator.
 
 If you want to proactively use the no-symlink cache mode (e.g. on a shared filesystem that doesn't handle symlinks
-well), you can set the `HF_HUB_DISABLE_SYMLINKS` environment variable to `1`. Files will be copied into `snapshots/`
+well), you can set the [`HF_HUB_DISABLE_SYMLINKS`](../package_reference/environment_variables#hfhubdisablesymlinks) environment variable to `1`. Files will be copied into `snapshots/`
 directly instead of symlinking to `blobs/`.
 
 When symlinks are not supported, a warning message is displayed to the user to alert
