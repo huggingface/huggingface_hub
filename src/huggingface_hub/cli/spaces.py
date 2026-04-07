@@ -349,10 +349,11 @@ def _spaces_hot_reload_summary(
     local_path: str | None,
     token: str | None,
 ) -> None:
+    status = StatusLine()
     while (space_info := api.space_info(space_id)).sha == current_sha:
         if current_sha is None:
             break
-        typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK)
+        status.update("Waiting for up-to-date Space info...")
         time.sleep(2)
     if space_info.sha != commit_sha:
         raise CLIError(f"Expected SHA {commit_sha} after hot-reload but got {space_info.sha}")
