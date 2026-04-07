@@ -18,6 +18,7 @@ from typing import Annotated, Any, get_args, get_origin
 
 import typer
 from typer.models import ArgumentInfo, CommandInfo, DefaultPlaceholder, OptionInfo
+from typer.models import Context as TyperContext
 
 
 CommandEntry = dict[str, str | list[str]]
@@ -54,12 +55,20 @@ class CommandRegistry:
 
         return None
 
+    @staticmethod
+    def _is_context_parameter(parameter: inspect.Parameter) -> bool:
+        annotation = parameter.annotation
+        return annotation in {TyperContext, typer.Context}
+
     @classmethod
     def _extract_args_and_flags(cls, callback: Any) -> tuple[list[str], list[str]]:
         args: list[str] = []
         flags: list[str] = []
 
         for parameter in inspect.signature(callback).parameters.values():
+            if cls._is_context_parameter(parameter):
+                continue
+
             metadata = cls._get_param_metadata(parameter)
 
             if isinstance(metadata, ArgumentInfo):

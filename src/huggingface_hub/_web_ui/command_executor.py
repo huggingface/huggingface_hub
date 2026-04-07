@@ -42,6 +42,7 @@ class CommandExecutor:
         Yields:
             Output lines from the command
         """
+        process = None
         try:
             env = os.environ.copy()
             env["NO_COLOR"] = "1"
@@ -69,3 +70,7 @@ class CommandExecutor:
         except Exception as e:
             yield f"Error executing command: {str(e)}"
             yield f"{EXIT_CODE_PREFIX}1"
+        finally:
+            if process is not None and process.returncode is None:
+                process.kill()
+                await process.wait()

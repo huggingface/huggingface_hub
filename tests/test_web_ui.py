@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for the web UI module."""
 
+import asyncio
+
 import pytest
 import typer
 
@@ -79,6 +81,23 @@ class TestCommandRegistry:
         assert "ping" in names
         assert "plugins sync" in names
 
+    def test_from_typer_app_ignores_context_parameters(self):
+        """Test that Typer/Click context parameters are not exposed as user inputs."""
+        from huggingface_hub._web_ui.command_registry import CommandRegistry
+
+        test_app = typer.Typer()
+
+        @test_app.command()
+        def extension_exec(ctx: typer.Context) -> None:
+            return None
+
+        registry = CommandRegistry.from_typer_app(test_app)
+        names = [command["name"] for commands in registry.values() for command in commands]
+
+        assert "extension-exec" in names
+        extension_exec_entry = next(command for command in registry["Main"] if command["name"] == "extension-exec")
+        assert extension_exec_entry["args"] == []
+
 
 class TestCommandExecutor:
     """Test the command executor."""
@@ -102,6 +121,53 @@ class TestCommandExecutor:
 
         # Should have received some output
         assert len(output_lines) > 0
+
+    @pytest.mark.asyncio
+    async def test_execute_command_kills_process_on_close(self, monkeypatch):
+        """Test that the subprocess is cleaned up when the generator closes early."""
+        from huggingface_hub._web_ui.command_executor import CommandExecutor
+
+        class FakeStdout:
+            def __init__(self):
+                self.reads = 0
+
+            async def readline(self):
+                self.reads += 1
+                if self.reads == 1:
+                    return b"hello\n"
+                await asyncio.sleep(0)
+                return b""
+
+        class FakeProcess:
+            def __init__(self):
+                self.stdout = FakeStdout()
+                self.returncode = None
+                self.killed = False
+                self.wait_called = False
+
+            def kill(self):
+                self.killed = True
+                self.returncode = -9
+
+            async def wait(self):
+                self.wait_called = True
+                return self.returncode
+
+        fake_process = FakeProcess()
+
+        async def fake_create_subprocess_exec(*args, **kwargs):
+            return fake_process
+
+        monkeypatch.setattr("huggingface_hub._web_ui.command_executor.asyncio.create_subprocess_exec", fake_create_subprocess_exec)
+
+        generator = CommandExecutor.execute_command(["echo", "test"])
+        first_output = await anext(generator)
+        assert first_output == "hello\n"
+
+        await generator.aclose()
+
+        assert fake_process.killed is True
+        assert fake_process.wait_called is True
 
 
 class TestServer:
