@@ -12764,9 +12764,7 @@ class HfApi:
 
         # Small batch: do everything in one call
         if len(add) + len(copy) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            self._batch_bucket_files(
-                bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token
-            )
+            self._batch_bucket_files(bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token)
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
@@ -12782,8 +12780,7 @@ class HfApi:
                 self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
 
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                add_chunk_list: list[tuple[str | Path | bytes, str] | _BucketAddFile] = list(add_chunk)
-                self._batch_bucket_files(bucket_id, add=add_chunk_list, token=token, _progress=progress)
+                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
