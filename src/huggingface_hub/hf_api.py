@@ -12764,7 +12764,7 @@ class HfApi:
 
         # Small batch: do everything in one call
         if len(add) + len(copy) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            self._batch_bucket_files(bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token)
+            self._batch_bucket_files(bucket_id, add=add or None, copy=copy or None, delete=delete or None, token=token)  # type: ignore
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
