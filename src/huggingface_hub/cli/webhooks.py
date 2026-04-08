@@ -112,8 +112,8 @@ def webhooks_ls(
             "id": w.id,
             "url": w.url or "(job)",
             "disabled": w.disabled,
-            "domains": ", ".join(w.domains or []),
-            "watched": ", ".join(f"{wi.type}:{wi.name}" for wi in (w.watched or [])),
+            "domains": w.domains or [],
+            "watched": [f"{wi.type}:{wi.name}" for wi in (w.watched or [])],
         }
         for w in api.list_webhooks()
     ]

@@ -3140,6 +3140,7 @@ class TestWebhooksCommand:
             )
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "created" in result.output.lower()
         from huggingface_hub.hf_api import WebhookWatchedItem
 
         api_cls.return_value.create_webhook.assert_called_once_with(
@@ -3190,6 +3191,7 @@ class TestWebhooksCommand:
             )
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "created" in result.output.lower()
         from huggingface_hub.hf_api import WebhookWatchedItem
 
         api_cls.return_value.create_webhook.assert_called_once_with(
@@ -3238,6 +3240,7 @@ class TestWebhooksCommand:
             )
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "updated" in result.output.lower()
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
@@ -3253,6 +3256,7 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "enable", "wh-abc123"])
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "enabled" in result.output.lower()
         api_cls.return_value.enable_webhook.assert_called_once_with("wh-abc123")
 
     def test_disable(self, runner: CliRunner) -> None:
@@ -3262,6 +3266,7 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "disable", "wh-abc123"])
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "disabled" in result.output.lower()
         api_cls.return_value.disable_webhook.assert_called_once_with("wh-abc123")
 
     def test_delete_with_yes(self, runner: CliRunner) -> None:
@@ -3270,6 +3275,7 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123", "--yes"])
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "deleted" in result.output.lower()
         api_cls.return_value.delete_webhook.assert_called_once_with("wh-abc123")
 
     def test_delete_confirm_yes(self, runner: CliRunner) -> None:
@@ -3278,6 +3284,7 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="y\n")
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
+        assert "deleted" in result.output.lower()
 
     def test_delete_confirm_no(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
