@@ -175,6 +175,7 @@ def webhooks_create(
         str | None,
         typer.Option(help="Optional secret used to sign webhook payloads."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new webhook.
@@ -228,6 +229,7 @@ def webhooks_update(
         str | None,
         typer.Option(help="New secret used to sign webhook payloads."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing webhook. Only provided options are changed."""
@@ -247,6 +249,7 @@ def webhooks_update(
 )
 def webhooks_enable(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to enable.")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Enable a disabled webhook."""
@@ -263,6 +266,7 @@ def webhooks_enable(
 )
 def webhooks_disable(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to disable.")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Disable an active webhook."""
@@ -288,6 +292,7 @@ def webhooks_delete(
             help="Skip confirmation prompt.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete a webhook permanently."""

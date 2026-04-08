@@ -147,6 +147,7 @@ def collections_create(
         bool,
         typer.Option(help="Do not raise an error if the collection already exists."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new collection on the Hub."""
@@ -158,8 +159,7 @@ def collections_create(
         private=private,
         exists_ok=exists_ok,
     )
-    out.result("Collection created", url=collection.url)
-    out.dict(collection)
+    out.result("Collection created", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -192,6 +192,7 @@ def collections_update(
         str | None,
         typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update a collection's metadata on the Hub."""
@@ -204,8 +205,7 @@ def collections_update(
         private=private,
         theme=theme,
     )
-    out.result("Collection updated", url=collection.url)
-    out.dict(collection)
+    out.result("Collection updated", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -221,6 +221,7 @@ def collections_delete(
         bool,
         typer.Option(help="Do not raise an error if the collection doesn't exist."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete a collection from the Hub."""
@@ -254,11 +255,12 @@ def collections_add_item(
         bool,
         typer.Option(help="Do not raise an error if the item is already in the collection."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Add an item to a collection."""
     api = get_hf_api(token=token)
-    collection = api.add_collection_item(
+    api.add_collection_item(
         collection_slug=collection_slug,
         item_id=item_id,
         item_type=item_type.value,  # type: ignore[arg-type]
@@ -266,7 +268,6 @@ def collections_add_item(
         exists_ok=exists_ok,
     )
     out.result("Item added to collection", slug=collection_slug)
-    out.dict(collection)
 
 
 @collections_cli.command(
@@ -290,6 +291,7 @@ def collections_update_item(
         int | None,
         typer.Option(help="The new position of the item in the collection."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an item in a collection."""
@@ -316,6 +318,7 @@ def collections_delete_item(
         bool,
         typer.Option(help="Do not raise an error if the item doesn't exist."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete an item from a collection."""

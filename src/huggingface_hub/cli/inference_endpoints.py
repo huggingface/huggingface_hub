@@ -122,6 +122,7 @@ def deploy(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
     min_replica: Annotated[
         int,
@@ -193,6 +194,7 @@ def deploy_from_catalog(
         ),
     ] = None,
     namespace: NamespaceOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Deploy an Inference Endpoint from the Model Catalog."""
@@ -213,6 +215,7 @@ def deploy_from_catalog(
 
 
 def list_catalog(
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List available Catalog models."""
@@ -237,6 +240,7 @@ ie_cli.add_typer(catalog_app, name="catalog")
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get information about an existing endpoint."""
@@ -326,6 +330,7 @@ def update(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
@@ -362,6 +367,7 @@ def delete(
         bool,
         typer.Option("--yes", help="Skip confirmation prompts."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete an Inference Endpoint permanently."""
@@ -378,13 +384,14 @@ def delete(
         out.error(f"Delete failed: {error}")
         raise typer.Exit(code=error.response.status_code) from error
 
-    out.result(f"Deleted '{name}'", name=name)
+    out.result(f"Deleted '{name}'.", name=name)
 
 
 @ie_cli.command(examples=["hf endpoints pause my-endpoint"])
 def pause(
     name: NameArg,
     namespace: NamespaceOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Pause an Inference Endpoint."""
@@ -409,6 +416,7 @@ def resume(
             help="If `True`, the method will raise an error if the Inference Endpoint is already running.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Resume an Inference Endpoint."""
@@ -430,6 +438,7 @@ def resume(
 def scale_to_zero(
     name: NameArg,
     namespace: NamespaceOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Scale an Inference Endpoint to zero."""
