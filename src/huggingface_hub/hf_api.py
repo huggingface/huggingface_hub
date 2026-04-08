@@ -443,18 +443,15 @@ def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    elif remaining_parts:
-        maybe_special_ref = f"{unquote(revision)}/{remaining_parts[0]}"
-        match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
-        if match is not None:
-            special_ref = match.group()
-            revision = special_ref
-            suffix = maybe_special_ref.removeprefix(special_ref).lstrip("/")
-            remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
-        else:
-            revision = unquote(revision)
     else:
         revision = unquote(revision)
+        if remaining_parts:
+            maybe_special_ref = f"{revision}/{remaining_parts[0]}"
+            match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
+            if match is not None:
+                revision = match.group()
+                suffix = maybe_special_ref.removeprefix(revision).lstrip("/")
+                remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
 
     repo_path = "/".join(remaining_parts).strip("/")
     return _RepoCopyHandle(
