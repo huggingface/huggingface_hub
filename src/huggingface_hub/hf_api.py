@@ -1292,6 +1292,54 @@ class SpaceInfo:
 
 
 @dataclass
+class KernelInfo:
+    """
+    Contains information about a kernel repo on the Hub. This object is returned by [`kernel_info`].
+
+    Attributes:
+        id (`str`):
+            ID of the kernel repo.
+        author (`str`, *optional*):
+            Author of the kernel repo.
+        downloads (`int`, *optional*):
+            Number of downloads of the kernel repo over the last 30 days.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated. If so, whether there is manual or automatic approval.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        likes (`int`, *optional*):
+            Number of likes of the kernel repo.
+        private (`bool`, *optional*):
+            Is the repo private.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+    """
+
+    id: str
+    author: str | None
+    downloads: int | None
+    gated: Literal["auto", "manual", False] | None
+    last_modified: datetime | None
+    likes: int | None
+    private: bool | None
+    sha: str | None
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.downloads = kwargs.pop("downloads", None)
+        self.gated = kwargs.pop("gated", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.likes = kwargs.pop("likes", None)
+        self.private = kwargs.pop("private", None)
+        self.sha = kwargs.pop("sha", None)
+
+        # future compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class CollectionItem:
     """
     Contains information about an item of a Collection (model, dataset, Space, paper, collection or bucket).
@@ -3223,30 +3271,19 @@ class HfApi:
         *,
         revision: str | None = None,
         timeout: float | None = None,
-        files_metadata: bool = False,
-        expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
         token: bool | str | None = None,
-    ) -> ModelInfo:
+    ) -> KernelInfo:
         """
         Get info on one specific kernel on huggingface.co.
 
-        Kernel repos expose the generic repo fields needed by Hub clients (`sha`, `siblings`, etc.).
-
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated
-                by a `/`.
+                A namespace (user or an organization) and a repo name separated by a `/`.
             revision (`str`, *optional*):
                 The revision of the kernel repository from which to get the
                 information.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
-            files_metadata (`bool`, *optional*):
-                Whether or not to retrieve metadata for files in the repository
-                (size, LFS metadata, etc). Defaults to `False`.
-            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T` or `ExpandSpaceProperty_T`, *optional*):
-                List properties to return in the response. When used, only the properties in the list will be returned.
-                This parameter cannot be used if `files_metadata` is passed.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3256,25 +3293,16 @@ class HfApi:
         Returns:
             [`~hf_api.ModelInfo`]: The kernel repository information.
         """
-        if expand and files_metadata:
-            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
-
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/kernels/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/kernels/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params: dict = {}
-        if files_metadata:
-            params["blobs"] = True
-        if expand:
-            params["expand"] = expand
-
-        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
-        return ModelInfo(**data)
+        return KernelInfo(**data)
 
     @validate_hf_hub_args
     def repo_info(
@@ -3287,7 +3315,7 @@ class HfApi:
         files_metadata: bool = False,
         expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
         token: bool | str | None = None,
-    ) -> ModelInfo | DatasetInfo | SpaceInfo:
+    ) -> ModelInfo | DatasetInfo | SpaceInfo | KernelInfo:
         """
         Get the info object for a given repo of a given type.
 
@@ -3339,6 +3367,8 @@ class HfApi:
                 method = self.space_info  # type: ignore
             case "kernel":
                 method = self.kernel_info
+                # No expand/files_metadata for kernels
+                return self.kernel_info(repo_id, revision=revision, token=token, timeout=timeout)
             case _:
                 raise ValueError("Unsupported repo type.")
         return method(
@@ -3567,7 +3597,7 @@ class HfApi:
             revision (`str`, *optional*):
                 The revision of the repository from which to get the tree. Defaults to `"main"` branch.
             repo_type (`str`, *optional*):
-                The type of the repository from which to get the tree (`"model"`, `"dataset"` or `"space"`.
+                The type of the repository from which to get the tree (`"model"`, `"dataset"`, `"space"` or `"kernel"`).
                 Defaults to `"model"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
@@ -3759,7 +3789,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
+                Set to `"dataset"`, `"space"` or `"kernel"` if listing refs from a dataset, a Space or a Kernel,
                 `None` or `"model"` if listing from a model. Default is `None`.
             include_pull_requests (`bool`, *optional*):
                 Whether to include refs from pull requests in the list. Defaults to `False`.
@@ -4262,7 +4292,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/create"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
@@ -4295,7 +4325,7 @@ class HfApi:
             ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
 
-        if repo_type == "space":
+        if repo_type == constants.REPO_TYPE_SPACE:
             for _, key, value in space_args:
                 if value is not None:
                     payload[key] = value
@@ -13186,6 +13216,8 @@ get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
+
+kernel_info = api.kernel_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info

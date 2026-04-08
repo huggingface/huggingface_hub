@@ -145,7 +145,7 @@ def snapshot_download(
         repo_id (`str`):
             A user or an organization name and a repo name separated by a `/`.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -219,8 +219,8 @@ def snapshot_download(
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}")
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
@@ -336,10 +336,10 @@ def snapshot_download(
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings] if repo_info.siblings is not None else []
-    unreliable_nb_files = (
-        repo_info.siblings is None or len(repo_info.siblings) == 0 or len(repo_info.siblings) > LARGE_REPO_THRESHOLD
-    )
+    # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
+    siblings = getattr(repo_info, "siblings", None)
+    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
+    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
     if unreliable_nb_files:
         logger.info(
             "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
