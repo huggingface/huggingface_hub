@@ -683,13 +683,13 @@ def verify(
             f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}"
             for m in result.mismatches
         )
-        out.error(f"Checksum verification failed for the following file(s):\n{details}")
+        out.text(f"❌ Checksum verification failed for the following file(s):\n{details}")
         exit_code = 1
 
     if result.missing_paths:
         if fail_on_missing_files:
             details = "\n".join(f"  - {p}" for p in result.missing_paths)
-            out.error(f"Missing files (present remotely, absent locally):\n{details}")
+            out.text(f"❌ Missing files (present remotely, absent locally):\n{details}")
             exit_code = 1
         else:
             out.warning(
@@ -700,7 +700,7 @@ def verify(
     if result.extra_paths:
         if fail_on_extra_files:
             details = "\n".join(f"  - {p}" for p in result.extra_paths)
-            out.error(f"Extra files (present locally, absent remotely):\n{details}")
+            out.text(f"❌ Extra files (present locally, absent remotely):\n{details}")
             exit_code = 1
         else:
             out.warning(
