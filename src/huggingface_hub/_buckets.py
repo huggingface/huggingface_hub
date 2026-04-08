@@ -114,12 +114,9 @@ class _BucketAddFile:
         if self.content_type is None:  # or default to destination path content type
             self.content_type = mimetypes.guess_type(self.destination)[0]
 
-        self.mtime = int(time.time() * 1000)
-        if isinstance(self.source, str):
-            try:
-                self.mtime = int(os.path.getmtime(self.source) * 1000)
-            except FileNotFoundError:
-                pass
+        self.mtime = int(
+            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
+        )
 
 
 @dataclass
