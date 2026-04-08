@@ -12553,7 +12553,7 @@ class HfApi:
                     is not None
                 )
 
-        all_adds: list[_BucketAddFile | tuple[str, str]] = []
+        all_adds: list[tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
