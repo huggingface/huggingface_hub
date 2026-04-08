@@ -8165,7 +8165,7 @@ class HfApi:
         volumes: list[Volume],
         *,
         token: bool | str | None = None,
-    ) -> SpaceRuntime:
+    ) -> None:
         """Set volumes for a Space.
 
         Sets (or replaces) the list of volumes mounted in the Space. Each volume gives the Space's container access
@@ -8183,9 +8183,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         Raises:
             [`BadRequestError`]:
@@ -8211,7 +8208,6 @@ class HfApi:
             json=payload,
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
     def delete_space_volumes(
@@ -8219,7 +8215,7 @@ class HfApi:
         repo_id: str,
         *,
         token: bool | str | None = None,
-    ) -> SpaceRuntime:
+    ) -> None:
         """Remove all volumes from a Space.
 
         Args:
@@ -8230,9 +8226,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         Raises:
             [`BadRequestError`]:
@@ -8250,7 +8243,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
 
     #######################
     # Inference Endpoints #
