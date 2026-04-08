@@ -285,7 +285,7 @@ def spaces_hot_reload(
 
     if local_file:
         local_path = str(local_file)
-        filename = local_path if filename is None else filename
+        filename = local_file.as_posix() if filename is None else filename
     elif filename:
         if not skip_checks:
             try:
