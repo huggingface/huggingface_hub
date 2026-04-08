@@ -956,11 +956,10 @@ def cp(
 
     # Remote to remote copy
     if src_is_hf and dst_is_hf:
-        assert dst is not None
         if quiet:
             disable_progress_bars()
         try:
-            api.copy_files(src, dst)
+            api.copy_files(src, dst)  # type: ignore
         finally:
             if quiet:
                 enable_progress_bars()
