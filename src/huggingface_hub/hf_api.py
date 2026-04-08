@@ -3217,6 +3217,66 @@ class HfApi:
         return SpaceInfo(**data)
 
     @validate_hf_hub_args
+    def kernel_info(
+        self,
+        repo_id: str,
+        *,
+        revision: str | None = None,
+        timeout: float | None = None,
+        files_metadata: bool = False,
+        expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
+        token: bool | str | None = None,
+    ) -> ModelInfo:
+        """
+        Get info on one specific kernel on huggingface.co.
+
+        Kernel repos expose the generic repo fields needed by Hub clients (`sha`, `siblings`, etc.).
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the kernel repository from which to get the
+                information.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
+            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T` or `ExpandSpaceProperty_T`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `files_metadata` is passed.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`~hf_api.ModelInfo`]: The kernel repository information.
+        """
+        if expand and files_metadata:
+            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
+
+        headers = self._build_hf_headers(token=token)
+        path = (
+            f"{self.endpoint}/api/kernels/{repo_id}"
+            if revision is None
+            else (f"{self.endpoint}/api/kernels/{repo_id}/revision/{quote(revision, safe='')}")
+        )
+        params: dict = {}
+        if files_metadata:
+            params["blobs"] = True
+        if expand:
+            params["expand"] = expand
+
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
+        hf_raise_for_status(r)
+        data = r.json()
+        return ModelInfo(**data)
+
+    @validate_hf_hub_args
     def repo_info(
         self,
         repo_id: str,
@@ -3277,6 +3337,8 @@ class HfApi:
                 method = self.dataset_info  # type: ignore
             case "space":
                 method = self.space_info  # type: ignore
+            case "kernel":
+                method = self.kernel_info
             case _:
                 raise ValueError("Unsupported repo type.")
         return method(
