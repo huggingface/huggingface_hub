@@ -499,10 +499,15 @@ class ModelHubMixin:
         model_id = str(pretrained_model_name_or_path)
         config_file: str | None = None
         if os.path.isdir(model_id):
-            if constants.CONFIG_NAME in os.listdir(model_id):
-                config_file = os.path.join(model_id, constants.CONFIG_NAME)
+            # Use a real path check: CONFIG_NAME may contain subdirectories (e.g. `codecs/image/config.json`).
+            # `os.listdir(model_id)` only returns the top level, so nested paths were never found locally.
+            local_config_path = os.path.join(model_id, constants.CONFIG_NAME)
+            if os.path.isfile(local_config_path):
+                config_file = local_config_path
             else:
-                logger.warning(f"{constants.CONFIG_NAME} not found in {Path(model_id).resolve()}")
+                logger.warning(
+                    f"{constants.CONFIG_NAME} not found under local directory {Path(model_id).resolve()}"
+                )
         else:
             try:
                 config_file = hf_hub_download(

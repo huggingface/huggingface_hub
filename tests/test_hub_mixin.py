@@ -133,6 +133,30 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         return cls(**model_kwargs)
 
 
+class DummyModelNestedConfigFile(ModelHubMixin):
+    """Model whose config.json lives in a subdirectory when loading from a local folder."""
+
+    def __init__(self, answer: int):
+        self.answer = answer
+
+    def _save_pretrained(self, save_directory: Path) -> None:
+        return
+
+    @classmethod
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: Optional[str],
+        cache_dir: Optional[Union[str, Path]],
+        force_download: bool,
+        local_files_only: bool,
+        token: Optional[Union[str, bool]],
+        **model_kwargs,
+    ):
+        return cls(**model_kwargs)
+
+
 class CustomType:
     def __init__(self, value: str):
         self.value = value
@@ -434,6 +458,28 @@ class HubMixinTest(unittest.TestCase):
         assert model.foo == 42
         assert model.bar == "baz"
         assert not hasattr(model, "other")
+
+    def test_from_pretrained_nested_config_path_in_local_dir(self) -> None:
+        """`CONFIG_NAME` may include subdirectories; local loading must still find the file.
+
+        Regression: previously only `CONFIG_NAME in os.listdir(root)` was used, which fails for paths like
+        `nested/sub/config.json`. Remote `hf_hub_download` already supported nested filenames.
+        """
+        with SoftTemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cfg_file = root / "nested" / "sub" / "config.json"
+            cfg_file.parent.mkdir(parents=True)
+            cfg_file.write_text(json.dumps({"answer": 42}))
+
+            from huggingface_hub.hub_mixin import constants as hub_mixin_constants
+
+            previous = hub_mixin_constants.CONFIG_NAME
+            try:
+                hub_mixin_constants.CONFIG_NAME = "nested/sub/config.json"
+                model = DummyModelNestedConfigFile.from_pretrained(str(root))
+                self.assertEqual(model.answer, 42)
+            finally:
+                hub_mixin_constants.CONFIG_NAME = previous
 
     def test_from_cls_with_custom_type(self):
         model = DummyModelWithCustomTypes(
