@@ -3366,7 +3366,6 @@ class HfApi:
             case "space":
                 method = self.space_info  # type: ignore
             case "kernel":
-                method = self.kernel_info
                 # No expand/files_metadata for kernels
                 return self.kernel_info(repo_id, revision=revision, token=token, timeout=timeout)
             case _:
