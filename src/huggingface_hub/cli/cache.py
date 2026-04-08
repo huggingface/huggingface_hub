@@ -426,6 +426,7 @@ def ls(
                 "repo_id": repo.repo_id,
                 "repo_type": repo.repo_type,
                 "revision": revision.commit_hash,
+                "snapshot_path": str(revision.snapshot_path),
                 "size": revision.size_on_disk_str,
                 "last_modified": revision.last_modified_str,
                 "refs": sorted(revision.refs),
