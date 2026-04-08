@@ -12583,7 +12583,7 @@ class HfApi:
                 return rel_path
             return f"{destination_path.rstrip('/')}/{rel_path}"
 
-        def _copy_by_hash(
+        def _build_copy_op(
             target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
         ) -> _BucketCopyFile:
             """Server-side copy by xet hash — no data transfer needed."""
@@ -12609,7 +12609,7 @@ class HfApi:
             """Queue a repo file: copy-by-hash if xet-backed, otherwise download first."""
             if file.xet_hash is not None:
                 all_copies.append(
-                    _copy_by_hash(
+                    _build_copy_op(
                         target_path,
                         file.xet_hash,
                         file.size,
@@ -12631,7 +12631,7 @@ class HfApi:
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
                 all_copies.append(
-                    _copy_by_hash(
+                    _build_copy_op(
                         target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
                     )
                 )
@@ -12647,7 +12647,7 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
                     all_copies.append(
-                        _copy_by_hash(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
+                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
                     )
 
         # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
