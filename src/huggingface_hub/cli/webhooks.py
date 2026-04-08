@@ -191,7 +191,6 @@ def webhooks_create(
     domains = [d.value for d in domain] if domain else None
     webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)  # type: ignore
     out.result("Webhook created", id=webhook.id)
-    out.dict(webhook)
 
 
 @webhooks_cli.command(
@@ -238,7 +237,6 @@ def webhooks_update(
     domains = [d.value for d in domain] if domain else None
     webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)  # type: ignore
     out.result("Webhook updated", id=webhook.id)
-    out.dict(webhook)
 
 
 @webhooks_cli.command(
