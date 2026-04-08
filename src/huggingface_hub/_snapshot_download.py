@@ -17,7 +17,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
+from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
@@ -220,7 +220,9 @@ def snapshot_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}")
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
@@ -233,7 +235,7 @@ def snapshot_download(
         token=token,
     )
 
-    repo_info: ModelInfo | DatasetInfo | SpaceInfo | None = None
+    repo_info: ModelInfo | DatasetInfo | SpaceInfo | KernelInfo | None = None
     api_call_error: Exception | None = None
     if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
