@@ -423,6 +423,8 @@ def ls(
         items = [
             {
                 "id": repo.cache_id,
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
                 "revision": revision.commit_hash,
                 "size": revision.size_on_disk_str,
                 "last_modified": revision.last_modified_str,
@@ -431,11 +433,18 @@ def ls(
             for repo, revision in entries
             if revision is not None
         ]
-        out.table(items, id_key="revision", alignments={"size": "right"})
+        out.table(
+            items,
+            headers=["id", "revision", "size", "last_modified", "refs"],
+            id_key="revision",
+            alignments={"size": "right"},
+        )
     else:
         items = [
             {
                 "id": repo.cache_id,
+                "repo_id": repo.repo_id,
+                "repo_type": repo.repo_type,
                 "size": repo.size_on_disk_str,
                 "last_accessed": repo.last_accessed_str or "",
                 "last_modified": repo.last_modified_str,
@@ -443,7 +452,12 @@ def ls(
             }
             for repo, _ in entries
         ]
-        out.table(items, id_key="id", alignments={"size": "right"})
+        out.table(
+            items,
+            headers=["id", "size", "last_accessed", "last_modified", "refs"],
+            id_key="id",
+            alignments={"size": "right"},
+        )
 
     if entries:
         unique_repos = {repo for repo, _ in entries}
