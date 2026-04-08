@@ -426,7 +426,7 @@ def ls(
                 "revision": revision.commit_hash,
                 "size": revision.size_on_disk_str,
                 "last_modified": revision.last_modified_str,
-                "refs": " ".join(sorted(revision.refs)),
+                "refs": sorted(revision.refs),
             }
             for repo, revision in entries
             if revision is not None
@@ -439,7 +439,7 @@ def ls(
                 "size": repo.size_on_disk_str,
                 "last_accessed": repo.last_accessed_str or "",
                 "last_modified": repo.last_modified_str,
-                "refs": " ".join(sorted(repo_refs_map.get(repo, frozenset()))),
+                "refs": sorted(repo_refs_map.get(repo, frozenset())),
             }
             for repo, _ in entries
         ]
@@ -497,6 +497,7 @@ def rm(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Remove cached repositories or revisions."""
     try:
@@ -566,6 +567,7 @@ def prune(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Remove detached revisions from the cache."""
     try:
@@ -651,6 +653,7 @@ def verify(
         ),
     ] = False,
     token: TokenOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Verify checksums for a single repo revision from cache or a local directory.
 
