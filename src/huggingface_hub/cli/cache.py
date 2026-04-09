@@ -556,7 +556,11 @@ def rm(
     strategy.execute()
     counts = summarize_deletions(resolution.selected)
     out.result(
-        f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s); freed {strategy.expected_freed_size_str}.",
+        f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s);"
+        f" freed {strategy.expected_freed_size_str}.",
+        repos_deleted=counts.repo_count,
+        revisions_deleted=counts.total_revision_count,
+        freed=strategy.expected_freed_size_str,
     )
 
 
@@ -626,7 +630,10 @@ def prune(
 
     strategy.execute()
     out.result(
-        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}."
+        f"Deleted {counts.total_revision_count} unreferenced revision(s);"
+        f" freed {strategy.expected_freed_size_str}.",
+        revisions_deleted=counts.total_revision_count,
+        freed=strategy.expected_freed_size_str,
     )
 
 
@@ -735,5 +742,10 @@ def verify(
         raise typer.Exit(code=exit_code)
 
     out.result(
-        f"Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}. All checksums match.",
+        f"Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value})"
+        f" in {verified_location}. All checksums match.",
+        repo_id=repo_id,
+        repo_type=repo_type.value,
+        checked=result.checked_count,
+        path=str(verified_location),
     )
