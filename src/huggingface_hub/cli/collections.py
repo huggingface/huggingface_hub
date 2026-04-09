@@ -40,14 +40,7 @@ import typer
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import (
-    FormatWithAutoOpt,
-    LimitOpt,
-    TokenOpt,
-    api_object_to_dict,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import FormatWithAutoOpt, LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
 from ._output import OutputFormatWithAuto, out
 
 
@@ -260,7 +253,7 @@ def collections_add_item(
 ) -> None:
     """Add an item to a collection."""
     api = get_hf_api(token=token)
-    api.add_collection_item(
+    collection = api.add_collection_item(
         collection_slug=collection_slug,
         item_id=item_id,
         item_type=item_type.value,  # type: ignore[arg-type]
@@ -302,7 +295,7 @@ def collections_update_item(
         note=note,
         position=position,
     )
-    out.result("Item updated in collection", slug=collection_slug, url=collection.url)
+    out.result("Item updated in collection", slug=collection_slug)
 
 
 @collections_cli.command("delete-item")
@@ -328,4 +321,4 @@ def collections_delete_item(
         item_object_id=item_object_id,
         missing_ok=missing_ok,
     )
-    out.result("Item deleted from collection", slug=collection_slug, url=collection.url)
+    out.result("Item deleted from collection", slug=collection_slug)
