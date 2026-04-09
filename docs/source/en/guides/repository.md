@@ -248,6 +248,6 @@ The Hub supports a `"kernel"` repository type for hosting compute kernels. This 
 - [`list_repo_files`]
 - [`list_repo_tree`]
 
-Note that [`create_repo`] is also compatible with restricted to a small subset of allowed users and orgs on the Hub.
+Note that [`create_repo`] and [`delete_repo`] are also compatible but restricted to a small subset of allowed users and orgs on the Hub.
 
 For building, publishing, and using kernel repos, please use the dedicated [`kernels`](https://github.com/huggingface/kernels) package instead. Refer to the [Kernels documentation](https://huggingface.co/docs/kernels/index) for more details.

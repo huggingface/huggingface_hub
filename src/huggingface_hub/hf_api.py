@@ -4412,7 +4412,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/delete"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}

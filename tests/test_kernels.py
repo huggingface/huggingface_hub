@@ -54,8 +54,10 @@ def test_create_kernel(staging_api: HfApi) -> None:
     assert repo_url.namespace == USER
     assert repo_url.repo_name == name
     assert repo_url.repo_id == f"{USER}/{name}"
-    assert repo_url.url == f"https://huggingface.co/{USER}/{name}"
+    assert repo_url.url == f"https://hub-ci.huggingface.co/kernels/{USER}/{name}"
     assert repo_url.endpoint == ENDPOINT_STAGING
+
+    staging_api.delete_repo(repo_url.repo_id, repo_type="kernel")
 
 
 def test_kernel_info(api: HfApi) -> None:
