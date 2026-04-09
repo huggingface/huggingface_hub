@@ -97,6 +97,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.InferenceProviderMapping
 
+### KernelInfo
+
+[[autodoc]] huggingface_hub.hf_api.KernelInfo
+
 ### LFSFileInfo
 
 [[autodoc]] huggingface_hub.hf_api.LFSFileInfo
