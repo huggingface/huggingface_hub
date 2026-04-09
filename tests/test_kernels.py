@@ -25,8 +25,8 @@ from .testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_STAGING, TOKEN, USE
 from .testing_utils import repo_name
 
 
-KERNEL_TEST_REPO_ID = "kernels-community/flash-attn4"
-KERNEL_TEST_REPO_FILE = "build/torch-cuda/__init__.py"
+KERNEL_TEST_REPO_ID = "kernels-community/relu"
+KERNEL_TEST_REPO_FILE = "build/torch-ext/torch_binding.cpp"
 
 
 def kernel_name() -> str:
@@ -73,7 +73,7 @@ def test_list_repo_files(api: HfApi) -> None:
     assert len(files) > 0
     assert KERNEL_TEST_REPO_FILE in files
 
-    files = api.list_repo_files(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v0")
+    files = api.list_repo_files(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v1")
     assert len(files) > 0
     assert KERNEL_TEST_REPO_FILE in files
 
@@ -85,7 +85,7 @@ def test_list_repo_refs(api: HfApi) -> None:
     """Test listing refs from kernel repo works."""
     refs = api.list_repo_refs(KERNEL_TEST_REPO_ID, repo_type="kernel")
     assert any(ref.name == "main" for ref in refs.branches)
-    assert any(ref.name == "v0" for ref in refs.branches)
+    assert any(ref.name == "v1" for ref in refs.branches)
 
 
 def test_list_repo_tree(api: HfApi) -> None:
@@ -95,7 +95,7 @@ def test_list_repo_tree(api: HfApi) -> None:
     assert any(tree_obj.path == ".gitattributes" for tree_obj in tree)
 
     # specific revision + recursive
-    tree = list(api.list_repo_tree(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v0", recursive=True))
+    tree = list(api.list_repo_tree(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v1", recursive=True))
     assert any(tree_obj.path == KERNEL_TEST_REPO_FILE for tree_obj in tree)  # file in subfolder
 
     with pytest.raises(RevisionNotFoundError):
@@ -106,7 +106,7 @@ def test_download_existing_file(api: HfApi, tmp_path) -> None:
     """Test downloading file from kernel repo works."""
     file_path = api.hf_hub_download(KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path)
     assert os.path.isfile(file_path)
-    assert "kernels--kernels-community--flash-attn4" in file_path  # kernel path
+    assert "kernels--kernels-community--relu" in file_path  # kernel path
 
 
 def test_download_missing_file(api: HfApi, tmp_path) -> None:
@@ -130,18 +130,18 @@ def test_download_file_from_revision(api: HfApi, tmp_path) -> None:
     path_from_main = api.hf_hub_download(
         KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path
     )
-    path_from_v0 = api.hf_hub_download(
-        KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path, revision="v0"
+    path_from_v1 = api.hf_hub_download(
+        KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path, revision="v1"
     )
-    assert path_from_main != path_from_v0
+    assert path_from_main != path_from_v1
 
 
 def test_snapshot_download_allow_patterns(api: HfApi, tmp_path) -> None:
     """Test partial downloading from kernel repo works."""
     path = api.snapshot_download(
-        KERNEL_TEST_REPO_ID, repo_type="kernel", cache_dir=tmp_path, allow_patterns="build/torch-cuda/quack/*"
+        KERNEL_TEST_REPO_ID, repo_type="kernel", cache_dir=tmp_path, allow_patterns="build/torch-ext/*"
     )
     assert os.path.isdir(path)
-    assert "kernels--kernels-community--flash-attn4" in path  # kernel path
+    assert "kernels--kernels-community--relu" in path  # kernel path
     assert "snapshots" in path
-    assert os.path.isfile(os.path.join(path, "build", "torch-cuda", "quack", "__init__.py"))
+    assert os.path.isfile(os.path.join(path, "build", "torch-ext", "torch_binding.cpp"))
