@@ -25,7 +25,8 @@ from .testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_STAGING, TOKEN, USE
 from .testing_utils import repo_name
 
 
-PRODUCTION_KERNEL_REPO_ID = "kernels-community/flash-attn2"
+KERNEL_TEST_REPO_ID = "kernels-community/flash-attn4"
+KERNEL_TEST_REPO_FILE = "build/torch-cuda/__init__.py"
 
 
 def kernel_name() -> str:
@@ -58,65 +59,66 @@ def test_create_kernel(staging_api: HfApi) -> None:
 
 
 def test_kernel_info(api: HfApi) -> None:
-    kernel_info = api.kernel_info(PRODUCTION_KERNEL_REPO_ID)
+    kernel_info = api.kernel_info(KERNEL_TEST_REPO_ID)
     assert isinstance(kernel_info, KernelInfo)
-    assert kernel_info.id == PRODUCTION_KERNEL_REPO_ID
+    assert kernel_info.id == KERNEL_TEST_REPO_ID
     assert kernel_info.author == "kernels-community"
 
 
 def test_list_repo_files(api: HfApi) -> None:
     """Test listing files from kernel repo works."""
-    files = api.list_repo_files(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel")
+    files = api.list_repo_files(KERNEL_TEST_REPO_ID, repo_type="kernel")
     assert len(files) > 0
-    assert "README.md" in files
+    assert KERNEL_TEST_REPO_FILE in files
 
-    files = api.list_repo_files(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel", revision="v1")
+    files = api.list_repo_files(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v0")
     assert len(files) > 0
-    assert "README.md" in files
+    assert KERNEL_TEST_REPO_FILE in files
 
     with pytest.raises(RevisionNotFoundError):
-        api.list_repo_files(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel", revision="invalid")
+        api.list_repo_files(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="invalid")
 
 
 def test_list_repo_refs(api: HfApi) -> None:
     """Test listing refs from kernel repo works."""
-    refs = api.list_repo_refs(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel")
+    refs = api.list_repo_refs(KERNEL_TEST_REPO_ID, repo_type="kernel")
     assert any(ref.name == "main" for ref in refs.branches)
-    assert any(ref.name == "v1" for ref in refs.branches)
+    assert any(ref.name == "v0" for ref in refs.branches)
 
 
 def test_list_repo_tree(api: HfApi) -> None:
     """Test listing tree from kernel repo works."""
-    tree = list(api.list_repo_tree(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel"))
+    tree = list(api.list_repo_tree(KERNEL_TEST_REPO_ID, repo_type="kernel"))
     assert len(tree) > 0
-    assert any(tree_obj.path == "README.md" for tree_obj in tree)
+    assert any(tree_obj.path == ".gitattributes" for tree_obj in tree)
 
-    tree = list(api.list_repo_tree(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel", revision="v1", recursive=True))
-    assert any(tree_obj.path.endswith("/metadata.json") for tree_obj in tree)  # file in subfolder
+    # specific revision + recursive
+    tree = list(api.list_repo_tree(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="v0", recursive=True))
+    assert any(tree_obj.path == KERNEL_TEST_REPO_FILE for tree_obj in tree)  # file in subfolder
 
     with pytest.raises(RevisionNotFoundError):
-        list(api.list_repo_tree(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel", revision="invalid"))
+        list(api.list_repo_tree(KERNEL_TEST_REPO_ID, repo_type="kernel", revision="invalid"))
 
 
 def test_download_existing_file(api: HfApi, tmp_path) -> None:
     """Test downloading file from kernel repo works."""
-    file_path = api.hf_hub_download(PRODUCTION_KERNEL_REPO_ID, "README.md", repo_type="kernel", cache_dir=tmp_path)
+    file_path = api.hf_hub_download(KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path)
     assert os.path.isfile(file_path)
-    assert "kernels--kernels-community--flash-attn2" in file_path  # kernel path
+    assert "kernels--kernels-community--flash-attn4" in file_path  # kernel path
 
 
 def test_download_missing_file(api: HfApi, tmp_path) -> None:
     """Test downloading missing file from kernel repo works."""
     with pytest.raises(RemoteEntryNotFoundError):
-        api.hf_hub_download(PRODUCTION_KERNEL_REPO_ID, "missing.md", repo_type="kernel", cache_dir=tmp_path)
+        api.hf_hub_download(KERNEL_TEST_REPO_ID, "missing.md", repo_type="kernel", cache_dir=tmp_path)
 
 
 def test_redownload_file_offline_mode(api: HfApi, tmp_path) -> None:
     """Test re-downloading file from kernel repo works in offline mode."""
-    path_1 = api.hf_hub_download(PRODUCTION_KERNEL_REPO_ID, "README.md", repo_type="kernel", cache_dir=tmp_path)
+    path_1 = api.hf_hub_download(KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path)
 
     path_2 = api.hf_hub_download(
-        PRODUCTION_KERNEL_REPO_ID, "README.md", repo_type="kernel", local_files_only=True, cache_dir=tmp_path
+        KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", local_files_only=True, cache_dir=tmp_path
     )
     assert path_1 == path_2
 
@@ -124,18 +126,20 @@ def test_redownload_file_offline_mode(api: HfApi, tmp_path) -> None:
 def test_download_file_from_revision(api: HfApi, tmp_path) -> None:
     """Test downloading file from revision works."""
     path_from_main = api.hf_hub_download(
-        PRODUCTION_KERNEL_REPO_ID, "README.md", repo_type="kernel", cache_dir=tmp_path
+        KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path
     )
-    path_from_v1 = api.hf_hub_download(
-        PRODUCTION_KERNEL_REPO_ID, "README.md", repo_type="kernel", revision="v1", cache_dir=tmp_path
+    path_from_v0 = api.hf_hub_download(
+        KERNEL_TEST_REPO_ID, KERNEL_TEST_REPO_FILE, repo_type="kernel", cache_dir=tmp_path, revision="v0"
     )
-    assert path_from_main != path_from_v1
+    assert path_from_main != path_from_v0
 
 
-def test_snapshot_download_entire_repo(api: HfApi, tmp_path) -> None:
-    """Test downloading entire repo as a snapshot works."""
-    path = api.snapshot_download(PRODUCTION_KERNEL_REPO_ID, repo_type="kernel", cache_dir=tmp_path)
+def test_snapshot_download_allow_patterns(api: HfApi, tmp_path) -> None:
+    """Test partial downloading from kernel repo works."""
+    path = api.snapshot_download(
+        KERNEL_TEST_REPO_ID, repo_type="kernel", cache_dir=tmp_path, allow_patterns="build/torch-cuda/quack/*"
+    )
     assert os.path.isdir(path)
-    assert "kernels--kernels-community--flash-attn2" in path  # kernel path
+    assert "kernels--kernels-community--flash-attn4" in path  # kernel path
     assert "snapshots" in path
-    assert "README.md" in os.listdir(path)
+    assert os.path.isfile(os.path.join(path, "build", "torch-cuda", "quack", "__init__.py"))
