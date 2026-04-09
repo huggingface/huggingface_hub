@@ -263,7 +263,8 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "verify", repo_id])
 
         assert result.exit_code == 0
-        assert "user/model" in result.output
+        assert "Verified" in result.stdout
+        assert "user/model" in result.stdout
         get_api_mock.assert_called_once()
         api.verify_repo_checksums.assert_called_once_with(
             repo_id=repo_id,
@@ -291,9 +292,9 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "verify", repo_id])
 
         assert result.exit_code == 1
-        assert "Checksum verification failed" in result.output
-        assert "pytorch_model.bin" in result.output
-        assert "expected" in result.output
+        assert "Checksum verification failed" in result.stdout
+        assert "pytorch_model.bin" in result.stdout
+        assert "expected" in result.stdout
         assert "Verification failed" in result.output
 
     def test_verify_reports_missing_local_file(self, runner: CliRunner) -> None:
