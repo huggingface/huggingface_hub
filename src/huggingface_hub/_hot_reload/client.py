@@ -61,6 +61,7 @@ class ReloadClient:
             timeout=CLIENT_TIMEOUT,
         )
 
+    # TODO: 404 event so CLI-side code can display and manage retries
     def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
         req = ApiGetReloadRequest(reloadId=reload_id)
         with self.client.stream("POST", "/get-reload", json=req) as res:
