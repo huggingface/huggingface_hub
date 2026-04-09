@@ -1617,6 +1617,8 @@ class UserLikes:
             Total number of likes.
         datasets (`list[str]`):
             List of datasets liked by the user (as repo_ids).
+        kernels (`list[str]`):
+            List of kernels liked by the user (as repo_ids).
         models (`list[str]`):
             List of models liked by the user (as repo_ids).
         spaces (`list[str]`):
@@ -1629,6 +1631,7 @@ class UserLikes:
 
     # User likes
     datasets: list[str]
+    kernels: list[str]
     models: list[str]
     spaces: list[str]
 
@@ -3024,6 +3027,7 @@ class HfApi:
         return UserLikes(
             user=user,
             total=len(likes),
+            kernels=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "kernel"],
             models=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "model"],
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
@@ -12617,7 +12621,7 @@ class HfApi:
 
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
-        if destination_path == "":
+        if destination_path == "" or destination.endswith("/"):
             destination_is_directory = True
         else:
             # Check if destination path is an existing file or a directory in the bucket

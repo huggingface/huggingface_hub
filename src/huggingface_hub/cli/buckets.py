@@ -960,6 +960,8 @@ def cp(
             disable_progress_bars()
         try:
             api.copy_files(src, dst)  # type: ignore
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
         finally:
             if quiet:
                 enable_progress_bars()
