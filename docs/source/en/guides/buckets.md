@@ -348,6 +348,21 @@ Use [`batch_bucket_files`] to upload files to a bucket. You can upload from loca
 ... )
 ```
 
+You can also copy xet files from another bucket or repository using the `copy` parameter. This is a server-side operation — no data is downloaded or re-uploaded:
+
+```python
+# Copy files by xet hash (source_repo_type, source_repo_id, xet_hash, destination)
+>>> batch_bucket_files(
+...     "username/my-bucket",
+...     copy=[
+...         ("bucket", "username/source-bucket", "<xethash_1>", "models/model.safetensors"),
+...         ("model", "username/my-model", "<xethash_2>", "models/config.safetensors"),
+...     ],
+... )
+```
+
+Xet hashes can be retrieved using `list_repo_tree`.
+
 You can also delete files while uploading others.
 
 ```python
@@ -360,7 +375,7 @@ You can also delete files while uploading others.
 ```
 
 > [!WARNING]
-> Calls to [`batch_bucket_files`] are non-transactional. If an error occurs during the process, some files may have been uploaded or deleted while others haven't.
+> Calls to [`batch_bucket_files`] are non-transactional. If an error occurs during the process, some files may have been uploaded, copied, or deleted while others haven't.
 
 ### Upload a single file with the CLI
 
@@ -469,6 +484,42 @@ Use `hf buckets sync` to download all files from a bucket to a local directory:
 ```
 
 See the [Sync directories](#sync-directories) section below for the full set of sync options.
+
+## Copy files to Bucket
+
+Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
+
+```py
+>>> from huggingface_hub import copy_files
+
+# Bucket to bucket (same or different bucket)
+>>> copy_files(
+...     "hf://buckets/username/source-bucket/checkpoints/model.safetensors",
+...     "hf://buckets/username/destination-bucket/archive/model.safetensors",
+... )
+
+# Repo to bucket
+>>> copy_files(
+...     "hf://datasets/username/my-dataset/processed/",
+...     "hf://buckets/username/my-bucket/datasets/processed/",
+... )
+```
+
+The same is available from the CLI:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
+```
+
+Notes:
+
+- Bucket-to-repo copy is not yet supported.
+- Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
+- Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.
 
 ## Sync directories
 

@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.10.0.dev0"
+__version__ = "1.11.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -182,6 +182,7 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
@@ -203,6 +204,7 @@ _SUBMOD_ATTRS = {
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
+        "copy_files",
         "create_branch",
         "create_bucket",
         "create_collection",
@@ -264,6 +266,7 @@ _SUBMOD_ATTRS = {
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
+        "kernel_info",
         "list_accepted_access_requests",
         "list_bucket_tree",
         "list_buckets",
@@ -756,6 +759,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -903,6 +907,7 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
+    "copy_files",
     "create_branch",
     "create_bucket",
     "create_collection",
@@ -981,6 +986,7 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
+    "kernel_info",
     "list_accepted_access_requests",
     "list_bucket_tree",
     "list_buckets",
@@ -1306,6 +1312,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
@@ -1327,6 +1334,7 @@ if TYPE_CHECKING:  # pragma: no cover
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
+        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
@@ -1388,6 +1396,7 @@ if TYPE_CHECKING:  # pragma: no cover
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
+        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_bucket_tree,  # noqa: F401
         list_buckets,  # noqa: F401

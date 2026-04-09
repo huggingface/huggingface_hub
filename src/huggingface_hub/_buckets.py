@@ -120,6 +120,21 @@ class _BucketAddFile:
 
 
 @dataclass
+class _BucketCopyFile:
+    destination: str
+    xet_hash: str
+    source_repo_type: str  # "model", "dataset", "space", "bucket"
+    source_repo_id: str
+    size: int | None = field(default=None)
+    mtime: int = field(init=False)
+    content_type: str | None = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = mimetypes.guess_type(self.destination)[0]
+        self.mtime = int(time.time() * 1000)
+
+
+@dataclass
 class _BucketDeleteFile:
     path: str
 

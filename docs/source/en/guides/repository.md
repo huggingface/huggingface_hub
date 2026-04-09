@@ -236,3 +236,18 @@ Or via CLI:
 ```bash
 >>> hf repos move Wauplin/cool-model huggingface/cool-model
 ```
+
+## Kernel repositories
+
+The Hub supports a `"kernel"` repository type for hosting compute kernels. This is **not** a fully-compatible repo type. Only a limited set of methods have been tested and are officially supported:
+
+- [`kernel_info`]
+- [`hf_hub_download`]
+- [`snapshot_download`]
+- [`list_repo_refs`]
+- [`list_repo_files`]
+- [`list_repo_tree`]
+
+Note that [`create_repo`] and [`delete_repo`] are also compatible but restricted to a small subset of allowed users and orgs on the Hub.
+
+For building, publishing, and using kernel repos, please use the dedicated [`kernels`](https://github.com/huggingface/kernels) package instead. Refer to the [Kernels documentation](https://huggingface.co/docs/kernels/index) for more details.
