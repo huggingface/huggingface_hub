@@ -264,6 +264,21 @@ HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")
 # Allows to add information about the requester in the user-agent (e.g. partner name)
 HF_HUB_USER_AGENT_ORIGIN: str | None = os.environ.get("HF_HUB_USER_AGENT_ORIGIN")
 
+
+def get_hf_hub_allowed_head_redirect_hosts() -> frozenset[str] | None:
+    """Parse ``HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS`` (comma-separated hostnames).
+
+    When unset or empty, returns ``None``. Used when handling HEAD /resolve metadata requests
+    (``_httpx_follow_relative_redirects_with_backoff``) to optionally allow absolute ``Location`` targets. Hostnames in
+    the env value are compared case-insensitively.
+    """
+    raw = os.environ.get("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS")
+    if raw is None or not raw.strip():
+        return None
+    hosts = frozenset(part.strip().lower() for part in raw.split(",") if part.strip())
+    return hosts or None
+
+
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.
 OAUTH_MAX_REDIRECTS = 2
