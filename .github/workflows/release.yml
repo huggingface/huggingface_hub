@@ -954,10 +954,94 @@ jobs:
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
   # ============================================================
-  # 8. SLACK — final status update
+  # 8. NOTIFY PRs — comment on each PR included in the release
+  # ============================================================
+  notify-prs:
+    permissions:
+      contents: read   # write operations use app token
+    needs: [prepare, publish-pypi]
+    if: ${{ inputs.release_type != 'minor-prerelease' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Comment on PRs included in this release
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SINCE_TAG: ${{ needs.prepare.outputs.since_tag }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Extract unique PR numbers from commit messages between the two tags
+          PR_NUMBERS=$(git log "${SINCE_TAG}..${TAG}" --oneline | grep -oP '\(#\K[0-9]+(?=\))' | sort -un)
+
+          if [[ -z "$PR_NUMBERS" ]]; then
+            echo "No PRs found between ${SINCE_TAG} and ${TAG}"
+            exit 0
+          fi
+
+          echo "Found PRs: $(echo $PR_NUMBERS | tr '\n' ' ')"
+          COMMENTED=0
+          SKIPPED=0
+
+          for PR_NUM in $PR_NUMBERS; do
+            # Check if huggingface-hub-bot already commented on this PR
+            HAS_BOT_COMMENT=$(gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              --paginate --jq '.[] | select(.user.login == "huggingface-hub-bot[bot]") | .id' | head -1)
+
+            if [[ -n "$HAS_BOT_COMMENT" ]]; then
+              echo "Skipping PR #${PR_NUM} — bot already commented"
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+
+            # Post comment
+            BODY="This PR has been shipped as part of the [${TAG}](${RELEASE_URL}) release."
+            gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              -f body="$BODY" > /dev/null
+            echo "Commented on PR #${PR_NUM}"
+            COMMENTED=$((COMMENTED + 1))
+          done
+
+          echo "Done: ${COMMENTED} commented, ${SKIPPED} skipped"
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *PR notifications* — commented on included PRs"
+          else
+            TEXT="❌ *PR notifications* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 9. SLACK — final status update
   # ============================================================
   slack-complete:
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, test-downstream, post-release, sync-hf-cli-skill]
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && !inputs.dry_run && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
@@ -984,7 +1068,8 @@ jobs:
             "${{ needs.slack-message.result }}" \
             "${{ needs.test-downstream.result }}" \
             "${{ needs.post-release.result }}" \
-            "${{ needs.sync-hf-cli-skill.result }}"; do
+            "${{ needs.sync-hf-cli-skill.result }}" \
+            "${{ needs.notify-prs.result }}"; do
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
               FAILED=true
               break
