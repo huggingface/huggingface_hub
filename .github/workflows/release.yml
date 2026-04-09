@@ -55,15 +55,15 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   # ============================================================
   # 1. PREPARE — detect version, create branch, bump, commit, tag, push
   # ============================================================
   prepare:
+    permissions:
+      contents: write   # push branches and tags
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -85,10 +85,11 @@ jobs:
 
       - name: Detect version
         id: version
+        env:
+          VERSION_OVERRIDE: ${{ inputs.version_override }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           set -euo pipefail
-          RELEASE_TYPE="${{ inputs.release_type }}"
-          VERSION_OVERRIDE="${{ inputs.version_override }}"
 
           if [[ -n "$VERSION_OVERRIDE" ]]; then
             # Strip 'v' prefix if present
@@ -242,6 +243,8 @@ jobs:
   # 2. PUBLISH — PyPI (huggingface_hub)
   # ============================================================
   publish-pypi:
+    permissions:
+      contents: read
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
@@ -265,6 +268,8 @@ jobs:
   # 3. PUBLISH — PyPI (hf CLI)
   # ============================================================
   publish-hf-cli:
+    permissions:
+      contents: read
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
@@ -296,6 +301,8 @@ jobs:
   #                        to the final version (removing prerelease flag).
   # ============================================================
   release-notes:
+    permissions:
+      contents: write   # create and edit GitHub releases
     needs: prepare
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
@@ -343,9 +350,11 @@ jobs:
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         run: pip install PyGithub
 
-      - name: Install OpenCode
+      - name: Install and verify OpenCode
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
-        run: curl -fsSL https://opencode.ai/install | bash
+        run: |
+          curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+          echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Generate release notes with OpenCode
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
@@ -425,6 +434,8 @@ jobs:
   # 4b. SLACK MESSAGE — generate Slack announcement for prereleases
   # ============================================================
   slack-message:
+    permissions:
+      contents: read
     needs: [prepare, release-notes]
     # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
     # This also allows re-running this job after manually editing the draft release notes.
@@ -442,8 +453,10 @@ jobs:
       - name: Install dependencies
         run: pip install PyGithub
 
-      - name: Install OpenCode
-        run: curl -fsSL https://opencode.ai/install | bash
+      - name: Install and verify OpenCode
+        run: |
+          curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+          echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch draft release notes from GitHub
         env:
@@ -493,6 +506,8 @@ jobs:
   # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
   # ============================================================
   test-downstream:
+    permissions:
+      contents: read
     needs: [prepare, publish-pypi]
     if: ${{ needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
     runs-on: ubuntu-latest
@@ -502,8 +517,9 @@ jobs:
         target-repo: ["transformers", "datasets", "diffusers", "sentence-transformers"]
     steps:
       - name: Wait for prerelease to be available on PyPI
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
           echo "Waiting for huggingface-hub==${VERSION} on PyPI..."
           for i in $(seq 1 20); do
             if pip install "huggingface-hub==${VERSION}" 2>/dev/null; then
@@ -581,6 +597,8 @@ jobs:
   # 6. POST-RELEASE — open PR to bump main to next dev version
   # ============================================================
   post-release:
+    permissions:
+      contents: read   # write operations use app token
     needs: [prepare, publish-pypi]
     if: ${{ inputs.release_type == 'minor-release' && !inputs.dry_run }}
     runs-on: ubuntu-latest
@@ -637,6 +655,8 @@ jobs:
   # 7. SYNC HF CLI SKILL — update skill docs in skills repo
   # ============================================================
   sync-hf-cli-skill:
+    permissions:
+      contents: read   # write operations use app token
     needs: prepare
     if: ${{ needs.prepare.outputs.is_prerelease != 'true' && !inputs.dry_run }}
     runs-on: ubuntu-latest
