@@ -557,6 +557,9 @@ def rm(
     counts = summarize_deletions(resolution.selected)
     out.result(
         f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s); freed {strategy.expected_freed_size_str}.",
+        repos_deleted=counts.repo_count,
+        revisions_deleted=counts.total_revision_count,
+        freed=strategy.expected_freed_size_str,
     )
 
 
@@ -626,7 +629,9 @@ def prune(
 
     strategy.execute()
     out.result(
-        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}."
+        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.",
+        revisions_deleted=counts.total_revision_count,
+        freed=strategy.expected_freed_size_str,
     )
 
 
@@ -701,13 +706,13 @@ def verify(
             f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}"
             for m in result.mismatches
         )
-        out.text(f"❌ Checksum verification failed for the following file(s):\n{details}")
+        out.error(f"Checksum verification failed for the following file(s):\n{details}")
         exit_code = 1
 
     if result.missing_paths:
         if fail_on_missing_files:
             details = "\n".join(f"  - {p}" for p in result.missing_paths)
-            out.text(f"❌ Missing files (present remotely, absent locally):\n{details}")
+            out.error(f"Missing files (present remotely, absent locally):\n{details}")
             exit_code = 1
         else:
             out.warning(
@@ -718,7 +723,7 @@ def verify(
     if result.extra_paths:
         if fail_on_extra_files:
             details = "\n".join(f"  - {p}" for p in result.extra_paths)
-            out.text(f"❌ Extra files (present locally, absent remotely):\n{details}")
+            out.error(f"Extra files (present locally, absent remotely):\n{details}")
             exit_code = 1
         else:
             out.warning(
@@ -736,4 +741,8 @@ def verify(
 
     out.result(
         f"Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value}) in {verified_location}. All checksums match.",
+        repo_id=repo_id,
+        repo_type=repo_type.value,
+        checked=result.checked_count,
+        path=str(verified_location),
     )
