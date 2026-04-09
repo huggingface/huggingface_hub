@@ -203,6 +203,7 @@ _SUBMOD_ATTRS = {
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
+        "copy_files",
         "create_branch",
         "create_bucket",
         "create_collection",
@@ -903,6 +904,7 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
+    "copy_files",
     "create_branch",
     "create_bucket",
     "create_collection",
@@ -1327,6 +1329,7 @@ if TYPE_CHECKING:  # pragma: no cover
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
+        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
