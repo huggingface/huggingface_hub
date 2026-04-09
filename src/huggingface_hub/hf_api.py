@@ -12617,7 +12617,7 @@ class HfApi:
 
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
-        if destination_path == "":
+        if destination_path == "" or destination.endswith("/"):
             destination_is_directory = True
         else:
             # Check if destination path is an existing file or a directory in the bucket
