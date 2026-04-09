@@ -630,8 +630,7 @@ def prune(
 
     strategy.execute()
     out.result(
-        f"Deleted {counts.total_revision_count} unreferenced revision(s);"
-        f" freed {strategy.expected_freed_size_str}.",
+        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.",
         revisions_deleted=counts.total_revision_count,
         freed=strategy.expected_freed_size_str,
     )
