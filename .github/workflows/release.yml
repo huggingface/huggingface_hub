@@ -562,23 +562,23 @@ jobs:
           curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
           echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
-      - name: Fetch draft release notes from GitHub
+      - name: Fetch release notes from GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 
-          # Find the draft release for this minor version
-          RELEASE_TAG=$(gh release list --json tagName,isDraft --limit 100 \
-            | jq -r ".[] | select(.isDraft) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          # Find the release for this minor version (draft or published prerelease)
+          RELEASE_TAG=$(gh release list --json tagName,isDraft,isPrerelease --limit 100 \
+            | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
 
           if [[ -z "$RELEASE_TAG" ]]; then
-            echo "::error::No draft release found for v${MINOR}. Ensure a prerelease draft exists."
+            echo "::error::No release found for v${MINOR}. Ensure a prerelease or draft release exists."
             exit 1
           fi
 
-          echo "Found draft release: $RELEASE_TAG"
+          echo "Found release: $RELEASE_TAG"
           gh release view "$RELEASE_TAG" --json body -q '.body' > notes.md
 
       - name: Generate Slack message
