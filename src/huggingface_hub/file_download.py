@@ -220,7 +220,7 @@ def hf_hub_url(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -264,7 +264,7 @@ def hf_hub_url(
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
-    if repo_type not in constants.REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
@@ -875,7 +875,7 @@ def hf_hub_download(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the model repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -959,8 +959,10 @@ def hf_hub_download(
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
 
     hf_headers = build_hf_headers(
         token=token,
@@ -1493,8 +1495,10 @@ def try_to_load_from_cache(
         revision = "main"
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 

@@ -1,5 +1,4 @@
 import os
-import re
 import tempfile
 import threading
 from collections import deque
@@ -28,20 +27,9 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
 from .utils.insecure_hashlib import md5
-
-
-# Regex used to match special revisions with "/" in them (see #1710)
-SPECIAL_REFS_REVISION_REGEX = re.compile(
-    r"""
-    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
-    |
-    (^refs\/pr\/\d+)          # PR revisions
-    """,
-    re.VERBOSE,
-)
 
 
 @dataclass

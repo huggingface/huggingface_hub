@@ -17,9 +17,10 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, ModelInfo, RepoFile, SpaceInfo
-from .utils import OfflineModeIsEnabled, filter_repo_objects, is_tqdm_disabled, logging, validate_hf_hub_args
-from .utils import tqdm as hf_tqdm
+from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
+from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils.tqdm import _create_progress_bar
+from .utils.tqdm import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
@@ -144,7 +145,7 @@ def snapshot_download(
         repo_id (`str`):
             A user or an organization name and a repo name separated by a `/`.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -218,8 +219,10 @@ def snapshot_download(
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
@@ -232,7 +235,7 @@ def snapshot_download(
         token=token,
     )
 
-    repo_info: ModelInfo | DatasetInfo | SpaceInfo | None = None
+    repo_info: ModelInfo | DatasetInfo | SpaceInfo | KernelInfo | None = None
     api_call_error: Exception | None = None
     if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
@@ -335,10 +338,10 @@ def snapshot_download(
 
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    repo_files: Iterable[str] = [f.rfilename for f in repo_info.siblings] if repo_info.siblings is not None else []
-    unreliable_nb_files = (
-        repo_info.siblings is None or len(repo_info.siblings) == 0 or len(repo_info.siblings) > LARGE_REPO_THRESHOLD
-    )
+    # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
+    siblings = getattr(repo_info, "siblings", None)
+    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
+    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
     if unreliable_nb_files:
         logger.info(
             "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
@@ -385,14 +388,15 @@ def snapshot_download(
     # Create a progress bar for the bytes downloaded
     # This progress bar is shared across threads/files and gets updated each time we fetch
     # metadata for a file.
-    bytes_progress = tqdm_class(
+    bytes_progress = _create_progress_bar(
+        cls=tqdm_class,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.snapshot_download",
         desc="Downloading (incomplete total...)",
-        disable=is_tqdm_disabled(log_level=logger.getEffectiveLevel()),
         total=0,
         initial=0,
         unit="B",
         unit_scale=True,
-        name="huggingface_hub.snapshot_download",
     )
 
     class _AggregatedTqdm:
