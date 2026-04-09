@@ -118,6 +118,7 @@ from .utils import (
     parse_datetime,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
+    silent_tqdm,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
@@ -236,7 +237,7 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
     " If this is a private repository, ensure that your token is correct."
 )
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
-_BUCKET_BATCH_ADD_CHUNK_SIZE = 100
+_BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -12555,6 +12556,7 @@ class HfApi:
 
         all_adds: list[tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
+        pending_downloads: list[tuple[str, str]] = []  # (file_path, target_path) for non-xet files to download
 
         def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
             basename = src_file_path.rsplit("/", 1)[-1]
@@ -12592,16 +12594,6 @@ class HfApi:
                 size=size,
             )
 
-        def _download_from_repo(file_path: str) -> str:
-            """Download a repo file to local cache, return the cache path."""
-            return self.hf_hub_download(
-                repo_id=source_handle.repo_id,  # type: ignore
-                repo_type=source_handle.repo_type,  # type: ignore
-                filename=file_path,
-                revision=source_handle.revision,  # type: ignore
-                token=token,
-            )
-
         def _add_repo_file(file: RepoFile, target_path: str) -> None:
             """Queue a repo file: copy-by-hash if xet-backed, otherwise download first."""
             if file.xet_hash is not None:
@@ -12615,8 +12607,7 @@ class HfApi:
                     )
                 )
             else:
-                # TODO: optimize this to download in parallel (low prio)
-                all_adds.append((_download_from_repo(file.path), target_path))
+                pending_downloads.append((file.path, target_path))
 
         # === Source is a bucket: always hash-based copy (no download needed) ===
         if isinstance(source_handle, _BucketCopyHandle):
@@ -12679,6 +12670,23 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
+
+        # Download non-xet files in parallel
+        if pending_downloads:
+
+            def _download_and_collect(item: tuple[str, str]) -> None:
+                file_path, target_path = item
+                local_path = self.hf_hub_download(
+                    repo_id=source_handle.repo_id,  # type: ignore
+                    repo_type=source_handle.repo_type,  # type: ignore
+                    filename=file_path,
+                    revision=source_handle.revision,  # type: ignore
+                    token=token,
+                    tqdm_class=silent_tqdm,
+                )
+                all_adds.append((local_path, target_path))
+
+            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:

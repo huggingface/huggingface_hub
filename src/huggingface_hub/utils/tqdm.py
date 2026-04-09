@@ -233,6 +233,22 @@ class tqdm(old_tqdm):
                 raise
 
 
+class silent_tqdm:
+    """Fake tqdm object that does nothing."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def update(self, n: int | float | None = 1) -> None:
+        pass
+
+
 @contextmanager
 def tqdm_stream_file(path: Path | str) -> Iterator[io.BufferedReader]:
     """
