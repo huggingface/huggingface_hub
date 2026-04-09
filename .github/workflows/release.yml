@@ -432,11 +432,13 @@ jobs:
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         run: pip install PyGithub
 
-      - name: Install and verify OpenCode
+      - name: Install OpenCode
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
-        run: |
-          curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
-          echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Generate release notes with OpenCode
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
@@ -557,10 +559,11 @@ jobs:
       - name: Install dependencies
         run: pip install PyGithub
 
-      - name: Install and verify OpenCode
-        run: |
-          curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
-          echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
         env:
