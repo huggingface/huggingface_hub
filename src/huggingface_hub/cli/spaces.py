@@ -33,6 +33,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import deque
 from typing import Annotated, Literal, get_args
 
 import typer
@@ -42,7 +43,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -211,6 +212,72 @@ def dev_mode(
     print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
+
+
+@spaces_cli.command(
+    "logs",
+    examples=[
+        "hf spaces logs username/my-space",
+        "hf spaces logs username/my-space --build",
+        "hf spaces logs -f username/my-space",
+        "hf spaces logs -n 50 username/my-space",
+    ],
+)
+def spaces_logs(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    build: Annotated[
+        bool,
+        typer.Option(
+            "--build",
+            help="Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.",
+        ),
+    ] = False,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        int | None,
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Fetch the run or build logs of a Space.
+
+    By default, prints currently available run logs and exits (non-blocking, like
+    `docker logs`). Use --follow/-f to stream until the server closes the stream.
+    Use --build to see the container build logs instead (useful when a Space is
+    stuck in BUILD_ERROR).
+    """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
+    api = get_hf_api(token=token)
+    try:
+        logs = api.fetch_space_logs(space_id, build=build, follow=follow)
+        if tail is not None:
+            logs = deque(logs, maxlen=tail)
+        for line in logs:
+            print(line, end="" if line.endswith("\n") else "\n")
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{space_id}' not found.") from e
+    except HfHubHTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        if status == 404:
+            raise CLIError(f"Space '{space_id}' not found.") from e
+        if status == 403:
+            raise CLIError(f"Access denied to '{space_id}'. You need write access to read Space logs.") from e
+        raise CLIError(f"Failed to fetch Space logs: {e}") from e
 
 
 @spaces_cli.command(

@@ -2043,6 +2043,81 @@ class TestSpacesLsCommand:
         assert "Invalid value" in result.output
 
 
+class TestSpacesLogsCommand:
+    def test_logs_default_no_follow(self, runner: CliRunner) -> None:
+        """`hf spaces logs <id>` defaults to run logs, follow=False."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["line 1\n", "line 2\n"])
+            result = runner.invoke(app, ["spaces", "logs", "user/my-space"])
+        assert result.exit_code == 0
+        api.fetch_space_logs.assert_called_once_with("user/my-space", build=False, follow=False)
+        assert "line 1" in result.output
+        assert "line 2" in result.output
+
+    def test_logs_follow_flag(self, runner: CliRunner) -> None:
+        """`hf spaces logs -f <id>` passes follow=True."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["streaming line\n"])
+            result = runner.invoke(app, ["spaces", "logs", "-f", "user/my-space"])
+        assert result.exit_code == 0
+        api.fetch_space_logs.assert_called_once_with("user/my-space", build=False, follow=True)
+        assert "streaming line" in result.output
+
+    def test_logs_build_flag(self, runner: CliRunner) -> None:
+        """`hf spaces logs --build <id>` fetches build logs."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["build step\n"])
+            result = runner.invoke(app, ["spaces", "logs", "--build", "user/my-space"])
+        assert result.exit_code == 0
+        api.fetch_space_logs.assert_called_once_with("user/my-space", build=True, follow=False)
+        assert "build step" in result.output
+
+    def test_logs_tail(self, runner: CliRunner) -> None:
+        """`hf spaces logs --tail 2 <id>` shows only the last 2 lines."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["line 1\n", "line 2\n", "line 3\n", "line 4\n"])
+            result = runner.invoke(app, ["spaces", "logs", "--tail", "2", "user/my-space"])
+        assert result.exit_code == 0
+        assert "line 1" not in result.output
+        assert "line 2" not in result.output
+        assert "line 3" in result.output
+        assert "line 4" in result.output
+
+    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
+        """`hf spaces logs -f --tail 5 <id>` raises an error."""
+        result = runner.invoke(app, ["spaces", "logs", "-f", "--tail", "5", "user/my-space"])
+        assert result.exit_code != 0
+        assert "Cannot use --follow and --tail together" in str(result.exception)
+
+    def test_logs_404(self, runner: CliRunner) -> None:
+        """A 404 from the API surfaces as a clean 'Space not found' CLI error."""
+        from huggingface_hub.errors import HfHubHTTPError
+
+        response = Mock(status_code=404)
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.side_effect = HfHubHTTPError("404 Client Error", response=response)
+            result = runner.invoke(app, ["spaces", "logs", "user/missing-space"])
+        assert result.exit_code != 0
+        assert "Space 'user/missing-space' not found" in str(result.exception)
+
+    def test_logs_403(self, runner: CliRunner) -> None:
+        """A 403 surfaces as a clean access-denied CLI error."""
+        from huggingface_hub.errors import HfHubHTTPError
+
+        response = Mock(status_code=403)
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.side_effect = HfHubHTTPError("403 Forbidden", response=response)
+            result = runner.invoke(app, ["spaces", "logs", "user/private-space"])
+        assert result.exit_code != 0
+        assert "Access denied" in str(result.exception)
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
