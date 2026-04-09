@@ -267,7 +267,7 @@ def collections_add_item(
         note=note,
         exists_ok=exists_ok,
     )
-    out.result("Item added to collection", slug=collection_slug)
+    out.result("Item added to collection", slug=collection_slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -302,7 +302,7 @@ def collections_update_item(
         note=note,
         position=position,
     )
-    out.result("Item updated in collection", slug=collection_slug)
+    out.result("Item updated in collection", slug=collection_slug, url=collection.url)
 
 
 @collections_cli.command("delete-item")
@@ -328,4 +328,4 @@ def collections_delete_item(
         item_object_id=item_object_id,
         missing_ok=missing_ok,
     )
-    out.result("Item deleted from collection", slug=collection_slug)
+    out.result("Item deleted from collection", slug=collection_slug, url=collection.url)
