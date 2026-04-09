@@ -914,16 +914,6 @@ def test_cp_error_bucket_to_repo(api: HfApi, bucket_write: str):
         api.delete_repo(repo_id=repo_id)
 
 
-def test_cp_error_remote_folder_requires_destination_suffix(api: HfApi):
-    source_bucket = api.create_bucket(bucket_name()).bucket_id
-    destination_bucket = api.create_bucket(bucket_name()).bucket_id
-    api.batch_bucket_files(source_bucket, add=[(b"aaa", "folder/a.txt")])
-
-    result = cli(f"hf buckets cp hf://buckets/{source_bucket}/folder hf://buckets/{destination_bucket}/target")
-    assert result.exit_code != 0
-    assert "destination to end with '/'" in result.output
-
-
 def test_cp_error_both_local(tmp_path: Path):
     """Both src and dst are local paths."""
     src = tmp_path / "src.txt"

@@ -12682,7 +12682,7 @@ class HfApi:
                     filename=file_path,
                     revision=source_handle.revision,  # type: ignore
                     token=token,
-                    tqdm_class=silent_tqdm,
+                    tqdm_class=silent_tqdm,  # type: ignore
                 )
                 all_adds.append((local_path, target_path))
 
