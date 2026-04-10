@@ -774,26 +774,17 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
-            revision_err = _format(RevisionNotFoundError, message, response)
-            revision_err.repo_type = repo_type
-            revision_err.repo_id = repo_id
-            raise revision_err from e
+            raise _format_with_repo_info(RevisionNotFoundError, message, response, repo_type, repo_id) from e
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            entry_err = _format(RemoteEntryNotFoundError, message, response)
-            entry_err.repo_type = repo_type
-            entry_err.repo_id = repo_id
-            raise entry_err from e
+            raise _format_with_repo_info(RemoteEntryNotFoundError, message, response, repo_type, repo_id) from e
 
         elif error_code == "GatedRepo":
             message = (
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
-            gated_err = _format(GatedRepoError, message, response)
-            gated_err.repo_type = repo_type
-            gated_err.repo_id = repo_id
-            raise gated_err from e
+            raise _format_with_repo_info(GatedRepoError, message, response, repo_type, repo_id) from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
@@ -817,9 +808,9 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 + "\nPlease make sure you specified the correct bucket id (namespace/name)."
                 + "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
             )
-            bucket_err = _format(BucketNotFoundError, message, response)
-            bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
-            raise bucket_err from e
+            raise _format_with_bucket_info(
+                BucketNotFoundError, message, response, _parse_bucket_id_from_url(request_url)
+            ) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
@@ -841,10 +832,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 " make sure you are authenticated and your token has the required permissions."
                 + "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             )
-            repo_err = _format(RepositoryNotFoundError, message, response)
-            repo_err.repo_type = repo_type
-            repo_err.repo_id = repo_id
-            raise repo_err from e
+            raise _format_with_repo_info(RepositoryNotFoundError, message, response, repo_type, repo_id) from e
 
         elif response.status_code == 400:
             message = (
@@ -1010,6 +998,37 @@ def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: h
 
     # Return
     return error_type(final_error_message.strip(), response=response, server_message=server_message or None)
+
+
+def _format_with_repo_info(
+    error_type: type[_HfHubHTTPErrorT],
+    message: str,
+    response: httpx.Response,
+    repo_type: str | None,
+    repo_id: str | None,
+) -> _HfHubHTTPErrorT:
+    """Like _format but also sets repo_type and repo_id on the error.
+
+    This is a separate function to avoid storing the error in a local variable
+    in the caller's frame, which would create a reference cycle via exception
+    __cause__ tracebacks.
+    """
+    err = _format(error_type, message, response)
+    err.repo_type = repo_type
+    err.repo_id = repo_id
+    return err
+
+
+def _format_with_bucket_info(
+    error_type: type[_HfHubHTTPErrorT],
+    message: str,
+    response: httpx.Response,
+    bucket_id: str | None,
+) -> _HfHubHTTPErrorT:
+    """Like _format but also sets bucket_id on the error."""
+    err = _format(error_type, message, response)
+    err.bucket_id = bucket_id
+    return err
 
 
 def _curlify(request: httpx.Request) -> str:

@@ -12,11 +12,20 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
+from huggingface_hub.errors import (
+    BucketNotFoundError,
+    HfHubHTTPError,
+    OfflineModeIsEnabled,
+    RemoteEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _format_with_bucket_info,
+    _format_with_repo_info,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _warn_on_warning_headers,
@@ -702,3 +711,49 @@ class TestParseBucketIdFromUrl:
 
     def test_http_url(self):
         assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"
+
+
+class TestFormatWithRepoInfo:
+    def _make_response(self):
+        response = Mock(spec=httpx.Response)
+        response.status_code = 404
+        response.url = "https://huggingface.co/api/models/ns/repo"
+        response.headers = httpx.Headers({})
+        response.json.return_value = {}
+        return response
+
+    def test_sets_repo_type_and_repo_id(self):
+        err = _format_with_repo_info(RepositoryNotFoundError, "not found", self._make_response(), "model", "ns/repo")
+        assert err.repo_type == "model"
+        assert err.repo_id == "ns/repo"
+
+    def test_sets_none_values(self):
+        err = _format_with_repo_info(RevisionNotFoundError, "not found", self._make_response(), None, None)
+        assert err.repo_type is None
+        assert err.repo_id is None
+
+    def test_works_with_remote_entry_not_found(self):
+        err = _format_with_repo_info(
+            RemoteEntryNotFoundError, "entry not found", self._make_response(), "model", "ns/repo"
+        )
+        assert isinstance(err, RemoteEntryNotFoundError)
+        assert err.repo_type == "model"
+        assert err.repo_id == "ns/repo"
+
+
+class TestFormatWithBucketInfo:
+    def _make_response(self):
+        response = Mock(spec=httpx.Response)
+        response.status_code = 404
+        response.url = "https://huggingface.co/api/buckets/ns/name"
+        response.headers = httpx.Headers({})
+        response.json.return_value = {}
+        return response
+
+    def test_sets_bucket_id(self):
+        err = _format_with_bucket_info(BucketNotFoundError, "not found", self._make_response(), "ns/name")
+        assert err.bucket_id == "ns/name"
+
+    def test_sets_none_bucket_id(self):
+        err = _format_with_bucket_info(BucketNotFoundError, "not found", self._make_response(), None)
+        assert err.bucket_id is None
