@@ -27,6 +27,7 @@ from huggingface_hub._buckets import (
     BucketFile,
     BucketFolder,
     FilterMatcher,
+    _format_size,
     _is_bucket_path,
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
@@ -79,18 +80,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         )
 
 
-def _format_size(size: int | float, human_readable: bool = False) -> str:
-    """Format a size in bytes."""
-    if not human_readable:
-        return str(size)
-
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1000:
-            if unit == "B":
-                return f"{size} {unit}"
-            return f"{size:.1f} {unit}"
-        size /= 1000
-    return f"{size:.1f} PB"
 
 
 def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
@@ -1096,38 +1085,59 @@ def cp(
         "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run",
         'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"',
         'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8',
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl",
+        "hf buckets import --apply import-plan.jsonl",
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g",
     ],
 )
 def import_cmd(
     source: Annotated[
-        str,
+        str | None,
         typer.Argument(
             help="S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).",
         ),
-    ],
+    ] = None,
     dest: Annotated[
-        str,
+        str | None,
         typer.Argument(
             help="HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).",
         ),
-    ],
+    ] = None,
+    plan: Annotated[
+        str | None,
+        typer.Option(
+            help="Save import plan to JSONL file for review instead of executing.",
+        ),
+    ] = None,
+    apply: Annotated[
+        str | None,
+        typer.Option(
+            help="Apply a previously saved plan file.",
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         typer.Option(
             "--dry-run",
-            help="List files that would be imported without actually transferring.",
+            help="Print import plan to stdout as JSONL without executing.",
         ),
     ] = False,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
-            help="Include only files matching pattern (can specify multiple).",
+            help="Include files matching pattern (can specify multiple).",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Exclude files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    filter_from: Annotated[
+        str | None,
+        typer.Option(
+            help="Read include/exclude patterns from file.",
         ),
     ] = None,
     workers: Annotated[
@@ -1138,19 +1148,19 @@ def import_cmd(
             help="Number of parallel S3 download threads.",
         ),
     ] = 4,
-    batch_size: Annotated[
-        int,
+    buffer_size: Annotated[
+        str | None,
         typer.Option(
-            "--batch-size",
-            help="Number of files per upload batch.",
+            "--buffer-size",
+            help="Maximum local temporary disk space during import (e.g. '10g', '500m').",
         ),
-    ] = 50,
+    ] = None,
     verbose: Annotated[
         bool,
         typer.Option(
             "--verbose",
             "-v",
-            help="Show per-file transfer details.",
+            help="Show detailed logging with reasoning.",
         ),
     ] = False,
     quiet: QuietOpt = False,
@@ -1162,6 +1172,10 @@ def import_cmd(
     Requires the `s3fs` package (`pip install s3fs`). AWS credentials are resolved
     by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance profiles, etc.).
     """
+    from huggingface_hub.utils._parsing import parse_size
+
+    parsed_buffer_size = parse_size(buffer_size) if buffer_size else None
+
     api = get_hf_api(token=token)
     import_from_s3(
         s3_source=source,
@@ -1169,9 +1183,12 @@ def import_cmd(
         api=api,
         include=include,
         exclude=exclude,
+        filter_from=filter_from,
+        plan=plan,
+        apply=apply,
         dry_run=dry_run,
         verbose=verbose,
         quiet=quiet,
         workers=workers,
-        batch_size=batch_size,
+        buffer_size=parsed_buffer_size,
     )
