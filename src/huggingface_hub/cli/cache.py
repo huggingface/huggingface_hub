@@ -752,8 +752,7 @@ def verify(
         raise typer.Exit(code=exit_code)
 
     out.result(
-        f"Verified {result.checked_count} file(s) for '{repo_id}' ({repo_type.value})"
-        f" in {verified_location}. All checksums match.",
+        f"Verified {result.checked_count} file(s) for {repo_type.value} '{repo_id}'. All checksums match.",
         repo_id=repo_id,
         repo_type=repo_type.value,
         checked=result.checked_count,
