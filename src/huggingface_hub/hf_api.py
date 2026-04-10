@@ -12636,9 +12636,7 @@ class HfApi:
             else:
                 # Check if destination is an existing "directory" (prefix with children)
                 destination_exists_as_directory = any(
-                    self.list_bucket_tree(
-                        destination_bucket_id, prefix=destination_path, recursive=False, token=token
-                    )
+                    self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
                 )
                 # Treat as directory if it exists as one, or if the user signaled with trailing slash
                 destination_is_directory = destination_exists_as_directory or destination.endswith("/")
