@@ -12621,25 +12621,25 @@ class HfApi:
 
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
-        if destination_path == "" or destination.endswith("/"):
+        destination_is_directory = False
+        destination_exists_as_directory = False
+
+        if destination_path == "":
+            # Bucket root always exists as a directory
             destination_is_directory = True
+            destination_exists_as_directory = True
         else:
-            # Check if destination path is an existing file or a directory in the bucket
+            # Check if destination matches an existing file
             dest_path_info = list(self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token))
             if dest_path_info:
                 destination_is_directory = False
             else:
-                destination_is_directory = (
-                    next(
-                        iter(
-                            self.list_bucket_tree(
-                                destination_bucket_id, prefix=destination_path, recursive=False, token=token
-                            )
-                        ),
-                        None,
-                    )
-                    is not None
+                # Check if destination is an existing "directory" (prefix with children)
+                destination_exists_as_directory = any(
+                    self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
                 )
+                # Treat as directory if it exists as one, or if the user signaled with trailing slash
+                destination_is_directory = destination_exists_as_directory or destination.endswith("/")
 
         all_adds: list[tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
@@ -12665,6 +12665,14 @@ class HfApi:
 
             if rel_path == "":
                 raise ValueError("Cannot copy an empty relative path.")
+
+            # Match Unix `cp -r` behavior: when the destination already exists as a
+            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
+            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
+            if destination_exists_as_directory and src_root_path is not None:
+                src_dir_basename = src_root_path.rsplit("/", 1)[-1]
+                rel_path = f"{src_dir_basename}/{rel_path}"
+
             if destination_path == "":
                 return rel_path
             return f"{destination_path.rstrip('/')}/{rel_path}"
@@ -12712,7 +12720,6 @@ class HfApi:
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
-                destination_is_directory = True
                 for item in self.list_bucket_tree(
                     source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
                 ):
@@ -12744,7 +12751,6 @@ class HfApi:
                 _add_repo_file(source_repo_path_info[0], target_path)
             else:
                 # Source path is a folder — list and copy all files recursively
-                destination_is_directory = True
                 for repo_item in self.list_repo_tree(
                     repo_id=source_handle.repo_id,
                     path_in_repo=source_path,
