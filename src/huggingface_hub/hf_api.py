@@ -12579,6 +12579,9 @@ class HfApi:
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
+        When copying from a repository, `.gitattributes` files are automatically excluded since they are
+        git-specific metadata and not relevant in a bucket context.
+
         Args:
             source (`str`):
                 Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
@@ -12746,7 +12749,9 @@ class HfApi:
                 )
 
             if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
-                # Source path matched a single file
+                # Source path matched a single file — skip .gitattributes (git-specific metadata)
+                if source_repo_path_info[0].path.rsplit("/", 1)[-1] == ".gitattributes":
+                    return
                 target_path = _resolve_target_path(source_repo_path_info[0].path, None, is_single_file=True)
                 _add_repo_file(source_repo_path_info[0], target_path)
             else:
@@ -12760,6 +12765,9 @@ class HfApi:
                     token=token,
                 ):
                     if not isinstance(repo_item, RepoFile):
+                        continue
+                    # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
+                    if repo_item.path.rsplit("/", 1)[-1] == ".gitattributes":
                         continue
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
