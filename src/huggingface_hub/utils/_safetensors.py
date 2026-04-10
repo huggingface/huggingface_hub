@@ -2,7 +2,7 @@ import functools
 import operator
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 
 FILENAME_T = str
@@ -97,7 +97,7 @@ class SafetensorsRepoMetadata:
             of that data type.
     """
 
-    metadata: Optional[dict]
+    metadata: dict | None
     sharded: bool
     weight_map: dict[TENSOR_NAME_T, FILENAME_T]  # tensor name -> filename
     files_metadata: dict[FILENAME_T, SafetensorsFileMetadata]  # filename -> metadata

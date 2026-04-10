@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 202-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +39,7 @@ Usage:
 """
 
 import warnings
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 import typer
 
@@ -68,7 +67,7 @@ logger = logging.get_logger(__name__)
 def download(
     repo_id: RepoIdArg,
     filenames: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
@@ -76,25 +75,25 @@ def download(
     repo_type: RepoTypeOpt = RepoTypeOpt.model,
     revision: RevisionOpt = None,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to include from files to download. eg: *.json",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Glob patterns to exclude from files to download.",
         ),
     ] = None,
     cache_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Directory where to save files.",
         ),
     ] = None,
     local_dir: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.",
         ),
@@ -127,7 +126,7 @@ def download(
 ) -> None:
     """Download files from the Hub."""
 
-    def run_download() -> Union[str, DryRunFileInfo, list[DryRunFileInfo]]:
+    def run_download() -> str | DryRunFileInfo | list[DryRunFileInfo]:
         filenames_list = filenames if filenames is not None else []
 
         # Separate subfolder patterns (ending with '/') from regular filenames
@@ -197,7 +196,7 @@ def download(
             dry_run=dry_run,
         )
 
-    def _print_result(result: Union[str, DryRunFileInfo, list[DryRunFileInfo]]) -> None:
+    def _print_result(result: str | DryRunFileInfo | list[DryRunFileInfo]) -> None:
         if isinstance(result, str):
             print(result)
             return
@@ -209,7 +208,7 @@ def download(
             f"[dry-run] Will download {len([r for r in result if r.will_download])} files (out of {len(result)}) totalling {_format_size(sum(r.file_size for r in result if r.will_download))}."
         )
         columns = ["File", "Bytes to download"]
-        items: list[list[Union[str, int]]] = []
+        items: list[list[str | int]] = []
         for info in sorted(result, key=lambda x: x.filename):
             items.append([info.filename, _format_size(info.file_size) if info.will_download else "-"])
         print(tabulate(items, headers=columns))

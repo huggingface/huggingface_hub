@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,12 +13,11 @@
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
 
-from typing import Optional, Union
-
 from huggingface_hub.errors import LocalTokenNotFoundError
 
 from .. import constants
 from ._auth import get_token
+from ._detect_agent import detect_agent
 from ._runtime import (
     get_hf_hub_version,
     get_python_version,
@@ -32,11 +30,11 @@ from ._validators import validate_hf_hub_args
 @validate_hf_hub_args
 def build_hf_headers(
     *,
-    token: Optional[Union[bool, str]] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[dict, str, None] = None,
-    headers: Optional[dict[str, str]] = None,
+    token: bool | str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Build headers dictionary to send in a HF Hub call.
@@ -124,7 +122,7 @@ def build_hf_headers(
     return hf_headers
 
 
-def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
+def get_token_to_send(token: bool | str | None) -> str | None:
     """Select the token to send from either `token` or the cache."""
     # Case token is explicitly provided
     if isinstance(token, str):
@@ -158,9 +156,9 @@ def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
 
 def _http_user_agent(
     *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[dict, str, None] = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
 ) -> str:
     """Format a user-agent string containing information about the installed packages.
 
@@ -185,6 +183,10 @@ def _http_user_agent(
     if not constants.HF_HUB_DISABLE_TELEMETRY:
         if is_torch_available():
             ua += f"; torch/{get_torch_version()}"
+
+        agent = detect_agent()
+        if agent:
+            ua += f"; agent/{agent}"
 
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())

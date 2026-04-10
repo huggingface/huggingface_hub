@@ -1,16 +1,14 @@
 import collections.abc
 import inspect
-import sys
 import types
+from collections.abc import Callable
 from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
     Annotated,
     Any,
-    Callable,
     ForwardRef,
     Literal,
-    Optional,
     Type,
     TypeVar,
     Union,
@@ -55,9 +53,7 @@ def strict(cls: Type[T]) -> Type[T]: ...
 def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
 
 
-def strict(
-    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
-) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
+def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T] | Callable[[Type[T]], Type[T]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -385,14 +381,14 @@ def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
 
 
 def validated_field(
-    validator: Union[list[Validator_T], Validator_T],
-    default: Union[Any, _MISSING_TYPE] = MISSING,
-    default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+    validator: list[Validator_T] | Validator_T,
+    default: Any | _MISSING_TYPE = MISSING,
+    default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
     init: bool = True,
     repr: bool = True,
-    hash: Optional[bool] = None,
+    hash: bool | None = None,
     compare: bool = True,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -437,13 +433,13 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Union[Any, _MISSING_TYPE] = MISSING,
-        default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+        default: Any | _MISSING_TYPE = MISSING,
+        default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
         init: bool = True,
         repr: bool = True,
-        hash: Optional[bool] = None,
+        hash: bool | None = None,
         compare: bool = True,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         **kwargs: Any,
     ):
         return validated_field(
@@ -515,7 +511,13 @@ def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Literal type."""
-    if value not in args:
+    if isinstance(value, bool):
+        if value not in [arg for arg in args if isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif isinstance(value, int):
+        if value not in [arg for arg in args if isinstance(arg, int) and not isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif value not in args:
         raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
@@ -605,6 +607,10 @@ def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
+    if expected_type is int and isinstance(value, bool):
+        raise TypeError(
+            f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
+        )
     if not isinstance(value, expected_type):
         raise TypeError(
             f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
@@ -663,9 +669,8 @@ _BASIC_TYPE_VALIDATORS: dict[Any, Callable[[str, Any, tuple[Any, ...]], None]] =
     collections.abc.Sequence: _validate_sequence,
 }
 
-if sys.version_info >= (3, 10):
-    # TODO: make it first class citizen when bumping to Python 3.10+
-    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
+# TODO: make it first class citizen when bumping to Python 3.10+
+_BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [

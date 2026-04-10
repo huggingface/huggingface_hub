@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2025-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,49 +14,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Optional, Union
+from typing import Any
 
 from huggingface_hub import constants
-from huggingface_hub._space_api import SpaceHardware
+from huggingface_hub._space_api import SpaceHardware, Volume
 from huggingface_hub.utils._datetime import parse_datetime
-
-
-@dataclass
-class Volume:
-    """
-    Describes a volume to mount in a Job container.
-
-    Args:
-        type (`str`):
-            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
-        source (`str`):
-            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
-        mount_path (`str`):
-            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
-        revision (`str` or `None`):
-            Git revision (only for repos, defaults to `"main"`).
-        read_only (`bool` or `None`):
-            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
-        path (`str` or `None`):
-            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
-    """
-
-    type: Literal["bucket", "model", "dataset", "space"]
-    source: str
-    mount_path: str
-    revision: Optional[str] = None
-    read_only: Optional[bool] = None
-    path: Optional[str] = None
-
-    def __init__(self, **kwargs) -> None:
-        self.type = kwargs.get("type", "model")
-        self.source = kwargs["source"]
-        mount_path = kwargs.get("mountPath")
-        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
-        self.revision = kwargs.get("revision")
-        read_only = kwargs.get("readOnly")
-        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
-        self.path = kwargs.get("path")
 
 
 class JobStage(str, Enum):
@@ -83,7 +44,7 @@ class JobStage(str, Enum):
 @dataclass
 class JobStatus:
     stage: JobStage
-    message: Optional[str]
+    message: str | None
 
 
 @dataclass
@@ -150,16 +111,16 @@ class JobInfo:
     """
 
     id: str
-    created_at: Optional[datetime]
-    docker_image: Optional[str]
-    space_id: Optional[str]
-    command: Optional[list[str]]
-    arguments: Optional[list[str]]
-    environment: Optional[dict[str, Any]]
-    secrets: Optional[dict[str, Any]]
-    flavor: Optional[SpaceHardware]
-    labels: Optional[dict[str, str]]
-    volumes: Optional[list[Volume]]
+    created_at: datetime | None
+    docker_image: str | None
+    space_id: str | None
+    command: list[str] | None
+    arguments: list[str] | None
+    environment: dict[str, Any] | None
+    secrets: dict[str, Any] | None
+    flavor: SpaceHardware | None
+    labels: dict[str, str] | None
+    volumes: list[Volume] | None
     status: JobStatus
     owner: JobOwner
 
@@ -193,18 +154,18 @@ class JobInfo:
 
 @dataclass
 class JobSpec:
-    docker_image: Optional[str]
-    space_id: Optional[str]
-    command: Optional[list[str]]
-    arguments: Optional[list[str]]
-    environment: Optional[dict[str, Any]]
-    secrets: Optional[dict[str, Any]]
-    flavor: Optional[SpaceHardware]
-    timeout: Optional[int]
-    tags: Optional[list[str]]
-    arch: Optional[str]
-    labels: Optional[dict[str, str]]
-    volumes: Optional[list[Volume]]
+    docker_image: str | None
+    space_id: str | None
+    command: list[str] | None
+    arguments: list[str] | None
+    environment: dict[str, Any] | None
+    secrets: dict[str, Any] | None
+    flavor: SpaceHardware | None
+    timeout: int | None
+    tags: list[str] | None
+    arch: str | None
+    labels: dict[str, str] | None
+    volumes: list[Volume] | None
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -234,8 +195,8 @@ class LastJobInfo:
 
 @dataclass
 class ScheduledJobStatus:
-    last_job: Optional[LastJobInfo]
-    next_job_run_at: Optional[datetime]
+    last_job: LastJobInfo | None
+    next_job_run_at: datetime | None
 
     def __init__(self, **kwargs) -> None:
         last_job = kwargs.get("lastJob") or kwargs.get("last_job")
@@ -287,11 +248,11 @@ class ScheduledJobInfo:
     """
 
     id: str
-    created_at: Optional[datetime]
+    created_at: datetime | None
     job_spec: JobSpec
-    schedule: Optional[str]
-    suspend: Optional[bool]
-    concurrency: Optional[bool]
+    schedule: str | None
+    suspend: bool | None
+    concurrency: bool | None
     status: ScheduledJobStatus
     owner: JobOwner
 
@@ -383,7 +344,7 @@ class JobHardware:
     pretty_name: str
     cpu: str
     ram: str
-    accelerator: Optional[JobAccelerator]
+    accelerator: JobAccelerator | None
     unit_cost_micro_usd: int
     unit_cost_usd: float
     unit_label: str
@@ -404,12 +365,12 @@ def _create_job_spec(
     *,
     image: str,
     command: list[str],
-    env: Optional[dict[str, Any]],
-    secrets: Optional[dict[str, Any]],
-    flavor: Optional[SpaceHardware],
-    timeout: Optional[Union[int, float, str]],
-    labels: Optional[dict[str, str]] = None,
-    volumes: Optional[list[Volume]] = None,
+    env: dict[str, Any] | None,
+    secrets: dict[str, Any] | None,
+    flavor: SpaceHardware | None,
+    timeout: int | float | str | None,
+    labels: dict[str, str] | None = None,
+    volumes: list[Volume] | None = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -433,17 +394,7 @@ def _create_job_spec(
         job_spec["labels"] = labels
     # volumes are optional
     if volumes:
-        job_spec["volumes"] = [
-            {
-                "type": vol.type,
-                "source": vol.source,
-                "mountPath": vol.mount_path,
-                **({"revision": vol.revision} if vol.revision is not None else {}),
-                **({"readOnly": vol.read_only} if vol.read_only is not None else {}),
-                **({"path": vol.path} if vol.path is not None else {}),
-            }
-            for vol in volumes
-        ]
+        job_spec["volumes"] = [vol.to_dict() for vol in volumes]
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

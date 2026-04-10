@@ -34,24 +34,14 @@ Usage:
 """
 
 import enum
-import json
-from typing import Annotated, Optional, get_args
+from typing import Annotated, get_args
 
 import typer
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import (
-    FormatOpt,
-    LimitOpt,
-    OutputFormat,
-    QuietOpt,
-    TokenOpt,
-    api_object_to_dict,
-    get_hf_api,
-    print_list_output,
-    typer_factory,
-)
+from ._cli_utils import FormatWithAutoOpt, LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
+from ._output import OutputFormatWithAuto, out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -75,22 +65,21 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 )
 def collections_ls(
     owner: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter by owner username or organization."),
     ] = None,
     item: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help='Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").'
         ),
     ] = None,
     sort: Annotated[
-        Optional[CollectionSort],
+        CollectionSort | None,
         typer.Option(help="Sort results by last modified, trending, or upvotes."),
     ] = None,
     limit: LimitOpt = 10,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List collections on the Hub."""
@@ -105,7 +94,7 @@ def collections_ls(
             limit=limit,
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @collections_cli.command(
@@ -116,12 +105,13 @@ def collections_ls(
 )
 def collections_info(
     collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a collection on the Hub. Output is in JSON format."""
+    """Get info about a collection on the Hub."""
     api = get_hf_api(token=token)
     collection = api.get_collection(collection_slug)
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.dict(collection)
 
 
 @collections_cli.command(
@@ -135,11 +125,11 @@ def collections_info(
 def collections_create(
     title: Annotated[str, typer.Argument(help="The title of the collection.")],
     namespace: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The namespace (username or organization). Defaults to the authenticated user."),
     ] = None,
     description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A description for the collection."),
     ] = None,
     private: Annotated[
@@ -150,6 +140,7 @@ def collections_create(
         bool,
         typer.Option(help="Do not raise an error if the collection already exists."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new collection on the Hub."""
@@ -161,8 +152,7 @@ def collections_create(
         private=private,
         exists_ok=exists_ok,
     )
-    print(f"Collection created: {collection.url}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Collection created", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -176,25 +166,26 @@ def collections_create(
 def collections_update(
     collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     title: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The new title for the collection."),
     ] = None,
     description: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The new description for the collection."),
     ] = None,
     position: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(help="The new position of the collection in the owner's list."),
     ] = None,
     private: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(help="Whether the collection should be private."),
     ] = None,
     theme: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update a collection's metadata on the Hub."""
@@ -207,8 +198,7 @@ def collections_update(
         private=private,
         theme=theme,
     )
-    print(f"Collection updated: {collection.url}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Collection updated", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -224,12 +214,13 @@ def collections_delete(
         bool,
         typer.Option(help="Do not raise an error if the collection doesn't exist."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete a collection from the Hub."""
     api = get_hf_api(token=token)
     api.delete_collection(collection_slug, missing_ok=missing_ok)
-    print(f"Collection deleted: {collection_slug}")
+    out.result("Collection deleted", slug=collection_slug)
 
 
 @collections_cli.command(
@@ -247,16 +238,17 @@ def collections_add_item(
     ],
     item_type: Annotated[
         CollectionItemType,
-        typer.Argument(help="The type of item (model, dataset, space, paper, or collection)."),
+        typer.Argument(help="The type of item (model, dataset, space, paper, collection, or bucket)."),
     ],
     note: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A note to attach to the item (max 500 characters)."),
     ] = None,
     exists_ok: Annotated[
         bool,
         typer.Option(help="Do not raise an error if the item is already in the collection."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Add an item to a collection."""
@@ -268,8 +260,7 @@ def collections_add_item(
         note=note,
         exists_ok=exists_ok,
     )
-    print(f"Item added to collection: {collection_slug}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Item added to collection", slug=collection_slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -286,13 +277,14 @@ def collections_update_item(
         typer.Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
     ],
     note: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="A new note for the item (max 500 characters)."),
     ] = None,
     position: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(help="The new position of the item in the collection."),
     ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an item in a collection."""
@@ -303,7 +295,7 @@ def collections_update_item(
         note=note,
         position=position,
     )
-    print(f"Item updated in collection: {collection_slug}")
+    out.result("Item updated in collection", slug=collection_slug)
 
 
 @collections_cli.command("delete-item")
@@ -319,6 +311,7 @@ def collections_delete_item(
         bool,
         typer.Option(help="Do not raise an error if the item doesn't exist."),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete an item from a collection."""
@@ -328,4 +321,4 @@ def collections_delete_item(
         item_object_id=item_object_id,
         missing_ok=missing_ok,
     )
-    print(f"Item deleted from collection: {collection_slug}")
+    out.result("Item deleted from collection", slug=collection_slug)

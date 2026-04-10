@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,6 +47,7 @@ from ._cache_manager import (
 )
 from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
+from ._detect_agent import detect_agent, is_agent
 from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
@@ -127,6 +127,7 @@ from .tqdm import (
     disable_progress_bars,
     enable_progress_bars,
     is_tqdm_disabled,
+    silent_tqdm,
     tqdm,
     tqdm_stream_file,
 )

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from huggingface_hub.utils import parse_datetime
 
@@ -111,6 +110,59 @@ class SpaceStorage(str, Enum):
 
 
 @dataclass
+class Volume:
+    """
+    Describes a volume to mount in a Space or Job container.
+
+    Args:
+        type (`str`):
+            Type of volume: `"bucket"`, `"model"`, `"dataset"`, or `"space"`.
+        source (`str`):
+            Source identifier, e.g. `"username/my-bucket"` or `"username/my-model"`.
+        mount_path (`str`):
+            Mount path inside the container, e.g. `"/data"`. Must start with `/`.
+        revision (`str` or `None`):
+            Git revision (only for repos, defaults to `"main"`).
+        read_only (`bool` or `None`):
+            Read-only mount. Forced `True` for repos, defaults to `False` for buckets.
+        path (`str` or `None`):
+            Subfolder prefix inside the bucket/repo to mount, e.g. `"path/to/dir"`.
+    """
+
+    type: Literal["bucket", "model", "dataset", "space"]
+    source: str
+    mount_path: str
+    revision: str | None = None
+    read_only: bool | None = None
+    path: str | None = None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs.get("type", "model")
+        self.source = kwargs["source"]
+        mount_path = kwargs.get("mountPath")
+        self.mount_path = mount_path if mount_path is not None else kwargs["mount_path"]
+        self.revision = kwargs.get("revision")
+        read_only = kwargs.get("readOnly")
+        self.read_only = read_only if read_only is not None else kwargs.get("read_only")
+        self.path = kwargs.get("path")
+
+    def to_dict(self) -> dict:
+        """Serialize to the JSON payload expected by the Hub API."""
+        data: dict = {
+            "type": self.type,
+            "source": self.source,
+            "mountPath": self.mount_path,
+        }
+        if self.revision is not None:
+            data["revision"] = self.revision
+        if self.read_only is not None:
+            data["readOnly"] = self.read_only
+        if self.path is not None:
+            data["path"] = self.path
+        return data
+
+
+@dataclass
 class SpaceHotReloading:
     status: Literal["created", "canceled"]
     replica_statuses: list[tuple[str, str]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
@@ -141,17 +193,21 @@ class SpaceRuntime:
             Number of seconds the Space will be kept alive after the last request. By default (if value is `None`), the
             Space will never go to sleep if it's running on an upgraded hardware, while it will go to sleep after 48
             hours on a free 'cpu-basic' hardware. For more details, see https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
+        volumes (`list[Volume]` or `None`):
+            List of volumes mounted in the Space. Each volume is a [`Volume`] object describing its type, source,
+            mount path, and optional settings. `None` if no volumes are attached.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
     """
 
     stage: SpaceStage
-    hardware: Optional[SpaceHardware]
-    requested_hardware: Optional[SpaceHardware]
-    sleep_time: Optional[int]
-    storage: Optional[SpaceStorage]
-    hot_reloading: Optional[SpaceHotReloading]
+    hardware: SpaceHardware | None
+    requested_hardware: SpaceHardware | None
+    sleep_time: int | None
+    storage: SpaceStorage | None
+    hot_reloading: SpaceHotReloading | None
+    volumes: list[Volume] | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -161,6 +217,8 @@ class SpaceRuntime:
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
         self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
+        raw_volumes = data.get("volumes")
+        self.volumes = [Volume(**v) for v in raw_volumes] if raw_volumes is not None else None
         self.raw = data
 
 
@@ -182,8 +240,8 @@ class SpaceVariable:
 
     key: str
     value: str
-    description: Optional[str]
-    updated_at: Optional[datetime]
+    description: str | None
+    updated_at: datetime | None
 
     def __init__(self, key: str, values: dict) -> None:
         self.key = key

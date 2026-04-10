@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +18,7 @@ import re
 import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 
 from huggingface_hub.errors import HFValidationError
 
@@ -91,7 +90,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
     return _inner_fn  # type: ignore
 
 
-def validate_repo_id(repo_id: Optional[str]) -> None:
+def validate_repo_id(repo_id: str | None) -> None:
     """Validate `repo_id` is valid.
 
     This is not meant to replace the proper validation made on the Hub but rather to

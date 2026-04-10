@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -373,7 +372,7 @@ def dump_environment_info() -> dict[str, Any]:
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
     from huggingface_hub import get_token, whoami
-    from huggingface_hub.utils import list_credential_helpers
+    from huggingface_hub.utils import is_agent, list_credential_helpers
 
     token = get_token()
 
@@ -408,6 +407,8 @@ def dump_environment_info() -> dict[str, Any]:
     except Exception:
         pass
 
+    info["Run by AI agent ?"] = "Yes" if is_agent() else "No"
+
     # How huggingface_hub has been installed?
     info["Installation method"] = installation_method()
 
@@ -426,6 +427,7 @@ def dump_environment_info() -> dict[str, Any]:
     info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
     info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
     info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
+    info["HF_HUB_DISABLE_SYMLINKS"] = constants.HF_HUB_DISABLE_SYMLINKS
     info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
     info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN

@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Before you start, you will need to set up your environment by installing the appropriate packages.
 
-`huggingface_hub` is tested on **Python 3.9+**.
+`huggingface_hub` is tested on **Python 3.10+**.
 
 ## Install with pip
 
@@ -51,7 +51,6 @@ pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
-- `cli`: provide a more convenient CLI interface for `huggingface_hub`.
 - `fastai`, `torch`: dependencies to run framework-specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 

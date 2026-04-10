@@ -1,4 +1,4 @@
-# vX.Y.Z: <Tagline>
+# [vX.Y.Z] <Tagline>
 
 ## <Emoji> <Highlight title>
 

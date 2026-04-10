@@ -26,7 +26,6 @@ Usage:
 
 import enum
 import functools
-import json
 import os
 import shlex
 import shutil
@@ -34,7 +33,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Annotated, Literal, Optional, Union, get_args
+from typing import Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -51,19 +50,17 @@ from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disabl
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatOpt,
+    FormatWithAutoOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
-    print_list_output,
     typer_factory,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -75,7 +72,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 
 ExpandOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
@@ -97,13 +94,12 @@ def spaces_ls(
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
-        Optional[SpaceSortEnum],
+        SpaceSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List spaces on the Hub."""
@@ -120,7 +116,7 @@ def spaces_ls(
             expand=expand,  # type: ignore[arg-type]
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @spaces_cli.command(
@@ -134,9 +130,10 @@ def spaces_info(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Get info about a space on the Hub. Output is in JSON format."""
+    """Get info about a space on the Hub."""
     api = get_hf_api(token=token)
     try:
         info = api.space_info(repo_id=space_id, revision=revision, expand=expand)  # type: ignore[arg-type]
@@ -144,7 +141,7 @@ def spaces_info(
         raise CLIError(f"Space '{space_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
-    print(json.dumps(api_object_to_dict(info), indent=2))
+    out.dict(info)
 
 
 @spaces_cli.command(
@@ -232,13 +229,13 @@ def spaces_hot_reload(
         ),
     ],
     filename: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches."
         ),
     ] = None,
     local_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -342,8 +339,8 @@ def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
     commit_sha: str,
-    local_path: Optional[str],
-    token: Optional[str],
+    local_path: str | None,
+    token: str | None,
 ) -> None:
     space_info = api.space_info(space_id)
     if (runtime := space_info.runtime) is None:
@@ -420,7 +417,7 @@ PREFERRED_EDITORS = (
 
 
 @functools.cache
-def _get_editor_command() -> Optional[str]:
+def _get_editor_command() -> str | None:
     for env in ("HF_EDITOR", "VISUAL", "EDITOR"):
         if command := os.getenv(env, "").strip():
             return command
@@ -430,7 +427,7 @@ def _get_editor_command() -> Optional[str]:
     return None
 
 
-def _editor_open(local_path: str) -> Union[int, Literal["no-tty", "no-editor"]]:
+def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return "no-tty"
     if (editor_command := _get_editor_command()) is None:

@@ -95,6 +95,13 @@ def bucket_write(api: HfApi) -> str:
     return bucket.bucket_id
 
 
+@pytest.fixture(scope="function")
+def bucket_write_2(api: HfApi) -> str:
+    """Second bucket for read-write tests (rebuilt every test)."""
+    bucket = api.create_bucket(bucket_name())
+    return bucket.bucket_id
+
+
 def test_create_bucket(api: HfApi):
     bucket_id = f"{USER}/{bucket_name()}"
     bucket_url = api.create_bucket(bucket_id)
@@ -302,6 +309,146 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
     assert "non_existent_file.txt" in str(exc_info.value)
 
 
+@requires("hf_xet")
+def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tmp_path):
+    api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{bucket_write}/copied.txt",
+    )
+
+    output_path = tmp_path / "copied.txt"
+    api.download_bucket_files(bucket_write, [("copied.txt", str(output_path))])
+    assert output_path.read_bytes() == b"bucket-content"
+
+
+@requires("hf_xet")
+def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
+    api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/logs",
+        f"hf://buckets/{bucket_write_2}/backup/",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "backup/a.txt" in destination_files
+    assert "backup/sub/b.txt" in destination_files
+    assert "backup/c.txt" not in destination_files
+
+    # Check exact content
+    a_path = tmp_path / "a.txt"
+    b_path = tmp_path / "b.txt"
+    api.download_bucket_files(bucket_write_2, [("backup/a.txt", str(a_path)), ("backup/sub/b.txt", str(b_path))])
+    assert a_path.read_bytes() == b"a"
+    assert b_path.read_bytes() == b"b"
+
+
+@requires("hf_xet")
+def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, tmp_path):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files")).repo_id
+    branch = "copy-files-branch"
+    api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
+    api.create_branch(repo_id=repo_id, branch=branch)
+    api.upload_file(repo_id=repo_id, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch)
+
+    api.copy_files(
+        f"hf://{repo_id}@{branch}/nested/from-branch.txt",
+        f"hf://buckets/{bucket_write}/from-repo.txt",
+    )
+
+    output_path = tmp_path / "from-repo.txt"
+    api.download_bucket_files(bucket_write, [("from-repo.txt", str(output_path))])
+    assert output_path.read_bytes() == b"branch"
+
+
+@requires("hf_xet")
+def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
+    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
+    api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
+    with pytest.raises(ValueError, match="Destination must be a bucket"):
+        api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_nonexistent_dest(api: HfApi, bucket_write: str, bucket_write_2: str):
+    """source=folder, dest doesn't exist => files copied under dest path."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder",
+        f"hf://buckets/{bucket_write_2}/target-folder",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "target-folder/a.txt" in destination_files
+    assert "target-folder/sub/b.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str, bucket_write_2: str):
+    """source=folder, dest is an existing folder => files merged under dest path."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
+    api.batch_bucket_files(bucket_write_2, add=[(b"existing", "target-folder/existing.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder",
+        f"hf://buckets/{bucket_write_2}/target-folder",
+    )
+
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "target-folder/existing.txt" in destination_files
+    assert "target-folder/a.txt" in destination_files
+    assert "target-folder/sub/b.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
+    """source=file, dest is an existing file => must work (overwrite)."""
+    api.batch_bucket_files(bucket_write, add=[(b"new-content", "source.txt")])
+    api.batch_bucket_files(bucket_write_2, add=[(b"old-content", "dest.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{bucket_write_2}/dest.txt",
+    )
+
+    output_path = tmp_path / "dest.txt"
+    api.download_bucket_files(bucket_write_2, [("dest.txt", str(output_path))])
+    assert output_path.read_bytes() == b"new-content"
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_nonexistent_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
+    """source=file, dest doesn't exist => must work (creates file)."""
+    api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{bucket_write_2}/new-file.txt",
+    )
+
+    output_path = tmp_path / "new-file.txt"
+    api.download_bucket_files(bucket_write_2, [("new-file.txt", str(output_path))])
+    assert output_path.read_bytes() == b"content"
+
+
+@requires("hf_xet")
+def test_copy_files_file_to_folder_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
+    """source=file, dest is a folder (trailing '/') => file added to folder."""
+    api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/source.txt",
+        f"hf://buckets/{bucket_write_2}/folder/",
+    )
+
+    output_path = tmp_path / "source.txt"
+    api.download_bucket_files(bucket_write_2, [("folder/source.txt", str(output_path))])
+    assert output_path.read_bytes() == b"content"
+
+
 @pytest.mark.parametrize(
     "source, destination, expected_content_type",
     [
@@ -333,3 +480,24 @@ def test_bucket_add_file_content_type(source, destination, expected_content_type
 
     entry = _BucketAddFile(source=source, destination=destination)
     assert entry.content_type == expected_content_type
+
+
+@requires("hf_xet")
+def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: str, tmp_path):
+    """Regression test for  https://github.com/huggingface/huggingface_hub/issues/3995.
+
+    Before this change if the local file was large than the remote one, only the first bytes of the local
+    file were updated, leaving a corrupted file.
+    """
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("1234567890")
+
+    # Upload local file by path
+    api.batch_bucket_files(bucket_write, add=[(file_path, "file.txt")])
+
+    # Overwrite local file with larger content
+    file_path.write_text("a" * 40)
+
+    # Download from bucket should restore original content
+    api.download_bucket_files(bucket_write, files=[("file.txt", str(file_path))])
+    assert file_path.read_text() == "1234567890"

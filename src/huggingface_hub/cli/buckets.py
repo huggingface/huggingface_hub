@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2025-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,7 @@ import json
 import os
 import sys
 from datetime import datetime
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 import typer
 
@@ -59,6 +58,10 @@ logger = logging.get_logger(__name__)
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
 
+def _is_hf_handle(path: str) -> bool:
+    return path.startswith("hf://")
+
+
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'.
 
@@ -76,7 +79,7 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         )
 
 
-def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
+def _format_size(size: int | float, human_readable: bool = False) -> str:
     """Format a size in bytes."""
     if not human_readable:
         return str(size)
@@ -90,7 +93,7 @@ def _format_size(size: Union[int, float], human_readable: bool = False) -> str:
     return f"{size:.1f} PB"
 
 
-def _format_mtime(mtime: Optional[datetime], human_readable: bool = False) -> str:
+def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
     """Format mtime datetime to a readable date string."""
     if mtime is None:
         return ""
@@ -100,7 +103,7 @@ def _format_mtime(mtime: Optional[datetime], human_readable: bool = False) -> st
 
 
 def _build_tree(
-    items: list[Union[BucketFile, BucketFolder]],
+    items: list[BucketFile | BucketFolder],
     human_readable: bool = False,
     quiet: bool = False,
 ) -> list[str]:
@@ -291,7 +294,7 @@ def _is_bucket_id(argument: str) -> bool:
 )
 def list_cmd(
     argument: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help=(
                 "Namespace (user or org) to list buckets, or bucket ID"
@@ -357,13 +360,13 @@ def list_cmd(
 
 
 def _list_buckets(
-    namespace: Optional[str],
+    namespace: str | None,
     human_readable: bool,
     as_tree: bool,
     recursive: bool,
     format: OutputFormat,
     quiet: bool,
-    token: Optional[str],
+    token: str | None,
 ) -> None:
     """List buckets in a namespace."""
     # Validate incompatible flags
@@ -411,7 +414,7 @@ def _list_files(
     recursive: bool,
     format: OutputFormat,
     quiet: bool,
-    token: Optional[str],
+    token: str | None,
 ) -> None:
     """List files in a bucket."""
     # Validate incompatible flags
@@ -614,13 +617,13 @@ def remove(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Include only files matching pattern (can specify multiple). Requires --recursive.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Exclude files matching pattern (can specify multiple). Requires --recursive.",
         ),
@@ -793,13 +796,13 @@ def move(
 )
 def sync(
     source: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
     dest: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(
             help="Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
@@ -825,13 +828,13 @@ def sync(
         ),
     ] = False,
     plan: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Save sync plan to JSONL file for review instead of executing.",
         ),
     ] = None,
     apply: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Apply a previously saved plan file.",
         ),
@@ -844,19 +847,19 @@ def sync(
         ),
     ] = False,
     include: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Include files matching pattern (can specify multiple).",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             help="Exclude files matching pattern (can specify multiple).",
         ),
     ] = None,
     filter_from: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Read include/exclude patterns from file.",
         ),
@@ -930,28 +933,46 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/",
+        "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
     ],
 )
 def cp(
-    src: Annotated[str, typer.Argument(help="Source: local file, hf://buckets/... path, or - for stdin")],
+    src: Annotated[str, typer.Argument(help="Source: local file, HF handle (hf://...), or - for stdin")],
     dst: Annotated[
-        Optional[str], typer.Argument(help="Destination: local path, hf://buckets/... path, or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, HF handle (hf://...), or - for stdout")
     ] = None,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Copy a single file to or from a bucket."""
+    """Copy files to or from buckets."""
     api = get_hf_api(token=token)
 
+    src_is_hf = _is_hf_handle(src)
+    dst_is_hf = dst is not None and _is_hf_handle(dst)
     src_is_bucket = _is_bucket_path(src)
     dst_is_bucket = dst is not None and _is_bucket_path(dst)
     src_is_stdin = src == "-"
     dst_is_stdout = dst == "-"
 
-    # --- Validation ---
-    if src_is_bucket and dst_is_bucket:
-        raise typer.BadParameter("Remote-to-remote copy not supported.")
+    # Remote to remote copy
+    if src_is_hf and dst_is_hf:
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.copy_files(src, dst)  # type: ignore
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        finally:
+            if quiet:
+                enable_progress_bars()
 
+        if not quiet:
+            print(f"Copied: {src} -> {dst}")
+        return
+
+    # Local to remote copy
+    # --- Validation ---
     if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
         if dst is None:
             raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")

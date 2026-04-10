@@ -67,15 +67,15 @@ import multiprocessing.pool
 import shutil
 import time
 from collections import deque
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from fnmatch import fnmatch
 from queue import Empty, Queue
-from typing import Annotated, Any, Callable, Iterable, Optional, TypeVar, Union
+from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import SpaceHardware, constants
-from huggingface_hub._jobs_api import Volume
+from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -88,10 +88,12 @@ from ._cli_utils import (
     SecretsFileOpt,
     SecretsOpt,
     TokenOpt,
+    VolumesOpt,
     _format_cell,
     api_object_to_dict,
     get_hf_api,
     parse_env_map,
+    parse_volumes,
     print_list_output,
     typer_factory,
 )
@@ -100,7 +102,7 @@ from ._cli_utils import (
 logger = logging.get_logger(__name__)
 
 
-def _parse_namespace_from_job_id(job_id: str, namespace: Optional[str]) -> tuple[str, Optional[str]]:
+def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[str, str | None]:
     """Extract namespace from job_id if provided in 'namespace/job_id' format.
 
     Allows users to pass job IDs copied from the Hub UI (e.g. 'username/job_id')
@@ -140,21 +142,21 @@ ImageArg = Annotated[
 ]
 
 ImageOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Use a custom Docker image with `uv` installed.",
     ),
 ]
 
 FlavorOpt = Annotated[
-    Optional[SpaceHardware],
+    SpaceHardware | None,
     typer.Option(
         help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
     ),
 ]
 
 LabelsOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "-l",
         "--label",
@@ -163,7 +165,7 @@ LabelsOpt = Annotated[
 ]
 
 TimeoutOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
@@ -179,14 +181,14 @@ DetachOpt = Annotated[
 ]
 
 NamespaceOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
     ),
 ]
 
 WithOpt = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option(
         "--with",
         help="Run with the given packages installed",
@@ -194,7 +196,7 @@ WithOpt = Annotated[
 ]
 
 PythonOpt = Annotated[
-    Optional[str],
+    str | None,
     typer.Option(
         "-p",
         "--python",
@@ -203,14 +205,14 @@ PythonOpt = Annotated[
 ]
 
 SuspendOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Suspend (pause) the scheduled Job",
     ),
 ]
 
 ConcurrencyOpt = Annotated[
-    Optional[bool],
+    bool | None,
     typer.Option(
         help="Allow multiple instances of this Job to run concurrently",
     ),
@@ -231,24 +233,12 @@ ScriptArg = Annotated[
 ]
 
 ScriptArgsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Arguments for the script",
     ),
 ]
 
-VolumesOpt = Annotated[
-    Optional[list[str]],
-    typer.Option(
-        "-v",
-        "--volume",
-        help="Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
-        "TYPE is one of: models, datasets, spaces, buckets. "
-        "TYPE defaults to models if omitted. "
-        "models, datasets and spaces are always mounted read-only. buckets are read+write by default."
-        "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
-    ),
-]
 
 CommandArg = Annotated[
     list[str],
@@ -265,7 +255,7 @@ JobIdArg = Annotated[
 ]
 
 JobIdsArg = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Argument(
         help="Job IDs (or 'namespace/job_id')",
     ),
@@ -318,7 +308,7 @@ def jobs_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_volumes(volume),
+        volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -348,7 +338,7 @@ def jobs_logs(
         ),
     ] = False,
     tail: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "-n",
             "--tail",
@@ -400,9 +390,7 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
     return True
 
 
-def _print_output(
-    rows: list[list[Union[str, int]]], headers: list[str], aliases: list[str], fmt: Optional[str]
-) -> None:
+def _print_output(rows: list[list[str | int]], headers: list[str], aliases: list[str], fmt: str | None) -> None:
     """Print output according to the chosen format."""
     if fmt:
         # Use custom template if provided
@@ -428,7 +416,7 @@ def _clear_line(n: int) -> None:
 
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
-) -> Iterable[tuple[bool, str, list[list[Union[str, int]]]]]:
+) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
         row = [
             job_id,
@@ -503,9 +491,9 @@ def jobs_stats(
     ]
     try:
         with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            rows_per_job_id: dict[str, list[list[Union[str, int]]]] = {}
+            rows_per_job_id: dict[str, list[list[str | int]]] = {}
             for job_id in job_ids:
-                row: list[Union[str, int]] = [job_id]
+                row: list[str | int] = [job_id]
                 row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
                 rows_per_job_id[job_id] = [row]
             last_update_time = time.time()
@@ -554,7 +542,7 @@ def jobs_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -562,7 +550,7 @@ def jobs_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
@@ -671,7 +659,7 @@ def jobs_hardware() -> None:
     hardware_list = api.list_jobs_hardware()
     table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
     headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
-    rows: list[list[Union[str, int]]] = []
+    rows: list[list[str | int]] = []
 
     for hw in hardware_list:
         accelerator_info = "N/A"
@@ -785,7 +773,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_volumes(volume),
+        volumes=parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -840,7 +828,7 @@ def scheduled_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_volumes(volume),
+        volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
         namespace=namespace,
@@ -861,7 +849,7 @@ def scheduled_ps(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "-f",
             "--filter",
@@ -869,7 +857,7 @@ def scheduled_ps(
         ),
     ] = None,
     format: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
     ] = None,
     quiet: QuietOpt = False,
@@ -1064,7 +1052,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_volumes(volume),
+        volumes=parse_volumes(volume),
         flavor=flavor,  # type: ignore[arg-type,misc]
         timeout=timeout,
         namespace=namespace,
@@ -1075,108 +1063,7 @@ def scheduled_uv_run(
 ### UTILS
 
 
-def _parse_volumes(volumes: Optional[list[str]]) -> Optional[list[Volume]]:
-    """Parse volume specs from CLI arguments.
-
-    Format: hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]
-    Where TYPE is one of: models, datasets, spaces, buckets (defaults to models if omitted).
-    SOURCE is the repo/bucket identifier (e.g. 'username/my-model').
-    PATH is an optional subfolder inside the repo/bucket.
-    MOUNT_PATH starts with '/'.
-    Optional ':ro' or ':rw' suffix for read-only or read-write.
-
-    Examples:
-        hf://gpt2:/data                          (model, implicit type)
-        hf://my-org/my-model:/data                (model, implicit type)
-        hf://models/my-org/my-model:/data         (model, explicit type)
-        hf://datasets/my-org/my-dataset:/data:ro
-        hf://buckets/my-org/my-bucket:/mnt
-        hf://spaces/my-org/my-space:/app
-        hf://datasets/org/ds/train:/data          (with path inside repo)
-        hf://buckets/org/b/sub/dir:/mnt           (with path inside bucket)
-    """
-    if not volumes:
-        return None
-
-    HF_PREFIX = "hf://"
-    HF_TYPES_MAPPING = {
-        "models": constants.REPO_TYPE_MODEL,
-        "datasets": constants.REPO_TYPE_DATASET,
-        "spaces": constants.REPO_TYPE_SPACE,
-        "buckets": "bucket",
-    }
-
-    result: list[Volume] = []
-    for raw_spec in volumes:
-        # Strip :ro/:rw suffix
-        spec = raw_spec
-        read_only = None
-        if spec.endswith(":ro"):
-            read_only = True
-            spec = spec[:-3]
-        elif spec.endswith(":rw"):
-            read_only = False
-            spec = spec[:-3]
-
-        # Validate hf:// prefix
-        if not spec.startswith(HF_PREFIX):
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
-            )
-        spec = spec[len(HF_PREFIX) :]
-
-        # Find the mount path: look for :/ pattern
-        colon_slash_idx = spec.find(":/")
-        if colon_slash_idx == -1:
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
-            )
-        source_part = spec[:colon_slash_idx]
-        mount_path = spec[colon_slash_idx + 1 :]
-
-        # Parse type from source_part (first segment before /)
-        # Then split remaining into source (namespace/name or name) and optional path.
-        slash_idx = source_part.find("/")
-        if slash_idx == -1:
-            # No slash: bare source like "gpt2" -> model type
-            vol_type_str = constants.REPO_TYPE_MODEL
-            source = source_part
-            path = None
-        else:
-            first_segment = source_part[:slash_idx]
-            if first_segment in HF_TYPES_MAPPING:
-                vol_type_str = HF_TYPES_MAPPING[first_segment]
-                remaining = source_part[slash_idx + 1 :]
-            else:
-                # First segment isn't a known type -> model type
-                vol_type_str = constants.REPO_TYPE_MODEL
-                remaining = source_part
-
-            # Split remaining into source (namespace/name) and optional path.
-            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
-            # Any extra segments are the path inside the repo/bucket.
-            parts = remaining.split("/", 2)
-            if len(parts) >= 3:
-                source = parts[0] + "/" + parts[1]
-                path = parts[2]
-            else:
-                source = remaining
-                path = None
-
-        result.append(
-            Volume(
-                type=vol_type_str,
-                source=source,
-                mount_path=mount_path,
-                read_only=read_only,
-                path=path,
-            )
-        )
-    return result
-
-
-def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
+def _parse_labels_map(labels: list[str] | None) -> dict[str, str] | None:
     """Parse label key-value pairs from CLI arguments.
 
     Args:
@@ -1194,7 +1081,7 @@ def _parse_labels_map(labels: Optional[list[str]]) -> Optional[dict[str, str]]:
     return labels_map
 
 
-def _tabulate(rows: list[list[Union[str, int]]], headers: list[str]) -> str:
+def _tabulate(rows: list[list[str | int]], headers: list[str]) -> str:
     """
     Inspired by:
 

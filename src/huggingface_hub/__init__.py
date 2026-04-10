@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.9.0.dev0"
+__version__ = "1.11.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -85,7 +85,6 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
-        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -111,6 +110,7 @@ _SUBMOD_ATTRS = {
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
+        "Volume",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -184,6 +184,7 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
@@ -205,6 +206,7 @@ _SUBMOD_ATTRS = {
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
+        "copy_files",
         "create_branch",
         "create_bucket",
         "create_collection",
@@ -231,6 +233,7 @@ _SUBMOD_ATTRS = {
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
+        "delete_space_volumes",
         "delete_tag",
         "delete_webhook",
         "disable_space_dev_mode",
@@ -265,6 +268,7 @@ _SUBMOD_ATTRS = {
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
+        "kernel_info",
         "list_accepted_access_requests",
         "list_bucket_tree",
         "list_buckets",
@@ -321,6 +325,7 @@ _SUBMOD_ATTRS = {
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
+        "set_space_volumes",
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
@@ -757,6 +762,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -904,6 +910,7 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
+    "copy_files",
     "create_branch",
     "create_bucket",
     "create_collection",
@@ -930,6 +937,7 @@ __all__ = [
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
+    "delete_space_volumes",
     "delete_tag",
     "delete_webhook",
     "disable_space_dev_mode",
@@ -982,6 +990,7 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
+    "kernel_info",
     "list_accepted_access_requests",
     "list_bucket_tree",
     "list_buckets",
@@ -1057,6 +1066,7 @@ __all__ = [
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
+    "set_space_volumes",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
@@ -1213,7 +1223,6 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
-        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
@@ -1237,6 +1246,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1308,6 +1318,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
@@ -1329,6 +1340,7 @@ if TYPE_CHECKING:  # pragma: no cover
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
+        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
@@ -1355,6 +1367,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
+        delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
         disable_space_dev_mode,  # noqa: F401
@@ -1389,6 +1402,7 @@ if TYPE_CHECKING:  # pragma: no cover
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
+        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_bucket_tree,  # noqa: F401
         list_buckets,  # noqa: F401
@@ -1445,6 +1459,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
+        set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +13,10 @@
 # limitations under the License.
 """Contains utilities to handle paths in Huggingface Hub."""
 
+from collections.abc import Callable, Generator, Iterable
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Callable, Generator, Iterable, Optional, TypeVar, Union
+from typing import TypeVar
 
 
 T = TypeVar("T")
@@ -39,9 +39,9 @@ FORBIDDEN_FOLDERS = [".git", ".cache"]
 def filter_repo_objects(
     items: Iterable[T],
     *,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
-    key: Optional[Callable[[T], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
+    key: Callable[[T], str] | None = None,
 ) -> Generator[T, None, None]:
     """Filter repo objects based on an allowlist and a denylist.
 

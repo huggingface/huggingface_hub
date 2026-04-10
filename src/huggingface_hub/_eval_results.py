@@ -5,7 +5,7 @@ Specifications are available at https://github.com/huggingface/hub-docs/blob/mai
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -73,14 +73,14 @@ class EvalResultEntry:
     dataset_id: str
     task_id: str
     value: Any
-    dataset_revision: Optional[str] = None
-    verify_token: Optional[str] = None
-    date: Optional[str] = None
-    source_url: Optional[str] = None
-    source_name: Optional[str] = None
-    source_user: Optional[str] = None
-    source_org: Optional[str] = None
-    notes: Optional[str] = None
+    dataset_revision: str | None = None
+    verify_token: str | None = None
+    date: str | None = None
+    source_url: str | None = None
+    source_name: str | None = None
+    source_user: str | None = None
+    source_org: str | None = None
+    notes: str | None = None
 
     def __post_init__(self) -> None:
         if (

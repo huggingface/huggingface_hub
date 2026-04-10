@@ -21,12 +21,6 @@ Usage:
     # install the hf-cli skill for Claude (project-level, in current directory)
     hf skills add --claude
 
-    # install for Cursor (project-level, in current directory)
-    hf skills add --cursor
-
-    # install for multiple assistants (project-level)
-    hf skills add --claude --codex --opencode --cursor
-
     # install globally (user-level)
     hf skills add --claude --global
 
@@ -40,12 +34,15 @@ Usage:
 import os
 import shutil
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from click import Command, Context, Group
 from typer.main import get_command
 
+from huggingface_hub.errors import CLIError
+
+from . import _skills
 from ._cli_utils import typer_factory
 
 
@@ -108,20 +105,8 @@ Some command examples:
 
 CENTRAL_LOCAL = Path(".agents/skills")
 CENTRAL_GLOBAL = Path("~/.agents/skills")
-
-GLOBAL_TARGETS = {
-    "codex": Path("~/.codex/skills"),
-    "claude": Path("~/.claude/skills"),
-    "cursor": Path("~/.cursor/skills"),
-    "opencode": Path("~/.config/opencode/skills"),
-}
-
-LOCAL_TARGETS = {
-    "codex": Path(".codex/skills"),
-    "claude": Path(".claude/skills"),
-    "cursor": Path(".cursor/skills"),
-    "opencode": Path(".opencode/skills"),
-}
+CLAUDE_LOCAL = Path(".claude/skills")
+CLAUDE_GLOBAL = Path("~/.claude/skills")
 # Flags worth explaining in the common-options glossary. Self-explanatory flags
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}
@@ -187,7 +172,7 @@ def _iter_optional_params(cmd: Command):
             yield p, long_name, short_name
 
 
-def _get_flag_names(cmd: Command, *, exclude: Optional[set[str]] = None) -> list[str]:
+def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare (``--dry-run``).  Value-taking options include a
@@ -306,32 +291,27 @@ def _remove_existing(path: Path, force: bool) -> None:
     if not (path.exists() or path.is_symlink()):
         return
     if not force:
-        raise SystemExit(f"Skill already exists at {path}.\nRe-run with --force to overwrite.")
+        raise CLIError(f"Skill already exists at {path}.\nRe-run with --force to overwrite.")
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
     else:
         path.unlink()
 
 
-def _install_to(skills_dir: Path, force: bool) -> Path:
-    """Download and install the skill files into a skills directory. Returns the installed path."""
-    skills_dir = skills_dir.expanduser().resolve()
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    dest = skills_dir / DEFAULT_SKILL_ID
-
-    _remove_existing(dest, force)
-    dest.mkdir()
-
-    (dest / "SKILL.md").write_text(build_skill_md(), encoding="utf-8")
-
-    return dest
+def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
+    """Install a marketplace skill into a skills directory. Returns the installed path."""
+    skill = _skills.get_marketplace_skill(skill_name)
+    try:
+        return _skills.install_marketplace_skill(skill, skills_dir, force=force)
+    except FileExistsError as exc:
+        raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
 
 
-def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: bool) -> Path:
+def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path: Path, force: bool) -> Path:
     """Create a relative symlink from agent directory to the central skill location."""
     agent_skills_dir = agent_skills_dir.expanduser().resolve()
     agent_skills_dir.mkdir(parents=True, exist_ok=True)
-    link_path = agent_skills_dir / DEFAULT_SKILL_ID
+    link_path = agent_skills_dir / skill_name
 
     _remove_existing(link_path, force)
     link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
@@ -339,9 +319,26 @@ def _create_symlink(agent_skills_dir: Path, central_skill_path: Path, force: boo
     return link_path
 
 
+def _resolve_update_roots(
+    *,
+    claude: bool,
+    global_: bool,
+    dest: Path | None,
+) -> list[Path]:
+    if dest is not None:
+        if claude or global_:
+            raise CLIError("--dest cannot be combined with --claude or --global.")
+        return [dest.expanduser().resolve()]
+
+    roots: list[Path] = [CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL]
+    if claude:
+        roots.append(CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL)
+    return [root.expanduser().resolve() for root in roots]
+
+
 @skills_cli.command("preview")
 def skills_preview() -> None:
-    """Print the generated SKILL.md to stdout."""
+    """Print the generated `hf-cli` SKILL.md to stdout."""
     print(build_skill_md())
 
 
@@ -349,16 +346,18 @@ def skills_preview() -> None:
     "add",
     examples=[
         "hf skills add",
+        "hf skills add huggingface-gradio --dest=~/my-skills",
         "hf skills add --global",
-        "hf skills add --claude --cursor",
-        "hf skills add --codex --opencode --cursor --global",
+        "hf skills add --claude",
+        "hf skills add huggingface-gradio --claude --global",
     ],
 )
 def skills_add(
+    name: Annotated[
+        str,
+        typer.Argument(help="Marketplace skill name.", show_default=False),
+    ] = DEFAULT_SKILL_ID,
     claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
-    codex: Annotated[bool, typer.Option("--codex", help="Install for Codex.")] = False,
-    cursor: Annotated[bool, typer.Option("--cursor", help="Install for Cursor.")] = False,
-    opencode: Annotated[bool, typer.Option("--opencode", help="Install for OpenCode.")] = False,
     global_: Annotated[
         bool,
         typer.Option(
@@ -368,7 +367,7 @@ def skills_add(
         ),
     ] = False,
     dest: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             help="Install into a custom destination (path to skills directory).",
         ),
@@ -381,36 +380,67 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a skill and install it for an AI assistant.
+    """Download a Hugging Face skill and install it for an AI assistant.
 
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-    If custom agents are specified (e.g. --claude --codex --cursor --opencode, etc), the skill will be symlinked to the agent's skills directory.
+    If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
-    if dest:
-        if claude or codex or cursor or opencode or global_:
-            print("--dest cannot be combined with --claude, --codex, --cursor, --opencode, or --global.")
-            raise typer.Exit(code=1)
-        skill_dest = _install_to(dest, force)
-        print(f"Installed '{DEFAULT_SKILL_ID}' to {skill_dest}")
+    if dest is not None:
+        if claude or global_:
+            raise CLIError("--dest cannot be combined with --claude or --global.")
+        skill_dest = _install_to(dest, name, force)
+        print(f"Installed '{name}' to {skill_dest}")
         return
 
     # Install to central location
     central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
-    central_skill_path = _install_to(central_path, force)
-    print(f"Installed '{DEFAULT_SKILL_ID}' to central location: {central_skill_path}")
+    central_skill_path = _install_to(central_path, name, force)
+    print(f"Installed '{name}' to central location: {central_skill_path}")
 
-    # Create symlinks in agent directories
-    targets_dict = GLOBAL_TARGETS if global_ else LOCAL_TARGETS
-    agent_targets: list[Path] = []
     if claude:
-        agent_targets.append(targets_dict["claude"])
-    if codex:
-        agent_targets.append(targets_dict["codex"])
-    if cursor:
-        agent_targets.append(targets_dict["cursor"])
-    if opencode:
-        agent_targets.append(targets_dict["opencode"])
-
-    for agent_target in agent_targets:
-        link_path = _create_symlink(agent_target, central_skill_path, force)
+        agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
+        link_path = _create_symlink(agent_target, name, central_skill_path, force)
         print(f"Created symlink: {link_path}")
+
+
+@skills_cli.command(
+    "upgrade",
+    examples=[
+        "hf skills upgrade",
+        "hf skills upgrade hf-cli",
+        "hf skills upgrade huggingface-gradio --dest=~/my-skills",
+        "hf skills upgrade --claude",
+    ],
+)
+def skills_upgrade(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Optional installed skill name to upgrade.", show_default=False),
+    ] = None,
+    claude: Annotated[bool, typer.Option("--claude", help="Upgrade skills installed for Claude.")] = False,
+    global_: Annotated[
+        bool,
+        typer.Option(
+            "--global",
+            "-g",
+            help="Use global skills directories instead of the current project.",
+        ),
+    ] = False,
+    dest: Annotated[
+        Path | None,
+        typer.Option(
+            help="Upgrade skills in a custom skills directory.",
+        ),
+    ] = None,
+) -> None:
+    """Upgrade installed Hugging Face marketplace skills."""
+    roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
+
+    results = _skills.apply_updates(roots, selector=name)
+    if not results:
+        print("No installed skills found.")
+        return
+
+    for result in results:
+        detail = f" ({result.detail})" if result.detail else ""
+        print(f"{result.name}: {result.status}{detail}")

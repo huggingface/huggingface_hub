@@ -17,7 +17,7 @@ import inspect
 import json
 import types
 from dataclasses import asdict, dataclass
-from typing import Any, TypeVar, Union, get_args
+from typing import Any, TypeVar, get_args
 
 from typing_extensions import dataclass_transform
 
@@ -53,7 +53,7 @@ class BaseInferenceType(dict):
     """
 
     @classmethod
-    def parse_obj_as_list(cls: type[T], data: Union[bytes, str, list, dict]) -> list[T]:
+    def parse_obj_as_list(cls: type[T], data: bytes | str | list | dict) -> list[T]:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -64,7 +64,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj_as_instance(cls: type[T], data: Union[bytes, str, list, dict]) -> T:
+    def parse_obj_as_instance(cls: type[T], data: bytes | str | list | dict) -> T:
         """Alias to parse server response and return a single instance.
 
         See `parse_obj` for more details.
@@ -75,7 +75,7 @@ class BaseInferenceType(dict):
         return output
 
     @classmethod
-    def parse_obj(cls: type[T], data: Union[bytes, str, list, dict]) -> Union[list[T], T]:
+    def parse_obj(cls: type[T], data: bytes | str | list | dict) -> list[T] | T:
         """Parse server response as a dataclass or list of dataclasses.
 
         To enable future-compatibility, we want to handle cases where the server return more fields than expected.

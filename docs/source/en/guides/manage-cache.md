@@ -156,6 +156,14 @@ In practice, your cache should look like the following tree:
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 ```
 
+### CACHEDIR.TAG
+
+`huggingface_hub` automatically creates a
+[`CACHEDIR.TAG`](https://bford.info/cachedir/) file inside the cache directory. This
+tag follows the *Cache Directory Tagging Standard* and tells backup tools (e.g. Borg,
+restic, rsync) that the directory contains re-downloadable cache data and can safely be
+excluded from backups.
+
 ### Limitations
 
 In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
@@ -170,6 +178,10 @@ the same repo is downloaded.
 If you want to benefit from the symlink-based cache-system on a Windows machine, you
 either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
 or to run Python as an administrator.
+
+If you want to proactively use the no-symlink cache mode (e.g. on a shared filesystem that doesn't handle symlinks
+well), you can set the [`HF_HUB_DISABLE_SYMLINKS`](../package_reference/environment_variables#hfhubdisablesymlinks) environment variable to `1`. Files will be copied into `snapshots/`
+directly instead of symlinking to `blobs/`.
 
 When symlinks are not supported, a warning message is displayed to the user to alert
 them they are using a degraded version of the cache-system. This warning can be disabled

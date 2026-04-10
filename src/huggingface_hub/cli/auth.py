@@ -30,8 +30,7 @@ Usage:
     hf auth whoami
 """
 
-import json
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -39,8 +38,9 @@ from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
-from ..utils import ANSI, get_stored_tokens, get_token, logging
-from ._cli_utils import FormatOpt, OutputFormat, TokenOpt, typer_factory
+from ..utils import get_stored_tokens, get_token, logging
+from ._cli_utils import FormatWithAutoOpt, OutputFormatWithAuto, TokenOpt, typer_factory
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -83,7 +83,7 @@ def auth_login(
 )
 def auth_logout(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
@@ -91,7 +91,7 @@ def auth_logout(
     logout(token_name=token_name)
 
 
-def _select_token_name() -> Optional[str]:
+def _select_token_name() -> str | None:
     token_names = list(get_stored_tokens().keys())
 
     if not token_names:
@@ -121,7 +121,7 @@ def _select_token_name() -> Optional[str]:
 )
 def auth_switch_cmd(
     token_name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Name of the token to switch to",
         ),
@@ -150,24 +150,16 @@ def auth_list_cmd() -> None:
 
 @auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
 def auth_whoami(
-    format: FormatOpt = OutputFormat.table,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Find out which huggingface.co account you are logged in as."""
+
     token = get_token()
     if token is None:
-        if format == OutputFormat.json:
-            print(json.dumps({"error": "Not logged in"}))
-        else:
-            print("Not logged in")
-        raise typer.Exit()
-    info = whoami(token)
-    if format == OutputFormat.json:
-        print(json.dumps(info, indent=2, default=str))
-    else:
-        print(ANSI.bold("user: "), info["name"])
-        orgs = [org["name"] for org in info["orgs"]]
-        if orgs:
-            print(ANSI.bold("orgs: "), ",".join(orgs))
+        out.error("Not logged in")
+        raise typer.Exit(code=1)
 
-        if ENDPOINT != "https://huggingface.co":
-            print(f"Authenticated through private endpoint: {ENDPOINT}")
+    info = whoami(token)
+    orgs = ",".join(org["name"] for org in info["orgs"]) or None
+    endpoint = ENDPOINT if ENDPOINT != "https://huggingface.co" else None
+    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint)

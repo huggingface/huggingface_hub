@@ -1,5 +1,5 @@
 import base64
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -15,7 +15,7 @@ class NebiusTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
         super().__init__(provider="nebius", base_url="https://api.studio.nebius.ai")
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
             "generated_text": output["text"],
@@ -32,7 +32,7 @@ class NebiusConversationalTask(BaseConversationalTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
         response_format = parameters.get("response_format")
         if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
@@ -51,7 +51,7 @@ class NebiusTextToImageTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         mapped_model = provider_mapping_info.provider_id
         parameters = filter_none(parameters)
         if "guidance_scale" in parameters:
@@ -61,7 +61,7 @@ class NebiusTextToImageTask(TaskProviderHelper):
 
         return {"prompt": inputs, **parameters, "model": mapped_model}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         response_dict = _as_dict(response)
         return base64.b64decode(response_dict["data"][0]["b64_json"])
 
@@ -75,9 +75,9 @@ class NebiusFeatureExtractionTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         return {"input": inputs, "model": provider_mapping_info.provider_id}
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         embeddings = _as_dict(response)["data"]
         return [embedding["embedding"] for embedding in embeddings]
