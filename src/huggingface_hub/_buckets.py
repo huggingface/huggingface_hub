@@ -43,7 +43,7 @@ logger = logging.get_logger(__name__)
 
 BUCKET_PREFIX = "hf://buckets/"
 _SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
-_IMPORT_BATCH_SIZE = 50  # Internal batch size for S3 import upload API calls
+_IMPORT_BATCH_SIZE = 500  # Internal batch size for S3 import upload API calls
 
 
 def _format_size(size: int | float, human_readable: bool = False) -> str:
