@@ -30,7 +30,8 @@ import typer
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError
 from huggingface_hub.utils import StatusLine, get_session, logging
 
-from ._cli_utils import FormatOpt, OutputFormat, QuietOpt, print_list_output, typer_factory
+from ._cli_utils import FormatWithAutoOpt, typer_factory
+from ._output import OutputFormatWithAuto, out
 
 
 DEFAULT_EXTENSION_OWNER = "huggingface"
@@ -159,7 +160,7 @@ def extension_exec(
 
 
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
-def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
+def extension_list(format: FormatWithAutoOpt = OutputFormatWithAuto.auto) -> None:
     """List installed extension commands."""
     rows = [
         {
@@ -171,11 +172,11 @@ def extension_list(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = Fal
         }
         for manifest in _list_installed_extensions()
     ]
-    print_list_output(rows, format=format, quiet=quiet, id_key="command")
+    out.table(rows, id_key="command")
 
 
 @extensions_cli.command("search", examples=["hf extensions search"])
-def extension_search(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = False) -> None:
+def extension_search(format: FormatWithAutoOpt = OutputFormatWithAuto.auto) -> None:
     """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
     response = get_session().get(
         "https://api.github.com/search/repositories",
@@ -202,7 +203,7 @@ def extension_search(format: FormatOpt = OutputFormat.table, quiet: QuietOpt = F
             }
         )
 
-    print_list_output(rows, format=format, quiet=quiet, id_key="repo", alignments={"stars": "right"})
+    out.table(rows, id_key="repo", alignments={"stars": "right"})
 
 
 @extensions_cli.command("remove | rm", examples=["hf extensions remove claude"])
