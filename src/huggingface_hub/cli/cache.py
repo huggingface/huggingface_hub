@@ -546,7 +546,13 @@ def rm(
     print_cache_selected_revisions(resolution.selected)
 
     if dry_run:
-        out.text("Dry run: no files were deleted.")
+        out.result(
+            "Dry run: no files were deleted.",
+            dry_run=True,
+            repos=counts.repo_count,
+            revisions=counts.total_revision_count,
+            size=strategy.expected_freed_size_str,
+        )
         return
 
     if not yes and not typer.confirm("Proceed with deletion?", default=False):
@@ -621,7 +627,12 @@ def prune(
     print_cache_selected_revisions(selected)
 
     if dry_run:
-        out.text("Dry run: no files were deleted.")
+        out.result(
+            "Dry run: no files were deleted.",
+            dry_run=True,
+            revisions=counts.total_revision_count,
+            size=strategy.expected_freed_size_str,
+        )
         return
 
     if not yes and not typer.confirm("Proceed?"):
