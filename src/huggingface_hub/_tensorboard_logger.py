@@ -38,7 +38,7 @@ except ImportError:
         class _DummySummaryWriter:
             pass
 
-        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]
+        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore
         is_summary_writer_available = False
 
 

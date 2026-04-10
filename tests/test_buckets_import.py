@@ -141,10 +141,12 @@ class TestImportFromS3:
 
     def test_dry_run_outputs_jsonl(self, capsys):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
-            {"name": "my-bucket/file2.txt", "type": "file", "size": 200},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
+                {"name": "my-bucket/file2.txt", "type": "file", "size": 200},
+            ]
+        )
 
         with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
             result = import_from_s3(
@@ -174,11 +176,13 @@ class TestImportFromS3:
 
     def test_import_with_include_filter(self, capsys):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
-            {"name": "my-bucket/readme.md", "type": "file", "size": 50},
-            {"name": "my-bucket/other.parquet", "type": "file", "size": 2000},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
+                {"name": "my-bucket/readme.md", "type": "file", "size": 50},
+                {"name": "my-bucket/other.parquet", "type": "file", "size": 2000},
+            ]
+        )
 
         with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
             result = import_from_s3(
@@ -199,10 +203,12 @@ class TestImportFromS3:
 
     def test_import_with_exclude_filter(self, capsys):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
-            {"name": "my-bucket/temp.tmp", "type": "file", "size": 50},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
+                {"name": "my-bucket/temp.tmp", "type": "file", "size": 50},
+            ]
+        )
 
         with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
             result = import_from_s3(
@@ -221,11 +227,13 @@ class TestImportFromS3:
 
     def test_import_with_filter_from(self, capsys):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
-            {"name": "my-bucket/temp.tmp", "type": "file", "size": 50},
-            {"name": "my-bucket/readme.md", "type": "file", "size": 30},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/data.parquet", "type": "file", "size": 1000},
+                {"name": "my-bucket/temp.tmp", "type": "file", "size": 50},
+                {"name": "my-bucket/readme.md", "type": "file", "size": 30},
+            ]
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("- *.tmp\n")
@@ -267,9 +275,11 @@ class TestImportFromS3:
 
     def test_import_with_dest_prefix(self, capsys):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
+            ]
+        )
 
         with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
             result = import_from_s3(
@@ -288,9 +298,11 @@ class TestImportFromS3:
     def test_actual_transfer(self):
         """Test the full transfer path with mocked S3 and HfApi."""
         api = MagicMock()
-        mock_s3fs_module, mock_s3 = _make_s3_mocks([
-            {"name": "my-bucket/small.txt", "type": "file", "size": 5},
-        ])
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/small.txt", "type": "file", "size": 5},
+            ]
+        )
 
         def mock_get(s3_key, local_path):
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
@@ -321,9 +333,11 @@ class TestImportFromS3:
     def test_transfer_with_s3_prefix(self):
         """Test that S3 prefix paths are handled correctly."""
         api = MagicMock()
-        mock_s3fs_module, mock_s3 = _make_s3_mocks([
-            {"name": "my-bucket/data/train/part-0.parquet", "type": "file", "size": 100},
-        ])
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/data/train/part-0.parquet", "type": "file", "size": 100},
+            ]
+        )
 
         def mock_get(s3_key, local_path):
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
@@ -349,10 +363,12 @@ class TestImportFromS3:
     def test_download_failure_counts(self):
         """Test that S3 download failures are tracked properly."""
         api = MagicMock()
-        mock_s3fs_module, mock_s3 = _make_s3_mocks([
-            {"name": "my-bucket/good.txt", "type": "file", "size": 5},
-            {"name": "my-bucket/bad.txt", "type": "file", "size": 5},
-        ])
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/good.txt", "type": "file", "size": 5},
+                {"name": "my-bucket/bad.txt", "type": "file", "size": 5},
+            ]
+        )
 
         def mock_get(s3_key, local_path):
             if "bad.txt" in s3_key:
@@ -379,10 +395,12 @@ class TestImportFromS3:
 class TestImportPlanApply:
     def test_plan_saves_file(self):
         api = MagicMock()
-        mock_s3fs_module, _ = _make_s3_mocks([
-            {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
-            {"name": "my-bucket/file2.txt", "type": "file", "size": 200},
-        ])
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/file1.txt", "type": "file", "size": 100},
+                {"name": "my-bucket/file2.txt", "type": "file", "size": 200},
+            ]
+        )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             plan_file = f.name
@@ -420,20 +438,24 @@ class TestImportPlanApply:
 
         # Write a plan file
         plan_content = [
-            json.dumps({
-                "type": "header",
-                "source": "s3://my-bucket",
-                "dest": "hf://buckets/user/my-bucket",
-                "timestamp": "2026-01-01T00:00:00+00:00",
-                "summary": {"uploads": 1, "downloads": 0, "deletes": 0, "skips": 0, "total_size": 5},
-            }),
-            json.dumps({
-                "type": "operation",
-                "action": "upload",
-                "path": "small.txt",
-                "size": 5,
-                "reason": "new file",
-            }),
+            json.dumps(
+                {
+                    "type": "header",
+                    "source": "s3://my-bucket",
+                    "dest": "hf://buckets/user/my-bucket",
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "summary": {"uploads": 1, "downloads": 0, "deletes": 0, "skips": 0, "total_size": 5},
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "operation",
+                    "action": "upload",
+                    "path": "small.txt",
+                    "size": 5,
+                    "reason": "new file",
+                }
+            ),
         ]
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
@@ -520,9 +542,11 @@ class TestImportPlanApply:
 class TestBufferSize:
     def test_single_file_exceeds_buffer(self):
         api = MagicMock()
-        mock_s3fs_module, mock_s3 = _make_s3_mocks([
-            {"name": "my-bucket/huge.bin", "type": "file", "size": 10_000_000_000},
-        ])
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/huge.bin", "type": "file", "size": 10_000_000_000},
+            ]
+        )
 
         def mock_get(s3_key, local_path):
             pass  # Should never be called
@@ -542,11 +566,13 @@ class TestBufferSize:
     def test_buffer_size_splits_batches(self):
         """Verify that buffer_size constrains batch sizes."""
         api = MagicMock()
-        mock_s3fs_module, mock_s3 = _make_s3_mocks([
-            {"name": "my-bucket/a.bin", "type": "file", "size": 600},
-            {"name": "my-bucket/b.bin", "type": "file", "size": 600},
-            {"name": "my-bucket/c.bin", "type": "file", "size": 600},
-        ])
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/a.bin", "type": "file", "size": 600},
+                {"name": "my-bucket/b.bin", "type": "file", "size": 600},
+                {"name": "my-bucket/c.bin", "type": "file", "size": 600},
+            ]
+        )
 
         def mock_get(s3_key, local_path):
             os.makedirs(os.path.dirname(local_path), exist_ok=True)

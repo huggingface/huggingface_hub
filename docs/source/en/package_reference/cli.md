@@ -336,22 +336,25 @@ by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance prof
 **Usage**:
 
 ```console
-$ hf buckets import [OPTIONS] SOURCE DEST
+$ hf buckets import [OPTIONS] [SOURCE] [DEST]
 ```
 
 **Arguments**:
 
-* `SOURCE`: S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).  [required]
-* `DEST`: HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).  [required]
+* `[SOURCE]`: S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).
+* `[DEST]`: HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).
 
 **Options**:
 
-* `--dry-run`: List files that would be imported without actually transferring.
-* `--include TEXT`: Include only files matching pattern (can specify multiple).
+* `--plan TEXT`: Save import plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print import plan to stdout as JSONL without executing.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
 * `-w, --workers INTEGER`: Number of parallel S3 download threads.  [default: 4]
-* `--batch-size INTEGER`: Number of files per upload batch.  [default: 50]
-* `-v, --verbose`: Show per-file transfer details.
+* `--buffer-size TEXT`: Maximum local temporary disk space during import (e.g. '10g', '500m').
+* `-v, --verbose`: Show detailed logging with reasoning.
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -362,6 +365,9 @@ Examples
   $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run
   $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"
   $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl
+  $ hf buckets import --apply import-plan.jsonl
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g
 
 Learn more
   Use `hf <command> --help` for more information about a command.

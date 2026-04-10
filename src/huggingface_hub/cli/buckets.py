@@ -80,8 +80,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         )
 
 
-
-
 def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
     """Format mtime datetime to a readable date string."""
     if mtime is None:

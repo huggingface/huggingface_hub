@@ -1262,7 +1262,7 @@ def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple
         else:
             full_key = entry["name"]
             if prefix:
-                rel_path = full_key[len(prefix):].lstrip("/")
+                rel_path = full_key[len(prefix) :].lstrip("/")
             else:
                 rel_path = full_key.split("/", 1)[1] if "/" in full_key else full_key
             if rel_path:
@@ -1272,7 +1272,7 @@ def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple
 def _normalize_s3_path(s3_url: str) -> str:
     """Strip the s3:// prefix and return the raw bucket/key path."""
     if s3_url.startswith("s3://"):
-        return s3_url[len("s3://"):]
+        return s3_url[len("s3://") :]
     return s3_url
 
 
@@ -1290,7 +1290,7 @@ def _compute_import_plan(
     """
     s3_raw = _normalize_s3_path(s3_source)
     s3_bucket_name = s3_raw.split("/")[0]
-    s3_prefix = s3_raw[len(s3_bucket_name):].strip("/")
+    s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
     full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
 
     status.update("Listing S3 files...")
@@ -1310,9 +1310,7 @@ def _compute_import_plan(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
     for rel_path, size in all_files:
-        import_plan.operations.append(
-            SyncOperation(action="upload", path=rel_path, size=size, reason="new file")
-        )
+        import_plan.operations.append(SyncOperation(action="upload", path=rel_path, size=size, reason="new file"))
 
     return import_plan
 
@@ -1337,7 +1335,7 @@ def _execute_import_plan(
 
     s3_raw = _normalize_s3_path(plan.source)
     s3_bucket_name = s3_raw.split("/")[0]
-    s3_prefix = s3_raw[len(s3_bucket_name):].strip("/")
+    s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
     full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
 
     upload_ops = [op for op in plan.operations if op.action == "upload"]
