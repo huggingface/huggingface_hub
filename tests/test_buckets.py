@@ -388,7 +388,7 @@ def test_copy_files_folder_to_nonexistent_dest(api: HfApi, bucket_write: str, bu
 
 @requires("hf_xet")
 def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str, bucket_write_2: str):
-    """source=folder, dest is an existing folder => files merged under dest path."""
+    """source=folder, dest is an existing folder => source folder nested under dest (like `cp -r`)."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
     api.batch_bucket_files(bucket_write_2, add=[(b"existing", "target-folder/existing.txt")])
 
@@ -397,10 +397,11 @@ def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str
         f"hf://buckets/{bucket_write_2}/target-folder",
     )
 
+    # Like `cp -r folder target-folder` when target-folder exists: nests as target-folder/folder/...
     destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
     assert "target-folder/existing.txt" in destination_files
-    assert "target-folder/a.txt" in destination_files
-    assert "target-folder/sub/b.txt" in destination_files
+    assert "target-folder/folder/a.txt" in destination_files
+    assert "target-folder/folder/sub/b.txt" in destination_files
 
 
 @requires("hf_xet")
@@ -447,6 +448,57 @@ def test_copy_files_file_to_folder_dest(api: HfApi, bucket_write: str, bucket_wr
     output_path = tmp_path / "source.txt"
     api.download_bucket_files(bucket_write_2, [("folder/source.txt", str(output_path))])
     assert output_path.read_bytes() == b"content"
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_existing_folder_with_trailing_slash(api: HfApi, bucket_write: str, bucket_write_2: str):
+    """source=folder, dest is existing folder with trailing '/' => source folder nested (like `cp -r`)."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt")])
+    api.batch_bucket_files(bucket_write_2, add=[(b"existing", "backup/existing.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/logs",
+        f"hf://buckets/{bucket_write_2}/backup/",
+    )
+
+    # Like `cp -r logs backup/` when backup/ exists: nests as backup/logs/...
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "backup/existing.txt" in destination_files
+    assert "backup/logs/a.txt" in destination_files
+    assert "backup/logs/sub/b.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_nonexistent_dest_with_trailing_slash(api: HfApi, bucket_write: str, bucket_write_2: str):
+    """source=folder, dest doesn't exist but has trailing '/' => rename semantics (no nesting)."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/logs",
+        f"hf://buckets/{bucket_write_2}/new-backup/",
+    )
+
+    # Like `cp -r logs new-backup/` when new-backup/ doesn't exist:
+    # in Unix this errors, but in object storage we create it with rename semantics.
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "new-backup/a.txt" in destination_files
+    assert "new-backup/sub/b.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_write_2: str):
+    """source=folder, dest is bucket root => source folder nested at root (like `cp -r models /`)."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "models/a.txt"), (b"b", "models/sub/b.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/models",
+        f"hf://buckets/{bucket_write_2}/",
+    )
+
+    # Bucket root always "exists" as a directory, so nesting applies
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "models/a.txt" in destination_files
+    assert "models/sub/b.txt" in destination_files
 
 
 @pytest.mark.parametrize(
