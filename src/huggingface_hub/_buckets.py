@@ -1388,6 +1388,11 @@ def _execute_import_plan(
         os.makedirs(os.path.dirname(local_tmp), exist_ok=True)
         try:
             s3_fs.get(s3_key, local_tmp)
+            # s3fs may create a directory for pseudo-directory markers (0-byte keys ending with "/").
+            # Skip these to avoid "Is a directory" errors during upload.
+            if not os.path.isfile(local_tmp):
+                logger.warning(f"Skipping s3://{s3_key}: downloaded path is not a regular file")
+                return None
             return op.path, local_tmp, op.size or 0
         except Exception as e:
             logger.warning(f"Failed to download s3://{s3_key}: {e}")
@@ -1412,33 +1417,53 @@ def _execute_import_plan(
                 continue
 
             add_files: list[tuple[str | Path | bytes, str]] = []
+            downloaded_by_dest: dict[str, tuple[str, str, int]] = {}
             for rel_path, local_tmp, size in downloaded:
                 remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
                 add_files.append((local_tmp, remote_dest))
+                downloaded_by_dest[remote_dest] = (rel_path, local_tmp, size)
 
             status.update(f"Batch {batch_index}/{len(batches)}: uploading {len(add_files)} files to HF bucket")
 
-            try:
-                if quiet:
-                    disable_progress_bars()
+            # Upload with retry: on failure, split the batch in half and retry each sub-batch.
+            # This isolates problematic files (e.g. directories) instead of failing the whole batch.
+            upload_queue: list[list[tuple[str | Path | bytes, str]]] = [add_files]
+            succeeded_dests: set[str] = set()
+            while upload_queue:
+                chunk = upload_queue.pop(0)
                 try:
-                    api.batch_bucket_files(bucket_id, add=add_files)
-                finally:
                     if quiet:
-                        enable_progress_bars()
-
-                for rel_path, local_tmp, size in downloaded:
-                    stats.files_transferred += 1
-                    stats.bytes_transferred += size
-                    if verbose:
-                        remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
-                        print(
-                            f"  {rel_path} -> {BUCKET_PREFIX}{bucket_id}/{remote_dest} "
-                            f"({_format_size(size, human_readable=True)})"
+                        disable_progress_bars()
+                    try:
+                        api.batch_bucket_files(bucket_id, add=chunk)
+                    finally:
+                        if quiet:
+                            enable_progress_bars()
+                    succeeded_dests.update(dest for _, dest in chunk)
+                except Exception as e:
+                    if len(chunk) == 1:
+                        _, dest = chunk[0]
+                        logger.error(f"Failed to upload file '{dest}': {e}")
+                    else:
+                        mid = len(chunk) // 2
+                        logger.warning(
+                            f"Batch upload failed ({e}), splitting {len(chunk)} files into"
+                            f" sub-batches of {mid} and {len(chunk) - mid} and retrying"
                         )
-            except Exception as e:
-                logger.error(f"Failed to upload batch {batch_index}: {e}")
-                stats.files_failed += len(downloaded)
+                        upload_queue.append(chunk[:mid])
+                        upload_queue.append(chunk[mid:])
+
+            for dest in succeeded_dests:
+                rel_path, local_tmp, size = downloaded_by_dest[dest]
+                stats.files_transferred += 1
+                stats.bytes_transferred += size
+                if verbose:
+                    print(
+                        f"  {rel_path} -> {BUCKET_PREFIX}{bucket_id}/{dest} "
+                        f"({_format_size(size, human_readable=True)})"
+                    )
+            failed_count = len(downloaded_by_dest) - len(succeeded_dests)
+            stats.files_failed += failed_count
 
             for _, local_tmp, _ in downloaded:
                 try:
