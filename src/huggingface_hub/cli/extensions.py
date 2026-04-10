@@ -301,7 +301,9 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         branch = response.json()["default_branch"]
     except Exception:
         return None
-    if not typer.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?"):
+    try:
+        out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
+    except Exception:
         return None
     try:
         manifest = _install_extension_from_github(

@@ -49,6 +49,7 @@ from ._cli_utils import (
     print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -558,11 +559,7 @@ def delete(
             f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
 
-    if not yes:
-        confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Abort()
+    out.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?", yes=yes)
 
     api = get_hf_api(token=token)
     api.delete_bucket(bucket_id, missing_ok=missing_ok)
@@ -687,10 +684,7 @@ def remove(
             if not quiet:
                 for path in file_paths:
                     print(f"  {path}")
-            confirm = typer.confirm(f"Remove {count_label} from '{bucket_id}'?")
-            if not confirm:
-                print("Aborted.")
-                raise typer.Abort()
+            out.confirm(f"Remove {count_label} from '{bucket_id}'?", yes=False)
 
         if dry_run:
             for path in file_paths:
@@ -717,11 +711,7 @@ def remove(
             print("(dry run) 1 file would be removed.")
             return
 
-        if not yes:
-            confirm = typer.confirm(f"Remove '{file_path}' from '{bucket_id}'?")
-            if not confirm:
-                print("Aborted.")
-                raise typer.Abort()
+        out.confirm(f"Remove '{file_path}' from '{bucket_id}'?", yes=yes)
 
         api.batch_bucket_files(bucket_id, delete=[file_path])
         if quiet:
