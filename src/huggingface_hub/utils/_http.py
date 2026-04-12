@@ -723,7 +723,7 @@ def _httpx_follow_relative_redirects_with_backoff(
         next_url: str | None = None
         if 300 <= response.status_code <= 399:
             parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
+            if parsed_target.netloc == "" and parsed_target.scheme == "":
                 next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
             elif (
                 allowed_head_redirect_hosts is not None
