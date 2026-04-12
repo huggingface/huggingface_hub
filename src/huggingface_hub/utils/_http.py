@@ -654,6 +654,14 @@ def http_stream_backoff(
     )
 
 
+_SENSITIVE_CROSS_HOST_REDIRECT_HEADER_NAMES = frozenset({"authorization", "proxy-authorization", "cookie"})
+
+
+def _strip_sensitive_headers_for_cross_host_redirect(headers: Mapping[str, str]) -> dict[str, str]:
+    """Return a copy of headers without auth/cookie values (case-insensitive key match)."""
+    return {k: v for k, v in headers.items() if k.lower() not in _SENSITIVE_CROSS_HOST_REDIRECT_HEADER_NAMES}
+
+
 def _httpx_follow_relative_redirects_with_backoff(
     method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
 ) -> httpx.Response:
@@ -662,6 +670,18 @@ def _httpx_follow_relative_redirects_with_backoff(
     Used to fetch HEAD /resolve on repo or bucket files.
 
     This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+
+    If ``HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS`` is set to a non-empty,
+    comma-separated list of hostnames, **HEAD** requests may also follow **absolute** redirects when
+    the ``Location`` host is in that list (case-insensitive). This supports enterprise proxies that
+    redirect to an internal artifact host. ``Authorization``, ``Proxy-Authorization``, and ``Cookie``
+    headers are dropped when the redirect target uses a different host. Only ``http`` and ``https``
+    ``Location`` URLs are followed. When the variable is unset or empty, behavior is unchanged:
+    only relative redirects are followed.
+
+    At most [`~constants.get_hf_hub_head_resolve_max_redirects`] redirect hops are followed in total (relative or
+    allowlisted absolute); further redirect responses are returned as-is. Override with
+    ``HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS`` (default [`~constants.DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS`]).
 
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
@@ -681,25 +701,51 @@ def _httpx_follow_relative_redirects_with_backoff(
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
+    allowed_head_redirect_hosts = constants.get_hf_hub_allowed_head_redirect_hosts()
+    request_kwargs: dict[str, Any] = httpx_kwargs
+    headers_copy: dict[str, str] | None = None
+    if allowed_head_redirect_hosts is not None and httpx_kwargs.get("headers") is not None:
+        headers_copy = dict(httpx_kwargs["headers"])
+        request_kwargs = {**httpx_kwargs, "headers": headers_copy}
+
+    max_redirect_hops = constants.get_hf_hub_head_resolve_max_redirects()
+    redirect_hops = 0
     while True:
         response = http_backoff(
             method=method,
             url=url,
-            **httpx_kwargs,
+            **request_kwargs,
             follow_redirects=False,
             **no_retry_kwargs,
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
+        next_url: str | None = None
         if 300 <= response.status_code <= 399:
             parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
+            if parsed_target.netloc == "" and parsed_target.scheme == "":
+                next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
+            elif (
+                allowed_head_redirect_hosts is not None
+                and method == "HEAD"
+                and parsed_target.scheme in ("http", "https")
+            ):
+                location_host = parsed_target.hostname
+                if location_host is not None and location_host.lower() in allowed_head_redirect_hosts:
+                    next_url = parsed_target.geturl()
+                    current_host = urlparse(url).hostname
+                    if current_host is None or location_host.lower() != current_host.lower():
+                        if headers_copy is not None:
+                            stripped = _strip_sensitive_headers_for_cross_host_redirect(headers_copy)
+                            headers_copy.clear()
+                            headers_copy.update(stripped)
+            if next_url is not None:
+                if redirect_hops >= max_redirect_hops:
+                    break
+                redirect_hops += 1
+                url = next_url
                 continue
 
-        # Break if no relative redirect
         break
 
     return response

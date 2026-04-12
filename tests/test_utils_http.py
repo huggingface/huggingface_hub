@@ -17,6 +17,7 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _httpx_follow_relative_redirects_with_backoff,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _warn_on_warning_headers,
@@ -702,3 +703,226 @@ class TestParseBucketIdFromUrl:
 
     def test_http_url(self):
         assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"
+
+
+class TestHttpxFollowRelativeRedirectsWithBackoff:
+    def test_relative_redirect_same_as_legacy_path_replace(self, monkeypatch):
+        monkeypatch.delenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", raising=False)
+        calls: list[tuple[str, str]] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append((method, url))
+            if len(calls) == 1:
+                return httpx.Response(
+                    302,
+                    headers={"Location": "/new/path"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD", "https://huggingface.co/foo/bar", headers={}
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 2
+        assert calls[0][1] == "https://huggingface.co/foo/bar"
+        assert calls[1][1] == "https://huggingface.co/new/path"
+
+    def test_absolute_redirect_not_followed_without_allowlist(self, monkeypatch):
+        monkeypatch.delenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", raising=False)
+        calls: list[tuple[str, str]] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append((method, url))
+            return httpx.Response(
+                307,
+                headers={"Location": "https://other.example/file"},
+                request=httpx.Request(method, url),
+            )
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD", "https://huggingface.co/org/repo/resolve/main/file.txt"
+            )
+
+        assert response.status_code == 307
+        assert len(calls) == 1
+
+    def test_absolute_redirect_followed_when_host_allowlisted_head(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "cdn.internal")
+        calls: list[tuple[str, str]] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append((method, url))
+            if len(calls) == 1:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://cdn.internal/resolve/proxy"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/org/repo/resolve/main/file.txt",
+                headers={},
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 2
+        assert calls[0][1] == "https://huggingface.co/org/repo/resolve/main/file.txt"
+        assert calls[1][0] == "HEAD"
+        assert calls[1][1] == "https://cdn.internal/resolve/proxy"
+
+    def test_allowlisted_absolute_strips_auth_when_host_changes(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "cdn.internal")
+        header_snapshots: list[dict[str, str]] = []
+        original_headers = {
+            "Authorization": "Bearer secret",
+            "Cookie": "session=abc",
+            "X-Custom": "keep-me",
+        }
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            hdrs = kwargs.get("headers")
+            header_snapshots.append(dict(hdrs) if hdrs else {})
+            if len(header_snapshots) == 1:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://cdn.internal/next"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/x",
+                headers=original_headers,
+            )
+
+        assert header_snapshots[0]["Authorization"] == "Bearer secret"
+        assert "Authorization" not in header_snapshots[1]
+        assert "Cookie" not in header_snapshots[1]
+        assert header_snapshots[1]["X-Custom"] == "keep-me"
+        assert original_headers["Authorization"] == "Bearer secret"
+
+    def test_get_does_not_follow_allowlisted_absolute(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "internal.example")
+        calls: list[tuple[str, str]] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append((method, url))
+            return httpx.Response(
+                307,
+                headers={"Location": "https://internal.example/file"},
+                request=httpx.Request(method, url),
+            )
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "GET",
+                "https://huggingface.co/a",
+            )
+
+        assert response.status_code == 307
+        assert len(calls) == 1
+
+    def test_non_http_https_location_not_followed_with_allowlist(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "evil.local")
+        calls: list[tuple[str, str]] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append((method, url))
+            return httpx.Response(
+                307,
+                headers={"Location": "file:///etc/passwd"},
+                request=httpx.Request(method, url),
+            )
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff("HEAD", "https://huggingface.co/x")
+
+        assert response.status_code == 307
+        assert len(calls) == 1
+
+    def test_two_allowlisted_redirect_hops_then_200(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "artifactory.example")
+        monkeypatch.delenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", raising=False)
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            if len(calls) == 1:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://artifactory.example/reroute"},
+                    request=httpx.Request(method, url),
+                )
+            if len(calls) == 2:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://artifactory.example/final"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/org/repo/resolve/main/file.txt",
+                headers={},
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 3
+        assert calls[-1] == "https://artifactory.example/final"
+
+    def test_stops_after_max_redirect_hops(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "loop.example")
+        monkeypatch.delenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", raising=False)
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            return httpx.Response(
+                307,
+                headers={"Location": "https://loop.example/next"},
+                request=httpx.Request(method, url),
+            )
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD", "https://huggingface.co/x", headers={}
+            )
+
+        assert response.status_code == 307
+        assert len(calls) == 3
+
+    def test_env_max_redirect_override_allows_extra_hop(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "artifactory.example")
+        monkeypatch.setenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", "3")
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            if len(calls) <= 3:
+                return httpx.Response(
+                    307,
+                    headers={"Location": f"https://artifactory.example/step{len(calls)}"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/x",
+                headers={},
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 4
