@@ -279,6 +279,26 @@ def get_hf_hub_allowed_head_redirect_hosts() -> frozenset[str] | None:
     return hosts or None
 
 
+DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS = 2
+_HEAD_RESOLVE_MAX_REDIRECTS_CAP = 20
+
+
+def get_hf_hub_head_resolve_max_redirects() -> int:
+    """Parse ``HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS`` (max manual redirect hops for HEAD /resolve metadata).
+
+    When unset or empty, returns [`DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS`]. Invalid values fall back to the default.
+    The result is clamped to ``[0, _HEAD_RESOLVE_MAX_REDIRECTS_CAP]``.
+    """
+    raw = os.environ.get("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS")
+    if raw is None or not raw.strip():
+        return DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        return DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS
+    return max(0, min(value, _HEAD_RESOLVE_MAX_REDIRECTS_CAP))
+
+
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.
 OAUTH_MAX_REDIRECTS = 2

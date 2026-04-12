@@ -848,3 +848,81 @@ class TestHttpxFollowRelativeRedirectsWithBackoff:
 
         assert response.status_code == 307
         assert len(calls) == 1
+
+    def test_two_allowlisted_redirect_hops_then_200(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "artifactory.example")
+        monkeypatch.delenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", raising=False)
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            if len(calls) == 1:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://artifactory.example/reroute"},
+                    request=httpx.Request(method, url),
+                )
+            if len(calls) == 2:
+                return httpx.Response(
+                    307,
+                    headers={"Location": "https://artifactory.example/final"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/org/repo/resolve/main/file.txt",
+                headers={},
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 3
+        assert calls[-1] == "https://artifactory.example/final"
+
+    def test_stops_after_max_redirect_hops(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "loop.example")
+        monkeypatch.delenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", raising=False)
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            return httpx.Response(
+                307,
+                headers={"Location": "https://loop.example/next"},
+                request=httpx.Request(method, url),
+            )
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD", "https://huggingface.co/x", headers={}
+            )
+
+        assert response.status_code == 307
+        assert len(calls) == 3
+
+    def test_env_max_redirect_override_allows_extra_hop(self, monkeypatch):
+        monkeypatch.setenv("HF_HUB_ALLOWED_HEAD_REDIRECT_HOSTS", "artifactory.example")
+        monkeypatch.setenv("HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS", "3")
+        calls: list[str] = []
+
+        def fake_backoff(method: str, url: str, **kwargs):
+            calls.append(url)
+            if len(calls) <= 3:
+                return httpx.Response(
+                    307,
+                    headers={"Location": f"https://artifactory.example/step{len(calls)}"},
+                    request=httpx.Request(method, url),
+                )
+            return httpx.Response(200, request=httpx.Request(method, url))
+
+        with patch("huggingface_hub.utils._http.http_backoff", fake_backoff):
+            response = _httpx_follow_relative_redirects_with_backoff(
+                "HEAD",
+                "https://huggingface.co/x",
+                headers={},
+            )
+
+        assert response.status_code == 200
+        assert len(calls) == 4

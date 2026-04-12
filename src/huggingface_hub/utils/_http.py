@@ -679,6 +679,10 @@ def _httpx_follow_relative_redirects_with_backoff(
     ``Location`` URLs are followed. When the variable is unset or empty, behavior is unchanged:
     only relative redirects are followed.
 
+    At most [`~constants.get_hf_hub_head_resolve_max_redirects`] redirect hops are followed in total (relative or
+    allowlisted absolute); further redirect responses are returned as-is. Override with
+    ``HF_HUB_HEAD_RESOLVE_MAX_REDIRECTS`` (default [`~constants.DEFAULT_HEAD_RESOLVE_MAX_REDIRECTS`]).
+
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
     Args:
@@ -704,6 +708,8 @@ def _httpx_follow_relative_redirects_with_backoff(
         headers_copy = dict(httpx_kwargs["headers"])
         request_kwargs = {**httpx_kwargs, "headers": headers_copy}
 
+    max_redirect_hops = constants.get_hf_hub_head_resolve_max_redirects()
+    redirect_hops = 0
     while True:
         response = http_backoff(
             method=method,
@@ -714,14 +720,12 @@ def _httpx_follow_relative_redirects_with_backoff(
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
+        next_url: str | None = None
         if 300 <= response.status_code <= 399:
             parsed_target = urlparse(response.headers["Location"])
             if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
-            if (
+                next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
+            elif (
                 allowed_head_redirect_hosts is not None
                 and method == "HEAD"
                 and parsed_target.scheme in ("http", "https")
@@ -735,10 +739,13 @@ def _httpx_follow_relative_redirects_with_backoff(
                             stripped = _strip_sensitive_headers_for_cross_host_redirect(headers_copy)
                             headers_copy.clear()
                             headers_copy.update(stripped)
-                    url = next_url
-                    continue
+            if next_url is not None:
+                if redirect_hops >= max_redirect_hops:
+                    break
+                redirect_hops += 1
+                url = next_url
+                continue
 
-        # Break if no relative redirect
         break
 
     return response
