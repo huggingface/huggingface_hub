@@ -196,6 +196,29 @@ class LocalUploadFileMetadata:
             self.timestamp = new_timestamp
 
 
+def _sanitize_filename(filename: str) -> str:
+    """Convert a Hub-style ``/``-separated filename into an OS path and reject traversal.
+
+    On Windows, ``..\\`` segments are caught and rejected. On Linux/macOS,
+    ``os.path.join`` does **not** neutralise ``..`` components, so a malicious
+    repo filename like ``../../etc/passwd`` would resolve outside the
+    local directory. We must reject these explicitly.
+    """
+    sanitized = os.path.join(*filename.split("/"))
+    if os.name == "nt":
+        if sanitized.startswith("..\\") or "\\..\\" in sanitized:
+            raise ValueError(
+                f"Invalid filename: cannot handle filename '{sanitized}' on Windows. Please ask the repository"
+                " owner to rename this file."
+            )
+    else:
+        if sanitized.startswith("../") or "/../" in sanitized or sanitized == "..":
+            raise ValueError(
+                f"Invalid filename: path '{filename}' attempts to traverse outside the local directory."
+            )
+    return sanitized
+
+
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
     """Compute paths to the files related to a download process.
 
@@ -211,14 +234,8 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
         [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross-platform transcription
-    sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
+    # make sure to have a cross-platform transcription and reject traversal
+    sanitized_filename = _sanitize_filename(filename)
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
@@ -251,14 +268,8 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
         [`LocalUploadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path).
     """
     # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross-platform transcription
-    sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
+    # make sure to have a cross-platform transcription and reject traversal
+    sanitized_filename = _sanitize_filename(filename)
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "upload" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
