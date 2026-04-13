@@ -11921,10 +11921,6 @@ class HfApi:
             token=token,
         )
 
-    # Bucket transport constants for Jobs
-    _HF_JOBS_ARTIFACTS_MOUNT_PATH = "/artifacts"
-    _HF_JOBS_ARTIFACTS_BUCKET_NAME = "jobs-artifacts"
-
     def _create_uv_command_env_and_secrets(
         self,
         *,
@@ -11994,11 +11990,11 @@ class HfApi:
         # Try bucket transport if opted in
         use_bucket = constants.HF_JOBS_USE_BUCKET_TRANSPORT
         if use_bucket:
-            # Check if /artifacts mount path is already taken by user volumes
+            # Check if the artifacts mount path is already taken by user volumes
             existing_mount_paths = {v.mount_path for v in (volumes or [])}
-            if self._HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
+            if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
                 logger.info(
-                    f"Mount path {self._HF_JOBS_ARTIFACTS_MOUNT_PATH} already in use, falling back to base64 transport."
+                    f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH} already in use, falling back to base64 transport."
                 )
                 use_bucket = False
             elif not is_xet_available():
@@ -12013,7 +12009,7 @@ class HfApi:
                     token=token,
                 )
                 # Rewrite script and script_args to reference the mounted path
-                mount_path = self._HF_JOBS_ARTIFACTS_MOUNT_PATH
+                mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
                 if script in local_to_remote_file_names:
                     script = f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[script]}"
                 script_args = [
@@ -12069,7 +12065,7 @@ class HfApi:
         each script to ``scripts/{uuid}/{remote_name}`` inside it. Returns a :class:`Volume`
         that mounts the bucket at ``/artifacts`` so the job can access the scripts directly.
         """
-        bucket_id = f"{namespace}/{self._HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = str(uuid.uuid4())
         scripts_prefix = f"scripts/{subfolder_id}"
 
@@ -12084,7 +12080,7 @@ class HfApi:
         volume = Volume(
             type="bucket",
             source=bucket_id,
-            mount_path=self._HF_JOBS_ARTIFACTS_MOUNT_PATH,
+            mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
         )
         return [volume], scripts_prefix
 
