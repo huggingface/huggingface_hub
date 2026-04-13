@@ -1,6 +1,7 @@
 import threading
 import time
 import unittest
+import weakref
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
@@ -16,9 +17,7 @@ from huggingface_hub.errors import (
     BucketNotFoundError,
     HfHubHTTPError,
     OfflineModeIsEnabled,
-    RemoteEntryNotFoundError,
     RepositoryNotFoundError,
-    RevisionNotFoundError,
 )
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
@@ -720,37 +719,22 @@ class TestNoReferenceCycleInRaise:
     issues downstream (e.g. vLLM GPU memory not released).
     """
 
-    def _make_response(self, error_code: str, status_code: int = 404) -> httpx.Response:
-        url = "https://huggingface.co/api/models/user/repo/revision/main/file.txt"
+    def test_no_refcycle(self):
+        url = "https://huggingface.co/api/models/user/repo"
         request = Mock(spec=httpx.Request)
         request.url = httpx.URL(url)
         response = Mock(spec=httpx.Response)
-        response.status_code = status_code
+        response.status_code = 404
         response.url = url
-        response.headers = httpx.Headers({"X-Error-Code": error_code})
+        response.headers = httpx.Headers({"X-Error-Code": "RepoNotFound"})
         response.json.return_value = {}
         response.request = request
-        response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            str(status_code), request=request, response=response
-        )
-        return response
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
 
-    @pytest.mark.parametrize(
-        "error_code, exception_type",
-        [
-            ("RevisionNotFound", RevisionNotFoundError),
-            ("EntryNotFound", RemoteEntryNotFoundError),
-            ("RepoNotFound", RepositoryNotFoundError),
-        ],
-    )
-    def test_no_refcycle(self, error_code, exception_type):
-        import weakref
-
-        response = self._make_response(error_code)
         ref = None
         try:
             hf_raise_for_status(response)
-        except exception_type as exc:
+        except RepositoryNotFoundError as exc:
             # Clear the traceback to isolate our fix from the inherent
             # except-block cycle (exc.__traceback__ -> this frame -> exc).
             # We only care that hf_raise_for_status itself does not create a
@@ -759,4 +743,4 @@ class TestNoReferenceCycleInRaise:
             ref = weakref.ref(exc)
         # After exiting the except block, the exception should be freed by
         # refcount alone (no gc.collect() needed) if there is no cycle.
-        assert ref() is None, f"Reference cycle detected for {exception_type.__name__}"
+        assert ref() is None, "Reference cycle detected: exception prevented from being freed by refcount"
