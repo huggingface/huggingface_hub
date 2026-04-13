@@ -27,7 +27,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from huggingface_hub.errors import CLIError, CLIExtensionInstallError
+from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import StatusLine, get_session, logging
 
 from ._cli_utils import FormatWithAutoOpt, typer_factory
@@ -303,7 +303,7 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         return None
     try:
         out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
-    except Exception:
+    except ConfirmationError:
         return None
     try:
         manifest = _install_extension_from_github(

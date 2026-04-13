@@ -17,7 +17,7 @@ import pytest
 
 from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
 from huggingface_hub.cli._output import Output, _format_table_cell_human, _to_header
-from huggingface_hub.errors import CLIError
+from huggingface_hub.errors import ConfirmationError
 
 
 HUMAN = OutputFormatWithAuto.human
@@ -314,7 +314,7 @@ def test_confirm_yes_skips(mode):
 def test_confirm_non_human_raises(mode):
     o = Output()
     o.set_mode(mode)
-    with pytest.raises(CLIError, match="Use --yes to skip confirmation"):
+    with pytest.raises(ConfirmationError, match="Use --yes to skip confirmation"):
         o.confirm("Delete everything?")
 
 
