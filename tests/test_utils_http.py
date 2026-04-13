@@ -13,12 +13,7 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import (
-    BucketNotFoundError,
-    HfHubHTTPError,
-    OfflineModeIsEnabled,
-    RepositoryNotFoundError,
-)
+from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
@@ -743,4 +738,4 @@ class TestNoReferenceCycleInRaise:
             ref = weakref.ref(exc)
         # After exiting the except block, the exception should be freed by
         # refcount alone (no gc.collect() needed) if there is no cycle.
-        assert ref() is None, "Reference cycle detected: exception prevented from being freed by refcount"
+        assert ref() is None
