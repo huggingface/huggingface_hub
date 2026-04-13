@@ -229,8 +229,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, HF handle (hf://...), or - for stdin  [required]
-* `[DST]`: Destination: local path, HF handle (hf://...), or - for stdout
+* `SRC`: Source: local file, model or dataset handle (hf://...), or - for stdin  [required]
+* `[DST]`: Destination: local path, model or dataset handle (hf://...), or - for stdout
 
 **Options**:
 

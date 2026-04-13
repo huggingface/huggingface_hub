@@ -937,9 +937,9 @@ def sync(
     ],
 )
 def cp(
-    src: Annotated[str, typer.Argument(help="Source: local file, HF handle (hf://...), or - for stdin")],
+    src: Annotated[str, typer.Argument(help="Source: local file, model or dataset handle (hf://...), or - for stdin")],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, HF handle (hf://...), or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, model or dataset handle (hf://...), or - for stdout")
     ] = None,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
