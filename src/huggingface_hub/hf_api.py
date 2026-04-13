@@ -20,6 +20,7 @@ import json
 import re
 import struct
 import time
+import uuid
 import warnings
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
@@ -12068,8 +12069,6 @@ class HfApi:
         each script to ``scripts/{uuid}/{remote_name}`` inside it. Returns a :class:`Volume`
         that mounts the bucket at ``/artifacts`` so the job can access the scripts directly.
         """
-        import uuid
-
         bucket_id = f"{namespace}/{self._HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = str(uuid.uuid4())
         scripts_prefix = f"scripts/{subfolder_id}"
