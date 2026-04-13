@@ -941,7 +941,7 @@ def cp(
         str, typer.Argument(help="Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin")
     ],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, bucket handle (hf://...), or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
     ] = None,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
