@@ -7929,7 +7929,7 @@ class HfApi:
                                     yield json.loads(line[len("data: ") :])
                         break
                     hf_raise_for_status(response)
-            except httpx.HTTPStatusError:
+            except HfHubHTTPError:
                 raise
             except httpx.DecodingError:
                 break
