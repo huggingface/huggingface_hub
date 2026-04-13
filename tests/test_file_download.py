@@ -241,6 +241,36 @@ class CachedDownloadTests(unittest.TestCase):
             finally:
                 os.umask(previous_umask)
 
+    # tqdm's failed construction leaves an object without `disable` set; its destructor raises AttributeError on
+    # garbage collection. Python silently ignores exceptions in destructors, so this is only visible in pytest.
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+    def test_hf_hub_download_survives_bad_fileno(self):
+        """Download must not crash when stderr.fileno() returns -1."""
+
+        class FakeStderr:
+            def write(self, s):
+                pass
+
+            def flush(self):
+                pass
+
+            def isatty(self):
+                return True
+
+            def fileno(self):
+                return -1
+
+        with SoftTemporaryDirectory() as tmpdir:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                with patch("sys.stderr", FakeStderr()):
+                    filepath = hf_hub_download(
+                        DUMMY_MODEL_ID,
+                        filename=constants.CONFIG_NAME,
+                        cache_dir=tmpdir,
+                    )
+            self.assertTrue(os.path.exists(filepath))
+
     def test_download_from_a_renamed_repo_with_hf_hub_download(self):
         """Checks `hf_hub_download` works also on a renamed repo.
 

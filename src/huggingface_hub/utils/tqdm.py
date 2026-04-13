@@ -82,6 +82,7 @@ Group-based control:
 import io
 import logging
 import os
+import threading
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
@@ -295,6 +296,21 @@ def tqdm_stream_file(path: Path | str) -> Iterator[io.BufferedReader]:
         pbar.close()
 
 
+class _SafeTqdm(old_tqdm):
+    """tqdm subclass that uses a thread lock instead of a multiprocessing lock.
+
+    Used as a fallback when the standard tqdm cannot initialize its multiprocessing
+    lock (e.g. when stderr.fileno() returns -1 in Textual, Jupyter, pytest, etc.).
+    """
+
+    _lock = threading.RLock()
+
+    @classmethod
+    def get_lock(cls):
+        return cls._lock
+
+
+
 def _create_progress_bar(*, cls: type[old_tqdm], log_level: int, name: str | None = None, **kwargs) -> old_tqdm:
     """Create a progress bar.
 
@@ -309,12 +325,27 @@ def _create_progress_bar(*, cls: type[old_tqdm], log_level: int, name: str | Non
     """
     # issubclass() crashes on non-class callables (e.g. functools.partial), guard with isinstance.
     if not (isinstance(cls, type) and issubclass(cls, tqdm)):
-        return cls(**kwargs)  # type: ignore[return-value]
+        try:
+            return cls(**kwargs)
+        except (OSError, ValueError):
+            # Caller opted into custom progress; a visible fallback bar would
+            # corrupt their output (e.g. TUIs), so disable it.
+            return _SafeTqdm(disable=True, **kwargs)
 
     # HF subclass: keep the historical log-level / TTY behavior. Group-based
     # disabling is already handled in `tqdm.__init__`.
     disable = is_tqdm_disabled(log_level)
-    return cls(disable=disable, name=name, **kwargs)  # type: ignore[return-value]
+    try:
+        return cls(disable=disable, name=name, **kwargs)
+    except (OSError, ValueError):
+        warnings.warn(
+            "Progress bar could not be initialized in this environment. "
+            "Download will continue without progress reporting. "
+            "To suppress this warning, call `disable_progress_bars()` or set HF_HUB_DISABLE_PROGRESS_BARS=1.",
+            stacklevel=2,
+        )
+        # disable=None would attempt TTY auto-detect on the broken stderr.
+        return _SafeTqdm(disable=True, **kwargs)
 
 
 def _get_progress_bar_context(
