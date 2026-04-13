@@ -156,7 +156,7 @@ def spaces_info(
 def spaces_search(
     query: Annotated[str, typer.Argument(help="Search query.")],
     filter: FilterOpt = None,
-    sdk: Annotated[str | None, typer.Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
+    sdk: Annotated[list[str] | None, typer.Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
     include_non_running: Annotated[bool, typer.Option(help="Include non-running spaces in results.")] = False,
     description: Annotated[bool, typer.Option(help="Show AI-generated descriptions.")] = False,
     limit: LimitOpt = 10,
