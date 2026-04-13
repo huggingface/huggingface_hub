@@ -2936,6 +2936,8 @@ class TestBucketTransport:
         assert vol.path.startswith("scripts/")
         # The volume path and the remote upload path share the same subfolder
         assert upload_path.startswith(vol.path + "/")
+        # Mounted read-write so jobs can write output artifacts back to the bucket
+        assert vol.read_only is False
 
     def test_bucket_upload_failure_propagates(self, tmp_path: Path) -> None:
         """When bucket creation/upload fails, the exception propagates (no silent fallback)."""
