@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import inspect
 import itertools
 import json
@@ -11972,7 +11971,7 @@ class HfApi:
         remote_to_local_file_names: dict[str, str] = {}
         for local_file_to_include in local_files_to_include:
             local_file_path = Path(local_file_to_include)
-            # remove spaces for proper xargs parsing
+            # Sanitize spaces for predictable remote paths
             remote_file_path = Path(local_file_path.name.replace(" ", "_"))
             if remote_file_path.name in remote_to_local_file_names:
                 for i in itertools.count():
@@ -11987,70 +11986,36 @@ class HfApi:
             for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
         }
 
-        # Try bucket transport if opted in
-        use_bucket = constants.HF_JOBS_USE_BUCKET_TRANSPORT
-        if use_bucket:
-            # Check if the artifacts mount path is already taken by user volumes
-            existing_mount_paths = {v.mount_path for v in (volumes or [])}
-            if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
-                logger.info(
-                    f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH} already in use, falling back to base64 transport."
-                )
-                use_bucket = False
-            elif not is_xet_available():
-                logger.info("hf_xet not available, falling back to base64 transport for Jobs.")
-                use_bucket = False
+        # Local files are shipped to the job via a bucket mounted at `HF_JOBS_ARTIFACTS_MOUNT_PATH`.
+        existing_mount_paths = {v.mount_path for v in (volumes or [])}
+        if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
+            raise ValueError(
+                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs script "
+                "transport when running local scripts. Mount your volume at a different path."
+            )
+        if not is_xet_available():
+            raise ImportError(
+                "Running `hf jobs uv run` with local scripts requires `hf_xet`. "
+                "Install it with `pip install huggingface_hub[hf_xet]`."
+            )
 
-        if use_bucket:
-            try:
-                extra_volumes, scripts_prefix = self._upload_scripts_to_bucket(
-                    namespace=namespace,
-                    remote_to_local_file_names=remote_to_local_file_names,
-                    token=token,
-                )
-                # Rewrite script and script_args to reference the mounted path
-                mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
-                if script in local_to_remote_file_names:
-                    script = f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[script]}"
-                script_args = [
-                    f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[arg]}"
-                    if arg in local_to_remote_file_names
-                    else arg
-                    for arg in script_args
-                ]
-                command = ["uv", "run"] + uv_args + [script] + script_args
-                return command, env, secrets, extra_volumes
-            except Exception:
-                logger.warning(
-                    "Failed to upload scripts to bucket, falling back to base64 transport.",
-                    exc_info=True,
-                )
-
-        # Base64 transport path (default)
-        # Replace local paths with remote paths in command
-        if script in local_to_remote_file_names:
-            script = local_to_remote_file_names[script]
-        script_args = [
-            local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
-        ]
-
-        # Load content to pass as environment variable with format
-        # file1 base64content1
-        # file2 base64content2
-        # ...
-        env["LOCAL_FILES_ENCODED"] = "\n".join(
-            remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
-            for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        extra_volumes, scripts_prefix = self._upload_scripts_to_bucket(
+            namespace=namespace,
+            remote_to_local_file_names=remote_to_local_file_names,
+            token=token,
         )
-        # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
-        quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
-        command = [
-            "bash",
-            "-c",
-            """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
-            + f"uv run {' '.join(quoted_parts)}",
+        # Rewrite script and script_args to reference the mounted path
+        mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
+        if script in local_to_remote_file_names:
+            script = f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[script]}"
+        script_args = [
+            f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[arg]}"
+            if arg in local_to_remote_file_names
+            else arg
+            for arg in script_args
         ]
-        return command, env, secrets, []
+        command = ["uv", "run"] + uv_args + [script] + script_args
+        return command, env, secrets, extra_volumes
 
     def _upload_scripts_to_bucket(
         self,

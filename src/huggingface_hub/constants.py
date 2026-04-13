@@ -240,9 +240,6 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
-# Opt-in to bucket-based script transport for Jobs (experimental)
-HF_JOBS_USE_BUCKET_TRANSPORT: bool = _is_true(os.environ.get("HF_JOBS_USE_BUCKET_TRANSPORT"))
-
 # Bucket and mount path used by the Jobs bucket script transport
 HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
 HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/artifacts"

@@ -11,7 +11,6 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub import constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import _create_job_spec
 from huggingface_hub._space_api import Volume
@@ -2874,50 +2873,12 @@ class TestJobsCommand:
         assert volume_2.read_only is None
 
 
-class TestCreateUvCommandQuoting:
-    """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
-
-    def test_dependencies_with_version_specifiers_are_quoted(self, tmp_path: Path) -> None:
-        """Regression test: --with 'torch>=2.1' must be quoted so bash doesn't interpret '>' as redirection."""
-        from huggingface_hub.hf_api import HfApi
-
-        script_path = tmp_path / "train.py"
-        script_path.write_text("print('hello')")
-
-        api = HfApi()
-        command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
-            script=str(script_path),
-            script_args=None,
-            dependencies=["torch>=2.1", "numpy"],
-            python=None,
-            env=None,
-            secrets=None,
-            namespace="test-user",
-            token=None,
-        )
-
-        assert command[0] == "bash"
-        assert command[1] == "-c"
-        bash_script = command[2]
-        # The version specifier must be quoted to prevent shell redirection
-        assert "'torch>=2.1'" in bash_script
-        assert "'numpy'" in bash_script
-        # The script name must also be quoted
-        assert "'train.py'" in bash_script
-        # No extra volumes added in default base64 path
-        assert extra_volumes == []
-
-
 class TestBucketTransport:
-    """Test bucket-based script transport for Jobs (experimental, opt-in via HF_JOBS_USE_BUCKET_TRANSPORT)."""
+    """Tests for the bucket-based script transport used when `hf jobs uv run` is given local files."""
 
-    def test_bucket_transport_uploads_and_returns_volume(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """When bucket transport is enabled, scripts are uploaded to a bucket and a Volume is returned."""
+    def test_bucket_transport_uploads_and_returns_volume(self, tmp_path: Path) -> None:
+        """Local scripts are uploaded to a bucket and a Volume mounting them is returned."""
         from huggingface_hub.hf_api import HfApi
-
-        monkeypatch.setattr(constants, "HF_JOBS_USE_BUCKET_TRANSPORT", True)
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
@@ -2961,7 +2922,7 @@ class TestBucketTransport:
         script_arg = [arg for arg in command if "train.py" in arg][0]
         assert script_arg.startswith("/artifacts/scripts/")
 
-        # No LOCAL_FILES_ENCODED in env
+        # No LOCAL_FILES_ENCODED in env (the old base64 transport is gone)
         assert "LOCAL_FILES_ENCODED" not in env
 
         # Extra volume returned
@@ -2971,13 +2932,9 @@ class TestBucketTransport:
         assert vol.source == "test-user/jobs-artifacts"
         assert vol.mount_path == "/artifacts"
 
-    def test_bucket_transport_falls_back_on_failure(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """When bucket upload fails, falls back to base64 transport."""
+    def test_bucket_upload_failure_propagates(self, tmp_path: Path) -> None:
+        """When bucket creation/upload fails, the exception propagates (no silent fallback)."""
         from huggingface_hub.hf_api import HfApi
-
-        monkeypatch.setattr(constants, "HF_JOBS_USE_BUCKET_TRANSPORT", True)
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
@@ -2986,8 +2943,9 @@ class TestBucketTransport:
         with (
             patch.object(api, "create_bucket", side_effect=Exception("network error")),
             patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
+            pytest.raises(Exception, match="network error"),
         ):
-            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+            api._create_uv_command_env_and_secrets(
                 script=str(script_path),
                 script_args=None,
                 dependencies=None,
@@ -2998,22 +2956,9 @@ class TestBucketTransport:
                 token=None,
             )
 
-        # Fell back to base64
-        assert command[0] == "bash"
-        assert command[1] == "-c"
-        assert "LOCAL_FILES_ENCODED" in env
-        assert extra_volumes == []
-
-        # Warning was logged
-        assert any("falling back to base64" in r.message.lower() for r in caplog.records if r.levelname == "WARNING")
-
-    def test_bucket_transport_skipped_when_xet_unavailable(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """When hf_xet is not available, falls back to base64 without attempting bucket upload."""
+    def test_raises_when_xet_unavailable(self, tmp_path: Path) -> None:
+        """Running with local scripts requires hf_xet."""
         from huggingface_hub.hf_api import HfApi
-
-        monkeypatch.setattr(constants, "HF_JOBS_USE_BUCKET_TRANSPORT", True)
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
@@ -3022,8 +2967,9 @@ class TestBucketTransport:
         with (
             patch.object(api, "create_bucket") as mock_create_bucket,
             patch("huggingface_hub.hf_api.is_xet_available", return_value=False),
+            pytest.raises(ImportError, match="hf_xet"),
         ):
-            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+            api._create_uv_command_env_and_secrets(
                 script=str(script_path),
                 script_args=None,
                 dependencies=None,
@@ -3033,22 +2979,12 @@ class TestBucketTransport:
                 namespace="test-user",
                 token=None,
             )
-
         # Never attempted bucket creation
         mock_create_bucket.assert_not_called()
 
-        # Fell back to base64
-        assert command[0] == "bash"
-        assert "LOCAL_FILES_ENCODED" in env
-        assert extra_volumes == []
-
-    def test_bucket_transport_skipped_when_mount_path_taken(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """When /artifacts mount is already used by a user volume, falls back to base64."""
+    def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
+        """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
         from huggingface_hub.hf_api import HfApi
-
-        monkeypatch.setattr(constants, "HF_JOBS_USE_BUCKET_TRANSPORT", True)
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
@@ -3059,8 +2995,9 @@ class TestBucketTransport:
         with (
             patch.object(api, "create_bucket") as mock_create_bucket,
             patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
+            pytest.raises(ValueError, match="/artifacts"),
         ):
-            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+            api._create_uv_command_env_and_secrets(
                 script=str(script_path),
                 script_args=None,
                 dependencies=None,
@@ -3071,42 +3008,12 @@ class TestBucketTransport:
                 token=None,
                 volumes=[existing_volume],
             )
-
         # Never attempted bucket creation
         mock_create_bucket.assert_not_called()
 
-        # Fell back to base64
-        assert command[0] == "bash"
-        assert extra_volumes == []
-
-    def test_bucket_transport_not_used_by_default(self, tmp_path: Path) -> None:
-        """Without HF_JOBS_USE_BUCKET_TRANSPORT, base64 transport is used."""
-        from huggingface_hub.hf_api import HfApi
-
-        script_path = tmp_path / "train.py"
-        script_path.write_text("print('hello')")
-
-        api = HfApi()
-        command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
-            script=str(script_path),
-            script_args=None,
-            dependencies=None,
-            python=None,
-            env=None,
-            secrets=None,
-            namespace="test-user",
-            token=None,
-        )
-
-        assert command[0] == "bash"
-        assert "LOCAL_FILES_ENCODED" in env
-        assert extra_volumes == []
-
-    def test_bucket_transport_with_multiple_files(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_bucket_transport_with_multiple_files(self, tmp_path: Path) -> None:
         """Multiple local files are all uploaded to the bucket under the same scripts prefix."""
         from huggingface_hub.hf_api import HfApi
-
-        monkeypatch.setattr(constants, "HF_JOBS_USE_BUCKET_TRANSPORT", True)
 
         script_path = tmp_path / "train.py"
         script_path.write_text("import config")
