@@ -2962,7 +2962,7 @@ class HfApi:
         r = get_session().get(path, headers=headers, params=params)
         hf_raise_for_status(r)
         for item in r.json():
-            yield SpaceSearchResult.from_dict(item)
+            yield SpaceSearchResult(item)
 
     @validate_hf_hub_args
     def unlike(

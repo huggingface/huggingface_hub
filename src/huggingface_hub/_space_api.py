@@ -300,22 +300,18 @@ class SpaceSearchResult:
     semantic_relevancy_score: float | None
     trending_score: int | None
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "SpaceSearchResult":
-        """Create a SpaceSearchResult from an API response dict."""
+    def __init__(self, data: dict) -> None:
         runtime = data.get("runtime")
-        return cls(
-            id=data["id"],
-            author=data.get("author", ""),
-            title=data.get("title", ""),
-            emoji=data.get("emoji"),
-            sdk=data.get("sdk"),
-            likes=data.get("likes", 0),
-            private=data.get("private", False),
-            tags=data.get("tags"),
-            runtime=SpaceRuntime(runtime) if runtime else None,
-            ai_short_description=data.get("ai_short_description"),
-            ai_category=data.get("ai_category"),
-            semantic_relevancy_score=data.get("semanticRelevancyScore"),
-            trending_score=data.get("trendingScore"),
-        )
+        self.id = data["id"]
+        self.author = data.get("author", "")
+        self.title = data.get("title", "")
+        self.emoji = data.get("emoji")
+        self.sdk = data.get("sdk")
+        self.likes = data.get("likes", 0)
+        self.private = data.get("private", False)
+        self.tags = data.get("tags")
+        self.runtime = SpaceRuntime(runtime) if runtime else None
+        self.ai_short_description = data.get("ai_short_description")
+        self.ai_category = data.get("ai_category")
+        self.semantic_relevancy_score = data.get("semanticRelevancyScore")
+        self.trending_score = data.get("trendingScore")
