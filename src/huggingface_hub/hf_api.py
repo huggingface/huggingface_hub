@@ -17,7 +17,6 @@ import inspect
 import itertools
 import json
 import re
-import secrets
 import struct
 import time
 import warnings
@@ -29,6 +28,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from secrets import token_hex
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -12033,7 +12033,7 @@ class HfApi:
         and can write output artifacts back to the same prefix.
         """
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
-        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(3)}"
+        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
         scripts_prefix = f"scripts/{subfolder_id}"
 
         self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token)
