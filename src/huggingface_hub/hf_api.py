@@ -18,15 +18,15 @@ import inspect
 import itertools
 import json
 import re
+import secrets
 import struct
 import time
-import uuid
 import warnings
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from itertools import islice
 from pathlib import Path
@@ -12062,11 +12062,12 @@ class HfApi:
         """Upload script files to a bucket and return volumes to mount plus the scripts prefix.
 
         Creates a bucket ``{namespace}/jobs-artifacts`` (if it doesn't exist) and uploads
-        each script to ``scripts/{uuid}/{remote_name}`` inside it. Returns a :class:`Volume`
-        that mounts the bucket at ``/artifacts`` so the job can access the scripts directly.
+        each script to ``scripts/{timestamp}-{random}/{remote_name}`` inside it. Returns a
+        :class:`Volume` that mounts the bucket at ``/artifacts`` so the job can access the
+        scripts directly.
         """
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
-        subfolder_id = str(uuid.uuid4())
+        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(3)}"
         scripts_prefix = f"scripts/{subfolder_id}"
 
         self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token)
