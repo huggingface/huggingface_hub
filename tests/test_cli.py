@@ -2918,10 +2918,10 @@ class TestBucketTransport:
         assert command[1] == "run"
         assert "--with" in command
         assert "torch>=2.1" in command
-        # Script path is /artifacts/train.py — the volume is scoped to the per-job
+        # Script path is /data/train.py — the volume is scoped to the per-job
         # subfolder via Volume.path, so the job sees its files at the mount root.
         script_arg = [arg for arg in command if "train.py" in arg][0]
-        assert script_arg == "/artifacts/train.py"
+        assert script_arg == "/data/train.py"
 
         # No LOCAL_FILES_ENCODED in env (the old base64 transport is gone)
         assert "LOCAL_FILES_ENCODED" not in env
@@ -2931,7 +2931,7 @@ class TestBucketTransport:
         vol = extra_volumes[0]
         assert vol.type == "bucket"
         assert vol.source == "test-user/jobs-artifacts"
-        assert vol.mount_path == "/artifacts"
+        assert vol.mount_path == "/data"
         assert vol.path is not None
         assert vol.path.startswith("scripts/")
         # The volume path and the remote upload path share the same subfolder
@@ -2994,13 +2994,13 @@ class TestBucketTransport:
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
 
-        existing_volume = Volume(type="bucket", source="user/other-bucket", mount_path="/artifacts")
+        existing_volume = Volume(type="bucket", source="user/other-bucket", mount_path="/data")
 
         api = HfApi()
         with (
             patch.object(api, "create_bucket") as mock_create_bucket,
             patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
-            pytest.raises(ValueError, match="/artifacts"),
+            pytest.raises(ValueError, match="/data"),
         ):
             api._create_uv_command_env_and_secrets(
                 script=str(script_path),
@@ -3052,8 +3052,8 @@ class TestBucketTransport:
 
         # Both command args reference the mount root directly (no subfolder in the path)
         assert command[0] == "uv"
-        mounted_args = sorted(arg for arg in command if arg.startswith("/artifacts/"))
-        assert mounted_args == ["/artifacts/config.yaml", "/artifacts/train.py"]
+        mounted_args = sorted(arg for arg in command if arg.startswith("/data/"))
+        assert mounted_args == ["/data/config.yaml", "/data/train.py"]
 
         # Volume is scoped to the shared subfolder via Volume.path
         assert len(extra_volumes) == 1
