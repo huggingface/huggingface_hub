@@ -1244,6 +1244,20 @@ class ImportStats:
         return ", ".join(parts)
 
 
+def _make_s3_filesystem(s3fs: Any) -> Any:
+    """Create an S3FileSystem, falling back to anonymous mode if no credentials are found.
+
+    This allows importing from public S3 buckets without requiring AWS credentials.
+    """
+    import botocore.session
+
+    session = botocore.session.get_session()
+    credentials = session.get_credentials()
+    if credentials is None or credentials.access_key is None:
+        return s3fs.S3FileSystem(anon=True)
+    return s3fs.S3FileSystem()
+
+
 def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple[str, int]]:
     """List all files under an S3 path.
 
@@ -1510,6 +1524,8 @@ def import_from_s3(
     Data is streamed from S3 through the local machine and uploaded to HF. The ``s3fs``
     package is required (``pip install s3fs``). AWS credentials are resolved by the
     standard boto chain (env vars, ``~/.aws/credentials``, instance profile, etc.).
+    If no credentials are found, anonymous access is used automatically, which works
+    for public S3 buckets.
 
     Args:
         s3_source (`str`, *optional*):
@@ -1586,7 +1602,7 @@ def import_from_s3(
             _print_plan_summary(import_plan)
             print("Executing plan...")
 
-        s3 = s3fs.S3FileSystem()
+        s3 = _make_s3_filesystem(s3fs)
         return _execute_import_plan(
             import_plan,
             api=api,
@@ -1622,7 +1638,7 @@ def import_from_s3(
             "  pip install huggingface_hub[s3]"
         )
 
-    s3 = s3fs.S3FileSystem()
+    s3 = _make_s3_filesystem(s3fs)
 
     # Build filter matcher
     filter_rules = _parse_filter_file(filter_from) if filter_from else None
