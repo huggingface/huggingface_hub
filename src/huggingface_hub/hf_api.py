@@ -13640,6 +13640,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+search_spaces = api.search_spaces
 space_info = api.space_info
 
 kernel_info = api.kernel_info
