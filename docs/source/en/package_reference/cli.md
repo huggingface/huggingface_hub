@@ -599,8 +599,7 @@ $ hf cache list [OPTIONS]
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `--revisions / --no-revisions`: Include revisions in the output instead of aggregated repositories.  [default: no-revisions]
 * `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
-* `--format [table|json]`: Output format.  [default: table]
-* `-q, --quiet`: Print only IDs (repo IDs or revision hashes).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--sort [accessed|accessed:asc|accessed:desc|modified|modified:asc|modified:desc|name|name:asc|name:desc|size|size:asc|size:desc]`: Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); 'name' defaults to 'asc' (alphabetical).
 * `--limit INTEGER`: Limit the number of results returned. Returns only the top N entries after sorting.
 * `--help`: Show this message and exit.
@@ -631,6 +630,7 @@ $ hf cache prune [OPTIONS]
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `-y, --yes`: Skip confirmation prompt.
 * `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -661,6 +661,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 * `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
 * `-y, --yes`: Skip confirmation prompt.
 * `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -703,6 +704,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 * `--fail-on-missing-files`: Fail if some files exist on the remote but are missing locally.
 * `--fail-on-extra-files`: Fail if some files exist locally but are not present on the remote revision.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
