@@ -57,6 +57,10 @@ logger = logging.get_logger(__name__)
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
 
+def _is_hf_handle(path: str) -> bool:
+    return path.startswith("hf://")
+
+
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'.
 
@@ -928,28 +932,46 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/",
+        "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
     ],
 )
 def cp(
-    src: Annotated[str, typer.Argument(help="Source: local file, hf://buckets/... path, or - for stdin")],
+    src: Annotated[str, typer.Argument(help="Source: local file, HF handle (hf://...), or - for stdin")],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, hf://buckets/... path, or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, HF handle (hf://...), or - for stdout")
     ] = None,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Copy a single file to or from a bucket."""
+    """Copy files to or from buckets."""
     api = get_hf_api(token=token)
 
+    src_is_hf = _is_hf_handle(src)
+    dst_is_hf = dst is not None and _is_hf_handle(dst)
     src_is_bucket = _is_bucket_path(src)
     dst_is_bucket = dst is not None and _is_bucket_path(dst)
     src_is_stdin = src == "-"
     dst_is_stdout = dst == "-"
 
-    # --- Validation ---
-    if src_is_bucket and dst_is_bucket:
-        raise typer.BadParameter("Remote-to-remote copy not supported.")
+    # Remote to remote copy
+    if src_is_hf and dst_is_hf:
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.copy_files(src, dst)  # type: ignore
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        finally:
+            if quiet:
+                enable_progress_bars()
 
+        if not quiet:
+            print(f"Copied: {src} -> {dst}")
+        return
+
+    # Local to remote copy
+    # --- Validation ---
     if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
         if dst is None:
             raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")

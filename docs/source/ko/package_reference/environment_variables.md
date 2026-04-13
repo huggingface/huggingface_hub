@@ -122,7 +122,6 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 | `HUGGINGFACE_HUB_CACHE`     | `HF_HUB_CACHE`     |
 | `HUGGINGFACE_ASSETS_CACHE`  | `HF_ASSETS_CACHE`  |
 | `HUGGING_FACE_HUB_TOKEN`    | `HF_TOKEN`         |
-| `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
 ## 외부 도구[[from-external-tools]]
 

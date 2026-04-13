@@ -13,16 +13,27 @@
 # limitations under the License.
 """Output framework for the `hf` CLI."""
 
+import dataclasses
 import datetime
 import json
 import re
 import sys
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
 
 from huggingface_hub.utils import ANSI, is_agent, tabulate
 
-from ._cli_utils import OutputFormatWithAuto
+
+# TODO: remove OutputFormat in _cli_utils.py once all commands are migrated to OutputFormatWithAuto.
+class OutputFormatWithAuto(str, Enum):
+    """Output format for CLI commands with auto detection of agent/human mode."""
+
+    agent = "agent"
+    auto = "auto"
+    human = "human"
+    json = "json"
+    quiet = "quiet"
 
 
 class Output:
@@ -43,35 +54,51 @@ class Output:
             mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
         self.mode = mode
 
-    def text(self, human: str, agent: str | None = None) -> None:
+    def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
+        if msg is not None:
+            if human is not None or agent is not None:
+                raise ValueError("Cannot mix 'msg' with 'human'/'agent'.")
+            human = msg
+            agent = _strip_ansi(msg)
+
         match self.mode:
-            case OutputFormatWithAuto.agent:  # agent alt or ANSI-stripped human
-                print(agent if agent is not None else _strip_ansi(human))
-            case OutputFormatWithAuto.human:  # as-is, may contain ANSI
-                print(human)
+            case OutputFormatWithAuto.human:
+                if human is not None:
+                    print(human)
+            case OutputFormatWithAuto.agent:
+                if agent is not None:
+                    print(agent)
             # json/quiet: no-op
 
     def table(
         self,
-        headers: list[str],
-        rows: Sequence[list[Any]],
+        items: Sequence[dict[str, Any]],
+        *,
+        headers: list[str] | None = None,
+        id_key: str | None = None,
         alignments: dict[str, str] | None = None,
     ) -> None:
         """Print tabular data to stdout.
 
         Args:
-            headers: Column names.
-            rows: List of rows, each a list of raw values.
+            items: List of dicts. Headers are auto-detected from keys if not provided.
+            headers: Explicit column names. If None, derived from dict keys (all-None columns filtered).
+            id_key: Key to print in quiet mode. If None, uses the first header.
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
         """
-        if not rows:
+        if not items:
             match self.mode:
                 case OutputFormatWithAuto.agent | OutputFormatWithAuto.human:
                     print("No results found.")
                 case OutputFormatWithAuto.json:
                     print("[]")
             return
+
+        if headers is None:
+            all_columns = list(items[0].keys())
+            headers = [col for col in all_columns if any(item.get(col) is not None for item in items)]
+        rows = [[item.get(h) for h in headers] for item in items]
 
         match self.mode:
             case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
@@ -84,14 +111,19 @@ class Output:
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
             case OutputFormatWithAuto.json:  # compact JSON array
-                items = [dict(zip(headers, row)) for row in rows]
-                print(json.dumps(items, default=str))
-            case OutputFormatWithAuto.quiet:  # first column only, one per line
-                for row in rows:
-                    print(row[0])
+                print(json.dumps(list(items), default=str))
+            case OutputFormatWithAuto.quiet:  # id_key column (or first column), one per line
+                quiet_key = id_key or headers[0]
+                for item in items:
+                    print(item.get(quiet_key, ""))
 
-    def dict(self, data: dict[str, Any]) -> None:
-        """Print structured data as JSON in all modes (indented for human, compact otherwise)."""
+    def dict(self, data: Any) -> None:
+        """Print structured data as JSON in all modes (indented for human, compact otherwise).
+
+        Accepts a dict or a dataclass.
+        """
+        if dataclasses.is_dataclass(data) and not isinstance(data, type):
+            data = _dataclass_to_dict(data)
         indent = 2 if self.mode == OutputFormatWithAuto.human else None
         print(json.dumps(data, indent=indent, default=str))
 
@@ -117,26 +149,43 @@ class Output:
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.yellow(f"  Warning: {message}"), file=sys.stderr)
+            print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr (all modes)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.red(f"  Error: {message}"), file=sys.stderr)
+            print(ANSI.red(f"Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
         if self.mode == OutputFormatWithAuto.human:
-            print(ANSI.gray(f"  {message}"), file=sys.stderr)
+            print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)
 
 
 # HELPERS
+
+
+def _serialize_value(v: object) -> object:
+    """Recursively serialize a value to be JSON-compatible."""
+    if isinstance(v, datetime.datetime):
+        return v.isoformat()
+    elif isinstance(v, dict):
+        return {key: _serialize_value(val) for key, val in v.items() if val is not None}
+    elif isinstance(v, list):
+        return [_serialize_value(item) for item in v]
+    return v
+
+
+def _dataclass_to_dict(info: Any) -> dict[str, Any]:
+    """Convert a dataclass to a json-serializable dict."""
+    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
+
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 _MAX_CELL_LENGTH = 35
@@ -154,7 +203,7 @@ def _to_header(name: str) -> str:
 
 def _format_table_value_human(value: Any) -> str:
     """Convert a value to string for terminal display."""
-    if not value:
+    if value is None:
         return ""
     if isinstance(value, bool):
         return "✔" if value else ""

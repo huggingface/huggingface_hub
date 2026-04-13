@@ -673,7 +673,7 @@ To filter by prefix, append the prefix to the bucket path:
 
 ### Copy single files
 
-Use `hf buckets cp` to copy individual files to and from a bucket. Bucket paths use the `hf://buckets/` prefix.
+Use `hf buckets cp` to copy individual files to and from a bucket, or to copy any file hosted on the Hub to a Bucket.
 
 To upload a file:
 
@@ -702,6 +702,20 @@ You can also stream to stdout or from stdin using `-`:
 # Upload from stdin
 >>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
 ```
+
+To copy from a repo or a bucket on the Hub:
+
+```bash
+# Bucket to bucket
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+
+# Repo to bucket
+>>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+```
+
+Notes:
+
+- Bucket-to-repo copy is not supported.
 
 ### Sync directories
 
@@ -1330,10 +1344,10 @@ Tag v1.0 created on bigcode/the-stack
 
 ### List tags
 
-To list all tags for a repository, use the `-l` or `--list` option:
+To list all tags for a repository, use the `list` (or `ls`) subcommand:
 
 ```bash
->>> hf repos tag create Wauplin/gradio-space-ci -l --repo-type space
+>>> hf repos tag list Wauplin/gradio-space-ci --repo-type space
 Tags for space Wauplin/gradio-space-ci:
 0.2.2
 0.2.1
@@ -1345,10 +1359,10 @@ Tags for space Wauplin/gradio-space-ci:
 
 ### Delete a tag
 
-To delete a tag, use the `-d` or `--delete` option:
+To delete a tag, use the `delete` subcommand:
 
 ```bash
->>> hf repos tag create -d Wauplin/my-cool-model v1.0
+>>> hf repos tag delete Wauplin/my-cool-model v1.0
 You are about to delete tag v1.0 on model Wauplin/my-cool-model
 Proceed? [Y/n] y
 Tag v1.0 deleted on Wauplin/my-cool-model

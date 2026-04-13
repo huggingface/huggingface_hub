@@ -106,17 +106,21 @@ REPO_ID_SEPARATOR = "--"
 REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPE_MODEL = "model"
+REPO_TYPE_KERNEL = "kernel"
 REPO_TYPES = [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
+REPO_TYPES_WITH_KERNEL = REPO_TYPES + [REPO_TYPE_KERNEL]
 SPACES_SDK_TYPES = ["gradio", "streamlit", "docker", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
     REPO_TYPE_SPACE: "spaces/",
+    REPO_TYPE_KERNEL: "kernels/",
 }
 REPO_TYPES_MAPPING = {
     "datasets": REPO_TYPE_DATASET,
     "spaces": REPO_TYPE_SPACE,
     "models": REPO_TYPE_MODEL,
+    "kernels": REPO_TYPE_KERNEL,
 }
 
 
@@ -228,6 +232,9 @@ __HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
 HF_HUB_DISABLE_PROGRESS_BARS: bool | None = (
     _is_true(__HF_HUB_DISABLE_PROGRESS_BARS) if __HF_HUB_DISABLE_PROGRESS_BARS is not None else None
 )
+
+# Disable symlinks in the cache (files are copied instead of symlinked)
+HF_HUB_DISABLE_SYMLINKS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS"))
 
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
 HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING"))

@@ -16,7 +16,12 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
+from ._local_folder import (
+    _create_cachedir_tag,
+    get_local_download_paths,
+    read_download_metadata,
+    write_download_metadata,
+)
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -88,6 +93,10 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
+
+    # If symlinks are explicitly disabled by the user, always return False
+    if constants.HF_HUB_DISABLE_SYMLINKS:
+        return False
 
     # Check symlink compatibility only once (per cache directory) at first time use
     if cache_dir not in _are_symlinks_supported_in_dir:
@@ -211,7 +220,7 @@ def hf_hub_url(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -255,7 +264,7 @@ def hf_hub_url(
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
-    if repo_type not in constants.REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
@@ -635,7 +644,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     except ValueError:
         # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
         # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
-        _support_symlinks = os.name != "nt"
+        _support_symlinks = os.name != "nt" and not constants.HF_HUB_DISABLE_SYMLINKS
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
@@ -866,7 +875,7 @@ def hf_hub_download(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the model repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
@@ -950,8 +959,10 @@ def hf_hub_download(
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
 
     hf_headers = build_hf_headers(
         token=token,
@@ -1157,6 +1168,9 @@ def _hf_hub_download_to_cache_dir(
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+
+    # Tag cache_dir so backup tools can skip it (CACHEDIR.TAG standard).
+    _create_cachedir_tag(Path(cache_dir))
 
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
@@ -1481,13 +1495,14 @@ def try_to_load_from_cache(
         revision = "main"
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in constants.REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
-    object_id = repo_id.replace("/", "--")
-    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    repo_cache = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None

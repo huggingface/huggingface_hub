@@ -115,6 +115,7 @@ setup(
     entry_points={
         "console_scripts": [
             "hf=huggingface_hub.cli.hf:main",
+            "huggingface-cli=huggingface_hub.cli.deprecated_cli:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",

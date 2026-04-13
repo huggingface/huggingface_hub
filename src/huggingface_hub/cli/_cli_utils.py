@@ -15,6 +15,7 @@
 
 import dataclasses
 import datetime
+import difflib
 import importlib.metadata
 import json
 import os
@@ -31,9 +32,12 @@ import click
 import typer
 from typer.core import TyperCommand, TyperGroup
 
-from huggingface_hub import __version__, constants
+from huggingface_hub import Volume, __version__, constants
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
 from huggingface_hub.utils._dotenv import load_dotenv
+
+from ._output import OutputFormatWithAuto, out
 
 
 logger = logging.get_logger()
@@ -104,7 +108,39 @@ class HFCliTyperGroup(TyperGroup):
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
     - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
+    - enriches "No such option" / "No such command" errors with available options or commands.
     """
+
+    def invoke(self, ctx: click.Context) -> None:
+        """Enrich unknown-option errors with available options or subcommands.
+
+        Catches `NoSuchOption` raised during subcommand `make_context()`
+        (option parsing).  For leaf commands (e.g. `hf repos create --test`)
+        we list the command's options; for groups (e.g. `hf cache --test`)
+        we list subcommands since groups have no user-facing options.
+        """
+        try:
+            return super().invoke(ctx)
+        except click.NoSuchOption as e:
+            if e.ctx is not None and e.ctx.command is not None:
+                cmd = e.ctx.command
+                if isinstance(cmd, click.Group):
+                    # Group has no user-facing options -> show subcommands instead
+                    items = [
+                        (name, sub.get_short_help_str(limit=80))
+                        for name in cmd.list_commands(e.ctx)
+                        if (sub := cmd.get_command(e.ctx, name)) is not None and not sub.hidden
+                    ]
+                    _enrich_usage_error(e, "commands", items)
+                else:
+                    # Leaf command -> show its options using Click's rich formatting
+                    items = [
+                        record
+                        for p in cmd.get_params(e.ctx)
+                        if isinstance(p, click.Option) and not p.hidden and (record := p.get_help_record(e.ctx))
+                    ]
+                    _enrich_usage_error(e, "options", items)
+            raise
 
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
         cmd_name = args[0] if args and not args[0].startswith("-") else None
@@ -115,7 +151,29 @@ class HFCliTyperGroup(TyperGroup):
             self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
-        return super().resolve_command(ctx, args)
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError as e:
+            # Unknown subcommand -> add fuzzy suggestions and list available commands.
+            if cmd is None and cmd_name is not None:
+                # Expand aliases ("list | ls" → ["list", "ls"]) for accurate fuzzy matching.
+                visible_names = [
+                    alias
+                    for key, registered in self.commands.items()
+                    if not registered.hidden
+                    for alias in _ALIAS_SPLIT.split(key)
+                ]
+                matches = difflib.get_close_matches(cmd_name, visible_names)
+                if matches:
+                    suggestions = ", ".join(f"'{m}'" for m in matches)
+                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                items = [
+                    (name, sub.get_short_help_str(limit=80))
+                    for name in self.list_commands(ctx)
+                    if (sub := self.get_command(ctx, name)) is not None and not sub.hidden
+                ]
+                _enrich_usage_error(e, "commands", items)
+            raise
 
     @staticmethod
     def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
@@ -324,6 +382,21 @@ class HFCliTyperGroup(TyperGroup):
         return sorted(primary_names)
 
 
+def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
+    """Append a list of available options or commands to a usage error message."""
+    if not items or error.ctx is None or f"Available {label} for" in error.message:
+        return
+    cmd_path = error.ctx.command_path
+    lines = [f"\n\nAvailable {label} for '{cmd_path}':"]
+    for name, help_text in items:
+        lines.append(f"  {name:30s} {help_text}")
+    lines.append(f"\nRun '{cmd_path} --help' for full details.")
+    if isinstance(error, click.NoSuchOption) and error.possibilities:
+        lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
+        error.possibilities = []
+    error.message += "\n".join(lines)
+
+
 def fallback_typer_group_factory(
     fallback_handler: FallbackHandlerT,
     extra_commands_provider: Callable[[], list[tuple[str, str]]] | None = None,
@@ -425,6 +498,10 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
+        # Disable TyperGroup's suggest_commands, it matches against raw aliased
+        # keys ("list | ls") leaking pipe syntax into user-facing messages.
+        # HFCliTyperGroup.resolve_command() handles suggestions with expanded names.
+        suggest_commands=False,
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
@@ -573,6 +650,122 @@ def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, 
     return [{"key": k, "value": v or ""} for k, v in env_map.items()]
 
 
+VolumesOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        "-v",
+        "--volume",
+        help="Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
+        "TYPE is one of: models, datasets, spaces, buckets. "
+        "TYPE defaults to models if omitted. "
+        "models, datasets and spaces are always mounted read-only. buckets are read+write by default."
+        "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
+    ),
+]
+
+_HF_PREFIX = "hf://"
+_HF_VOLUME_TYPES = {
+    "models": constants.REPO_TYPE_MODEL,
+    "datasets": constants.REPO_TYPE_DATASET,
+    "spaces": constants.REPO_TYPE_SPACE,
+    "buckets": "bucket",
+}
+
+
+def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
+    """Parse volume specs from CLI arguments.
+
+    Format: hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]
+    Where TYPE is one of: models, datasets, spaces, buckets (defaults to models if omitted).
+    SOURCE is the repo/bucket identifier (e.g. 'username/my-model').
+    PATH is an optional subfolder inside the repo/bucket.
+    MOUNT_PATH starts with '/'.
+    Optional ':ro' or ':rw' suffix for read-only or read-write.
+
+    Examples:
+        hf://gpt2:/data                          (model, implicit type)
+        hf://my-org/my-model:/data                (model, implicit type)
+        hf://models/my-org/my-model:/data         (model, explicit type)
+        hf://datasets/my-org/my-dataset:/data:ro
+        hf://buckets/my-org/my-bucket:/mnt
+        hf://spaces/my-org/my-space:/app
+        hf://datasets/org/ds/train:/data          (with path inside repo)
+        hf://buckets/org/b/sub/dir:/mnt           (with path inside bucket)
+    """
+
+    if not volumes:
+        return None
+
+    result: list[Volume] = []
+    for raw_spec in volumes:
+        # Strip :ro/:rw suffix
+        spec = raw_spec
+        read_only = None
+        if spec.endswith(":ro"):
+            read_only = True
+            spec = spec[:-3]
+        elif spec.endswith(":rw"):
+            read_only = False
+            spec = spec[:-3]
+
+        # Validate hf:// prefix
+        if not spec.startswith(_HF_PREFIX):
+            raise CLIError(
+                f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
+                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+            )
+        spec = spec[len(_HF_PREFIX) :]
+
+        # Find the mount path: look for :/ pattern
+        colon_slash_idx = spec.find(":/")
+        if colon_slash_idx == -1:
+            raise CLIError(
+                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+            )
+        source_part = spec[:colon_slash_idx]
+        mount_path = spec[colon_slash_idx + 1 :]
+
+        # Parse type from source_part (first segment before /)
+        # Then split remaining into source (namespace/name or name) and optional path.
+        slash_idx = source_part.find("/")
+        if slash_idx == -1:
+            # No slash: bare source like "gpt2" -> model type
+            vol_type_str = constants.REPO_TYPE_MODEL
+            source = source_part
+            path = None
+        else:
+            first_segment = source_part[:slash_idx]
+            if first_segment in _HF_VOLUME_TYPES:
+                vol_type_str = _HF_VOLUME_TYPES[first_segment]
+                remaining = source_part[slash_idx + 1 :]
+            else:
+                # First segment isn't a known type -> model type
+                vol_type_str = constants.REPO_TYPE_MODEL
+                remaining = source_part
+
+            # Split remaining into source (namespace/name) and optional path.
+            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
+            # Any extra segments are the path inside the repo/bucket.
+            parts = remaining.split("/", 2)
+            if len(parts) >= 3:
+                source = parts[0] + "/" + parts[1]
+                path = parts[2]
+            else:
+                source = remaining
+                path = None
+
+        result.append(
+            Volume(
+                type=vol_type_str,
+                source=source,
+                mount_path=mount_path,
+                read_only=read_only,
+                path=path,
+            )
+        )
+    return result
+
+
 class OutputFormat(str, Enum):
     """Output format for CLI list commands."""
 
@@ -580,21 +773,24 @@ class OutputFormat(str, Enum):
     json = "json"
 
 
-# TODO: remove OutputFormat once all commands are migrated to OutputFormatWithAuto.
-class OutputFormatWithAuto(str, Enum):
-    """Output format for CLI commands with auto detection of agent/human mode."""
-
-    agent = "agent"
-    auto = "auto"
-    human = "human"
-    json = "json"
-    quiet = "quiet"
-
-
 FormatOpt = Annotated[
     OutputFormat,
     typer.Option(
         help="Output format (table or json).",
+    ),
+]
+
+
+def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
+    out.set_mode(value)
+    return value
+
+
+FormatWithAutoOpt = Annotated[
+    OutputFormatWithAuto,
+    typer.Option(
+        help="Output format.",
+        callback=_set_output_mode,
     ),
 ]
 

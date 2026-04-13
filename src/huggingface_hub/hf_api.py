@@ -29,15 +29,8 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path
 from secrets import token_hex
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    BinaryIO,
-    Literal,
-    TypeVar,
-    overload,
-)
-from urllib.parse import quote
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
+from urllib.parse import quote, unquote
 
 import httpcore
 import httpx
@@ -59,6 +52,7 @@ from ._buckets import (
     BucketUrl,
     SyncPlan,
     _BucketAddFile,
+    _BucketCopyFile,
     _BucketDeleteFile,
     _split_bucket_id_and_prefix,
     sync_bucket_internal,
@@ -124,6 +118,7 @@ from .utils import (
     parse_datetime,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
+    silent_tqdm,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
@@ -143,7 +138,7 @@ if TYPE_CHECKING:
     from .utils._xet_progress_reporting import XetProgressReporter
 
 R = TypeVar("R")  # Return type
-CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection"]
+CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
 
@@ -243,8 +238,19 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
     " If this is a private repository, ensure that your token is correct."
 )
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
-_BUCKET_BATCH_ADD_CHUNK_SIZE = 100
+_BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+
+# Regex used to match special revisions with "/" in them (see #1710)
+SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
+    |
+    (^refs\/pr\/\d+)          # PR revisions
+    """,
+    re.VERBOSE,
+)
+
 logger = logging.get_logger(__name__)
 
 
@@ -395,10 +401,67 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES and repo_type != "bucket":
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
+
+
+def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
+    # TODO: Harmonize hf:// parsing. See https://github.com/huggingface/huggingface_hub/issues/3971
+    if not hf_handle.startswith("hf://"):
+        raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
+
+    path = hf_handle.removeprefix("hf://")
+    if path.startswith("buckets/"):
+        bucket_id, bucket_path = _split_bucket_id_and_prefix(path.removeprefix("buckets/"))
+        return _BucketCopyHandle(
+            bucket_id=bucket_id,
+            path=bucket_path.strip("/"),
+        )
+
+    path = path.strip("/")
+    if path == "":
+        raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
+
+    parts = path.split("/")
+    repo_type: str = constants.REPO_TYPE_MODEL
+    if parts[0] in constants.REPO_TYPES_MAPPING:
+        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
+        parts = parts[1:]
+
+    if len(parts) < 2:
+        raise ValueError(
+            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' or with explicit repo type prefix."
+        )
+
+    namespace, repo_name_with_revision = parts[0], parts[1]
+    remaining_parts = parts[2:]
+    revision: str | None = None
+    if "@" in repo_name_with_revision:
+        repo_name, revision = repo_name_with_revision.split("@", 1)
+    else:
+        repo_name = repo_name_with_revision
+
+    if revision is None:
+        revision = constants.DEFAULT_REVISION
+    else:
+        revision = unquote(revision)
+        if remaining_parts:
+            maybe_special_ref = f"{revision}/{remaining_parts[0]}"
+            match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
+            if match is not None:
+                revision = match.group()
+                suffix = maybe_special_ref.removeprefix(revision).lstrip("/")
+                remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
+
+    repo_path = "/".join(remaining_parts).strip("/")
+    return _RepoCopyHandle(
+        repo_type=repo_type,  # type: ignore
+        repo_id=f"{namespace}/{repo_name}",
+        revision=revision,
+        path=repo_path,
+    )
 
 
 @dataclass
@@ -661,6 +724,20 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+@dataclass(frozen=True)
+class _BucketCopyHandle:
+    bucket_id: str
+    path: str
+
+
+@dataclass(frozen=True)
+class _RepoCopyHandle:
+    repo_type: Literal["model", "dataset", "space"]
+    repo_id: str
+    revision: str
+    path: str
 
 
 @dataclass
@@ -1293,18 +1370,68 @@ class SpaceInfo:
 
 
 @dataclass
+class KernelInfo:
+    """
+    Contains information about a kernel repo on the Hub. This object is returned by [`kernel_info`].
+
+    Attributes:
+        id (`str`):
+            ID of the kernel repo.
+        author (`str`, *optional*):
+            Author of the kernel repo.
+        downloads (`int`, *optional*):
+            Number of downloads of the kernel repo over the last 30 days.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated. If so, whether there is manual or automatic approval.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        likes (`int`, *optional*):
+            Number of likes of the kernel repo.
+        private (`bool`, *optional*):
+            Is the repo private.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+    """
+
+    id: str
+    author: str | None
+    downloads: int | None
+    gated: Literal["auto", "manual", False] | None
+    last_modified: datetime | None
+    likes: int | None
+    private: bool | None
+    sha: str | None
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.downloads = kwargs.pop("downloads", None)
+        self.gated = kwargs.pop("gated", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.likes = kwargs.pop("likes", None)
+        self.private = kwargs.pop("private", None)
+        self.sha = kwargs.pop("sha", None)
+
+        # future compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class CollectionItem:
     """
-    Contains information about an item of a Collection (model, dataset, Space, paper or collection).
+    Contains information about an item of a Collection (model, dataset, Space, paper, collection or bucket).
 
     Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
-            ID of the underlying object on the Hub. Can be either a repo_id, a paper id or a collection slug.
+            ID of the underlying object on the Hub. Can be either a repo_id, a paper id, a collection slug
+            or a bucket id.
             e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`, `"celinah/cerebras-function-calling-682607169c35fbfa98b30b9a"`.
         item_type (`str`):
-            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"`, `"collection"`
+            or `"bucket"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -1491,6 +1618,8 @@ class UserLikes:
             Total number of likes.
         datasets (`list[str]`):
             List of datasets liked by the user (as repo_ids).
+        kernels (`list[str]`):
+            List of kernels liked by the user (as repo_ids).
         models (`list[str]`):
             List of models liked by the user (as repo_ids).
         spaces (`list[str]`):
@@ -1503,6 +1632,7 @@ class UserLikes:
 
     # User likes
     datasets: list[str]
+    kernels: list[str]
     models: list[str]
     spaces: list[str]
 
@@ -2898,6 +3028,7 @@ class HfApi:
         return UserLikes(
             user=user,
             total=len(likes),
+            kernels=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "kernel"],
             models=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "model"],
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
@@ -3216,6 +3347,46 @@ class HfApi:
         return SpaceInfo(**data)
 
     @validate_hf_hub_args
+    def kernel_info(
+        self,
+        repo_id: str,
+        *,
+        revision: str | None = None,
+        timeout: float | None = None,
+        token: bool | str | None = None,
+    ) -> KernelInfo:
+        """
+        Get info on one specific kernel on huggingface.co.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the kernel repository from which to get the
+                information.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`~hf_api.ModelInfo`]: The kernel repository information.
+        """
+        headers = self._build_hf_headers(token=token)
+        path = (
+            f"{self.endpoint}/api/kernels/{repo_id}"
+            if revision is None
+            else (f"{self.endpoint}/api/kernels/{repo_id}/revision/{quote(revision, safe='')}")
+        )
+        r = get_session().get(path, headers=headers, timeout=timeout)
+        hf_raise_for_status(r)
+        data = r.json()
+        return KernelInfo(**data)
+
+    @validate_hf_hub_args
     def repo_info(
         self,
         repo_id: str,
@@ -3226,7 +3397,7 @@ class HfApi:
         files_metadata: bool = False,
         expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
         token: bool | str | None = None,
-    ) -> ModelInfo | DatasetInfo | SpaceInfo:
+    ) -> ModelInfo | DatasetInfo | SpaceInfo | KernelInfo:
         """
         Get the info object for a given repo of a given type.
 
@@ -3276,6 +3447,9 @@ class HfApi:
                 method = self.dataset_info  # type: ignore
             case "space":
                 method = self.space_info  # type: ignore
+            case "kernel":
+                # No expand/files_metadata for kernels
+                return self.kernel_info(repo_id, revision=revision, token=token, timeout=timeout)
             case _:
                 raise ValueError("Unsupported repo type.")
         return method(
@@ -3504,7 +3678,7 @@ class HfApi:
             revision (`str`, *optional*):
                 The revision of the repository from which to get the tree. Defaults to `"main"` branch.
             repo_type (`str`, *optional*):
-                The type of the repository from which to get the tree (`"model"`, `"dataset"` or `"space"`.
+                The type of the repository from which to get the tree (`"model"`, `"dataset"`, `"space"` or `"kernel"`).
                 Defaults to `"model"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
@@ -3696,7 +3870,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
+                Set to `"dataset"`, `"space"` or `"kernel"` if listing refs from a dataset, a Space or a Kernel,
                 `None` or `"model"` if listing from a model. Default is `None`.
             include_pull_requests (`bool`, *optional*):
                 Whether to include refs from pull requests in the list. Defaults to `False`.
@@ -4119,7 +4293,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after creation.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def create_repo(
@@ -4138,6 +4312,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4184,6 +4359,11 @@ class HfApi:
             space_variables (`list[dict[str, str]]`, *optional*):
                 A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at creation time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4193,16 +4373,16 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/create"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
 
-        json: dict[str, Any] = {"name": name, "organization": organization}
+        payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
-            json["visibility"] = resolved_visibility
+            payload["visibility"] = resolved_visibility
         if repo_type is not None:
-            json["type"] = repo_type
+            payload["type"] = repo_type
         if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
@@ -4211,35 +4391,42 @@ class HfApi:
                 )
             if space_sdk not in constants.SPACES_SDK_TYPES:
                 raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
-            json["sdk"] = space_sdk
+            payload["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
 
-        if repo_type == "space":
-            json.update({k: v for k, v in zip(json_keys, values) if v is not None})
+        if repo_type == constants.REPO_TYPE_SPACE:
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
+            if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
+                warnings.warn(
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                    UserWarning,
+                )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         if resource_group_id is not None:
-            json["resourceGroupId"] = resource_group_id
+            payload["resourceGroupId"] = resource_group_id
 
         headers = self._build_hf_headers(token=token)
         while True:
-            r = get_session().post(path, headers=headers, json=json)
+            r = get_session().post(path, headers=headers, json=payload)
             if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
@@ -4307,7 +4494,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/delete"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}
@@ -7801,7 +7988,7 @@ class HfApi:
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
-        custom_message="Use `set_space_volumes` to mount volumes on a Space after duplication.",
+        custom_message="Use `space_volumes` to mount volumes on a Space.",
     )
     @validate_hf_hub_args
     def duplicate_repo(
@@ -7819,6 +8006,7 @@ class HfApi:
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
+        space_volumes: list[Volume] | None = None,
     ) -> RepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -7869,6 +8057,11 @@ class HfApi:
                 the form `{"key": ..., "value": ..., "description": ...}` where description
                 is optional. Only applicable if repo_type is "space".
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
+            space_volumes (`list[Volume]`, *optional*):
+                A list of [`Volume`] objects to mount in the Space at duplication time. Each volume has a `type`
+                (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
+                (path inside the container), and optional `revision`, `read_only`, and `path` fields.
+                Only applicable if repo_type is "space".
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -7928,18 +8121,20 @@ class HfApi:
             payload["visibility"] = resolved_visibility
 
         # Space-specific options
-        function_args = [
-            "space_hardware",
-            "space_storage",
-            "space_sleep_time",
-            "space_secrets",
-            "space_variables",
+        space_args: list[tuple[str, str, Any]] = [
+            # input arg, payload key, value
+            ("space_hardware", "hardware", space_hardware),
+            ("space_storage", "storageTier", space_storage),
+            ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
+            ("space_secrets", "secrets", space_secrets),
+            ("space_variables", "variables", space_variables),
+            ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
 
         if repo_type == "space":
-            payload.update({k: v for k, v in zip(json_keys, values) if v is not None})
+            for _, key, value in space_args:
+                if value is not None:
+                    payload[key] = value
             if space_sleep_time is not None and space_hardware == SpaceHardware.CPU_BASIC:
                 warnings.warn(
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
@@ -7948,8 +8143,7 @@ class HfApi:
                     UserWarning,
                 )
         else:
-            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
-            if provided_space_args:
+            if provided_space_args := [arg for arg, _, value in space_args if value is not None]:
                 warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         r = get_session().post(
@@ -8146,7 +8340,7 @@ class HfApi:
         volumes: list[Volume],
         *,
         token: bool | str | None = None,
-    ) -> SpaceRuntime:
+    ) -> None:
         """Set volumes for a Space.
 
         Sets (or replaces) the list of volumes mounted in the Space. Each volume gives the Space's container access
@@ -8165,9 +8359,6 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
-
         Raises:
             [`BadRequestError`]:
                 If the Space is a static Space (volumes are not supported on static Spaces).
@@ -8185,14 +8376,13 @@ class HfApi:
             ... )
             ```
         """
-        payload = [vol.to_dict() for vol in volumes]
+        payload = {"volumes": [vol.to_dict() for vol in volumes]}
         r = get_session().put(
             f"{self.endpoint}/api/spaces/{repo_id}/volumes",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
     def delete_space_volumes(
@@ -8200,7 +8390,7 @@ class HfApi:
         repo_id: str,
         *,
         token: bool | str | None = None,
-    ) -> SpaceRuntime:
+    ) -> None:
         """Remove all volumes from a Space.
 
         Args:
@@ -8211,9 +8401,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         Raises:
             [`BadRequestError`]:
@@ -8231,7 +8418,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
 
     #######################
     # Inference Endpoints #
@@ -9259,9 +9445,11 @@ class HfApi:
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_id (`str`):
                 Id of the item to add to the collection. Use the repo_id for repos/spaces/datasets,
-                the paper id for papers, or the slug of another collection (e.g. `"moonshotai/kimi-k2"`).
+                the paper id for papers, the slug of another collection (e.g. `"moonshotai/kimi-k2"`)
+                or a bucket id (e.g. `"namespace/bucket-name"`).
             item_type (`str`):
-                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"` or `"collection"`.
+                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"`, `"paper"`, `"collection"`
+                or `"bucket"`.
             note (`str`, *optional*):
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             exists_ok (`bool`, *optional*):
@@ -12434,17 +12622,246 @@ class HfApi:
                 yield BucketFile(**path_info)
 
     @validate_hf_hub_args
+    def copy_files(self, source: str, destination: str, *, token: str | bool | None = None) -> None:
+        """Copy files between locations on the Hub.
+
+        Copy files from a bucket or repository (model, dataset, space) to a bucket. Both individual files and
+        entire folders are supported.
+
+        Currently, only bucket destinations are supported. Copying to a repository is not supported.
+
+        When copying from a repository, `.gitattributes` files are automatically excluded since they are
+        git-specific metadata and not relevant in a bucket context.
+
+        Args:
+            source (`str`):
+                Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
+                or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
+            destination (`str`):
+                Destination location as an `hf://` handle pointing to a bucket
+                (e.g. `"hf://buckets/my-bucket/target/path"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+                If the destination is not a bucket or if the source/destination handles are invalid.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import copy_files
+
+            # Copy a single file between buckets
+            >>> copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
+
+            # Copy a folder from a bucket to another bucket
+            >>> copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
+
+            # Copy a file from a model repo to a bucket
+            >>> copy_files("hf://username/my-model/model.safetensors", "hf://buckets/my-bucket/")
+
+            # Copy an entire dataset to a bucket
+            >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
+            ```
+        """
+        source_handle = _parse_hf_copy_handle(source)
+        destination_handle = _parse_hf_copy_handle(destination)
+
+        if isinstance(destination_handle, _RepoCopyHandle):
+            raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
+
+        destination_bucket_id = destination_handle.bucket_id
+        destination_path = destination_handle.path
+        destination_is_directory = False
+        destination_exists_as_directory = False
+
+        if destination_path == "":
+            # Bucket root always exists as a directory
+            destination_is_directory = True
+            destination_exists_as_directory = True
+        else:
+            # Check if destination matches an existing file
+            dest_path_info = list(self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token))
+            if dest_path_info:
+                destination_is_directory = False
+            else:
+                # Check if destination is an existing "directory" (prefix with children)
+                destination_exists_as_directory = any(
+                    self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
+                )
+                # Treat as directory if it exists as one, or if the user signaled with trailing slash
+                destination_is_directory = destination_exists_as_directory or destination.endswith("/")
+
+        all_adds: list[tuple[str, str]] = []
+        all_copies: list[_BucketCopyFile] = []
+        pending_downloads: list[tuple[str, str]] = []  # (file_path, target_path) for non-xet files to download
+
+        def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
+            basename = src_file_path.rsplit("/", 1)[-1]
+            if is_single_file:
+                if destination_path == "":
+                    return basename
+                if destination_is_directory:
+                    return f"{destination_path.rstrip('/')}/{basename}"
+                return destination_path
+
+            if src_root_path is None:
+                rel_path = src_file_path
+            elif src_file_path.startswith(src_root_path + "/"):
+                rel_path = src_file_path[len(src_root_path) + 1 :]
+            elif src_file_path == src_root_path:
+                rel_path = src_file_path.rsplit("/", 1)[-1]
+            else:
+                raise ValueError(f"Unexpected source path while copying folder: '{src_file_path}'.")
+
+            if rel_path == "":
+                raise ValueError("Cannot copy an empty relative path.")
+
+            # Match Unix `cp -r` behavior: when the destination already exists as a
+            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
+            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
+            if destination_exists_as_directory and src_root_path is not None:
+                src_dir_basename = src_root_path.rsplit("/", 1)[-1]
+                rel_path = f"{src_dir_basename}/{rel_path}"
+
+            if destination_path == "":
+                return rel_path
+            return f"{destination_path.rstrip('/')}/{rel_path}"
+
+        def _build_copy_op(
+            target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
+        ) -> _BucketCopyFile:
+            """Server-side copy by xet hash — no data transfer needed."""
+            return _BucketCopyFile(
+                destination=target_path,
+                xet_hash=xet_hash,
+                source_repo_type=source_repo_type,
+                source_repo_id=source_repo_id,
+                size=size,
+            )
+
+        def _add_repo_file(file: RepoFile, target_path: str) -> None:
+            """Queue a repo file: copy-by-hash if xet-backed, otherwise download first."""
+            if file.xet_hash is not None:
+                all_copies.append(
+                    _build_copy_op(
+                        target_path,
+                        file.xet_hash,
+                        file.size,
+                        source_handle.repo_type,  # type: ignore
+                        source_handle.repo_id,  # type: ignore
+                    )
+                )
+            else:
+                pending_downloads.append((file.path, target_path))
+
+        # === Source is a bucket: always hash-based copy (no download needed) ===
+        if isinstance(source_handle, _BucketCopyHandle):
+            source_path = source_handle.path
+            source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+
+            if source_path_info:
+                # Source path matched a single file
+                source_file = source_path_info[0]
+                target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
+                all_copies.append(
+                    _build_copy_op(
+                        target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
+                    )
+                )
+            else:
+                # Source path is a folder (or prefix) — list and copy all matching files
+                for item in self.list_bucket_tree(
+                    source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
+                ):
+                    if not isinstance(item, BucketFile):
+                        continue
+                    if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
+                        continue
+                    target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
+                    all_copies.append(
+                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
+                    )
+
+        # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
+        else:
+            source_path = source_handle.path
+            source_repo_path_info: list[RepoFile | RepoFolder] = []
+            if source_path != "":
+                source_repo_path_info = self.get_paths_info(
+                    repo_id=source_handle.repo_id,
+                    paths=[source_path],
+                    repo_type=source_handle.repo_type,
+                    revision=source_handle.revision,
+                    token=token,
+                )
+
+            if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
+                # Source path matched a single file — skip .gitattributes (git-specific metadata)
+                if source_repo_path_info[0].path.rsplit("/", 1)[-1] == ".gitattributes":
+                    return
+                target_path = _resolve_target_path(source_repo_path_info[0].path, None, is_single_file=True)
+                _add_repo_file(source_repo_path_info[0], target_path)
+            else:
+                # Source path is a folder — list and copy all files recursively
+                for repo_item in self.list_repo_tree(
+                    repo_id=source_handle.repo_id,
+                    path_in_repo=source_path,
+                    recursive=True,
+                    repo_type=source_handle.repo_type,
+                    revision=source_handle.revision,
+                    token=token,
+                ):
+                    if not isinstance(repo_item, RepoFile):
+                        continue
+                    # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
+                    if repo_item.path.rsplit("/", 1)[-1] == ".gitattributes":
+                        continue
+                    target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
+                    _add_repo_file(repo_item, target_path)
+
+        # Download non-xet files in parallel
+        if pending_downloads:
+
+            def _download_and_collect(item: tuple[str, str]) -> None:
+                file_path, target_path = item
+                local_path = self.hf_hub_download(
+                    repo_id=source_handle.repo_id,  # type: ignore
+                    repo_type=source_handle.repo_type,  # type: ignore
+                    filename=file_path,
+                    revision=source_handle.revision,  # type: ignore
+                    token=token,
+                    tqdm_class=silent_tqdm,  # type: ignore
+                )
+                all_adds.append((local_path, target_path))
+
+            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+
+        # Send copies first (no upload needed), then adds (may need upload)
+        if all_copies:
+            for copy_chunk in chunk_iterable(all_copies, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(destination_bucket_id, copy=list(copy_chunk), token=token)
+        if all_adds:
+            for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
+
+    @validate_hf_hub_args
     def batch_bucket_files(
         self,
         bucket_id: str,
         *,
         add: list[tuple[str | Path | bytes, str]] | None = None,
+        copy: list[tuple[str, str, str, str]] | None = None,
         delete: list[str] | None = None,
         token: str | bool | None = None,
     ):
-        """Add and/or delete files in a bucket.
+        """Add, copy, and/or delete files in a bucket.
 
-        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded or deleted,
+        This is a non-transactional operation. If an error occurs in the process, some files may have been uploaded,
+        copied, or deleted while others haven't.
 
         Args:
             bucket_id (`str`):
@@ -12452,6 +12869,15 @@ class HfApi:
             add (`list` of `tuple`, *optional*):
                 Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
                 file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
+            copy (`list` of `tuple`, *optional*):
+                Files to copy by xet hash. Each element is a `(source_repo_type, source_repo_id, xet_hash,
+                destination)` tuple where:
+                - `source_repo_type` is the type of the source repository: `"model"`, `"dataset"`, `"space"`, or
+                  `"bucket"`.
+                - `source_repo_id` is the ID of the source repository or bucket (e.g. `"username/my-model"`).
+                - `xet_hash` is the xet hash of the file to copy.
+                - `destination` is the destination path in the bucket.
+                This is a server-side operation — no data is downloaded or re-uploaded.
             delete (`list` of `str`, *optional*):
                 Paths of files to delete from the bucket.
             token (`bool` or `str`, *optional*):
@@ -12473,6 +12899,15 @@ class HfApi:
             ...     ],
             ... )
 
+            # Copy xet files from another bucket or repo (server-side, no data transfer)
+            >>> batch_bucket_files(
+            ...     "username/my-bucket",
+            ...     copy=[
+            ...         ("bucket", "username/source-bucket", "<xethash_1>", "models/model.safetensors"),
+            ...         ("model", "username/my-model", "<xethash_2>", "models/config.safetensors"),
+            ...     ],
+            ... )
+
             # Delete files
             >>> batch_bucket_files("username/my-bucket", delete=["old-model.bin"])
 
@@ -12485,14 +12920,15 @@ class HfApi:
             ```
         """
         add = add or []
+        copy = copy or []
         delete = delete or []
 
         # Small batch: do everything in one call
-        if len(add) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
-            self._batch_bucket_files(bucket_id, add=add or None, delete=delete or None, token=token)
+        if len(add) + len(copy) + len(delete) <= _BUCKET_BATCH_ADD_CHUNK_SIZE:
+            self._batch_bucket_files(bucket_id, add=add, copy=copy, delete=delete, token=token)  # type: ignore
             return
 
-        # Large batch: chunk adds first, then deletes
+        # Large batch: chunk copies first (no upload), then adds, then deletes
         from .utils._xet_progress_reporting import XetProgressReporter
 
         if add and not are_progress_bars_disabled():
@@ -12501,6 +12937,9 @@ class HfApi:
             progress = None
 
         try:
+            for copy_chunk in chunk_iterable(copy, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
+                self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
+
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
                 self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
 
@@ -12516,20 +12955,42 @@ class HfApi:
         self,
         bucket_id: str,
         *,
-        add: list[tuple[str | Path | bytes, str]] | None = None,
-        delete: list[str] | None = None,
+        add: list[tuple[str | Path | bytes, str] | _BucketAddFile] | None = None,
+        copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
+        delete: list[str | _BucketDeleteFile] | None = None,
         token: str | bool | None = None,
         _progress: XetProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
-        operations: list[_BucketAddFile | _BucketDeleteFile] = []
+        operations: list[_BucketAddFile | _BucketCopyFile | _BucketDeleteFile] = []
         if add:
-            for source, destination in add:
-                operations.append(_BucketAddFile(source=source, destination=destination))
+            for add_item in add:
+                if isinstance(add_item, _BucketAddFile):
+                    operations.append(add_item)
+                else:
+                    source, destination = add_item
+                    operations.append(_BucketAddFile(source=source, destination=destination))
+        if copy:
+            for copy_item in copy:
+                if isinstance(copy_item, _BucketCopyFile):
+                    operations.append(copy_item)
+                else:
+                    source_repo_type, source_repo_id, xet_hash, destination = copy_item
+                    operations.append(
+                        _BucketCopyFile(
+                            destination=destination,
+                            xet_hash=xet_hash,
+                            source_repo_type=source_repo_type,
+                            source_repo_id=source_repo_id,
+                        )
+                    )
         if delete:
-            for path in delete:
-                operations.append(_BucketDeleteFile(path=path))
+            for delete_item in delete:
+                if isinstance(delete_item, _BucketDeleteFile):
+                    operations.append(delete_item)
+                else:
+                    operations.append(_BucketDeleteFile(path=delete_item))
 
         if not operations:
             return
@@ -12541,10 +13002,11 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         add_operations = [op for op in operations if isinstance(op, _BucketAddFile)]
+        add_operations_to_upload = [op for op in add_operations if op.xet_hash is None]
         add_bytes_operations = [op for op in add_operations if isinstance(op.source, bytes)]
         add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
-        if len(add_operations) > 0:
+        if len(add_operations_to_upload) > 0:
             try:
                 xet_connection_info = fetch_xet_connection_info_from_repo_info(
                     token_type=XetTokenType.WRITE,
@@ -12589,7 +13051,7 @@ class HfApi:
             try:
                 # 2.a. Upload path files
                 xet_upload_infos = upload_files(
-                    [str(op.source) for op in add_path_operations],
+                    [str(op.source) for op in add_path_operations if op.xet_hash is None],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -12597,7 +13059,9 @@ class HfApi:
                     "bucket",
                     skip_sha256=True,
                 )
-                for upload_info, op in zip(xet_upload_infos, add_path_operations):
+                for upload_info, op in zip(
+                    xet_upload_infos, [op for op in add_path_operations if op.xet_hash is None]
+                ):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
 
@@ -12606,7 +13070,7 @@ class HfApi:
 
                 # 2.b. Upload bytes files
                 xet_upload_infos = upload_bytes(
-                    [op.source for op in add_bytes_operations],
+                    [op.source for op in add_bytes_operations if op.xet_hash is None],
                     xet_endpoint,
                     access_token_info,
                     token_refresher,
@@ -12614,7 +13078,9 @@ class HfApi:
                     "bucket",
                     skip_sha256=True,
                 )
-                for upload_info, op in zip(xet_upload_infos, add_bytes_operations):
+                for upload_info, op in zip(
+                    xet_upload_infos, [op for op in add_bytes_operations if op.xet_hash is None]
+                ):
                     op.xet_hash = upload_info.hash
                     op.size = upload_info.filesize
 
@@ -12636,6 +13102,14 @@ class HfApi:
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
+                elif isinstance(op, _BucketCopyFile):
+                    payload = {
+                        "type": "copyFile",
+                        "path": op.destination,
+                        "xetHash": op.xet_hash,
+                        "sourceRepoType": op.source_repo_type,
+                        "sourceRepoId": op.source_repo_id,
+                    }
                 else:
                     payload = {
                         "type": "deleteFile",
@@ -13160,6 +13634,8 @@ get_dataset_leaderboard = api.get_dataset_leaderboard
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+kernel_info = api.kernel_info
+
 list_papers = api.list_papers
 paper_info = api.paper_info
 read_paper = api.read_paper
@@ -13320,6 +13796,7 @@ delete_bucket = api.delete_bucket
 move_bucket = api.move_bucket
 list_bucket_tree = api.list_bucket_tree
 get_bucket_paths_info = api.get_bucket_paths_info
+copy_files = api.copy_files
 batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
