@@ -65,6 +65,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    SpaceSearchResult,
     User,
     WebhookInfo,
     WebhookWatchedItem,
@@ -2580,6 +2581,20 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # `expand` cannot be used with full
         with self.assertRaises(ValueError):
             next(self._api.list_spaces(expand=["author"], full=True))
+
+    def test_search_spaces(self):
+        results = list(self._api.search_spaces("generate image"))
+        assert len(results) > 0
+        result = results[0]
+        assert isinstance(result, SpaceSearchResult)
+        assert result.id
+        assert result.author
+        assert result.title
+        assert result.likes >= 0
+        assert result.semantic_relevancy_score is not None
+        assert result.semantic_relevancy_score > 0
+        assert result.runtime is not None
+        assert isinstance(result.runtime, SpaceRuntime)
 
     def test_get_paths_info(self):
         paths_info = self._api.get_paths_info(

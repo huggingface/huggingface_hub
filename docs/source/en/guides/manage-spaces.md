@@ -8,6 +8,31 @@ In this guide, we will see how to manage your Space runtime
 ([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
 [hardware](https://huggingface.co/docs/hub/spaces-gpus), and volumes) using `huggingface_hub`.
 
+## Search for Spaces
+
+You can search for Spaces on the Hub using semantic search with [`search_spaces`]. This uses embedding-based search for multi-word queries and full-text search for single-word queries.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> results = list(api.search_spaces("generate image"))
+>>> results[0]
+SpaceSearchResult(id='mrfakename/Z-Image-Turbo', title='Z Image Turbo', sdk='gradio', likes=2867, ...)
+```
+
+You can filter results by SDK or tags:
+
+```py
+>>> results = api.search_spaces("chatbot", sdk="gradio", filter="mcp-server")
+```
+
+Or via CLI:
+
+```bash
+>>> hf spaces search "generate image"
+>>> hf spaces search "chatbot" --sdk gradio --limit 5
+```
+
 ## A simple example: configure secrets and hardware.
 
 Here is an end-to-end example to create and set up a Space on the Hub.
