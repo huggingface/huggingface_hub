@@ -12183,8 +12183,9 @@ class HfApi:
             )
         if not is_xet_available():
             raise ImportError(
-                "Running `hf jobs uv run` with local scripts requires `hf_xet`. "
-                "Install it with `pip install huggingface_hub[hf_xet]`."
+                "Running `hf jobs uv run` with local scripts requires `hf_xet`, which is "
+                "installed by default with `huggingface_hub`. See the installation guide: "
+                "https://huggingface.co/docs/huggingface_hub/installation"
             )
 
         extra_volumes = self._upload_scripts_to_bucket(
