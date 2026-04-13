@@ -11999,19 +11999,19 @@ class HfApi:
                 "Install it with `pip install huggingface_hub[hf_xet]`."
             )
 
-        extra_volumes, scripts_prefix = self._upload_scripts_to_bucket(
+        extra_volumes = self._upload_scripts_to_bucket(
             namespace=namespace,
             remote_to_local_file_names=remote_to_local_file_names,
             token=token,
         )
-        # Rewrite script and script_args to reference the mounted path
+        # Rewrite script and script_args to reference the mounted path. The bucket
+        # volume is scoped to the per-job subfolder (via `Volume.path`), so the job
+        # container sees the uploaded files directly at the mount root.
         mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
         if script in local_to_remote_file_names:
-            script = f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[script]}"
+            script = f"{mount_path}/{local_to_remote_file_names[script]}"
         script_args = [
-            f"{mount_path}/{scripts_prefix}/{local_to_remote_file_names[arg]}"
-            if arg in local_to_remote_file_names
-            else arg
+            f"{mount_path}/{local_to_remote_file_names[arg]}" if arg in local_to_remote_file_names else arg
             for arg in script_args
         ]
         command = ["uv", "run"] + uv_args + [script] + script_args
@@ -12023,13 +12023,13 @@ class HfApi:
         namespace: str,
         remote_to_local_file_names: dict[str, str],
         token: bool | str | None,
-    ) -> tuple[list[Volume], str]:
-        """Upload script files to a bucket and return volumes to mount plus the scripts prefix.
+    ) -> list[Volume]:
+        """Upload script files to a per-job subfolder in the artifacts bucket.
 
         Creates a bucket ``{namespace}/jobs-artifacts`` (if it doesn't exist) and uploads
         each script to ``scripts/{timestamp}-{random}/{remote_name}`` inside it. Returns a
-        :class:`Volume` that mounts the bucket at ``/artifacts`` so the job can access the
-        scripts directly.
+        :class:`Volume` whose ``path`` is scoped to that per-job subfolder, so the job
+        container sees only its own files at ``HF_JOBS_ARTIFACTS_MOUNT_PATH``.
         """
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{secrets.token_hex(3)}"
@@ -12047,8 +12047,9 @@ class HfApi:
             type="bucket",
             source=bucket_id,
             mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
+            path=scripts_prefix,
         )
-        return [volume], scripts_prefix
+        return [volume]
 
     @validate_hf_hub_args
     def create_bucket(

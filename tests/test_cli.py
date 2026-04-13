@@ -2903,34 +2903,39 @@ class TestBucketTransport:
         # Bucket was created with correct ID
         mock_create_bucket.assert_called_once_with(bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None)
 
-        # Files were uploaded
+        # Files were uploaded under a scripts/{timestamp}-{hex}/ subfolder
         mock_batch.assert_called_once()
         call_kwargs = mock_batch.call_args
         assert call_kwargs.kwargs["bucket_id"] == "test-user/jobs-artifacts"
         add_ops = call_kwargs.kwargs["add"]
         assert len(add_ops) == 1
-        # Uploaded file path starts with scripts/
-        assert add_ops[0][1].startswith("scripts/")
-        assert add_ops[0][1].endswith("/train.py")
+        upload_path = add_ops[0][1]
+        assert upload_path.startswith("scripts/")
+        assert upload_path.endswith("/train.py")
 
         # Command is plain uv run (no bash -c wrapper)
         assert command[0] == "uv"
         assert command[1] == "run"
         assert "--with" in command
         assert "torch>=2.1" in command
-        # Script path references the mount
+        # Script path is /artifacts/train.py — the volume is scoped to the per-job
+        # subfolder via Volume.path, so the job sees its files at the mount root.
         script_arg = [arg for arg in command if "train.py" in arg][0]
-        assert script_arg.startswith("/artifacts/scripts/")
+        assert script_arg == "/artifacts/train.py"
 
         # No LOCAL_FILES_ENCODED in env (the old base64 transport is gone)
         assert "LOCAL_FILES_ENCODED" not in env
 
-        # Extra volume returned
+        # Extra volume returned, scoped to the per-job subfolder
         assert len(extra_volumes) == 1
         vol = extra_volumes[0]
         assert vol.type == "bucket"
         assert vol.source == "test-user/jobs-artifacts"
         assert vol.mount_path == "/artifacts"
+        assert vol.path is not None
+        assert vol.path.startswith("scripts/")
+        # The volume path and the remote upload path share the same subfolder
+        assert upload_path.startswith(vol.path + "/")
 
     def test_bucket_upload_failure_propagates(self, tmp_path: Path) -> None:
         """When bucket creation/upload fails, the exception propagates (no silent fallback)."""
@@ -3037,16 +3042,22 @@ class TestBucketTransport:
                 token=None,
             )
 
-        # Both files uploaded
+        # Both files uploaded under the same scripts/{timestamp}-{hex}/ subfolder
         add_ops = mock_batch.call_args.kwargs["add"]
         assert len(add_ops) == 2
         uploaded_names = {op[1].split("/")[-1] for op in add_ops}
         assert uploaded_names == {"train.py", "config.yaml"}
+        upload_prefixes = {op[1].rsplit("/", 1)[0] for op in add_ops}
+        assert len(upload_prefixes) == 1  # same subfolder for both files
 
-        # Both command args reference the mount
+        # Both command args reference the mount root directly (no subfolder in the path)
         assert command[0] == "uv"
-        mounted_args = [arg for arg in command if arg.startswith("/artifacts/")]
-        assert len(mounted_args) == 2
+        mounted_args = sorted(arg for arg in command if arg.startswith("/artifacts/"))
+        assert mounted_args == ["/artifacts/config.yaml", "/artifacts/train.py"]
+
+        # Volume is scoped to the shared subfolder via Volume.path
+        assert len(extra_volumes) == 1
+        assert extra_volumes[0].path == upload_prefixes.pop()
 
 
 class TestParseNamespaceFromJobId:
