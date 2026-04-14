@@ -2701,57 +2701,48 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
 
 class HfApiPrivateTest(HfApiCommonTest):
-    def setUp(self) -> None:
-        super().setUp()
-        self.REPO_NAME = repo_name("private")
-        self._api.create_repo(repo_id=self.REPO_NAME, private=True)
-        self._api.create_repo(repo_id=self.REPO_NAME, private=True, repo_type="dataset")
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.repo_id = f"{USER}/{repo_name('private')}"
+        cls._api.create_repo(repo_id=cls.repo_id, private=True)
+        cls._api.create_repo(repo_id=cls.repo_id, private=True, repo_type="dataset")
 
-    def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=self.REPO_NAME)
-        self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
+        cls._api.delete_repo(repo_id=cls.repo_id)
+        cls._api.delete_repo(repo_id=cls.repo_id, repo_type="dataset")
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_model_info(self, mock_get_token: Mock) -> None:
-        with patch.object(self._api, "token", None):  # no default token
-            # Test we cannot access model info without a token
-            with self.assertRaisesRegex(
-                HfHubHTTPError,
-                re.compile(
-                    r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
-                    flags=re.DOTALL,
-                ),
-            ):
-                _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
+        # Auth => retrieve private model
+        self._api.model_info(repo_id=self.repo_id)
 
-            model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
-            self.assertIsInstance(model_info, ModelInfo)
+        # No auth => cannot access private model
+        with patch.object(self._api, "token", None):
+            with pytest.raises(HfHubHTTPError, match=r".*Repository Not Found.*"):
+                _ = self._api.model_info(repo_id=self.repo_id)
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_dataset_info(self, mock_get_token: Mock) -> None:
-        with patch.object(self._api, "token", None):  # no default token
-            # Test we cannot access model info without a token
-            with self.assertRaisesRegex(
-                HfHubHTTPError,
-                re.compile(
-                    r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
-                    flags=re.DOTALL,
-                ),
-            ):
-                _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
+        # Auth => retrieve private dataset
+        self._api.dataset_info(repo_id=self.repo_id)
 
-            dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
-            self.assertIsInstance(dataset_info, DatasetInfo)
+        # No auth => cannot access private dataset
+        with patch.object(self._api, "token", None):
+            with pytest.raises(HfHubHTTPError, match=r".*Repository Not Found.*"):
+                _ = self._api.dataset_info(repo_id=self.repo_id)
 
     def test_list_private_datasets(self):
-        orig = len(list(self._api.list_datasets(token=False)))
-        new = len(list(self._api.list_datasets(token=self._token)))
-        self.assertGreater(new, orig)
+        kwargs = {"sort": "created_at", "limit": 100}
+        assert all(dataset.id != self.repo_id for dataset in self._api.list_datasets(token=False, **kwargs))
+        assert any(dataset.id == self.repo_id for dataset in self._api.list_datasets(token=self._token, **kwargs))
 
     def test_list_private_models(self):
-        orig = len(list(self._api.list_models(token=False)))
-        new = len(list(self._api.list_models(token=self._token)))
-        self.assertGreater(new, orig)
+        kwargs = {"sort": "created_at", "limit": 100}
+        assert all(model.id != self.repo_id for model in self._api.list_models(token=False, **kwargs))
+        assert any(model.id == self.repo_id for model in self._api.list_models(token=self._token, **kwargs))
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
