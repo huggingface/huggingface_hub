@@ -149,8 +149,8 @@ def spaces_info(
     "search",
     examples=[
         'hf spaces search "generate image"',
-        'hf spaces search "chatbot" --sdk gradio --limit 5',
-        'hf spaces search "animate image" --description --json',
+        'hf spaces search "identify objects in pictures" --sdk gradio --limit 5',
+        'hf spaces search "remove background from photo" --description --json',
     ],
 )
 def spaces_search(
