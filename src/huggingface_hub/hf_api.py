@@ -12174,7 +12174,7 @@ class HfApi:
             for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
         }
 
-        # Local files are shipped to the job via a bucket mounted at `HF_JOBS_ARTIFACTS_MOUNT_PATH`.
+        # Local files are shipped to the job via a bucket mounted at /data.
         existing_mount_paths = {v.mount_path for v in (volumes or [])}
         if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
             raise ValueError(
