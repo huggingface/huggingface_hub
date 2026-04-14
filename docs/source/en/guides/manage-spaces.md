@@ -22,7 +22,7 @@ SpaceSearchResult(id='mrfakename/Z-Image-Turbo', title='Z Image Turbo', sdk='gra
 You can filter results by SDK or tags:
 
 ```py
->>> results = api.search_spaces("chatbot", sdk="gradio", filter="mcp-server")
+>>> results = search_spaces("chatbot", sdk="gradio", filter="mcp-server")
 ```
 
 Or via CLI:
