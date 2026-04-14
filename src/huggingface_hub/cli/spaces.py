@@ -43,7 +43,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
-from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -268,16 +268,9 @@ def spaces_logs(
         if tail is not None:
             logs = deque(logs, maxlen=tail)
         for line in logs:
-            print(line, end="" if line.endswith("\n") else "\n")
+            out.text(line.strip())
     except RepositoryNotFoundError as e:
         raise CLIError(f"Space '{space_id}' not found.") from e
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError(f"Space '{space_id}' not found.") from e
-        if status == 403:
-            raise CLIError(f"Access denied to '{space_id}'. You need write access to read Space logs.") from e
-        raise CLIError(f"Failed to fetch Space logs: {e}") from e
 
 
 @spaces_cli.command(

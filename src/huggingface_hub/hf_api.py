@@ -7889,6 +7889,95 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    def _stream_sse_events(
+        self,
+        *,
+        url: str,
+        log_label: str,
+        timeout: int,
+        follow: bool,
+        token: bool | str | None = None,
+        skip_previous_events_on_retry: bool = True,
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
+        on_iteration_end: Callable[[], bool] | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        # Shared SSE streaming loop with retry/backoff and event-index dedup.
+        # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
+        #   - on_iteration_end is None: retries are the only backstop (Spaces).
+        #   - on_iteration_end is set: it polls authoritative state after every
+        #     failed iteration; ReadTimeouts/tolerated errors fall through to it
+        #     instead of consuming retries (Jobs).
+        nb_tries = 0
+        max_retries = 5 if follow else 0
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        start_event_idx = 0
+        error_to_retry: Exception | None = None
+        while True:
+            if error_to_retry is not None:
+                logger.warning(f"'{error_to_retry}' thrown while requesting {log_label}")
+                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                error_to_retry = None
+                time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    url,
+                    headers=self._build_hf_headers(token=token),
+                    timeout=timeout,
+                ) as response:
+                    if response.status_code == 200:
+                        event_idx = -1
+                        for line in response.iter_lines():
+                            if line and line.startswith("data: {"):
+                                event_idx += 1
+                                if event_idx >= start_event_idx:
+                                    if skip_previous_events_on_retry:
+                                        start_event_idx += 1
+                                    yield json.loads(line[len("data: ") :])
+                        break
+                    elif response.status_code not in tolerated_status_codes:
+                        hf_raise_for_status(response)
+            except HfHubHTTPError:
+                # Permanent HTTP error (404/403/...). Never retry — fail fast.
+                raise
+            except httpx.DecodingError:
+                # Response ended prematurely.
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
+                if is_no_new_line_timeout and not follow:
+                    break  # no-follow: timeout means the buffer is drained
+                if on_iteration_end is not None:
+                    # Authoritative-state mode: ReadTimeouts and tolerated errors
+                    # fall through to the post-iteration check without consuming
+                    # retries. Note: ReadTimeout is handled here regardless of
+                    # `tolerated_exception_types` — entries in that tuple only
+                    # fire for non-timeout errors.
+                    if is_no_new_line_timeout or type(err) in tolerated_exception_types:
+                        pass
+                    elif nb_tries >= max_retries:
+                        raise
+                    else:
+                        nb_tries += 1
+                        sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                        error_to_retry = err
+                else:
+                    # Retry-only mode: every error in follow mode burns a retry.
+                    if nb_tries >= max_retries:
+                        if is_no_new_line_timeout:
+                            break  # follow mode, silent stream, retries exhausted: give up
+                        raise
+                    nb_tries += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    error_to_retry = err
+            if on_iteration_end is not None and on_iteration_end():
+                break
+
     def _fetch_space_logs_sse(
         self,
         *,
@@ -7899,53 +7988,13 @@ class HfApi:
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         log_type = "build" if build else "run"
-        nb_tries = 0
-        max_retries = 5 if follow else 0
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        start_event_idx = 0
-        error_to_retry: Exception | None = None
-        while True:
-            if error_to_retry is not None:
-                logger.warning(f"'{error_to_retry}' thrown while requesting spaces /logs/{log_type} for {repo_id=}")
-                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-                error_to_retry = None
-                time.sleep(sleep_time)
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"{self.endpoint}/api/spaces/{repo_id}/logs/{log_type}",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=timeout,
-                ) as response:
-                    if response.status_code == 200:
-                        event_idx = -1
-                        for line in response.iter_lines():
-                            if line and line.startswith("data: {"):
-                                event_idx += 1
-                                if event_idx >= start_event_idx:
-                                    start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
-                        break
-                    hf_raise_for_status(response)
-            except HfHubHTTPError:
-                raise
-            except httpx.DecodingError:
-                break
-            except KeyboardInterrupt:
-                break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
-                if is_no_new_line_timeout and not follow:
-                    break  # no-follow: timeout means the buffer is drained
-                if nb_tries >= max_retries:
-                    if is_no_new_line_timeout:
-                        break  # follow mode, silent stream, retries exhausted: give up
-                    raise  # real error, retries exhausted: surface it
-                nb_tries += 1
-                sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-                error_to_retry = err
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/spaces/{repo_id}/logs/{log_type}",
+            log_label=f"spaces /logs/{log_type} for repo_id={repo_id!r}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+        )
 
     @validate_hf_hub_args
     def fetch_space_logs(
@@ -11227,76 +11276,37 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code_or_error: tuple[int | type[Exception], ...],
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
         follow: bool = True,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        # We don't use http_backoff since we need to check ourselves if the job is still running
-        nb_tries = 0
-        max_retries = 5 if follow else 0
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        start_event_idx = 0
-        error_to_retry = None
-        while True:
-            if error_to_retry is not None:
-                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route} for {job_id=}")
-                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-                error_to_retry = None
-                time.sleep(sleep_time)
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=timeout,
-                ) as response:
-                    if response.status_code == 200:
-                        event_idx = -1
-                        for line in response.iter_lines():
-                            if line and line.startswith("data: {"):
-                                event_idx += 1
-                                if event_idx >= start_event_idx:
-                                    if skip_previous_events_on_retry:
-                                        start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
-                        break
-                    elif response.status_code not in double_check_job_has_finished_on_status_code_or_error:
-                        hf_raise_for_status(response)
-            except httpx.HTTPStatusError:
-                raise
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
-                if is_no_new_line_timeout:
-                    if not follow:
-                        break  # no-follow mode: got all buffered events
-                    # follow mode: job is likely finished
-                    pass
-                elif type(err) in double_check_job_has_finished_on_status_code_or_error:
-                    pass
-                elif nb_tries >= max_retries:
-                    raise
-                else:
-                    nb_tries += 1
-                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-                    error_to_retry = err
+
+        def has_job_finished() -> bool:
+            # We don't use http_backoff: this is the authoritative check that
+            # decides whether to keep streaming.
             job_status_response = get_session().get(
                 f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                 headers=self._build_hf_headers(token=token),
             )
             hf_raise_for_status(job_status_response)
             job_status = job_status_response.json()
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                break
+            return "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING")
+
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
+            log_label=f"jobs /{route} for {job_id=}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+            skip_previous_events_on_retry=skip_previous_events_on_retry,
+            tolerated_status_codes=tolerated_status_codes,
+            tolerated_exception_types=tolerated_exception_types,
+            on_iteration_end=has_job_finished,
+        )
 
     def fetch_job_logs(
         self,
@@ -11357,7 +11367,6 @@ class HfApi:
             route="logs",
             timeout=timeout,
             skip_previous_events_on_retry=True,
-            double_check_job_has_finished_on_status_code_or_error=tuple(),
             follow=follow,
             namespace=namespace,
             token=token,
@@ -11428,7 +11437,8 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            double_check_job_has_finished_on_status_code_or_error=(500, httpx.ReadTimeout),
+            tolerated_status_codes=(500,),
+            tolerated_exception_types=(httpx.ReadTimeout,),
             namespace=namespace,
             token=token,
         )

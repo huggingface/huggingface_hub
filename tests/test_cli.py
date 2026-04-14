@@ -2095,18 +2095,18 @@ class TestSpacesLogsCommand:
 
     def test_logs_404(self, runner: CliRunner) -> None:
         """A 404 from the API surfaces as a clean 'Space not found' CLI error."""
-        from huggingface_hub.errors import HfHubHTTPError
+        from huggingface_hub.errors import RepositoryNotFoundError
 
         response = Mock(status_code=404)
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.fetch_space_logs.side_effect = HfHubHTTPError("404 Client Error", response=response)
+            api.fetch_space_logs.side_effect = RepositoryNotFoundError("404 Client Error", response=response)
             result = runner.invoke(app, ["spaces", "logs", "user/missing-space"])
         assert result.exit_code != 0
         assert "Space 'user/missing-space' not found" in str(result.exception)
 
     def test_logs_403(self, runner: CliRunner) -> None:
-        """A 403 surfaces as a clean access-denied CLI error."""
+        """A 403 surfaces via the global HfHubHTTPError handler — the local catch was dropped."""
         from huggingface_hub.errors import HfHubHTTPError
 
         response = Mock(status_code=403)
@@ -2115,7 +2115,8 @@ class TestSpacesLogsCommand:
             api.fetch_space_logs.side_effect = HfHubHTTPError("403 Forbidden", response=response)
             result = runner.invoke(app, ["spaces", "logs", "user/private-space"])
         assert result.exit_code != 0
-        assert "Access denied" in str(result.exception)
+        assert isinstance(result.exception, HfHubHTTPError)
+        assert "403" in str(result.exception)
 
 
 class TestInferenceEndpointsCommands:
