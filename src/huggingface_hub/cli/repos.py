@@ -232,7 +232,7 @@ def repo_duplicate(
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
         space_volumes=parse_volumes(volume),
     )
-    out.result("Repo duplicated", from_id=from_id, repo_id=repo_url.repo_id, url=str(repo_url))
+    out.result("Repo duplicated", from_id=from_id, to_id=repo_url.repo_id, url=str(repo_url))
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])
@@ -491,7 +491,7 @@ def tag_list(
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
     except RepositoryNotFoundError as e:
         raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
-    items = [{"name": t.name, "target_commit": t.target_commit} for t in refs.tags]
+    items = [{"name": t.name, "target_commit": t.target_commit, "ref": t.ref} for t in refs.tags]
     out.table(items)
 
 
