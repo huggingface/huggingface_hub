@@ -55,9 +55,9 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
+    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -66,6 +66,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 logger = logging.get_logger(__name__)
@@ -140,12 +141,7 @@ def upload(
         ),
     ] = None,
     token: TokenOpt = None,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            help="Disable progress bars and warnings; print only the returned path.",
-        ),
-    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
@@ -204,7 +200,7 @@ def upload(
                 every=every,
                 hf_api=api,
             )
-            print(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
+            out.text(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
             try:
                 while True:
                     time.sleep(100)
@@ -262,15 +258,8 @@ def upload(
             delete_patterns=delete,
         )
 
-    if quiet:
-        disable_progress_bars()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            print(run_upload())
-        enable_progress_bars()
-    else:
-        print(run_upload())
-        logging.set_verbosity_warning()
+    result = run_upload()
+    out.result("Uploaded", url=result)
 
 
 def _resolve_upload_paths(

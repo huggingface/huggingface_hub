@@ -34,7 +34,15 @@ from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import ANSI, get_session, hf_raise_for_status, installation_method, logging, tabulate
+from huggingface_hub.utils import (
+    ANSI,
+    disable_progress_bars,
+    get_session,
+    hf_raise_for_status,
+    installation_method,
+    logging,
+    tabulate,
+)
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._output import OutputFormatWithAuto, out
@@ -783,6 +791,8 @@ FormatOpt = Annotated[
 
 def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
     out.set_mode(value)
+    if out.mode == OutputFormatWithAuto.quiet:
+        disable_progress_bars()
     return value
 
 
