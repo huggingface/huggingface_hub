@@ -252,9 +252,10 @@ def test_close_with_comment(api: HfApi, repo_for_write: str):
 
 def test_close_requires_confirmation(api: HfApi, repo_for_write: str):
     discussion = api.create_discussion(repo_id=repo_for_write, title="Close confirm test")
-    result = cli(f"hf discussions close {repo_for_write} {discussion.num}", input="n\n")
-    assert result.exit_code == 0
-    assert "Aborted" in result.output
+
+    result = cli(f"hf discussions close {repo_for_write} {discussion.num} --format agent")
+    assert result.exit_code != 0
+    assert "Use --yes" in str(result.exception)
 
     details = api.get_discussion_details(repo_id=repo_for_write, discussion_num=discussion.num)
     assert details.status == "open"
@@ -315,9 +316,10 @@ def test_merge_requires_confirmation(api: HfApi, repo_for_write: str):
         commit_message="Merge confirm test PR",
     )
     pr_num = int(commit.pr_url.split("/")[-1])
-    result = cli(f"hf discussions merge {repo_for_write} {pr_num}", input="n\n")
-    assert result.exit_code == 0
-    assert "Aborted" in result.output
+
+    result = cli(f"hf discussions merge {repo_for_write} {pr_num} --format agent")
+    assert result.exit_code != 0
+    assert "Use --yes" in str(result.exception)
 
 
 # =============================================================================
