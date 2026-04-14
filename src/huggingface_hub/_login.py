@@ -34,7 +34,6 @@ from .utils._auth import (
     _get_token_by_name,
     _get_token_from_environment,
     _get_token_from_file,
-    _get_token_from_google_colab,
     _save_stored_tokens,
     _save_token,
     get_stored_tokens,
@@ -138,11 +137,6 @@ def logout(token_name: str | None = None) -> None:
     unset_git_credential()
 
     # Check if still logged in
-    if _get_token_from_google_colab() is not None:
-        raise OSError(
-            "You are automatically logged in using a Google Colab secret.\n"
-            "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
-        )
     if _get_token_from_environment() is not None:
         raise OSError(
             "Token has been deleted from your machine but you are still logged in.\n"
