@@ -13,9 +13,8 @@ In this guide, we will see how to manage your Space runtime
 You can search for Spaces on the Hub using semantic search with [`search_spaces`]. This uses embedding-based search for multi-word queries and full-text search for single-word queries.
 
 ```py
->>> from huggingface_hub import HfApi
->>> api = HfApi()
->>> results = list(api.search_spaces("generate image"))
+>>> from huggingface_hub import search_spaces
+>>> results = list(search_spaces("generate image"))
 >>> results[0]
 SpaceSearchResult(id='mrfakename/Z-Image-Turbo', title='Z Image Turbo', sdk='gradio', likes=2867, ...)
 ```
