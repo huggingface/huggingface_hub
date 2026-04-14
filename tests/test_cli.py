@@ -2905,15 +2905,16 @@ class TestBucketTransport:
         # Bucket was created with correct ID
         mock_create_bucket.assert_called_once_with(bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None)
 
-        # Files were uploaded under a scripts/{timestamp}-{hex}/ subfolder
+        # Files were uploaded under a {timestamp}-{hex}/ subfolder at the bucket root
         mock_batch.assert_called_once()
         call_kwargs = mock_batch.call_args
         assert call_kwargs.kwargs["bucket_id"] == "test-user/jobs-artifacts"
         add_ops = call_kwargs.kwargs["add"]
         assert len(add_ops) == 1
         upload_path = add_ops[0][1]
-        assert upload_path.startswith("scripts/")
         assert upload_path.endswith("/train.py")
+        # subfolder is {timestamp}-{hex}, so upload path is "{subfolder}/train.py"
+        assert upload_path.count("/") == 1
 
         # Command is plain uv run (no bash -c wrapper)
         assert command[0] == "uv"
@@ -2935,7 +2936,6 @@ class TestBucketTransport:
         assert vol.source == "test-user/jobs-artifacts"
         assert vol.mount_path == "/data"
         assert vol.path is not None
-        assert vol.path.startswith("scripts/")
         # The volume path and the remote upload path share the same subfolder
         assert upload_path.startswith(vol.path + "/")
         # Mounted read-write so jobs can write output artifacts back to the bucket
@@ -3021,7 +3021,7 @@ class TestBucketTransport:
         mock_create_bucket.assert_not_called()
 
     def test_bucket_transport_with_multiple_files(self, tmp_path: Path) -> None:
-        """Multiple local files are all uploaded to the bucket under the same scripts prefix."""
+        """Multiple local files are all uploaded to the bucket under the same per-job subfolder."""
         from huggingface_hub.hf_api import HfApi
 
         script_path = tmp_path / "train.py"
@@ -3046,7 +3046,7 @@ class TestBucketTransport:
                 token=None,
             )
 
-        # Both files uploaded under the same scripts/{timestamp}-{hex}/ subfolder
+        # Both files uploaded under the same {timestamp}-{hex}/ subfolder at the bucket root
         add_ops = mock_batch.call_args.kwargs["add"]
         assert len(add_ops) == 2
         uploaded_names = {op[1].split("/")[-1] for op in add_ops}

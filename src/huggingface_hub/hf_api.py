@@ -125,7 +125,6 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
-from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -12209,17 +12208,16 @@ class HfApi:
         """Upload script files to a per-job subfolder in the artifacts bucket.
 
         Creates a bucket `/jobs-artifacts` (if it doesn't exist) and uploads
-        each script to `scripts/{timestamp}-{random}/{remote_name}` inside it. Returns a
+        each script to `{timestamp}-{random}/{remote_name}` inside it. Returns a
         [`Volume`] scoped to that bucket subfolder. Volume is in read-write mode so the Job can save data back to this bucket.
         """
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
-        scripts_prefix = f"scripts/{subfolder_id}"
 
         self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token)
 
         add_ops: list[tuple[str | Path | bytes, str]] = [
-            (Path(local_path), f"{scripts_prefix}/{remote_name}")
+            (Path(local_path), f"{subfolder_id}/{remote_name}")
             for remote_name, local_path in remote_to_local_file_names.items()
         ]
         self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
@@ -12228,7 +12226,7 @@ class HfApi:
             type="bucket",
             source=bucket_id,
             mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
-            path=scripts_prefix,
+            path=subfolder_id,
             read_only=False,
         )
         return [volume]
