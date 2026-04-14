@@ -247,8 +247,7 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
-# Bucket and mount path used by the Jobs bucket script transport.
-# `/data` mirrors the historical Spaces persistent-storage path.
+# Bucket and mount path used when launching Jobs
 HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
 HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
 
