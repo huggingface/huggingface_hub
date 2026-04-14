@@ -299,7 +299,6 @@ def _device_code_login(add_to_git_credential: bool = False) -> None:
     device_info = _request_device_code()
 
     verification_uri = device_info["verification_uri"]
-    verification_uri_complete = device_info.get("verification_uri_complete", verification_uri)
     user_code = device_info["user_code"]
     interval = device_info.get("interval", 5)
     expires_in = device_info.get("expires_in", 900)
