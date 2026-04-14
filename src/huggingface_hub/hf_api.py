@@ -12180,12 +12180,6 @@ class HfApi:
             raise ValueError(
                 f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
-        if not is_xet_available():
-            raise ImportError(
-                "Running `hf jobs uv run` with local scripts requires `hf_xet`, which is "
-                "installed by default with `huggingface_hub`. See the installation guide: "
-                "https://huggingface.co/docs/huggingface_hub/installation"
-            )
 
         extra_volumes = self._upload_scripts_to_bucket(
             namespace=namespace,
