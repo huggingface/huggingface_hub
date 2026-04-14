@@ -268,11 +268,8 @@ def _poll_for_token(device_code: str, interval: int = 5, expires_in: int = 900) 
             data = response.json()
         except Exception:
             raise DeviceCodeError(
-                f"Failed to parse response from {constants.ENDPOINT}/oauth/token\n"
-                f"  Status: {response.status_code}\n"
-                f"  URL: {response.url}\n"
-                f"  Headers: {dict(response.headers)}\n"
-                f"  Body: {response.text[:500]!r}"
+                f"Failed to parse response from {constants.ENDPOINT}/oauth/token "
+                f"(status {response.status_code}): {response.text[:500]}"
             )
 
         if "access_token" in data:
@@ -436,7 +433,7 @@ def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: boo
             _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
         message = captured.getvalue()
         # Add the expiration notice
-        message += "\nNote: This token expires in 30 days. Run `hf auth login` again to refresh it."
+        message += "\nNote: This token expires in 30 days. Run `notebook_login()` again to refresh it."
         display(HTML("<center>" + "<br>".join(line for line in message.split("\n") if line.strip()) + "</center>"))
     except Exception as error:
         display(HTML(f"<center><b style='color: red;'>{error}</b></center>"))
