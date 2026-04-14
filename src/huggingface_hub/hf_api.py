@@ -12208,11 +12208,9 @@ class HfApi:
     ) -> list[Volume]:
         """Upload script files to a per-job subfolder in the artifacts bucket.
 
-        Creates a bucket ``{namespace}/jobs-artifacts`` (if it doesn't exist) and uploads
-        each script to ``scripts/{timestamp}-{random}/{remote_name}`` inside it. Returns a
-        :class:`Volume` whose ``path`` is scoped to that per-job subfolder and mounted
-        read-write, so the job sees only its own files at ``HF_JOBS_ARTIFACTS_MOUNT_PATH``
-        and can write output artifacts back to the same prefix.
+        Creates a bucket `/jobs-artifacts` (if it doesn't exist) and uploads
+        each script to `scripts/{timestamp}-{random}/{remote_name}` inside it. Returns a
+        [`Volume`] scoped to that bucket subfolder. Volume is in read-write mode so the Job can save data back to this bucket.
         """
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
