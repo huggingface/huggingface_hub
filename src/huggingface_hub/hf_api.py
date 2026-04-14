@@ -11438,7 +11438,6 @@ class HfApi:
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
             tolerated_status_codes=(500,),
-            tolerated_exception_types=(httpx.ReadTimeout,),
             namespace=namespace,
             token=token,
         )
