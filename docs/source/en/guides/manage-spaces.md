@@ -173,9 +173,7 @@ be paused after 48h of inactivity.
 
 **5b. Debug a failing Space by reading its logs**
 
-When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available
-programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where
-opening a browser is not an option.
+When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where opening a browser is not an option.
 
 ```py
 # Drain the currently available run logs and return immediately (like `docker logs`)
