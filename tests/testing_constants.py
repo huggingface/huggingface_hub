@@ -1,9 +1,9 @@
-USER = "__DUMMY_TRANSFORMERS_USER__"
+USER = "__DUMMY_HUB_USER__"
 FULL_NAME = "Dummy User"
 PASS = "__DUMMY_TRANSFORMERS_PASS__"
 
 # Not critical, only usable on the sandboxed CI instance.
-TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
+TOKEN = "hf_HubCITokenXXXXXXXXXXXXXXXXXXXXX"
 
 # Used to create repos that we don't own (example: for gated repo)
 # Token is not critical. Also public in https://github.com/huggingface/datasets-server
