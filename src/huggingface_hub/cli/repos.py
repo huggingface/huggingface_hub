@@ -52,6 +52,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._output import out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -509,11 +510,7 @@ def tag_delete(
     """Delete a tag for a repo."""
     repo_type_str = repo_type.value
     print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
-    if not yes:
-        choice = input("Proceed? [Y/n] ").lower()
-        if choice not in ("", "y", "yes"):
-            print("Abort")
-            raise typer.Exit()
+    out.confirm("Proceed?", yes=yes)
     api = get_hf_api(token=token)
     try:
         api.delete_tag(repo_id=repo_id, tag=tag, repo_type=repo_type_str)

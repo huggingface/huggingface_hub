@@ -371,11 +371,7 @@ def delete(
     token: TokenOpt = None,
 ) -> None:
     """Delete an Inference Endpoint permanently."""
-    if not yes:
-        confirmation = typer.prompt(f"Delete endpoint '{name}'? Type the name to confirm.")
-        if confirmation != name:
-            out.text("Aborted.")
-            raise typer.Exit(code=2)
+    out.confirm(f"Delete endpoint '{name}'?", yes=yes)
 
     api = get_hf_api(token=token)
     try:

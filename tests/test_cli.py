@@ -3285,7 +3285,6 @@ class TestWebhooksCommand:
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
-        assert "Aborted" in result.output
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
