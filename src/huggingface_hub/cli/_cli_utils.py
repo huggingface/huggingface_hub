@@ -791,7 +791,7 @@ FormatOpt = Annotated[
 
 def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
     out.set_mode(value)
-    if out.mode == OutputFormatWithAuto.quiet:
+    if out.mode != OutputFormatWithAuto.human:
         disable_progress_bars()
     return value
 
