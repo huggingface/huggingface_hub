@@ -2889,7 +2889,6 @@ class TestBucketTransport:
         with (
             patch.object(api, "create_bucket") as mock_create_bucket,
             patch.object(api, "batch_bucket_files") as mock_batch,
-            patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
         ):
             command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
                 script=str(script_path),
@@ -2951,7 +2950,6 @@ class TestBucketTransport:
         api = HfApi()
         with (
             patch.object(api, "create_bucket", side_effect=Exception("network error")),
-            patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
             pytest.raises(Exception, match="network error"),
         ):
             api._create_uv_command_env_and_secrets(
@@ -2965,32 +2963,6 @@ class TestBucketTransport:
                 token=None,
             )
 
-    def test_raises_when_xet_unavailable(self, tmp_path: Path) -> None:
-        """Running with local scripts requires hf_xet."""
-        from huggingface_hub.hf_api import HfApi
-
-        script_path = tmp_path / "train.py"
-        script_path.write_text("print('hello')")
-
-        api = HfApi()
-        with (
-            patch.object(api, "create_bucket") as mock_create_bucket,
-            patch("huggingface_hub.hf_api.is_xet_available", return_value=False),
-            pytest.raises(ImportError, match="hf_xet"),
-        ):
-            api._create_uv_command_env_and_secrets(
-                script=str(script_path),
-                script_args=None,
-                dependencies=None,
-                python=None,
-                env=None,
-                secrets=None,
-                namespace="test-user",
-                token=None,
-            )
-        # Never attempted bucket creation
-        mock_create_bucket.assert_not_called()
-
     def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
         """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
         from huggingface_hub.hf_api import HfApi
@@ -3003,7 +2975,6 @@ class TestBucketTransport:
         api = HfApi()
         with (
             patch.object(api, "create_bucket") as mock_create_bucket,
-            patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
             pytest.raises(ValueError, match="/data"),
         ):
             api._create_uv_command_env_and_secrets(
@@ -3033,7 +3004,6 @@ class TestBucketTransport:
         with (
             patch.object(api, "create_bucket"),
             patch.object(api, "batch_bucket_files") as mock_batch,
-            patch("huggingface_hub.hf_api.is_xet_available", return_value=True),
         ):
             command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
                 script=str(script_path),
