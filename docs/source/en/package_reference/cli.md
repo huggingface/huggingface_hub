@@ -3538,8 +3538,8 @@ $ hf spaces search [OPTIONS] QUERY
 
 Examples
   $ hf spaces search "generate image"
-  $ hf spaces search "chatbot" --sdk gradio --limit 5
-  $ hf spaces search "animate image" --description --json
+  $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
+  $ hf spaces search "remove background from photo" --description --json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
