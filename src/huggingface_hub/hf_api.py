@@ -12178,8 +12178,7 @@ class HfApi:
         existing_mount_paths = {v.mount_path for v in (volumes or [])}
         if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
             raise ValueError(
-                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs script "
-                "transport when running local scripts. Mount your volume at a different path."
+                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
         if not is_xet_available():
             raise ImportError(
