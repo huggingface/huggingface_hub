@@ -91,7 +91,7 @@ def upload_large_folder(
     if not os.path.isdir(local_path):
         raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
-    out.text(
+    out.warning(
         "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
         "This is a new feature so feedback is very welcome!\n"
         "\n"
