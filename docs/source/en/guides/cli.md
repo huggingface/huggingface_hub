@@ -671,9 +671,9 @@ To filter by prefix, append the prefix to the bucket path:
 >>> hf buckets list username/my-bucket/sub -R
 ```
 
-### Copy single files
+### Copy files
 
-Use `hf buckets cp` to copy individual files to and from a bucket, or to copy any file hosted on the Hub to a Bucket.
+Use `hf buckets cp` to copy local files to and from a bucket, or to copy any files hosted on the Hub to a Bucket.
 
 To upload a file:
 
@@ -715,7 +715,7 @@ To copy from a repo or a bucket on the Hub:
 
 Notes:
 
-- Bucket-to-repo copy is not supported.
+- Bucket-to-repo copy is not yet supported.
 
 ### Sync directories
 

@@ -126,7 +126,7 @@ class TestCacheCommand:
                 return_value=(entries, repo_refs_map),
             ),
         ):
-            result = runner.invoke(app, ["cache", "ls", "--revisions", "--quiet"])
+            result = runner.invoke(app, ["cache", "ls", "--revisions", "--format", "quiet"])
 
         assert result.exit_code == 0
         assert result.stdout.strip() == revision.commit_hash
@@ -263,11 +263,8 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "verify", repo_id])
 
         assert result.exit_code == 0
-        stdout = result.stdout
-        normalized_stdout = stdout.replace("\\", "/")
-        expected_path_str = verified_path.as_posix()
-        assert f"✅ Verified 1 file(s) for 'user/model' (model) in {expected_path_str}" in normalized_stdout
-        assert "  All checksums match." in stdout
+        assert "Verified" in result.stdout
+        assert "user/model" in result.stdout
         get_api_mock.assert_called_once()
         api.verify_repo_checksums.assert_called_once_with(
             repo_id=repo_id,
@@ -298,8 +295,7 @@ class TestCacheCommand:
         assert "Checksum verification failed" in result.stdout
         assert "pytorch_model.bin" in result.stdout
         assert "expected" in result.stdout
-        assert "Verification failed for 'user/model' (model)" in result.stdout
-        assert "Revision: main" in result.stdout
+        assert "Verification failed" in result.output
 
     def test_verify_reports_missing_local_file(self, runner: CliRunner) -> None:
         commit_hash = "4" * 40
@@ -368,9 +364,8 @@ class TestCacheCommand:
                 result = runner.invoke(app, ["cache", "verify", repo.cache_id])
 
         assert result.exit_code == 1
-        assert "missing locally" in result.stdout
-        assert "Verification failed for" in result.stdout
-        assert "Revision:" in result.stdout
+        assert "missing locally" in result.output
+        assert "Verification failed" in result.output
 
 
 class TestUploadCommand:
@@ -2137,8 +2132,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_inference_endpoints.return_value = [endpoint]
-            # Test table format
-            result = runner.invoke(app, ["endpoints", "ls", "--format", "table"])
+            result = runner.invoke(app, ["endpoints", "ls", "--format", "human"])
         assert result.exit_code == 0
         assert "NAME" in result.stdout
         assert "demo" in result.stdout
@@ -2146,8 +2140,7 @@ class TestInferenceEndpointsCommands:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_inference_endpoints.return_value = [endpoint]
-            # Test quiet mode
-            result = runner.invoke(app, ["endpoints", "ls", "--quiet"])
+            result = runner.invoke(app, ["endpoints", "ls", "--format", "quiet"])
         assert result.exit_code == 0
         assert result.stdout.strip() == "demo"
 
@@ -3187,7 +3180,7 @@ class TestWebhooksCommand:
         webhook = self._make_webhook()
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
             api_cls.return_value.list_webhooks.return_value = [webhook]
-            result = runner.invoke(app, ["webhooks", "ls", "-q"])
+            result = runner.invoke(app, ["webhooks", "ls", "--format", "quiet"])
         assert result.exit_code == 0, result.output
         assert result.output.strip() == "wh-abc123"
 
@@ -3217,7 +3210,8 @@ class TestWebhooksCommand:
                 ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "model:bert-base-uncased"],
             )
         assert result.exit_code == 0, result.output
-        assert "Webhook created: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "created" in result.output.lower()
         from huggingface_hub.hf_api import WebhookWatchedItem
 
         api_cls.return_value.create_webhook.assert_called_once_with(
@@ -3267,7 +3261,8 @@ class TestWebhooksCommand:
                 ["webhooks", "create", "--job-id", "687f911eaea852de79c4a50a", "--watch", "user:julien-c"],
             )
         assert result.exit_code == 0, result.output
-        assert "Webhook created" in result.output
+        assert "wh-abc123" in result.output
+        assert "created" in result.output.lower()
         from huggingface_hub.hf_api import WebhookWatchedItem
 
         api_cls.return_value.create_webhook.assert_called_once_with(
@@ -3315,7 +3310,8 @@ class TestWebhooksCommand:
                 ["webhooks", "update", "wh-abc123", "--url", "https://new.example.com/hook"],
             )
         assert result.exit_code == 0, result.output
-        assert "Webhook updated: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "updated" in result.output.lower()
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
@@ -3330,7 +3326,8 @@ class TestWebhooksCommand:
             api_cls.return_value.enable_webhook.return_value = webhook
             result = runner.invoke(app, ["webhooks", "enable", "wh-abc123"])
         assert result.exit_code == 0, result.output
-        assert "Webhook enabled: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "enabled" in result.output.lower()
         api_cls.return_value.enable_webhook.assert_called_once_with("wh-abc123")
 
     def test_disable(self, runner: CliRunner) -> None:
@@ -3339,7 +3336,8 @@ class TestWebhooksCommand:
             api_cls.return_value.disable_webhook.return_value = webhook
             result = runner.invoke(app, ["webhooks", "disable", "wh-abc123"])
         assert result.exit_code == 0, result.output
-        assert "Webhook disabled: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "disabled" in result.output.lower()
         api_cls.return_value.disable_webhook.assert_called_once_with("wh-abc123")
 
     def test_delete_with_yes(self, runner: CliRunner) -> None:
@@ -3347,7 +3345,8 @@ class TestWebhooksCommand:
             api_cls.return_value.delete_webhook.return_value = None
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123", "--yes"])
         assert result.exit_code == 0, result.output
-        assert "Webhook deleted: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "deleted" in result.output.lower()
         api_cls.return_value.delete_webhook.assert_called_once_with("wh-abc123")
 
     def test_delete_confirm_yes(self, runner: CliRunner) -> None:
@@ -3355,13 +3354,13 @@ class TestWebhooksCommand:
             api_cls.return_value.delete_webhook.return_value = None
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="y\n")
         assert result.exit_code == 0, result.output
-        assert "Webhook deleted: wh-abc123" in result.output
+        assert "wh-abc123" in result.output
+        assert "deleted" in result.output.lower()
 
     def test_delete_confirm_no(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
-        assert "Aborted" in result.output
         api_cls.return_value.delete_webhook.assert_not_called()
 
 

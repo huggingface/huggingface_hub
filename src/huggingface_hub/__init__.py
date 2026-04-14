@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.10.0.dev0"
+__version__ = "1.11.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -182,6 +182,7 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
@@ -266,6 +267,7 @@ _SUBMOD_ATTRS = {
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
+        "kernel_info",
         "list_accepted_access_requests",
         "list_bucket_tree",
         "list_buckets",
@@ -758,6 +760,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -985,6 +988,7 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
+    "kernel_info",
     "list_accepted_access_requests",
     "list_bucket_tree",
     "list_buckets",
@@ -1310,6 +1314,7 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
@@ -1394,6 +1399,7 @@ if TYPE_CHECKING:  # pragma: no cover
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
+        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_bucket_tree,  # noqa: F401
         list_buckets,  # noqa: F401

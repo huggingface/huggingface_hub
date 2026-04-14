@@ -400,7 +400,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
         repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in constants.REPO_TYPES and repo_type != "bucket":
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
@@ -1369,6 +1369,54 @@ class SpaceInfo:
 
 
 @dataclass
+class KernelInfo:
+    """
+    Contains information about a kernel repo on the Hub. This object is returned by [`kernel_info`].
+
+    Attributes:
+        id (`str`):
+            ID of the kernel repo.
+        author (`str`, *optional*):
+            Author of the kernel repo.
+        downloads (`int`, *optional*):
+            Number of downloads of the kernel repo over the last 30 days.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated. If so, whether there is manual or automatic approval.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        likes (`int`, *optional*):
+            Number of likes of the kernel repo.
+        private (`bool`, *optional*):
+            Is the repo private.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+    """
+
+    id: str
+    author: str | None
+    downloads: int | None
+    gated: Literal["auto", "manual", False] | None
+    last_modified: datetime | None
+    likes: int | None
+    private: bool | None
+    sha: str | None
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.downloads = kwargs.pop("downloads", None)
+        self.gated = kwargs.pop("gated", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.likes = kwargs.pop("likes", None)
+        self.private = kwargs.pop("private", None)
+        self.sha = kwargs.pop("sha", None)
+
+        # future compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class CollectionItem:
     """
     Contains information about an item of a Collection (model, dataset, Space, paper, collection or bucket).
@@ -1569,6 +1617,8 @@ class UserLikes:
             Total number of likes.
         datasets (`list[str]`):
             List of datasets liked by the user (as repo_ids).
+        kernels (`list[str]`):
+            List of kernels liked by the user (as repo_ids).
         models (`list[str]`):
             List of models liked by the user (as repo_ids).
         spaces (`list[str]`):
@@ -1581,6 +1631,7 @@ class UserLikes:
 
     # User likes
     datasets: list[str]
+    kernels: list[str]
     models: list[str]
     spaces: list[str]
 
@@ -2976,6 +3027,7 @@ class HfApi:
         return UserLikes(
             user=user,
             total=len(likes),
+            kernels=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "kernel"],
             models=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "model"],
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
@@ -3294,6 +3346,46 @@ class HfApi:
         return SpaceInfo(**data)
 
     @validate_hf_hub_args
+    def kernel_info(
+        self,
+        repo_id: str,
+        *,
+        revision: str | None = None,
+        timeout: float | None = None,
+        token: bool | str | None = None,
+    ) -> KernelInfo:
+        """
+        Get info on one specific kernel on huggingface.co.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the kernel repository from which to get the
+                information.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`~hf_api.ModelInfo`]: The kernel repository information.
+        """
+        headers = self._build_hf_headers(token=token)
+        path = (
+            f"{self.endpoint}/api/kernels/{repo_id}"
+            if revision is None
+            else (f"{self.endpoint}/api/kernels/{repo_id}/revision/{quote(revision, safe='')}")
+        )
+        r = get_session().get(path, headers=headers, timeout=timeout)
+        hf_raise_for_status(r)
+        data = r.json()
+        return KernelInfo(**data)
+
+    @validate_hf_hub_args
     def repo_info(
         self,
         repo_id: str,
@@ -3304,7 +3396,7 @@ class HfApi:
         files_metadata: bool = False,
         expand: ExpandModelProperty_T | ExpandDatasetProperty_T | ExpandSpaceProperty_T | None = None,
         token: bool | str | None = None,
-    ) -> ModelInfo | DatasetInfo | SpaceInfo:
+    ) -> ModelInfo | DatasetInfo | SpaceInfo | KernelInfo:
         """
         Get the info object for a given repo of a given type.
 
@@ -3354,6 +3446,9 @@ class HfApi:
                 method = self.dataset_info  # type: ignore
             case "space":
                 method = self.space_info  # type: ignore
+            case "kernel":
+                # No expand/files_metadata for kernels
+                return self.kernel_info(repo_id, revision=revision, token=token, timeout=timeout)
             case _:
                 raise ValueError("Unsupported repo type.")
         return method(
@@ -3582,7 +3677,7 @@ class HfApi:
             revision (`str`, *optional*):
                 The revision of the repository from which to get the tree. Defaults to `"main"` branch.
             repo_type (`str`, *optional*):
-                The type of the repository from which to get the tree (`"model"`, `"dataset"` or `"space"`.
+                The type of the repository from which to get the tree (`"model"`, `"dataset"`, `"space"` or `"kernel"`).
                 Defaults to `"model"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
@@ -3774,7 +3869,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
+                Set to `"dataset"`, `"space"` or `"kernel"` if listing refs from a dataset, a Space or a Kernel,
                 `None` or `"model"` if listing from a model. Default is `None`.
             include_pull_requests (`bool`, *optional*):
                 Whether to include refs from pull requests in the list. Defaults to `False`.
@@ -4277,7 +4372,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/create"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
@@ -4310,7 +4405,7 @@ class HfApi:
             ("space_volumes", "volumes", [v.to_dict() for v in space_volumes] if space_volumes else None),
         ]
 
-        if repo_type == "space":
+        if repo_type == constants.REPO_TYPE_SPACE:
             for _, key, value in space_args:
                 if value is not None:
                     payload[key] = value
@@ -4398,7 +4493,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/delete"
 
-        if repo_type not in constants.REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}
@@ -12617,6 +12712,9 @@ class HfApi:
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
+        When copying from a repository, `.gitattributes` files are automatically excluded since they are
+        git-specific metadata and not relevant in a bucket context.
+
         Args:
             source (`str`):
                 Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
@@ -12659,25 +12757,25 @@ class HfApi:
 
         destination_bucket_id = destination_handle.bucket_id
         destination_path = destination_handle.path
+        destination_is_directory = False
+        destination_exists_as_directory = False
+
         if destination_path == "":
+            # Bucket root always exists as a directory
             destination_is_directory = True
+            destination_exists_as_directory = True
         else:
-            # Check if destination path is an existing file or a directory in the bucket
+            # Check if destination matches an existing file
             dest_path_info = list(self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token))
             if dest_path_info:
                 destination_is_directory = False
             else:
-                destination_is_directory = (
-                    next(
-                        iter(
-                            self.list_bucket_tree(
-                                destination_bucket_id, prefix=destination_path, recursive=False, token=token
-                            )
-                        ),
-                        None,
-                    )
-                    is not None
+                # Check if destination is an existing "directory" (prefix with children)
+                destination_exists_as_directory = any(
+                    self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
                 )
+                # Treat as directory if it exists as one, or if the user signaled with trailing slash
+                destination_is_directory = destination_exists_as_directory or destination.endswith("/")
 
         all_adds: list[tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
@@ -12703,6 +12801,14 @@ class HfApi:
 
             if rel_path == "":
                 raise ValueError("Cannot copy an empty relative path.")
+
+            # Match Unix `cp -r` behavior: when the destination already exists as a
+            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
+            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
+            if destination_exists_as_directory and src_root_path is not None:
+                src_dir_basename = src_root_path.rsplit("/", 1)[-1]
+                rel_path = f"{src_dir_basename}/{rel_path}"
+
             if destination_path == "":
                 return rel_path
             return f"{destination_path.rstrip('/')}/{rel_path}"
@@ -12750,7 +12856,6 @@ class HfApi:
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
-                destination_is_directory = True
                 for item in self.list_bucket_tree(
                     source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
                 ):
@@ -12777,12 +12882,13 @@ class HfApi:
                 )
 
             if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
-                # Source path matched a single file
+                # Source path matched a single file — skip .gitattributes (git-specific metadata)
+                if source_repo_path_info[0].path.rsplit("/", 1)[-1] == ".gitattributes":
+                    return
                 target_path = _resolve_target_path(source_repo_path_info[0].path, None, is_single_file=True)
                 _add_repo_file(source_repo_path_info[0], target_path)
             else:
                 # Source path is a folder — list and copy all files recursively
-                destination_is_directory = True
                 for repo_item in self.list_repo_tree(
                     repo_id=source_handle.repo_id,
                     path_in_repo=source_path,
@@ -12792,6 +12898,9 @@ class HfApi:
                     token=token,
                 ):
                     if not isinstance(repo_item, RepoFile):
+                        continue
+                    # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
+                    if repo_item.path.rsplit("/", 1)[-1] == ".gitattributes":
                         continue
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
@@ -13606,6 +13715,8 @@ get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
 space_info = api.space_info
+
+kernel_info = api.kernel_info
 
 list_papers = api.list_papers
 paper_info = api.paper_info
