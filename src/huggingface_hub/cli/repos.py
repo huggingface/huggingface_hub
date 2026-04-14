@@ -246,9 +246,18 @@ def repo_delete(
             help="If set to True, do not raise an error if repo does not exist.",
         ),
     ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a repo from the Hub. This is an irreversible operation."""
+    out.confirm(f"You are about to permanently delete {repo_type.value} '{repo_id}'. Proceed?", yes=yes)
     api = get_hf_api(token=token)
     api.delete_repo(
         repo_id=repo_id,
