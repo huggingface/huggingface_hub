@@ -1575,11 +1575,11 @@ class TestRepoSettingsCommand:
         assert kwargs["gated"] == "manual"
 
 
-class TestRepoDeleteCommand:
-    def test_repo_delete_basic(self, runner: CliRunner) -> None:
+class TestReposDeleteCommand:
+    def test_repos_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID])
+            result = runner.invoke(app, ["repos", "delete", DUMMY_MODEL_ID, "--yes"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_repo.assert_called_once_with(
@@ -1588,13 +1588,13 @@ class TestRepoDeleteCommand:
             missing_ok=False,
         )
 
-    def test_repo_delete_with_all_options(self, runner: CliRunner) -> None:
+    def test_repos_delete_with_all_options(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "delete",
                     DUMMY_MODEL_ID,
                     "--repo-type",
@@ -1602,6 +1602,7 @@ class TestRepoDeleteCommand:
                     "--token",
                     "my-token",
                     "--missing-ok",
+                    "--yes",
                 ],
             )
         assert result.exit_code == 0
