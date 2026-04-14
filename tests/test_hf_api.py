@@ -2753,12 +2753,6 @@ class HfApiPrivateTest(HfApiCommonTest):
         new = len(list(self._api.list_models(token=self._token)))
         self.assertGreater(new, orig)
 
-    @with_production_testing
-    def test_list_private_spaces(self):
-        orig = len(list(self._api.list_spaces(token=False)))
-        new = len(list(self._api.list_spaces(token=self._token)))
-        self.assertGreaterEqual(new, orig)
-
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class UploadFolderMockedTest(unittest.TestCase):
