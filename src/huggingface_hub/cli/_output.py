@@ -22,6 +22,9 @@ from collections.abc import Sequence
 from enum import Enum
 from typing import Any
 
+import typer
+
+from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import ANSI, is_agent, tabulate
 
 
@@ -145,6 +148,16 @@ class Output:
                 values = list(data.values())
                 if values:
                     print(values[0])
+
+    def confirm(self, message: str, *, default: bool = False, yes: bool = False) -> None:
+        """
+        Ask for confirmation. Raises `ConfirmationError` in non-human modes.
+        """
+        if yes:
+            return
+        if self.mode != OutputFormatWithAuto.human:
+            raise ConfirmationError(f"{message} Use --yes to skip confirmation.")
+        typer.confirm(message, default=default, abort=True)
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""

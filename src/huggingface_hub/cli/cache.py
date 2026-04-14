@@ -555,9 +555,7 @@ def rm(
         )
         return
 
-    if not yes and not typer.confirm("Proceed with deletion?", default=False):
-        out.text("Deletion cancelled.")
-        return
+    out.confirm("Proceed with deletion?", yes=yes)
 
     strategy.execute()
     counts = summarize_deletions(resolution.selected)
@@ -635,9 +633,7 @@ def prune(
         )
         return
 
-    if not yes and not typer.confirm("Proceed?"):
-        out.text("Pruning cancelled.")
-        return
+    out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
     out.result(
