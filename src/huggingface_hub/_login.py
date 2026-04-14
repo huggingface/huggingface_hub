@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from . import constants
+from .errors import DeviceCodeError
 from .utils import (
     ANSI,
     capture_output,
@@ -231,7 +232,7 @@ def _request_device_code() -> dict:
         },
     )
     if response.status_code != 200:
-        raise RuntimeError(
+        raise DeviceCodeError(
             f"Failed to request device code from {constants.ENDPOINT}/oauth/device "
             f"(status {response.status_code}): {response.text}"
         )
@@ -250,7 +251,7 @@ def _poll_for_token(device_code: str, interval: int = 5, expires_in: int = 900) 
         The access token string.
 
     Raises:
-        RuntimeError: If authorization is denied or the device code expires.
+        DeviceCodeError: If authorization is denied or the device code expires.
     """
     start_time = time.monotonic()
     while time.monotonic() - start_time < expires_in:
@@ -263,7 +264,16 @@ def _poll_for_token(device_code: str, interval: int = 5, expires_in: int = 900) 
                 "client_id": constants.DEVICE_CODE_OAUTH_CLIENT_ID,
             },
         )
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception:
+            raise DeviceCodeError(
+                f"Failed to parse response from {constants.ENDPOINT}/oauth/token\n"
+                f"  Status: {response.status_code}\n"
+                f"  URL: {response.url}\n"
+                f"  Headers: {dict(response.headers)}\n"
+                f"  Body: {response.text[:500]!r}"
+            )
 
         if "access_token" in data:
             return data["access_token"]
@@ -277,14 +287,14 @@ def _poll_for_token(device_code: str, interval: int = 5, expires_in: int = 900) 
             interval += 5
             continue
         elif error == "expired_token":
-            raise RuntimeError("Device code expired. Please try again.")
+            raise DeviceCodeError("Device code expired. Please try again.")
         elif error == "access_denied":
-            raise RuntimeError("Authorization was denied. Please try again.")
+            raise DeviceCodeError("Authorization was denied. Please try again.")
         else:
             error_description = data.get("error_description", "")
-            raise RuntimeError(f"OAuth error: {error} - {error_description}")
+            raise DeviceCodeError(f"OAuth error: {error} - {error_description}")
 
-    raise RuntimeError("Device code expired (timeout). Please try again.")
+    raise DeviceCodeError("Device code expired (timeout). Please try again.")
 
 
 def _device_code_login(add_to_git_credential: bool = False) -> None:
@@ -416,7 +426,7 @@ def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: boo
             interval=interval,
             expires_in=expires_in,
         )
-    except RuntimeError as e:
+    except DeviceCodeError as e:
         display(HTML(f"<center><b style='color: red;'>Login failed: {e}</b></center>"))
         return
 
