@@ -2735,12 +2735,12 @@ class HfApiPrivateTest(HfApiCommonTest):
                 _ = self._api.dataset_info(repo_id=self.repo_id)
 
     def test_list_private_datasets(self):
-        kwargs = {"sort": "created_at", "limit": 100}
+        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
         assert all(dataset.id != self.repo_id for dataset in self._api.list_datasets(token=False, **kwargs))
         assert any(dataset.id == self.repo_id for dataset in self._api.list_datasets(token=self._token, **kwargs))
 
     def test_list_private_models(self):
-        kwargs = {"sort": "created_at", "limit": 100}
+        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
         assert all(model.id != self.repo_id for model in self._api.list_models(token=False, **kwargs))
         assert any(model.id == self.repo_id for model in self._api.list_models(token=self._token, **kwargs))
 
