@@ -13,12 +13,9 @@
 # limitations under the License.
 """Contains methods to log in to the Hub."""
 
-import os
 import subprocess
-from getpass import getpass
+import time
 from pathlib import Path
-
-import typer
 
 from . import constants
 from .utils import (
@@ -42,17 +39,12 @@ from .utils._auth import (
     _save_token,
     get_stored_tokens,
 )
+from .utils._http import get_session
 
 
 logger = logging.get_logger(__name__)
 
-_HF_LOGO_ASCII = """
-    _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-    _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-    _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-    _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-    _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-"""
+_DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 
 def login(
@@ -65,8 +57,8 @@ def login(
 
     The `token` is persisted in cache and set as a git credential. Once done, the machine
     is logged in and the access token will be available across all `huggingface_hub`
-    components. If `token` is not provided, it will be prompted to the user either with
-    a widget (in a notebook) or via the terminal.
+    components. If `token` is not provided, a browser-based OAuth device code flow is used
+    to authenticate. You will be prompted to open a URL and enter a code.
 
     To log in from outside of a script, one can also use `hf auth login` which is
     a cli command that wraps [`login`].
@@ -109,11 +101,11 @@ def login(
                 "`--add-to-git-credential` if using via `hf`CLI if "
                 "you want to set the git credential as well."
             )
-        _login(token, add_to_git_credential=add_to_git_credential)
+        _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
-        notebook_login(skip_if_logged_in=skip_if_logged_in)
+        notebook_login(skip_if_logged_in=skip_if_logged_in, add_to_git_credential=add_to_git_credential)
     else:
-        interpreter_login(skip_if_logged_in=skip_if_logged_in)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in, add_to_git_credential=add_to_git_credential)
 
 
 def logout(token_name: str | None = None) -> None:
@@ -228,11 +220,114 @@ def auth_list() -> None:
 
 
 ###
+# Device Code OAuth (RFC 8628)
+###
+
+
+def _request_device_code() -> dict:
+    """Request a device code from the Hub's OAuth device authorization endpoint.
+
+    Returns a dict with keys: device_code, user_code, verification_uri,
+    verification_uri_complete, interval, expires_in.
+    """
+    response = get_session().post(
+        f"{constants.ENDPOINT}/oauth/device",
+        data={
+            "client_id": constants.DEVICE_CODE_OAUTH_CLIENT_ID,
+        },
+    )
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Failed to request device code from {constants.ENDPOINT}/oauth/device "
+            f"(status {response.status_code}): {response.text}"
+        )
+    return response.json()
+
+
+def _poll_for_token(device_code: str, interval: int = 5, expires_in: int = 900) -> str:
+    """Poll the token endpoint until the user authorizes the device.
+
+    Args:
+        device_code: The device code from the device authorization response.
+        interval: Minimum polling interval in seconds.
+        expires_in: Time in seconds before the device code expires.
+
+    Returns:
+        The access token string.
+
+    Raises:
+        RuntimeError: If authorization is denied or the device code expires.
+    """
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < expires_in:
+        time.sleep(interval)
+        response = get_session().post(
+            f"{constants.ENDPOINT}/oauth/token",
+            data={
+                "grant_type": _DEVICE_CODE_GRANT_TYPE,
+                "device_code": device_code,
+                "client_id": constants.DEVICE_CODE_OAUTH_CLIENT_ID,
+            },
+        )
+        data = response.json()
+
+        if "access_token" in data:
+            return data["access_token"]
+
+        error = data.get("error")
+        if error == "authorization_pending":
+            # Print a dot to show we're still waiting
+            print(".", end="", flush=True)
+            continue
+        elif error == "slow_down":
+            interval += 5
+            continue
+        elif error == "expired_token":
+            raise RuntimeError("Device code expired. Please try again.")
+        elif error == "access_denied":
+            raise RuntimeError("Authorization was denied. Please try again.")
+        else:
+            error_description = data.get("error_description", "")
+            raise RuntimeError(f"OAuth error: {error} - {error_description}")
+
+    raise RuntimeError("Device code expired (timeout). Please try again.")
+
+
+def _device_code_login(add_to_git_credential: bool = False) -> None:
+    """Run the Device Code OAuth flow: request a code, open browser, poll for token, save it."""
+    # Step 1: Request device code
+    device_info = _request_device_code()
+
+    verification_uri = device_info["verification_uri"]
+    verification_uri_complete = device_info.get("verification_uri_complete", verification_uri)
+    user_code = device_info["user_code"]
+    interval = device_info.get("interval", 5)
+    expires_in = device_info.get("expires_in", 900)
+
+    # Step 2: Display instructions and open browser
+    print(f"\n    Open this URL in your browser:\n        {verification_uri}\n")
+    print(f"    And enter code: {user_code}\n")
+
+    # Step 3: Poll for token
+    print("    Waiting for authorization", end="", flush=True)
+    token = _poll_for_token(
+        device_code=device_info["device_code"],
+        interval=interval,
+        expires_in=expires_in,
+    )
+    print()  # newline after dots
+
+    # Step 4: Validate and save
+    _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
+    logger.info("Note: This token expires in 30 days. Run `hf auth login` again to refresh it.")
+
+
+###
 # Interpreter-based login (text)
 ###
 
 
-def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True, add_to_git_credential: bool = False) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -246,12 +341,14 @@ def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
             Set to `False` to force re-login. In CLI, use `--force` instead.
+        add_to_git_credential (`bool`, defaults to `False`):
+            If `True`, token will be set as git credential. If no git credential helper
+            is configured, a warning will be displayed to the user.
     """
     if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
-    print(_HF_LOGO_ASCII)
     if get_token() is not None:
         logger.info(
             "    A token is already saved on your machine. Run `hf auth whoami`"
@@ -260,44 +357,17 @@ def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
         )
         logger.info("    Setting a new token will erase the existing one.")
 
-    logger.info(
-        "    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens ."
-    )
-    if os.name == "nt":
-        logger.info("Token can be pasted using 'Right-Click'.")
-    token = getpass("Enter your token (input will not be visible): ")
-    add_to_git_credential = typer.confirm("Add token as git credential?")
-
-    _login(token=token, add_to_git_credential=add_to_git_credential)
+    _device_code_login(add_to_git_credential=add_to_git_credential)
 
 
 ###
-# Notebook-based login (widget)
+# Notebook-based login
 ###
 
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Immediately click login after typing your password or
-it might be stored in plain text in this notebook file. </center>"""
 
-
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Copy a token from <a
-href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
-tokens page</a> and paste it below. <br> Immediately click login after copying
-your token or it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
-'notebooks' token with 'write' access, that you can then easily reuse for all
-notebooks. </center>"""
-
-
-def notebook_login(*, skip_if_logged_in: bool = True) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: bool = False) -> None:
     """
-    Displays a widget to log in to the HF website and store the token.
+    Displays a prompt to log in to the HF website and store the token.
 
     This is equivalent to [`login`] without passing a token when run in a notebook.
     [`notebook_login`] is useful if you want to force the use of the notebook widget
@@ -309,56 +379,64 @@ def notebook_login(*, skip_if_logged_in: bool = True) -> None:
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
             Set to `False` to force re-login. In CLI, use `--force` instead.
+        add_to_git_credential (`bool`, defaults to `False`):
+            If `True`, token will be set as git credential. If no git credential helper
+            is configured, a warning will be displayed to the user.
     """
-    try:
-        import ipywidgets.widgets as widgets  # type: ignore
-        from IPython.display import display  # type: ignore
-    except ImportError:
-        raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
-        )
     if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
-    box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
+    try:
+        from IPython.display import HTML, display
+    except ImportError:
+        # Not in a notebook environment, fallback to interpreter login
+        interpreter_login(skip_if_logged_in=False, add_to_git_credential=add_to_git_credential)
+        return
 
-    token_widget = widgets.Password(description="Token:")
-    git_checkbox_widget = widgets.Checkbox(value=True, description="Add token as git credential?")
-    token_finish_button = widgets.Button(description="Login")
+    # Step 1: Request device code
+    device_info = _request_device_code()
 
-    login_token_widget = widgets.VBox(
-        [
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            token_widget,
-            git_checkbox_widget,
-            token_finish_button,
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-        ],
-        layout=box_layout,
+    verification_uri = device_info["verification_uri"]
+    verification_uri_complete = device_info.get("verification_uri_complete", verification_uri)
+    user_code = device_info["user_code"]
+    interval = device_info.get("interval", 5)
+    expires_in = device_info.get("expires_in", 900)
+
+    # Step 2: Display HTML with link and code
+    display(
+        HTML(
+            '<center><img src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg"'
+            ' width="100" alt="Hugging Face"><br><br>'
+            f"<p>To log in, open this URL and enter the code:</p>"
+            f'<p><a href="{verification_uri_complete}" target="_blank"><b>{verification_uri}</b></a></p>'
+            f'<p style="font-size: 1.6em; letter-spacing: 0.3em; font-family: monospace;">'
+            f"<b>{user_code}</b></p></center>"
+        )
     )
-    display(login_token_widget)
 
-    # On click events
-    def login_token_event(t):
-        """Event handler for the login button."""
-        token = token_widget.value
-        add_to_git_credential = git_checkbox_widget.value
-        # Erase token and clear value to make sure it's not saved in the notebook.
-        token_widget.value = ""
-        # Hide inputs
-        login_token_widget.children = [widgets.Label("Connecting...")]
-        try:
-            with capture_output() as captured:
-                _login(token, add_to_git_credential=add_to_git_credential)
-            message = captured.getvalue()
-        except Exception as error:
-            message = str(error)
-        # Print result (success message or error)
-        login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
+    # Step 3: Poll for token
+    display(HTML("<center><i>Waiting for authorization...</i></center>"))
+    try:
+        token = _poll_for_token(
+            device_code=device_info["device_code"],
+            interval=interval,
+            expires_in=expires_in,
+        )
+    except RuntimeError as e:
+        display(HTML(f"<center><b style='color: red;'>Login failed: {e}</b></center>"))
+        return
 
-    token_finish_button.on_click(login_token_event)
+    # Step 5: Validate and save
+    try:
+        with capture_output() as captured:
+            _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
+        message = captured.getvalue()
+        # Add the expiration notice
+        message += "\nNote: This token expires in 30 days. Run `hf auth login` again to refresh it."
+        display(HTML("<center>" + "<br>".join(line for line in message.split("\n") if line.strip()) + "</center>"))
+    except Exception as error:
+        display(HTML(f"<center><b style='color: red;'>{error}</b></center>"))
 
 
 ###
@@ -366,20 +444,41 @@ def notebook_login(*, skip_if_logged_in: bool = True) -> None:
 ###
 
 
-def _login(
+def _validate_and_save_token(
     token: str,
     add_to_git_credential: bool,
+    token_name: str | None = None,
 ) -> None:
+    """Validate a token via whoami, save it to stored tokens, and set it as active.
+
+    Args:
+        token: The access token string.
+        add_to_git_credential: Whether to save the token to git credential helpers.
+        token_name: Optional override for the token name. If not provided, extracted
+            from the whoami response or generated from the username.
+    """
     from .hf_api import whoami  # avoid circular import
 
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token, not an organization token.")
 
     token_info = whoami(token)
-    permission = token_info["auth"]["accessToken"]["role"]
-    logger.info(f"Token is valid (permission: {permission}).")
 
-    token_name = token_info["auth"]["accessToken"]["displayName"]
+    # Extract permission info if available
+    try:
+        permission = token_info["auth"]["accessToken"]["role"]
+        logger.info(f"Token is valid (permission: {permission}).")
+    except (KeyError, TypeError):
+        logger.info("Token is valid.")
+
+    # Determine token name
+    if token_name is None:
+        try:
+            token_name = token_info["auth"]["accessToken"]["displayName"]
+        except (KeyError, TypeError):
+            username = token_info.get("name", "unknown")
+            token_name = f"oauth-{username}"
+
     # Store token locally
     _save_token(token=token, token_name=token_name)
     # Set active token
