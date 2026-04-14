@@ -25,18 +25,17 @@ Usage:
 """
 
 import enum
-import sys
 from typing import Annotated
 
 import typer
 
 from huggingface_hub import SpaceHardware, SpaceStorage
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
+    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -52,7 +51,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._output import out
+from ._output import OutputFormatWithAuto, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -61,10 +60,7 @@ repos_cli = typer_factory(help="Manage repos on the Hub.")
 @repos_cli.callback(invoke_without_command=True)
 def _repos_callback(ctx: typer.Context) -> None:
     if ctx.info_name == "repo":
-        print(
-            ANSI.yellow("FutureWarning: `hf repo` is deprecated in favor of `hf repos`."),
-            file=sys.stderr,
-        )
+        out.warning("`hf repo` is deprecated in favor of `hf repos`.")
 
 
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
@@ -161,6 +157,7 @@ def repo_create(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
@@ -179,8 +176,7 @@ def repo_create(
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
         space_volumes=parse_volumes(volume),
     )
-    print(f"Successfully created {ANSI.bold(repo_url.repo_id)} on the Hub.")
-    print(f"Your repo is now available at {ANSI.bold(repo_url)}")
+    out.result("Repo created", repo_id=repo_url.repo_id, url=str(repo_url))
 
 
 @repos_cli.command(
@@ -218,6 +214,7 @@ def repo_duplicate(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
     api = get_hf_api(token=token)
@@ -235,8 +232,7 @@ def repo_duplicate(
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
         space_volumes=parse_volumes(volume),
     )
-    print(f"Successfully duplicated {ANSI.bold(from_id)} to {ANSI.bold(repo_url.repo_id)} on the Hub.")
-    print(f"Your repo is now available at {ANSI.bold(repo_url)}")
+    out.result("Repo duplicated", from_id=from_id, repo_id=repo_url.repo_id, url=str(repo_url))
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])
@@ -250,6 +246,7 @@ def repo_delete(
             help="If set to True, do not raise an error if repo does not exist.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a repo from the Hub. This is an irreversible operation."""
     api = get_hf_api(token=token)
@@ -258,7 +255,7 @@ def repo_delete(
         repo_type=repo_type.value,
         missing_ok=missing_ok,
     )
-    print(f"Successfully deleted {ANSI.bold(repo_id)} on the Hub.")
+    out.result("Repo deleted", repo_id=repo_id)
 
 
 @repos_cli.command("move", examples=["hf repos move old-namespace/my-model new-namespace/my-model"])
@@ -267,6 +264,7 @@ def repo_move(
     to_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Move a repository from a namespace to another namespace."""
     api = get_hf_api(token=token)
@@ -275,7 +273,7 @@ def repo_move(
         to_id=to_id,
         repo_type=repo_type.value,
     )
-    print(f"Successfully moved {ANSI.bold(from_id)} to {ANSI.bold(to_id)} on the Hub.")
+    out.result("Repo moved", from_id=from_id, to_id=to_id)
 
 
 @repos_cli.command(
@@ -299,6 +297,7 @@ def repo_settings(
     protected: ProtectedOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Update the settings of a repository."""
     api = get_hf_api(token=token)
@@ -308,7 +307,7 @@ def repo_settings(
         visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         repo_type=repo_type.value,
     )
-    print(f"Successfully updated the settings of {ANSI.bold(repo_id)} on the Hub.")
+    out.result("Repo settings updated", repo_id=repo_id)
 
 
 @repos_cli.command(
@@ -348,6 +347,7 @@ def repo_delete_files(
         ),
     ] = False,
     token: TokenOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete files from a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -360,7 +360,7 @@ def repo_delete_files(
         commit_description=commit_description,
         create_pr=create_pr,
     )
-    print(f"Files correctly deleted from repo. Commit: {url}.")
+    out.result("Files deleted", repo_id=repo_id, commit_url=url)
 
 
 @branch_cli.command(
@@ -387,6 +387,7 @@ def branch_create(
             help="If set to True, do not raise an error if branch already exists.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a new branch for a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -397,7 +398,7 @@ def branch_create(
         repo_type=repo_type.value,
         exist_ok=exist_ok,
     )
-    print(f"Successfully created {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+    out.result("Branch created", branch=branch, repo_type=repo_type.value, repo_id=repo_id)
 
 
 @branch_cli.command("delete", examples=["hf repos branch delete my-model dev"])
@@ -411,6 +412,7 @@ def branch_delete(
     ],
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a branch from a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -419,7 +421,7 @@ def branch_delete(
         branch=branch,
         repo_type=repo_type.value,
     )
-    print(f"Successfully deleted {ANSI.bold(branch)} branch on {repo_type.value} {ANSI.bold(repo_id)}")
+    out.result("Branch deleted", branch=branch, repo_type=repo_type.value, repo_id=repo_id)
 
 
 @tag_cli.command(
@@ -448,11 +450,11 @@ def tag_create(
     revision: RevisionOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a tag for a repo."""
     repo_type_str = repo_type.value
     api = get_hf_api(token=token)
-    print(f"You are about to create tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
     try:
         api.create_tag(repo_id=repo_id, tag=tag, tag_message=message, revision=revision, repo_type=repo_type_str)
     except RepositoryNotFoundError as e:
@@ -463,7 +465,7 @@ def tag_create(
         if e.response.status_code == 409:
             raise CLIError(f"Tag '{tag}' already exists on '{repo_id}'.") from e
         raise
-    print(f"Tag {ANSI.bold(tag)} created on {ANSI.bold(repo_id)}")
+    out.result("Tag created", tag=tag, repo_type=repo_type_str, repo_id=repo_id)
 
 
 @tag_cli.command("list | ls", examples=["hf repos tag list my-model"])
@@ -471,6 +473,7 @@ def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """List tags for a repo."""
     repo_type_str = repo_type.value
@@ -479,12 +482,8 @@ def tag_list(
         refs = api.list_repo_refs(repo_id=repo_id, repo_type=repo_type_str)
     except RepositoryNotFoundError as e:
         raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
-    if len(refs.tags) == 0:
-        print("No tags found")
-        raise typer.Exit(code=0)
-    print(f"Tags for {repo_type_str} {ANSI.bold(repo_id)}:")
-    for t in refs.tags:
-        print(t.name)
+    items = [{"name": t.name, "target_commit": t.target_commit} for t in refs.tags]
+    out.table(items)
 
 
 @tag_cli.command("delete", examples=["hf repos tag delete my-model v1.0"])
@@ -506,10 +505,11 @@ def tag_delete(
     ] = False,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a tag for a repo."""
     repo_type_str = repo_type.value
-    print(f"You are about to delete tag {ANSI.bold(tag)} on {repo_type_str} {ANSI.bold(repo_id)}")
+    out.text(f"You are about to delete tag {tag} on {repo_type_str} {repo_id}")
     out.confirm("Proceed?", yes=yes)
     api = get_hf_api(token=token)
     try:
@@ -518,4 +518,4 @@ def tag_delete(
         raise CLIError(f"{repo_type_str.capitalize()} '{repo_id}' not found.") from e
     except RevisionNotFoundError as e:
         raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
-    print(f"Tag {ANSI.bold(tag)} deleted on {ANSI.bold(repo_id)}")
+    out.result("Tag deleted", tag=tag, repo_type=repo_type_str, repo_id=repo_id)
