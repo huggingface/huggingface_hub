@@ -2424,23 +2424,23 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(author="facebook", model_name="bart-base"))
+        models = list(self._api.list_models(author="facebook", search="bart-base"))
         assert "facebook/bart-base" in models[0].id
 
-    def test_failing_filter_models_by_author_and_model_name(self):
+    def test_failing_filter_models_by_author_and_search(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(author="muellerzr", model_name="testme"))
+        models = list(self._api.list_models(author="muellerzr", search="testme"))
         assert len(models) == 0
 
     def test_filter_models_with_library(self):
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="tensorflow"))
+        models = list(self._api.list_models(author="microsoft", search="wavlm-base-sd", filter="tensorflow"))
         assert len(models) == 0
 
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="pytorch"))
+        models = list(self._api.list_models(author="microsoft", search="wavlm-base-sd", filter="pytorch"))
         assert len(models) > 0
 
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(filter="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter="fill-mask", search="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].id
         assert "base" in models[0].id
