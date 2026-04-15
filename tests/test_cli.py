@@ -32,6 +32,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
+from .testing_constants import TOKEN
 from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
@@ -1656,6 +1657,22 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
         assert result.exit_code == 1
         assert "Not logged in" in result.output
+
+
+class TestAuthTokenCommand:
+    def test_token_prints_to_stdout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=TOKEN):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == TOKEN
+        assert "hf auth whoami" in result.output
+
+    def test_token_not_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
+        assert "hf auth login" in result.output
 
 
 class TestModelsLsCommand:

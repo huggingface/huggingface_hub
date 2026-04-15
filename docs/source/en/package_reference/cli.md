@@ -67,6 +67,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 * `login`: Login using a token from...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
+* `token`: Print the current access token to stdout.
 * `whoami`: Find out which huggingface.co account you...
 
 ### `hf auth list`
@@ -162,6 +163,29 @@ $ hf auth switch [OPTIONS]
 Examples
   $ hf auth switch
   $ hf auth switch --token-name my-token
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth token`
+
+Print the current access token to stdout.
+
+**Usage**:
+
+```console
+$ hf auth token [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth token
+  $ hf auth token | xargs curl -H 'Authorization: Bearer {}'
 
 Learn more
   Use `hf <command> --help` for more information about a command.
