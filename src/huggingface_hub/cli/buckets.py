@@ -102,14 +102,17 @@ def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
 def _build_tree(
     items: list[BucketFile | BucketFolder],
     human_readable: bool = False,
+    quiet: bool = False,
 ) -> list[str]:
     """Build a tree representation of files and directories.
 
     Produces ASCII tree with size and date columns before the tree connector.
+    When quiet=True, only the tree structure is shown (no size/date).
 
     Args:
         items: List of BucketFile/BucketFolder items
         human_readable: Whether to show human-readable sizes and short dates
+        quiet: If True, show only the tree structure without sizes/dates
 
     Returns:
         List of formatted tree lines
@@ -136,14 +139,15 @@ def _build_tree(
     prefix_width = 0
     max_size_width = 0
     max_date_width = 0
-    for item in items:
-        if isinstance(item, BucketFile):
-            size_str = _format_size(item.size, human_readable)
-            max_size_width = max(max_size_width, len(size_str))
-            date_str = _format_mtime(item.mtime, human_readable)
-            max_date_width = max(max_date_width, len(date_str))
-    if max_size_width > 0:
-        prefix_width = max_size_width + 2 + max_date_width
+    if not quiet:
+        for item in items:
+            if isinstance(item, BucketFile):
+                size_str = _format_size(item.size, human_readable)
+                max_size_width = max(max_size_width, len(size_str))
+                date_str = _format_mtime(item.mtime, human_readable)
+                max_date_width = max(max_date_width, len(date_str))
+        if max_size_width > 0:
+            prefix_width = max_size_width + 2 + max_date_width
 
     # Render tree
     lines: list[str] = []
@@ -413,10 +417,10 @@ def _list_files(
     has_directories = any(isinstance(item, BucketFolder) for item in items)
 
     if as_tree:
-        # Tree is a human-only view — override mode so it always renders
-        out.set_mode(OutputFormatWithAuto.human)
-        tree_str = "\n".join(_build_tree(items, human_readable=human_readable))
-        out.text(tree_str)
+        # Tree is a human-only view — print directly regardless of mode
+        quiet = out.mode == OutputFormatWithAuto.quiet
+        for line in _build_tree(items, human_readable=human_readable, quiet=quiet):
+            print(line)
     elif out.mode == OutputFormatWithAuto.json:
         print(json.dumps([api_object_to_dict(item) for item in items], indent=2))
     elif out.mode == OutputFormatWithAuto.quiet:

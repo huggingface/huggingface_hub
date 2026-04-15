@@ -120,7 +120,7 @@ def test_split_bucket_id_and_prefix_invalid(path: str):
 
 def test_create_bucket(api: HfApi):
     name = bucket_name()
-    result = cli(f"hf buckets create {name} --format quiet")
+    result = cli(f"hf buckets create {name} --quiet")
     assert result.exit_code == 0
     handle = result.output.strip()
     assert handle == f"hf://buckets/{USER}/{name}"
@@ -133,7 +133,7 @@ def test_create_bucket(api: HfApi):
 
 def test_create_bucket_private(api: HfApi):
     name = bucket_name()
-    result = cli(f"hf buckets create {name} --private --format quiet")
+    result = cli(f"hf buckets create {name} --private --quiet")
     assert result.exit_code == 0
     bucket_id = _handle_to_bucket_id(result.output.strip())
 
@@ -145,17 +145,17 @@ def test_create_bucket_exist_ok():
     name = bucket_name()
 
     # First create succeeds
-    result1 = cli(f"hf buckets create {name} --format quiet")
+    result1 = cli(f"hf buckets create {name} --quiet")
     assert result1.exit_code == 0, result1.output
 
     # Second create without --exist-ok fails
-    result2 = cli(f"hf buckets create {name} --format quiet")
+    result2 = cli(f"hf buckets create {name} --quiet")
     assert result2.exit_code != 0
     assert isinstance(result2.exception, HfHubHTTPError)
     assert result2.exception.response.status_code == 409
 
     # Second create with --exist-ok succeeds
-    result3 = cli(f"hf buckets create {name} --exist-ok --format quiet")
+    result3 = cli(f"hf buckets create {name} --exist-ok --quiet")
     assert result3.exit_code == 0
     assert result3.output.strip() == f"hf://buckets/{USER}/{name}"
 
@@ -163,7 +163,7 @@ def test_create_bucket_exist_ok():
 def test_create_bucket_with_hf_prefix(api: HfApi):
     name = bucket_name()
     hf_handle = f"hf://buckets/{USER}/{name}"
-    result = cli(f"hf buckets create {hf_handle} --format quiet")
+    result = cli(f"hf buckets create {hf_handle} --quiet")
     assert result.exit_code == 0
 
     assert result.output.strip() == hf_handle
@@ -188,7 +188,7 @@ def test_bucket_info(bucket_read: str):
 
 
 def test_bucket_info_quiet(bucket_read: str):
-    result = cli(f"hf buckets info {bucket_read} --format quiet")
+    result = cli(f"hf buckets info {bucket_read} --quiet")
     assert result.exit_code == 0
     assert result.output.strip() == bucket_read
 
@@ -255,7 +255,7 @@ def test_rm_single_file_quiet(api: HfApi, bucket_write: str):
     """'hf buckets rm file --quiet' prints only the path."""
     api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
 
-    result = cli(f"hf buckets rm {bucket_write}/file.txt --yes --format quiet")
+    result = cli(f"hf buckets rm {bucket_write}/file.txt --yes --quiet")
     assert result.exit_code == 0
     assert result.output.strip() == "file.txt"
 
@@ -459,7 +459,7 @@ def test_bucket_list_json(bucket_read: str):
 
 
 def test_bucket_list_quiet(bucket_read: str):
-    result = cli("hf buckets list --format quiet")
+    result = cli("hf buckets list --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()  # 1 id per line
@@ -467,7 +467,7 @@ def test_bucket_list_quiet(bucket_read: str):
 
 
 def test_bucket_list_namespace(bucket_read: str):
-    result = cli(f"hf buckets list {USER} --format quiet")
+    result = cli(f"hf buckets list {USER} --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()
@@ -476,7 +476,7 @@ def test_bucket_list_namespace(bucket_read: str):
 
 def test_bucket_ls_alias(bucket_read: str):
     """'hf buckets ls' is an alias for 'hf buckets list'."""
-    result = cli("hf buckets ls --format quiet")
+    result = cli("hf buckets ls --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()
@@ -485,7 +485,7 @@ def test_bucket_ls_alias(bucket_read: str):
 
 def test_bucket_list_namespace_with_hf_prefix(bucket_read: str):
     """hf://buckets/namespace format is treated as listing buckets."""
-    result = cli(f"hf buckets list hf://buckets/{USER} --format quiet")
+    result = cli(f"hf buckets list hf://buckets/{USER} --quiet")
     assert result.exit_code == 0
 
     ids = result.output.strip().splitlines()
@@ -520,17 +520,10 @@ MTIME_GAP_SHORT = " " * len(MTIME_FIX_SHORT)
 
 
 def _check_list_output(command: str, expected_lines: list[str]) -> None:
-    """Run a `hf buckets list` command and assert output matches expected lines exactly.
-
-    Filters out stderr lines (Hint:, Warning:, Error:) that CliRunner mixes into output.
-    """
+    """Run a `hf buckets list` command and assert output matches expected lines exactly."""
     result = cli(command)
     assert result.exit_code == 0
-    actual = [
-        line
-        for line in result.output.splitlines()
-        if line.strip() and not line.startswith(("Hint:", "Warning:", "Error:"))
-    ]
+    actual = [line for line in result.stdout.splitlines() if line.strip()]
     assert actual == expected_lines
 
 
@@ -594,10 +587,10 @@ def test_list_files_human_readable(tree_bucket: str):
     _check_list_output(
         f"hf buckets list {tree_bucket} -h -R",
         [
-            f"      2.0 KB  {MTIME_FIX_SHORT:>19}  big.bin",
-            f"         5 B  {MTIME_FIX_SHORT:>19}  file.txt",
-            f"         4 B  {MTIME_FIX_SHORT:>19}  sub/deep/file.txt",
-            f"        14 B  {MTIME_FIX_SHORT:>19}  sub/nested.txt",
+            f"      2.0 KB         {MTIME_FIX_SHORT}  big.bin",
+            f"         5 B         {MTIME_FIX_SHORT}  file.txt",
+            f"         4 B         {MTIME_FIX_SHORT}  sub/deep/file.txt",
+            f"        14 B         {MTIME_FIX_SHORT}  sub/nested.txt",
         ],
     )
 
@@ -671,9 +664,9 @@ def test_list_files_empty_bucket(api: HfApi):
 
 
 def test_list_files_quiet(tree_bucket: str):
-    """--format quiet prints one path per line."""
+    """--quiet prints one path per line."""
     _check_list_output(
-        f"hf buckets list {tree_bucket} -R --format quiet",
+        f"hf buckets list {tree_bucket} -R --quiet",
         [
             "big.bin",
             "file.txt",
@@ -711,16 +704,16 @@ def test_list_files_tree_with_human_readable(tree_bucket: str):
 
 
 def test_list_files_tree_quiet(tree_bucket: str):
-    """--tree forces human mode, so --format quiet is overridden — tree with sizes/dates shown."""
+    """--tree --quiet shows only the tree structure without sizes/dates."""
     _check_list_output(
-        f"hf buckets list {tree_bucket} --tree -R --format quiet",
+        f"hf buckets list {tree_bucket} --tree -R --quiet",
         [
-            f"2048  {MTIME_FIX}  ├── big.bin",
-            f"   5  {MTIME_FIX}  ├── file.txt",
-            f"      {MTIME_GAP}  └── sub/",
-            f"      {MTIME_GAP}      ├── deep/",
-            f"   4  {MTIME_FIX}      │   └── file.txt",
-            f"  14  {MTIME_FIX}      └── nested.txt",
+            "├── big.bin",
+            "├── file.txt",
+            "└── sub/",
+            "    ├── deep/",
+            "    │   └── file.txt",
+            "    └── nested.txt",
         ],
     )
 
@@ -809,7 +802,7 @@ def test_cp_upload_file_quiet(api: HfApi, tmp_path: Path):
     local_file = tmp_path / "quiet.txt"
     local_file.write_text("quiet")
 
-    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}/quiet.txt --format quiet")
+    result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}/quiet.txt --quiet")
     assert result.exit_code == 0
     assert "Uploaded:" not in result.output
 
@@ -866,7 +859,7 @@ def test_cp_download_to_stdout(bucket_with_files: str):
 def test_cp_download_quiet(bucket_with_files: str, tmp_path: Path):
     """Download with --quiet suppresses the status message."""
     output_file = tmp_path / "quiet-download.txt"
-    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file} --format quiet")
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file} --quiet")
     assert result.exit_code == 0
     assert "Downloaded:" not in result.output
     assert output_file.read_text() == "hello"
