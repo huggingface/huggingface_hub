@@ -195,6 +195,33 @@ it will go to sleep. Any visitor landing on your Space will start it back up. Yo
 Note: if you are using a 'cpu-basic' hardware, you cannot configure a custom sleep time. Your Space will automatically
 be paused after 48h of inactivity.
 
+### Debug a failing Space by reading its logs
+
+When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where opening a browser is not an option.
+
+```py
+# Drain the currently available run logs and return immediately (like `docker logs`)
+>>> for line in api.fetch_space_logs(repo_id=repo_id):
+...     print(line, end="")
+
+# Read the container build logs instead (useful when the Space is stuck in BUILD_ERROR)
+>>> for line in api.fetch_space_logs(repo_id=repo_id, build=True):
+...     print(line, end="")
+
+# Stream run logs in real time until the server closes the stream (Ctrl-C to stop)
+>>> for line in api.fetch_space_logs(repo_id=repo_id, follow=True):
+...     print(line, end="")
+```
+
+The same functionality is available from the CLI:
+
+```bash
+hf spaces logs username/my-space             # drain run logs
+hf spaces logs username/my-space --build     # read build logs
+hf spaces logs username/my-space -f          # stream in real time
+hf spaces logs username/my-space -n 50       # last 50 lines only
+```
+
 **Bonus: set a sleep time while requesting hardware**
 
 Upgraded hardware will be automatically assigned to your Space once it's built.
