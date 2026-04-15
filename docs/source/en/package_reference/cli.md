@@ -3403,6 +3403,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
+* `volumes`: Manage volumes for a Space on the Hub.
 
 ### `hf spaces dev-mode`
 
@@ -3540,6 +3541,114 @@ $ hf spaces list [OPTIONS]
 Examples
   $ hf spaces ls --limit 10
   $ hf spaces ls --search "chatbot" --author huggingface
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces volumes`
+
+Manage volumes for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces volumes [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `delete`: Remove all volumes from a Space.
+* `list`: List volumes mounted in a Space. [alias: ls]
+* `set`: Set (replace) volumes for a Space.
+
+#### `hf spaces volumes delete`
+
+Remove all volumes from a Space.
+
+**Usage**:
+
+```console
+$ hf spaces volumes delete [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes delete username/my-space
+  $ hf spaces volumes delete username/my-space --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces volumes list`
+
+List volumes mounted in a Space. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf spaces volumes list [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes ls username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces volumes set`
+
+Set (replace) volumes for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces volumes set [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-v, --volume TEXT`: Mount a volume. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default.E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes set username/my-space -v hf://models/username/my-model:/models
+  $ hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro
 
 Learn more
   Use `hf <command> --help` for more information about a command.

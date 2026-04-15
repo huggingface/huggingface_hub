@@ -161,6 +161,15 @@ class Volume:
             data["path"] = self.path
         return data
 
+    def to_str(self) -> str:
+        return (
+            f"hf://{self.type}/{self.source}"
+            f"{'@' + self.revision if self.revision else ''}"
+            f"{'/' + self.path if self.path else ''}"
+            f":{self.mount_path}"
+            f"{':ro' if self.read_only else ':rw' if self.read_only is False else ''}"
+        )
+
 
 @dataclass
 class SpaceHotReloading:
