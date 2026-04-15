@@ -156,6 +156,7 @@ def auth_token() -> None:
         out.error("Not logged in. Run `hf auth login` first.")
         raise typer.Exit(code=1)
     print(token)
+    out.hint("Run `hf auth whoami` to see which account this token belongs to.")
 
 
 @auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])

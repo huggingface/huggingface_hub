@@ -1664,6 +1664,7 @@ class TestAuthTokenCommand:
             result = runner.invoke(app, ["auth", "token"])
         assert result.exit_code == 0
         assert result.stdout.strip() == "hf_HubCITokenXXXXXXXXXXXXXXXXXXXXX"
+        assert "hf auth whoami" in result.output
 
     def test_token_not_logged_in(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
