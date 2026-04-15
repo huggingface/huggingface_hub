@@ -863,6 +863,8 @@ def sync(
         verbose=verbose,
         quiet=quiet,
     )
+    if plan and not quiet:
+        out.hint(f"Run `hf buckets sync --apply {plan}` to execute this plan.")
 
 
 # =============================================================================
