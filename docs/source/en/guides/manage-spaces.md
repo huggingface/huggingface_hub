@@ -283,6 +283,21 @@ To remove all volumes from your Space:
 > [!WARNING]
 > Setting volumes replaces any previously mounted volumes. To add a volume to an existing list, first read the current volumes from the runtime and include them in the new list.
 
+All volume operations are also available from the CLI:
+
+```bash
+# List current volumes
+hf spaces volumes ls username/my-space
+
+# Set (replace) volumes
+hf spaces volumes set username/my-space \
+    -v hf://models/username/my-model:/models \
+    -v hf://buckets/username/my-bucket:/data
+
+# Remove all volumes
+hf spaces volumes delete username/my-space
+```
+
 ## More advanced: temporarily upgrade your Space !
 
 Spaces allow for a lot of different use cases. Sometimes, you might want

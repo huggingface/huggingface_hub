@@ -56,9 +56,11 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    VolumesOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
+    parse_volumes,
     typer_factory,
 )
 from ._output import OutputFormatWithAuto, out
@@ -81,6 +83,8 @@ ExpandOpt = Annotated[
 ]
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
+volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
+spaces_cli.add_typer(volumes_cli, name="volumes")
 
 
 @spaces_cli.command(
@@ -482,3 +486,80 @@ def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
+
+
+@volumes_cli.command(
+    "list | ls",
+    examples=[
+        "hf spaces volumes ls username/my-space",
+    ],
+)
+def volumes_ls(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """List volumes mounted in a Space."""
+    api = get_hf_api(token=token)
+    info = api.space_info(space_id)
+    if info.runtime is None:
+        raise CLIError(f"Runtime not available for Space '{space_id}'.")
+    volumes = info.runtime.volumes or []
+    items = [api_object_to_dict(v) for v in volumes]
+    out.table(items)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )
+
+
+@volumes_cli.command(
+    "set",
+    examples=[
+        "hf spaces volumes set username/my-space -v hf://models/username/my-model:/models",
+        "hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro",
+    ],
+)
+def volumes_set(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    volume: VolumesOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Set (replace) volumes for a Space."""
+    volumes = parse_volumes(volume)
+    if not volumes:
+        raise CLIError("At least one volume must be specified with -v/--volume.")
+    api = get_hf_api(token=token)
+    api.set_space_volumes(space_id, volumes=volumes)
+    out.result("Volumes set", space_id=space_id, volumes=[v.to_hf_handle() for v in volumes])
+    out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
+
+
+@volumes_cli.command(
+    "delete",
+    examples=[
+        "hf spaces volumes delete username/my-space",
+        "hf spaces volumes delete username/my-space --yes",
+    ],
+)
+def volumes_delete(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Remove all volumes from a Space."""
+    out.confirm(f"You are about to remove all volumes from Space '{space_id}'. Proceed?", yes=yes)
+    api = get_hf_api(token=token)
+    api.delete_space_volumes(space_id)
+    out.result("Volumes deleted", space_id=space_id)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )

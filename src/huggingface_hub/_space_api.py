@@ -161,6 +161,13 @@ class Volume:
             data["path"] = self.path
         return data
 
+    def to_hf_handle(self) -> str:
+        """Return the volume as an HF handle in the format expected by the CLI."""
+        path = f"/{self.path}" if self.path else ""
+        revision = f"@{self.revision}" if self.revision else ""
+        ro = {True: ":ro", False: ":rw", None: ""}.get(self.read_only, "")
+        return f"hf://{self.type}s/{self.source}{revision}{path}:{self.mount_path}{ro}"
+
 
 @dataclass
 class SpaceHotReloading:
