@@ -507,6 +507,9 @@ def volumes_ls(
     volumes = info.runtime.volumes or []
     items = [api_object_to_dict(v) for v in volumes]
     out.table(items)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )
 
 
 @volumes_cli.command(
@@ -529,6 +532,7 @@ def volumes_set(
     api = get_hf_api(token=token)
     api.set_space_volumes(space_id, volumes=volumes)
     out.result("Volumes set", space_id=space_id, volumes=[v.to_str() for v in volumes])
+    out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
 
 
 @volumes_cli.command(
@@ -556,3 +560,6 @@ def volumes_delete(
     api = get_hf_api(token=token)
     api.delete_space_volumes(space_id)
     out.result("Volumes deleted", space_id=space_id)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )
