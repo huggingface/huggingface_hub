@@ -245,6 +245,7 @@ _SUBMOD_ATTRS = {
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
+        "fetch_space_logs",
         "file_exists",
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
@@ -954,6 +955,7 @@ __all__ = [
     "export_folder_as_dduf",
     "fetch_job_logs",
     "fetch_job_metrics",
+    "fetch_space_logs",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
@@ -1379,6 +1381,7 @@ if TYPE_CHECKING:  # pragma: no cover
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
+        fetch_space_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
