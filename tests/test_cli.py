@@ -2903,6 +2903,7 @@ class TestBucketTransport:
             patch.object(api, "create_bucket") as mock_create_bucket,
             patch.object(api, "batch_bucket_files") as mock_batch,
         ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
             command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
                 script=str(script_path),
                 script_args=None,
@@ -2914,8 +2915,10 @@ class TestBucketTransport:
                 token=None,
             )
 
-        # Bucket was created with correct ID
-        mock_create_bucket.assert_called_once_with(bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None)
+        # Bucket was created with correct ID and private=True (so scripts/artifacts aren't public)
+        mock_create_bucket.assert_called_once_with(
+            bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None, private=True
+        )
 
         # Files were uploaded under a {timestamp}-{hex}/ subfolder at the bucket root
         mock_batch.assert_called_once()
@@ -3015,9 +3018,10 @@ class TestBucketTransport:
 
         api = HfApi()
         with (
-            patch.object(api, "create_bucket"),
+            patch.object(api, "create_bucket") as mock_create_bucket,
             patch.object(api, "batch_bucket_files") as mock_batch,
         ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
             command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
                 script=str(script_path),
                 script_args=[str(config_path)],

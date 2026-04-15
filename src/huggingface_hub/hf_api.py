@@ -12214,13 +12214,14 @@ class HfApi:
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
 
-        self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
+        bucket_url = self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
 
         add_ops: list[tuple[str | Path | bytes, str]] = [
             (Path(local_path), f"{subfolder_id}/{remote_name}")
             for remote_name, local_path in remote_to_local_file_names.items()
         ]
         self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
+        print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
 
         volume = Volume(
             type="bucket",
