@@ -67,6 +67,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 * `login`: Login using a token from...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
+* `token`: Print the current access token to stdout.
 * `whoami`: Find out which huggingface.co account you...
 
 ### `hf auth list`
@@ -162,6 +163,29 @@ $ hf auth switch [OPTIONS]
 Examples
   $ hf auth switch
   $ hf auth switch --token-name my-token
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth token`
+
+Print the current access token to stdout.
+
+**Usage**:
+
+```console
+$ hf auth token [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth token
+  $ hf auth token | xargs curl -H 'Authorization: Bearer {}'
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1431,8 +1455,8 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--force-download / --no-force-download`: If True, the files will be downloaded even if they are already cached.  [default: no-force-download]
 * `--dry-run / --no-dry-run`: If True, perform a dry run without actually downloading the file.  [default: no-dry-run]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--quiet / --no-quiet`: If True, progress bars are disabled and only the path to the download files is printed.  [default: no-quiet]
 * `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3379,7 +3403,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
-* `logs`: Fetch the run or build logs of a Space.
+* `search`: Search spaces on the Hub using semantic...
 
 ### `hf spaces dev-mode`
 
@@ -3523,38 +3547,35 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf spaces logs`
+### `hf spaces search`
 
-Fetch the run or build logs of a Space.
-
-By default, prints currently available run logs and exits (non-blocking, like
-`docker logs`). Use --follow/-f to stream until the server closes the stream.
-Use --build to see the container build logs instead (useful when a Space is
-stuck in BUILD_ERROR).
+Search spaces on the Hub using semantic search.
 
 **Usage**:
 
 ```console
-$ hf spaces logs [OPTIONS] SPACE_ID
+$ hf spaces search [OPTIONS] QUERY
 ```
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `QUERY`: Search query.  [required]
 
 **Options**:
 
-* `--build`: Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.
-* `-f, --follow`: Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.
-* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--sdk TEXT`: Filter by SDK (e.g. gradio, docker, static).
+* `--include-non-running / --no-include-non-running`: Include non-running spaces in results.  [default: no-include-non-running]
+* `--description / --no-description`: Show AI-generated descriptions.  [default: no-description]
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf spaces logs username/my-space
-  $ hf spaces logs username/my-space --build
-  $ hf spaces logs -f username/my-space
-  $ hf spaces logs -n 50 username/my-space
+  $ hf spaces search "generate image"
+  $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
+  $ hf spaces search "remove background from photo" --description --json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3623,7 +3644,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--create-pr / --no-create-pr`: Whether to upload content as a new Pull Request.  [default: no-create-pr]
 * `--every FLOAT`: If set, a background job is scheduled to create commits every `every` minutes.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--quiet / --no-quiet`: Disable progress bars and warnings; print only the returned path.  [default: no-quiet]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3664,6 +3685,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 * `--num-workers INTEGER`: Number of workers to use to hash, upload and commit files.
 * `--no-report / --no-no-report`: Whether to disable regular status report.  [default: no-no-report]
 * `--no-bars / --no-no-bars`: Whether to disable progress bars.  [default: no-no-bars]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples

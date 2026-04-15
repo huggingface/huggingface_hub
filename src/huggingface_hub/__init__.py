@@ -189,6 +189,7 @@ _SUBMOD_ATTRS = {
         "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
+        "SpaceSearchResult",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -323,6 +324,7 @@ _SUBMOD_ATTRS = {
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
+        "search_spaces",
         "set_space_sleep_time",
         "set_space_volumes",
         "space_info",
@@ -795,6 +797,7 @@ __all__ = [
     "SpaceHardware",
     "SpaceInfo",
     "SpaceRuntime",
+    "SpaceSearchResult",
     "SpaceStage",
     "SpaceStorage",
     "SpaceVariable",
@@ -1061,6 +1064,7 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "search_spaces",
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
@@ -1321,6 +1325,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
+        SpaceSearchResult,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1455,6 +1460,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
+        search_spaces,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
