@@ -1022,7 +1022,7 @@ class InferenceClient:
 
     def feature_extraction(
         self,
-        text: str,
+        text: str | list[str],
         *,
         normalize: bool | None = None,
         prompt_name: str | None = None,
@@ -1033,11 +1033,11 @@ class InferenceClient:
         model: str | None = None,
     ) -> "np.ndarray":
         """
-        Generate embeddings for a given text.
+        Generate embeddings for a given text or batch of texts.
 
         Args:
-            text (`str`):
-                The text to embed.
+            text (`str` or `list[str]`):
+                The text or list of texts to embed.
             model (`str`, *optional*):
                 The model to use for the feature extraction task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended feature extraction model will be used.
@@ -1064,7 +1064,7 @@ class InferenceClient:
                 Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
-            `np.ndarray`: The embedding representing the input text as a float32 numpy array.
+            `np.ndarray`: The embedding representing the input text(s) as a float32 numpy array.
 
         Raises:
             [`InferenceTimeoutError`]:
