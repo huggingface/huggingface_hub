@@ -101,12 +101,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import (
-    build_hf_headers,
-    get_session,
-    hf_raise_for_status,
-    validate_hf_hub_args,
-)
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, validate_hf_hub_args
 from huggingface_hub.utils._auth import get_token
 
 
@@ -136,7 +131,8 @@ class InferenceClient:
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"nvidia"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
-            Defaults to "auto" i.e. the fastest provider, use "preferred" to use the user's preferred provider, sorted by the user's order in https://hf.co/settings/inference-providers.
+            Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
+            switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
