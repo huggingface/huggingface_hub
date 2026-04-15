@@ -72,7 +72,7 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable, Volume
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -2904,6 +2904,65 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             yield SpaceInfo(**item)
+
+    @validate_hf_hub_args
+    def search_spaces(
+        self,
+        query: str,
+        *,
+        filter: str | Iterable[str] | None = None,
+        sdk: str | list[str] | None = None,
+        include_non_running: bool = False,
+        token: bool | str | None = None,
+    ) -> Iterable[SpaceSearchResult]:
+        """Search Spaces on the Hub using semantic search.
+
+        This endpoint uses semantic search (embedding-based) for multi-word queries
+        and full-text search for single-word queries.
+
+        Args:
+            query (`str`):
+                The search query string.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string tag or list of tags to filter by.
+            sdk (`str` or `list[str]`, *optional*):
+                Filter by SDK (e.g. `"gradio"`, `"docker"`, `"static"`).
+            include_non_running (`bool`, *optional*):
+                Whether to include non-running Spaces in results. Defaults to `False`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[SpaceSearchResult]`: an iterable of [`SpaceSearchResult`] objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> results = list(api.search_spaces("generate image"))
+            >>> results[0].id
+            'mrfakename/Z-Image-Turbo'
+            >>> results[0].ai_category
+            'Image Generation'
+            ```
+        """
+        path = f"{self.endpoint}/api/spaces/semantic-search"
+        headers = self._build_hf_headers(token=token)
+        params: dict[str, Any] = {"q": query}
+        if filter is not None:
+            params["filter"] = filter
+        if sdk is not None:
+            params["sdk"] = sdk
+        if include_non_running:
+            params["includeNonRunning"] = True
+
+        r = get_session().get(path, headers=headers, params=params)
+        hf_raise_for_status(r)
+        for item in r.json():
+            yield SpaceSearchResult(item)
 
     @validate_hf_hub_args
     def unlike(
@@ -13581,6 +13640,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+search_spaces = api.search_spaces
 space_info = api.space_info
 
 kernel_info = api.kernel_info

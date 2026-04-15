@@ -133,6 +133,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
 
+### SpaceSearchResult
+
+[[autodoc]] huggingface_hub._space_api.SpaceSearchResult
+
 ### TensorInfo
 
 [[autodoc]] huggingface_hub.utils.TensorInfo

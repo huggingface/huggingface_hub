@@ -3403,6 +3403,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
+* `search`: Search spaces on the Hub using semantic...
 * `volumes`: Manage volumes for a Space on the Hub.
 
 ### `hf spaces dev-mode`
@@ -3541,6 +3542,41 @@ $ hf spaces list [OPTIONS]
 Examples
   $ hf spaces ls --limit 10
   $ hf spaces ls --search "chatbot" --author huggingface
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces search`
+
+Search spaces on the Hub using semantic search.
+
+**Usage**:
+
+```console
+$ hf spaces search [OPTIONS] QUERY
+```
+
+**Arguments**:
+
+* `QUERY`: Search query.  [required]
+
+**Options**:
+
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--sdk TEXT`: Filter by SDK (e.g. gradio, docker, static).
+* `--include-non-running / --no-include-non-running`: Include non-running spaces in results.  [default: no-include-non-running]
+* `--description / --no-description`: Show AI-generated descriptions.  [default: no-description]
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces search "generate image"
+  $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
+  $ hf spaces search "remove background from photo" --description --json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
