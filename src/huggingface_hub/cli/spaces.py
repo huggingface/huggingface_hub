@@ -531,7 +531,7 @@ def volumes_set(
         raise CLIError("At least one volume must be specified with -v/--volume.")
     api = get_hf_api(token=token)
     api.set_space_volumes(space_id, volumes=volumes)
-    out.result("Volumes set", space_id=space_id, volumes=[v.to_str() for v in volumes])
+    out.result("Volumes set", space_id=space_id, volumes=[v.to_hf_handle() for v in volumes])
     out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
 
 
