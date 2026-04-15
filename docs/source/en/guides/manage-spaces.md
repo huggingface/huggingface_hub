@@ -12,7 +12,7 @@ In this guide, we will see how to manage your Space runtime
 
 Here is an end-to-end example to create and set up a Space on the Hub.
 
-**1. Create a Space on the Hub.**
+### Create a Space on the Hub
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -23,7 +23,7 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
-**1. (bis) Duplicate a Space.**
+### Duplicate a Space
 
 This can prove useful if you want to build up from an existing Space instead of starting from scratch.
 It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_repo`] for more details.
@@ -32,7 +32,7 @@ It is also useful is you want control over the configuration/settings of a publi
 >>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
-**2. Upload your code using your preferred solution.**
+### Upload your code using your preferred solution
 
 Here is an example to upload the local folder `src/` from your machine to your Space:
 
@@ -43,7 +43,7 @@ Here is an example to upload the local folder `src/` from your machine to your S
 At this step, your app should already be running on the Hub for free !
 However, you might want to configure it further with secrets and upgraded hardware.
 
-**3. Configure secrets and variables**
+### Configure secrets and variables
 
 Your Space might require some secret keys, token or variables to work.
 See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
@@ -90,7 +90,7 @@ Secrets and variables can be set when creating or duplicating a space:
 ... )
 ```
 
-**4. Configure the hardware**
+### Configure the hardware
 
 By default, your Space will run on a CPU environment for free. You can upgrade the hardware
 to run it on GPUs. A payment card or a community grant is required to access upgrade your
@@ -144,7 +144,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 
-**5. Pause and restart your Space**
+### Pause and restart your Space
 
 By default if your Space is running on an upgraded hardware, it will never be stopped. However to avoid getting billed,
 you might want to pause it when you are not using it. This is possible using [`pause_space`]. A paused Space will be
@@ -199,7 +199,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 
-**6. Mount volumes in your Space**
+### Mount volumes in your Space
 
 You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code. Volumes can be set directly when creating or duplicating a Space:
 
