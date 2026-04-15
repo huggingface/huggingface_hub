@@ -161,15 +161,11 @@ class Volume:
             data["path"] = self.path
         return data
 
-    def to_hf_handle(self) -> str:
-        """Return the volume as an HF handle in the format expected by the CLI."""
-        return (
-            f"hf://{self.type}s/{self.source}"
-            f"{'@' + self.revision if self.revision else ''}"
-            f"{'/' + self.path if self.path else ''}"
-            f":{self.mount_path}"
-            f"{':ro' if self.read_only else ':rw' if self.read_only is False else ''}"
-        )
+  def to_hf_handle(self) -> str:
+      """Return the volume as an HF handle in the format expected by the CLI."""
+      path = f"/{self.path}" if self.path else ""
+      ro = {True: ":ro", False: ":rw"}.get(self.read_only, "")
+      return f"hf://{self.type}s/{self.source}{path}:{self.mount_path}{ro}"
 
 
 @dataclass
