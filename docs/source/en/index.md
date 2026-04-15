@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # 🤗 Hub client library
 
-<!-- TEST MARKER: moon-ci-docs bucket serving validation 2026-04-15 -->
+> 🧪 **moon-ci-docs bucket validation marker (2026-04-15)** — this PR is a test of the new HF bucket-backed doc serving; it will not be merged.
 
 The `huggingface_hub` library allows you to interact with the [Hugging Face
 Hub](https://hf.co), a machine learning platform for creators and collaborators.
