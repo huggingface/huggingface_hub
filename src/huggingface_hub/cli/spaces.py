@@ -263,14 +263,11 @@ def spaces_logs(
         )
 
     api = get_hf_api(token=token)
-    try:
-        logs = api.fetch_space_logs(space_id, build=build, follow=follow)
-        if tail is not None:
-            logs = deque(logs, maxlen=tail)
-        for line in logs:
-            out.text(line.strip())
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Space '{space_id}' not found.") from e
+    logs = api.fetch_space_logs(space_id, build=build, follow=follow)
+    if tail is not None:
+        logs = deque(logs, maxlen=tail)
+    for line in logs:
+        out.text(line.strip())
 
 
 @spaces_cli.command(
