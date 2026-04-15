@@ -3403,6 +3403,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
+* `logs`: Fetch the run or build logs of a Space.
 * `search`: Search spaces on the Hub using semantic...
 
 ### `hf spaces dev-mode`
@@ -3541,6 +3542,44 @@ $ hf spaces list [OPTIONS]
 Examples
   $ hf spaces ls --limit 10
   $ hf spaces ls --search "chatbot" --author huggingface
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces logs`
+
+Fetch the run or build logs of a Space.
+
+By default, prints currently available run logs and exits (non-blocking, like
+`docker logs`). Use --follow/-f to stream until the server closes the stream.
+Use --build to see the container build logs instead (useful when a Space is
+stuck in BUILD_ERROR).
+
+**Usage**:
+
+```console
+$ hf spaces logs [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--build`: Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.
+* `-f, --follow`: Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces logs username/my-space
+  $ hf spaces logs username/my-space --build
+  $ hf spaces logs -f username/my-space
+  $ hf spaces logs -n 50 username/my-space
 
 Learn more
   Use `hf <command> --help` for more information about a command.

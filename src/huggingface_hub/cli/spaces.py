@@ -313,8 +313,14 @@ def spaces_logs(
     logs = api.fetch_space_logs(space_id, build=build, follow=follow)
     if tail is not None:
         logs = deque(logs, maxlen=tail)
+    found_logs = False
     for line in logs:
-        out.text(line.strip())
+        clean_line = line.strip()
+        out.text(clean_line)
+        if clean_line:
+            found_logs = True
+    if not found_logs and not build:
+        out.hint(f"No run logs found for space {space_id}. Try passing --build to fetch build logs instead.")
 
 
 @spaces_cli.command(

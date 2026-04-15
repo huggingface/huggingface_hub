@@ -2081,6 +2081,26 @@ class TestSpacesLogsCommand:
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
+    def test_logs_empty_run_logs_shows_build_hint(self, runner: CliRunner) -> None:
+        """Empty run logs trigger a hint suggesting --build."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter([])
+            result = runner.invoke(app, ["spaces", "logs", "user/my-space"])
+        assert result.exit_code == 0
+        assert "No run logs found for space user/my-space" in result.output
+        assert "--build" in result.output
+
+    def test_logs_empty_build_logs_no_hint(self, runner: CliRunner) -> None:
+        """Empty build logs do NOT trigger the run-logs hint."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter([])
+            result = runner.invoke(app, ["spaces", "logs", "user/my-space", "--build"])
+        assert result.exit_code == 0
+        assert "No run logs found" not in result.output
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})

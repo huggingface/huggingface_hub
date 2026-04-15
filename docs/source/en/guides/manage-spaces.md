@@ -195,7 +195,7 @@ it will go to sleep. Any visitor landing on your Space will start it back up. Yo
 Note: if you are using a 'cpu-basic' hardware, you cannot configure a custom sleep time. Your Space will automatically
 be paused after 48h of inactivity.
 
-**5b. Debug a failing Space by reading its logs**
+### Debug a failing Space by reading its logs
 
 When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where opening a browser is not an option.
 
