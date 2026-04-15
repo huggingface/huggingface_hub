@@ -12214,7 +12214,7 @@ class HfApi:
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
 
-        self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token)
+        self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
 
         add_ops: list[tuple[str | Path | bytes, str]] = [
             (Path(local_path), f"{subfolder_id}/{remote_name}")
