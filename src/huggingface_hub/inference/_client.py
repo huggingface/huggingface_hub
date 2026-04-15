@@ -101,7 +101,12 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._providers import PROVIDER_OR_POLICY_T, get_provider_helper
-from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status, validate_hf_hub_args
+from huggingface_hub.utils import (
+    build_hf_headers,
+    get_session,
+    hf_raise_for_status,
+    validate_hf_hub_args,
+)
 from huggingface_hub.utils._auth import get_token
 
 
