@@ -4,6 +4,8 @@ rendered properly in your Markdown viewer.
 
 # 🤗 Hub client library
 
+<!-- TEST MARKER: moon-ci-docs bucket serving validation 2026-04-15 -->
+
 The `huggingface_hub` library allows you to interact with the [Hugging Face
 Hub](https://hf.co), a machine learning platform for creators and collaborators.
 Discover pre-trained models and datasets for your projects or play with the hundreds of
