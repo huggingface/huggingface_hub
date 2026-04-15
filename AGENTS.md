@@ -121,4 +121,4 @@ If CI fails on type checks that pass locally, the likely cause is a newer `ty` v
 
 - **Commit message prefix**: use `[Area]` prefix matching the scope, e.g. `[CLI] Add ...`, `[CLI] Fix ...`, `[Inference] ...`.
 - **PR title**: short (under 70 chars), same `[Area]` prefix convention.
-- **PR description**: keep it casual. Include a `## Summary` with a few bullet points and real CLI/code **examples** from manual testing (copy-paste terminal output). No need for a formal "Test plan" section.
+- **PR description**: keep it casual. Include a `## Summary` with a few bullet points and real CLI/code **examples** from manual testing (copy-paste terminal output). No need for a formal "Test plan" section. It is important to document any decision taken in the PR or instructions provided in the prompt while working on the PR, ideally with the rational behind it.
