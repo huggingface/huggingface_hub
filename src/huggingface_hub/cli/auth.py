@@ -148,6 +148,16 @@ def auth_list_cmd() -> None:
     auth_list()
 
 
+@auth_cli.command("token", examples=["hf auth token", "hf auth token | xargs curl -H 'Authorization: Bearer {}'"])
+def auth_token() -> None:
+    """Print the current access token to stdout."""
+    token = get_token()
+    if token is None:
+        out.error("Not logged in. Run `hf auth login` first.")
+        raise typer.Exit(code=1)
+    print(token)
+
+
 @auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
 def auth_whoami(
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,

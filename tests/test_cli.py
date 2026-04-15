@@ -1658,6 +1658,21 @@ class TestAuthWhoamiCommand:
         assert "Not logged in" in result.output
 
 
+class TestAuthTokenCommand:
+    def test_token_prints_to_stdout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_HubCITokenXXXXXXXXXXXXXXXXXXXXX"):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == "hf_HubCITokenXXXXXXXXXXXXXXXXXXXXX"
+
+    def test_token_not_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
+        assert "hf auth login" in result.output
+
+
 class TestModelsLsCommand:
     def test_models_ls_basic(self, runner: CliRunner) -> None:
         repo = ModelInfo(
