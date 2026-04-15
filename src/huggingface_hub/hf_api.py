@@ -2327,8 +2327,8 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @validate_hf_hub_args
     @_deprecate_arguments(version="2.0", deprecated_args=["model_name"], custom_message="Use `search` instead.")
+    @validate_hf_hub_args
     def list_models(
         self,
         *,
