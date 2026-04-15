@@ -90,6 +90,8 @@ Entry point: `hf.py` (Typer app). Subcommands split into modules: `auth.py`, `re
 
 **Output** (from `_output.py` — use the `out` singleton):
 
+Convention: stderr for prompts/warnings, stdout for data. Warnings go to stderr even in quiet/json modes.
+
 - `out.table(items)` — list results (auto-formats as padded table / TSV / JSON depending on `--format`).
 - `out.dict(data)` — single-item detail view.
 - `out.result("Message", key=value, ...)` — success summary with green checkmark.
@@ -122,3 +124,21 @@ If CI fails on type checks that pass locally, the likely cause is a newer `ty` v
 - **Commit message prefix**: use `[Area]` prefix matching the scope, e.g. `[CLI] Add ...`, `[CLI] Fix ...`, `[Inference] ...`.
 - **PR title**: short (under 70 chars), same `[Area]` prefix convention.
 - **PR description**: keep it casual. Include a `## Summary` with a few bullet points and real CLI/code **examples** from manual testing (copy-paste terminal output). No need for a formal "Test plan" section. Call out breaking changes explicitly if any. It is important to document any decision taken in the PR or instructions provided in the prompt while working on the PR, ideally with the rationale behind it.
+
+## Code conventions
+
+### Simplicity is the #1 priority
+
+- No premature abstractions. No unnecessary generalization.
+- Don't implement features until they're actually needed.
+- Don't accept parameters without a use case.
+- No redundant `try`/`except` - don't catch errors already handled up the call stack.
+- Prefer strictness now, relax later.
+
+### Follow Python 3.10+ idioms
+
+- `match`/`case` over `if`/`elif` chains when dispatching on a value.
+- `str | None` not `Optional[str]`.
+- f-strings over `.format()` or `%`.
+- Walrus operator (`:=`) when it improves readability.
+- Comprehensions over `map`/`filter` with lambdas.
