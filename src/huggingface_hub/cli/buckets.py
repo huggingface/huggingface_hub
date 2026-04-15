@@ -426,7 +426,7 @@ def _list_files(
             else:
                 print(item.path)
     else:
-        # Flat ls -l-like format (human and agent modes)
+        # Flat table format
         for item in items:
             if isinstance(item, BucketFolder):
                 mtime_str = _format_mtime(item.uploaded_at, human_readable)
