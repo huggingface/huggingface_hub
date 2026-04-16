@@ -40,7 +40,6 @@ from .utils import (
     hf_raise_for_status,
     logging,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
     tqdm,
     validate_hf_hub_args,
 )
@@ -462,6 +461,7 @@ def xet_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _tqdm_bar: tqdm | None = None,
+    xet_session=None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -509,26 +509,12 @@ def xet_get(
 
     """
     try:
-        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo, XetSession  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
             'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
         )
-
-    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-
-    def token_refresher() -> tuple[str, int]:
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-        if connection_info is None:
-            raise ValueError("Failed to refresh token using xet metadata.")
-        return connection_info.access_token, connection_info.expiration_unix_epoch
-
-    xet_download_info = [
-        PyXetDownloadInfo(
-            destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size
-        )
-    ]
 
     if not displayed_filename:
         displayed_filename = incomplete_path.name
@@ -550,19 +536,25 @@ def xet_get(
     xet_headers = headers.copy()
     xet_headers.pop("authorization", None)
 
+    session = xet_session or XetSession()
+
     with progress_cm as progress:
+        _prev = [0]
 
-        def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
+        def _on_progress(group_report, _):
+            current = group_report.total_bytes_completed
+            progress.update(max(0, current - _prev[0]))
+            _prev[0] = current
 
-        download_files(
-            xet_download_info,
-            endpoint=connection_info.endpoint,
-            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-            token_refresher=token_refresher,
-            progress_updater=[progress_updater],
-            request_headers=xet_headers,
+        group = (
+            session.new_file_download_group()
+            .with_token_refresh_url(xet_file_data.refresh_route, headers)
+            .with_custom_headers(xet_headers)
+            .with_progress_callback(_on_progress)
+            .build()
         )
+        group.download_file(XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute()))
+        group.finish()
 
 
 def _normalize_etag(etag: str | None) -> str | None:
@@ -759,6 +751,7 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[False] = False,
+    xet_session=None,
 ) -> str: ...
 
 
@@ -783,6 +776,7 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[True] = True,
+    xet_session=None,
 ) -> DryRunFileInfo: ...
 
 
@@ -807,6 +801,7 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
+    xet_session=None,
 ) -> str | DryRunFileInfo: ...
 
 
@@ -831,6 +826,7 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
+    xet_session=None,
 ) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
 
@@ -992,6 +988,7 @@ def hf_hub_download(
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            xet_session=xet_session,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -1012,6 +1009,7 @@ def hf_hub_download(
             force_download=force_download,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            xet_session=xet_session,
         )
 
 
@@ -1034,6 +1032,7 @@ def _hf_hub_download_to_cache_dir(
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    xet_session=None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
@@ -1224,6 +1223,7 @@ def _hf_hub_download_to_cache_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            xet_session=xet_session,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1251,6 +1251,7 @@ def _hf_hub_download_to_local_dir(
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    xet_session=None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
@@ -1435,6 +1436,7 @@ def _hf_hub_download_to_local_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            xet_session=xet_session,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1800,6 +1802,7 @@ def _download_to_tmp_and_move(
     etag: str | None,
     xet_file_data: XetFileData | None,
     tqdm_class: type[base_tqdm] | None = None,
+    xet_session=None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1846,6 +1849,7 @@ def _download_to_tmp_and_move(
                 expected_size=expected_size,
                 displayed_filename=filename,
                 tqdm_class=tqdm_class,
+                xet_session=xet_session,
             )
         else:
             if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
