@@ -5194,11 +5194,11 @@ class HfApi:
             "revision": revision if not create_pr else None,
         }
         _upload_files(
-            **upload_kwargs,
+            **upload_kwargs,  # type: ignore[arg-type]
             num_threads=num_threads,
             create_pr=create_pr,
             xet_session=self._get_or_create_xet_session(),
-        )  # type: ignore [arg-type]
+        )
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
