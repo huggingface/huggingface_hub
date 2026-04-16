@@ -76,6 +76,7 @@ class ReloadClient:
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
                     yield json.loads(event.data)
+        return None
 
 
 def multi_replica_reload_events(
