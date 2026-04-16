@@ -49,12 +49,17 @@ from ._cli_utils import (
     print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
 
 
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
+
+
+def _is_hf_handle(path: str) -> bool:
+    return path.startswith("hf://")
 
 
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
@@ -554,11 +559,7 @@ def delete(
             f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
 
-    if not yes:
-        confirm = typer.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Abort()
+    out.confirm(f"Are you sure you want to delete bucket '{bucket_id}'?", yes=yes)
 
     api = get_hf_api(token=token)
     api.delete_bucket(bucket_id, missing_ok=missing_ok)
@@ -683,10 +684,7 @@ def remove(
             if not quiet:
                 for path in file_paths:
                     print(f"  {path}")
-            confirm = typer.confirm(f"Remove {count_label} from '{bucket_id}'?")
-            if not confirm:
-                print("Aborted.")
-                raise typer.Abort()
+            out.confirm(f"Remove {count_label} from '{bucket_id}'?", yes=False)
 
         if dry_run:
             for path in file_paths:
@@ -713,11 +711,7 @@ def remove(
             print("(dry run) 1 file would be removed.")
             return
 
-        if not yes:
-            confirm = typer.confirm(f"Remove '{file_path}' from '{bucket_id}'?")
-            if not confirm:
-                print("Aborted.")
-                raise typer.Abort()
+        out.confirm(f"Remove '{file_path}' from '{bucket_id}'?", yes=yes)
 
         api.batch_bucket_files(bucket_id, delete=[file_path])
         if quiet:
@@ -928,28 +922,48 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
+        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/",
+        "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
     ],
 )
 def cp(
-    src: Annotated[str, typer.Argument(help="Source: local file, hf://buckets/... path, or - for stdin")],
+    src: Annotated[
+        str, typer.Argument(help="Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin")
+    ],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, hf://buckets/... path, or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
     ] = None,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
-    """Copy a single file to or from a bucket."""
+    """Copy files to or from buckets."""
     api = get_hf_api(token=token)
 
+    src_is_hf = _is_hf_handle(src)
+    dst_is_hf = dst is not None and _is_hf_handle(dst)
     src_is_bucket = _is_bucket_path(src)
     dst_is_bucket = dst is not None and _is_bucket_path(dst)
     src_is_stdin = src == "-"
     dst_is_stdout = dst == "-"
 
-    # --- Validation ---
-    if src_is_bucket and dst_is_bucket:
-        raise typer.BadParameter("Remote-to-remote copy not supported.")
+    # Remote to remote copy
+    if src_is_hf and dst_is_hf:
+        if quiet:
+            disable_progress_bars()
+        try:
+            api.copy_files(src, dst)  # type: ignore
+        except ValueError as e:
+            raise typer.BadParameter(str(e))
+        finally:
+            if quiet:
+                enable_progress_bars()
 
+        if not quiet:
+            print(f"Copied: {src} -> {dst}")
+        return
+
+    # Local to remote copy
+    # --- Validation ---
     if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
         if dst is None:
             raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")

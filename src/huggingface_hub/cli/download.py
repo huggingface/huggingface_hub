@@ -43,13 +43,13 @@ from typing import Annotated
 
 import typer
 
-from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
-from huggingface_hub.utils import _format_size, disable_progress_bars, enable_progress_bars, tabulate
+from huggingface_hub.utils import _format_size
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._output import OutputFormatWithAuto, out
 
 
 DOWNLOAD_EXAMPLES = [
@@ -59,9 +59,6 @@ DOWNLOAD_EXAMPLES = [
     "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
     "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
 ]
-
-
-logger = logging.get_logger(__name__)
 
 
 def download(
@@ -111,18 +108,13 @@ def download(
         ),
     ] = False,
     token: TokenOpt = None,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            help="If True, progress bars are disabled and only the path to the download files is printed.",
-        ),
-    ] = False,
     max_workers: Annotated[
         int,
         typer.Option(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Download files from the Hub."""
 
@@ -198,27 +190,25 @@ def download(
 
     def _print_result(result: str | DryRunFileInfo | list[DryRunFileInfo]) -> None:
         if isinstance(result, str):
-            print(result)
+            out.result("Downloaded", path=result)
             return
 
         # Print dry run info
         if isinstance(result, DryRunFileInfo):
             result = [result]
-        print(
-            f"[dry-run] Will download {len([r for r in result if r.will_download])} files (out of {len(result)}) totalling {_format_size(sum(r.file_size for r in result if r.will_download))}."
+        will_download = [r for r in result if r.will_download]
+        out.text(
+            f"[dry-run] Will download {len(will_download)} files"
+            f" (out of {len(result)})"
+            f" totalling {_format_size(sum(r.file_size for r in will_download))}."
         )
-        columns = ["File", "Bytes to download"]
-        items: list[list[str | int]] = []
-        for info in sorted(result, key=lambda x: x.filename):
-            items.append([info.filename, _format_size(info.file_size) if info.will_download else "-"])
-        print(tabulate(items, headers=columns))
+        items = [
+            {
+                "file": info.filename,
+                "size": _format_size(info.file_size) if info.will_download else "-",
+            }
+            for info in sorted(result, key=lambda x: x.filename)
+        ]
+        out.table(items)
 
-    if quiet:
-        disable_progress_bars()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            _print_result(run_download())
-        enable_progress_bars()
-    else:
-        _print_result(run_download())
-        logging.set_verbosity_warning()
+    _print_result(run_download())

@@ -26,6 +26,7 @@ Usage:
 
 import enum
 import functools
+import itertools
 import os
 import shlex
 import shutil
@@ -33,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import deque
 from pathlib import Path
 from typing import Annotated, Literal, get_args
 
@@ -56,9 +58,11 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    VolumesOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
+    parse_volumes,
     typer_factory,
 )
 from ._output import OutputFormatWithAuto, out
@@ -81,6 +85,8 @@ ExpandOpt = Annotated[
 ]
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
+volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
+spaces_cli.add_typer(volumes_cli, name="volumes")
 
 
 @spaces_cli.command(
@@ -143,6 +149,52 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     out.dict(info)
+
+
+@spaces_cli.command(
+    "search",
+    examples=[
+        'hf spaces search "generate image"',
+        'hf spaces search "identify objects in pictures" --sdk gradio --limit 5',
+        'hf spaces search "remove background from photo" --description --json',
+    ],
+)
+def spaces_search(
+    query: Annotated[str, typer.Argument(help="Search query.")],
+    filter: FilterOpt = None,
+    sdk: Annotated[list[str] | None, typer.Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
+    include_non_running: Annotated[bool, typer.Option(help="Include non-running spaces in results.")] = False,
+    description: Annotated[bool, typer.Option(help="Show AI-generated descriptions.")] = False,
+    limit: LimitOpt = 10,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Search spaces on the Hub using semantic search."""
+    api = get_hf_api(token=token)
+    results = api.search_spaces(
+        query=query,
+        filter=filter,
+        sdk=sdk,
+        include_non_running=include_non_running,
+        token=token,
+    )
+    items = []
+    for r in itertools.islice(results, limit):
+        item: dict = {
+            "id": r.id,
+            "title": r.title,
+            "sdk": r.sdk,
+            "likes": r.likes,
+            "stage": r.runtime.stage if r.runtime else None,
+            "category": r.ai_category,
+            "score": round(r.semantic_relevancy_score, 2) if r.semantic_relevancy_score is not None else None,
+        }
+        if description:
+            item["description"] = r.ai_short_description
+        items.append(item)
+    out.table(items)
+    if not description:
+        out.hint("Use --description to show AI-generated descriptions.")
 
 
 @spaces_cli.command(
@@ -212,6 +264,68 @@ def dev_mode(
     print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
+
+
+@spaces_cli.command(
+    "logs",
+    examples=[
+        "hf spaces logs username/my-space",
+        "hf spaces logs username/my-space --build",
+        "hf spaces logs -f username/my-space",
+        "hf spaces logs -n 50 username/my-space",
+    ],
+)
+def spaces_logs(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    build: Annotated[
+        bool,
+        typer.Option(
+            "--build",
+            help="Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.",
+        ),
+    ] = False,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        int | None,
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Fetch the run or build logs of a Space.
+
+    By default, prints currently available run logs and exits (non-blocking, like
+    `docker logs`). Use --follow/-f to stream until the server closes the stream.
+    Use --build to see the container build logs instead (useful when a Space is
+    stuck in BUILD_ERROR).
+    """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
+    api = get_hf_api(token=token)
+    logs = api.fetch_space_logs(space_id, build=build, follow=follow)
+    if tail is not None:
+        logs = deque(logs, maxlen=tail)
+    found_logs = False
+    for line in logs:
+        clean_line = line.strip()
+        out.text(clean_line)
+        if clean_line:
+            found_logs = True
+    if not found_logs and not build:
+        out.hint(f"No run logs found for space {space_id}. Try passing --build to fetch build logs instead.")
 
 
 @spaces_cli.command(
@@ -462,3 +576,80 @@ def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
+
+
+@volumes_cli.command(
+    "list | ls",
+    examples=[
+        "hf spaces volumes ls username/my-space",
+    ],
+)
+def volumes_ls(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """List volumes mounted in a Space."""
+    api = get_hf_api(token=token)
+    info = api.space_info(space_id)
+    if info.runtime is None:
+        raise CLIError(f"Runtime not available for Space '{space_id}'.")
+    volumes = info.runtime.volumes or []
+    items = [api_object_to_dict(v) for v in volumes]
+    out.table(items)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )
+
+
+@volumes_cli.command(
+    "set",
+    examples=[
+        "hf spaces volumes set username/my-space -v hf://models/username/my-model:/models",
+        "hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro",
+    ],
+)
+def volumes_set(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    volume: VolumesOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Set (replace) volumes for a Space."""
+    volumes = parse_volumes(volume)
+    if not volumes:
+        raise CLIError("At least one volume must be specified with -v/--volume.")
+    api = get_hf_api(token=token)
+    api.set_space_volumes(space_id, volumes=volumes)
+    out.result("Volumes set", space_id=space_id, volumes=[v.to_hf_handle() for v in volumes])
+    out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
+
+
+@volumes_cli.command(
+    "delete",
+    examples=[
+        "hf spaces volumes delete username/my-space",
+        "hf spaces volumes delete username/my-space --yes",
+    ],
+)
+def volumes_delete(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Remove all volumes from a Space."""
+    out.confirm(f"You are about to remove all volumes from Space '{space_id}'. Proceed?", yes=yes)
+    api = get_hf_api(token=token)
+    api.delete_space_volumes(space_id)
+    out.result("Volumes deleted", space_id=space_id)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )

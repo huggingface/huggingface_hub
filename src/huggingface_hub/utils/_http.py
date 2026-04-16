@@ -300,12 +300,12 @@ def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
     """
     Set the HTTP client factory to be used by `huggingface_hub`.
 
-    The client factory is a method that returns a `httpx.Client` object. On the first call to [`get_client`] the client factory
+    The client factory is a method that returns a `httpx.Client` object. On the first call to [`get_session`] the client factory
     will be used to create a new `httpx.Client` object that will be shared between all calls made by `huggingface_hub`.
 
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
 
-    Use [`get_client`] to get a correctly configured `httpx.Client`.
+    Use [`get_session`] to get a correctly configured `httpx.Client`.
     """
     global _GLOBAL_CLIENT_FACTORY
     with _CLIENT_LOCK:
@@ -774,26 +774,17 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
-            revision_err = _format(RevisionNotFoundError, message, response)
-            revision_err.repo_type = repo_type
-            revision_err.repo_id = repo_id
-            raise revision_err from e
+            raise _format(RevisionNotFoundError, message, response, repo_type=repo_type, repo_id=repo_id) from e
 
         elif error_code == "EntryNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
-            entry_err = _format(RemoteEntryNotFoundError, message, response)
-            entry_err.repo_type = repo_type
-            entry_err.repo_id = repo_id
-            raise entry_err from e
+            raise _format(RemoteEntryNotFoundError, message, response, repo_type=repo_type, repo_id=repo_id) from e
 
         elif error_code == "GatedRepo":
             message = (
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
-            gated_err = _format(GatedRepoError, message, response)
-            gated_err.repo_type = repo_type
-            gated_err.repo_id = repo_id
-            raise gated_err from e
+            raise _format(GatedRepoError, message, response, repo_type=repo_type, repo_id=repo_id) from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
@@ -817,9 +808,9 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 + "\nPlease make sure you specified the correct bucket id (namespace/name)."
                 + "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
             )
-            bucket_err = _format(BucketNotFoundError, message, response)
-            bucket_err.bucket_id = _parse_bucket_id_from_url(request_url)
-            raise bucket_err from e
+            raise _format(
+                BucketNotFoundError, message, response, bucket_id=_parse_bucket_id_from_url(request_url)
+            ) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
@@ -841,10 +832,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 " make sure you are authenticated and your token has the required permissions."
                 + "\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication"
             )
-            repo_err = _format(RepositoryNotFoundError, message, response)
-            repo_err.repo_type = repo_type
-            repo_err.repo_id = repo_id
-            raise repo_err from e
+            raise _format(RepositoryNotFoundError, message, response, repo_type=repo_type, repo_id=repo_id) from e
 
         elif response.status_code == 400:
             message = (
@@ -919,7 +907,9 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
 _HfHubHTTPErrorT = TypeVar("_HfHubHTTPErrorT", bound=HfHubHTTPError)
 
 
-def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response) -> _HfHubHTTPErrorT:
+def _format(
+    error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response, **attrs: Any
+) -> _HfHubHTTPErrorT:
     server_errors = []
 
     # Retrieve server error from header
@@ -1009,7 +999,10 @@ def _format(error_type: type[_HfHubHTTPErrorT], custom_message: str, response: h
             final_error_message += request_id_message
 
     # Return
-    return error_type(final_error_message.strip(), response=response, server_message=server_message or None)
+    err = error_type(final_error_message.strip(), response=response, server_message=server_message or None)
+    for k, v in attrs.items():
+        setattr(err, k, v)
+    return err
 
 
 def _curlify(request: httpx.Request) -> str:

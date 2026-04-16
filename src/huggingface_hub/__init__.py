@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.10.0.dev0"
+__version__ = "1.12.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -182,12 +182,14 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
         "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
+        "SpaceSearchResult",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -203,6 +205,7 @@ _SUBMOD_ATTRS = {
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
+        "copy_files",
         "create_branch",
         "create_bucket",
         "create_collection",
@@ -242,6 +245,7 @@ _SUBMOD_ATTRS = {
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
+        "fetch_space_logs",
         "file_exists",
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
@@ -264,6 +268,7 @@ _SUBMOD_ATTRS = {
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
+        "kernel_info",
         "list_accepted_access_requests",
         "list_bucket_tree",
         "list_buckets",
@@ -319,6 +324,7 @@ _SUBMOD_ATTRS = {
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
+        "search_spaces",
         "set_space_sleep_time",
         "set_space_volumes",
         "space_info",
@@ -756,6 +762,7 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -790,6 +797,7 @@ __all__ = [
     "SpaceHardware",
     "SpaceInfo",
     "SpaceRuntime",
+    "SpaceSearchResult",
     "SpaceStage",
     "SpaceStorage",
     "SpaceVariable",
@@ -903,6 +911,7 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
+    "copy_files",
     "create_branch",
     "create_bucket",
     "create_collection",
@@ -946,6 +955,7 @@ __all__ = [
     "export_folder_as_dduf",
     "fetch_job_logs",
     "fetch_job_metrics",
+    "fetch_space_logs",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
@@ -981,6 +991,7 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
+    "kernel_info",
     "list_accepted_access_requests",
     "list_bucket_tree",
     "list_buckets",
@@ -1053,6 +1064,7 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "search_spaces",
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
@@ -1306,12 +1318,14 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
         RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
+        SpaceSearchResult,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1327,6 +1341,7 @@ if TYPE_CHECKING:  # pragma: no cover
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
+        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
@@ -1366,6 +1381,7 @@ if TYPE_CHECKING:  # pragma: no cover
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
+        fetch_space_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
@@ -1388,6 +1404,7 @@ if TYPE_CHECKING:  # pragma: no cover
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
+        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_bucket_tree,  # noqa: F401
         list_buckets,  # noqa: F401
@@ -1443,6 +1460,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
+        search_spaces,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401

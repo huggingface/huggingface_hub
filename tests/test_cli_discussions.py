@@ -82,12 +82,12 @@ def test_list_discussions(repo_with_discussion: tuple):
     repo_id, _, _ = repo_with_discussion
     result = cli(f"hf discussions list {repo_id}")
     assert result.exit_code == 0, result.output
-    assert "#" in result.output
+    assert "Test discussion" in result.output
 
 
 def test_list_discussions_quiet(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(disc_num) in nums
@@ -107,7 +107,7 @@ def test_list_discussions_json(repo_with_discussion: tuple):
 
 def test_list_filter_kind_discussion(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --kind discussion --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --kind discussion --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(disc_num) in nums
@@ -116,7 +116,7 @@ def test_list_filter_kind_discussion(repo_with_discussion: tuple):
 
 def test_list_filter_kind_pull_request(repo_with_discussion: tuple):
     repo_id, disc_num, pr_num = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status all --kind pull_request --quiet")
+    result = cli(f"hf discussions list {repo_id} --status all --kind pull_request --format quiet")
     assert result.exit_code == 0, result.output
     nums = result.output.strip().splitlines()
     assert str(pr_num) in nums
@@ -125,7 +125,7 @@ def test_list_filter_kind_pull_request(repo_with_discussion: tuple):
 
 def test_list_filter_status_closed(repo_with_discussion: tuple):
     repo_id, _, _ = repo_with_discussion
-    result = cli(f"hf discussions list {repo_id} --status closed --quiet")
+    result = cli(f"hf discussions list {repo_id} --status closed --format quiet")
     assert result.exit_code == 0
     # All our test discussions are open, so closed should return nothing
     assert result.output.strip() == ""
@@ -140,33 +140,19 @@ def test_info_discussion(repo_with_discussion: tuple):
     repo_id, disc_num, _ = repo_with_discussion
     result = cli(f"hf discussions info {repo_id} {disc_num}")
     assert result.exit_code == 0, result.output
-    assert "Test discussion" in result.output
-    assert f"#{disc_num}" in result.output
-    assert "View on Hub:" in result.output
+    data = json.loads(result.output)
+    assert data["num"] == disc_num
+    assert data["title"] == "Test discussion"
 
 
 def test_info_pr(repo_with_discussion: tuple):
     repo_id, _, pr_num = repo_with_discussion
     result = cli(f"hf discussions info {repo_id} {pr_num}")
     assert result.exit_code == 0, result.output
-    assert "Test PR" in result.output
-    assert "Pull Request" in result.output
-
-
-def test_info_json(repo_with_discussion: tuple):
-    repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions info {repo_id} {disc_num} --format json")
-    assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["num"] == disc_num
-    assert data["title"] == "Test discussion"
-
-
-def test_info_no_color(repo_with_discussion: tuple):
-    repo_id, disc_num, _ = repo_with_discussion
-    result = cli(f"hf discussions info {repo_id} {disc_num} --no-color")
-    assert result.exit_code == 0, result.output
-    assert "\u001b[" not in result.output
+    assert data["num"] == pr_num
+    assert data["title"] == "Test PR"
+    assert data["is_pull_request"] is True
 
 
 # =============================================================================
@@ -266,9 +252,10 @@ def test_close_with_comment(api: HfApi, repo_for_write: str):
 
 def test_close_requires_confirmation(api: HfApi, repo_for_write: str):
     discussion = api.create_discussion(repo_id=repo_for_write, title="Close confirm test")
-    result = cli(f"hf discussions close {repo_for_write} {discussion.num}", input="n\n")
-    assert result.exit_code == 0
-    assert "Aborted" in result.output
+
+    result = cli(f"hf discussions close {repo_for_write} {discussion.num} --format agent")
+    assert result.exit_code != 0
+    assert "Use --yes" in str(result.exception)
 
     details = api.get_discussion_details(repo_id=repo_for_write, discussion_num=discussion.num)
     assert details.status == "open"
@@ -329,9 +316,10 @@ def test_merge_requires_confirmation(api: HfApi, repo_for_write: str):
         commit_message="Merge confirm test PR",
     )
     pr_num = int(commit.pr_url.split("/")[-1])
-    result = cli(f"hf discussions merge {repo_for_write} {pr_num}", input="n\n")
-    assert result.exit_code == 0
-    assert "Aborted" in result.output
+
+    result = cli(f"hf discussions merge {repo_for_write} {pr_num} --format agent")
+    assert result.exit_code != 0
+    assert "Use --yes" in str(result.exception)
 
 
 # =============================================================================

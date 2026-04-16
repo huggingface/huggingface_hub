@@ -63,11 +63,11 @@ Or via CLI:
 >>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
-When you create a repository, you can set your repository visibility with the `private` parameter.
+When you create a repository, you can set your repository visibility with the `visibility` parameter:
 
 ```py
 >>> from huggingface_hub import create_repo
->>> create_repo("lysandre/test-private", private=True)
+>>> create_repo("lysandre/test-private", visibility="private")
 ```
 
 Or via CLI:
@@ -89,6 +89,12 @@ Specify the `repo_id` of the repository you want to delete:
 
 ```py
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
+```
+
+Pass `missing_ok=True` to silently ignore the call if the repository doesn't exist:
+
+```py
+>>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset", missing_ok=True)
 ```
 
 Or via CLI:
@@ -114,6 +120,19 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 >>> duplicate_repo("openai/gdpval", repo_type="dataset")
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
+
+## Search for Spaces
+
+The Hub provides a semantic search API for discovering Spaces. You can search using natural language queries with [`search_spaces`]:
+
+```py
+>>> from huggingface_hub import search_spaces
+>>> results = list(search_spaces("generate image"))
+>>> results[0].id
+'mrfakename/Z-Image-Turbo'
+```
+
+For more details and filtering options, see the [Manage your Spaces](./manage-spaces#search-for-spaces) guide.
 
 ## Upload and download files
 
@@ -230,3 +249,18 @@ Or via CLI:
 ```bash
 >>> hf repos move Wauplin/cool-model huggingface/cool-model
 ```
+
+## Kernel repositories
+
+The Hub supports a `"kernel"` repository type for hosting compute kernels. This is **not** a fully-compatible repo type. Only a limited set of methods have been tested and are officially supported:
+
+- [`kernel_info`]
+- [`hf_hub_download`]
+- [`snapshot_download`]
+- [`list_repo_refs`]
+- [`list_repo_files`]
+- [`list_repo_tree`]
+
+Note that [`create_repo`] and [`delete_repo`] are also compatible but restricted to a small subset of allowed users and orgs on the Hub.
+
+For building, publishing, and using kernel repos, please use the dedicated [`kernels`](https://github.com/huggingface/kernels) package instead. Refer to the [Kernels documentation](https://huggingface.co/docs/kernels/index) for more details.
