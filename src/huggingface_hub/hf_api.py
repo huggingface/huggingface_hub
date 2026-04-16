@@ -122,7 +122,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
+from .utils._auth import _get_token_from_environment, _get_token_from_file
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._typing import CallableT
@@ -2288,9 +2288,7 @@ class HfApi:
             if e.response.status_code == 401:
                 error_message = "Invalid user token."
                 # Check which token is the effective one and generate the error message accordingly
-                if token == _get_token_from_google_colab():
-                    error_message += " The token from Google Colab vault is invalid. Please update it from the UI."
-                elif token == _get_token_from_environment():
+                if token == _get_token_from_environment():
                     error_message += (
                         " The token from HF_TOKEN environment variable is invalid. "
                         "Note that HF_TOKEN takes precedence over `hf auth login`."

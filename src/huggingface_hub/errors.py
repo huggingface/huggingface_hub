@@ -462,6 +462,17 @@ class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
 
 
+# OAUTH / LOGIN ERRORS
+
+
+class DeviceCodeError(Exception):
+    """Raised when the Device Code OAuth login flow (RFC 8628) fails.
+
+    This covers failures at any step: requesting the device code, polling for the token,
+    authorization denied/expired, or unexpected server responses.
+    """
+
+
 # CLI ERRORS
 
 
