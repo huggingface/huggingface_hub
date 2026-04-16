@@ -20,6 +20,7 @@ from typing import Literal, TypedDict
 
 import httpx
 
+from ..errors import CLIError
 from ..utils._headers import build_hf_headers
 from ..utils._http import hf_raise_for_status
 from .sse_client import SSEClient
@@ -65,7 +66,11 @@ class ReloadClient:
     def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
         req = ApiGetReloadRequest(reloadId=reload_id)
         with self.client.stream("POST", "/get-reload", json=req) as res:
-            hf_raise_for_status(res) # TODO: Manual check (204 should not pass)
+            if res.status_code == 204:
+                raise CLIError(f"{reload_id=} not found")
+            if res.status_code == 404:
+                raise CLIError(f"Replica {self.replica_hash} not found")
+            hf_raise_for_status(res)
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
                     yield json.loads(event.data)
