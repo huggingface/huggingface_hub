@@ -32,6 +32,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
+from .testing_constants import TOKEN
 from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 
@@ -1658,6 +1659,22 @@ class TestAuthWhoamiCommand:
         assert "Not logged in" in result.output
 
 
+class TestAuthTokenCommand:
+    def test_token_prints_to_stdout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=TOKEN):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == TOKEN
+        assert "hf auth whoami" in result.output
+
+    def test_token_not_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "token"])
+        assert result.exit_code == 1
+        assert "Not logged in" in result.output
+        assert "hf auth login" in result.output
+
+
 class TestModelsLsCommand:
     def test_models_ls_basic(self, runner: CliRunner) -> None:
         repo = ModelInfo(
@@ -2032,6 +2049,37 @@ class TestSpacesLsCommand:
         result = runner.invoke(app, ["spaces", "ls", "--sort", "downloads"])
         assert result.exit_code == 2
         assert "Invalid value" in result.output
+
+
+class TestSpacesLogsCommand:
+    def test_build_logs_follow(self, runner: CliRunner) -> None:
+        """`hf spaces logs <id>` defaults to run logs, follow=False."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["line 1\n", "line 2\n"])
+            result = runner.invoke(app, ["spaces", "logs", "user/my-space", "-f", "--build"])
+        assert result.exit_code == 0
+        api.fetch_space_logs.assert_called_once_with("user/my-space", build=True, follow=True)
+        assert "line 1" in result.output
+        assert "line 2" in result.output
+
+    def test_logs_tail(self, runner: CliRunner) -> None:
+        """`hf spaces logs --tail 2 <id>` shows only the last 2 lines."""
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_space_logs.return_value = iter(["line 1\n", "line 2\n", "line 3\n", "line 4\n"])
+            result = runner.invoke(app, ["spaces", "logs", "--tail", "2", "user/my-space"])
+        assert result.exit_code == 0
+        assert "line 1" not in result.output
+        assert "line 2" not in result.output
+        assert "line 3" in result.output
+        assert "line 4" in result.output
+
+    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
+        """`hf spaces logs -f --tail 5 <id>` raises an error."""
+        result = runner.invoke(app, ["spaces", "logs", "-f", "--tail", "5", "user/my-space"])
+        assert result.exit_code != 0
+        assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
 class TestInferenceEndpointsCommands:

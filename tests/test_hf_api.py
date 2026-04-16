@@ -65,6 +65,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    SpaceSearchResult,
     User,
     WebhookInfo,
     WebhookWatchedItem,
@@ -2423,23 +2424,23 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(author="facebook", model_name="bart-base"))
+        models = list(self._api.list_models(author="facebook", search="bart-base"))
         assert "facebook/bart-base" in models[0].id
 
-    def test_failing_filter_models_by_author_and_model_name(self):
+    def test_failing_filter_models_by_author_and_search(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(author="muellerzr", model_name="testme"))
+        models = list(self._api.list_models(author="muellerzr", search="testme"))
         assert len(models) == 0
 
     def test_filter_models_with_library(self):
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="tensorflow"))
+        models = list(self._api.list_models(author="microsoft", search="wavlm-base-sd", filter="tensorflow"))
         assert len(models) == 0
 
-        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", filter="pytorch"))
+        models = list(self._api.list_models(author="microsoft", search="wavlm-base-sd", filter="pytorch"))
         assert len(models) > 0
 
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(filter="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter="fill-mask", search="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].id
         assert "base" in models[0].id
@@ -2580,6 +2581,20 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # `expand` cannot be used with full
         with self.assertRaises(ValueError):
             next(self._api.list_spaces(expand=["author"], full=True))
+
+    def test_search_spaces(self):
+        results = list(self._api.search_spaces("generate image"))
+        assert len(results) > 0
+        result = results[0]
+        assert isinstance(result, SpaceSearchResult)
+        assert result.id
+        assert result.author
+        assert result.title
+        assert result.likes >= 0
+        assert result.semantic_relevancy_score is not None
+        assert result.semantic_relevancy_score > 0
+        assert result.runtime is not None
+        assert isinstance(result.runtime, SpaceRuntime)
 
     def test_get_paths_info(self):
         paths_info = self._api.get_paths_info(

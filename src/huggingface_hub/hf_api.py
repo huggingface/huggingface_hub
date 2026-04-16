@@ -72,7 +72,7 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable, Volume
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -2327,6 +2327,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(version="2.0", deprecated_args=["model_name"], custom_message="Use `search` instead.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2376,9 +2377,6 @@ class HfApi:
             inference_provider (`Literal["all"]` or `str`, *optional*):
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
-            model_name (`str`, *optional*):
-                A string that contain complete or partial names for models on the
-                Hub, such as "bert" or "bert-base-cased"
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
@@ -2418,7 +2416,8 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
+            model_name (`str`, *optional*):
+                (deprecated). Use `search` instead.
 
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
@@ -2490,7 +2489,7 @@ class HfApi:
         if num_parameters is not None:
             params["num_parameters"] = num_parameters
         search_list = []
-        if model_name:
+        if model_name:  # deprecated
             search_list.append(model_name)
         if search:
             search_list.append(search)
@@ -2904,6 +2903,65 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             yield SpaceInfo(**item)
+
+    @validate_hf_hub_args
+    def search_spaces(
+        self,
+        query: str,
+        *,
+        filter: str | Iterable[str] | None = None,
+        sdk: str | list[str] | None = None,
+        include_non_running: bool = False,
+        token: bool | str | None = None,
+    ) -> Iterable[SpaceSearchResult]:
+        """Search Spaces on the Hub using semantic search.
+
+        This endpoint uses semantic search (embedding-based) for multi-word queries
+        and full-text search for single-word queries.
+
+        Args:
+            query (`str`):
+                The search query string.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string tag or list of tags to filter by.
+            sdk (`str` or `list[str]`, *optional*):
+                Filter by SDK (e.g. `"gradio"`, `"docker"`, `"static"`).
+            include_non_running (`bool`, *optional*):
+                Whether to include non-running Spaces in results. Defaults to `False`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[SpaceSearchResult]`: an iterable of [`SpaceSearchResult`] objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> results = list(api.search_spaces("generate image"))
+            >>> results[0].id
+            'mrfakename/Z-Image-Turbo'
+            >>> results[0].ai_category
+            'Image Generation'
+            ```
+        """
+        path = f"{self.endpoint}/api/spaces/semantic-search"
+        headers = self._build_hf_headers(token=token)
+        params: dict[str, Any] = {"q": query}
+        if filter is not None:
+            params["filter"] = filter
+        if sdk is not None:
+            params["sdk"] = sdk
+        if include_non_running:
+            params["includeNonRunning"] = True
+
+        r = get_session().get(path, headers=headers, params=params)
+        hf_raise_for_status(r)
+        for item in r.json():
+            yield SpaceSearchResult(item)
 
     @validate_hf_hub_args
     def unlike(
@@ -7984,6 +8042,179 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    def _stream_sse_events(
+        self,
+        *,
+        url: str,
+        log_label: str,
+        timeout: int,
+        follow: bool,
+        token: bool | str | None = None,
+        skip_previous_events_on_retry: bool = True,
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
+        on_iteration_end: Callable[[], bool] | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        # Shared SSE streaming loop with retry/backoff and event-index dedup.
+        # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
+        #   - on_iteration_end is None: retries are the only backstop (Spaces).
+        #   - on_iteration_end is set: it polls authoritative state after every
+        #     failed iteration; ReadTimeouts/tolerated errors fall through to it
+        #     instead of consuming retries (Jobs).
+        nb_tries = 0
+        max_retries = 5 if follow else 0
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        start_event_idx = 0
+        error_to_retry: Exception | None = None
+        while True:
+            if error_to_retry is not None:
+                logger.warning(f"'{error_to_retry}' thrown while requesting {log_label}")
+                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                error_to_retry = None
+                time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    url,
+                    headers=self._build_hf_headers(token=token),
+                    timeout=timeout,
+                ) as response:
+                    if response.status_code == 200:
+                        event_idx = -1
+                        for line in response.iter_lines():
+                            if line and line.startswith("data: {"):
+                                event_idx += 1
+                                if event_idx >= start_event_idx:
+                                    if skip_previous_events_on_retry:
+                                        start_event_idx += 1
+                                    yield json.loads(line[len("data: ") :])
+                        break
+                    elif response.status_code not in tolerated_status_codes:
+                        hf_raise_for_status(response)
+            except HfHubHTTPError:
+                # Permanent HTTP error (404/403/...). Never retry — fail fast.
+                raise
+            except httpx.DecodingError:
+                # Response ended prematurely.
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
+                if is_no_new_line_timeout and not follow:
+                    break  # no-follow: timeout means the buffer is drained
+                if on_iteration_end is not None:
+                    # Authoritative-state mode: ReadTimeouts and tolerated errors
+                    # fall through to the post-iteration check without consuming
+                    # retries. Note: ReadTimeout is handled here regardless of
+                    # `tolerated_exception_types` — entries in that tuple only
+                    # fire for non-timeout errors.
+                    if is_no_new_line_timeout or type(err) in tolerated_exception_types:
+                        pass
+                    elif nb_tries >= max_retries:
+                        raise
+                    else:
+                        nb_tries += 1
+                        sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                        error_to_retry = err
+                else:
+                    # Retry-only mode: every error in follow mode burns a retry.
+                    if nb_tries >= max_retries:
+                        if is_no_new_line_timeout:
+                            break  # follow mode, silent stream, retries exhausted: give up
+                        raise
+                    nb_tries += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    error_to_retry = err
+            if on_iteration_end is not None and on_iteration_end():
+                break
+
+    def _fetch_space_logs_sse(
+        self,
+        *,
+        repo_id: str,
+        build: bool,
+        timeout: int,
+        follow: bool,
+        token: bool | str | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        log_type = "build" if build else "run"
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/spaces/{repo_id}/logs/{log_type}",
+            log_label=f"spaces /logs/{log_type} for repo_id={repo_id!r}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+        )
+
+    @validate_hf_hub_args
+    def fetch_space_logs(
+        self,
+        repo_id: str,
+        *,
+        build: bool = False,
+        follow: bool = False,
+        token: bool | str | None = None,
+    ) -> Iterable[str]:
+        """Fetch the run or build logs of a Space on the Hub.
+
+        Useful for debugging a Space that is failing to build or crashing at runtime,
+        especially from a script or agentic workflow where reading logs in a browser
+        is not an option.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space. Example: `"bigcode/in-the-stack"`.
+            build (`bool`, *optional*, defaults to `False`):
+                If `True`, fetch the container build logs (useful when a Space is stuck
+                in `BUILD_ERROR`). If `False` (default), fetch the run logs, i.e. the
+                stdout/stderr of the running application.
+            follow (`bool`, *optional*, defaults to `False`):
+                If `True`, stream logs in real-time (blocking) until the server closes
+                the stream or `KeyboardInterrupt` is raised. If `False` (default), fetch
+                only the currently buffered logs and return immediately (non-blocking,
+                like `docker logs`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token, which is
+                the recommended authentication method. Set to `False` to disable
+                authentication. See
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[str]`: A generator yielding log lines as they become available.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_space_logs
+            >>> # Non-blocking: print currently available run logs and exit.
+            >>> for line in fetch_space_logs("username/my-space"):
+            ...     print(line, end="")
+
+            >>> # Debug a build failure:
+            >>> for line in fetch_space_logs("username/my-space", build=True):
+            ...     print(line, end="")
+
+            >>> # Stream run logs until the server closes the stream.
+            >>> for line in fetch_space_logs("username/my-space", follow=True):
+            ...     print(line, end="")
+            ```
+        """
+        # - Spaces /logs/{run|build} is SSE with `data: {"data": "...", "timestamp": "..."}` events.
+        # - Keep-alives are sent as empty `data:` messages (skipped by the `data: {` filter).
+        # - In no-follow mode we use a short read timeout to drain the buffer and return.
+        timeout = 120 if follow else 5
+        for event in self._fetch_space_logs_sse(
+            repo_id=repo_id,
+            build=build,
+            timeout=timeout,
+            follow=follow,
+            token=token,
+        ):
+            yield event["data"]
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -11198,76 +11429,37 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code_or_error: tuple[int | type[Exception], ...],
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
         follow: bool = True,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        # We don't use http_backoff since we need to check ourselves if the job is still running
-        nb_tries = 0
-        max_retries = 5 if follow else 0
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        start_event_idx = 0
-        error_to_retry = None
-        while True:
-            if error_to_retry is not None:
-                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route} for {job_id=}")
-                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-                error_to_retry = None
-                time.sleep(sleep_time)
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=timeout,
-                ) as response:
-                    if response.status_code == 200:
-                        event_idx = -1
-                        for line in response.iter_lines():
-                            if line and line.startswith("data: {"):
-                                event_idx += 1
-                                if event_idx >= start_event_idx:
-                                    if skip_previous_events_on_retry:
-                                        start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
-                        break
-                    elif response.status_code not in double_check_job_has_finished_on_status_code_or_error:
-                        hf_raise_for_status(response)
-            except httpx.HTTPStatusError:
-                raise
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
-                if is_no_new_line_timeout:
-                    if not follow:
-                        break  # no-follow mode: got all buffered events
-                    # follow mode: job is likely finished
-                    pass
-                elif type(err) in double_check_job_has_finished_on_status_code_or_error:
-                    pass
-                elif nb_tries >= max_retries:
-                    raise
-                else:
-                    nb_tries += 1
-                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-                    error_to_retry = err
+
+        def has_job_finished() -> bool:
+            # We don't use http_backoff: this is the authoritative check that
+            # decides whether to keep streaming.
             job_status_response = get_session().get(
                 f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                 headers=self._build_hf_headers(token=token),
             )
             hf_raise_for_status(job_status_response)
             job_status = job_status_response.json()
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                break
+            return "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING")
+
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
+            log_label=f"jobs /{route} for {job_id=}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+            skip_previous_events_on_retry=skip_previous_events_on_retry,
+            tolerated_status_codes=tolerated_status_codes,
+            tolerated_exception_types=tolerated_exception_types,
+            on_iteration_end=has_job_finished,
+        )
 
     def fetch_job_logs(
         self,
@@ -11328,7 +11520,6 @@ class HfApi:
             route="logs",
             timeout=timeout,
             skip_previous_events_on_retry=True,
-            double_check_job_has_finished_on_status_code_or_error=tuple(),
             follow=follow,
             namespace=namespace,
             token=token,
@@ -11399,7 +11590,7 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            double_check_job_has_finished_on_status_code_or_error=(500, httpx.ReadTimeout),
+            tolerated_status_codes=(500,),
             namespace=namespace,
             token=token,
         )
@@ -13579,6 +13770,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+search_spaces = api.search_spaces
 space_info = api.space_info
 
 kernel_info = api.kernel_info
@@ -13667,6 +13859,7 @@ set_space_volumes = api.set_space_volumes
 delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
+fetch_space_logs = api.fetch_space_logs
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints
