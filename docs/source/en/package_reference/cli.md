@@ -977,10 +977,44 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the dataset card (README) for a...
 * `info`: Get info about a dataset on the Hub.
 * `list`: List datasets on the Hub. [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
+
+### `hf datasets card`
+
+Get the dataset card (README) for a dataset on the Hub.
+
+**Usage**:
+
+```console
+$ hf datasets card [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets card HuggingFaceFW/fineweb
+  $ hf datasets card HuggingFaceFW/fineweb --metadata
+  $ hf datasets card HuggingFaceFW/fineweb --metadata --format json
+  $ hf datasets card HuggingFaceFW/fineweb --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf datasets info`
 
@@ -2629,8 +2663,42 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the model card (README) for a model on...
 * `info`: Get info about a model on the Hub.
 * `list`: List models on the Hub. [alias: ls]
+
+### `hf models card`
+
+Get the model card (README) for a model on the Hub.
+
+**Usage**:
+
+```console
+$ hf models card [OPTIONS] MODEL_ID
+```
+
+**Arguments**:
+
+* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf models card google/gemma-4-31B-it
+  $ hf models card google/gemma-4-31B-it --metadata
+  $ hf models card google/gemma-4-31B-it --metadata --format json
+  $ hf models card google/gemma-4-31B-it --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf models info`
 

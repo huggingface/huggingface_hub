@@ -23,6 +23,7 @@ from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.repocard import DatasetCard, ModelCard
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1789,6 +1790,72 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestModelsCardCommand:
+    SAMPLE_CARD = "---\nlicense: mit\nlibrary_name: transformers\npipeline_tag: text-generation\n---\n\n# My Model\n\nThis is a model card."
+
+    def test_card_full(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.models.ModelCard.load") as mock_load:
+            mock_load.return_value = ModelCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["models", "card", "user/my-model"])
+        assert result.exit_code == 0
+        assert "license: mit" in result.stdout
+        assert "# My Model" in result.stdout
+
+    def test_card_metadata(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.models.ModelCard.load") as mock_load:
+            mock_load.return_value = ModelCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["models", "card", "user/my-model", "--metadata"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output["license"] == "mit"
+        assert output["pipeline_tag"] == "text-generation"
+        assert "# My Model" not in result.stdout
+
+    def test_card_text(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.models.ModelCard.load") as mock_load:
+            mock_load.return_value = ModelCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["models", "card", "user/my-model", "--text"])
+        assert result.exit_code == 0
+        assert "# My Model" in result.stdout
+        assert "license: mit" not in result.stdout
+
+    def test_card_metadata_and_text_mutually_exclusive(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "card", "user/my-model", "--metadata", "--text"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "mutually exclusive" in str(result.exception)
+
+
+class TestDatasetsCardCommand:
+    SAMPLE_CARD = "---\nlicense: odc-by\ntask_categories:\n- text-generation\npretty_name: My Dataset\n---\n\n# My Dataset\n\nThis is a dataset card."
+
+    def test_card_full(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.DatasetCard.load") as mock_load:
+            mock_load.return_value = DatasetCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["datasets", "card", "user/my-dataset"])
+        assert result.exit_code == 0
+        assert "license: odc-by" in result.stdout
+        assert "# My Dataset" in result.stdout
+
+    def test_card_metadata(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.DatasetCard.load") as mock_load:
+            mock_load.return_value = DatasetCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["datasets", "card", "user/my-dataset", "--metadata"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output["license"] == "odc-by"
+        assert output["pretty_name"] == "My Dataset"
+        assert "# My Dataset" not in result.stdout
+
+    def test_card_text(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.DatasetCard.load") as mock_load:
+            mock_load.return_value = DatasetCard(self.SAMPLE_CARD)
+            result = runner.invoke(app, ["datasets", "card", "user/my-dataset", "--text"])
+        assert result.exit_code == 0
+        assert "# My Dataset" in result.stdout
+        assert "license: odc-by" not in result.stdout
 
 
 class TestPapersCommand:

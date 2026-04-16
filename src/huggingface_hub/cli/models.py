@@ -31,6 +31,7 @@ import typer
 
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
+from huggingface_hub.repocard import ModelCard
 
 from ._cli_utils import (
     AuthorOpt,
@@ -131,3 +132,35 @@ def models_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{model_id}'.") from e
     out.dict(info)
+
+
+@models_cli.command(
+    "card",
+    examples=[
+        "hf models card google/gemma-4-31B-it",
+        "hf models card google/gemma-4-31B-it --metadata",
+        "hf models card google/gemma-4-31B-it --metadata --format json",
+        "hf models card google/gemma-4-31B-it --text",
+    ],
+)
+def models_card(
+    model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Get the model card (README) for a model on the Hub."""
+    if metadata and text:
+        raise CLIError("--metadata and --text are mutually exclusive.")
+    try:
+        card = ModelCard.load(model_id, token=token)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Model '{model_id}' not found.") from e
+    if metadata:
+        out.dict(card.data.to_dict())
+    elif text:
+        out.text(card.text)
+    else:
+        out.text(card.content)
+        out.hint(f"Use `hf models card {model_id} --metadata` to extract only the card metadata.")

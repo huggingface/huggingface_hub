@@ -802,6 +802,24 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 
 Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
 
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
+
 ## hf datasets
 
 Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
@@ -823,6 +841,24 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 
 ```bash
 >>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
 ```
 
 ### List parquet URLs
