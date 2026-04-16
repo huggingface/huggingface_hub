@@ -428,6 +428,8 @@ def _spaces_hot_reload_summary(
             typer.secho(f"---- Replica {replica_stream_event['hash']} ----")
         elif replica_stream_event["kind"] == "fullMatch":
             typer.echo("✔︎ Same as first replica")
+        elif replica_stream_event["kind"] == "warning":
+            typer.secho(f"⚠ {replica_stream_event['message']}", fg=typer.colors.BRIGHT_BLACK)
         else:
             assert_never(replica_stream_event)
 
