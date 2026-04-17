@@ -3558,7 +3558,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             headers=None,
             tqdm_class=None,
             dry_run=False,
-            xet_session=ANY,
+            xet_session_holder=ANY,
         )
 
     @patch("huggingface_hub._snapshot_download.snapshot_download")

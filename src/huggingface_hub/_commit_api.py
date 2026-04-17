@@ -364,7 +364,7 @@ def _upload_files(
     num_threads: int = 5,
     revision: str | None = None,
     create_pr: bool | None = None,
-    xet_session=None,
+    xet_session_holder=None,
 ):
     """
     Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
@@ -433,7 +433,7 @@ def _upload_files(
             endpoint=endpoint,
             revision=revision,
             create_pr=create_pr,
-            xet_session=xet_session,
+            xet_session_holder=xet_session_holder,
         )
 
 
@@ -531,7 +531,7 @@ def _upload_xet_files(
     endpoint: str | None = None,
     revision: str | None = None,
     create_pr: bool | None = None,
-    xet_session=None,
+    xet_session_holder=None,
 ):
     """
     Uploads the content of `additions` to the Hub using the xet storage protocol.
@@ -589,8 +589,9 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from hf_xet import Sha256Policy, XetSession
+    from hf_xet import Sha256Policy
 
+    from .utils._xet import XetSessionHolder
     from .utils._xet_progress_reporting import XetProgressReporter
 
     _endpoint = endpoint or constants.ENDPOINT
@@ -607,7 +608,8 @@ def _upload_xet_files(
     else:
         progress, progress_callback = None, None
 
-    session = xet_session or XetSession()
+    holder = xet_session_holder if xet_session_holder is not None else XetSessionHolder()
+    session = holder.get()
     builder = session.new_upload_commit().with_token_refresh_url(refresh_url, headers).with_custom_headers(xet_headers)
     if progress_callback is not None:
         builder = builder.with_progress_callback(progress_callback)
@@ -622,6 +624,9 @@ def _upload_xet_files(
         for op in all_bytes_ops:
             commit.upload_bytes(op.path_or_fileobj, sha256=Sha256Policy.provided(op.upload_info.sha256.hex()))
         commit.commit()
+    except KeyboardInterrupt:
+        holder.sigint_abort()
+        raise
     finally:
         if progress is not None:
             progress.close(False)

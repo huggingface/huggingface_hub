@@ -2187,17 +2187,17 @@ class HfApi:
         self.user_agent = user_agent
         self.headers = headers
         self._thread_pool: ThreadPoolExecutor | None = None
-        self._xet_session = None  # lazily initialized by _get_or_create_xet_session()
+        self._xet_session_holder = None  # lazily initialized by _get_xet_session_holder()
 
         # /whoami-v2 is the only endpoint for which we may want to cache results
         self._whoami_cache: dict[str, dict] = {}
 
-    def _get_or_create_xet_session(self):
-        if self._xet_session is None and is_xet_available():
-            from hf_xet import XetSession
+    def _get_xet_session_holder(self):
+        if self._xet_session_holder is None and is_xet_available():
+            from .utils._xet import XetSessionHolder
 
-            self._xet_session = XetSession()
-        return self._xet_session
+            self._xet_session_holder = XetSessionHolder()
+        return self._xet_session_holder
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
@@ -5197,7 +5197,7 @@ class HfApi:
             **upload_kwargs,  # type: ignore[arg-type]
             num_threads=num_threads,
             create_pr=create_pr,
-            xet_session=self._get_or_create_xet_session(),
+            xet_session_holder=self._get_xet_session_holder(),
         )
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
@@ -6192,7 +6192,7 @@ class HfApi:
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
-            xet_session=self._get_or_create_xet_session(),
+            xet_session_holder=self._get_xet_session_holder(),
         )
 
     @overload
@@ -13145,8 +13145,9 @@ class HfApi:
         if not operations:
             return
 
-        from hf_xet import Sha256Policy, XetSession
+        from hf_xet import Sha256Policy
 
+        from .utils._xet import XetSessionHolder
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
@@ -13171,7 +13172,8 @@ class HfApi:
             else:
                 progress, progress_callback = None, None
 
-            session = self._get_or_create_xet_session() or XetSession()
+            holder = self._get_xet_session_holder() or XetSessionHolder()
+            session = holder.get()
             builder = (
                 session.new_upload_commit()
                 .with_token_refresh_url(refresh_url, headers)
@@ -13197,6 +13199,9 @@ class HfApi:
                     result = handle.result()
                     op.xet_hash = result.xet_info.hash
                     op.size = result.xet_info.file_size
+            except KeyboardInterrupt:
+                holder.sigint_abort()
+                raise
             finally:
                 if owns_progress and progress is not None:
                     progress.close(False)
@@ -13345,7 +13350,9 @@ class HfApi:
             ... )
             ```
         """
-        from hf_xet import XetFileInfo, XetSession  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo  # type: ignore[no-redef]
+
+        from .utils._xet import XetSessionHolder
 
         headers = self._build_hf_headers(token=token)
 
@@ -13412,7 +13419,8 @@ class HfApi:
             name="huggingface_hub.download_bucket_files",
         )
 
-        session = self._get_or_create_xet_session() or XetSession()
+        holder = self._get_xet_session_holder() or XetSessionHolder()
+        session = holder.get()
 
         with progress_cm as progress:
             _prev = [0]
@@ -13431,7 +13439,11 @@ class HfApi:
             )
             for xet_info, dest in non_zero_download_items:
                 group.download_file(xet_info, dest)
-            group.finish()
+            try:
+                group.finish()
+            except KeyboardInterrupt:
+                holder.sigint_abort()
+                raise
 
     @validate_hf_hub_args
     def sync_bucket(
