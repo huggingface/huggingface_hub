@@ -36,7 +36,7 @@ import tempfile
 import time
 from collections import deque
 from pathlib import Path
-from typing import Annotated, Literal, get_args
+from typing import TYPE_CHECKING, Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -45,7 +45,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -423,6 +423,8 @@ def spaces_hot_reload(
                 filename=filename,
                 local_dir=temp_dir.name,
             )
+        except RemoteEntryNotFoundError:
+            typer.secho(f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK)
         finally:
             if not pbar_disabled:
                 enable_progress_bars()
@@ -527,7 +529,9 @@ def _spaces_hot_reload_summary(
             else:
                 typer.secho("∅ UI untouched", bold=True)
         else:
-            assert_never(event["data"]["kind"])
+            typer.secho(f"❓ Unknown update event: {event=}")
+            if TYPE_CHECKING:
+                assert_never(event["data"]["kind"])
 
     for replica_stream_event in multi_replica_reload_events(
         commit_sha=commit_sha,
