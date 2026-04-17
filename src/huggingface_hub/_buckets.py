@@ -679,11 +679,30 @@ def _compute_sync_plan(
 
         local_files = {}
         if os.path.isdir(local_path):
-            for rel_path, size, mtime_ms in _list_local_files(local_path):
-                if filter_matcher.matches(rel_path):
-                    local_files[rel_path] = (size, mtime_ms)
-                if status:
-                    status.update(f"Scanning local directory ({len(local_files)} files)")
+            if delete:
+                # Full walk needed to discover local-only files for deletion.
+                for rel_path, size, mtime_ms in _list_local_files(local_path):
+                    if filter_matcher.matches(rel_path):
+                        local_files[rel_path] = (size, mtime_ms)
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
+            else:
+                # Without --delete, the plan only depends on paths that exist
+                # remotely. Stat just those instead of walking the whole tree,
+                # which can take minutes when dest sits in a large directory
+                # like ~/.cache/huggingface/.
+                for rel_path in remote_files:
+                    if not filter_matcher.matches(rel_path):
+                        continue
+                    local_file = os.path.join(local_path, rel_path)
+                    if not os.path.isfile(local_file):
+                        continue
+                    local_files[rel_path] = (
+                        os.path.getsize(local_file),
+                        os.path.getmtime(local_file) * 1000,
+                    )
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
         if status:
             status.done(f"Scanning local directory ({len(local_files)} files)")
 
