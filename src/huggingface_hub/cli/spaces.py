@@ -465,6 +465,7 @@ def spaces_hot_reload(
             current_sha=current_sha,
             commit_sha=commit_info.oid,
             local_path=local_path if local_file else filename,
+            filename=filename,
             token=token,
         )
 
@@ -474,6 +475,7 @@ def _spaces_hot_reload_summary(
     space_id: str,
     current_sha: str | None,
     commit_sha: str,
+    filename: str,
     local_path: str,
     token: str | None,
 ) -> None:
@@ -526,6 +528,11 @@ def _spaces_hot_reload_summary(
                 typer.secho("⟳ UI updated", bold=True)
             else:
                 typer.secho("∅ UI untouched", bold=True)
+        elif event["data"]["kind"] == "file":
+            if event["data"]["created"]:
+                typer.secho(f"✔︎ {filename} created", bold=True)
+            else:
+                typer.secho(f"✔︎ {filename} updated", bold=True)
         else:
             typer.secho(f"❓ Unknown update event: {event=}")
             if TYPE_CHECKING:
