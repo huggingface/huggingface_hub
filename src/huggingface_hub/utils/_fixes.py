@@ -5,6 +5,7 @@ import stat
 import tempfile
 import time
 from collections.abc import Callable, Generator
+from errno import ENOTSUP
 from functools import partial
 from pathlib import Path
 
@@ -74,12 +75,15 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 
 @contextlib.contextmanager
-def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Generator[BaseFileLock, None, None]:
+def WeakFileLock(
+    lock_file: str | Path, *, timeout: float | None = None, mode: str | None = None
+) -> Generator[BaseFileLock, None, None]:
     """A filelock with some custom logic.
 
     This filelock is weaker than the default filelock in that:
     1. It won't raise an exception if release fails.
-    2. It will default to a SoftFileLock if the filesystem does not support flock.
+    2. It will default to a SoftFileLock if the filesystem does not support flock like HF buckets mounted with hf-mount.
+       It may use the file at `lock_file + ".soft"` instead.
     3. Lock files are created with mode 0o664 (group-writable) instead of the default 0o644.
        This allows multiple users sharing a cache directory to wait for locks.
 
@@ -87,7 +91,7 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
     """
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
+    lock = FileLock(lock_file, timeout=log_interval, mode=mode or 0o664)
     start_time = time.time()
 
     while True:
@@ -106,7 +110,21 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=log_interval)
+                lock = SoftFileLock(lock_file, timeout=log_interval, mode=mode or 0o664)
+                continue
+        except OSError as e:
+            if e.errno == ENOTSUP:
+                try:
+                    Path(lock_file).unlink()
+                except OSError:
+                    pass
+                # We can't know if a file is a failed UnixFileLock or a locked SoftFileLock.
+                # So we use `lock_file + ".soft"` for the SoftFileLock.
+                lock_file += ".soft"
+                logger.warning(
+                    f"FileSystem does not appear to support flock (errno={e.errno}). Falling back to SoftFileLock at {lock_file}"
+                )
+                lock = SoftFileLock(lock_file, timeout=log_interval, mode=mode or 0o664)
                 continue
         else:
             break
