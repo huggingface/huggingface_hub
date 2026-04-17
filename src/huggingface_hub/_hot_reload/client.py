@@ -28,7 +28,7 @@ from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
 HOT_RELOADING_PORT = 7887
-CLIENT_TIMEOUT = 10
+CLIENT_TIMEOUT = 20
 
 
 class MultiReplicaStreamWarning(TypedDict):
