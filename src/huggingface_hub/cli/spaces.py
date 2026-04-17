@@ -474,7 +474,7 @@ def _spaces_hot_reload_summary(
     space_id: str,
     current_sha: str | None,
     commit_sha: str,
-    local_path: str | None,
+    local_path: str,
     token: str | None,
 ) -> None:
     while (space_info := api.space_info(space_id)).sha == current_sha:
@@ -498,9 +498,7 @@ def _spaces_hot_reload_summary(
         raise CLIError("Unexpected None subdomain on hotReloaded Space")
 
     def render_region(region: ReloadRegion) -> str:
-        res = ""
-        if local_path is not None:
-            res += f"{local_path}, "
+        res = f"{local_path}, "
         if region["startLine"] == region["endLine"]:
             res += f"line {region['startLine'] - 1}"
         else:
