@@ -506,6 +506,13 @@ def test_bucket_list_error_recursive_with_namespace():
     assert "Cannot use --recursive when listing buckets" in result.output
 
 
+def test_bucket_list_error_search_with_files(tree_bucket: str):
+    """Cannot use --search when listing files."""
+    result = cli(f"hf buckets list {tree_bucket} --search foo")
+    assert result.exit_code != 0
+    assert "Cannot use --search when listing files" in result.output
+
+
 # =============================================================================
 # List files
 # =============================================================================

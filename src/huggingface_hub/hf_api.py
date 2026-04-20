@@ -12523,6 +12523,7 @@ class HfApi:
         self,
         namespace: str | None = None,
         *,
+        search: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[BucketInfo]:
         """List buckets on the Hub under a certain namespace.
@@ -12530,6 +12531,8 @@ class HfApi:
         Args:
             namespace (`str`, *optional*):
                 List buckets under this namespace (user or organization). Defaults to listing user's buckets.
+            search (`str`, *optional*):
+                A search string to filter bucket names.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12547,12 +12550,18 @@ class HfApi:
 
             >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
+
+            >>> for bucket in list_buckets(search="my-prefix"): # filter buckets by name
+            ...     print(bucket)
             ```
         """
         if namespace is None:
             namespace = "me"
+        params: dict[str, Any] = {}
+        if search is not None:
+            params["search"] = search
         for item in paginate(
-            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/buckets/{namespace}", params=params, headers=self._build_hf_headers(token=token)
         ):
             yield BucketInfo(**item)
 

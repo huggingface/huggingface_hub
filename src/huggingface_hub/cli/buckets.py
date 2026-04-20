@@ -43,6 +43,7 @@ from ._cli_utils import (
     FormatOpt,
     OutputFormat,
     QuietOpt,
+    SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -283,6 +284,7 @@ def _is_bucket_id(argument: str) -> bool:
     examples=[
         "hf buckets list",
         "hf buckets list huggingface",
+        'hf buckets list --search "my-prefix"',
         "hf buckets list user/my-bucket",
         "hf buckets list user/my-bucket -R",
         "hf buckets list user/my-bucket -h",
@@ -325,6 +327,7 @@ def list_cmd(
             help="List files recursively (only for listing files).",
         ),
     ] = False,
+    search: SearchOpt = None,
     format: FormatOpt = OutputFormat.table,
     quiet: QuietOpt = False,
     token: TokenOpt = None,
@@ -338,6 +341,8 @@ def list_cmd(
     is_file_mode = argument is not None and _is_bucket_id(argument)
 
     if is_file_mode:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
         _list_files(
             argument=argument,  # type: ignore
             human_readable=human_readable,
@@ -350,6 +355,7 @@ def list_cmd(
     else:
         _list_buckets(
             namespace=argument,
+            search=search,
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
@@ -361,6 +367,7 @@ def list_cmd(
 
 def _list_buckets(
     namespace: str | None,
+    search: str | None,
     human_readable: bool,
     as_tree: bool,
     recursive: bool,
@@ -382,7 +389,7 @@ def _list_buckets(
         namespace = namespace.rstrip("/")
 
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
+    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace, search=search)]
 
     if not results:
         if not quiet and format != OutputFormat.json:
