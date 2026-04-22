@@ -1007,7 +1007,7 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     message = f"A new version of {library} ({latest_version}) is available! You are using version {current_version}."
     if update_command is not None:
         message += "\nTo update, run: hf upgrade"
-    out.warning(message)
+    out.hint(message)
 
 
 def run_upgrade() -> int:
