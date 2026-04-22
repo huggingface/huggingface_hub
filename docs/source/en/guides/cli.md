@@ -124,7 +124,7 @@ To upgrade to the latest version, run:
 
 This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching upgrade command.
 
-By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_NO_UPDATE_CHECK=1`.
+By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
 
 ## hf auth login
 
