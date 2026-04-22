@@ -27,9 +27,11 @@ from huggingface_hub._buckets import (
     BucketFile,
     BucketFolder,
     FilterMatcher,
+    _format_size,
     _is_bucket_path,
     _parse_bucket_path,
     _split_bucket_id_and_prefix,
+    import_from_s3,
 )
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
@@ -78,20 +80,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
             f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
             f" or {BUCKET_PREFIX}namespace/bucket_name"
         )
-
-
-def _format_size(size: int | float, human_readable: bool = False) -> str:
-    """Format a size in bytes."""
-    if not human_readable:
-        return str(size)
-
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1000:
-            if unit == "B":
-                return f"{size} {unit}"
-            return f"{size:.1f} {unit}"
-        size /= 1000
-    return f"{size:.1f} PB"
 
 
 def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
@@ -1082,3 +1070,125 @@ def cp(
 
         if not quiet:
             print(f"Uploaded: {src} -> {BUCKET_PREFIX}{bucket_id}/{remote_path}")
+
+
+# =============================================================================
+# Import command (S3 -> HF bucket)
+# =============================================================================
+
+
+@buckets_cli.command(
+    name="import",
+    examples=[
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket",
+        "hf buckets import s3://my-data-bucket/prefix/ hf://buckets/user/my-bucket/dest-prefix",
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run",
+        'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"',
+        'hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8',
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl",
+        "hf buckets import --apply import-plan.jsonl",
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g",
+    ],
+)
+def import_cmd(
+    source: Annotated[
+        str | None,
+        typer.Argument(
+            help="S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).",
+        ),
+    ] = None,
+    dest: Annotated[
+        str | None,
+        typer.Argument(
+            help="HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).",
+        ),
+    ] = None,
+    plan: Annotated[
+        str | None,
+        typer.Option(
+            help="Save import plan to JSONL file for review instead of executing.",
+        ),
+    ] = None,
+    apply: Annotated[
+        str | None,
+        typer.Option(
+            help="Apply a previously saved plan file.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print import plan to stdout as JSONL without executing.",
+        ),
+    ] = False,
+    include: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Include files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Exclude files matching pattern (can specify multiple).",
+        ),
+    ] = None,
+    filter_from: Annotated[
+        str | None,
+        typer.Option(
+            help="Read include/exclude patterns from file.",
+        ),
+    ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of parallel S3 download threads.",
+        ),
+    ] = 4,
+    buffer_size: Annotated[
+        str | None,
+        typer.Option(
+            "--buffer-size",
+            help="Maximum local temporary disk space during import (e.g. '10g', '500m').",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show detailed logging with reasoning.",
+        ),
+    ] = False,
+    quiet: QuietOpt = False,
+    token: TokenOpt = None,
+) -> None:
+    """Import files from an S3 bucket into a Hugging Face bucket.
+
+    Data is streamed from S3 through the local machine and re-uploaded to HF.
+    Requires the `s3fs` package (`pip install s3fs`). AWS credentials are resolved
+    by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance profiles, etc.).
+    """
+    from huggingface_hub.utils._parsing import parse_size
+
+    parsed_buffer_size = parse_size(buffer_size) if buffer_size else None
+
+    api = get_hf_api(token=token)
+    import_from_s3(
+        s3_source=source,
+        bucket_dest=dest,
+        api=api,
+        include=include,
+        exclude=exclude,
+        filter_from=filter_from,
+        plan=plan,
+        apply=apply,
+        dry_run=dry_run,
+        verbose=verbose,
+        quiet=quiet,
+        workers=workers,
+        buffer_size=parsed_buffer_size,
+    )

@@ -29,9 +29,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
-from .errors import BucketNotFoundError
+from .errors import BucketNotFoundError, HfHubHTTPError, XetAuthorizationError
 from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
 from .utils._terminal import StatusLine
+from .utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
 
 
 if TYPE_CHECKING:
@@ -43,6 +44,21 @@ logger = logging.get_logger(__name__)
 
 BUCKET_PREFIX = "hf://buckets/"
 _SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time comparisons
+_IMPORT_BATCH_SIZE = 100  # Internal batch size for S3 import upload API calls
+
+
+def _format_size(size: int | float, human_readable: bool = False) -> str:
+    """Format a size in bytes."""
+    if not human_readable:
+        return str(size)
+
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1000:
+            if unit == "B":
+                return f"{size} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1000
+    return f"{size:.1f} PB"
 
 
 # =============================================================================
@@ -1012,7 +1028,7 @@ def sync_bucket_internal(
             Show detailed per-file operations.
         quiet (`bool`, *optional*, defaults to `False`):
             Suppress all output and progress bars.
-        token (Union[bool, str, None], optional):
+        token (bool | str | None, optional):
             A valid user access token. If not provided, the locally saved token will be used.
 
     Returns:
@@ -1191,3 +1207,513 @@ def sync_bucket_internal(
         print("Sync completed.")
 
     return sync_plan
+
+
+# =============================================================================
+# S3 import
+# =============================================================================
+
+
+@dataclass
+class ImportStats:
+    """Statistics for an S3-to-bucket import operation."""
+
+    files_transferred: int = 0
+    files_skipped: int = 0
+    files_failed: int = 0
+    bytes_transferred: int = 0
+    elapsed_seconds: float = 0.0
+
+    @property
+    def throughput_mb_s(self) -> float:
+        if self.elapsed_seconds <= 0:
+            return 0.0
+        return (self.bytes_transferred / (1024 * 1024)) / self.elapsed_seconds
+
+    def summary_str(self) -> str:
+        parts = [
+            f"Transferred {self.files_transferred} file(s)",
+            f"({_format_size(self.bytes_transferred, human_readable=True)})",
+        ]
+        if self.files_skipped > 0:
+            parts.append(f"skipped {self.files_skipped}")
+        if self.files_failed > 0:
+            parts.append(f"failed {self.files_failed}")
+        parts.append(f"in {self.elapsed_seconds:.1f}s")
+        if self.throughput_mb_s > 0:
+            parts.append(f"({self.throughput_mb_s:.1f} MB/s)")
+        return ", ".join(parts)
+
+
+def _make_s3_filesystem(s3fs: Any) -> Any:
+    """Create an S3FileSystem, falling back to anonymous mode if no credentials are found.
+
+    This allows importing from public S3 buckets without requiring AWS credentials.
+    """
+    import botocore.session
+
+    session = botocore.session.get_session()
+    credentials = session.get_credentials()
+    if credentials is None or credentials.access_key is None:
+        return s3fs.S3FileSystem(anon=True)
+    return s3fs.S3FileSystem()
+
+
+def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple[str, int]]:
+    """List all files under an S3 path.
+
+    Yields:
+        tuple: (relative_path, size_bytes) for each file
+    """
+    try:
+        entries = s3_fs.ls(s3_path, detail=True)
+    except FileNotFoundError:
+        raise ValueError(f"S3 path not found: s3://{s3_path}")
+
+    for entry in entries:
+        if entry["type"] == "directory":
+            dir_rel = entry["name"]
+            yield from _list_s3_files(s3_fs, dir_rel, prefix)
+        else:
+            full_key = entry["name"]
+            if prefix:
+                rel_path = full_key[len(prefix) :].lstrip("/")
+            else:
+                rel_path = full_key.split("/", 1)[1] if "/" in full_key else full_key
+            if rel_path:
+                yield rel_path, entry.get("size", 0)
+
+
+def _normalize_s3_path(s3_url: str) -> str:
+    """Strip the s3:// prefix and return the raw bucket/key path."""
+    if s3_url.startswith("s3://"):
+        return s3_url[len("s3://") :]
+    return s3_url
+
+
+def _compute_import_plan(
+    s3_source: str,
+    bucket_dest: str,
+    *,
+    s3_fs: Any,
+    filter_matcher: FilterMatcher,
+    status: StatusLine,
+) -> SyncPlan:
+    """Compute an import plan by listing S3 files and building a SyncPlan.
+
+    Each file to import becomes a SyncOperation with action="upload".
+    """
+    s3_raw = _normalize_s3_path(s3_source)
+    s3_bucket_name = s3_raw.split("/")[0]
+    s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
+    full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
+
+    status.update("Listing S3 files...")
+
+    all_files: list[tuple[str, int]] = []
+    for rel_path, size in _list_s3_files(s3_fs, full_s3_prefix, prefix=full_s3_prefix):
+        if not filter_matcher.matches(rel_path):
+            continue
+        all_files.append((rel_path, size))
+        status.update(f"Listing S3 files ({len(all_files)} found)")
+
+    status.done(f"Found {len(all_files)} files in S3")
+
+    import_plan = SyncPlan(
+        source=s3_source,
+        dest=bucket_dest,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+    for rel_path, size in all_files:
+        import_plan.operations.append(SyncOperation(action="upload", path=rel_path, size=size, reason="new file"))
+
+    return import_plan
+
+
+def _execute_import_plan(
+    plan: SyncPlan,
+    *,
+    api: "HfApi",
+    s3_fs: Any,
+    verbose: bool = False,
+    quiet: bool = False,
+    workers: int = 4,
+    buffer_size: int | None = None,
+    status: StatusLine,
+) -> ImportStats:
+    """Execute an import plan: download files from S3 and upload to HF bucket."""
+    import tempfile
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    bucket_id, dest_prefix = _parse_bucket_path(plan.dest)
+    dest_prefix = dest_prefix.rstrip("/")
+
+    s3_raw = _normalize_s3_path(plan.source)
+    s3_bucket_name = s3_raw.split("/")[0]
+    s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
+    full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
+
+    upload_ops = [op for op in plan.operations if op.action == "upload"]
+    total_files = len(upload_ops)
+
+    if not upload_ops:
+        return ImportStats()
+
+    # Preflight: fetch a write token once up front. Fails fast on auth errors instead of
+    # discovering them per-batch (which would trigger the split-and-retry loop below and
+    # hammer /xet-write-token with 2N-1 requests per failed batch). Also primes the cache
+    # so the per-batch fetches are free.
+    try:
+        fetch_xet_connection_info_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=bucket_id,
+            repo_type="bucket",
+            headers=api._build_hf_headers(),
+            endpoint=api.endpoint,
+        )
+    except HfHubHTTPError as e:
+        if e.response is not None and e.response.status_code in (401, 403):
+            raise XetAuthorizationError(
+                f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                f"Please check that you have configured your access token with write access to the repo."
+            ) from e
+        raise
+
+    # Early check: fail if any single file exceeds buffer_size
+    if buffer_size is not None:
+        for op in upload_ops:
+            if op.size is not None and op.size > buffer_size:
+                raise ValueError(
+                    f"File '{op.path}' ({_format_size(op.size, human_readable=True)}) exceeds "
+                    f"--buffer-size ({_format_size(buffer_size, human_readable=True)}). Cannot proceed."
+                )
+
+    # Build batches respecting both file count and buffer_size
+    batches: list[list[SyncOperation]] = []
+    current_batch: list[SyncOperation] = []
+    current_batch_bytes = 0
+    for op in upload_ops:
+        op_size = op.size or 0
+        if current_batch and buffer_size is not None and current_batch_bytes + op_size > buffer_size:
+            batches.append(current_batch)
+            current_batch = []
+            current_batch_bytes = 0
+        current_batch.append(op)
+        current_batch_bytes += op_size
+        if len(current_batch) >= _IMPORT_BATCH_SIZE:
+            batches.append(current_batch)
+            current_batch = []
+            current_batch_bytes = 0
+    if current_batch:
+        batches.append(current_batch)
+
+    total_size = sum(op.size or 0 for op in upload_ops)
+    if not quiet:
+        print(
+            f"Importing {total_files} file(s) ({_format_size(total_size, human_readable=True)}) "
+            f"from S3 to {BUCKET_PREFIX}{bucket_id}"
+        )
+
+    stats = ImportStats()
+    start_time = time.monotonic()
+
+    def _download_one(op: SyncOperation, tmp_dir: str) -> tuple[str, str, int] | None:
+        s3_key = f"{full_s3_prefix}/{op.path}"
+        local_tmp = os.path.join(tmp_dir, op.path.replace("/", os.sep))
+        os.makedirs(os.path.dirname(local_tmp), exist_ok=True)
+        try:
+            s3_fs.get(s3_key, local_tmp)
+            # s3fs may create a directory for pseudo-directory markers (0-byte keys ending with "/").
+            # Skip these to avoid "Is a directory" errors during upload.
+            if not os.path.isfile(local_tmp):
+                logger.warning(f"Skipping s3://{s3_key}: downloaded path is not a regular file")
+                return None
+            return op.path, local_tmp, op.size or 0
+        except Exception as e:
+            logger.warning(f"Failed to download s3://{s3_key}: {e}")
+            return None
+
+    with tempfile.TemporaryDirectory(prefix="hf-s3-import-") as tmp_dir:
+        for batch_index, batch in enumerate(batches, start=1):
+            status.update(f"Batch {batch_index}/{len(batches)}: downloading {len(batch)} files from S3")
+
+            downloaded: list[tuple[str, str, int]] = []
+
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {executor.submit(_download_one, op, tmp_dir): op for op in batch}
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result is not None:
+                        downloaded.append(result)
+                    else:
+                        stats.files_failed += 1
+
+            if not downloaded:
+                continue
+
+            add_files: list[tuple[str | Path | bytes, str]] = []
+            downloaded_by_dest: dict[str, tuple[str, str, int]] = {}
+            for rel_path, local_tmp, size in downloaded:
+                remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
+                add_files.append((local_tmp, remote_dest))
+                downloaded_by_dest[remote_dest] = (rel_path, local_tmp, size)
+
+            status.update(f"Batch {batch_index}/{len(batches)}: uploading {len(add_files)} files to HF bucket")
+
+            # Upload with retry: on failure, split the batch in half and retry each sub-batch.
+            # This isolates problematic files (e.g. directories) instead of failing the whole batch.
+            upload_queue: list[list[tuple[str | Path | bytes, str]]] = [add_files]
+            succeeded_dests: set[str] = set()
+            while upload_queue:
+                chunk = upload_queue.pop(0)
+                try:
+                    if quiet:
+                        disable_progress_bars()
+                    try:
+                        api.batch_bucket_files(bucket_id, add=chunk)
+                    finally:
+                        if quiet:
+                            enable_progress_bars()
+                    succeeded_dests.update(dest for _, dest in chunk)
+                except Exception as e:
+                    # Auth failures will never be resolved by splitting the batch. Re-raise
+                    # immediately to avoid hammering /xet-write-token with recursive retries.
+                    if isinstance(e, XetAuthorizationError):
+                        raise
+                    if (
+                        isinstance(e, HfHubHTTPError)
+                        and e.response is not None
+                        and e.response.status_code in (401, 403)
+                    ):
+                        raise
+                    if len(chunk) == 1:
+                        _, dest = chunk[0]
+                        logger.error(f"Failed to upload file '{dest}': {e}")
+                    else:
+                        mid = len(chunk) // 2
+                        logger.warning(
+                            f"Batch upload failed ({e}), splitting {len(chunk)} files into"
+                            f" sub-batches of {mid} and {len(chunk) - mid} and retrying"
+                        )
+                        upload_queue.append(chunk[:mid])
+                        upload_queue.append(chunk[mid:])
+
+            for dest in succeeded_dests:
+                rel_path, local_tmp, size = downloaded_by_dest[dest]
+                stats.files_transferred += 1
+                stats.bytes_transferred += size
+                if verbose:
+                    print(f"  {rel_path} ({_format_size(size, human_readable=True)})")
+            failed_count = len(downloaded_by_dest) - len(succeeded_dests)
+            stats.files_failed += failed_count
+
+            for _, local_tmp, _ in downloaded:
+                try:
+                    os.remove(local_tmp)
+                except OSError:
+                    pass
+
+            elapsed = time.monotonic() - start_time
+            throughput = (stats.bytes_transferred / (1024 * 1024)) / elapsed if elapsed > 0 else 0
+            status.update(
+                f"Progress: {stats.files_transferred}/{total_files} files, "
+                f"{_format_size(stats.bytes_transferred, human_readable=True)}, "
+                f"{throughput:.1f} MB/s"
+            )
+
+    stats.elapsed_seconds = time.monotonic() - start_time
+    status.done(stats.summary_str())
+
+    if not quiet:
+        print(f"Import completed: {stats.summary_str()}")
+
+    return stats
+
+
+def import_from_s3(
+    s3_source: str | None = None,
+    bucket_dest: str | None = None,
+    *,
+    api: "HfApi",
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    filter_from: str | None = None,
+    dry_run: bool = False,
+    plan: str | None = None,
+    apply: str | None = None,
+    verbose: bool = False,
+    quiet: bool = False,
+    workers: int = 4,
+    buffer_size: int | None = None,
+    token: bool | str | None = None,
+) -> ImportStats | SyncPlan:
+    """Import files from an S3 bucket into a Hugging Face bucket.
+
+    Data is streamed from S3 through the local machine and uploaded to HF. The ``s3fs``
+    package is required (``pip install s3fs``). AWS credentials are resolved by the
+    standard boto chain (env vars, ``~/.aws/credentials``, instance profile, etc.).
+    If no credentials are found, anonymous access is used automatically, which works
+    for public S3 buckets.
+
+    Args:
+        s3_source (`str`, *optional*):
+            S3 URI, e.g. ``s3://my-bucket/prefix/``. Required unless using ``apply``.
+        bucket_dest (`str`, *optional*):
+            HF bucket path, e.g. ``hf://buckets/namespace/bucket-name`` or
+            ``hf://buckets/namespace/bucket-name/dest-prefix``. Required unless using ``apply``.
+        api ([`HfApi`]):
+            The HfApi instance to use.
+        include (`list[str]`, *optional*):
+            Include files matching these fnmatch patterns.
+        exclude (`list[str]`, *optional*):
+            Exclude files matching these fnmatch patterns.
+        filter_from (`str`, *optional*):
+            Path to a filter file with include/exclude rules.
+        dry_run (`bool`):
+            Print import plan to stdout as JSONL without executing.
+        plan (`str`, *optional*):
+            Save import plan to this JSONL file instead of executing.
+        apply (`str`, *optional*):
+            Apply a previously saved plan file. When set, ``s3_source`` and ``bucket_dest`` are not needed.
+        verbose (`bool`):
+            Show detailed logging with reasoning.
+        quiet (`bool`):
+            Suppress all output and progress bars.
+        workers (`int`):
+            Number of parallel download threads for S3 files.
+        buffer_size (`int`, *optional*):
+            Maximum local temporary disk space in bytes. Fails early if any single file exceeds this
+            limit, and constrains batch sizes to stay within budget.
+        token:
+            HF token override.
+
+    Returns:
+        [`ImportStats`] or [`SyncPlan`]: Transfer statistics (when executing) or the computed plan
+        (when using ``dry_run`` or ``plan``).
+    """
+    if token is not None:
+        from .hf_api import HfApi
+
+        api = HfApi(token=token)
+
+    # --- Apply mode ---
+    if apply:
+        if s3_source or bucket_dest:
+            raise ValueError("Cannot specify source/dest when using --apply.")
+        if plan is not None:
+            raise ValueError("Cannot specify both --plan and --apply.")
+        if include:
+            raise ValueError("Cannot specify --include when using --apply.")
+        if exclude:
+            raise ValueError("Cannot specify --exclude when using --apply.")
+        if filter_from:
+            raise ValueError("Cannot specify --filter-from when using --apply.")
+        if dry_run:
+            raise ValueError("Cannot specify --dry-run when using --apply.")
+
+        import_plan = _load_plan(apply)
+        if not import_plan.source.startswith("s3://"):
+            raise ValueError(f"Plan file does not appear to be an import plan (source: {import_plan.source}).")
+
+        try:
+            import s3fs
+        except ImportError:
+            raise ImportError(
+                "The `s3fs` package is required for S3 imports. Install it with:\n"
+                "  pip install s3fs\n"
+                "or:\n"
+                "  pip install huggingface_hub[s3]"
+            )
+
+        status = StatusLine(enabled=not quiet)
+        if not quiet:
+            _print_plan_summary(import_plan)
+            print("Executing plan...")
+
+        s3 = _make_s3_filesystem(s3fs)
+        return _execute_import_plan(
+            import_plan,
+            api=api,
+            s3_fs=s3,
+            verbose=verbose,
+            quiet=quiet,
+            workers=workers,
+            buffer_size=buffer_size,
+            status=status,
+        )
+
+    # --- Normal mode ---
+    if not s3_source:
+        raise ValueError("Source S3 URI is required (unless using --apply).")
+    if not bucket_dest:
+        raise ValueError("Destination bucket path is required (unless using --apply).")
+
+    if not s3_source.startswith("s3://"):
+        raise ValueError(f"Source must be an S3 URI (s3://...): {s3_source}")
+    if not _is_bucket_path(bucket_dest):
+        raise ValueError(f"Destination must be a bucket path (hf://buckets/...): {bucket_dest}")
+
+    if dry_run and plan:
+        raise ValueError("Cannot specify both --dry-run and --plan.")
+
+    try:
+        import s3fs
+    except ImportError:
+        raise ImportError(
+            "The `s3fs` package is required for S3 imports. Install it with:\n"
+            "  pip install s3fs\n"
+            "or:\n"
+            "  pip install huggingface_hub[s3]"
+        )
+
+    s3 = _make_s3_filesystem(s3fs)
+
+    # Build filter matcher
+    filter_rules = _parse_filter_file(filter_from) if filter_from else None
+    filter_matcher = FilterMatcher(
+        include_patterns=include,
+        exclude_patterns=exclude,
+        filter_rules=filter_rules,
+    )
+
+    # Compute plan
+    status = StatusLine(enabled=not quiet and not dry_run)
+    import_plan = _compute_import_plan(
+        s3_source,
+        bucket_dest,
+        s3_fs=s3,
+        filter_matcher=filter_matcher,
+        status=status,
+    )
+
+    if dry_run:
+        _write_plan(import_plan, sys.stdout)
+        return import_plan
+
+    if plan:
+        _save_plan(import_plan, plan)
+        if not quiet:
+            _print_plan_summary(import_plan)
+            print(f"Plan saved to: {plan}")
+        return import_plan
+
+    # Execute
+    if not quiet:
+        _print_plan_summary(import_plan)
+
+    summary = import_plan.summary()
+    if summary["uploads"] == 0:
+        if not quiet:
+            print("Nothing to import.")
+        return ImportStats()
+
+    return _execute_import_plan(
+        import_plan,
+        api=api,
+        s3_fs=s3,
+        verbose=verbose,
+        quiet=quiet,
+        workers=workers,
+        buffer_size=buffer_size,
+        status=status,
+    )

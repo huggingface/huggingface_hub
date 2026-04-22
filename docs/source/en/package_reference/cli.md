@@ -235,6 +235,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `cp`: Copy files to or from buckets.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
+* `import`: Import files from an S3 bucket into a...
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
@@ -342,6 +343,55 @@ Examples
   $ hf buckets delete hf://buckets/user/my-bucket
   $ hf buckets delete user/my-bucket --yes
   $ hf buckets delete user/my-bucket --missing-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets import`
+
+Import files from an S3 bucket into a Hugging Face bucket.
+
+Data is streamed from S3 through the local machine and re-uploaded to HF.
+Requires the `s3fs` package (`pip install s3fs`). AWS credentials are resolved
+by the standard boto/botocore chain (env vars, ~/.aws/credentials, instance profiles, etc.).
+
+**Usage**:
+
+```console
+$ hf buckets import [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: S3 source URI (e.g. s3://my-bucket or s3://my-bucket/prefix/).
+* `[DEST]`: HF bucket destination (e.g. hf://buckets/namespace/bucket-name or hf://buckets/namespace/bucket-name/prefix).
+
+**Options**:
+
+* `--plan TEXT`: Save import plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print import plan to stdout as JSONL without executing.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `-w, --workers INTEGER`: Number of parallel S3 download threads.  [default: 4]
+* `--buffer-size TEXT`: Maximum local temporary disk space during import (e.g. '10g', '500m').
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `-q, --quiet`: Print only IDs (one per line).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket
+  $ hf buckets import s3://my-data-bucket/prefix/ hf://buckets/user/my-bucket/dest-prefix
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --dry-run
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --include "*.parquet"
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --exclude "*.tmp" --workers 8
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl
+  $ hf buckets import --apply import-plan.jsonl
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g
 
 Learn more
   Use `hf <command> --help` for more information about a command.
