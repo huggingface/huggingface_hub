@@ -1503,10 +1503,7 @@ def _execute_import_plan(
                 stats.files_transferred += 1
                 stats.bytes_transferred += size
                 if verbose:
-                    print(
-                        f"  {rel_path} -> {BUCKET_PREFIX}{bucket_id}/{dest} "
-                        f"({_format_size(size, human_readable=True)})"
-                    )
+                    print(f"  {rel_path} ({_format_size(size, human_readable=True)})")
             failed_count = len(downloaded_by_dest) - len(succeeded_dests)
             stats.files_failed += failed_count
 
