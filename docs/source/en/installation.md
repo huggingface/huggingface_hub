@@ -118,7 +118,7 @@ On Windows:
 powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
-To upgrade an existing install, run `hf upgrade` — it detects how `hf` was installed (standalone installer, Homebrew, or pip) and runs the matching command.
+To upgrade an existing install, run `hf update` — it detects how `hf` was installed (standalone installer, Homebrew, or pip) and runs the matching command.
 
 ## Install with conda
 
