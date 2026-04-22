@@ -25,6 +25,7 @@
 # - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
 # - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
 # - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
+# - RELEASE_BUCKET_HF_TOKEN              : HF TOKEN scoped to push data to the huggingface/releases bucket
 # - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
 # - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
 # - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
@@ -640,6 +641,107 @@ jobs:
           fi
 
   # ============================================================
+  # 4c. SOCIAL POSTS — generate draft social media posts for prereleases
+  # ============================================================
+  social-posts:
+    permissions:
+      contents: write  # need write to list draft releases
+    needs: [prepare, release-notes]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Install hf CLI
+        run: curl -LsSf https://hf.co/cli/install.sh | bash
+
+      - name: Fetch release notes from GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          RELEASE_TAG=$(gh release list --json tagName,isDraft,isPrerelease --limit 100 \
+            | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::error::No release found for v${MINOR}."
+            exit 1
+          fi
+
+          echo "Found release: $RELEASE_TAG"
+          mkdir -p .release-notes
+          gh release view "$RELEASE_TAG" --json body -q '.body' > .release-notes/notes.md
+
+      - name: Generate social media drafts
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          python -m utils.release_notes.generate_social_posts \
+            --version "v${BASE_VERSION}" \
+            --input .release-notes/notes.md
+
+      - name: Upload drafts to bucket
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          hf buckets sync .release-notes/socials/ \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials/"
+
+      - name: Print drafts to summary
+        run: |
+          echo "## Social Media Drafts" >> $GITHUB_STEP_SUMMARY
+          for f in .release-notes/socials/*.txt; do
+            if [[ -f "$f" ]]; then
+              BASENAME=$(basename "$f")
+              echo "### ${BASENAME}" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Social media drafts* — <${BUCKET_URL}|uploaded to bucket>"
+          else
+            TEXT="❌ *Social media drafts* — generation failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
   # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
   # ============================================================
   test-downstream:
@@ -1022,7 +1124,7 @@ jobs:
   # 9. SLACK — final status update
   # ============================================================
   slack-complete:
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, social-posts, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
@@ -1047,6 +1149,7 @@ jobs:
             "${{ needs.publish-hf-cli.result }}" \
             "${{ needs.release-notes.result }}" \
             "${{ needs.slack-message.result }}" \
+            "${{ needs.social-posts.result }}" \
             "${{ needs.test-downstream.result }}" \
             "${{ needs.post-release.result }}" \
             "${{ needs.sync-hf-cli-skill.result }}" \
