@@ -647,6 +647,8 @@ jobs:
     permissions:
       contents: write  # need write to list draft releases
     needs: [prepare, release-notes]
+    # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
+    # This also allows re-running this job after manually editing the draft release notes.
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -661,8 +663,11 @@ jobs:
       - name: Install dependencies
         run: pip install -e .
 
-      - name: Install hf CLI
-        run: curl -LsSf https://hf.co/cli/install.sh | bash
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
         env:
