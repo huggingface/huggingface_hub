@@ -84,6 +84,13 @@ class TestNormalizeS3Path:
         assert _normalize_s3_path("s3://my-bucket") == "my-bucket"
 
 
+@pytest.fixture(autouse=True)
+def _mock_xet_preflight():
+    """Mock the xet-write-token preflight so tests with a MagicMock api don't hit the network."""
+    with patch("huggingface_hub._buckets.fetch_xet_connection_info_from_repo_info") as m:
+        yield m
+
+
 def _make_s3_mocks(files):
     """Helper to create mocked s3fs module and filesystem.
 
