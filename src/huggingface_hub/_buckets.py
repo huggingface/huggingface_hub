@@ -29,9 +29,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
-from .errors import BucketNotFoundError
+from .errors import BucketNotFoundError, HfHubHTTPError, XetAuthorizationError
 from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
 from .utils._terminal import StatusLine
+from .utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
 
 
 if TYPE_CHECKING:
@@ -1358,6 +1359,26 @@ def _execute_import_plan(
     if not upload_ops:
         return ImportStats()
 
+    # Preflight: fetch a write token once up front. Fails fast on auth errors instead of
+    # discovering them per-batch (which would trigger the split-and-retry loop below and
+    # hammer /xet-write-token with 2N-1 requests per failed batch). Also primes the cache
+    # so the per-batch fetches are free.
+    try:
+        fetch_xet_connection_info_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_id=bucket_id,
+            repo_type="bucket",
+            headers=api._build_hf_headers(),
+            endpoint=api.endpoint,
+        )
+    except HfHubHTTPError as e:
+        if e.response is not None and e.response.status_code in (401, 403):
+            raise XetAuthorizationError(
+                f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
+                f"Please check that you have configured your access token with write access to the repo."
+            ) from e
+        raise
+
     # Early check: fail if any single file exceeds buffer_size
     if buffer_size is not None:
         for op in upload_ops:
@@ -1455,6 +1476,16 @@ def _execute_import_plan(
                             enable_progress_bars()
                     succeeded_dests.update(dest for _, dest in chunk)
                 except Exception as e:
+                    # Auth failures will never be resolved by splitting the batch. Re-raise
+                    # immediately to avoid hammering /xet-write-token with recursive retries.
+                    if isinstance(e, XetAuthorizationError):
+                        raise
+                    if (
+                        isinstance(e, HfHubHTTPError)
+                        and e.response is not None
+                        and e.response.status_code in (401, 403)
+                    ):
+                        raise
                     if len(chunk) == 1:
                         _, dest = chunk[0]
                         logger.error(f"Failed to upload file '{dest}': {e}")

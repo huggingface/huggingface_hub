@@ -595,3 +595,126 @@ class TestBufferSize:
         # With buffer_size=1000, each 600-byte file fits alone but two don't.
         # So we expect 3 batches of 1 file each = 3 batch_bucket_files calls.
         assert api.batch_bucket_files.call_count == 3
+
+
+class TestAuthFailureFastFail:
+    """Verify that auth failures don't trigger recursive split-and-retry against /xet-write-token."""
+
+    def test_preflight_fails_fast_on_401(self, _mock_xet_preflight):
+        """A 401 from the write-token preflight should surface immediately, before any S3 download."""
+        from huggingface_hub.errors import HfHubHTTPError, XetAuthorizationError
+
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        _mock_xet_preflight.side_effect = HfHubHTTPError("unauthorized", response=mock_response)
+
+        api = MagicMock()
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/f1.txt", "type": "file", "size": 10},
+                {"name": "my-bucket/f2.txt", "type": "file", "size": 10},
+            ]
+        )
+        mock_s3.get = MagicMock()
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            with pytest.raises(XetAuthorizationError):
+                import_from_s3(
+                    s3_source="s3://my-bucket",
+                    bucket_dest="hf://buckets/user/my-bucket",
+                    api=api,
+                    quiet=True,
+                )
+
+        # No S3 downloads, no batch_bucket_files calls — we failed before the batch loop.
+        mock_s3.get.assert_not_called()
+        api.batch_bucket_files.assert_not_called()
+
+    def test_batch_auth_error_is_not_split_and_retried(self, _mock_xet_preflight):
+        """A XetAuthorizationError raised by batch_bucket_files must re-raise, not split+retry."""
+        from huggingface_hub.errors import XetAuthorizationError
+
+        api = MagicMock()
+        api.batch_bucket_files.side_effect = XetAuthorizationError("nope")
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [{"name": f"my-bucket/f{i}.txt", "type": "file", "size": 10} for i in range(8)]
+        )
+
+        def mock_get(s3_key, local_path):
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "w") as f:
+                f.write("x")
+
+        mock_s3.get = mock_get
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            with pytest.raises(XetAuthorizationError):
+                import_from_s3(
+                    s3_source="s3://my-bucket",
+                    bucket_dest="hf://buckets/user/my-bucket",
+                    api=api,
+                    quiet=True,
+                )
+
+        # The old buggy behavior would split the batch of 8 into 4+4, then 2+2+2+2, then 1×8,
+        # producing 15 calls. We must stop at the first one.
+        assert api.batch_bucket_files.call_count == 1
+
+    def test_batch_401_http_error_is_not_split_and_retried(self, _mock_xet_preflight):
+        """A HfHubHTTPError(401) from batch_bucket_files must also re-raise, not split+retry."""
+        from huggingface_hub.errors import HfHubHTTPError
+
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+
+        api = MagicMock()
+        api.batch_bucket_files.side_effect = HfHubHTTPError("unauthorized", response=mock_response)
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [{"name": f"my-bucket/f{i}.txt", "type": "file", "size": 10} for i in range(4)]
+        )
+
+        def mock_get(s3_key, local_path):
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "w") as f:
+                f.write("x")
+
+        mock_s3.get = mock_get
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            with pytest.raises(HfHubHTTPError):
+                import_from_s3(
+                    s3_source="s3://my-bucket",
+                    bucket_dest="hf://buckets/user/my-bucket",
+                    api=api,
+                    quiet=True,
+                )
+
+        assert api.batch_bucket_files.call_count == 1
+
+    def test_non_auth_batch_error_still_splits(self, _mock_xet_preflight):
+        """Non-auth failures (e.g. bad file) should still split-and-retry to isolate the bad file."""
+        api = MagicMock()
+        # Fail the first call (full batch) with a generic error, succeed on sub-batches.
+        api.batch_bucket_files.side_effect = [RuntimeError("boom"), None, None]
+
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [{"name": f"my-bucket/f{i}.txt", "type": "file", "size": 10} for i in range(2)]
+        )
+
+        def mock_get(s3_key, local_path):
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "w") as f:
+                f.write("x")
+
+        mock_s3.get = mock_get
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            import_from_s3(
+                s3_source="s3://my-bucket",
+                bucket_dest="hf://buckets/user/my-bucket",
+                api=api,
+                quiet=True,
+            )
+
+        # Generic error: 1 (full batch, fails) + 2 (each file as its own chunk) = 3 calls.
+        assert api.batch_bucket_files.call_count == 3
