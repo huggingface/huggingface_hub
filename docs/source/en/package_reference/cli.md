@@ -399,6 +399,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 * `-h, --human-readable`: Show sizes in human readable format.
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
+* `--search TEXT`: Search query.
 * `--format [table|json]`: Output format (table or json).  [default: table]
 * `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -407,6 +408,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 Examples
   $ hf buckets list
   $ hf buckets list huggingface
+  $ hf buckets list --search "my-prefix"
   $ hf buckets list user/my-bucket
   $ hf buckets list user/my-bucket -R
   $ hf buckets list user/my-bucket -h
