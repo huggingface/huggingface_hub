@@ -33,6 +33,7 @@
 #
 # Required repository variables:
 # - SLACK_CHANNEL_ID                     : Slack channel ID for release notifications
+# - RELEASE_NOTES_MODEL                  : HF model ID used to generate release notes and Slack announcement (e.g. `zai-org/GLM-5.1`)
 #
 # An additional secret for OpenCode authentication is needed for automated release notes generation
 # (see the release-notes job below).
@@ -425,7 +426,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
         run: |
           python -m utils.release_notes.generate_release_notes \
             --since "${{ needs.prepare.outputs.since_tag }}" \
@@ -521,7 +522,7 @@ jobs:
   # ============================================================
   slack-message:
     permissions:
-      contents: read
+      contents: write  # need write to list draft releases
     needs: [prepare, release-notes]
     # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
     # This also allows re-running this job after manually editing the draft release notes.
@@ -567,7 +568,7 @@ jobs:
       - name: Generate Slack message
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
-          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')

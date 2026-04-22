@@ -46,6 +46,7 @@ _TOOL_AGENTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("GOOSE_TERMINAL",), "goose"),
     (("OPENCLAW_SHELL",), "openclaw"),
     (("OPENCODE_CLIENT",), "opencode"),
+    (("PI_CODING_AGENT",), "pi"),
     (("REPL_ID",), "replit"),
     (("ROO_ACTIVE",), "roo-code"),
     (("TRAE_AI_SHELL_ID",), "trae"),
