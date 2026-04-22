@@ -114,15 +114,15 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 
 Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
-### Upgrading
+### Updating
 
 To upgrade to the latest version, run:
 
 ```bash
->>> hf upgrade
+>>> hf update
 ```
 
-This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching upgrade command.
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
 
 By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
 

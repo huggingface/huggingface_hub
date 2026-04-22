@@ -952,7 +952,7 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found, print a hint pointing at `hf upgrade`.
+    If a newer version is found, print a hint pointing at `hf update`.
 
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
     If `HF_HUB_DISABLE_UPDATE_CHECK` is set, the check is skipped entirely.
@@ -1008,7 +1008,7 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     if update_command is not None:
         match library:
             case "huggingface_hub":
-                message += "\nTo update, run: hf upgrade"
+                message += "\nTo update, run: hf update"
             case _:
                 message += f"\nTo update, run: {' '.join(update_command)}"
     out.hint(message)

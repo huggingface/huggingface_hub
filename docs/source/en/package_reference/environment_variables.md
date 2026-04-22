@@ -183,7 +183,7 @@ You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally dis
 
 ### HF_HUB_DISABLE_UPDATE_CHECK
 
-By default, the `hf` CLI checks PyPI for a newer release at startup (at most once every 24 hours) and prints a one-line yellow warning to stderr when one is available, suggesting `hf upgrade`. The check is already a no-op on dev and pre-release versions.
+By default, the `hf` CLI checks PyPI for a newer release at startup (at most once every 24 hours) and prints a one-line yellow warning to stderr when one is available, suggesting `hf update`. The check is already a no-op on dev and pre-release versions.
 
 Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to skip the PyPI request and silence the warning entirely. Useful in offline CI environments or when you prefer a quieter shell output.
 
