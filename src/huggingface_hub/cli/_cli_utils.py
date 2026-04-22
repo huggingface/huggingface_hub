@@ -1014,16 +1014,16 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     out.hint(message)
 
 
-def run_upgrade() -> int:
-    """Run the install-method-appropriate upgrade command for the `hf` CLI.
+def run_update() -> int:
+    """Run the install-method-appropriate update command for the `hf` CLI.
 
     Raises CLIError if the installation method can't be determined.
-    Returns the subprocess exit code on success/failure of the upgrade itself.
+    Returns the subprocess exit code on success/failure of the update itself.
     """
     cmd = _get_huggingface_hub_update_command()
     if cmd is None:
         raise CLIError(
-            "Cannot determine how to upgrade huggingface_hub (unknown installation method). Please upgrade manually."
+            "Cannot determine how to update huggingface_hub (unknown installation method). Please update manually."
         )
     return subprocess.call(cmd)
 

@@ -18,7 +18,7 @@ import typer
 from huggingface_hub import __version__
 
 from ..utils import dump_environment_info
-from ._cli_utils import run_upgrade
+from ._cli_utils import run_update
 from ._output import out
 
 
@@ -32,9 +32,9 @@ def version() -> None:
     print(__version__)
 
 
-def upgrade() -> None:
-    """Upgrade the `hf` CLI to the latest version."""
-    returncode = run_upgrade()
+def update() -> None:
+    """Update the `hf` CLI to the latest version."""
+    returncode = run_update()
     if returncode != 0:
         raise typer.Exit(code=returncode)
     out.hint(
