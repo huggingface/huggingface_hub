@@ -955,7 +955,7 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     If a newer version is found, print a yellow warning to stderr pointing at `hf upgrade`.
 
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
-    If `HF_HUB_NO_UPDATE_CHECK` is set, the check is skipped entirely.
+    If `HF_HUB_DISABLE_UPDATE_CHECK` is set, the check is skipped entirely.
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
     during the check is caught and logged, to avoid breaking the CLI.
@@ -971,7 +971,7 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
 
 
 def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> None:
-    if constants.HF_HUB_NO_UPDATE_CHECK:
+    if constants.HF_HUB_DISABLE_UPDATE_CHECK:
         return
 
     current_version = importlib.metadata.version(library)

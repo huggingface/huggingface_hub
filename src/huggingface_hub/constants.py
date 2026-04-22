@@ -195,7 +195,7 @@ def is_offline_mode() -> bool:
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
-HF_HUB_NO_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_NO_UPDATE_CHECK"))
+HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
 
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
 # as curl commands for reproducibility.

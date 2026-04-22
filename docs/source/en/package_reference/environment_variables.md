@@ -181,15 +181,15 @@ Each library defines its own policy (i.e. which usage to monitor) but the core i
 
 You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
 
-### HF_HUB_DISABLE_XET
-
-Set to disable using `hf-xet`, even if it is available in your Python environment. This is since `hf-xet` will be used automatically if it is found, this allows explicitly disabling its usage. If you are disabling Xet, please consider [filing an issue and including the diagnostics](https://github.com/huggingface/xet-core?tab=readme-ov-file#issues-diagnostics--debugging) information to help us understand why Xet is not working for you.
-
-### HF_HUB_NO_UPDATE_CHECK
+### HF_HUB_DISABLE_UPDATE_CHECK
 
 By default, the `hf` CLI checks PyPI for a newer release at startup (at most once every 24 hours) and prints a one-line yellow warning to stderr when one is available, suggesting `hf upgrade`. The check is already a no-op on dev and pre-release versions.
 
-Set `HF_HUB_NO_UPDATE_CHECK=1` to skip the PyPI request and silence the warning entirely. Useful in offline CI environments or when you prefer a quieter shell output.
+Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to skip the PyPI request and silence the warning entirely. Useful in offline CI environments or when you prefer a quieter shell output.
+
+### HF_HUB_DISABLE_XET
+
+Set to disable using `hf-xet`, even if it is available in your Python environment. This is since `hf-xet` will be used automatically if it is found, this allows explicitly disabling its usage. If you are disabling Xet, please consider [filing an issue and including the diagnostics](https://github.com/huggingface/xet-core?tab=readme-ov-file#issues-diagnostics--debugging) information to help us understand why Xet is not working for you.
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
