@@ -1010,7 +1010,7 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
             case "huggingface_hub":
                 message += "\nTo update, run: hf upgrade"
             case _:
-                message += f"\nTo update, run: {update_command}"
+                message += f"\nTo update, run: {' '.join(update_command)}"
     out.hint(message)
 
 
