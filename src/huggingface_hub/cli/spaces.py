@@ -35,7 +35,8 @@ import sys
 import tempfile
 import time
 from collections import deque
-from typing import Annotated, Literal, get_args
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -44,7 +45,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -349,7 +350,7 @@ def spaces_hot_reload(
         ),
     ] = None,
     local_file: Annotated[
-        str | None,
+        Path | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -391,10 +392,14 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if version.parse(sdk_version) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
+        if (current_sha := space_info.sha) is None:
+            raise CLIError(f"Unexpected `None` running SHA for Space {space_id}")
+    else:
+        current_sha = None
 
     if local_file:
-        local_path = local_file
-        filename = local_file if filename is None else filename
+        local_path = str(local_file)
+        filename = local_file.as_posix() if filename is None else filename
     elif filename:
         if not skip_checks:
             try:
@@ -418,12 +423,20 @@ def spaces_hot_reload(
                 filename=filename,
                 local_dir=temp_dir.name,
             )
+        except RemoteEntryNotFoundError:
+            typer.secho(f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK)
         finally:
             if not pbar_disabled:
                 enable_progress_bars()
         editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
-            raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
+            persistent_temp_dir = tempfile.mkdtemp()
+            shutil.copytree(temp_dir.name, persistent_temp_dir, dirs_exist_ok=True)
+            local_path = os.path.join(persistent_temp_dir, filename)
+            typer.secho("No TTY detected. Non-interactive fallback:")
+            typer.secho(f"- Edit {local_path}")
+            typer.secho(f"- Run `hf spaces hot-reload {space_id} {filename} -f {local_path}`")
+            return
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to hot-reload from local path")
         if editor_res != 0:
@@ -436,15 +449,23 @@ def spaces_hot_reload(
         repo_id=space_id,
         path_or_fileobj=local_path,
         path_in_repo=filename,
+        parent_commit=current_sha,
         _hot_reload=True,
     )
 
+    if local_file is not None and local_file.resolve().is_relative_to(Path.cwd()):
+        typer.secho(f"Created commit {commit_info.oid} in remote Space repository.")
+        typer.secho("Consider running `git pull --autostash` to stay synced if you are working from a local clone.")
+
     if not skip_summary:
+        typer.secho("Hot-reload summary:")
         _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
+            current_sha=current_sha,
             commit_sha=commit_info.oid,
-            local_path=local_path if local_file else os.path.basename(local_path),
+            local_path=local_path if local_file else filename,
+            filename=filename,
             token=token,
         )
 
@@ -452,11 +473,19 @@ def spaces_hot_reload(
 def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
+    current_sha: str | None,
     commit_sha: str,
-    local_path: str | None,
+    filename: str,
+    local_path: str,
     token: str | None,
 ) -> None:
-    space_info = api.space_info(space_id)
+    while (space_info := api.space_info(space_id)).sha == current_sha:
+        if current_sha is None or current_sha == commit_sha:
+            break
+        typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK, err=True)
+        time.sleep(2)
+    if space_info.sha != commit_sha:
+        raise CLIError(f"Expected SHA {commit_sha} after hot-reload but got {space_info.sha}")
     if (runtime := space_info.runtime) is None:
         raise CLIError(f"Unable to read SpaceRuntime from {space_id} infos")
     if (hot_reloading := runtime.hot_reloading) is None:
@@ -471,9 +500,7 @@ def _spaces_hot_reload_summary(
         raise CLIError("Unexpected None subdomain on hotReloaded Space")
 
     def render_region(region: ReloadRegion) -> str:
-        res = ""
-        if local_path is not None:
-            res += f"{local_path}, "
+        res = f"{local_path}, "
         if region["startLine"] == region["endLine"]:
             res += f"line {region['startLine'] - 1}"
         else:
@@ -501,8 +528,15 @@ def _spaces_hot_reload_summary(
                 typer.secho("⟳ UI updated", bold=True)
             else:
                 typer.secho("∅ UI untouched", bold=True)
+        elif event["data"]["kind"] == "file":
+            if event["data"]["created"]:
+                typer.secho(f"✔︎ {filename} created", bold=True)
+            else:
+                typer.secho(f"✔︎ {filename} updated", bold=True)
         else:
-            assert_never(event["data"]["kind"])
+            typer.secho(f"❓ Unknown update event: {event=}")
+            if TYPE_CHECKING:
+                assert_never(event["data"]["kind"])
 
     for replica_stream_event in multi_replica_reload_events(
         commit_sha=commit_sha,
@@ -517,6 +551,8 @@ def _spaces_hot_reload_summary(
             typer.secho(f"---- Replica {replica_stream_event['hash']} ----")
         elif replica_stream_event["kind"] == "fullMatch":
             typer.echo("✔︎ Same as first replica")
+        elif replica_stream_event["kind"] == "warning":
+            typer.secho(f"⚠ {replica_stream_event['message']}", fg=typer.colors.BRIGHT_BLACK)
         else:
             assert_never(replica_stream_event)
 
