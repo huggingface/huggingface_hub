@@ -394,7 +394,10 @@ def _list_buckets(
     if not results:
         if not quiet and format != OutputFormat.json:
             resolved_namespace = namespace if namespace is not None else api.whoami()["name"]
-            print(f"No buckets found under namespace '{resolved_namespace}'.")
+            if search is None:
+                print(f"No buckets found under namespace '{resolved_namespace}'.")
+            else:
+                print(f"No buckets found under namespace '{resolved_namespace}' matching search '{search}'.")
             return
 
     headers = ["id", "private", "size", "total_files", "created_at"]

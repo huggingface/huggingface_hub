@@ -513,6 +513,23 @@ def test_bucket_list_error_search_with_files(tree_bucket: str):
     assert "Cannot use --search when listing files" in result.output
 
 
+def test_bucket_list_empty_search_mentions_filter(monkeypatch: pytest.MonkeyPatch):
+    class DummyApi:
+        def list_buckets(self, namespace: str | None, search: str | None):
+            assert namespace == USER
+            assert search == "does-not-exist-1234567890"
+            return []
+
+        def whoami(self):
+            return {"name": USER}
+
+    monkeypatch.setattr("huggingface_hub.cli.buckets.get_hf_api", lambda token=None: DummyApi())
+
+    result = cli(f"hf buckets list {USER} --search does-not-exist-1234567890")
+    assert result.exit_code == 0
+    assert f"No buckets found under namespace '{USER}' matching search 'does-not-exist-1234567890'." in result.output
+
+
 # =============================================================================
 # List files
 # =============================================================================
