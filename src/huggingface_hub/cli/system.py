@@ -16,6 +16,8 @@
 from huggingface_hub import __version__
 
 from ..utils import dump_environment_info
+from ._cli_utils import run_upgrade
+from ._output import out
 
 
 def env() -> None:
@@ -26,3 +28,13 @@ def env() -> None:
 def version() -> None:
     """Print information about the hf version."""
     print(__version__)
+
+
+def upgrade() -> None:
+    """Upgrade the `hf` CLI to the latest version."""
+    returncode = run_upgrade()
+    if returncode == 0:
+        out.hint(
+            "You may also want to run `hf skills upgrade` to refresh any installed skills "
+            "so your AI agent sees the latest command surface."
+        )

@@ -42,7 +42,7 @@ from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.repos import repos_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
-from huggingface_hub.cli.system import env, version
+from huggingface_hub.cli.system import env, upgrade, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.cli.webhooks import webhooks_cli
@@ -80,6 +80,7 @@ app.command(examples=UPLOAD_EXAMPLES)(upload)
 app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
 
 app.command(topic="help")(env)
+app.command(topic="help")(upgrade)
 app.command(topic="help")(version)
 
 app.command(hidden=True)(lfs_enable_largefiles)

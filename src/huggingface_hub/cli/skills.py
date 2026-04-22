@@ -101,6 +101,7 @@ Some command examples:
 
 - Use `hf <command> --help` for full options, descriptions, usage, and real-world examples
 - Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
+- Upgrade the CLI with `hf upgrade` (uses the correct command for the detected install method)
 """
 
 CENTRAL_LOCAL = Path(".agents/skills")

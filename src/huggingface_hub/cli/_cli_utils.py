@@ -35,7 +35,6 @@ from typer.core import TyperCommand, TyperGroup
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import (
-    ANSI,
     disable_progress_bars,
     get_session,
     hf_raise_for_status,
@@ -953,10 +952,10 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found and stdin/stderr are attached to a TTY, prompt the user to update interactively.
-    Otherwise (non-TTY or update command cannot be determined), print a warning to stderr.
+    If a newer version is found, print a yellow warning to stderr pointing at `hf upgrade`.
 
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
+    If `HF_HUB_NO_UPDATE_CHECK` is set, the check is skipped entirely.
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
     during the check is caught and logged, to avoid breaking the CLI.
@@ -972,6 +971,9 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
 
 
 def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> None:
+    if constants.HF_HUB_NO_UPDATE_CHECK:
+        return
+
     current_version = importlib.metadata.version(library)
 
     # Skip if current version is a pre-release or dev version
@@ -1002,81 +1004,24 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     else:
         update_command = _get_transformers_update_command()
 
-    if sys.stdin.isatty() and sys.stderr.isatty() and update_command is not None:
-        _prompt_autoupdate(library, current_version, latest_version, update_command)
-    else:
-        display_cmd = " ".join(update_command) if update_command else None
-        update_hint = f"To update, run: {ANSI.bold(display_cmd)}" if display_cmd else ""
-        click.echo(
-            ANSI.yellow(
-                f"A new version of {library} ({latest_version}) is available! "
-                f"You are using version {current_version}." + (f"\n{update_hint}" if update_hint else "") + "\n"
-            ),
-            file=sys.stderr,
-        )
+    message = f"A new version of {library} ({latest_version}) is available! You are using version {current_version}."
+    if update_command is not None:
+        message += "\nTo update, run: hf upgrade"
+    out.warning(message)
 
 
-def _prompt_autoupdate(
-    library: str,
-    current_version: str,
-    latest_version: str,
-    update_command: list[str],
-) -> None:
-    """Interactively ask the user if they want to update, and run the update command if accepted.
+def run_upgrade() -> int:
+    """Run the install-method-appropriate upgrade command for the `hf` CLI.
 
-    After a successful update the CLI exits so the user can re-run their command with the new version.
-    All output goes to stderr to keep stdout clean for command output.
+    Raises CLIError if the installation method can't be determined.
+    Returns the subprocess exit code on success/failure of the upgrade itself.
     """
-    display_cmd = " ".join(update_command)
-
-    click.echo("", file=sys.stderr)
-    click.echo(
-        ANSI.yellow(f"  A new version of {library} is available: {current_version} → {latest_version}"),
-        file=sys.stderr,
-    )
-    click.echo("", file=sys.stderr)
-
-    click.echo(
-        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({display_cmd})") + " ",
-        file=sys.stderr,
-        nl=False,
-    )
-    try:
-        raw_answer = sys.stdin.readline()
-    except (EOFError, KeyboardInterrupt):
-        click.echo("", file=sys.stderr)
-        return
-
-    if raw_answer == "":
-        # EOF (e.g. Ctrl+D) — treat as cancellation, not acceptance
-        click.echo("", file=sys.stderr)
-        return
-
-    answer = raw_answer.strip().lower()  # Note: if user press 'Enter', raw_answer is `\n`
-    if answer in ("", "y", "yes"):
-        click.echo("", file=sys.stderr)
-        click.echo(ANSI.gray(f"  Running: {display_cmd}"), file=sys.stderr)
-        click.echo("", file=sys.stderr)
-        returncode = subprocess.call(update_command)
-        if returncode == 0:
-            click.echo("", file=sys.stderr)
-            click.echo(
-                ANSI.green(f"  ✓ Successfully updated {library} to {latest_version}. Please re-run your command."),
-                file=sys.stderr,
-            )
-            raise SystemExit(0)
-        else:
-            click.echo("", file=sys.stderr)
-            click.echo(
-                ANSI.red(f"  ✗ Update failed (exit code {returncode}). Please update manually."),
-                file=sys.stderr,
-            )
-    else:
-        click.echo(
-            ANSI.gray(f"  Skipped. You can update later with: {display_cmd}"),
-            file=sys.stderr,
+    cmd = _get_huggingface_hub_update_command()
+    if cmd is None:
+        raise CLIError(
+            "Cannot determine how to upgrade huggingface_hub (unknown installation method). Please upgrade manually."
         )
-    click.echo("", file=sys.stderr)
+    return subprocess.call(cmd)
 
 
 def _get_huggingface_hub_update_command() -> list[str] | None:
