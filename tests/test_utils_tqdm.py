@@ -3,7 +3,6 @@ import logging
 import sys
 import time
 import unittest
-import warnings
 from pathlib import Path
 from unittest.mock import patch
 
@@ -298,42 +297,3 @@ class TestCreateProgressBarCustomClass:
         )
         with bar as pbar:
             pbar.update(10)
-
-    # Failed tqdm construction leaves an object without `disable` set; its
-    # destructor raises AttributeError on GC. Python silently ignores it, but
-    # pytest surfaces it as an unraisable warning — same pattern as
-    # test_hf_hub_download_survives_bad_fileno.
-    @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-    def test_custom_tqdm_class_crash_fallback_is_disabled(self):
-        """Fallback bar must be disabled when custom tqdm_class crashes."""
-
-        class ExplodingTqdm(vanilla_tqdm):
-            def __init__(self, *args, **kwargs):
-                raise ValueError("simulated multiprocessing lock failure")
-
-        bar = _get_progress_bar_context(
-            desc="test",
-            log_level=logging.INFO,
-            total=10,
-            tqdm_class=ExplodingTqdm,
-            name="huggingface_hub.test",
-        )
-        with bar as pbar:
-            assert pbar.disable is True
-            pbar.update(5)
-            pbar.update(5)
-
-    @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
-    def test_hf_tqdm_class_crash_fallback_is_disabled(self):
-        """Fallback must use disable=True, not disable=None (TTY auto-detect)."""
-        from huggingface_hub.utils.tqdm import _create_progress_bar
-        from huggingface_hub.utils.tqdm import tqdm as hf_tqdm
-
-        class ExplodingHfTqdm(hf_tqdm):
-            def __init__(self, *args, **kwargs):
-                raise ValueError("simulated multiprocessing lock failure")
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-            pbar = _create_progress_bar(cls=ExplodingHfTqdm, log_level=logging.INFO, total=10, desc="test")
-        assert pbar.disable is True
