@@ -522,7 +522,7 @@ def test_bucket_list_search_term_exists(bucket_read: str, bucket_write: str):
 
 def test_bucket_list_search_term_empty_results():
     result = cli(f"hf buckets list {USER} --search does-not-exist-1234567890")
-    assert f"No buckets found under namespace '{USER}' matching search 'does-not-exist-1234567890'." in result.stdout
+    assert "No results found." in result.stdout
 
 
 # =============================================================================
