@@ -574,6 +574,9 @@ username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls my-org
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
 ```
 
 To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:

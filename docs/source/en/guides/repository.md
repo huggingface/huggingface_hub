@@ -121,6 +121,19 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
+## Search for Spaces
+
+The Hub provides a semantic search API for discovering Spaces. You can search using natural language queries with [`search_spaces`]:
+
+```py
+>>> from huggingface_hub import search_spaces
+>>> results = list(search_spaces("generate image"))
+>>> results[0].id
+'mrfakename/Z-Image-Turbo'
+```
+
+For more details and filtering options, see the [Manage your Spaces](./manage-spaces#search-for-spaces) guide.
+
 ## Upload and download files
 
 Now that you have created your repository, you are interested in pushing changes to it and downloading files from it.

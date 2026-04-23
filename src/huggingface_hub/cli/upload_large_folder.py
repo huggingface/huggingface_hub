@@ -19,9 +19,10 @@ from typing import Annotated
 import typer
 
 from huggingface_hub import logging
-from huggingface_hub.utils import ANSI, disable_progress_bars
+from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import (
+    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -30,6 +31,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
+from ._output import OutputFormatWithAuto, out
 
 
 logger = logging.get_logger(__name__)
@@ -83,34 +85,33 @@ def upload_large_folder(
             help="Whether to disable progress bars.",
         ),
     ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Upload a large folder to the Hub. Recommended for resumable uploads."""
     if not os.path.isdir(local_path):
         raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
-    print(
-        ANSI.yellow(
-            "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
-            "This is a new feature so feedback is very welcome!\n"
-            "\n"
-            "A few things to keep in mind:\n"
-            "  - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
-            "  - Do not start several processes in parallel.\n"
-            "  - You can interrupt and resume the process at any time. "
-            "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
-            "  - Do not upload the same folder to several repositories. If you need to do so, you must delete the `./.cache/huggingface/` folder first.\n"
-            "\n"
-            f"Some temporary metadata will be stored under `{local_path}/.cache/huggingface`.\n"
-            "  - You must not modify those files manually.\n"
-            "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
-            "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
-            "\n"
-            "If the process output is too verbose, you can disable the progress bars with `--no-bars`. "
-            "You can also entirely disable the status report with `--no-report`.\n"
-            "\n"
-            "For more details, run `hf upload-large-folder --help` or check the documentation at "
-            "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
-        )
+    out.warning(
+        "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
+        "This is a new feature so feedback is very welcome!\n"
+        "\n"
+        "A few things to keep in mind:\n"
+        "  - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
+        "  - Do not start several processes in parallel.\n"
+        "  - You can interrupt and resume the process at any time. "
+        "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
+        "  - Do not upload the same folder to several repositories. If you need to do so, you must delete the `./.cache/huggingface/` folder first.\n"
+        "\n"
+        f"Some temporary metadata will be stored under `{local_path}/.cache/huggingface`.\n"
+        "  - You must not modify those files manually.\n"
+        "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
+        "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
+        "\n"
+        "If the process output is too verbose, you can disable the progress bars with `--no-bars`. "
+        "You can also entirely disable the status report with `--no-report`.\n"
+        "\n"
+        "For more details, run `hf upload-large-folder --help` or check the documentation at "
+        "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
     )
 
     if no_bars:

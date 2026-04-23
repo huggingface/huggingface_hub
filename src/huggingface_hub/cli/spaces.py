@@ -26,6 +26,7 @@ Usage:
 
 import enum
 import functools
+import itertools
 import os
 import shlex
 import shutil
@@ -33,7 +34,9 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Annotated, Literal, get_args
+from collections import deque
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Literal, get_args
 
 import typer
 from packaging import version
@@ -42,7 +45,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceStage
-from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -55,9 +58,11 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
+    VolumesOpt,
     api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
+    parse_volumes,
     typer_factory,
 )
 from ._output import OutputFormatWithAuto, out
@@ -80,6 +85,8 @@ ExpandOpt = Annotated[
 ]
 
 spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
+volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
+spaces_cli.add_typer(volumes_cli, name="volumes")
 
 
 @spaces_cli.command(
@@ -142,6 +149,52 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     out.dict(info)
+
+
+@spaces_cli.command(
+    "search",
+    examples=[
+        'hf spaces search "generate image"',
+        'hf spaces search "identify objects in pictures" --sdk gradio --limit 5',
+        'hf spaces search "remove background from photo" --description --json',
+    ],
+)
+def spaces_search(
+    query: Annotated[str, typer.Argument(help="Search query.")],
+    filter: FilterOpt = None,
+    sdk: Annotated[list[str] | None, typer.Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
+    include_non_running: Annotated[bool, typer.Option(help="Include non-running spaces in results.")] = False,
+    description: Annotated[bool, typer.Option(help="Show AI-generated descriptions.")] = False,
+    limit: LimitOpt = 10,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Search spaces on the Hub using semantic search."""
+    api = get_hf_api(token=token)
+    results = api.search_spaces(
+        query=query,
+        filter=filter,
+        sdk=sdk,
+        include_non_running=include_non_running,
+        token=token,
+    )
+    items = []
+    for r in itertools.islice(results, limit):
+        item: dict = {
+            "id": r.id,
+            "title": r.title,
+            "sdk": r.sdk,
+            "likes": r.likes,
+            "stage": r.runtime.stage if r.runtime else None,
+            "category": r.ai_category,
+            "score": round(r.semantic_relevancy_score, 2) if r.semantic_relevancy_score is not None else None,
+        }
+        if description:
+            item["description"] = r.ai_short_description
+        items.append(item)
+    out.table(items)
+    if not description:
+        out.hint("Use --description to show AI-generated descriptions.")
 
 
 @spaces_cli.command(
@@ -214,6 +267,68 @@ def dev_mode(
 
 
 @spaces_cli.command(
+    "logs",
+    examples=[
+        "hf spaces logs username/my-space",
+        "hf spaces logs username/my-space --build",
+        "hf spaces logs -f username/my-space",
+        "hf spaces logs -n 50 username/my-space",
+    ],
+)
+def spaces_logs(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    build: Annotated[
+        bool,
+        typer.Option(
+            "--build",
+            help="Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.",
+        ),
+    ] = False,
+    follow: Annotated[
+        bool,
+        typer.Option(
+            "-f",
+            "--follow",
+            help="Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.",
+        ),
+    ] = False,
+    tail: Annotated[
+        int | None,
+        typer.Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Fetch the run or build logs of a Space.
+
+    By default, prints currently available run logs and exits (non-blocking, like
+    `docker logs`). Use --follow/-f to stream until the server closes the stream.
+    Use --build to see the container build logs instead (useful when a Space is
+    stuck in BUILD_ERROR).
+    """
+    if follow and tail is not None:
+        raise CLIError(
+            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
+        )
+
+    api = get_hf_api(token=token)
+    logs = api.fetch_space_logs(space_id, build=build, follow=follow)
+    if tail is not None:
+        logs = deque(logs, maxlen=tail)
+    found_logs = False
+    for line in logs:
+        clean_line = line.strip()
+        out.text(clean_line)
+        if clean_line:
+            found_logs = True
+    if not found_logs and not build:
+        out.hint(f"No run logs found for space {space_id}. Try passing --build to fetch build logs instead.")
+
+
+@spaces_cli.command(
     "hot-reload",
     examples=[
         "hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file",
@@ -235,7 +350,7 @@ def spaces_hot_reload(
         ),
     ] = None,
     local_file: Annotated[
-        str | None,
+        Path | None,
         typer.Option(
             "--local-file",
             "-f",
@@ -277,10 +392,14 @@ def spaces_hot_reload(
             raise CLIError(f"Unable to read sdk_version from {space_id} cardData")
         if version.parse(sdk_version) < version.Version(HOT_RELOADING_MIN_GRADIO):
             raise CLIError(f"Hot-reloading requires Gradio >= {HOT_RELOADING_MIN_GRADIO} (found {sdk_version})")
+        if (current_sha := space_info.sha) is None:
+            raise CLIError(f"Unexpected `None` running SHA for Space {space_id}")
+    else:
+        current_sha = None
 
     if local_file:
-        local_path = local_file
-        filename = local_file if filename is None else filename
+        local_path = str(local_file)
+        filename = local_file.as_posix() if filename is None else filename
     elif filename:
         if not skip_checks:
             try:
@@ -304,12 +423,20 @@ def spaces_hot_reload(
                 filename=filename,
                 local_dir=temp_dir.name,
             )
+        except RemoteEntryNotFoundError:
+            typer.secho(f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK)
         finally:
             if not pbar_disabled:
                 enable_progress_bars()
         editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
-            raise CLIError("Cannot open an editor (no TTY). Use -f flag to hot-reload from local path")
+            persistent_temp_dir = tempfile.mkdtemp()
+            shutil.copytree(temp_dir.name, persistent_temp_dir, dirs_exist_ok=True)
+            local_path = os.path.join(persistent_temp_dir, filename)
+            typer.secho("No TTY detected. Non-interactive fallback:")
+            typer.secho(f"- Edit {local_path}")
+            typer.secho(f"- Run `hf spaces hot-reload {space_id} {filename} -f {local_path}`")
+            return
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to hot-reload from local path")
         if editor_res != 0:
@@ -322,15 +449,23 @@ def spaces_hot_reload(
         repo_id=space_id,
         path_or_fileobj=local_path,
         path_in_repo=filename,
+        parent_commit=current_sha,
         _hot_reload=True,
     )
 
+    if local_file is not None and local_file.resolve().is_relative_to(Path.cwd()):
+        typer.secho(f"Created commit {commit_info.oid} in remote Space repository.")
+        typer.secho("Consider running `git pull --autostash` to stay synced if you are working from a local clone.")
+
     if not skip_summary:
+        typer.secho("Hot-reload summary:")
         _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
+            current_sha=current_sha,
             commit_sha=commit_info.oid,
-            local_path=local_path if local_file else os.path.basename(local_path),
+            local_path=local_path if local_file else filename,
+            filename=filename,
             token=token,
         )
 
@@ -338,11 +473,19 @@ def spaces_hot_reload(
 def _spaces_hot_reload_summary(
     api: HfApi,
     space_id: str,
+    current_sha: str | None,
     commit_sha: str,
-    local_path: str | None,
+    filename: str,
+    local_path: str,
     token: str | None,
 ) -> None:
-    space_info = api.space_info(space_id)
+    while (space_info := api.space_info(space_id)).sha == current_sha:
+        if current_sha is None or current_sha == commit_sha:
+            break
+        typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK, err=True)
+        time.sleep(2)
+    if space_info.sha != commit_sha:
+        raise CLIError(f"Expected SHA {commit_sha} after hot-reload but got {space_info.sha}")
     if (runtime := space_info.runtime) is None:
         raise CLIError(f"Unable to read SpaceRuntime from {space_id} infos")
     if (hot_reloading := runtime.hot_reloading) is None:
@@ -357,9 +500,7 @@ def _spaces_hot_reload_summary(
         raise CLIError("Unexpected None subdomain on hotReloaded Space")
 
     def render_region(region: ReloadRegion) -> str:
-        res = ""
-        if local_path is not None:
-            res += f"{local_path}, "
+        res = f"{local_path}, "
         if region["startLine"] == region["endLine"]:
             res += f"line {region['startLine'] - 1}"
         else:
@@ -387,8 +528,15 @@ def _spaces_hot_reload_summary(
                 typer.secho("⟳ UI updated", bold=True)
             else:
                 typer.secho("∅ UI untouched", bold=True)
+        elif event["data"]["kind"] == "file":
+            if event["data"]["created"]:
+                typer.secho(f"✔︎ {filename} created", bold=True)
+            else:
+                typer.secho(f"✔︎ {filename} updated", bold=True)
         else:
-            assert_never(event["data"]["kind"])
+            typer.secho(f"❓ Unknown update event: {event=}")
+            if TYPE_CHECKING:
+                assert_never(event["data"]["kind"])
 
     for replica_stream_event in multi_replica_reload_events(
         commit_sha=commit_sha,
@@ -403,6 +551,8 @@ def _spaces_hot_reload_summary(
             typer.secho(f"---- Replica {replica_stream_event['hash']} ----")
         elif replica_stream_event["kind"] == "fullMatch":
             typer.echo("✔︎ Same as first replica")
+        elif replica_stream_event["kind"] == "warning":
+            typer.secho(f"⚠ {replica_stream_event['message']}", fg=typer.colors.BRIGHT_BLACK)
         else:
             assert_never(replica_stream_event)
 
@@ -435,3 +585,80 @@ def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     command = [*shlex.split(editor_command), local_path]
     res = subprocess.run(command, start_new_session=True)
     return res.returncode
+
+
+@volumes_cli.command(
+    "list | ls",
+    examples=[
+        "hf spaces volumes ls username/my-space",
+    ],
+)
+def volumes_ls(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """List volumes mounted in a Space."""
+    api = get_hf_api(token=token)
+    info = api.space_info(space_id)
+    if info.runtime is None:
+        raise CLIError(f"Runtime not available for Space '{space_id}'.")
+    volumes = info.runtime.volumes or []
+    items = [api_object_to_dict(v) for v in volumes]
+    out.table(items)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )
+
+
+@volumes_cli.command(
+    "set",
+    examples=[
+        "hf spaces volumes set username/my-space -v hf://models/username/my-model:/models",
+        "hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro",
+    ],
+)
+def volumes_set(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    volume: VolumesOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Set (replace) volumes for a Space."""
+    volumes = parse_volumes(volume)
+    if not volumes:
+        raise CLIError("At least one volume must be specified with -v/--volume.")
+    api = get_hf_api(token=token)
+    api.set_space_volumes(space_id, volumes=volumes)
+    out.result("Volumes set", space_id=space_id, volumes=[v.to_hf_handle() for v in volumes])
+    out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
+
+
+@volumes_cli.command(
+    "delete",
+    examples=[
+        "hf spaces volumes delete username/my-space",
+        "hf spaces volumes delete username/my-space --yes",
+    ],
+)
+def volumes_delete(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Remove all volumes from a Space."""
+    out.confirm(f"You are about to remove all volumes from Space '{space_id}'. Proceed?", yes=yes)
+    api = get_hf_api(token=token)
+    api.delete_space_volumes(space_id)
+    out.result("Volumes deleted", space_id=space_id)
+    out.hint(
+        f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
+    )

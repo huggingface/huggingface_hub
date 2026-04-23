@@ -161,11 +161,18 @@ class Volume:
             data["path"] = self.path
         return data
 
+    def to_hf_handle(self) -> str:
+        """Return the volume as an HF handle in the format expected by the CLI."""
+        path = f"/{self.path}" if self.path else ""
+        revision = f"@{self.revision}" if self.revision else ""
+        ro = {True: ":ro", False: ":rw", None: ""}.get(self.read_only, "")
+        return f"hf://{self.type}s/{self.source}{revision}{path}:{self.mount_path}{ro}"
+
 
 @dataclass
 class SpaceHotReloading:
     status: Literal["created", "canceled"]
-    replica_statuses: list[tuple[str, str]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
+    replica_statuses: list[tuple[str, str | None]]  # See _hot_reloading_types.ApiCreateReloadResponse.res.status
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -249,3 +256,69 @@ class SpaceVariable:
         self.description = values.get("description")
         updated_at = values.get("updatedAt")
         self.updated_at = parse_datetime(updated_at) if updated_at is not None else None
+
+
+@dataclass
+class SpaceSearchResult:
+    """A single result from the Spaces semantic search API.
+
+    Returned by [`HfApi.search_spaces`].
+
+    Attributes:
+        id (`str`):
+            ID of the Space (e.g. `"username/repo-name"`).
+        author (`str`):
+            Author of the Space.
+        title (`str`):
+            Display title of the Space.
+        emoji (`str` or `None`):
+            Emoji icon of the Space.
+        sdk (`str` or `None`):
+            SDK used by the Space (e.g. `"gradio"`, `"docker"`, `"static"`).
+        likes (`int`):
+            Number of likes.
+        private (`bool`):
+            Whether the Space is private.
+        tags (`list[str]` or `None`):
+            List of tags.
+        runtime ([`SpaceRuntime`] or `None`):
+            Runtime information (stage, hardware, etc.).
+        ai_short_description (`str` or `None`):
+            AI-generated short description.
+        ai_category (`str` or `None`):
+            AI-generated category (e.g. `"Image Generation"`).
+        semantic_relevancy_score (`float` or `None`):
+            Semantic relevancy score (0-1) relative to the search query.
+        trending_score (`int` or `None`):
+            Trending score.
+    """
+
+    id: str
+    author: str
+    title: str
+    emoji: str | None
+    sdk: str | None
+    likes: int
+    private: bool
+    tags: list[str] | None
+    runtime: SpaceRuntime | None
+    ai_short_description: str | None
+    ai_category: str | None
+    semantic_relevancy_score: float | None
+    trending_score: int | None
+
+    def __init__(self, data: dict) -> None:
+        runtime = data.get("runtime")
+        self.id = data["id"]
+        self.author = data.get("author", "")
+        self.title = data.get("title", "")
+        self.emoji = data.get("emoji")
+        self.sdk = data.get("sdk")
+        self.likes = data.get("likes", 0)
+        self.private = data.get("private", False)
+        self.tags = data.get("tags")
+        self.runtime = SpaceRuntime(runtime) if runtime else None
+        self.ai_short_description = data.get("ai_short_description")
+        self.ai_category = data.get("ai_category")
+        self.semantic_relevancy_score = data.get("semanticRelevancyScore")
+        self.trending_score = data.get("trendingScore")

@@ -25,6 +25,7 @@
 # - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
 # - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
 # - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
+# - RELEASE_BUCKET_HF_TOKEN              : HF TOKEN scoped to push data to the huggingface/releases bucket
 # - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
 # - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
 # - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
@@ -33,6 +34,7 @@
 #
 # Required repository variables:
 # - SLACK_CHANNEL_ID                     : Slack channel ID for release notifications
+# - RELEASE_NOTES_MODEL                  : HF model ID used to generate release notes and Slack announcement (e.g. `zai-org/GLM-5.1`)
 #
 # An additional secret for OpenCode authentication is needed for automated release notes generation
 # (see the release-notes job below).
@@ -50,14 +52,6 @@ on:
           - minor-prerelease
           - minor-release
           - patch-release
-      version_override:
-        description: "Override version (e.g., 1.6.0.rc1, 1.5.1). Leave empty for auto-detect."
-        required: false
-        type: string
-      dry_run:
-        description: "Dry run — validate version detection without publishing"
-        type: boolean
-        default: false
 
 permissions: {}
 
@@ -91,58 +85,52 @@ jobs:
       - name: Detect version
         id: version
         env:
-          VERSION_OVERRIDE: ${{ inputs.version_override }}
           RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           set -euo pipefail
 
-          if [[ -n "$VERSION_OVERRIDE" ]]; then
-            # Strip 'v' prefix if present
-            VERSION=$(echo "$VERSION_OVERRIDE" | sed 's/^v//')
-          else
-            case "$RELEASE_TYPE" in
-              minor-prerelease)
-                # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
-                DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+          case "$RELEASE_TYPE" in
+            minor-prerelease)
+              # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
+              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
 
-                # Find existing RC tags for this base version to determine next RC number
-                LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
-                if [[ -n "$LATEST_RC" ]]; then
-                  RC_NUM=$(echo "$LATEST_RC" | grep -oP '\.rc\K[0-9]+')
-                  RC_NUM=$((RC_NUM + 1))
-                else
-                  RC_NUM=0
-                fi
+              # Find existing RC tags for this base version to determine next RC number
+              LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
+              if [[ -n "$LATEST_RC" ]]; then
+                RC_NUM=$(echo "$LATEST_RC" | grep -oP '\.rc\K[0-9]+')
+                RC_NUM=$((RC_NUM + 1))
+              else
+                RC_NUM=0
+              fi
 
-                VERSION="${BASE_VERSION}.rc${RC_NUM}"
-                ;;
-              minor-release)
-                # Read dev version from __init__.py to scope the RC lookup to this minor version
-                DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-                BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
-                LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
-                if [[ -z "$LATEST_RC" ]]; then
-                  echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
-                  exit 1
-                fi
-                # v1.6.0.rc0 → 1.6.0
-                VERSION=$(echo "$LATEST_RC" | sed -E 's/^v//;s/\.rc.*//')
-                ;;
-              patch-release)
-                # Find the latest stable (non-RC) release tag
-                LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
-                if [[ -z "$LATEST_RELEASE" ]]; then
-                  echo "::error::No release tag found."
-                  exit 1
-                fi
-                CURRENT=$(echo "$LATEST_RELEASE" | sed 's/^v//')
-                IFS='.' read -r MAJOR MINOR_NUM PATCH_NUM <<< "$CURRENT"
-                PATCH_NUM=$((PATCH_NUM + 1))
-                VERSION="${MAJOR}.${MINOR_NUM}.${PATCH_NUM}"
-                ;;
-            esac
-          fi
+              VERSION="${BASE_VERSION}.rc${RC_NUM}"
+              ;;
+            minor-release)
+              # Read dev version from __init__.py to scope the RC lookup to this minor version
+              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+              LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
+              if [[ -z "$LATEST_RC" ]]; then
+                echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
+                exit 1
+              fi
+              # v1.6.0.rc0 → 1.6.0
+              VERSION=$(echo "$LATEST_RC" | sed -E 's/^v//;s/\.rc.*//')
+              ;;
+            patch-release)
+              # Find the latest stable (non-RC) release tag
+              LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+              if [[ -z "$LATEST_RELEASE" ]]; then
+                echo "::error::No release tag found."
+                exit 1
+              fi
+              CURRENT=$(echo "$LATEST_RELEASE" | sed 's/^v//')
+              IFS='.' read -r MAJOR MINOR_NUM PATCH_NUM <<< "$CURRENT"
+              PATCH_NUM=$((PATCH_NUM + 1))
+              VERSION="${MAJOR}.${MINOR_NUM}.${PATCH_NUM}"
+              ;;
+          esac
 
           # Derive tag, branch, and prerelease flag
           TAG="v${VERSION}"
@@ -168,7 +156,7 @@ jobs:
 
           # Validate: tag must not already exist
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "::error::Tag $TAG already exists! Use version_override to specify a different version."
+            echo "::error::Tag $TAG already exists!"
             exit 1
           fi
 
@@ -190,10 +178,8 @@ jobs:
           echo "| Branch | \`$BRANCH\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Since tag | \`$SINCE_TAG\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Prerelease | \`$IS_PRERELEASE\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dry run | \`${{ inputs.dry_run }}\` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Slack — release started
-        if: ${{ !inputs.dry_run }}
         id: slack
         continue-on-error: true
         env:
@@ -262,7 +248,6 @@ jobs:
           grep "__version__" src/huggingface_hub/__init__.py
 
       - name: Commit, tag, and push
-        if: ${{ !inputs.dry_run }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           BRANCH="${{ steps.version.outputs.branch }}"
@@ -286,7 +271,6 @@ jobs:
     permissions:
       contents: read
     needs: prepare
-    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -332,7 +316,6 @@ jobs:
     permissions:
       contents: read
     needs: prepare
-    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -386,7 +369,6 @@ jobs:
     permissions:
       contents: write   # create and edit GitHub releases
     needs: prepare
-    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -445,7 +427,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
         run: |
           python -m utils.release_notes.generate_release_notes \
             --since "${{ needs.prepare.outputs.since_tag }}" \
@@ -541,11 +523,11 @@ jobs:
   # ============================================================
   slack-message:
     permissions:
-      contents: read
+      contents: write  # need write to list draft releases
     needs: [prepare, release-notes]
     # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
     # This also allows re-running this job after manually editing the draft release notes.
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -587,7 +569,7 @@ jobs:
       - name: Generate Slack message
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
-          RELEASE_NOTES_MODEL: "huggingface/MiniMaxAI/MiniMax-M2.5"
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
@@ -659,13 +641,119 @@ jobs:
           fi
 
   # ============================================================
+  # 4c. SOCIAL POSTS — generate draft social media posts for prereleases
+  # ============================================================
+  social-posts:
+    permissions:
+      contents: write  # need write to list draft releases
+    needs: [prepare, release-notes]
+    # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
+    # This also allows re-running this job after manually editing the draft release notes.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+
+      - name: Fetch release notes from GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          RELEASE_TAG=$(gh release list --json tagName,isDraft,isPrerelease --limit 100 \
+            | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::error::No release found for v${MINOR}."
+            exit 1
+          fi
+
+          echo "Found release: $RELEASE_TAG"
+          mkdir -p .release-notes
+          gh release view "$RELEASE_TAG" --json body -q '.body' > .release-notes/notes.md
+
+      - name: Generate social media drafts
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          python -m utils.release_notes.generate_social_posts \
+            --version "v${BASE_VERSION}" \
+            --input .release-notes/notes.md
+
+      - name: Upload drafts to bucket
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          hf buckets sync .release-notes/socials/ \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials/"
+
+      - name: Print drafts to summary
+        run: |
+          echo "## Social Media Drafts" >> $GITHUB_STEP_SUMMARY
+          for f in .release-notes/socials/*.txt; do
+            if [[ -f "$f" ]]; then
+              BASENAME=$(basename "$f")
+              echo "### ${BASENAME}" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Social media drafts* — <${BUCKET_URL}|uploaded to bucket>"
+          else
+            TEXT="❌ *Social media drafts* — generation failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
   # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
   # ============================================================
   test-downstream:
     permissions:
       contents: read
     needs: [prepare, publish-pypi]
-    if: ${{ needs.prepare.outputs.is_prerelease == 'true' && !inputs.dry_run }}
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -781,7 +869,7 @@ jobs:
     permissions:
       contents: read   # write operations use app token
     needs: [prepare, publish-pypi]
-    if: ${{ inputs.release_type == 'minor-release' && !inputs.dry_run }}
+    if: ${{ inputs.release_type == 'minor-release' }}
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token
@@ -812,7 +900,7 @@ jobs:
           NEXT_MINOR=$((MINOR + 1))
           DEV_VERSION="${MAJOR}.${NEXT_MINOR}.0.dev0"
 
-          # Guard: skip if main already has an equal or higher version (e.g. version_override for older minor)
+          # Guard: skip if main already has an equal or higher version
           CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
           CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
           if [[ "$CURRENT_MINOR" -ge "$NEXT_MINOR" ]]; then
@@ -865,7 +953,7 @@ jobs:
     permissions:
       contents: read   # write operations use app token
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_prerelease != 'true' && !inputs.dry_run }}
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout huggingface_hub
@@ -960,7 +1048,7 @@ jobs:
     permissions:
       contents: read   # write operations use app token
     needs: [prepare, publish-pypi]
-    if: ${{ inputs.release_type != 'minor-prerelease' && !inputs.dry_run }}
+    if: ${{ inputs.release_type != 'minor-prerelease' }}
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token
@@ -1041,8 +1129,8 @@ jobs:
   # 9. SLACK — final status update
   # ============================================================
   slack-complete:
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
-    if: ${{ always() && !inputs.dry_run && needs.prepare.outputs.message_ts }}
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, social-posts, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
+    if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
       - name: Update Slack message with final status
@@ -1066,6 +1154,7 @@ jobs:
             "${{ needs.publish-hf-cli.result }}" \
             "${{ needs.release-notes.result }}" \
             "${{ needs.slack-message.result }}" \
+            "${{ needs.social-posts.result }}" \
             "${{ needs.test-downstream.result }}" \
             "${{ needs.post-release.result }}" \
             "${{ needs.sync-hf-cli-skill.result }}" \
