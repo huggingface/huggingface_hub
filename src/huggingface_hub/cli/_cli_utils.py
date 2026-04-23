@@ -433,10 +433,24 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
+    def parse_args(self: click.Command, ctx: click.Context, args: list[str]) -> list[str]:
+        # Show help when a command with required arguments is invoked without any args
+        # (mirrors group behavior: `hf jobs` prints help, so `hf download` should too).
+        if not args and not ctx.resilient_parsing:
+            if any(isinstance(p, click.Argument) and p.required for p in self.params):
+                click.echo(ctx.get_help(), color=ctx.color)
+                ctx.exit()
+        return TyperCommand.parse_args(self, ctx, args)
+
     return type(
         f"TyperCommand{topic.capitalize()}",
         (TyperCommand,),
-        {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
+        {
+            "topic": topic,
+            "examples": examples or [],
+            "format_epilog": format_epilog,
+            "parse_args": parse_args,
+        },
     )
 
 
