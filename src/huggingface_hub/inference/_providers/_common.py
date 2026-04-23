@@ -37,6 +37,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "replicate": {},
     "sambanova": {},
     "scaleway": {},
+    "textclf": {},
     "together": {},
     "wavespeed": {},
     "zai-org": {},
