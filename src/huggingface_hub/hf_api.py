@@ -2327,6 +2327,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(version="2.0", deprecated_args=["model_name"], custom_message="Use `search` instead.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2376,9 +2377,6 @@ class HfApi:
             inference_provider (`Literal["all"]` or `str`, *optional*):
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
-            model_name (`str`, *optional*):
-                A string that contain complete or partial names for models on the
-                Hub, such as "bert" or "bert-base-cased"
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
@@ -2418,7 +2416,8 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
+            model_name (`str`, *optional*):
+                (deprecated). Use `search` instead.
 
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
@@ -2490,7 +2489,7 @@ class HfApi:
         if num_parameters is not None:
             params["num_parameters"] = num_parameters
         search_list = []
-        if model_name:
+        if model_name:  # deprecated
             search_list.append(model_name)
         if search:
             search_list.append(search)
@@ -12524,6 +12523,7 @@ class HfApi:
         self,
         namespace: str | None = None,
         *,
+        search: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[BucketInfo]:
         """List buckets on the Hub under a certain namespace.
@@ -12531,6 +12531,8 @@ class HfApi:
         Args:
             namespace (`str`, *optional*):
                 List buckets under this namespace (user or organization). Defaults to listing user's buckets.
+            search (`str`, *optional*):
+                A search string to filter bucket names.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12548,12 +12550,18 @@ class HfApi:
 
             >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
+
+            >>> for bucket in list_buckets(search="my-prefix"): # filter buckets by name
+            ...     print(bucket)
             ```
         """
         if namespace is None:
             namespace = "me"
+        params: dict[str, Any] = {}
+        if search is not None:
+            params["search"] = search
         for item in paginate(
-            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/buckets/{namespace}", params=params, headers=self._build_hf_headers(token=token)
         ):
             yield BucketInfo(**item)
 

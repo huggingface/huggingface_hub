@@ -41,6 +41,7 @@ from huggingface_hub.utils import (
 
 from ._cli_utils import (
     FormatWithAutoOpt,
+    SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -277,6 +278,7 @@ def _is_bucket_id(argument: str) -> bool:
     examples=[
         "hf buckets list",
         "hf buckets list huggingface",
+        'hf buckets list --search "my-prefix"',
         "hf buckets list user/my-bucket",
         "hf buckets list user/my-bucket -R",
         "hf buckets list user/my-bucket -h",
@@ -319,6 +321,7 @@ def list_cmd(
             help="List files recursively (only for listing files).",
         ),
     ] = False,
+    search: SearchOpt = None,
     token: TokenOpt = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
@@ -331,6 +334,8 @@ def list_cmd(
     is_file_mode = argument is not None and _is_bucket_id(argument)
 
     if is_file_mode:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
         _list_files(
             argument=argument,  # type: ignore
             human_readable=human_readable,
@@ -341,6 +346,7 @@ def list_cmd(
     else:
         _list_buckets(
             namespace=argument,
+            search=search,
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
@@ -350,6 +356,7 @@ def list_cmd(
 
 def _list_buckets(
     namespace: str | None,
+    search: str | None,
     human_readable: bool,
     as_tree: bool,
     recursive: bool,
@@ -377,7 +384,7 @@ def _list_buckets(
             "total_files": bucket.total_files,
             "created_at": bucket.created_at,
         }
-        for bucket in api.list_buckets(namespace=namespace)
+        for bucket in api.list_buckets(namespace=namespace, search=search)
     ]
     out.table(items, alignments={"size": "right", "total_files": "right"})
 

@@ -399,6 +399,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 * `-h, --human-readable`: Show sizes in human readable format.
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
+* `--search TEXT`: Search query.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
@@ -406,6 +407,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 Examples
   $ hf buckets list
   $ hf buckets list huggingface
+  $ hf buckets list --search "my-prefix"
   $ hf buckets list user/my-bucket
   $ hf buckets list user/my-bucket -R
   $ hf buckets list user/my-bucket -h
@@ -3471,7 +3473,7 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 
 **Options**:
 
-* `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
+* `-f, --local-file PATH`: Path of local file. Interactive editor mode if not specified
 * `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
 * `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
