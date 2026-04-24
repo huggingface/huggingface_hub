@@ -1142,6 +1142,8 @@ class DatasetInfo:
             Date of last commit to the repo.
         likes (`int`):
             Number of likes of the dataset.
+        main_size (`int`, *optional*):
+            Size in bytes of the main branch of the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
         private (`bool`):
@@ -1172,6 +1174,7 @@ class DatasetInfo:
     gated: Literal["auto", "manual", False] | None
     last_modified: datetime | None
     likes: int | None
+    main_size: int | None
     paperswithcode_id: str | None
     private: bool | None
     resource_group: dict | None
@@ -1195,6 +1198,7 @@ class DatasetInfo:
         self.downloads = kwargs.pop("downloads", None)
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
+        self.main_size = kwargs.pop("mainSize", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
