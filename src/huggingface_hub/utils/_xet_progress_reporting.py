@@ -1,7 +1,5 @@
 from collections import OrderedDict
 
-from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
-
 from . import is_google_colab, is_notebook
 from .tqdm import tqdm
 
@@ -42,12 +40,12 @@ class XetProgressReporter:
         self.known_items: set[str] = set()
         self.completed_items: set[str] = set()
 
-        # Offsets to accumulate totals across multiple upload_files/upload_bytes calls
-        self._total_bytes_offset = 0
-        self._total_transfer_bytes_offset = 0
+        # Track previous absolute values to compute increments
+        self._prev_bytes_completed: int = 0
+        self._prev_transfer_bytes_completed: int = 0
 
         # Item bars (scrolling view)
-        self.item_state: OrderedDict[str, PyItemProgressUpdate] = OrderedDict()
+        self.item_state: OrderedDict[str, object] = OrderedDict()
         self.current_bars: list = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:
@@ -68,9 +66,9 @@ class XetProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
-    def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: list[PyItemProgressUpdate]):
+    def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
-        for item in item_updates:
+        for item in item_reports.values():
             item_name = item.item_name
 
             self.known_items.add(item_name)
@@ -144,23 +142,23 @@ class XetProgressReporter:
             s = tqdm.format_sizeof(speed) if speed is not None else "???"
             return f"{s}B/s  ".rjust(10, " ")
 
-        self.data_processing_bar.total = self._total_bytes_offset + total_update.total_bytes
+        bytes_inc = group_report.total_bytes_completed - self._prev_bytes_completed
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        transfer_inc = group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
+
+        self.data_processing_bar.total = group_report.total_bytes
         total_files_count = self.total_files if self.total_files is not None else len(self.known_items)
         self.data_processing_bar.set_description(
             self.format_desc(f"Processing Files ({len(self.completed_items)} / {total_files_count})", False),
             refresh=False,
         )
-        self.data_processing_bar.set_postfix_str(postfix(total_update.total_bytes_completion_rate), refresh=False)
-        self.data_processing_bar.update(total_update.total_bytes_completion_increment)
+        self.data_processing_bar.set_postfix_str(postfix(group_report.total_bytes_completion_rate), refresh=False)
+        self.data_processing_bar.update(bytes_inc)
 
-        self.upload_bar.total = self._total_transfer_bytes_offset + total_update.total_transfer_bytes
-        self.upload_bar.set_postfix_str(postfix(total_update.total_transfer_bytes_completion_rate), refresh=False)
-        self.upload_bar.update(total_update.total_transfer_bytes_completion_increment)
-
-    def notify_upload_complete(self):
-        """Call between upload_files/upload_bytes calls to accumulate totals across chunks."""
-        self._total_bytes_offset = self.data_processing_bar.total or 0
-        self._total_transfer_bytes_offset = self.upload_bar.total or 0
+        self.upload_bar.total = group_report.total_transfer_bytes
+        self.upload_bar.set_postfix_str(postfix(group_report.total_transfer_bytes_completion_rate), refresh=False)
+        self.upload_bar.update(transfer_inc)
 
     def close(self, _success):
         self.data_processing_bar.close()

@@ -26,7 +26,7 @@ from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
 from typing import Optional, Union, get_args
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 from urllib.parse import urlparse
 
 import pytest
@@ -3558,6 +3558,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             headers=None,
             tqdm_class=None,
             dry_run=False,
+            xet_session_holder=ANY,
         )
 
     @patch("huggingface_hub._snapshot_download.snapshot_download")

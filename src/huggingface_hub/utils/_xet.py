@@ -1,3 +1,4 @@
+import os
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -250,3 +251,45 @@ def _cache_key(url: str, headers: dict[str, str], params: dict[str, str] | None,
 def _is_expired(connection_info: XetConnectionInfo) -> bool:
     """Check if the given XET connection info is expired."""
     return connection_info.expiration_unix_epoch <= int(time.time()) + XET_CONNECTION_INFO_SAFETY_PERIOD
+
+
+class XetSessionHolder:
+    """Holds an optional XetSession; supports safe re-creation after sigint_abort or fork."""
+
+    def __init__(self):
+        self._session = None
+        self._session_pid: int | None = None
+
+    def get(self):
+        """Return the current session, creating one if needed.
+
+        Fork-safe: if the current process PID differs from the PID that created
+        the session (i.e. we are in a forked child), the old session is discarded
+        and a fresh session is created for this process.
+        """
+        current_pid = os.getpid()
+
+        if self._session is not None and self._session_pid != current_pid:
+            # Fork detected. Discard the parent's session; the Rust Drop will
+            # call discard_runtime() (std::mem::forget) rather than the normal
+            # shutdown path, so this returns immediately without blocking.
+            self._session = None
+            self._session_pid = None
+
+        if self._session is None:
+            from hf_xet import XetSession
+
+            self._session = XetSession()
+            self._session_pid = current_pid
+
+        return self._session
+
+    def sigint_abort(self):
+        """Abort the current session and clear it so the next get() creates a fresh one."""
+        if self._session is not None:
+            try:
+                self._session.sigint_abort()
+            except Exception:
+                pass
+            self._session = None
+            self._session_pid = None

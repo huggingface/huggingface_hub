@@ -38,8 +38,6 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from huggingface_hub.utils._xet import (
-    XetTokenType,
-    fetch_xet_connection_info_from_repo_info,
     reset_xet_connection_info_cache_for_repo,
 )
 
@@ -91,8 +89,6 @@ from .errors import (
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
-    XetAuthorizationError,
-    XetRefreshTokenError,
 )
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
@@ -117,7 +113,6 @@ from .utils import (
     paginate,
     parse_datetime,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
     silent_tqdm,
     validate_hf_hub_args,
 )
@@ -125,6 +120,7 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -2196,9 +2192,17 @@ class HfApi:
         self.user_agent = user_agent
         self.headers = headers
         self._thread_pool: ThreadPoolExecutor | None = None
+        self._xet_session_holder = None  # lazily initialized by _get_xet_session_holder()
 
         # /whoami-v2 is the only endpoint for which we may want to cache results
         self._whoami_cache: dict[str, dict] = {}
+
+    def _get_xet_session_holder(self):
+        if self._xet_session_holder is None and is_xet_available():
+            from .utils._xet import XetSessionHolder
+
+            self._xet_session_holder = XetSessionHolder()
+        return self._xet_session_holder
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
@@ -5194,7 +5198,12 @@ class HfApi:
             # PR (i.e. `revision`).
             "revision": revision if not create_pr else None,
         }
-        _upload_files(**upload_kwargs, num_threads=num_threads, create_pr=create_pr)  # type: ignore [arg-type]
+        _upload_files(
+            **upload_kwargs,  # type: ignore[arg-type]
+            num_threads=num_threads,
+            create_pr=create_pr,
+            xet_session_holder=self._get_xet_session_holder(),
+        )
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
@@ -6188,6 +6197,7 @@ class HfApi:
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            xet_session_holder=self._get_xet_session_holder(),
         )
 
     @overload
@@ -13149,8 +13159,9 @@ class HfApi:
         if not operations:
             return
 
-        from hf_xet import upload_bytes, upload_files
+        from hf_xet import Sha256Policy
 
+        from .utils._xet import XetSessionHolder
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
@@ -13161,36 +13172,9 @@ class HfApi:
         add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
         if len(add_operations_to_upload) > 0:
-            try:
-                xet_connection_info = fetch_xet_connection_info_from_repo_info(
-                    token_type=XetTokenType.WRITE,
-                    repo_id=bucket_id,
-                    repo_type="bucket",
-                    headers=headers,
-                    endpoint=self.endpoint,
-                )
-            except HfHubHTTPError as e:
-                if e.response.status_code == 401:
-                    raise XetAuthorizationError(
-                        f"You are unauthorized to upload to xet storage for bucket/{bucket_id}. "
-                        f"Please check that you have configured your access token with write access to the repo."
-                    ) from e
-                raise
-
-            xet_endpoint = xet_connection_info.endpoint
-            access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
-
-            def token_refresher() -> tuple[str, int]:
-                new_xet_connection = fetch_xet_connection_info_from_repo_info(
-                    token_type=XetTokenType.WRITE,
-                    repo_id=bucket_id,
-                    repo_type="bucket",
-                    headers=headers,
-                    endpoint=self.endpoint,
-                )
-                if new_xet_connection is None:
-                    raise XetRefreshTokenError("Failed to refresh xet token")
-                return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+            refresh_url = f"{self.endpoint}/api/buckets/{bucket_id}/xet-write-token"
+            xet_headers = headers.copy()
+            xet_headers.pop("authorization", None)
 
             owns_progress = _progress is None
             if _progress is not None:
@@ -13202,44 +13186,36 @@ class HfApi:
             else:
                 progress, progress_callback = None, None
 
+            holder = self._get_xet_session_holder() or XetSessionHolder()
+            session = holder.get()
+            builder = (
+                session.new_upload_commit()
+                .with_token_refresh_url(refresh_url, headers)
+                .with_custom_headers(xet_headers)
+            )
+            if progress_callback is not None:
+                builder = builder.with_progress_callback(progress_callback)
+            commit = builder.build()
+
             try:
-                # 2.a. Upload path files
-                xet_upload_infos = upload_files(
-                    [str(op.source) for op in add_path_operations if op.xet_hash is None],
-                    xet_endpoint,
-                    access_token_info,
-                    token_refresher,
-                    progress_callback,
-                    "bucket",
-                    skip_sha256=True,
-                )
-                for upload_info, op in zip(
-                    xet_upload_infos, [op for op in add_path_operations if op.xet_hash is None]
-                ):
-                    op.xet_hash = upload_info.hash
-                    op.size = upload_info.filesize
-
-                if progress is not None:
-                    progress.notify_upload_complete()
-
-                # 2.b. Upload bytes files
-                xet_upload_infos = upload_bytes(
-                    [op.source for op in add_bytes_operations if op.xet_hash is None],
-                    xet_endpoint,
-                    access_token_info,
-                    token_refresher,
-                    progress_callback,
-                    "bucket",
-                    skip_sha256=True,
-                )
-                for upload_info, op in zip(
-                    xet_upload_infos, [op for op in add_bytes_operations if op.xet_hash is None]
-                ):
-                    op.xet_hash = upload_info.hash
-                    op.size = upload_info.filesize
-
-                if progress is not None:
-                    progress.notify_upload_complete()
+                path_handles = [
+                    (commit.upload_file(str(op.source), sha256=Sha256Policy.skip()), op)
+                    for op in add_path_operations
+                    if op.xet_hash is None
+                ]
+                bytes_handles = [
+                    (commit.upload_bytes(op.source, sha256=Sha256Policy.skip()), op)
+                    for op in add_bytes_operations
+                    if op.xet_hash is None
+                ]
+                commit.commit()
+                for handle, op in path_handles + bytes_handles:
+                    result = handle.result()
+                    op.xet_hash = result.xet_info.hash
+                    op.size = result.xet_info.file_size
+            except KeyboardInterrupt:
+                holder.sigint_abort()
+                raise
             finally:
                 if owns_progress and progress is not None:
                     progress.close(False)
@@ -13388,7 +13364,9 @@ class HfApi:
             ... )
             ```
         """
-        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo  # type: ignore[no-redef]
+
+        from .utils._xet import XetSessionHolder
 
         headers = self._build_hf_headers(token=token)
 
@@ -13413,7 +13391,7 @@ class HfApi:
                 for path in missing_paths:
                     warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
 
-        xet_download_infos = []
+        non_zero_download_items: list[tuple[XetFileInfo, str]] = []
         first_valid_bucket_file: BucketFile | None = None
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
@@ -13422,73 +13400,64 @@ class HfApi:
                 remote_file = bucket_files_by_path[remote_file]
             if first_valid_bucket_file is None:
                 first_valid_bucket_file = remote_file
-            xet_download_infos.append(
-                PyXetDownloadInfo(
-                    destination_path=str(Path(local_path).absolute()),
-                    hash=remote_file.xet_hash,
-                    file_size=remote_file.size,
-                )
-            )
-
-        if len(xet_download_infos) == 0 or first_valid_bucket_file is None:
-            return
-
-        # Fetch Xet connection info (same for all files)
-        remote_path = first_valid_bucket_file.path
-
-        metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
-        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
-
-        def token_refresher() -> tuple[str, int]:
-            connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
-            if connection_info is None:
-                raise ValueError("Failed to refresh token using xet metadata.")
-            return connection_info.access_token, connection_info.expiration_unix_epoch
-
-        # Create empty files for zero-size files (no need to download them)
-        # and filter them out from xet_download_infos to avoid passing to xet library
-        non_zero_download_infos = []
-        for download_info in xet_download_infos:
-            if download_info.file_size == 0:
-                dest_path = Path(download_info.destination_path)
+            dest_path = Path(local_path).absolute()
+            if remote_file.size == 0:
+                # Create empty file without downloading
                 if dest_path.exists():
-                    # already exists => make sure it's an empty file
                     if dest_path.is_dir():
                         raise IsADirectoryError(f"Expected file but found directory at '{dest_path}'")
                     if dest_path.stat().st_size != 0:
                         dest_path.write_bytes(b"")
                 else:
-                    # doesn't exist => create it
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     dest_path.touch()
             else:
-                non_zero_download_infos.append(download_info)
+                non_zero_download_items.append((XetFileInfo(remote_file.xet_hash, remote_file.size), str(dest_path)))
 
-        # If only zero-size files, nothing more to download
-        if len(non_zero_download_infos) == 0:
+        if len(non_zero_download_items) == 0 or first_valid_bucket_file is None:
             return
+
+        # Fetch refresh route (same for all files in this bucket)
+        remote_path = first_valid_bucket_file.path
+        metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
+
+        xet_headers = headers.copy()
+        xet_headers.pop("authorization", None)
 
         # Download files
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=sum(info.file_size for info in non_zero_download_infos),
+            total=sum(xet_info.file_size or 0 for xet_info, _ in non_zero_download_items),
             initial=0,
             name="huggingface_hub.download_bucket_files",
         )
 
+        holder = self._get_xet_session_holder() or XetSessionHolder()
+        session = holder.get()
+
         with progress_cm as progress:
+            _prev = [0]
 
-            def progress_updater(progress_bytes: float):
-                progress.update(progress_bytes)
+            def _on_progress(group_report, _):
+                current = group_report.total_bytes_completed
+                progress.update(max(0, current - _prev[0]))
+                _prev[0] = current
 
-            download_files(
-                non_zero_download_infos,
-                endpoint=connection_info.endpoint,
-                token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-                token_refresher=token_refresher,
-                progress_updater=[progress_updater] * len(non_zero_download_infos),
+            group = (
+                session.new_file_download_group()
+                .with_token_refresh_url(metadata.xet_file_data.refresh_route, headers)
+                .with_custom_headers(xet_headers)
+                .with_progress_callback(_on_progress)
+                .build()
             )
+            for xet_info, dest in non_zero_download_items:
+                group.download_file(xet_info, dest)
+            try:
+                group.finish()
+            except KeyboardInterrupt:
+                holder.sigint_abort()
+                raise
 
     @validate_hf_hub_args
     def sync_bucket(

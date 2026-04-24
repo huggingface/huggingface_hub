@@ -17,15 +17,13 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Union
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from .errors import EntryNotFoundError, HfHubHTTPError, XetAuthorizationError, XetRefreshTokenError
+from .errors import EntryNotFoundError
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
-    XetTokenType,
     are_progress_bars_disabled,
     chunk_iterable,
-    fetch_xet_connection_info_from_repo_info,
     get_session,
     hf_raise_for_status,
     http_backoff,
@@ -366,6 +364,7 @@ def _upload_files(
     num_threads: int = 5,
     revision: str | None = None,
     create_pr: bool | None = None,
+    xet_session_holder=None,
 ):
     """
     Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
@@ -434,6 +433,7 @@ def _upload_files(
             endpoint=endpoint,
             revision=revision,
             create_pr=create_pr,
+            xet_session_holder=xet_session_holder,
         )
 
 
@@ -531,6 +531,7 @@ def _upload_xet_files(
     endpoint: str | None = None,
     revision: str | None = None,
     create_pr: bool | None = None,
+    xet_session_holder=None,
 ):
     """
     Uploads the content of `additions` to the Hub using the xet storage protocol.
@@ -588,44 +589,18 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from hf_xet import upload_bytes, upload_files
+    from hf_xet import Sha256Policy
 
+    from .utils._xet import XetSessionHolder
     from .utils._xet_progress_reporting import XetProgressReporter
 
-    try:
-        xet_connection_info = fetch_xet_connection_info_from_repo_info(
-            token_type=XetTokenType.WRITE,
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            headers=headers,
-            endpoint=endpoint,
-            params={"create_pr": "1"} if create_pr else None,
-        )
-    except HfHubHTTPError as e:
-        if e.response.status_code == 401:
-            raise XetAuthorizationError(
-                f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
-                f"Please check that you have configured your access token with write access to the repo."
-            ) from e
-        raise
+    _endpoint = endpoint or constants.ENDPOINT
+    refresh_url = f"{_endpoint}/api/{repo_type}s/{repo_id}/xet-write-token/{revision}"
+    if create_pr:
+        refresh_url += "?create_pr=1"
 
-    xet_endpoint = xet_connection_info.endpoint
-    access_token_info = (xet_connection_info.access_token, xet_connection_info.expiration_unix_epoch)
-
-    def token_refresher() -> tuple[str, int]:
-        new_xet_connection = fetch_xet_connection_info_from_repo_info(
-            token_type=XetTokenType.WRITE,
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            headers=headers,
-            endpoint=endpoint,
-            params={"create_pr": "1"} if create_pr else None,
-        )
-        if new_xet_connection is None:
-            raise XetRefreshTokenError("Failed to refresh xet token")
-        return new_xet_connection.access_token, new_xet_connection.expiration_unix_epoch
+    xet_headers = headers.copy()
+    xet_headers.pop("authorization", None)
 
     if not are_progress_bars_disabled():
         progress = XetProgressReporter()
@@ -633,46 +608,28 @@ def _upload_xet_files(
     else:
         progress, progress_callback = None, None
 
+    holder = xet_session_holder if xet_session_holder is not None else XetSessionHolder()
+    session = holder.get()
+    builder = session.new_upload_commit().with_token_refresh_url(refresh_url, headers).with_custom_headers(xet_headers)
+    if progress_callback is not None:
+        builder = builder.with_progress_callback(progress_callback)
+    commit = builder.build()
+
     try:
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
-        xet_headers = headers.copy()
-        xet_headers.pop("authorization", None)
-
-        if len(all_paths_ops) > 0:
-            all_paths = [str(op.path_or_fileobj) for op in all_paths_ops]
-            all_sha256s = [op.upload_info.sha256.hex() for op in all_paths_ops]
-            upload_files(
-                all_paths,
-                xet_endpoint,
-                access_token_info,
-                token_refresher,
-                progress_callback,
-                repo_type,
-                request_headers=xet_headers,
-                sha256s=all_sha256s,
-            )
-
-        if len(all_bytes_ops) > 0:
-            all_bytes = [op.path_or_fileobj for op in all_bytes_ops]
-            all_sha256s = [op.upload_info.sha256.hex() for op in all_bytes_ops]
-            upload_bytes(
-                all_bytes,
-                xet_endpoint,
-                access_token_info,
-                token_refresher,
-                progress_callback,
-                repo_type,
-                request_headers=xet_headers,
-                sha256s=all_sha256s,
-            )
-
+        for op in all_paths_ops:
+            commit.upload_file(str(op.path_or_fileobj), sha256=Sha256Policy.provided(op.upload_info.sha256.hex()))
+        for op in all_bytes_ops:
+            commit.upload_bytes(op.path_or_fileobj, sha256=Sha256Policy.provided(op.upload_info.sha256.hex()))
+        commit.commit()
+    except KeyboardInterrupt:
+        holder.sigint_abort()
+        raise
     finally:
         if progress is not None:
             progress.close(False)
-
-    return
 
 
 def _validate_preupload_info(preupload_info: dict):
