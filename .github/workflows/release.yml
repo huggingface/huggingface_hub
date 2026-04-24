@@ -735,7 +735,7 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials"
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}/socials"
           if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
             TEXT="⚠️ *Social media drafts* — skipped (no release found)"
           elif [[ "${{ job.status }}" == "success" ]]; then
