@@ -385,11 +385,17 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
 
     def test_pickle(self):
         # Test that pickling re-populates the HfFileSystem cache and keeps the instance cache attributes.
-        # Use the staging endpoint (where `text_file` actually exists) so the initial `isfile` call
-        # resolves deterministically. Going against production would either hit a 404 (triggering the
-        # namespace-fallback in `resolve_path` and populating 2 cache entries) or some other error
-        # depending on the runner's network path, which made this test flaky on Windows CI.
-        fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        #
+        # Two things must hold for this test to be deterministic:
+        # 1. The pre-pickle fs must hit an endpoint where `text_file` actually exists, so the initial
+        #    `isfile` call resolves cleanly and populates exactly one cache entry. Going against
+        #    production would 404 and trigger the namespace fallback in `resolve_path`, adding 2 entries.
+        # 2. The pre-pickle fs must NOT be shared via fsspec's instance cache with any sibling test
+        #    (e.g. the bucket-based `test_pickle` inherited by `HfFileSystemBucketROTests`), otherwise
+        #    leftover `_bucket_exists_cache` / `dircache` entries from that test leak into this one
+        #    via the main-thread state-inheritance path in `_Cached.__call__`.
+        # `skip_instance_cache=True` guarantees a fresh instance regardless of what earlier tests ran.
+        fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
         fs.isfile(self.text_file)
         pickled = pickle.dumps(fs)
         HfFileSystem.clear_instance_cache()

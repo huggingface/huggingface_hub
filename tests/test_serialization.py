@@ -870,8 +870,11 @@ class TestShardedCheckpointValidation:
         "malicious_path",
         [
             "/tmp/malicious.safetensors",  # POSIX absolute
+            "\\malicious.safetensors",  # Windows rooted, no drive (resolves to C:\malicious on Windows)
+            "C:malicious.safetensors",  # Windows drive-only (relative to CWD of drive C)
             "C:\\malicious.safetensors",  # Windows drive-absolute
             "\\\\server\\share\\malicious.safetensors",  # Windows UNC
+            "..\\malicious.safetensors",  # Windows-style traversal (backslash as separator)
         ],
     )
     def test_safetensors_index_rejects_absolute_path(self, tmp_path, malicious_path):
