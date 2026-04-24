@@ -21,7 +21,7 @@ import re
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Any, NamedTuple, Union
 
 from packaging import version
@@ -516,8 +516,15 @@ def _load_sharded_checkpoint(
     expected_extension = Path(filename_pattern.format(suffix="")).suffix  # e.g. ".safetensors"
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
-        # Reject path traversal (e.g. "../malicious.bin", absolute paths)
-        if os.path.isabs(shard_file) or ".." in Path(shard_file).parts:
+        # Reject path traversal (e.g. "../malicious.bin", absolute paths).
+        # Check both POSIX and Windows semantics so e.g. "/tmp/x" is rejected on
+        # Windows too. Note: `os.path.isabs` is host-OS-specific, and since Python 3.13
+        # ntpath.isabs no longer treats a single leading "/" as absolute.
+        if (
+            PurePosixPath(shard_file).is_absolute()
+            or PureWindowsPath(shard_file).is_absolute()
+            or ".." in Path(shard_file).parts
+        ):
             raise ValueError(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
                 "Shard filenames must be relative paths without '..' components."

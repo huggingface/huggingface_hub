@@ -384,8 +384,12 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             assert (Path(temp_dir) / "data").exists()
 
     def test_pickle(self):
-        # Test that pickling re-populates the HfFileSystem cache and keeps the instance cache attributes
-        fs = HfFileSystem()
+        # Test that pickling re-populates the HfFileSystem cache and keeps the instance cache attributes.
+        # Use the staging endpoint (where `text_file` actually exists) so the initial `isfile` call
+        # resolves deterministically. Going against production would either hit a 404 (triggering the
+        # namespace-fallback in `resolve_path` and populating 2 cache entries) or some other error
+        # depending on the runner's network path, which made this test flaky on Windows CI.
+        fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN)
         fs.isfile(self.text_file)
         pickled = pickle.dumps(fs)
         HfFileSystem.clear_instance_cache()
