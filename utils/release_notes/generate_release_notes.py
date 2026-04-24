@@ -61,6 +61,29 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     return f"{prefix}{major}.{minor}.{patch}"
 
 
+def check_opencode_model(model: str) -> None:
+    """Verify that ``model`` is listed by ``opencode models``.
+
+    OpenCode exits 0 and prints an error line when an unknown model is passed
+    via ``--model``, so calls silently no-op unless we validate up front.
+    Raises ``RuntimeError`` if opencode is missing or the model is unknown.
+    """
+    opencode_cmd = shutil.which("opencode")
+    if not opencode_cmd:
+        raise RuntimeError("'opencode' command not found in PATH")
+
+    result = subprocess.run(
+        [opencode_cmd, "models"], check=True, capture_output=True, text=True
+    )
+    available = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if model not in available:
+        raise RuntimeError(
+            f"RELEASE_NOTES_MODEL={model!r} not found in `opencode models` output. "
+            f"Expected the full `provider/model` form (e.g. `huggingface/zai-org/GLM-4.6`). "
+            f"{len(available)} model(s) available — first 10: {', '.join(available[:10])}"
+        )
+
+
 def run_opencode_skill(
     skill_name: str,
     version: str,
@@ -144,6 +167,17 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     """
     t_total_start = time.monotonic()
 
+    # 0. Validate the configured model before doing any expensive work.
+    #    OpenCode exits 0 on unknown models, so a typo here would otherwise
+    #    silently produce empty release notes.
+    model = os.environ.get("RELEASE_NOTES_MODEL")
+    if model:
+        try:
+            check_opencode_model(model)
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
     # 1. Clean up and setup directories
     if OUTPUT_DIR.exists():
         print("Cleaning up previous release notes...")
@@ -179,6 +213,17 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
         print("Failed to generate initial release notes", file=sys.stderr)
         return 1
     agent_calls += 1
+
+    # OpenCode can exit 0 without writing the expected file (e.g. auth/quota
+    # issues). Fail fast instead of falling through to a 0-byte output.
+    initial_output = OUTPUT_DIR / f"RELEASE_NOTES_{version}.md"
+    if not initial_output.exists() or initial_output.stat().st_size == 0:
+        print(
+            f"Error: OpenCode did not produce {initial_output} (or file is empty). "
+            f"Check OpenCode logs above for the real error.",
+            file=sys.stderr,
+        )
+        return 1
 
     # 5. Validation loop
     validation_iterations = 0
@@ -240,6 +285,13 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     print(f"  Output file:           {output_file}")
     print(f"  Output size:           {output_size:,} bytes")
     print("=" * 60)
+
+    if output_size == 0:
+        print(
+            f"Error: {output_file} is empty after validation loop.",
+            file=sys.stderr,
+        )
+        return 1
 
     print(f"\nRelease notes saved to {output_file}")
     return 0
