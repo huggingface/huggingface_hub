@@ -516,12 +516,17 @@ def _load_sharded_checkpoint(
     expected_extension = Path(filename_pattern.format(suffix="")).suffix  # e.g. ".safetensors"
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
-        # Reject anything that could escape save_directory on any host OS:
+        # Reject anything that could escape `save_directory` on any host OS:
         # POSIX absolute ("/tmp/x"), Windows drive ("C:x", "C:\\x"), UNC
         # ("\\\\server\\share\\x"), rooted-without-drive ("\\x", "/x"), or
-        # ".." traversal — including "..\\x" which os.path.isabs never caught on POSIX.
-        # `PureWindowsPath` parses both "/" and "\\" as separators and exposes drive/root,
-        # so a single check works on every platform.
+        # ".." traversal — including "..\\x" which `os.path.isabs` never caught on POSIX.
+        #
+        # We parse with `PureWindowsPath` *regardless of host OS*: it treats both "/" and
+        # "\\" as separators and exposes `drive` / `root`, so a single check rejects a
+        # malicious index file on Linux too (e.g. if it's later opened on Windows). The
+        # only over-strict case is a POSIX filename like "a:foo" which would be parsed as
+        # drive "a:" — such names are never produced for safetensors shards and would
+        # break on Windows anyway, so rejecting them is fine.
         win_path = PureWindowsPath(shard_file)
         if win_path.drive or win_path.root or ".." in win_path.parts:
             raise ValueError(
