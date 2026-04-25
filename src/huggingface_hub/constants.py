@@ -205,21 +205,29 @@ HF_HUB_DISABLE_TELEMETRY = (
     or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
 )
 
-HF_TOKEN_PATH = os.path.expandvars(
+# Token config (XDG_CONFIG_HOME for security-sensitive data like tokens)
+# https://specifications.freedesktop.org/basedir/latest/
+default_token_home = os.path.join(os.path.expanduser("~"), ".config")
+HF_TOKEN_HOME = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "HF_TOKEN_PATH",
-            os.path.join(HF_HOME, "token"),
+            "HF_TOKEN_PATH_CONFIG",
+            os.path.join(os.getenv("XDG_CONFIG_HOME", default_token_home), "huggingface"),
         )
     )
 )
-HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
+
+# Support HF_TOKEN_PATH for backward compatibility
+HF_TOKEN_PATH = os.path.expandvars(
+    os.path.expanduser(os.getenv("HF_TOKEN_PATH", os.path.join(HF_TOKEN_HOME, "token")))
+)
+HF_STORED_TOKENS_PATH = os.path.join(HF_TOKEN_HOME, "stored_tokens")
 
 if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
     # In practice in `huggingface_hub` tests, we monkeypatch these values with temporary directories. The following
     # lines are only used in third-party libraries tests (e.g. `transformers`, `diffusers`, etc.).
-    _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
+    _staging_home = os.path.join(os.path.expanduser("~"), ".config", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
