@@ -97,7 +97,7 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
 )
 def spaces_ls(
     query: Annotated[
-        str | None,
+        list[str] | None,
         typer.Argument(help="Search query.", show_default=False),
     ] = None,
     author: AuthorOpt = None,
@@ -114,12 +114,13 @@ def spaces_ls(
     """List spaces on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
+    search_query = " ".join(query) if query else None
     results = [
         api_object_to_dict(space_info)
         for space_info in api.list_spaces(
             filter=filter,
             author=author,
-            search=query,
+            search=search_query,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore[arg-type]

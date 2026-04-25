@@ -74,7 +74,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
 )
 def models_ls(
     query: Annotated[
-        str | None,
+        list[str] | None,
         typer.Argument(help="Search query.", show_default=False),
     ] = None,
     author: AuthorOpt = None,
@@ -95,12 +95,13 @@ def models_ls(
     """List models on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
+    search_query = " ".join(query) if query else None
     results = [
         api_object_to_dict(model_info)
         for model_info in api.list_models(
             filter=filter,
             author=author,
-            search=query,
+            search=search_query,
             num_parameters=num_parameters,
             sort=sort_key,
             limit=limit,
