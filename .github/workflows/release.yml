@@ -439,35 +439,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.prepare.outputs.tag }}"
-          VERSION="${{ needs.prepare.outputs.version }}"
 
-          # Find generated notes file (if any)
+          # Find generated notes file produced by the OpenCode step above.
           NOTES_FILE=""
           for f in .release-notes/RELEASE_NOTES_*.md; do
-            if [[ -f "$f" ]]; then
+            if [[ -f "$f" && -s "$f" ]]; then
               NOTES_FILE="$f"
               break
             fi
           done
 
-          ARGS=(
-            "$TAG"
-            --draft
-            --prerelease
-          )
-
-          if [[ -n "$NOTES_FILE" ]]; then
-            echo "Using generated release notes from $NOTES_FILE"
-            # Extract title from first line (strip "# " prefix) and use rest as body
-            TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
-            tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
-            ARGS+=(--title "$TITLE" --notes-file "${NOTES_FILE}.body")
-          else
-            echo "No generated notes found, using GitHub auto-generated notes"
-            ARGS+=(--title "v${VERSION}" --generate-notes)
+          if [[ -z "$NOTES_FILE" ]]; then
+            echo "::error::No generated release notes file found in .release-notes/. Refusing to create a release with GitHub auto-generated notes (they can exceed the 125k-char body limit). Fix the release-notes step and re-run."
+            exit 1
           fi
 
-          gh release create "${ARGS[@]}"
+          echo "Using generated release notes from $NOTES_FILE"
+          # Extract title from first line (strip "# " prefix) and use rest as body
+          TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
+          tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
+          gh release create "$TAG" --draft --prerelease --title "$TITLE" --notes-file "${NOTES_FILE}.body"
 
       # --- Minor release: update existing draft to point to the final tag ---
       - name: Promote draft release to final version
@@ -548,6 +539,7 @@ jobs:
         run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
+        id: fetch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -559,14 +551,17 @@ jobs:
             | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
 
           if [[ -z "$RELEASE_TAG" ]]; then
-            echo "::error::No release found for v${MINOR}. Ensure a prerelease or draft release exists."
-            exit 1
+            echo "::warning::No release found for v${MINOR}. Skipping Slack message generation (likely because release-notes failed)."
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
           echo "Found release: $RELEASE_TAG"
           gh release view "$RELEASE_TAG" --json body -q '.body' > notes.md
+          echo "found=true" >> $GITHUB_OUTPUT
 
       - name: Generate Slack message
+        if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
@@ -583,6 +578,7 @@ jobs:
             --input notes.md
 
       - name: Print Slack message to summary
+        if: ${{ steps.fetch.outputs.found == 'true' }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
@@ -602,7 +598,9 @@ jobs:
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
           SLACK_MSG_FILE=".release-notes/SLACK_MESSAGE_v${BASE_VERSION}.md"
 
-          if [[ "${{ job.status }}" == "success" ]]; then
+          if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
+            TEXT="⚠️ *Slack announcement* — skipped (no release found)"
+          elif [[ "${{ job.status }}" == "success" ]]; then
             TEXT="✅ *Slack announcement* — message generated"
           else
             TEXT="❌ *Slack announcement* — generation failed"
@@ -670,6 +668,7 @@ jobs:
         run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
+        id: fetch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -680,15 +679,18 @@ jobs:
             | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
 
           if [[ -z "$RELEASE_TAG" ]]; then
-            echo "::error::No release found for v${MINOR}."
-            exit 1
+            echo "::warning::No release found for v${MINOR}. Skipping social media draft generation (likely because release-notes failed)."
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
           echo "Found release: $RELEASE_TAG"
           mkdir -p .release-notes
           gh release view "$RELEASE_TAG" --json body -q '.body' > .release-notes/notes.md
+          echo "found=true" >> $GITHUB_OUTPUT
 
       - name: Generate social media drafts
+        if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
@@ -700,6 +702,7 @@ jobs:
             --input .release-notes/notes.md
 
       - name: Upload drafts to bucket
+        if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
         run: |
@@ -709,6 +712,7 @@ jobs:
             "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials/"
 
       - name: Print drafts to summary
+        if: ${{ steps.fetch.outputs.found == 'true' }}
         run: |
           echo "## Social Media Drafts" >> $GITHUB_STEP_SUMMARY
           for f in .release-notes/socials/*.txt; do
@@ -731,8 +735,10 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials"
-          if [[ "${{ job.status }}" == "success" ]]; then
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}/socials"
+          if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
+            TEXT="⚠️ *Social media drafts* — skipped (no release found)"
+          elif [[ "${{ job.status }}" == "success" ]]; then
             TEXT="✅ *Social media drafts* — <${BUCKET_URL}|uploaded to bucket>"
           else
             TEXT="❌ *Social media drafts* — generation failed"
