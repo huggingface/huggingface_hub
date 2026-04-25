@@ -38,7 +38,6 @@ from ._cli_utils import (
     FormatWithAutoOpt,
     LimitOpt,
     RevisionOpt,
-    SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -69,12 +68,15 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
     "list | ls",
     examples=[
         "hf models ls --sort downloads --limit 10",
-        'hf models ls --search "llama" --author meta-llama',
+        "hf models ls llama --author meta-llama",
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
     ],
 )
 def models_ls(
-    search: SearchOpt = None,
+    query: Annotated[
+        str | None,
+        typer.Argument(help="Search query.", show_default=False),
+    ] = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     num_parameters: Annotated[
@@ -98,7 +100,7 @@ def models_ls(
         for model_info in api.list_models(
             filter=filter,
             author=author,
-            search=search,
+            search=query,
             num_parameters=num_parameters,
             sort=sort_key,
             limit=limit,

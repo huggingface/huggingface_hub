@@ -56,7 +56,6 @@ from ._cli_utils import (
     FormatWithAutoOpt,
     LimitOpt,
     RevisionOpt,
-    SearchOpt,
     TokenOpt,
     VolumesOpt,
     api_object_to_dict,
@@ -93,11 +92,14 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
     "list | ls",
     examples=[
         "hf spaces ls --limit 10",
-        'hf spaces ls --search "chatbot" --author huggingface',
+        "hf spaces ls chatbot --author huggingface",
     ],
 )
 def spaces_ls(
-    search: SearchOpt = None,
+    query: Annotated[
+        str | None,
+        typer.Argument(help="Search query.", show_default=False),
+    ] = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
@@ -117,7 +119,7 @@ def spaces_ls(
         for space_info in api.list_spaces(
             filter=filter,
             author=author,
-            search=search,
+            search=query,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore[arg-type]

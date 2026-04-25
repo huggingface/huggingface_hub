@@ -39,7 +39,6 @@ from ._cli_utils import (
     FormatWithAutoOpt,
     LimitOpt,
     RevisionOpt,
-    SearchOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -71,11 +70,14 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
     examples=[
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
-        'hf datasets ls --search "code"',
+        "hf datasets ls code",
     ],
 )
 def datasets_ls(
-    search: SearchOpt = None,
+    query: Annotated[
+        str | None,
+        typer.Argument(help="Search query.", show_default=False),
+    ] = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
@@ -95,7 +97,7 @@ def datasets_ls(
         for dataset_info in api.list_datasets(
             filter=filter,
             author=author,
-            search=search,
+            search=query,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
