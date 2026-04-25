@@ -558,7 +558,7 @@ def _render_bar_chart(items: list[dict], max_size: int, max_name_len: int) -> No
         size = item["size"] or 0
         bar_len = int(max_bar_len * size / max_size) if max_size > 0 else 0
         size_str = _format_bytes(size)
-        display_name = (name[:max_name_len] + "...") if len(name) > max_name_len else name
+        display_name = (name[: max_name_len - 3] + "...") if len(name) > max_name_len else name
         bar = bar_char * bar_len
         try:
             print(f"{display_name:<{max_name_len}} {bar} {size_str}")
