@@ -25,7 +25,7 @@ Usage:
 """
 
 import enum
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
@@ -36,6 +36,7 @@ from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
     FormatWithAutoOpt,
+    LimitOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -528,3 +529,132 @@ def tag_delete(
     except RevisionNotFoundError as e:
         raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
     out.result("Tag deleted", tag=tag, repo_type=repo_type_str, repo_id=repo_id)
+
+
+def _format_bytes(n: int | None) -> str:
+    """Format bytes as a human-readable size string."""
+    if n is None:
+        return ""
+    for unit, label in [
+        (1024**4, "TiB"),
+        (1024**3, "GiB"),
+        (1024**2, "MiB"),
+        (1024**1, "KiB"),
+    ]:
+        if n >= unit:
+            return f"{n / unit:.1f} {label}"
+    return f"{n} B"
+
+
+_REPO_TYPE_LABEL = {"model": "model", "dataset": "dataset", "space": "space"}
+
+
+def _render_bar_chart(items: list[dict], max_size: int, max_name_len: int) -> None:
+    """Render a horizontal bar chart for storage usage."""
+    max_bar_len = 30
+    bar_char = "█"
+    for item in items:
+        name = item["name"]
+        size = item["size"] or 0
+        bar_len = int(max_bar_len * size / max_size) if max_size > 0 else 0
+        size_str = _format_bytes(size)
+        display_name = (name[:max_name_len] + "...") if len(name) > max_name_len else name
+        bar = bar_char * bar_len
+        try:
+            print(f"{display_name:<{max_name_len}} {bar} {size_str}")
+        except UnicodeEncodeError:
+            print(f"{display_name:<{max_name_len}} {'#' * bar_len} {size_str}")
+
+
+@repos_cli.command(
+    "storage",
+    examples=[
+        "hf repos storage",
+        "hf repos storage --repo-type model",
+        "hf repos storage --limit 10 --chart",
+    ],
+)
+def repo_storage(
+    repo_type: RepoTypeOpt | None = None,
+    sort: Annotated[
+        Literal["size", "name"],
+        typer.Option(
+            "--sort",
+            help="Sort order: 'size' (default) or 'name'.",
+        ),
+    ] = "size",
+    limit: LimitOpt = 50,
+    chart: Annotated[
+        bool,
+        typer.Option(
+            "--chart",
+            help="Show a bar chart visualization in addition to the table.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+) -> None:
+    """Show storage usage per repo on the Hub."""
+    api = get_hf_api(token=token)
+
+    try:
+        identity = api.whoami(token=token)
+    except HfHubHTTPError as e:
+        if e.response.status_code == 401:
+            raise CLIError("Authentication required. Please log in with `hf auth login` or set your HF_TOKEN.") from e
+        raise
+    username = identity.get("name") or identity.get("id")
+    if not username:
+        raise CLIError("Could not determine username from identity response.")
+
+    items: list[dict] = []
+    repo_types: list[str] = [repo_type.value] if repo_type is not None else ["model", "dataset", "space"]
+
+    for rt in repo_types:
+        match rt:
+            case "model":
+                repos = api.list_models(author=username, expand=["usedStorage"])
+            case "dataset":
+                repos = api.list_datasets(author=username, expand=["usedStorage"])
+            case "space":
+                repos = api.list_spaces(author=username, expand=["usedStorage"])
+            case _:
+                continue
+
+        for repo in repos:
+            repo_id = getattr(repo, "id", None)
+            used_storage = getattr(repo, "used_storage", None)
+            if repo_id is None:
+                continue
+            items.append(
+                {
+                    "name": repo_id,
+                    "type": _REPO_TYPE_LABEL[rt],
+                    "size": used_storage,
+                    "size_formatted": _format_bytes(used_storage),
+                }
+            )
+
+    if sort == "size":
+        items.sort(key=lambda x: x["size"] or 0, reverse=True)
+    else:
+        items.sort(key=lambda x: x["name"])
+
+    if limit and len(items) > limit:
+        items = items[:limit]
+
+    table_items = [{"name": item["name"], "type": item["type"], "size": item["size_formatted"]} for item in items]
+
+    if out.mode == OutputFormatWithAuto.human and chart and items:
+        max_size = max((item["size"] or 0 for item in items), default=0)
+        max_name_len = max((len(item["name"]) for item in items), default=20) if items else 20
+        print()
+        _render_bar_chart(items, max_size=max_size, max_name_len=min(max_name_len, 25))
+        print()
+
+    headers = ["name", "type", "size"]
+    out.table(
+        table_items,
+        headers=headers,
+        alignments={"size": "right"},
+    )

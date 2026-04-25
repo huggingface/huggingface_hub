@@ -22,7 +22,7 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import DatasetInfo, ModelInfo, SpaceInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -3598,3 +3598,68 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class TestRepoStorageCommand:
+    """Tests for `hf repos storage`."""
+
+    def test_repo_storage_basic(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "testuser"}
+            model_info = ModelInfo(id="testuser/my-model", author="testuser", usedStorage=1024 * 1024)
+            dataset_info = DatasetInfo(id="testuser/my-dataset", author="testuser", usedStorage=2048 * 1024)
+            space_info = SpaceInfo(id="testuser/my-space", author="testuser", usedStorage=512 * 1024)
+            api.list_models.return_value = [model_info]
+            api.list_datasets.return_value = [dataset_info]
+            api.list_spaces.return_value = [space_info]
+            result = runner.invoke(app, ["repos", "storage"])
+
+        assert result.exit_code == 0
+        api.whoami.assert_called_once_with(token=None)
+        api.list_models.assert_called_once_with(author="testuser", expand=["usedStorage"])
+        api.list_datasets.assert_called_once_with(author="testuser", expand=["usedStorage"])
+        api.list_spaces.assert_called_once_with(author="testuser", expand=["usedStorage"])
+        assert "my-model" in result.output
+        assert "my-dataset" in result.output
+        assert "my-space" in result.output
+
+    def test_repo_storage_filter_by_type(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "testuser"}
+            model_info = ModelInfo(id="testuser/my-model", author="testuser", usedStorage=1024 * 1024)
+            api.list_models.return_value = [model_info]
+            api.list_datasets.return_value = []
+            api.list_spaces.return_value = []
+            result = runner.invoke(app, ["repos", "storage", "--repo-type", "model"])
+
+        assert result.exit_code == 0
+        api.list_models.assert_called_once_with(author="testuser", expand=["usedStorage"])
+        api.list_datasets.assert_not_called()
+        api.list_spaces.assert_not_called()
+        assert "my-model" in result.output
+
+    def test_repo_storage_with_limit(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "testuser"}
+            api.list_models.return_value = []
+            api.list_datasets.return_value = []
+            api.list_spaces.return_value = []
+            result = runner.invoke(app, ["repos", "storage", "--limit", "5"])
+
+        assert result.exit_code == 0
+
+    def test_repo_storage_chart(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "testuser"}
+            model_info = ModelInfo(id="testuser/my-model", author="testuser", usedStorage=1024 * 1024)
+            api.list_models.return_value = [model_info]
+            api.list_datasets.return_value = []
+            api.list_spaces.return_value = []
+            result = runner.invoke(app, ["repos", "storage", "--chart"])
+
+        assert result.exit_code == 0
+        assert "█" in result.output or "#" in result.output
