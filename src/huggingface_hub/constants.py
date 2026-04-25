@@ -221,15 +221,17 @@ HF_TOKEN_HOME = os.path.expandvars(
 HF_TOKEN_PATH = os.path.expandvars(
     os.path.expanduser(os.getenv("HF_TOKEN_PATH", os.path.join(HF_TOKEN_HOME, "token")))
 )
-HF_STORED_TOKENS_PATH = os.path.join(HF_TOKEN_HOME, "stored_tokens")
+HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
     # In practice in `huggingface_hub` tests, we monkeypatch these values with temporary directories. The following
     # lines are only used in third-party libraries tests (e.g. `transformers`, `diffusers`, etc.).
-    _staging_home = os.path.join(os.path.expanduser("~"), ".config", "huggingface_staging")
-    HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
-    HF_TOKEN_PATH = os.path.join(_staging_home, "token")
+    # Cache goes in ~/.cache (XDG_CACHE_HOME), tokens go in ~/.config (XDG_CONFIG_HOME)
+    _staging_cache_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
+    _staging_config_home = os.path.join(os.path.expanduser("~"), ".config", "huggingface_staging")
+    HUGGINGFACE_HUB_CACHE = os.path.join(_staging_cache_home, "hub")
+    HF_TOKEN_PATH = os.path.join(_staging_config_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.
