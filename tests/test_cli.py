@@ -1747,7 +1747,6 @@ class TestModelsLsCommand:
                     "ls",
                     "--author",
                     "google",
-                    "--search",
                     "bert",
                     "--filter",
                     "text-classification",
