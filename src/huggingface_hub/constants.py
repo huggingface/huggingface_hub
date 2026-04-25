@@ -211,8 +211,11 @@ default_token_home = os.path.join(os.path.expanduser("~"), ".config")
 HF_TOKEN_HOME = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "HF_TOKEN_PATH_CONFIG",
-            os.path.join(os.getenv("XDG_CONFIG_HOME", default_token_home), "huggingface"),
+            "HF_TOKEN_HOME",
+            os.path.join(
+                os.getenv("HF_HOME") or os.getenv("XDG_CONFIG_HOME", default_token_home),
+                "huggingface",
+            ),
         )
     )
 )
