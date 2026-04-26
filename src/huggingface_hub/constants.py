@@ -208,17 +208,14 @@ HF_HUB_DISABLE_TELEMETRY = (
 # Token config (XDG_CONFIG_HOME for security-sensitive data like tokens)
 # https://specifications.freedesktop.org/basedir/latest/
 default_token_home = os.path.join(os.path.expanduser("~"), ".config")
-HF_TOKEN_HOME = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "HF_TOKEN_HOME",
-            os.path.join(
-                os.getenv("HF_HOME") or os.getenv("XDG_CONFIG_HOME", default_token_home),
-                "huggingface",
-            ),
-        )
+if "HF_TOKEN_HOME" in os.environ:
+    HF_TOKEN_HOME = os.path.expandvars(os.path.expanduser(os.environ["HF_TOKEN_HOME"]))
+elif "HF_HOME" in os.environ:
+    HF_TOKEN_HOME = os.path.expandvars(os.path.expanduser(os.environ["HF_HOME"]))
+else:
+    HF_TOKEN_HOME = os.path.expandvars(
+        os.path.expanduser(os.path.join(os.getenv("XDG_CONFIG_HOME", default_token_home), "huggingface"))
     )
-)
 
 # Support HF_TOKEN_PATH for backward compatibility
 HF_TOKEN_PATH = os.path.expandvars(
