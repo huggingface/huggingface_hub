@@ -14,17 +14,20 @@
 """Contains the 'hf cache' command group with cache management subcommands."""
 
 import re
+import shutil
 import time
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from huggingface_hub.errors import CLIError
 
+from ..constants import HF_HOME
 from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
@@ -754,3 +757,90 @@ def verify(
         checked=result.checked_count,
         path=str(verified_location),
     )
+
+
+@cache_cli.command(
+    examples=[
+        "hf cache move --source /path/to/old/cache --destination /path/to/new/cache",
+    ],
+)
+def move(
+    source: Annotated[
+        str,
+        typer.Option(
+            "--source",
+            help="Source cache directory to move from.",
+        ),
+    ],
+    destination: Annotated[
+        str,
+        typer.Option(
+            "--destination",
+            help="Destination cache directory to move to.",
+        ),
+    ],
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+) -> None:
+    """Move cache directory from one path to another.
+
+    This command copies the cache blobs to a new location. The snapshots/ and refs/ folders are NOT copied
+    as symlinks will be resolved at runtime when the user calls hf_hub_download.
+
+    After moving the cache, make sure to update your $HF_HOME environment variable.
+
+    Examples:
+      - Move cache: `hf cache move --source /path/to/old/cache --destination /path/to/new/cache`
+    """
+
+    source_path = Path(source).resolve()
+    dest_path = Path(destination).resolve()
+
+    if not source_path.exists():
+        raise CLIError(f"Source cache directory does not exist: {source_path}")
+
+    if not source_path.is_dir():
+        raise CLIError(f"Source path is not a directory: {source_path}")
+
+    if dest_path.exists():
+        raise CLIError(f"Destination already exists: {dest_path}. Please choose a non-existent path.")
+
+    blobs_src = source_path / "blobs"
+    if not blobs_src.exists():
+        raise CLIError(
+            f"Source directory does not appear to be a valid Hugging Face cache (missing 'blobs' folder): {source_path}"
+        )
+
+    size_src = sum(f.stat().st_size for f in source_path.rglob("*") if f.is_file())
+    size_src_str = _format_size(size_src)
+
+    out.text(f"About to copy cache from:\n  - {source_path}\nTo:\n  - {dest_path}\nSize: {size_src_str}.")
+    out.warning(
+        "Note: Only the 'blobs' folder will be copied. The 'snapshots/' and 'refs/' folders "
+        "will be recreated automatically when you download files."
+    )
+
+    out.confirm("Proceed with copy?", yes=yes)
+
+    dest_path.mkdir(parents=True)
+    shutil.copytree(blobs_src, dest_path / "blobs", copy_function=shutil.copy2)
+
+    out.result(
+        f"Cache copied from {source_path} to {dest_path}.",
+        source=str(source_path),
+        destination=str(dest_path),
+    )
+
+    if dest_path.parent == Path(HF_HOME):
+        out.hint(f"Set HF_HOME='{dest_path}' in your environment to use the new cache location.")
+    elif dest_path.parent.parent == Path(HF_HOME):
+        out.hint(f"Set HF_HUB_CACHE='{dest_path}' in your environment to use the new cache location.")
+    else:
+        out.hint("Set either HF_HOME or HF_HUB_CACHE in your environment to point to the new location.")

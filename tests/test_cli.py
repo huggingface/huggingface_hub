@@ -369,6 +369,45 @@ class TestCacheCommand:
         assert "missing locally" in result.output
         assert "Verification failed" in result.output
 
+    def test_move_cache(self, runner: CliRunner) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "source"
+            dest = Path(tmp_dir) / "dest"
+            blobs = source / "blobs"
+            blobs.mkdir(parents=True)
+            (blobs / "file.bin").write_text("test")
+
+            result = runner.invoke(
+                app, ["cache", "move", "--source", str(source), "--destination", str(dest), "--yes"]
+            )
+
+            assert result.exit_code == 0
+            assert "copied" in result.output.lower()
+            assert (dest / "blobs" / "file.bin").exists()
+
+    def test_move_cache_nonexistent_source(self, runner: CliRunner) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "nonexistent"
+            dest = Path(tmp_dir) / "dest"
+
+            result = runner.invoke(app, ["cache", "move", "--source", str(source), "--destination", str(dest)])
+
+            assert result.exit_code != 0
+            assert result.exception is not None
+            assert "does not exist" in str(result.exception).lower()
+
+    def test_move_cache_invalid_source(self, runner: CliRunner) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "invalid"
+            dest = Path(tmp_dir) / "dest"
+            source.mkdir()
+
+            result = runner.invoke(app, ["cache", "move", "--source", str(source), "--destination", str(dest)])
+
+            assert result.exit_code != 0
+            assert result.exception is not None
+            assert "does not appear to be a valid" in str(result.exception).lower()
+
 
 class TestUploadCommand:
     def test_upload_basic(self, runner: CliRunner) -> None:
