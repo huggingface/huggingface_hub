@@ -72,9 +72,7 @@ def check_opencode_model(model: str) -> None:
     if not opencode_cmd:
         raise RuntimeError("'opencode' command not found in PATH")
 
-    result = subprocess.run(
-        [opencode_cmd, "models"], check=True, capture_output=True, text=True
-    )
+    result = subprocess.run([opencode_cmd, "models"], check=True, capture_output=True, text=True)
     available = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if model not in available:
         raise RuntimeError(
