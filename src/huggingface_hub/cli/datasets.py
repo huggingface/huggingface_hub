@@ -102,7 +102,10 @@ def datasets_ls(
             expand=expand,  # type: ignore
         )
     ]
-    out.table(results)
+    out.table(
+        results,
+        headers=["id", "created_at", "description", "downloads", "gated", "likes", "private", "trending_score"],
+    )
 
 
 @datasets_cli.command(
