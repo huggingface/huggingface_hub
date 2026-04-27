@@ -81,6 +81,7 @@ class Output:
         headers: list[str] | None = None,
         id_key: str | None = None,
         alignments: dict[str, str] | None = None,
+        truncate: bool = True,
     ) -> None:
         """Print tabular data to stdout.
 
@@ -89,6 +90,7 @@ class Output:
             headers: Explicit column names. If None, derived from dict keys (all-None columns filtered).
             id_key: Key to print in quiet mode. If None, uses the first header.
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
+            truncate: Whether to truncate cell values. Defaults to True.
         """
         if not items:
             match self.mode:
@@ -105,7 +107,12 @@ class Output:
 
         match self.mode:
             case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
-                formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
+                if truncate:
+                    formatted_rows: list[list[str | int]] = [
+                        [_format_table_cell_human(v) for v in row] for row in rows
+                    ]
+                else:
+                    formatted_rows = [[_format_table_value_human(v) for v in row] for row in rows]
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))

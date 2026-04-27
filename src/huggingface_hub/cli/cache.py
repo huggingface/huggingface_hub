@@ -386,6 +386,13 @@ def ls(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
     ] = None,
+    no_truncate: Annotated[
+        bool,
+        typer.Option(
+            "--no-truncate",
+            help="Show full IDs without truncation.",
+        ),
+    ] = False,
 ) -> None:
     """List cached repositories or revisions."""
     try:
@@ -439,6 +446,7 @@ def ls(
             headers=["id", "revision", "size", "last_modified", "refs"],
             id_key="revision",
             alignments={"size": "right"},
+            truncate=not no_truncate,
         )
     else:
         items = [
@@ -458,6 +466,7 @@ def ls(
             headers=["id", "size", "last_accessed", "last_modified", "refs"],
             id_key="id",
             alignments={"size": "right"},
+            truncate=not no_truncate,
         )
 
     if entries:

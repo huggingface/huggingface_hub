@@ -38,6 +38,7 @@ from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 
 @pytest.fixture
 def runner() -> CliRunner:
+    out.set_mode(OutputFormatWithAuto.human)
     return CliRunner()
 
 
@@ -157,6 +158,73 @@ class TestCacheCommand:
 
         # Check limit of 2 entries
         assert "model1" not in stdout
+
+    def test_ls_no_truncate_shows_full_id(self, runner: CliRunner) -> None:
+        # Use a very long repo ID that would normally be truncated
+        long_repo_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+        repo = _make_repo(long_repo_id, revisions=[_make_revision("a" * 40, refs={"main"})])
+        entries = [(repo, None)]
+        repo_refs_map = {repo: frozenset({"main"})}
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+        ):
+            result = runner.invoke(app, ["cache", "ls", "--no-truncate"])
+
+        assert result.exit_code == 0
+        stdout = result.stdout
+        # Full ID should be visible (not truncated with "...")
+        assert long_repo_id in stdout
+        assert "..." not in stdout
+
+    def test_ls_truncate_by_default(self, runner: CliRunner) -> None:
+        # Use a very long repo ID that would be truncated by default
+        long_repo_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+        repo = _make_repo(long_repo_id, revisions=[_make_revision("b" * 40, refs={"main"})])
+        entries = [(repo, None)]
+        repo_refs_map = {repo: frozenset({"main"})}
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+        ):
+            result = runner.invoke(app, ["cache", "ls"])
+
+        assert result.exit_code == 0
+        stdout = result.stdout
+        # ID should be truncated with "..."
+        assert long_repo_id not in stdout  # Should be truncated
+        assert "..." in stdout  # Truncation indicator should be present
+
+    def test_ls_no_truncate_with_revisions(self, runner: CliRunner) -> None:
+        # Test --no-truncate with --revisions flag
+        long_repo_id = "org/very-long-model-name-for-revisions-test"
+        revision = _make_revision("c" * 40, refs={"main"})
+        repo = _make_repo(long_repo_id, revisions=[revision])
+        entries = [(repo, revision)]
+        repo_refs_map = {repo: frozenset({"main"})}
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch(
+                "huggingface_hub.cli.cache.collect_cache_entries",
+                return_value=(entries, repo_refs_map),
+            ),
+        ):
+            result = runner.invoke(app, ["cache", "ls", "--revisions", "--no-truncate"])
+
+        assert result.exit_code == 0
+        stdout = result.stdout
+        # Full ID should be visible (not truncated with "...")
+        assert long_repo_id in stdout
+        assert "..." not in stdout
 
     def test_rm_revision_executes_strategy(self, runner: CliRunner) -> None:
         revision = _make_revision("c" * 40)
