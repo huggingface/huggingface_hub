@@ -247,6 +247,10 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
 
+# Bucket and mount path used when launching Jobs
+HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
+HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
+
 # hf_transfer is not used anymore. Let's warn user is case they set the env variable
 if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
     import warnings

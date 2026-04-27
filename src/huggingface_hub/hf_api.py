@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import inspect
 import itertools
 import json
@@ -25,10 +24,11 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
 from urllib.parse import quote, unquote
 
@@ -11851,7 +11851,7 @@ class HfApi:
         secrets = secrets or {}
 
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -11860,7 +11860,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.run_job(
             image=image,
@@ -12270,7 +12273,7 @@ class HfApi:
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -12279,7 +12282,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.create_scheduled_job(
             image=image,
@@ -12308,7 +12314,8 @@ class HfApi:
         secrets: dict[str, Any] | None,
         namespace: str | None,
         token: bool | str | None,
-    ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+        volumes: list[Volume] | None = None,
+    ) -> tuple[list[str], dict[str, Any], dict[str, Any], list[Volume]]:
         env = env or {}
         secrets = secrets or {}
 
@@ -12341,50 +12348,85 @@ class HfApi:
         if len(local_files_to_include) == 0:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
-        else:
-            # Find appropriate remote file names
-            remote_to_local_file_names: dict[str, str] = {}
-            for local_file_to_include in local_files_to_include:
-                local_file_path = Path(local_file_to_include)
-                # remove spaces for proper xargs parsing
-                remote_file_path = Path(local_file_path.name.replace(" ", "_"))
-                if remote_file_path.name in remote_to_local_file_names:
-                    for i in itertools.count():
-                        remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
-                        if remote_file_name not in remote_to_local_file_names:
-                            remote_to_local_file_names[remote_file_name] = local_file_to_include
-                            break
-                else:
-                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
-            local_to_remote_file_names = {
-                local_file_to_include: remote_file_name
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
-            }
+            return command, env, secrets, []
 
-            # Replace local paths with remote paths in command
-            if script in local_to_remote_file_names:
-                script = local_to_remote_file_names[script]
-            script_args = [
-                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
-            ]
+        # Find appropriate remote file names
+        remote_to_local_file_names: dict[str, str] = {}
+        for local_file_to_include in local_files_to_include:
+            local_file_path = Path(local_file_to_include)
+            # Sanitize spaces for predictable remote paths
+            remote_file_path = Path(local_file_path.name.replace(" ", "_"))
+            if remote_file_path.name in remote_to_local_file_names:
+                for i in itertools.count():
+                    remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
+                    if remote_file_name not in remote_to_local_file_names:
+                        remote_to_local_file_names[remote_file_name] = local_file_to_include
+                        break
+            else:
+                remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+        local_to_remote_file_names = {
+            local_file_to_include: remote_file_name
+            for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        }
 
-            # Load content to pass as environment variable with format
-            # file1 base64content1
-            # file2 base64content2
-            # ...
-            env["LOCAL_FILES_ENCODED"] = "\n".join(
-                remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        # Local files are shipped to the job via a bucket mounted at /data.
+        existing_mount_paths = {v.mount_path for v in (volumes or [])}
+        if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
+            raise ValueError(
+                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
-            # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
-            quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
-            command = [
-                "bash",
-                "-c",
-                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
-                + f"uv run {' '.join(quoted_parts)}",
-            ]
-        return command, env, secrets
+
+        extra_volumes = self._upload_scripts_to_bucket(
+            namespace=namespace,
+            remote_to_local_file_names=remote_to_local_file_names,
+            token=token,
+        )
+        # Rewrite script and script_args to reference the mounted path. The bucket
+        # volume is scoped to the per-job subfolder (via `Volume.path`), so the job
+        # container sees the uploaded files directly at the mount root.
+        mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
+        if script in local_to_remote_file_names:
+            script = f"{mount_path}/{local_to_remote_file_names[script]}"
+        script_args = [
+            f"{mount_path}/{local_to_remote_file_names[arg]}" if arg in local_to_remote_file_names else arg
+            for arg in script_args
+        ]
+        command = ["uv", "run"] + uv_args + [script] + script_args
+        return command, env, secrets, extra_volumes
+
+    def _upload_scripts_to_bucket(
+        self,
+        *,
+        namespace: str,
+        remote_to_local_file_names: dict[str, str],
+        token: bool | str | None,
+    ) -> list[Volume]:
+        """Upload script files to a per-job subfolder in the artifacts bucket.
+
+        Creates a bucket `/jobs-artifacts` (if it doesn't exist) and uploads
+        each script to `{timestamp}-{random}/{remote_name}` inside it. Returns a
+        [`Volume`] scoped to that bucket subfolder. Volume is in read-write mode so the Job can save data back to this bucket.
+        """
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
+
+        bucket_url = self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
+
+        add_ops: list[tuple[str | Path | bytes, str]] = [
+            (Path(local_path), f"{subfolder_id}/{remote_name}")
+            for remote_name, local_path in remote_to_local_file_names.items()
+        ]
+        self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
+        print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
+
+        volume = Volume(
+            type="bucket",
+            source=bucket_id,
+            mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
+            path=subfolder_id,
+            read_only=False,
+        )
+        return [volume]
 
     @validate_hf_hub_args
     def create_bucket(

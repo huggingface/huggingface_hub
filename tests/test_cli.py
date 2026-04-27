@@ -2919,36 +2919,167 @@ class TestJobsCommand:
         assert volume_2.read_only is None
 
 
-class TestCreateUvCommandQuoting:
-    """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
+class TestBucketTransport:
+    """Tests for the bucket-based script transport used when `hf jobs uv run` is given local files."""
 
-    def test_dependencies_with_version_specifiers_are_quoted(self, tmp_path: Path) -> None:
-        """Regression test: --with 'torch>=2.1' must be quoted so bash doesn't interpret '>' as redirection."""
+    def test_bucket_transport_uploads_and_returns_volume(self, tmp_path: Path) -> None:
+        """Local scripts are uploaded to a bucket and a Volume mounting them is returned."""
         from huggingface_hub.hf_api import HfApi
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
 
         api = HfApi()
-        command, env, secrets = api._create_uv_command_env_and_secrets(
-            script=str(script_path),
-            script_args=None,
-            dependencies=["torch>=2.1", "numpy"],
-            python=None,
-            env=None,
-            secrets=None,
-            namespace="test-user",
-            token=None,
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            patch.object(api, "batch_bucket_files") as mock_batch,
+        ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
+            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=["torch>=2.1"],
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+        # Bucket was created with correct ID and private=True (so scripts/artifacts aren't public)
+        mock_create_bucket.assert_called_once_with(
+            bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None, private=True
         )
 
-        assert command[0] == "bash"
-        assert command[1] == "-c"
-        bash_script = command[2]
-        # The version specifier must be quoted to prevent shell redirection
-        assert "'torch>=2.1'" in bash_script
-        assert "'numpy'" in bash_script
-        # The script name must also be quoted
-        assert "'train.py'" in bash_script
+        # Files were uploaded under a {timestamp}-{hex}/ subfolder at the bucket root
+        mock_batch.assert_called_once()
+        call_kwargs = mock_batch.call_args
+        assert call_kwargs.kwargs["bucket_id"] == "test-user/jobs-artifacts"
+        add_ops = call_kwargs.kwargs["add"]
+        assert len(add_ops) == 1
+        upload_path = add_ops[0][1]
+        assert upload_path.endswith("/train.py")
+        # subfolder is {timestamp}-{hex}, so upload path is "{subfolder}/train.py"
+        assert upload_path.count("/") == 1
+
+        # Command is plain uv run (no bash -c wrapper)
+        assert command[0] == "uv"
+        assert command[1] == "run"
+        assert "--with" in command
+        assert "torch>=2.1" in command
+        # Script path is /data/train.py — the volume is scoped to the per-job
+        # subfolder via Volume.path, so the job sees its files at the mount root.
+        script_arg = [arg for arg in command if "train.py" in arg][0]
+        assert script_arg == "/data/train.py"
+
+        # No LOCAL_FILES_ENCODED in env (the old base64 transport is gone)
+        assert "LOCAL_FILES_ENCODED" not in env
+
+        # Extra volume returned, scoped to the per-job subfolder
+        assert len(extra_volumes) == 1
+        vol = extra_volumes[0]
+        assert vol.type == "bucket"
+        assert vol.source == "test-user/jobs-artifacts"
+        assert vol.mount_path == "/data"
+        assert vol.path is not None
+        # The volume path and the remote upload path share the same subfolder
+        assert upload_path.startswith(vol.path + "/")
+        # Mounted read-write so jobs can write output artifacts back to the bucket
+        assert vol.read_only is False
+
+    def test_bucket_upload_failure_propagates(self, tmp_path: Path) -> None:
+        """When bucket creation/upload fails, the exception propagates (no silent fallback)."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket", side_effect=Exception("network error")),
+            pytest.raises(Exception, match="network error"),
+        ):
+            api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+    def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
+        """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        existing_volume = Volume(type="bucket", source="user/other-bucket", mount_path="/data")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            pytest.raises(ValueError, match="/data"),
+        ):
+            api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+                volumes=[existing_volume],
+            )
+        # Never attempted bucket creation
+        mock_create_bucket.assert_not_called()
+
+    def test_bucket_transport_with_multiple_files(self, tmp_path: Path) -> None:
+        """Multiple local files are all uploaded to the bucket under the same per-job subfolder."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("import config")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("lr: 0.001")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            patch.object(api, "batch_bucket_files") as mock_batch,
+        ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
+            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=[str(config_path)],
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+        # Both files uploaded under the same {timestamp}-{hex}/ subfolder at the bucket root
+        add_ops = mock_batch.call_args.kwargs["add"]
+        assert len(add_ops) == 2
+        uploaded_names = {op[1].split("/")[-1] for op in add_ops}
+        assert uploaded_names == {"train.py", "config.yaml"}
+        upload_prefixes = {op[1].rsplit("/", 1)[0] for op in add_ops}
+        assert len(upload_prefixes) == 1  # same subfolder for both files
+
+        # Both command args reference the mount root directly (no subfolder in the path)
+        assert command[0] == "uv"
+        mounted_args = sorted(arg for arg in command if arg.startswith("/data/"))
+        assert mounted_args == ["/data/config.yaml", "/data/train.py"]
+
+        # Volume is scoped to the shared subfolder via Volume.path
+        assert len(extra_volumes) == 1
+        assert extra_volumes[0].path == upload_prefixes.pop()
 
 
 class TestParseNamespaceFromJobId:
