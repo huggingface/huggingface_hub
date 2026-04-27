@@ -153,10 +153,7 @@ def models_card(
     """Get the model card (README) for a model on the Hub."""
     if metadata and text:
         raise CLIError("--metadata and --text are mutually exclusive.")
-    try:
-        card = ModelCard.load(model_id, token=token)
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Model '{model_id}' not found.") from e
+    card = ModelCard.load(model_id, token=token)
     if metadata:
         out.dict(card.data.to_dict())
     elif text:
