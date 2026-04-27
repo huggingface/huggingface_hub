@@ -211,6 +211,10 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
+def _single_line(text: str) -> str:
+    return " ".join(text.split())
+
+
 def _to_header(name: str) -> str:
     """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
     s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
@@ -227,13 +231,15 @@ def _format_table_value_human(value: Any) -> str:
         return value.strftime("%Y-%m-%d")
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
+    if isinstance(value, str):
+        return _single_line(value)
     if isinstance(value, list):
         return ", ".join(_format_table_value_human(v) for v in value)
     elif isinstance(value, dict):
         if "name" in value:  # Likely to be a user or org => print name
-            return str(value["name"])
-        return json.dumps(value)
-    return str(value)
+            return _single_line(str(value["name"]))
+        return _single_line(json.dumps(value))
+    return _single_line(str(value))
 
 
 def _format_table_cell_human(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
@@ -248,7 +254,7 @@ def _format_table_cell_agent(value: Any) -> str:
     """Format a cell value for agent TSV output (ISO timestamps, tabs escaped)."""
     if isinstance(value, datetime.datetime):
         return value.isoformat()
-    return str(value).replace("\t", " ")
+    return _single_line(str(value))
 
 
 out = Output()
