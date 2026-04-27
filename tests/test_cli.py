@@ -1798,6 +1798,30 @@ class TestDatasetsLsCommand:
         assert kwargs["sort"] == "downloads"
 
 
+class TestModelsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "card", "Qwen/Qwen3-0.6B"])
+        assert "library_name: transformers" in result.stdout
+        assert "# Qwen3-0.6B" in result.stdout
+
+
+class TestDatasetsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "card", "HuggingFaceFW/fineweb"])
+        assert "license: odc-by" in result.stdout
+        assert "# 🍷 FineWeb" in result.stdout
+
+
+class TestSpacesCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "card", "mteb/leaderboard"])
+        assert "license: mit" in result.stdout
+        assert "# MTEB Leaderboard" in result.stdout
+
+
 class TestPapersCommand:
     def _make_paper(self, **kwargs):
         from huggingface_hub.hf_api import PaperInfo

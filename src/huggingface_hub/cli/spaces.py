@@ -48,6 +48,7 @@ from huggingface_hub._space_api import SpaceStage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
+from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
@@ -149,6 +150,35 @@ def spaces_info(
     except RevisionNotFoundError as e:
         raise CLIError(f"Revision '{revision}' not found on '{space_id}'.") from e
     out.dict(info)
+
+
+@spaces_cli.command(
+    "card",
+    examples=[
+        "hf spaces card mteb/leaderboard",
+        "hf spaces card mteb/leaderboard --metadata",
+        "hf spaces card mteb/leaderboard --metadata --format json",
+        "hf spaces card mteb/leaderboard --text",
+    ],
+)
+def spaces_card(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Get the Space card (README) for a Space on the Hub."""
+    if metadata and text:
+        raise CLIError("--metadata and --text are mutually exclusive.")
+    card = SpaceCard.load(space_id, token=token)
+    if metadata:
+        out.dict(card.data.to_dict())
+    elif text:
+        out.text(card.text)
+    else:
+        out.text(card.content)
+        out.hint(f"Use `hf spaces card {space_id} --metadata` to extract only the card metadata.")
 
 
 @spaces_cli.command(
