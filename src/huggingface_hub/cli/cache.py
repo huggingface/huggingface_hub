@@ -818,7 +818,7 @@ def move(
             f"Source directory does not appear to be a valid Hugging Face cache (missing 'blobs' folder): {source_path}"
         )
 
-    size_src = sum(f.stat().st_size for f in source_path.rglob("*") if f.is_file())
+    size_src = sum(f.stat().st_size for f in blobs_src.rglob("*") if f.is_file())
     size_src_str = _format_size(size_src)
 
     out.text(f"About to copy cache from:\n  - {source_path}\nTo:\n  - {dest_path}\nSize: {size_src_str}.")
@@ -839,7 +839,7 @@ def move(
     )
 
     if dest_path.parent == Path(HF_HOME):
-        out.hint(f"Set HF_HOME='{dest_path}' in your environment to use the new cache location.")
+        out.hint(f"Set HF_HUB_CACHE='{dest_path}' in your environment to use the new cache location.")
     elif dest_path.parent.parent == Path(HF_HOME):
         out.hint(f"Set HF_HUB_CACHE='{dest_path}' in your environment to use the new cache location.")
     else:
