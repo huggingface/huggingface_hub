@@ -1076,6 +1076,7 @@ Examples
   $ hf datasets ls
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
+  $ hf datasets ls --filter benchmark:official
 
 Learn more
   Use `hf <command> --help` for more information about a command.
