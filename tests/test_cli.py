@@ -960,6 +960,13 @@ class TestDownloadCommand:
         assert kwargs["allow_patterns"] == ["art/**"]
         assert kwargs["ignore_patterns"] is None
 
+    def test_download_without_args_prints_help(self, runner: CliRunner) -> None:
+        """`hf download` without args should print help (like groups do), not error out."""
+        result = runner.invoke(app, ["download"])
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout and "download [OPTIONS] REPO_ID" in result.stdout
+        assert "Download files from the Hub." in result.stdout
+
 
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
