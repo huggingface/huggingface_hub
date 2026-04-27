@@ -791,8 +791,9 @@ def move(
 ) -> None:
     """Move cache directory from one path to another.
 
-    This command copies the cache blobs to a new location. The snapshots/ and refs/ folders are NOT copied
-    as symlinks will be resolved at runtime when the user calls hf_hub_download.
+    This command copies the cache blobs to a new location and then deletes the source.
+    The snapshots/ and refs/ folders are NOT copied as symlinks will be resolved
+    at runtime when the user calls hf_hub_download.
 
     After moving the cache, make sure to update your $HF_HOME environment variable.
 
@@ -821,19 +822,23 @@ def move(
     size_src = sum(f.stat().st_size for f in blobs_src.rglob("*") if f.is_file())
     size_src_str = _format_size(size_src)
 
-    out.text(f"About to copy cache from:\n  - {source_path}\nTo:\n  - {dest_path}\nSize: {size_src_str}.")
+    out.text(f"About to move cache from:\n  - {source_path}\nTo:\n  - {dest_path}\nSize: {size_src_str}.")
     out.warning(
         "Note: Only the 'blobs' folder will be copied. The 'snapshots/' and 'refs/' folders "
-        "will be recreated automatically when you download files."
+        "will be recreated automatically when you download files.\n"
+        "The source blobs will be DELETED after a successful copy."
     )
 
-    out.confirm("Proceed with copy?", yes=yes)
+    out.confirm("Proceed with move?", yes=yes)
 
     dest_path.mkdir(parents=True)
     shutil.copytree(blobs_src, dest_path / "blobs", copy_function=shutil.copy2)
 
+    out.text("Deleting source blobs...")
+    shutil.rmtree(blobs_src)
+
     out.result(
-        f"Cache copied from {source_path} to {dest_path}.",
+        f"Cache moved from {source_path} to {dest_path}.",
         source=str(source_path),
         destination=str(dest_path),
     )
