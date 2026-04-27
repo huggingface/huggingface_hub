@@ -322,6 +322,9 @@ def spaces_pause(
     runtime = api.pause_space(space_id)
     out.result("Space paused", space_id=space_id, stage=runtime.stage)
     out.hint(f"Use `hf spaces restart {space_id}` to restart it.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
 
 
 @spaces_cli.command(
@@ -369,6 +372,9 @@ def spaces_restart(
         factory_reboot=factory_reboot,
     )
     out.hint(f"Use `hf spaces info {space_id}` to monitor the runtime stage.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
 
 
 @spaces_cli.command(

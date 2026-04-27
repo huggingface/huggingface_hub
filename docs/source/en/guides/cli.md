@@ -952,6 +952,9 @@ Use `hf spaces card` to fetch the Space card (README) for a Space. By default, p
 >>> hf spaces card mteb/leaderboard --text
 ```
 
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
 ### Pause a Space
 
 Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
