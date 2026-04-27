@@ -952,6 +952,35 @@ Use `hf spaces card` to fetch the Space card (README) for a Space. By default, p
 >>> hf spaces card mteb/leaderboard --text
 ```
 
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
+### Pause a Space
+
+Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
+
+```bash
+>>> hf spaces pause username/my-space
+>>> hf spaces pause username/my-space --yes
+```
+
+### Restart a Space
+
+Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild the Space from scratch without using the build cache.
+
+```bash
+>>> hf spaces restart username/my-space
+>>> hf spaces restart username/my-space --factory-reboot --yes
+```
+
+### Set Space sleep time
+
+Use `hf spaces sleep` to configure how long a Space stays idle before going to sleep. Only available on upgraded hardware. See the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details.
+
+```bash
+>>> hf spaces sleep username/my-space --seconds 3600
+```
+
 ## hf papers
 
 Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
