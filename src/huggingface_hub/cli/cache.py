@@ -838,9 +838,10 @@ def move(
         destination=str(dest_path),
     )
 
-    if dest_path.parent == Path(HF_HOME):
+    hf_home = Path(HF_HOME).resolve()
+    if dest_path.parent == hf_home:
         out.hint(f"Set HF_HUB_CACHE='{dest_path}' in your environment to use the new cache location.")
-    elif dest_path.parent.parent == Path(HF_HOME):
-        out.hint(f"Set HF_HUB_CACHE='{dest_path}' in your environment to use the new cache location.")
+    elif dest_path.parent.parent == hf_home:
+        out.hint(f"Set HF_HOME='{dest_path.parent}' in your environment to use the new cache location.")
     else:
         out.hint("Set either HF_HOME or HF_HUB_CACHE in your environment to point to the new location.")
