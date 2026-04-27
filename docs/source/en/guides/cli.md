@@ -919,6 +919,24 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 >>> hf spaces info enzostvs/deepsite
 ```
 
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card open-llm-leaderboard/open_llm_leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card open-llm-leaderboard/open_llm_leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card open-llm-leaderboard/open_llm_leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card open-llm-leaderboard/open_llm_leaderboard --text
+```
+
 ## hf papers
 
 Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.

@@ -3467,6 +3467,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the Space card (README) for a Space on...
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
@@ -3474,6 +3475,39 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `logs`: Fetch the run or build logs of a Space.
 * `search`: Search spaces on the Hub using semantic...
 * `volumes`: Manage volumes for a Space on the Hub.
+
+### `hf spaces card`
+
+Get the Space card (README) for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces card [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces card enzostvs/deepsite
+  $ hf spaces card enzostvs/deepsite --metadata
+  $ hf spaces card enzostvs/deepsite --metadata --format json
+  $ hf spaces card enzostvs/deepsite --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf spaces dev-mode`
 
