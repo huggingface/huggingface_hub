@@ -71,6 +71,8 @@ REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 # Regex to check if the file etag IS a valid sha256
 REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
+_CONTENT_RANGE_RE = re.compile(r"^bytes (?P<start>\d+)-(?P<end>\d+)/(?:\*|(?P<size>\d+))$")
+
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
 
 # Internal retry timeout for metadata fetch when no local file exists
@@ -324,6 +326,7 @@ def http_get(
     resume_size: int = 0,
     headers: dict[str, Any] | None = None,
     expected_size: int | None = None,
+    etag: str | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
@@ -349,6 +352,8 @@ def http_get(
         expected_size (`int`, *optional*):
             The expected size of the file to download. If set, the download will raise an error if the size of the
             received content is different from the expected one.
+        etag (`str`, *optional*):
+            ETag of the remote file. When resuming a download, it is used to send `If-Range` and to validate the resume.
         displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
@@ -361,6 +366,8 @@ def http_get(
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = _adjust_range_header(headers.get("Range"), resume_size)
+        if etag:
+            headers["If-Range"] = _format_etag_for_header(etag)
     elif expected_size and expected_size > constants.MAX_HTTP_DOWNLOAD_SIZE:
         # Any files over 50GB will not be available through basic http requests.
         raise ValueError(
@@ -376,6 +383,24 @@ def http_get(
         retry_on_exceptions=(),
         retry_on_status_codes=(429,),
     ) as response:
+        # Handle 416 (Range Not Satisfiable) before hf_raise_for_status, which would
+        # otherwise raise unconditionally and make this branch unreachable.
+        if resume_size > 0 and response.status_code == 416:
+            logger.warning("Server rejected range request for %s. Restarting download from scratch.", url)
+            temp_file.seek(0)
+            temp_file.truncate()
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                resume_size=0,
+                headers=initial_headers,
+                expected_size=expected_size,
+                etag=etag,
+                tqdm_class=tqdm_class,
+                _nb_retries=_nb_retries,
+                _tqdm_bar=_tqdm_bar,
+            )
+
         hf_raise_for_status(response)
 
         # If we requested a Range but got 200 back, the server ignored our Range header
@@ -384,6 +409,26 @@ def http_get(
             temp_file.seek(0)
             temp_file.truncate()
             resume_size = 0
+        elif resume_size > 0 and response.status_code == 206:
+            content_range = response.headers.get("Content-Range")
+            if not _content_range_matches_resume(content_range, headers.get("Range"), expected_size):
+                logger.warning(
+                    "Server returned an unexpected Content-Range for %s. Restarting download from scratch.",
+                    url,
+                )
+                temp_file.seek(0)
+                temp_file.truncate()
+                return http_get(
+                    url=url,
+                    temp_file=temp_file,
+                    resume_size=0,
+                    headers=initial_headers,
+                    expected_size=expected_size,
+                    etag=etag,
+                    tqdm_class=tqdm_class,
+                    _nb_retries=_nb_retries,
+                    _tqdm_bar=_tqdm_bar,
+                )
 
         total: int | None = _get_file_length_from_http_response(response)
 
@@ -440,6 +485,7 @@ def http_get(
                     resume_size=new_resume_size,
                     headers=initial_headers,
                     expected_size=expected_size,
+                    etag=etag,
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
                     _tqdm_bar=_tqdm_bar,
@@ -1818,12 +1864,36 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
+    resume_state_path = _get_resume_state_path(incomplete_path)
+    if incomplete_path.exists():
+        resume_state = _read_resume_state(resume_state_path)
+        if resume_state is not None:
+            if not _resume_state_matches(
+                resume_state,
+                etag=etag,
+                expected_size=expected_size,
+                url_to_download=url_to_download,
+            ):
+                logger.warning(
+                    "Incomplete download metadata mismatch for %s. Restarting download from scratch.",
+                    url_to_download,
+                )
+                incomplete_path.unlink(missing_ok=True)
+                resume_state_path.unlink(missing_ok=True)
+        elif expected_size is not None and incomplete_path.stat().st_size > expected_size:
+            logger.warning(
+                "Incomplete file size exceeds expected size for %s. Restarting download from scratch.",
+                url_to_download,
+            )
+            incomplete_path.unlink(missing_ok=True)
+
     if incomplete_path.exists() and force_download:
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True`, then we should
         # not resume the download => delete the incomplete file.
         logger.debug(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
         incomplete_path.unlink(missing_ok=True)
+        resume_state_path.unlink(missing_ok=True)
 
     with incomplete_path.open("ab") as f:
         resume_size = f.tell()
@@ -1831,6 +1901,22 @@ def _download_to_tmp_and_move(
         if resume_size > 0 and expected_size is not None:
             message += f" (resume from {resume_size}/{expected_size})"
         logger.debug(message)
+
+        if expected_size is not None and resume_size > expected_size:
+            logger.warning(
+                "Incomplete file size exceeds expected size for %s. Restarting download from scratch.",
+                url_to_download,
+            )
+            f.seek(0)
+            f.truncate()
+            resume_size = 0
+
+        _write_resume_state(
+            resume_state_path,
+            etag=etag,
+            expected_size=expected_size,
+            url_to_download=url_to_download,
+        )
 
         if expected_size is not None:  # might be None if HTTP header not set correctly
             # Check disk space in both tmp and destination path
@@ -1861,11 +1947,135 @@ def _download_to_tmp_and_move(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
+                etag=etag,
                 tqdm_class=tqdm_class,
             )
 
     logger.debug(f"Download complete. Moving file to {destination_path}")
     _chmod_and_move(incomplete_path, destination_path)
+    resume_state_path.unlink(missing_ok=True)
+
+
+def _get_resume_state_path(incomplete_path: Path) -> Path:
+    return Path(str(incomplete_path) + ".metadata")
+
+
+def _read_resume_state(path: Path) -> dict[str, str | None] | None:
+    if not path.exists():
+        return None
+    try:
+        lines = [line.rstrip("\n") for line in path.read_text().splitlines()]
+    except OSError:
+        return None
+    if not lines:
+        return None
+    state: dict[str, str | None] = {}
+    if len(lines) > 0:
+        # Empty string means no etag was available when the state was written.
+        state["etag"] = lines[0] if lines[0] else None
+    if len(lines) > 1:
+        # Empty string means content-length was not reported by the server.
+        state["expected_size"] = lines[1] if lines[1] else None
+    if len(lines) > 2:
+        state["url"] = lines[2]
+    return state
+
+
+def _write_resume_state(
+    path: Path,
+    *,
+    etag: str | None,
+    expected_size: int | None,
+    url_to_download: str,
+) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w") as f:
+            # Empty string encodes None (no etag provided by server).
+            # This avoids any sentinel collision with real etag values.
+            f.write(etag if etag is not None else "")
+            f.write("\n")
+            f.write("" if expected_size is None else str(expected_size))
+            f.write("\n")
+            f.write(_normalize_download_url(url_to_download))
+            f.write("\n")
+    except OSError:
+        logger.debug("Failed to write resume metadata for %s", url_to_download, exc_info=True)
+
+
+def _resume_state_matches(
+    state: dict[str, str | None],
+    *,
+    etag: str | None,
+    expected_size: int | None,
+    url_to_download: str,
+) -> bool:
+    # Etag: compare whenever the key is present in state. Covers all combinations:
+    # (None vs None) → ok, (None vs str) → mismatch, (str vs str) → compare.
+    state_etag = state.get("etag")
+    if "etag" in state and state_etag != etag:
+        return False
+    # Expected size: same symmetric logic — decode None from stored "", then
+    # compare string representations so a change in either direction is caught.
+    if "expected_size" in state:
+        state_expected_size = state["expected_size"]
+        current_size_str = str(expected_size) if expected_size is not None else None
+        if state_expected_size != current_size_str:
+            return False
+    state_url = state.get("url")
+    if state_url and state_url != _normalize_download_url(url_to_download):
+        return False
+    return True
+
+
+def _normalize_download_url(url: str) -> str:
+    parsed = urlparse(url)
+    return parsed._replace(query="", fragment="").geturl()
+
+
+def _format_etag_for_header(etag: str) -> str:
+    if etag.startswith("W/"):
+        etag = etag[2:]
+    etag = etag.strip()
+    if etag.startswith('"') and etag.endswith('"'):
+        return etag
+    return f'"{etag}"'
+
+
+_REQUESTED_RANGE_RE = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+
+
+def _content_range_matches_resume(
+    content_range: str | None,
+    requested_range: str | None,
+    expected_size: int | None,
+) -> bool:
+    if content_range is None:
+        return False
+    match = _CONTENT_RANGE_RE.match(content_range)
+    if match is None:
+        return False
+    start = int(match.group("start"))
+    size = match.group("size")
+
+    if expected_size is not None and size is not None:
+        if int(size) != expected_size:
+            return False
+
+    if requested_range is not None:
+        req_match = _REQUESTED_RANGE_RE.match(requested_range)
+        if req_match:
+            req_start, req_end = req_match.groups()
+            if req_start:
+                if start != int(req_start):
+                    return False
+            else:
+                # suffix range, e.g. bytes=-100
+                if req_end and size is not None:
+                    expected_start = max(0, int(size) - int(req_end))
+                    if start != expected_start:
+                        return False
+    return True
 
 
 def _int_or_none(value: str | None) -> int | None:

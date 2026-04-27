@@ -13,6 +13,7 @@
 # limitations under the License.
 import io
 import os
+import re
 import shutil
 import stat
 import unittest
@@ -33,6 +34,7 @@ from huggingface_hub.file_download import (
     HfFileMetadata,
     _check_disk_space,
     _create_symlink,
+    _download_to_tmp_and_move,
     _get_pointer_path,
     _normalize_etag,
     get_hf_file_metadata,
@@ -111,6 +113,41 @@ class TestDiskUsageWarning(unittest.TestCase):
             warnings.simplefilter("always")
             _check_disk_space(expected_size=self.expected_size, target_dir="/path/to/not_existent_path")
             assert len(w) == 0
+
+
+class DownloadResumeStateTests(unittest.TestCase):
+    def test_resume_state_mismatch_resets_download(self) -> None:
+        with SoftTemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            incomplete_path = tmpdir_path / "file.bin.incomplete"
+            destination_path = tmpdir_path / "file.bin"
+
+            incomplete_path.write_bytes(b"XXXX")
+            resume_state_path = Path(str(incomplete_path) + ".metadata")
+            resume_state_path.write_text("old-etag\n8\nhttps://example.com/file\n")
+
+            observed: dict[str, int] = {}
+
+            def _fake_http_get(url, temp_file, **kwargs):
+                observed["resume_size"] = kwargs["resume_size"]
+                temp_file.write(b"DATA")
+
+            with patch("huggingface_hub.file_download.http_get", side_effect=_fake_http_get):
+                _download_to_tmp_and_move(
+                    incomplete_path=incomplete_path,
+                    destination_path=destination_path,
+                    url_to_download="https://example.com/file",
+                    headers={},
+                    expected_size=4,
+                    filename="file.bin",
+                    force_download=False,
+                    etag="new-etag",
+                    xet_file_data=None,
+                )
+
+            assert observed["resume_size"] == 0
+            assert destination_path.read_bytes() == b"DATA"
+            assert not resume_state_path.exists()
 
 
 class StagingDownloadTests(unittest.TestCase):
@@ -1062,23 +1099,34 @@ class TestHttpGet:
             yield b"0" * 10
             yield b"0" * 10
 
-        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
-            # Create a mock response object
-            mock_response = Mock()
-            mock_response.headers = {"Content-Length": "100"}
-            mock_response.iter_bytes.side_effect = [
-                _iter_content_1(),
-                _iter_content_2(),
-                _iter_content_3(),
-                _iter_content_4(),
-            ]
+        mock_response_1 = Mock()
+        mock_response_1.status_code = 200
+        mock_response_1.headers = {"Content-Length": "100"}
+        mock_response_1.iter_bytes.return_value = _iter_content_1()
 
-            # Mock the context manager behavior
-            mock_stream_backoff.return_value.__enter__.return_value = mock_response
-            mock_stream_backoff.return_value.__exit__.return_value = None
+        mock_response_2 = Mock()
+        mock_response_2.status_code = 206
+        mock_response_2.headers = {"Content-Range": "bytes 20-99/100"}
+        mock_response_2.iter_bytes.return_value = _iter_content_2()
 
+        mock_response_3 = Mock()
+        mock_response_3.status_code = 206
+        mock_response_3.headers = {"Content-Range": "bytes 30-99/100"}
+        mock_response_3.iter_bytes.return_value = _iter_content_3()
+
+        mock_response_4 = Mock()
+        mock_response_4.status_code = 206
+        mock_response_4.headers = {"Content-Range": "bytes 60-99/100"}
+        mock_response_4.iter_bytes.return_value = _iter_content_4()
+
+        mock_responses = iter([mock_response_1, mock_response_2, mock_response_3, mock_response_4])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(mock_responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream) as mock_stream:
             temp_file = io.BytesIO()
-
             http_get("fake_url", temp_file=temp_file)
 
         assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
@@ -1087,10 +1135,8 @@ class TestHttpGet:
         assert temp_file.tell() == 100
         assert temp_file.getvalue() == b"0" * 100
 
-        # Check number of calls + correct range headers
-        assert len(mock_response.iter_bytes.call_args_list) == 4
-        # Note: The range headers are now handled internally by http_get's retry mechanism
-        # The test verifies that the download completed successfully after retries
+        # Check number of calls
+        assert mock_stream.call_count == 4
 
     @pytest.mark.parametrize(
         "initial_range,expected_ranges",
@@ -1149,23 +1195,47 @@ class TestHttpGet:
             yield b"0" * 10
             yield b"0" * 10
 
-        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
-            # Create a mock response object
-            mock_response = Mock()
-            mock_response.headers = {"Content-Length": "100"}
-            mock_response.iter_bytes.side_effect = [
-                _iter_content_1(),
-                _iter_content_2(),
-                _iter_content_3(),
-                _iter_content_4(),
-            ]
+        def _get_content_range(req_range: str, total_size: int = 100) -> str:
+            m = re.match(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", req_range, re.IGNORECASE)
+            start, end_str = m.groups()
+            if start:
+                start_idx = int(start)
+                end_idx = int(end_str) if end_str else total_size - 1
+            else:
+                end_idx = total_size - 1
+                start_idx = max(0, total_size - int(end_str))
+            return f"bytes {start_idx}-{end_idx}/{total_size}"
 
-            # Mock the context manager behavior
-            mock_stream_backoff.return_value.__enter__.return_value = mock_response
-            mock_stream_backoff.return_value.__exit__.return_value = None
+        mock_response_1 = Mock()
+        mock_response_1.status_code = 200
+        mock_response_1.headers = {"Content-Length": "100"}
+        mock_response_1.iter_bytes.return_value = _iter_content_1()
 
+        mock_response_2 = Mock()
+        mock_response_2.status_code = 206
+        mock_response_2.headers = {"Content-Range": _get_content_range(expected_ranges[1])}
+        mock_response_2.iter_bytes.return_value = _iter_content_2()
+
+        mock_response_3 = Mock()
+        mock_response_3.status_code = 206
+        mock_response_3.headers = {"Content-Range": _get_content_range(expected_ranges[2])}
+        mock_response_3.iter_bytes.return_value = _iter_content_3()
+
+        mock_response_4 = Mock()
+        mock_response_4.status_code = 206
+        mock_response_4.headers = {"Content-Range": _get_content_range(expected_ranges[3])}
+        mock_response_4.iter_bytes.return_value = _iter_content_4()
+
+        mock_responses = iter([mock_response_1, mock_response_2, mock_response_3, mock_response_4])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(mock_responses)
+
+        with patch(
+            "huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream
+        ) as mock_stream_backoff:
             temp_file = io.BytesIO()
-
             http_get("fake_url", temp_file=temp_file, headers={"Range": initial_range})
 
         assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 3
