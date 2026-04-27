@@ -72,6 +72,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
+        "hf datasets ls --filter benchmark:official",
     ],
 )
 def datasets_ls(
@@ -102,6 +103,31 @@ def datasets_ls(
         )
     ]
     out.table(results)
+
+
+@datasets_cli.command(
+    "leaderboard",
+    examples=[
+        "hf datasets leaderboard SWE-bench/SWE-bench_Verified",
+        "hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json",
+    ],
+)
+def datasets_leaderboard(
+    dataset_id: Annotated[str, typer.Argument(help="The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).")],
+    limit: LimitOpt = 20,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """List model scores from a dataset leaderboard."""
+    api = get_hf_api(token=token)
+    leaderboard = api.get_dataset_leaderboard(repo_id=dataset_id)
+    results = [api_object_to_dict(entry) for entry in leaderboard[:limit]]
+    out.table(
+        results,
+        headers=["rank", "model_id", "value", "source"],
+        id_key="model_id",
+        alignments={"rank": "right", "value": "right"},
+    )
 
 
 @datasets_cli.command(
