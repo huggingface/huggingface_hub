@@ -20,6 +20,7 @@ import fnmatch
 import json
 import mimetypes
 import os
+import stat
 import sys
 import time
 from collections.abc import Iterator
@@ -392,6 +393,21 @@ def _parse_filter_file(filter_file: str) -> list[tuple[str, str]]:
 # =============================================================================
 
 
+def _stat_local(path: str) -> tuple[int, float] | None:
+    """Stat a local file and return (size, mtime_ms).
+
+    Returns None if the path is missing or is a directory. Uses a single
+    ``os.stat`` call so callers don't pay for multiple syscalls per file.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    if stat.S_ISDIR(st.st_mode):
+        return None
+    return st.st_size, st.st_mtime * 1000
+
+
 def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     """List all files in a local directory.
 
@@ -405,12 +421,13 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     for root, _, files in os.walk(local_path):
         for filename in files:
             full_path = os.path.join(root, filename)
+            stat_info = _stat_local(full_path)
+            if stat_info is None:
+                continue
             rel_path = os.path.relpath(full_path, local_path)
             # Normalize to forward slashes for consistency
             rel_path = rel_path.replace(os.sep, "/")
-            size = os.path.getsize(full_path)
-            mtime_ms = os.path.getmtime(full_path) * 1000
-            yield rel_path, size, mtime_ms
+            yield rel_path, stat_info[0], stat_info[1]
 
 
 def _list_remote_files(api: "HfApi", bucket_id: str, prefix: str) -> Iterator[tuple[str, int, float, Any]]:
@@ -679,11 +696,26 @@ def _compute_sync_plan(
 
         local_files = {}
         if os.path.isdir(local_path):
-            for rel_path, size, mtime_ms in _list_local_files(local_path):
-                if filter_matcher.matches(rel_path):
-                    local_files[rel_path] = (size, mtime_ms)
-                if status:
-                    status.update(f"Scanning local directory ({len(local_files)} files)")
+            if delete:
+                # Full walk needed to discover local-only files for deletion.
+                for rel_path, size, mtime_ms in _list_local_files(local_path):
+                    if filter_matcher.matches(rel_path):
+                        local_files[rel_path] = (size, mtime_ms)
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
+            else:
+                # Without --delete, the plan only depends on paths that exist
+                # remotely. Stat just those instead of walking the whole tree,
+                # which can take minutes when dest sits in a large directory
+                # like ~/.cache/huggingface/.
+                for rel_path in remote_files:
+                    local_file = os.path.join(local_path, rel_path)
+                    stat_info = _stat_local(local_file)
+                    if stat_info is None:
+                        continue
+                    local_files[rel_path] = stat_info
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
         if status:
             status.done(f"Scanning local directory ({len(local_files)} files)")
 

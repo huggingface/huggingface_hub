@@ -25,6 +25,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "cerebras": {},
     "cohere": {},
     "clarifai": {},
+    "deepinfra": {},
     "fal-ai": {},
     "fireworks-ai": {},
     "groq": {},

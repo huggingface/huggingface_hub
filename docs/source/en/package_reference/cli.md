@@ -42,6 +42,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
+* `update`: Update the `hf` CLI to the latest version.
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
@@ -258,8 +259,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Options**:
 
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -297,8 +298,8 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 
 * `--private`: Create a private bucket.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -333,8 +334,8 @@ $ hf buckets delete [OPTIONS] BUCKET_ID
 
 * `-y, --yes`: Skip confirmation prompt.
 * `--missing-ok`: Do not raise an error if the bucket does not exist.
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -364,8 +365,8 @@ $ hf buckets info [OPTIONS] BUCKET_ID
 
 **Options**:
 
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -399,14 +400,15 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 * `-h, --human-readable`: Show sizes in human readable format.
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
-* `--format [table|json]`: Output format (table or json).  [default: table]
-* `-q, --quiet`: Print only IDs (one per line).
+* `--search TEXT`: Search query.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
   $ hf buckets list
   $ hf buckets list huggingface
+  $ hf buckets list --search "my-prefix"
   $ hf buckets list user/my-bucket
   $ hf buckets list user/my-bucket -R
   $ hf buckets list user/my-bucket -h
@@ -438,6 +440,7 @@ $ hf buckets move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -473,8 +476,8 @@ $ hf buckets remove [OPTIONS] ARGUMENT
 * `--dry-run`: Preview what would be deleted without actually deleting.
 * `--include TEXT`: Include only files matching pattern (can specify multiple). Requires --recursive.
 * `--exclude TEXT`: Exclude files matching pattern (can specify multiple). Requires --recursive.
-* `-q, --quiet`: Print only IDs (one per line).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -999,7 +1002,7 @@ $ hf datasets info [OPTIONS] DATASET_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1030,7 +1033,7 @@ $ hf datasets list [OPTIONS]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -3471,7 +3474,7 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 
 **Options**:
 
-* `-f, --local-file TEXT`: Path of local file. Interactive editor mode if not specified
+* `-f, --local-file PATH`: Path of local file. Interactive editor mode if not specified
 * `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
 * `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -3761,6 +3764,20 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `-v, --verbose`: Show detailed logging with reasoning.
 * `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf update`
+
+Update the `hf` CLI to the latest version.
+
+**Usage**:
+
+```console
+$ hf update [OPTIONS]
+```
+
+**Options**:
+
 * `--help`: Show this message and exit.
 
 ## `hf upload`
