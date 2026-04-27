@@ -15,6 +15,7 @@ from urllib.parse import quote, unquote
 import fsspec
 import httpx
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
+from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
@@ -109,6 +110,9 @@ class _Cached(_cached_base):
 
     def __call__(cls, *args, **kwargs):
         # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L65
+        # Apply fsspec config (env vars / config files) before tokenizing so that
+        # HfFileSystem picks up defaults the same way other fsspec filesystems do.
+        kwargs = apply_config(cls, kwargs)
         skip = kwargs.pop("skip_instance_cache", False)
         fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
         fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)

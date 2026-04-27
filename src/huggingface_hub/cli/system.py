@@ -13,9 +13,13 @@
 # limitations under the License.
 """Contains commands to print information about the environment and version."""
 
+import typer
+
 from huggingface_hub import __version__
 
 from ..utils import dump_environment_info
+from ._cli_utils import run_update
+from ._output import out
 
 
 def env() -> None:
@@ -26,3 +30,14 @@ def env() -> None:
 def version() -> None:
     """Print information about the hf version."""
     print(__version__)
+
+
+def update() -> None:
+    """Update the `hf` CLI to the latest version."""
+    returncode = run_update()
+    if returncode != 0:
+        raise typer.Exit(code=returncode)
+    out.hint(
+        "You may also want to run `hf skills upgrade` to refresh any installed skills "
+        "so your AI agent sees the latest command surface."
+    )

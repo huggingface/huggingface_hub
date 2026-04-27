@@ -118,6 +118,8 @@ On Windows:
 powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
+To upgrade an existing install, run `hf update` — it detects how `hf` was installed (standalone installer, Homebrew, or pip) and runs the matching command.
+
 ## Install with conda
 
 If you are more familiar with it, you can install `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):

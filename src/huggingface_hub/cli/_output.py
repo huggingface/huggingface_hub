@@ -120,13 +120,16 @@ class Output:
                 for item in items:
                     print(item.get(quiet_key, ""))
 
-    def dict(self, data: Any) -> None:
+    def dict(self, data: Any, *, id_key: str | None = None) -> None:
         """Print structured data as JSON in all modes (indented for human, compact otherwise).
 
         Accepts a dict or a dataclass.
         """
         if dataclasses.is_dataclass(data) and not isinstance(data, type):
             data = _dataclass_to_dict(data)
+        if self.mode == OutputFormatWithAuto.quiet and id_key is not None:
+            print(data.get(id_key, ""))
+            return
         indent = 2 if self.mode == OutputFormatWithAuto.human else None
         print(json.dumps(data, indent=indent, default=str))
 
