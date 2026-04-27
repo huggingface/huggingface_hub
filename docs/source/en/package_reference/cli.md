@@ -3476,7 +3476,10 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
 * `logs`: Fetch the run or build logs of a Space.
+* `pause`: Pause a Space.
+* `restart`: Restart a Space.
 * `search`: Search spaces on the Hub using semantic...
+* `sleep`: Set the idle sleep time for a Space.
 * `volumes`: Manage volumes for a Space on the Hub.
 
 ### `hf spaces card`
@@ -3692,6 +3695,68 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf spaces pause`
+
+Pause a Space.
+
+**Usage**:
+
+```console
+$ hf spaces pause [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces pause username/my-space
+  $ hf spaces pause username/my-space --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces restart`
+
+Restart a Space.
+
+**Usage**:
+
+```console
+$ hf spaces restart [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--factory-reboot`: Rebuild the Space from scratch without using the build cache.
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces restart username/my-space
+  $ hf spaces restart username/my-space --yes
+  $ hf spaces restart username/my-space --factory-reboot --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf spaces search`
 
 Search spaces on the Hub using semantic search.
@@ -3721,6 +3786,35 @@ Examples
   $ hf spaces search "generate image"
   $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
   $ hf spaces search "remove background from photo" --description --json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces sleep`
+
+Set the idle sleep time for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces sleep [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--seconds INTEGER`: Idle time in seconds after which the Space goes to sleep. Only available on upgraded hardware.  [required]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces sleep username/my-space --seconds 300
 
 Learn more
   Use `hf <command> --help` for more information about a command.
