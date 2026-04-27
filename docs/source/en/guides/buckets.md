@@ -128,6 +128,16 @@ username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls huggingface
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
+```
+
+You can also filter buckets by name using `search`:
+
+```py
+>>> for bucket in list_buckets(search="checkpoint"):
+...     print(bucket.id)
 ```
 
 You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you want to pipe the output to another tool like `grep` or `jq`.
