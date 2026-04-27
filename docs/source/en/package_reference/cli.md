@@ -982,6 +982,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 * `card`: Get the dataset card (README) for a...
 * `info`: Get info about a dataset on the Hub.
+* `leaderboard`: List model scores from a dataset leaderboard.
 * `list`: List datasets on the Hub. [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
@@ -1044,6 +1045,36 @@ $ hf datasets info [OPTIONS] DATASET_ID
 Examples
   $ hf datasets info HuggingFaceFW/fineweb
   $ hf datasets info my-dataset --expand downloads,likes,tags
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets leaderboard`
+
+List model scores from a dataset leaderboard.
+
+**Usage**:
+
+```console
+$ hf datasets leaderboard [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).  [required]
+
+**Options**:
+
+* `--limit INTEGER`: Limit the number of results.  [default: 20]
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets leaderboard SWE-bench/SWE-bench_Verified
+  $ hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
