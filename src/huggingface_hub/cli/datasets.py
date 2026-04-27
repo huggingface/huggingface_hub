@@ -72,7 +72,6 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
-        "hf datasets ls --filter benchmark:official",
     ],
 )
 def datasets_ls(
