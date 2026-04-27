@@ -1804,15 +1804,15 @@ class TestDatasetsCardCommand:
     def test_card_full(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["datasets", "card", "HuggingFaceFW/fineweb"])
         assert "license: odc-by" in result.stdout
-        assert "FineWeb" in result.stdout
+        assert "# 🍷 FineWeb" in result.stdout
 
 
 class TestSpacesCardCommand:
     @with_production_testing
     def test_card_full(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["spaces", "card", "open-llm-leaderboard/open_llm_leaderboard"])
-        assert "license: apache-2.0" in result.stdout
-        assert "Open LLM Leaderboard" in result.stdout
+        result = runner.invoke(app, ["spaces", "card", "mteb/leaderboard"])
+        assert "license: mit" in result.stdout
+        assert "# MTEB Leaderboard" in result.stdout
 
 
 class TestPapersCommand:

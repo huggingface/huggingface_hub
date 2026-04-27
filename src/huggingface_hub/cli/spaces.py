@@ -154,10 +154,10 @@ def spaces_info(
 @spaces_cli.command(
     "card",
     examples=[
-        "hf spaces card enzostvs/deepsite",
-        "hf spaces card enzostvs/deepsite --metadata",
-        "hf spaces card enzostvs/deepsite --metadata --format json",
-        "hf spaces card enzostvs/deepsite --text",
+        "hf spaces card mteb/leaderboard",
+        "hf spaces card mteb/leaderboard --metadata",
+        "hf spaces card mteb/leaderboard --metadata --format json",
+        "hf spaces card mteb/leaderboard --text",
     ],
 )
 def spaces_card(

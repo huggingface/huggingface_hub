@@ -3499,10 +3499,10 @@ $ hf spaces card [OPTIONS] SPACE_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf spaces card enzostvs/deepsite
-  $ hf spaces card enzostvs/deepsite --metadata
-  $ hf spaces card enzostvs/deepsite --metadata --format json
-  $ hf spaces card enzostvs/deepsite --text
+  $ hf spaces card mteb/leaderboard
+  $ hf spaces card mteb/leaderboard --metadata
+  $ hf spaces card mteb/leaderboard --metadata --format json
+  $ hf spaces card mteb/leaderboard --text
 
 Learn more
   Use `hf <command> --help` for more information about a command.
