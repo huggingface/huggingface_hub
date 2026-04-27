@@ -195,10 +195,7 @@ def datasets_card(
     """Get the dataset card (README) for a dataset on the Hub."""
     if metadata and text:
         raise CLIError("--metadata and --text are mutually exclusive.")
-    try:
-        card = DatasetCard.load(dataset_id, token=token)
-    except RepositoryNotFoundError as e:
-        raise CLIError(f"Dataset '{dataset_id}' not found.") from e
+    card = DatasetCard.load(dataset_id, token=token)
     if metadata:
         out.dict(card.data.to_dict())
     elif text:
