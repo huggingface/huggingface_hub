@@ -217,6 +217,23 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
+def test_feature_extraction_accepts_list_inputs():
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    helper.get_response.return_value = [[1.0, 2.0], [3.0, 4.0]]
+    client = InferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    with (
+        patch("huggingface_hub.inference._client.get_provider_helper", return_value=helper),
+        patch.object(InferenceClient, "_inner_post", return_value=b"ignored"),
+    ):
+        embedding = client.feature_extraction(["Hi, who are you?", "How are you?"])
+
+    helper.prepare_request.assert_called_once()
+    assert helper.prepare_request.call_args.kwargs["inputs"] == ["Hi, who are you?", "How are you?"]
+    np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
+
+
 def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []

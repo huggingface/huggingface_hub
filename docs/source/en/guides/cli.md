@@ -114,6 +114,18 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 
 Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
+### Updating
+
+To upgrade to the latest version, run:
+
+```bash
+>>> hf update
+```
+
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+
+By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
+
 ## hf auth login
 
 In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
@@ -805,6 +817,24 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 
 Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
 
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
+
 ## hf datasets
 
 Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
@@ -835,6 +865,24 @@ Use `hf datasets leaderboard` to show model scores submitted to a benchmark data
 
 ```bash
 >>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
 ```
 
 ### List parquet URLs
@@ -893,6 +941,24 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ```bash
 >>> hf spaces info enzostvs/deepsite
+```
+
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card mteb/leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card mteb/leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --text
 ```
 
 ## hf papers

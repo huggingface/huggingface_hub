@@ -25,8 +25,9 @@ work as well.
 
 import asyncio
 import inspect
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import numpy as np
 import pytest
 
 import huggingface_hub.inference._common
@@ -248,6 +249,24 @@ async def test_async_sentence_similarity() -> None:
         ],
     )
     assert scores == [0.7785724997520447, 0.45876249670982362, 0.29062220454216003]
+
+
+@pytest.mark.asyncio
+async def test_async_feature_extraction_accepts_list_inputs() -> None:
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    helper.get_response.return_value = [[1.0, 2.0], [3.0, 4.0]]
+    async_client = AsyncInferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    with (
+        patch("huggingface_hub.inference._generated._async_client.get_provider_helper", return_value=helper),
+        patch.object(AsyncInferenceClient, "_inner_post", AsyncMock(return_value=b"ignored")),
+    ):
+        embedding = await async_client.feature_extraction(["Hi, who are you?", "How are you?"])
+
+    helper.prepare_request.assert_called_once()
+    assert helper.prepare_request.call_args.kwargs["inputs"] == ["Hi, who are you?", "How are you?"]
+    np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
 
 
 def test_sync_vs_async_signatures() -> None:

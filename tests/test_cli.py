@@ -892,6 +892,13 @@ class TestDownloadCommand:
         assert kwargs["allow_patterns"] == ["art/**"]
         assert kwargs["ignore_patterns"] is None
 
+    def test_download_without_args_prints_help(self, runner: CliRunner) -> None:
+        """`hf download` without args should print help (like groups do), not error out."""
+        result = runner.invoke(app, ["download"])
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout and "download [OPTIONS] REPO_ID" in result.stdout
+        assert "Download files from the Hub." in result.stdout
+
 
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
@@ -1789,6 +1796,30 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+
+class TestModelsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "card", "Qwen/Qwen3-0.6B"])
+        assert "library_name: transformers" in result.stdout
+        assert "# Qwen3-0.6B" in result.stdout
+
+
+class TestDatasetsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "card", "HuggingFaceFW/fineweb"])
+        assert "license: odc-by" in result.stdout
+        assert "# 🍷 FineWeb" in result.stdout
+
+
+class TestSpacesCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "card", "mteb/leaderboard"])
+        assert "license: mit" in result.stdout
+        assert "# MTEB Leaderboard" in result.stdout
 
 
 class TestPapersCommand:
