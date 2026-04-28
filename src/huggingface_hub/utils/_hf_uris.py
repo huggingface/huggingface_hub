@@ -95,9 +95,7 @@ class HfUri:
     def to_uri(self) -> str:
         """Render the URI as a canonical 'hf://' string.
 
-        The type prefix is always written explicitly (e.g. 'hf://models/gpt2',
-        not 'hf://gpt2'). Round-tripping 'parse_hf_uri(uri.to_uri())'
-        always yields the same URI.
+        The type prefix is always written explicitly (e.g. 'hf://models/gpt2', not 'hf://gpt2').
         """
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]
         if self.revision is not None:
@@ -116,13 +114,11 @@ class HfUri:
 def parse_hf_uri(uri: str) -> HfUri:
     """Parse a Hugging Face Hub URI ('hf://...').
 
-    A HF URI is a URI-like string identifying a location on the Hugging Face
-    Hub. The full grammar is::
+    A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is::
 
         hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
 
-    See 'docs/source/en/package_reference/hf_uris.md' for the full
-    specification.
+    See 'docs/source/en/package_reference/hf_uris.md' for the full specification.
 
     Args:
         uri (`str`):
@@ -133,8 +129,7 @@ def parse_hf_uri(uri: str) -> HfUri:
 
     Raises:
         [`HfUriError`]:
-            If the URI is malformed (missing prefix, invalid type, missing
-            id, etc.). Inherits from `ValueError` for backward compatibility.
+            If the URI is malformed (missing prefix, invalid type, missing id, etc.).
 
     Examples:
         ```py
@@ -169,8 +164,7 @@ def parse_hf_uri(uri: str) -> HfUri:
 def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
     """Split the ':<MOUNT_PATH>[:ro|:rw]' suffix from 'body'.
 
-    Returns '(location, mount_path, read_only)' where 'mount_path' is
-    'None' if no mount segment is present.
+    Returns '(location, mount_path, read_only)' where 'mount_path' is 'None' if no mount segment is present.
     """
     read_only: bool | None = None
     if body.endswith(":ro"):
@@ -180,15 +174,14 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
         read_only = False
         body = body[:-3]
 
-    # Mount paths always start with '/', so the delimiter is ':/'. We use
-    # rfind() because the mount segment is always trailing — paths inside
-    # repos may technically contain ':' characters.
+    # Mount paths always start with '/', so the delimiter is ':/'.
+    # We use rfind() because the mount segment is always trailing
     idx = body.rfind(":/")
     if idx == -1:
         if read_only is not None:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': ':ro'/':rw' suffix is only valid when a mount path "
-                "is provided (e.g. 'hf://...:/<MOUNT_PATH>:ro')."
+                f"Invalid HF URI '{raw}': ':ro'/':rw' suffix is only valid when a mount path is provided "
+                "(e.g. 'hf://...:/<MOUNT_PATH>:ro')."
             )
         return body, None, None
 
@@ -198,8 +191,7 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
         raise HfUriError(f"Invalid HF URI '{raw}': missing location before mount path.")
     if not mount_path.startswith("/") or mount_path == "/":
         raise HfUriError(
-            f"Invalid HF URI '{raw}': mount path must be a non-empty absolute path "
-            f"starting with '/', got '{mount_path}'."
+            f"Invalid HF URI '{raw}': mount path must be a non-empty absolute path starting with '/', got '{mount_path}'."
         )
     return location, mount_path, read_only
 
@@ -207,21 +199,18 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
 def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
     """Detect the (optional) type prefix and return '(type, remaining_location)'.
 
-    A missing type prefix defaults to 'model'. Singular forms ('model/',
-    'dataset/', etc.) are explicitly rejected with a helpful error.
+    A missing type prefix defaults to 'model'. Singular forms ('model/', 'dataset/', etc.) are explicitly rejected with a helpful error.
     """
     slash_idx = location.find("/")
     if slash_idx == -1:
         # Single segment, no prefix. Reject if it looks like a bare type name.
         if location in constants.HF_URI_TYPE_PREFIXES:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': missing identifier after '{location}'. "
-                f"Expected '{constants.HF_PROTOCOL}{location}/<ID>'."
+                f"Invalid HF URI '{raw}': missing identifier after '{location}'. Expected '{constants.HF_PROTOCOL}{location}/<ID>'."
             )
         if (singular_plural := _PLURAL_FROM_SINGULAR_NAME.get(location)) is not None:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': type prefix must be plural. "
-                f"Did you mean '{constants.HF_PROTOCOL}{singular_plural}/...'?"
+                f"Invalid HF URI '{raw}': type prefix must be plural. Did you mean '{constants.HF_PROTOCOL}{singular_plural}/...'?"
             )
         return "model", location
 
