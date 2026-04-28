@@ -436,7 +436,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         return
 
     # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
-    chosen_mode: OutputFormatWithAuto | None = None
+    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
     chosen_flag: str | None = None
 
     def _check_conflict(new_flag: str) -> None:
@@ -479,8 +479,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
             continue
         i += 1
 
-    if chosen_mode is not None:
-        out.set_mode(chosen_mode)
+    out.set_mode(chosen_mode)
 
 
 def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
