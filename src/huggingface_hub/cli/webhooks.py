@@ -47,6 +47,7 @@ from huggingface_hub.hf_api import WebhookWatchedItem
 
 from ._cli_utils import (
     FormatWithAutoOpt,
+    NoTruncateOpt,
     TokenOpt,
     get_hf_api,
     typer_factory,
@@ -103,6 +104,7 @@ webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
 )
 def webhooks_ls(
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List all webhooks for the current user."""

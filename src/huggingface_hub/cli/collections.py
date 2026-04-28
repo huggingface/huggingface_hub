@@ -40,7 +40,15 @@ import typer
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import FormatWithAutoOpt, LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
+from ._cli_utils import (
+    FormatWithAutoOpt,
+    LimitOpt,
+    NoTruncateOpt,
+    TokenOpt,
+    api_object_to_dict,
+    get_hf_api,
+    typer_factory,
+)
 from ._output import OutputFormatWithAuto, out
 
 
@@ -80,6 +88,7 @@ def collections_ls(
     ] = None,
     limit: LimitOpt = 10,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List collections on the Hub."""

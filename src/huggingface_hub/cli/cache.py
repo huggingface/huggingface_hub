@@ -27,7 +27,16 @@ from huggingface_hub.errors import CLIError
 
 from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    FormatWithAutoOpt,
+    NoTruncateOpt,
+    RepoIdArg,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 from ._output import OutputFormatWithAuto, out
 
 
@@ -386,13 +395,7 @@ def ls(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
     ] = None,
-    no_truncate: Annotated[
-        bool,
-        typer.Option(
-            "--no-truncate",
-            help="Show full IDs without truncation.",
-        ),
-    ] = False,
+    no_truncate: NoTruncateOpt = False,
 ) -> None:
     """List cached repositories or revisions."""
     try:
@@ -446,7 +449,6 @@ def ls(
             headers=["id", "revision", "size", "last_modified", "refs"],
             id_key="revision",
             alignments={"size": "right"},
-            truncate=not no_truncate,
         )
     else:
         items = [
@@ -466,7 +468,6 @@ def ls(
             headers=["id", "size", "last_accessed", "last_modified", "refs"],
             id_key="id",
             alignments={"size": "right"},
-            truncate=not no_truncate,
         )
 
     if entries:

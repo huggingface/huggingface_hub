@@ -26,6 +26,7 @@ from ._cli_utils import (
     AuthorOpt,
     FormatWithAutoOpt,
     LimitOpt,
+    NoTruncateOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
@@ -112,6 +113,7 @@ def discussion_list(
     limit: LimitOpt = 30,
     repo_type: RepoTypeOpt = RepoType.model,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List discussions and pull requests on a repo."""

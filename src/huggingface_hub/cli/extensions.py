@@ -30,7 +30,7 @@ import typer
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import StatusLine, get_session, logging
 
-from ._cli_utils import FormatWithAutoOpt, typer_factory
+from ._cli_utils import FormatWithAutoOpt, NoTruncateOpt, typer_factory
 from ._output import OutputFormatWithAuto, out
 
 
@@ -160,7 +160,10 @@ def extension_exec(
 
 
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
-def extension_list(format: FormatWithAutoOpt = OutputFormatWithAuto.auto) -> None:
+def extension_list(
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
+) -> None:
     """List installed extension commands."""
     rows = [
         {
@@ -176,7 +179,10 @@ def extension_list(format: FormatWithAutoOpt = OutputFormatWithAuto.auto) -> Non
 
 
 @extensions_cli.command("search", examples=["hf extensions search"])
-def extension_search(format: FormatWithAutoOpt = OutputFormatWithAuto.auto) -> None:
+def extension_search(
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
+) -> None:
     """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
     response = get_session().get(
         "https://api.github.com/search/repositories",

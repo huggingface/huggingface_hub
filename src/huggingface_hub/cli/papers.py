@@ -54,6 +54,7 @@ from huggingface_hub.hf_api import DailyPapersSort_T
 from ._cli_utils import (
     FormatWithAutoOpt,
     LimitOpt,
+    NoTruncateOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
@@ -115,6 +116,7 @@ def papers_ls(
     ] = None,
     limit: LimitOpt = 50,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List daily papers on the Hub."""
@@ -152,6 +154,7 @@ def papers_search(
     query: Annotated[str, typer.Argument(help="Search query string.")],
     limit: LimitOpt = 20,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Search papers on the Hub."""

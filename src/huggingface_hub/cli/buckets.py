@@ -41,6 +41,7 @@ from huggingface_hub.utils import (
 
 from ._cli_utils import (
     FormatWithAutoOpt,
+    NoTruncateOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
@@ -324,6 +325,7 @@ def list_cmd(
     search: SearchOpt = None,
     token: TokenOpt = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
 ) -> None:
     """List buckets or files in a bucket.
 

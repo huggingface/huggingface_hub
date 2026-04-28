@@ -817,6 +817,22 @@ FormatWithAutoOpt = Annotated[
     ),
 ]
 
+
+def _set_no_truncate(value: bool) -> bool:
+    out.set_truncate(not value)
+    return value
+
+
+NoTruncateOpt = Annotated[
+    bool,
+    typer.Option(
+        "--no-truncate",
+        help="Don't truncate cell values in table output.",
+        callback=_set_no_truncate,
+    ),
+]
+
+
 QuietOpt = Annotated[
     bool,
     typer.Option(

@@ -38,6 +38,7 @@ from ._cli_utils import (
     FilterOpt,
     FormatWithAutoOpt,
     LimitOpt,
+    NoTruncateOpt,
     RevisionOpt,
     SearchOpt,
     TokenOpt,
@@ -89,6 +90,7 @@ def models_ls(
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List models on the Hub."""

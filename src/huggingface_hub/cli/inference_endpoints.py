@@ -7,7 +7,7 @@ import typer
 from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import FormatWithAutoOpt, TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import FormatWithAutoOpt, NoTruncateOpt, TokenOpt, get_hf_api, typer_factory
 from ._output import OutputFormatWithAuto, out
 
 
@@ -37,6 +37,7 @@ NamespaceOpt = Annotated[
 def ls(
     namespace: NamespaceOpt = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Lists all Inference Endpoints for the given namespace."""

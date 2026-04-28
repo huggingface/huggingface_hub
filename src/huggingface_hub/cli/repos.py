@@ -36,6 +36,7 @@ from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
     FormatWithAutoOpt,
+    NoTruncateOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -483,6 +484,7 @@ def tag_list(
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
 ) -> None:
     """List tags for a repo."""
     repo_type_str = repo_type.value

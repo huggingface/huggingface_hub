@@ -48,7 +48,7 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size
 
-from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import FormatWithAutoOpt, NoTruncateOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
 from ._output import OutputFormatWithAuto, out
 
 
@@ -115,6 +115,7 @@ def download(
         ),
     ] = 8,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    no_truncate: NoTruncateOpt = False,
 ) -> None:
     """Download files from the Hub."""
 

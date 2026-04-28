@@ -47,15 +47,21 @@ class Output:
     """
 
     mode: OutputFormatWithAuto
+    truncate: bool = True
 
     def __init__(self) -> None:
         self.set_mode()
+        self.truncate = True
 
     def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
         """Override the output mode (called by commands that receive ``--format``)."""
         if mode == OutputFormatWithAuto.auto:
             mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
         self.mode = mode
+
+    def set_truncate(self, truncate: bool) -> None:
+        """Enable or disable cell truncation (called by commands that receive ``--no-truncate``)."""
+        self.truncate = truncate
 
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
@@ -81,7 +87,6 @@ class Output:
         headers: list[str] | None = None,
         id_key: str | None = None,
         alignments: dict[str, str] | None = None,
-        truncate: bool = True,
     ) -> None:
         """Print tabular data to stdout.
 
@@ -90,7 +95,6 @@ class Output:
             headers: Explicit column names. If None, derived from dict keys (all-None columns filtered).
             id_key: Key to print in quiet mode. If None, uses the first header.
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
-            truncate: Whether to truncate cell values. Defaults to True.
         """
         if not items:
             match self.mode:
@@ -107,7 +111,7 @@ class Output:
 
         match self.mode:
             case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
-                if truncate:
+                if self.truncate:
                     formatted_rows: list[list[str | int]] = [
                         [_format_table_cell_human(v) for v in row] for row in rows
                     ]
