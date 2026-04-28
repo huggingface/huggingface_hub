@@ -30,6 +30,9 @@ _BASE_URL = "https://api.together.xyz"
 # Polling interval for async video generation (in seconds).
 _VIDEO_POLLING_INTERVAL = 2.0
 
+# Upper bound on status polls (initial response may already be terminal; each further poll is one attempt).
+_VIDEO_MAX_POLL_ATTEMPTS = 150  # ~5 minutes at _VIDEO_POLLING_INTERVAL
+
 # Job statuses that mean "keep polling". Together returns "queued" before transitioning to
 # "in_progress", so we must treat both as pending.
 _VIDEO_PENDING_STATUSES = {"queued", "in_progress"}
@@ -243,12 +246,21 @@ class TogetherVideoTask(TogetherTask, ABC):
 
         logger.info("Generating video, polling for completion...")
         status = job.get("status")
-        while status in _VIDEO_PENDING_STATUSES:
+        for _ in range(_VIDEO_MAX_POLL_ATTEMPTS):
+            if status not in _VIDEO_PENDING_STATUSES:
+                break
             time.sleep(_VIDEO_POLLING_INTERVAL)
             status_response = get_session().get(status_url, headers=request_params.headers)
             hf_raise_for_status(status_response)
             job = status_response.json()
             status = job.get("status")
+            if status not in _VIDEO_PENDING_STATUSES:
+                break
+        else:
+            raise ValueError(
+                "Timed out while waiting for Together video generation "
+                f"— aborting after {_VIDEO_MAX_POLL_ATTEMPTS} status polls"
+            )
 
         if status == "failed":
             error = job.get("error") or {}

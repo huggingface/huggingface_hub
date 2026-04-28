@@ -2031,6 +2031,33 @@ class TestTogetherProvider:
         # Two polling calls (queued -> in_progress -> completed) plus the final video download.
         assert get_session_mock.return_value.get.call_count == 3
 
+    def test_video_get_response_times_out_when_stuck_pending(self, mocker):
+        helper = TogetherTextToVideoTask()
+        request_params = RequestParameters(
+            url="https://api.together.xyz/v2/videos",
+            task="text-to-video",
+            model="some/video-model",
+            json={},
+            data=None,
+            headers={"authorization": "Bearer key"},
+        )
+        mocker.patch("huggingface_hub.inference._providers.together.time.sleep")
+        mocker.patch(
+            "huggingface_hub.inference._providers.together._VIDEO_MAX_POLL_ATTEMPTS",
+            3,
+        )
+        stuck_response = MagicMock()
+        stuck_response.json.return_value = {"id": "job-123", "status": "in_progress"}
+        get_session_mock = mocker.patch("huggingface_hub.inference._providers.together.get_session")
+        get_session_mock.return_value.get.return_value = stuck_response
+        mocker.patch("huggingface_hub.inference._providers.together.hf_raise_for_status")
+
+        with pytest.raises(
+            ValueError,
+            match=r"Timed out while waiting for Together video generation .* 3 status polls",
+        ):
+            helper.get_response({"id": "job-123", "status": "in_progress"}, request_params)
+
 
 class TestWavespeedAIProvider:
     """Test Wavespeed AI provider functionality."""
