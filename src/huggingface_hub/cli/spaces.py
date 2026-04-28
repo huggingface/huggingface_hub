@@ -389,7 +389,7 @@ def spaces_sleep(
         int,
         typer.Option(
             "--seconds",
-            help="Idle time in seconds after which the Space goes to sleep. Only available on upgraded hardware.",
+            help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
         ),
     ],
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
