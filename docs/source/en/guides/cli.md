@@ -848,6 +848,9 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 # Search for datasets
 >>> hf datasets ls --search "code"
 
+# List official benchmark datasets
+>>> hf datasets ls --filter benchmark:official
+
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
 ```
