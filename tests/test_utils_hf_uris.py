@@ -145,6 +145,13 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="dataset", id="foo/bar", revision="refs/pr/10", path_in_repo="file.csv"),
         "hf://datasets/foo/bar@refs/pr/10/file.csv",
     ),
+    # Branch name containing '/' (e.g. 'feature/foo'). Must be URL-encoded so that the
+    # parser does not split it at the first '/' and treat the rest as a path-in-repo.
+    (
+        "hf://gpt2@feature%2Ffoo/config.json",
+        HfUri(type="model", id="gpt2", revision="feature/foo", path_in_repo="config.json"),
+        "hf://models/gpt2@feature%2Ffoo/config.json",
+    ),
     # Special revision with no path after it
     (
         "hf://gpt2@refs/pr/3",

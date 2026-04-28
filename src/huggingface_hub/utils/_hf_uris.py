@@ -99,7 +99,13 @@ class HfUri:
         """
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]
         if self.revision is not None:
-            parts.append(f"@{self.revision}")
+            # Encode '/' as '%2F' for revisions that would otherwise be split as '<revision>/<path>'
+            # at parse time. Special refs ('refs/pr/N', 'refs/convert/<name>') are kept verbatim
+            # because the parser matches them eagerly.
+            revision = self.revision
+            if "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
+                revision = revision.replace("/", "%2F")
+            parts.append(f"@{revision}")
         if self.path_in_repo:
             parts.append(f"/{self.path_in_repo}")
         if self.mount_path is not None:
