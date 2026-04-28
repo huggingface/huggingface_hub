@@ -3480,7 +3480,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `pause`: Pause a Space.
 * `restart`: Restart a Space.
 * `search`: Search spaces on the Hub using semantic...
-* `sleep`: Set the idle sleep time for a Space.
+* `settings`: Update the settings of a Space.
 * `volumes`: Manage volumes for a Space on the Hub.
 
 ### `hf spaces card`
@@ -3789,14 +3789,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf spaces sleep`
+### `hf spaces settings`
 
-Set the idle sleep time for a Space.
+Update the settings of a Space.
 
 **Usage**:
 
 ```console
-$ hf spaces sleep [OPTIONS] SPACE_ID
+$ hf spaces settings [OPTIONS] SPACE_ID
 ```
 
 **Arguments**:
@@ -3805,13 +3805,13 @@ $ hf spaces sleep [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `--seconds INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.  [required]
+* `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf spaces sleep username/my-space --seconds 300
+  $ hf spaces settings username/my-space --sleep-time 300
 
 Learn more
   Use `hf <command> --help` for more information about a command.

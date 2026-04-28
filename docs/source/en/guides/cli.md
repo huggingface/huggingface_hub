@@ -975,12 +975,12 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 >>> hf spaces restart username/my-space --factory-reboot
 ```
 
-### Set Space sleep time
+### Update Space settings
 
-Use `hf spaces sleep` to configure how long a Space stays idle before going to sleep. Only available on upgraded hardware. See the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details.
+Use `hf spaces settings` to update the settings of a Space. For example, configure how long the Space stays idle before going to sleep with `--sleep-time` (only available on upgraded hardware — see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details). Run `hf spaces settings --help` to see all supported options.
 
 ```bash
->>> hf spaces sleep username/my-space --seconds 3600
+>>> hf spaces settings username/my-space --sleep-time 3600
 ```
 
 ## hf papers

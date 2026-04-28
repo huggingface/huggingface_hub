@@ -352,27 +352,29 @@ def spaces_restart(
 
 
 @spaces_cli.command(
-    "sleep",
+    "settings",
     examples=[
-        "hf spaces sleep username/my-space --seconds 300",
+        "hf spaces settings username/my-space --sleep-time 300",
     ],
 )
-def spaces_sleep(
+def spaces_settings(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    seconds: Annotated[
-        int,
+    sleep_time: Annotated[
+        int | None,
         typer.Option(
-            "--seconds",
+            "--sleep-time",
             help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
         ),
-    ],
+    ] = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Set the idle sleep time for a Space."""
+    """Update the settings of a Space."""
+    if sleep_time is None:
+        raise CLIError("Specify at least one setting to update.")
     api = get_hf_api(token=token)
-    runtime = api.set_space_sleep_time(space_id, sleep_time=seconds)
-    out.result("Sleep time set", space_id=space_id, sleep_time=runtime.sleep_time)
+    runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    out.result("Space settings updated", space_id=space_id, sleep_time=runtime.sleep_time)
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
 
