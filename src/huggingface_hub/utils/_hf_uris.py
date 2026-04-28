@@ -58,26 +58,18 @@ class HfUri:
 
     Attributes:
         type (`str`):
-            One of '"model"', '"dataset"', '"space"', '"kernel"' or '"bucket"'.
+            One of 'model', 'dataset', 'space', 'kernel' or 'bucket'.
         id (`str`):
-            The repository id (e.g. '"gpt2"' or '"my-org/my-model"') for repo
-            URIs, or the bucket id (always '"namespace/name"') for bucket URIs.
-            Use the [`repo_id`] and [`bucket_id`] convenience properties when
-            relevant.
+            The repository id (e.g. 'gpt2' or 'my-org/my-model') for repo URIs, or the bucket id (always 'namespace/name') for bucket URIs.
         revision (`str`, *optional*):
-            The revision specified after '@' in the URI, URL-decoded.
-            'None' if no revision was specified, or for bucket URIs (which
-            never carry a revision). Special refs like '"refs/pr/10"' and
-            '"refs/convert/parquet"' are preserved as-is.
+            The revision specified after '@' in the URI, URL-decoded. 'None' if no revision was specified, or for bucket URIs (which
+            never carry a revision). Special refs like 'refs/pr/10' and 'refs/convert/parquet' are preserved as-is.
         path_in_repo (`str`):
-            The path inside the repo or bucket. Empty string if the URI
-            points at the root.
+            The path inside the repo or bucket. Empty string if the URI points at the root.
         mount_path (`str`, *optional*):
-            The local mount path specified after ':' (always starts with '/').
-            'None' if the URI is a plain location URI.
+            The local mount path specified after ':' (always starts with '/'). 'None' if the URI is a plain location URI.
         read_only (`bool`, *optional*):
-            'True' if the URI ends with ':ro', 'False' if it ends with
-            ':rw', 'None' if no read/write flag was provided.
+            True if the URI ends with ':ro', False if it ends with ':rw', 'None' if no read/write flag was provided.
     """
 
     type: constants.HfUriType
@@ -89,34 +81,13 @@ class HfUri:
 
     @property
     def is_bucket(self) -> bool:
-        """'True' if this URI points at a bucket."""
+        """True if this URI points at a bucket."""
         return self.type == "bucket"
 
     @property
     def is_repo(self) -> bool:
-        """'True' if this URI points at a repository (model, dataset, space or kernel)."""
+        """True if this URI points at a repository (model, dataset, space or kernel)."""
         return self.type != "bucket"
-
-    @property
-    def repo_type(self) -> constants.HfUriType:
-        """Alias of [`type`] for repo URIs."""
-        if self.is_bucket:
-            raise AttributeError("Bucket URIs do not have a `repo_type`. Use `type` or `bucket_id`.")
-        return self.type
-
-    @property
-    def repo_id(self) -> str:
-        """Repository id. Raises if the URI is a bucket URI."""
-        if self.is_bucket:
-            raise AttributeError("Bucket URIs do not have a `repo_id`. Use `bucket_id` instead.")
-        return self.id
-
-    @property
-    def bucket_id(self) -> str:
-        """Bucket id. Raises if the URI is not a bucket URI."""
-        if not self.is_bucket:
-            raise AttributeError("Only bucket URIs have a `bucket_id`. Use `repo_id` instead.")
-        return self.id
 
     def __str__(self) -> str:
         return self.to_string()
@@ -236,7 +207,7 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
 def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
     """Detect the (optional) type prefix and return '(type, remaining_location)'.
 
-    A missing type prefix defaults to '"model"'. Singular forms ('model/',
+    A missing type prefix defaults to 'model'. Singular forms ('model/',
     'dataset/', etc.) are explicitly rejected with a helpful error.
     """
     slash_idx = location.find("/")

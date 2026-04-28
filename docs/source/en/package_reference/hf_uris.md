@@ -107,9 +107,9 @@ canonical form (with an explicit type prefix):
 True
 ```
 
-For repository URIs the convenience properties [`repo_type`] and [`repo_id`]
-are available; for bucket URIs use [`bucket_id`]. The boolean properties
-[`is_repo`] and [`is_bucket`] disambiguate between the two kinds.
+Use the `type` and `id` fields directly. The boolean properties [`is_repo`]
+and [`is_bucket`] disambiguate between repository URIs and bucket URIs when
+needed.
 
 ## Reference
 

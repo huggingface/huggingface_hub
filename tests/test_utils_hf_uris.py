@@ -289,24 +289,6 @@ def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
 # --- A few targeted tests not easily expressed as parametrized cases. ---------
 
 
-def test_repo_id_property_on_bucket_uri_raises() -> None:
-    uri = parse_hf_uri("hf://buckets/org/b")
-    with pytest.raises(AttributeError, match="bucket_id"):
-        uri.repo_id
-
-
-def test_bucket_id_property_on_repo_uri_raises() -> None:
-    uri = parse_hf_uri("hf://datasets/org/ds")
-    with pytest.raises(AttributeError, match="repo_id"):
-        uri.bucket_id
-
-
-def test_repo_type_property_on_bucket_uri_raises() -> None:
-    uri = parse_hf_uri("hf://buckets/org/b")
-    with pytest.raises(AttributeError, match="repo_type"):
-        uri.repo_type
-
-
 def test_is_repo_and_is_bucket_are_mutually_exclusive() -> None:
     repo_uri = parse_hf_uri("hf://datasets/org/ds")
     assert repo_uri.is_repo and not repo_uri.is_bucket
