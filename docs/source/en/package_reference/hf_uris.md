@@ -4,8 +4,7 @@ rendered properly in your Markdown viewer.
 
 # HF URIs
 
-A *HF URI* is a URI-like string that identifies a location on the Hugging Face
-Hub. Throughout the library and the CLI, `hf://...` strings are used to point at:
+A *HF URI* is a URI-like string that identifies a location on the Hugging Face Hub. Throughout the library and the CLI, `hf://...` strings are used to point at:
 
 - a model, dataset, space or kernel repository (optionally pinned at a revision);
 - a file or sub-folder inside such a repository;
@@ -13,9 +12,7 @@ Hub. Throughout the library and the CLI, `hf://...` strings are used to point at
 - a [Spaces](../guides/manage-spaces) or [Jobs](../guides/jobs) volume to mount,
   with an optional `:ro` / `:rw` flag.
 
-This page documents the canonical syntax of HF URIs. The same parser is used
-everywhere in the library, so a URI that is valid in one context (e.g.
-[`HfFileSystem`]) is parsed identically in another (e.g. `hf jobs run -v`).
+This page documents the canonical syntax of HF URIs. The same parser is used everywhere in the library, so a URI that is valid in one context (e.g. [`HfFileSystem`]) is parsed identically in another (e.g. `hf jobs run -v`).
 
 ## Canonical syntax
 
@@ -84,8 +81,7 @@ The parser is strict on purpose. The following are **rejected**:
 
 ## Parsing in Python
 
-[`parse_hf_uri`] is the centralized parser. It is a pure string parser (no
-network calls) and returns a frozen [`HfUri`] dataclass.
+[`parse_hf_uri`] is the centralized parser. It is a pure string parser (no network calls) and returns a frozen [`HfUri`] dataclass.
 
 ```python
 >>> from huggingface_hub import parse_hf_uri
@@ -96,8 +92,7 @@ HfUri(type='dataset', id='squad', revision='refs/pr/3', path_in_repo='train.json
 HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir', mount_path='/mnt', read_only=True)
 ```
 
-[`HfUri`] is round-trippable via [`HfUri.to_uri`], which always emits the
-canonical form (with an explicit type prefix):
+[`HfUri`] is round-trippable via [`HfUri.to_uri`], which always emits the canonical form (with an explicit type prefix):
 
 ```python
 >>> uri = parse_hf_uri("hf://gpt2@v1/config.json")
@@ -105,9 +100,7 @@ canonical form (with an explicit type prefix):
 'hf://models/gpt2@v1/config.json'
 ```
 
-Use the `type` and `id` fields directly. The boolean properties [`is_repo`]
-and [`is_bucket`] disambiguate between repository URIs and bucket URIs when
-needed.
+Use the `type` and `id` fields directly. The boolean properties [`is_repo`] and [`is_bucket`] disambiguate between repository URIs and bucket URIs when needed.
 
 ## Reference
 
