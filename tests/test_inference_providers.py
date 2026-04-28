@@ -57,7 +57,15 @@ from huggingface_hub.inference._providers.replicate import (
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
-from huggingface_hub.inference._providers.together import TogetherTextToImageTask
+from huggingface_hub.inference._providers.together import (
+    TogetherAutomaticSpeechRecognitionTask,
+    TogetherFeatureExtractionTask,
+    TogetherImageTextToVideoTask,
+    TogetherImageToImageTask,
+    TogetherTextToImageTask,
+    TogetherTextToSpeechTask,
+    TogetherTextToVideoTask,
+)
 from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -1761,6 +1769,212 @@ class TestTogetherProvider:
         helper = TogetherTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
+
+    def test_prepare_route_image_to_image(self):
+        helper = TogetherImageToImageTask()
+        assert helper._prepare_route("model-name", "hf_token") == "/v1/images/generations"
+
+    def test_prepare_payload_as_dict_image_to_image(self):
+        helper = TogetherImageToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/input.jpg",
+            {"prompt": "make it more colorful", "num_inference_steps": 20, "guidance_scale": 7.5},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="black-forest-labs/FLUX.1-schnell",
+                providerId="black-forest-labs/FLUX.1-schnell",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload["prompt"] == "make it more colorful"
+        assert payload["image_url"] == "https://example.com/input.jpg"
+        assert payload["response_format"] == "base64"
+        assert payload["steps"] == 20  # renamed field
+        assert payload["guidance"] == 7.5  # renamed field
+        assert payload["model"] == "black-forest-labs/FLUX.1-schnell"
+
+    def test_image_to_image_get_response(self):
+        helper = TogetherImageToImageTask()
+        response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"output_image_bytes").decode()}]})
+        assert response == b"output_image_bytes"
+
+    def test_prepare_route_feature_extraction(self):
+        helper = TogetherFeatureExtractionTask()
+        assert helper._prepare_route("BAAI/bge-large-en-v1.5", "hf_token") == "/v1/embeddings"
+
+    def test_prepare_payload_as_dict_feature_extraction(self):
+        helper = TogetherFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello world",
+            {"dimensions": 512},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="BAAI/bge-large-en-v1.5",
+                providerId="BAAI/bge-large-en-v1.5",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {"input": "Hello world", "model": "BAAI/bge-large-en-v1.5", "dimensions": 512}
+
+    def test_feature_extraction_get_response(self):
+        helper = TogetherFeatureExtractionTask()
+        response = helper.get_response({"data": [{"embedding": [0.1, 0.2, 0.3]}, {"embedding": [0.4, 0.5, 0.6]}]})
+        assert response == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    def test_prepare_route_text_to_speech(self):
+        helper = TogetherTextToSpeechTask()
+        assert helper._prepare_route("canopylabs/orpheus-3b-0.1-ft", "hf_token") == "/v1/audio/speech"
+
+    def test_prepare_payload_as_dict_text_to_speech(self):
+        helper = TogetherTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"voice": "tara"},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="canopylabs/orpheus-3b-0.1-ft",
+                providerId="canopylabs/orpheus-3b-0.1-ft",
+                task="text-to-speech",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": "Hello, world!",
+            "model": "canopylabs/orpheus-3b-0.1-ft",
+            "voice": "tara",
+        }
+
+    def test_text_to_speech_get_response(self):
+        helper = TogetherTextToSpeechTask()
+        response = helper.get_response(b"audio_bytes")
+        assert response == b"audio_bytes"
+
+    def test_prepare_route_automatic_speech_recognition(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        assert helper._prepare_route("openai/whisper-large-v3", "hf_token") == "/v1/audio/transcriptions"
+
+    def test_prepare_payload_as_bytes_automatic_speech_recognition_url(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        body = helper._prepare_payload_as_bytes(
+            "https://example.com/audio.wav",
+            {"language": "en"},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="openai/whisper-large-v3",
+                providerId="openai/whisper-large-v3",
+                task="automatic-speech-recognition",
+                status="live",
+            ),
+            extra_payload=None,
+        )
+        assert body.mime_type.startswith("multipart/form-data")
+        assert b'name="file"\r\n\r\nhttps://example.com/audio.wav' in body
+        assert b'name="model"\r\n\r\nopenai/whisper-large-v3' in body
+        assert b'name="language"\r\n\r\nen' in body
+
+    def test_prepare_payload_as_bytes_automatic_speech_recognition_bytes(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        body = helper._prepare_payload_as_bytes(
+            b"raw audio bytes",
+            {},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="openai/whisper-large-v3",
+                providerId="openai/whisper-large-v3",
+                task="automatic-speech-recognition",
+                status="live",
+            ),
+            extra_payload=None,
+        )
+        assert body.mime_type.startswith("multipart/form-data")
+        assert b'filename="audio.wav"' in body
+        assert b"raw audio bytes" in body
+
+    def test_automatic_speech_recognition_get_response(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        response = helper.get_response({"text": "Hello, world!"})
+        assert response == {"text": "Hello, world!"}
+
+    def test_prepare_route_text_to_video(self):
+        helper = TogetherTextToVideoTask()
+        assert helper._prepare_route("model-name", "hf_token") == "/v2/videos"
+
+    def test_prepare_payload_as_dict_text_to_video(self):
+        helper = TogetherTextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "A cat dancing",
+            {"width": 512, "height": 512, "steps": 30},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="some/video-model",
+                providerId="some/video-model",
+                task="text-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "prompt": "A cat dancing",
+            "model": "some/video-model",
+            "width": 512,
+            "height": 512,
+            "steps": 30,
+        }
+
+    def test_prepare_route_image_text_to_video(self):
+        helper = TogetherImageTextToVideoTask()
+        assert helper._prepare_route("model-name", "hf_token") == "/v2/videos"
+
+    def test_prepare_payload_as_dict_image_text_to_video(self):
+        helper = TogetherImageTextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/cat.jpg",
+            {"prompt": "A cat dancing", "seconds": "5"},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="some/video-model",
+                providerId="some/video-model",
+                task="image-text-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "some/video-model",
+            "media": {"reference_images": ["https://example.com/cat.jpg"]},
+            "prompt": "A cat dancing",
+            "seconds": "5",
+        }
+
+    def test_video_get_response_polls_until_completed(self, mocker):
+        helper = TogetherTextToVideoTask()
+        request_params = RequestParameters(
+            url="https://api.together.xyz/v2/videos",
+            task="text-to-video",
+            model="some/video-model",
+            json={},
+            data=None,
+            headers={"authorization": "Bearer key"},
+        )
+        mocker.patch("huggingface_hub.inference._providers.together.time.sleep")
+        status_response = MagicMock()
+        status_response.json.return_value = {
+            "id": "job-123",
+            "status": "completed",
+            "outputs": {"video_url": "https://files.example.com/video.mp4"},
+        }
+        video_response = MagicMock(content=b"video_bytes")
+        get_session_mock = mocker.patch("huggingface_hub.inference._providers.together.get_session")
+        get_session_mock.return_value.get.side_effect = [status_response, video_response]
+        mocker.patch("huggingface_hub.inference._providers.together.hf_raise_for_status")
+
+        result = helper.get_response({"id": "job-123", "status": "in_progress"}, request_params)
+
+        assert result == b"video_bytes"
+        get_session_mock.return_value.get.assert_any_call(
+            "https://api.together.xyz/v2/videos/job-123", headers={"authorization": "Bearer key"}
+        )
+        get_session_mock.return_value.get.assert_any_call("https://files.example.com/video.mp4")
 
 
 class TestWavespeedAIProvider:
