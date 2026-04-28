@@ -23,7 +23,6 @@ from huggingface_hub.errors import (
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
-    HfUriError,
     HFValidationError,
     LocalEntryNotFoundError,
     LocalTokenNotFoundError,
