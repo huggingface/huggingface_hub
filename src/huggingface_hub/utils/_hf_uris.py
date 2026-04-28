@@ -61,9 +61,8 @@ class HfUri:
         id (`str`):
             The repository id (e.g. ``"gpt2"`` or ``"my-org/my-model"``) for repo
             URIs, or the bucket id (always ``"namespace/name"``) for bucket URIs.
-            Use the [`repo_id`][huggingface_hub.utils.HfUri.repo_id] and
-            [`bucket_id`][huggingface_hub.utils.HfUri.bucket_id] convenience
-            properties when relevant.
+            Use the [`repo_id`] and [`bucket_id`] convenience properties when
+            relevant.
         revision (`str`, *optional*):
             The revision specified after ``@`` in the URI, URL-decoded.
             ``None`` if no revision was specified, or for bucket URIs (which
@@ -99,7 +98,7 @@ class HfUri:
 
     @property
     def repo_type(self) -> constants.HfUriType:
-        """Alias of [`type`][huggingface_hub.utils.HfUri.type] for repo URIs."""
+        """Alias of [`type`] for repo URIs."""
         if self.is_bucket:
             raise AttributeError("Bucket URIs do not have a `repo_type`. Use `type` or `bucket_id`.")
         return self.type
@@ -161,7 +160,7 @@ def parse_hf_uri(uri: str) -> HfUri:
         [`HfUri`]: the parsed URI.
 
     Raises:
-        [`HfUriError`][huggingface_hub.errors.HfUriError]:
+        [`HfUriError`]:
             If the URI is malformed (missing prefix, invalid type, missing
             id, etc.). Inherits from `ValueError` for backward compatibility.
 

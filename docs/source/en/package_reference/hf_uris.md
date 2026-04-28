@@ -107,12 +107,9 @@ canonical form (with an explicit type prefix):
 True
 ```
 
-For repository URIs the convenience properties [`repo_type`][huggingface_hub.utils.HfUri.repo_type]
-and [`repo_id`][huggingface_hub.utils.HfUri.repo_id] are available; for bucket
-URIs use [`bucket_id`][huggingface_hub.utils.HfUri.bucket_id]. The boolean
-properties [`is_repo`][huggingface_hub.utils.HfUri.is_repo] and
-[`is_bucket`][huggingface_hub.utils.HfUri.is_bucket] disambiguate between the
-two kinds.
+For repository URIs the convenience properties [`repo_type`] and [`repo_id`]
+are available; for bucket URIs use [`bucket_id`]. The boolean properties
+[`is_repo`] and [`is_bucket`] disambiguate between the two kinds.
 
 ## Reference
 

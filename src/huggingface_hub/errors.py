@@ -173,7 +173,7 @@ class HFValidationError(ValueError):
 class HfUriError(ValueError):
     """Raised when an `hf://...` URI is malformed.
 
-    See [`parse_hf_uri`][huggingface_hub.utils.parse_hf_uri] and the
+    See [`parse_hf_uri`] and the
     [HF URIs reference](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/hf_uris)
     for the canonical syntax.
 
