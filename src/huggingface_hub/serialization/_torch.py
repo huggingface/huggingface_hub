@@ -21,7 +21,7 @@ import re
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, NamedTuple, Union
 
 from packaging import version
@@ -516,8 +516,19 @@ def _load_sharded_checkpoint(
     expected_extension = Path(filename_pattern.format(suffix="")).suffix  # e.g. ".safetensors"
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
-        # Reject path traversal (e.g. "../malicious.bin", absolute paths)
-        if os.path.isabs(shard_file) or ".." in Path(shard_file).parts:
+        # Reject anything that could escape `save_directory` on any host OS:
+        # POSIX absolute ("/tmp/x"), Windows drive ("C:x", "C:\\x"), UNC
+        # ("\\\\server\\share\\x"), rooted-without-drive ("\\x", "/x"), or
+        # ".." traversal — including "..\\x" which `os.path.isabs` never caught on POSIX.
+        #
+        # We parse with `PureWindowsPath` *regardless of host OS*: it treats both "/" and
+        # "\\" as separators and exposes `drive` / `root`, so a single check rejects a
+        # malicious index file on Linux too (e.g. if it's later opened on Windows). The
+        # only over-strict case is a POSIX filename like "a:foo" which would be parsed as
+        # drive "a:" — such names are never produced for safetensors shards and would
+        # break on Windows anyway, so rejecting them is fine.
+        win_path = PureWindowsPath(shard_file)
+        if win_path.drive or win_path.root or ".." in win_path.parts:
             raise ValueError(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
                 "Shard filenames must be relative paths without '..' components."

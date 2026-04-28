@@ -866,12 +866,23 @@ class TestShardedCheckpointValidation:
         with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
             load_torch_model(Mock(), tmp_path)
 
-    def test_safetensors_index_rejects_absolute_path(self, tmp_path):
-        """A shard filename with an absolute path must be rejected."""
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "/tmp/malicious.safetensors",  # POSIX absolute
+            "\\malicious.safetensors",  # Windows rooted, no drive (resolves to C:\malicious on Windows)
+            "C:malicious.safetensors",  # Windows drive-only (relative to CWD of drive C)
+            "C:\\malicious.safetensors",  # Windows drive-absolute
+            "\\\\server\\share\\malicious.safetensors",  # Windows UNC
+            "..\\malicious.safetensors",  # Windows-style traversal (backslash as separator)
+        ],
+    )
+    def test_safetensors_index_rejects_absolute_path(self, tmp_path, malicious_path):
+        """A shard filename with an absolute path must be rejected on every host OS."""
         index = {
             "metadata": {"total_size": 100},
             "weight_map": {
-                "layer_1": "/tmp/malicious.safetensors",
+                "layer_1": malicious_path,
             },
         }
         (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))

@@ -297,6 +297,88 @@ def dev_mode(
 
 
 @spaces_cli.command(
+    "pause",
+    examples=[
+        "hf spaces pause username/my-space",
+    ],
+)
+def spaces_pause(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Pause a Space."""
+    api = get_hf_api(token=token)
+    runtime = api.pause_space(space_id)
+    out.result("Space paused", space_id=space_id, stage=runtime.stage)
+    out.hint(f"Use `hf spaces restart {space_id}` to restart it.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
+
+
+@spaces_cli.command(
+    "restart",
+    examples=[
+        "hf spaces restart username/my-space",
+        "hf spaces restart username/my-space --factory-reboot",
+    ],
+)
+def spaces_restart(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    factory_reboot: Annotated[
+        bool,
+        typer.Option(
+            "--factory-reboot",
+            help="Rebuild the Space from scratch without using the build cache.",
+        ),
+    ] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Restart a Space."""
+    api = get_hf_api(token=token)
+    runtime = api.restart_space(space_id, factory_reboot=factory_reboot)
+    out.result(
+        "Space restart triggered",
+        space_id=space_id,
+        stage=runtime.stage,
+        factory_reboot=factory_reboot,
+    )
+    out.hint(f"Use `hf spaces info {space_id}` to monitor the runtime stage.")
+    out.hint(
+        f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
+    )
+
+
+@spaces_cli.command(
+    "settings",
+    examples=[
+        "hf spaces settings username/my-space --sleep-time 300",
+    ],
+)
+def spaces_settings(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    sleep_time: Annotated[
+        int | None,
+        typer.Option(
+            "--sleep-time",
+            help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
+        ),
+    ] = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Update the settings of a Space."""
+    if sleep_time is None:
+        raise CLIError("Specify at least one setting to update.")
+    api = get_hf_api(token=token)
+    runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    out.result("Space settings updated", space_id=space_id, sleep_time=runtime.sleep_time)
+    out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
+
+
+@spaces_cli.command(
     "logs",
     examples=[
         "hf spaces logs username/my-space",
