@@ -114,9 +114,11 @@ class HfUri:
 def parse_hf_uri(uri: str) -> HfUri:
     """Parse a Hugging Face Hub URI ('hf://...').
 
-    A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is::
+    A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is:
 
-        hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+    ```
+    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+    ```
 
     See 'docs/source/en/package_reference/hf_uris.md' for the full specification.
 
