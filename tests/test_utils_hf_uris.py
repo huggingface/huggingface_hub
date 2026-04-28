@@ -139,6 +139,27 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         ),
         "hf://datasets/foo/bar@refs/convert/parquet/data.parquet",
     ),
+    # Convert ref name with hyphen (and dot) — must not be split at the hyphen.
+    (
+        "hf://datasets/foo/bar@refs/convert/parquet-v2/data.parquet",
+        HfUri(
+            type="dataset",
+            id="foo/bar",
+            revision="refs/convert/parquet-v2",
+            path_in_repo="data.parquet",
+        ),
+        "hf://datasets/foo/bar@refs/convert/parquet-v2/data.parquet",
+    ),
+    (
+        "hf://datasets/foo/bar@refs/convert/duckdb.v1/data.db",
+        HfUri(
+            type="dataset",
+            id="foo/bar",
+            revision="refs/convert/duckdb.v1",
+            path_in_repo="data.db",
+        ),
+        "hf://datasets/foo/bar@refs/convert/duckdb.v1/data.db",
+    ),
     # URL-encoded special revision
     (
         "hf://datasets/foo/bar@refs%2Fpr%2F10/file.csv",

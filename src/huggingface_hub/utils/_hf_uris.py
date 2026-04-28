@@ -49,7 +49,9 @@ _PLURAL_FROM_SINGULAR_NAME: dict[str, str] = {str(k): v for k, v in _TYPE_TO_PRE
 # Special revisions that contain a '/'. They take precedence when splitting
 # the part after '@' into '<revision>/<path-in-repo>'. Matches 'refs/pr/N'
 # (Pull Request refs) and 'refs/convert/<name>' (e.g. parquet conversions).
-_SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/\w+|pr/\d+)")
+# The conversion name allows the typical git ref characters '[a-zA-Z0-9_.-]'
+# so names like 'parquet-v2' or 'duckdb.v1' round-trip correctly.
+_SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
 
 
 @dataclass(frozen=True)
