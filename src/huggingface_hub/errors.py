@@ -177,8 +177,7 @@ class HfUriError(ValueError):
     [HF URIs reference](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/hf_uris)
     for the canonical syntax.
 
-    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-    for backward compatibility.
+    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
 
 
