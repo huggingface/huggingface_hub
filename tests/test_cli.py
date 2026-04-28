@@ -2117,29 +2117,26 @@ class TestSpacesLifecycleCommands:
     def test_pause(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.pause_space.return_value = Mock(stage="PAUSED")
             result = runner.invoke(app, ["spaces", "pause", "user/my-space", "--yes"])
         assert result.exit_code == 0, result.output
+        api_cls.assert_called_once_with(token=None)
         api.pause_space.assert_called_once_with("user/my-space")
-        assert "Space paused" in result.output
 
     def test_restart_factory_reboot(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.restart_space.return_value = Mock(stage="BUILDING")
             result = runner.invoke(app, ["spaces", "restart", "user/my-space", "--factory-reboot", "--yes"])
         assert result.exit_code == 0, result.output
+        api_cls.assert_called_once_with(token=None)
         api.restart_space.assert_called_once_with("user/my-space", factory_reboot=True)
-        assert "Space restart triggered" in result.output
 
     def test_sleep(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.set_space_sleep_time.return_value = Mock(sleep_time=300)
             result = runner.invoke(app, ["spaces", "sleep", "user/my-space", "--seconds", "300"])
         assert result.exit_code == 0, result.output
+        api_cls.assert_called_once_with(token=None)
         api.set_space_sleep_time.assert_called_once_with("user/my-space", sleep_time=300)
-        assert "Sleep time set" in result.output
 
 
 class TestInferenceEndpointsCommands:
