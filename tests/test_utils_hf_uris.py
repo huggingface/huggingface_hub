@@ -22,24 +22,13 @@ from huggingface_hub.utils import HfUri, parse_hf_uri
 # A "success" case is described as (uri, expected_HfUri, expected_roundtrip).
 SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
     # --- Models ----------------------------------------------------------------
-    # Canonical model id, no namespace
-    (
-        "hf://gpt2",
-        HfUri(type="model", id="gpt2"),
-        "hf://models/gpt2",
-    ),
-    # Canonical model id with explicit 'models/' prefix
-    (
-        "hf://models/gpt2",
-        HfUri(type="model", id="gpt2"),
-        "hf://models/gpt2",
-    ),
-    # Namespaced model
+    # Namespaced model (implicit type prefix)
     (
         "hf://my-org/my-model",
         HfUri(type="model", id="my-org/my-model"),
         "hf://models/my-org/my-model",
     ),
+    # Namespaced model (explicit type prefix)
     (
         "hf://models/my-org/my-model",
         HfUri(type="model", id="my-org/my-model"),
@@ -63,19 +52,7 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="dev", path_in_repo="sub/file.bin"),
         "hf://models/my-org/my-model@dev/sub/file.bin",
     ),
-    # Canonical model with path
-    (
-        "hf://gpt2@main/config.json",
-        HfUri(type="model", id="gpt2", revision="main", path_in_repo="config.json"),
-        "hf://models/gpt2@main/config.json",
-    ),
     # --- Datasets --------------------------------------------------------------
-    # Canonical dataset (single-segment id, e.g. 'squad', 'glue')
-    (
-        "hf://datasets/squad",
-        HfUri(type="dataset", id="squad"),
-        "hf://datasets/squad",
-    ),
     (
         "hf://datasets/my-org/my-dataset",
         HfUri(type="dataset", id="my-org/my-dataset"),
@@ -169,31 +146,31 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
     # Branch name containing '/' (e.g. 'feature/foo'). Must be URL-encoded so that the
     # parser does not split it at the first '/' and treat the rest as a path-in-repo.
     (
-        "hf://gpt2@feature%2Ffoo/config.json",
-        HfUri(type="model", id="gpt2", revision="feature/foo", path_in_repo="config.json"),
-        "hf://models/gpt2@feature%2Ffoo/config.json",
+        "hf://my-org/my-model@feature%2Ffoo/config.json",
+        HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
+        "hf://models/my-org/my-model@feature%2Ffoo/config.json",
     ),
     # Special revision with no path after it
     (
-        "hf://gpt2@refs/pr/3",
-        HfUri(type="model", id="gpt2", revision="refs/pr/3"),
-        "hf://models/gpt2@refs/pr/3",
+        "hf://my-org/my-model@refs/pr/3",
+        HfUri(type="model", id="my-org/my-model", revision="refs/pr/3"),
+        "hf://models/my-org/my-model@refs/pr/3",
     ),
     # --- Mount path + ro/rw ----------------------------------------------------
     (
-        "hf://gpt2:/data",
-        HfUri(type="model", id="gpt2", mount_path="/data"),
-        "hf://models/gpt2:/data",
+        "hf://my-org/my-model:/data",
+        HfUri(type="model", id="my-org/my-model", mount_path="/data"),
+        "hf://models/my-org/my-model:/data",
     ),
     (
-        "hf://gpt2:/data:ro",
-        HfUri(type="model", id="gpt2", mount_path="/data", read_only=True),
-        "hf://models/gpt2:/data:ro",
+        "hf://my-org/my-model:/data:ro",
+        HfUri(type="model", id="my-org/my-model", mount_path="/data", read_only=True),
+        "hf://models/my-org/my-model:/data:ro",
     ),
     (
-        "hf://gpt2:/data:rw",
-        HfUri(type="model", id="gpt2", mount_path="/data", read_only=False),
-        "hf://models/gpt2:/data:rw",
+        "hf://my-org/my-model:/data:rw",
+        HfUri(type="model", id="my-org/my-model", mount_path="/data", read_only=False),
+        "hf://models/my-org/my-model:/data:rw",
     ),
     (
         "hf://datasets/my-org/my-dataset:/mnt",
@@ -248,9 +225,9 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
     ),
     # Mount path with several path segments
     (
-        "hf://gpt2:/path/to/mount",
-        HfUri(type="model", id="gpt2", mount_path="/path/to/mount"),
-        "hf://models/gpt2:/path/to/mount",
+        "hf://my-org/my-model:/path/to/mount",
+        HfUri(type="model", id="my-org/my-model", mount_path="/path/to/mount"),
+        "hf://models/my-org/my-model:/path/to/mount",
     ),
 ]
 
@@ -271,29 +248,37 @@ FAILURE_CASES: list[tuple[str, str]] = [
     ("hf://buckets/", "bucket id must be 'namespace/name'"),
     # Singular type forms are forbidden
     ("hf://dataset/foo/bar", "must be plural"),
-    ("hf://model/gpt2", "must be plural"),
+    ("hf://model/my-org/my-model", "must be plural"),
     ("hf://space/user/my-space", "must be plural"),
     ("hf://bucket/org/b", "must be plural"),
+    # Canonical repos (no namespace) are forbidden
+    ("hf://gpt2", "Canonical repos"),
+    ("hf://models/gpt2", "Canonical repos"),
+    ("hf://datasets/squad", "Canonical repos"),
+    ("hf://gpt2@v1", "Canonical repos"),
+    ("hf://gpt2@v1/config.json", "Canonical repos"),
+    ("hf://gpt2:/data", "Canonical repos"),
+    ("hf://gpt2:/data:ro", "Canonical repos"),
     # Buckets must always have namespace/name
     ("hf://buckets/single-segment", "bucket id must be 'namespace/name'"),
     # Buckets cannot have a revision
     ("hf://buckets/org/b@v1", "do not support a revision"),
     ("hf://buckets/org/b@v1/path", "do not support a revision"),
     # Empty revision
-    ("hf://gpt2@", "empty revision"),
+    ("hf://my-org/my-model@", "empty revision"),
     ("hf://datasets/foo/bar@/file", "empty revision"),
     # Empty repo id before '@'
     ("hf://@v1/file", "missing repository id"),
     # Repo id with too many slashes
-    ("hf://a/b/c@v1", "repository id must be 'name' or 'namespace/name'"),
+    ("hf://a/b/c@v1", "repository id must be 'namespace/name'"),
     # Invalid repo id chars (validated by validate_repo_id)
     ("hf://datasets/foo/.invalid", "Repo id must use alphanumeric"),
-    ("hf://models/foo--bar", "Cannot have -- or .."),
+    ("hf://models/foo--bar/baz", "Cannot have -- or .."),
     # Mount path that is not absolute
-    ("hf://gpt2:/", "mount path must be a non-empty absolute path"),
+    ("hf://my-org/my-model:/", "mount path must be a non-empty absolute path"),
     # Read-only flag without a mount path
-    ("hf://gpt2:ro", "':ro'/':rw' suffix is only valid"),
-    ("hf://gpt2:rw", "':ro'/':rw' suffix is only valid"),
+    ("hf://my-org/my-model:ro", "':ro'/':rw' suffix is only valid"),
+    ("hf://my-org/my-model:rw", "':ro'/':rw' suffix is only valid"),
 ]
 
 

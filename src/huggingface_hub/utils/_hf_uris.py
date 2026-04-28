@@ -62,7 +62,7 @@ class HfUri:
         type (`str`):
             One of 'model', 'dataset', 'space', 'kernel' or 'bucket'.
         id (`str`):
-            The repository id (e.g. 'gpt2' or 'my-org/my-model') for repo URIs, or the bucket id (always 'namespace/name') for bucket URIs.
+            The repository id ('namespace/name', e.g. 'my-org/my-model') for repo URIs, or the bucket id ('namespace/name') for bucket URIs.
         revision (`str`, *optional*):
             The revision specified after '@' in the URI, URL-decoded. 'None' if no revision was specified, or for bucket URIs (which
             never carry a revision). Special refs like 'refs/pr/10' and 'refs/convert/parquet' are preserved as-is.
@@ -97,7 +97,7 @@ class HfUri:
     def to_uri(self) -> str:
         """Render the URI as a canonical 'hf://' string.
 
-        The type prefix is always written explicitly (e.g. 'hf://models/gpt2', not 'hf://gpt2').
+        The type prefix is always written explicitly (e.g. 'hf://models/my-org/my-model').
         """
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]
         if self.revision is not None:
@@ -144,10 +144,10 @@ def parse_hf_uri(uri: str) -> HfUri:
     Examples:
         ```py
         >>> from huggingface_hub.utils import parse_hf_uri
-        >>> parse_hf_uri("hf://gpt2")
-        HfUri(type='model', id='gpt2', revision=None, path_in_repo='', mount_path=None, read_only=None)
-        >>> parse_hf_uri("hf://datasets/squad@refs/pr/3/train.json")
-        HfUri(type='dataset', id='squad', revision='refs/pr/3', path_in_repo='train.json', mount_path=None, read_only=None)
+        >>> parse_hf_uri("hf://my-org/my-model")
+        HfUri(type='model', id='my-org/my-model', revision=None, path_in_repo='', mount_path=None, read_only=None)
+        >>> parse_hf_uri("hf://datasets/my-org/my-dataset@refs/pr/3/train.json")
+        HfUri(type='dataset', id='my-org/my-dataset', revision='refs/pr/3', path_in_repo='train.json', mount_path=None, read_only=None)
         >>> parse_hf_uri("hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro")
         HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir', mount_path='/mnt', read_only=True)
         ```
@@ -280,24 +280,28 @@ def _parse_repo_body(
     at_idx = location.find("@")
     revision: str | None
     if at_idx == -1:
-        # No revision. Take the first 1-2 segments as repo_id, rest as path_in_repo.
+        # No revision. Take the first 2 segments as repo_id, rest as path_in_repo.
         revision = None
         parts = location.split("/", 2)
-        if len(parts) == 1:
-            repo_id = parts[0]
-            path_in_repo = ""
-        else:
-            repo_id = f"{parts[0]}/{parts[1]}"
-            path_in_repo = parts[2] if len(parts) > 2 else ""
+        if len(parts) < 2:
+            raise HfUriError(
+                f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{location}'. "
+                "Canonical repos (without a namespace) are not supported."
+            )
+        repo_id = f"{parts[0]}/{parts[1]}"
+        path_in_repo = parts[2] if len(parts) > 2 else ""
     else:
         repo_id = location[:at_idx]
         rev_and_path = location[at_idx + 1 :]
         if not repo_id:
             raise HfUriError(f"Invalid HF URI '{raw}': missing repository id before '@'.")
-        if repo_id.count("/") > 1:
+        if "/" not in repo_id:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': repository id must be 'name' or 'namespace/name', got '{repo_id}'."
+                f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{repo_id}'. "
+                "Canonical repos (without a namespace) are not supported."
             )
+        if repo_id.count("/") > 1:
+            raise HfUriError(f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{repo_id}'.")
         # Special refs like 'refs/pr/10' contain '/' and must be matched eagerly,
         # otherwise we would split them at the first '/' and treat the rest as a path.
         match = _SPECIAL_REFS_REVISION_REGEX.match(rev_and_path)

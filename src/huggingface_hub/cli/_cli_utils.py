@@ -680,7 +680,7 @@ VolumesOpt = Annotated[
         "TYPE is one of: models, datasets, spaces, buckets. "
         "TYPE defaults to models if omitted. "
         "models, datasets and spaces are always mounted read-only. buckets are read+write by default. "
-        "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
+        "E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
     ),
 ]
 
@@ -704,7 +704,6 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     Optional ':ro' or ':rw' suffix for read-only or read-write.
 
     Examples:
-        hf://gpt2:/data                          (model, implicit type)
         hf://my-org/my-model:/data                (model, implicit type)
         hf://models/my-org/my-model:/data         (model, explicit type)
         hf://datasets/my-org/my-dataset:/data:ro
@@ -733,7 +732,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         if not spec.startswith(_HF_PREFIX):
             raise CLIError(
                 f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
             )
         spec = spec[len(_HF_PREFIX) :]
 
@@ -741,7 +740,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         colon_slash_idx = spec.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
             )
         source_part = spec[:colon_slash_idx]
         mount_path = spec[colon_slash_idx + 1 :]

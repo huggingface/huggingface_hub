@@ -24,7 +24,7 @@ hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
 | --------------- | -------- | ------------------------------------------------------------------- |
 | `hf://`         | yes      | Literal protocol prefix.                                            |
 | `<TYPE>/`       | no       | `models/`, `datasets/`, `spaces/`, `kernels/`, `buckets/` (plural). |
-| `<ID>`          | yes      | `<repo_id>` for repos, `<namespace>/<name>` for buckets.            |
+| `<ID>`          | yes      | `<namespace>/<name>`                                                |
 | `@<REVISION>`   | no       | Branch, tag, commit SHA, or special ref (`refs/pr/N`, `refs/convert/...`). Repos only. |
 | `/<PATH>`       | no       | Path inside the repo or bucket.                                     |
 | `:<MOUNT_PATH>` | no       | Absolute mount path (volume use case).                              |
@@ -35,15 +35,14 @@ hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
 The following are **all valid HF URIs**:
 
 ```text
-# Models (type prefix is optional)
-hf://gpt2                                       # canonical model
-hf://my-org/my-model                            # namespaced model
+# Models (type prefix is optional, but the id is always 'namespace/name')
+hf://my-org/my-model                            # implicit type prefix
 hf://models/my-org/my-model                     # explicit type prefix
 hf://models/my-org/my-model/config.json         # file inside a model repo
 hf://models/my-org/my-model@v1.0/config.json    # pinned to a revision
 
 # Datasets, Spaces, Kernels (type prefix is required)
-hf://datasets/squad                             # canonical dataset
+hf://datasets/my-org/my-dataset
 hf://datasets/my-org/my-dataset@dev/train.csv
 hf://spaces/my-user/my-space
 hf://kernels/my-org/my-kernel
@@ -57,7 +56,7 @@ hf://buckets/my-org/my-bucket
 hf://buckets/my-org/my-bucket/sub/folder
 
 # Volume URIs (append `:<MOUNT_PATH>[:ro|:rw]`)
-hf://gpt2:/data
+hf://my-org/my-model:/data
 hf://datasets/my-org/my-dataset:/mnt:ro
 hf://datasets/my-org/my-dataset/train:/mnt:rw    # mount a sub-folder
 hf://buckets/my-org/my-bucket:/storage:rw
@@ -67,17 +66,18 @@ hf://buckets/my-org/my-bucket:/storage:rw
 
 The parser is strict on purpose. The following are **rejected**:
 
-| Invalid URI                               | Reason                                                                  |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| `gpt2`, `huggingface.co/gpt2`             | Missing `hf://` protocol prefix.                                        |
-| `hf://dataset/foo/bar`, `hf://model/gpt2` | Singular type forms are forbidden, use the plural (`datasets/`, ...).  |
-| `hf://datasets`, `hf://buckets/`          | A type prefix alone is not a valid URI, an `<ID>` is required.         |
-| `hf://buckets/single-segment`             | Buckets must always be `namespace/name`.                                |
-| `hf://buckets/org/b@v1`                   | Buckets do not support a revision marker.                               |
-| `hf://gpt2@`, `hf://datasets/foo/bar@/x`  | Empty revision after `@`.                                               |
-| `hf://a/b/c@v1`                           | A repo id can be at most `namespace/name`, extra segments are paths.    |
-| `hf://gpt2:ro`, `hf://gpt2:rw`            | `:ro`/`:rw` requires a mount path (`hf://gpt2:/data:ro`).               |
-| `hf://gpt2:/`                             | Mount path must be a non-empty absolute path.                           |
+| Invalid URI                                       | Reason                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| `my-org/my-model`, `huggingface.co/org/m`         | Missing `hf://` protocol prefix.                                        |
+| `hf://dataset/org/m`, `hf://model/org/m`          | Singular type forms are forbidden, use the plural (`datasets/`, ...).   |
+| `hf://datasets`, `hf://buckets/`                  | A type prefix alone is not a valid URI, an `<ID>` is required.          |
+| `hf://gpt2`, `hf://datasets/squad`                | Canonical repos (without a namespace) are not supported.                |
+| `hf://buckets/single-segment`                     | Buckets must always be `namespace/name`.                                |
+| `hf://buckets/org/b@v1`                           | Buckets do not support a revision marker.                               |
+| `hf://org/m@`, `hf://datasets/foo/bar@/x`         | Empty revision after `@`.                                               |
+| `hf://a/b/c@v1`                                   | A repo id must be `namespace/name`, extra segments are paths.           |
+| `hf://org/m:ro`, `hf://org/m:rw`                  | `:ro`/`:rw` requires a mount path (`hf://org/m:/data:ro`).              |
+| `hf://org/m:/`                                    | Mount path must be a non-empty absolute path.                           |
 
 ## Parsing in Python
 
@@ -85,8 +85,8 @@ The parser is strict on purpose. The following are **rejected**:
 
 ```python
 >>> from huggingface_hub import parse_hf_uri
->>> parse_hf_uri("hf://datasets/squad@refs/pr/3/train.json")
-HfUri(type='dataset', id='squad', revision='refs/pr/3', path_in_repo='train.json', mount_path=None, read_only=None)
+>>> parse_hf_uri("hf://datasets/my-org/my-dataset@refs/pr/3/train.json")
+HfUri(type='dataset', id='my-org/my-dataset', revision='refs/pr/3', path_in_repo='train.json', mount_path=None, read_only=None)
 
 >>> parse_hf_uri("hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro")
 HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir', mount_path='/mnt', read_only=True)
@@ -95,9 +95,9 @@ HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir
 [`HfUri`] is round-trippable via [`HfUri.to_uri`], which always emits the canonical form (with an explicit type prefix):
 
 ```python
->>> uri = parse_hf_uri("hf://gpt2@v1/config.json")
+>>> uri = parse_hf_uri("hf://my-org/my-model@v1/config.json")
 >>> uri.to_uri()
-'hf://models/gpt2@v1/config.json'
+'hf://models/my-org/my-model@v1/config.json'
 ```
 
 Use the `type` and `id` fields directly. The boolean properties [`is_repo`] and [`is_bucket`] disambiguate between repository URIs and bucket URIs when needed.
