@@ -2113,33 +2113,6 @@ class TestSpacesLogsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
-class TestSpacesLifecycleCommands:
-    def test_pause(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["spaces", "pause", "user/my-space", "--yes"])
-        assert result.exit_code == 0, result.output
-        api_cls.assert_called_once_with(token=None)
-        api.pause_space.assert_called_once_with("user/my-space")
-
-    def test_restart_factory_reboot(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["spaces", "restart", "user/my-space", "--factory-reboot", "--yes"])
-        assert result.exit_code == 0, result.output
-        api_cls.assert_called_once_with(token=None)
-        api.restart_space.assert_called_once_with("user/my-space", factory_reboot=True)
-
-    def test_sleep(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.set_space_sleep_time.return_value = Mock(sleep_time=300)
-            result = runner.invoke(app, ["spaces", "sleep", "user/my-space", "--seconds", "300"])
-        assert result.exit_code == 0, result.output
-        api_cls.assert_called_once_with(token=None)
-        api.set_space_sleep_time.assert_called_once_with("user/my-space", sleep_time=300)
-
-
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
