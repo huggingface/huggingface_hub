@@ -24,7 +24,6 @@ from huggingface_hub import constants
 
 from ._cli_utils import (
     AuthorOpt,
-    FormatWithAutoOpt,
     LimitOpt,
     RepoIdArg,
     RepoType,
@@ -34,7 +33,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 class DiscussionStatus(str, enum.Enum):
@@ -111,7 +110,6 @@ def discussion_list(
     author: AuthorOpt = None,
     limit: LimitOpt = 30,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List discussions and pull requests on a repo."""
@@ -165,7 +163,6 @@ def discussion_info(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a discussion or pull request."""
@@ -219,7 +216,6 @@ def discussion_create(
         ),
     ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new discussion or pull request on a repo."""
@@ -262,7 +258,6 @@ def discussion_comment(
         ),
     ] = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Comment on a discussion or pull request."""
@@ -305,7 +300,6 @@ def discussion_close(
         ),
     ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Close a discussion or pull request."""
@@ -347,7 +341,6 @@ def discussion_reopen(
         ),
     ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Reopen a closed discussion or pull request."""
@@ -379,7 +372,6 @@ def discussion_rename(
         ),
     ],
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Rename a discussion or pull request."""
@@ -419,7 +411,6 @@ def discussion_merge(
         ),
     ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Merge a pull request."""
@@ -444,7 +435,6 @@ def discussion_diff(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Show the diff of a pull request."""

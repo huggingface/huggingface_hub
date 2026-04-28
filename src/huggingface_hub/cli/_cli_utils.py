@@ -35,7 +35,6 @@ from typer.core import TyperCommand, TyperGroup
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import (
-    disable_progress_bars,
     get_session,
     hf_raise_for_status,
     installation_method,
@@ -113,9 +112,13 @@ class HFCliTyperGroup(TyperGroup):
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
-    - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
+    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``)
+      anywhere in the args of a leaf command and applies them to ``out``, so leaf
+      commands don't need to declare these options themselves.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     - enriches "No such option" / "No such command" errors with available options or commands.
+    - documents the global formatting options in a dedicated "Formatting options"
+      help section on every command.
     """
 
     def invoke(self, ctx: click.Context) -> None:
@@ -154,12 +157,10 @@ class HFCliTyperGroup(TyperGroup):
         cmd = self.get_command(ctx, cmd_name) if cmd_name else None
 
         if cmd is not None:
-            self._rewrite_json_shorthand(cmd, args)
-            self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
         try:
-            return super().resolve_command(ctx, args)
+            name, resolved_cmd, sub_args = super().resolve_command(ctx, args)
         except click.UsageError as e:
             # Unknown subcommand -> add fuzzy suggestions and list available commands.
             if cmd is None and cmd_name is not None:
@@ -182,43 +183,21 @@ class HFCliTyperGroup(TyperGroup):
                 _enrich_usage_error(e, "commands", items)
             raise
 
-    @staticmethod
-    def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
-        """Rewrite hidden ``--json`` shorthand to ``--format json``.
+        # If we just resolved a leaf command, eagerly consume any global formatting
+        # flags (--format / --json / -q / --quiet) from its args before click parses
+        # them.  Group resolution is recursive — leaves (and only leaves) need this.
+        if resolved_cmd is not None and not isinstance(resolved_cmd, click.Group):
+            _consume_format_flags_for_leaf(resolved_cmd, sub_args)
 
-        Only applies to commands that accept ``--format``.  This avoids rewriting
-        ``--json`` for commands that pass args through to external binaries
-        (e.g. ``hf extensions exec``) or that simply don't support ``--format``.
-        """
-        if "--json" not in args:
-            return
-        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
-        if has_format_option:
-            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-            idx = args.index("--json")
-            args[idx : idx + 1] = ["--format", "json"]
+        return name, resolved_cmd, sub_args
 
-    @staticmethod
-    def _rewrite_quiet_shorthand(cmd: click.Command, args: list[str]) -> None:
-        """Rewrite ``-q`` / ``--quiet`` shorthand to ``--format quiet``.
-
-        Only applies to commands that accept ``--format`` but do NOT already
-        have their own ``--quiet`` / ``-q`` option.
-        """
-        has_quiet = "-q" in args or "--quiet" in args
-        if not has_quiet:
-            return
-        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
-        has_quiet_option = any(
-            isinstance(param, click.Option) and ("--quiet" in param.opts or "-q" in param.opts) for param in cmd.params
-        )
-        if has_format_option and not has_quiet_option:
-            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                raise click.UsageError("'--quiet' and '--format' are mutually exclusive.")
-            flag = "-q" if "-q" in args else "--quiet"
-            idx = args.index(flag)
-            args[idx : idx + 1] = ["--format", "quiet"]
+    def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        # MultiCommand.format_options writes regular options + the commands list. We
+        # insert the "Formatting options" section in between so it sits with the
+        # other options instead of below the subcommand list.
+        click.Command.format_options(self, ctx, formatter)
+        _format_formatting_options_section(formatter)
+        self.format_commands(ctx, formatter)
 
     @staticmethod
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
@@ -389,6 +368,160 @@ class HFCliTyperGroup(TyperGroup):
         return sorted(primary_names)
 
 
+_FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
+    (
+        "--format [auto|human|agent|json|quiet]",
+        "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.",
+    ),
+    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+    ("--json", "JSON output. Equivalent to '--format json'."),
+]
+
+
+def _format_formatting_options_section(formatter: click.HelpFormatter) -> None:
+    with formatter.section("Formatting options"):
+        formatter.write_dl(_FORMATTING_OPTIONS_HELP_RECORDS)
+
+
+def _has_local_formatting_option(cmd: click.Command) -> bool:
+    """Return True if the command defines its own --format, --json or --quiet / -q.
+
+    Used to skip the global formatting flag pre-processor and the duplicated "Formatting options" help section for
+    legacy commands like 'hf jobs ps' that have their own format/quiet options.
+    """
+    for param in cmd.params:
+        if not isinstance(param, click.Option):
+            continue
+        opts = (*param.opts, *param.secondary_opts)
+        if "--format" in opts or "--json" in opts or "--quiet" in opts or "-q" in opts:
+            return True
+    return False
+
+
+def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
+    """Apply global formatting flags from 'args' to a leaf command.
+
+    Two modes, depending on the command:
+
+    * **Pass-through commands** (ignore_unknown_options=True, e.g. 'hf extensions exec'):
+      args are forwarded verbatim to an external binary; we don't touch them.
+
+    * **Legacy commands with a local --format option** (e.g. 'hf jobs ps' whose '--format' accepts Go templates):
+      the global flags are rewritten in-place to the legacy form ('--json' → '--format json', '--quiet'/'-q' → '--format quiet'
+      when the cmd has no own '--quiet') so click can parse them locally. This preserves backwards compatibility with the previous shorthand behavior.
+
+    * **Modern commands** (no local format/quiet/json options): the flags '--format <value>' / '--json' / '--quiet' / '-q' are stripped from 'args' and applied to the singleton 'out'.
+
+    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
+    """
+    if cmd.context_settings.get("ignore_unknown_options"):
+        return
+
+    has_local_format = False
+    has_local_quiet = False
+    has_local_json = False
+    for param in cmd.params:
+        if not isinstance(param, click.Option):
+            continue
+        opts = (*param.opts, *param.secondary_opts)
+        if "--format" in opts:
+            has_local_format = True
+        if "--quiet" in opts or "-q" in opts:
+            has_local_quiet = True
+        if "--json" in opts:
+            has_local_json = True
+
+    if has_local_format:
+        _rewrite_legacy_shorthands(args, rewrite_json=not has_local_json, rewrite_quiet=not has_local_quiet)
+        return
+
+    # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
+    chosen_mode: OutputFormatWithAuto | None = None
+    chosen_flag: str | None = None
+
+    def _check_conflict(new_flag: str) -> None:
+        # Reject mixing different kinds of formatting flags before parsing values,
+        # so the user gets a "mutually exclusive" error rather than e.g. an
+        # "invalid value" error for the second flag.
+        if chosen_flag is not None and _flag_kind(chosen_flag) != _flag_kind(new_flag):
+            raise click.UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            break  # everything after '--' is a positional literal
+        if arg == "--format":
+            _check_conflict("--format")
+            if i + 1 >= len(args):
+                raise click.UsageError("Option '--format' requires a value.")
+            chosen_mode = _parse_format_value(args[i + 1])
+            chosen_flag = "--format"
+            del args[i : i + 2]  # --format value => 2 args removed
+            continue
+        if arg.startswith("--format="):
+            _check_conflict("--format")
+            chosen_mode = _parse_format_value(arg[len("--format=") :])
+            chosen_flag = "--format"
+            del args[i : i + 1]
+            continue
+        if arg == "--json":
+            _check_conflict("--json")
+            chosen_mode = OutputFormatWithAuto.json
+            chosen_flag = "--json"
+            del args[i : i + 1]
+            continue
+        if arg in ("-q", "--quiet"):
+            _check_conflict(arg)
+            chosen_mode = OutputFormatWithAuto.quiet
+            chosen_flag = arg
+            del args[i : i + 1]
+            continue
+        i += 1
+
+    if chosen_mode is not None:
+        out.set_mode(chosen_mode)
+
+
+def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
+    """Rewrite --json / -q / --quiet to --format ... for legacy commands.
+
+    Used for commands like 'hf jobs ps' that still own their '--format' option.
+    The rewrite lets users keep using the global shorthand while click parses
+    '--format <value>' locally.
+    """
+    has_format_in_args = any(arg == "--format" or arg.startswith("--format=") for arg in args)
+
+    if rewrite_json and "--json" in args:
+        if has_format_in_args:
+            raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+        idx = args.index("--json")
+        args[idx : idx + 1] = ["--format", "json"]
+        has_format_in_args = True
+
+    if rewrite_quiet:
+        flag = "-q" if "-q" in args else ("--quiet" if "--quiet" in args else None)
+        if flag is not None:
+            if has_format_in_args:
+                raise click.UsageError(f"'{flag}' and '--format' are mutually exclusive.")
+            idx = args.index(flag)
+            args[idx : idx + 1] = ["--format", "quiet"]
+
+
+def _flag_kind(flag: str) -> str:
+    if flag in ("-q", "--quiet"):
+        return "--quiet"
+    return flag
+
+
+def _parse_format_value(value: str) -> "OutputFormatWithAuto":
+    try:
+        return OutputFormatWithAuto(value)
+    except ValueError:
+        valid = ", ".join(m.value for m in OutputFormatWithAuto)
+        raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
+
+
 def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
     """Append a list of available options or commands to a usage error message."""
     if not items or error.ctx is None or f"Available {label} for" in error.message:
@@ -432,6 +565,16 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
+    def format_options(self: TyperCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        TyperCommand.format_options(self, ctx, formatter)
+        # Skip the section for commands that define their own --format / --quiet / --json,
+        # or for pass-through commands that forward args to an external binary.
+        if _has_local_formatting_option(self):
+            return
+        if self.context_settings.get("ignore_unknown_options"):
+            return
+        _format_formatting_options_section(formatter)
+
     def parse_args(self: click.Command, ctx: click.Context, args: list[str]) -> list[str]:
         # Show help when a command with required arguments is invoked without any args
         # (mirrors group behavior: `hf jobs` prints help, so `hf download` should too).
@@ -448,6 +591,7 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
             "topic": topic,
             "examples": examples or [],
             "format_epilog": format_epilog,
+            "format_options": format_options,
             "parse_args": parse_args,
         },
     )
@@ -803,27 +947,24 @@ FormatOpt = Annotated[
 
 
 def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
+    """Callback for the legacy FormatWithAutoOpt option type.
+
+    Most commands now rely on the global --format / --json / -q flags consumed by _consume_format_flags_for_leaf instead
+    of declaring FormatWithAutoOpt themselves.  This callback is kept for the rare cases where a command still wires
+    FormatWithAutoOpt explicitly.
+    """
     out.set_mode(value)
-    if out.mode != OutputFormatWithAuto.human:
-        disable_progress_bars()
     return value
 
 
 FormatWithAutoOpt = Annotated[
     OutputFormatWithAuto,
-    typer.Option(
-        help="Output format.",
-        callback=_set_output_mode,
-    ),
+    typer.Option(help="Output format.", callback=_set_output_mode),
 ]
 
 QuietOpt = Annotated[
     bool,
-    typer.Option(
-        "-q",
-        "--quiet",
-        help="Print only IDs (one per line).",
-    ),
+    typer.Option("-q", "--quiet", help="Print only IDs (one per line)."),
 ]
 
 

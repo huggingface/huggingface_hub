@@ -3363,6 +3363,33 @@ class TestWebhooksCommand:
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
+class TestGlobalFormattingFlags:
+    """Test the global --format / --json / -q flags handled in `_cli_utils.py`."""
+
+    def test_help_shows_formatting_options_section(self, runner: CliRunner) -> None:
+        """Modern leaf commands document the global formatting flags in a dedicated section."""
+        result = runner.invoke(app, ["models", "ls", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" in result.output
+        # Each flag is listed in the section.
+        assert "--format" in result.output
+        assert "--json" in result.output
+        assert "--quiet" in result.output
+
+    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
+        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
+        and don't get the duplicated 'Formatting options' section."""
+        result = runner.invoke(app, ["jobs", "ps", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+    def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
+        """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""
+        result = runner.invoke(app, ["extensions", "exec", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+
 class TestJsonShorthand:
     """Test the hidden --json shorthand that rewrites to --format json."""
 

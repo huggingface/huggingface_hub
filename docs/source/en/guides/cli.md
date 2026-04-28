@@ -126,6 +126,31 @@ This detects how `hf` was installed (Homebrew, standalone installer, or pip) and
 
 By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
 
+## Output formatting
+
+Most `hf` commands accept the same set of global formatting flags. They are documented in a dedicated `Formatting options` section in every `--help` page, and can be added to any command without having to declare them per-command:
+
+| Flag | Equivalent | Description |
+| ---- | ---------- | ----------- |
+| `--format <value>` | — | Pick the output format explicitly. Accepted values: `auto` (default), `human`, `agent`, `json`, `quiet`. |
+| `--json` | `--format json` | Print structured JSON. Useful for piping into `jq` or other scripts. |
+| `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
+
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two of these flags (e.g. `--json` together with `--format table`) raises a usage error.
+
+```bash
+# JSON output for scripting
+>>> hf models ls --search bert --limit 2 --json | jq '.[].id'
+
+# IDs only, one per line
+>>> hf collections ls --owner nvidia -q
+nvidia/nemotron-supervised-fine-tuning-69eab9824c9120a3a3b1e25e
+nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
+```
+
+> [!TIP]
+> A handful of commands keep their own local formatting options. For example, `hf jobs ps` and `hf jobs scheduled ps` accept Go templates via `--format` (e.g. `--format '{{.id}} {{.status}}'`); `hf buckets sync` has its own `-q` / `--quiet` to control sync verbosity. In those cases the global flags are silently rewritten so user-facing behaviour stays unchanged.
+
 ## hf auth login
 
 In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.

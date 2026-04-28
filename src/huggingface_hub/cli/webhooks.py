@@ -46,12 +46,11 @@ from huggingface_hub.constants import WEBHOOK_DOMAIN_T
 from huggingface_hub.hf_api import WebhookWatchedItem
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     TokenOpt,
     get_hf_api,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -102,7 +101,6 @@ webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
     ],
 )
 def webhooks_ls(
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List all webhooks for the current user."""
@@ -128,7 +126,6 @@ def webhooks_ls(
 )
 def webhooks_info(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook.")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Show full details for a single webhook."""
@@ -175,7 +172,6 @@ def webhooks_create(
         str | None,
         typer.Option(help="Optional secret used to sign webhook payloads."),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new webhook.
@@ -228,7 +224,6 @@ def webhooks_update(
         str | None,
         typer.Option(help="New secret used to sign webhook payloads."),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing webhook. Only provided options are changed."""
@@ -247,7 +242,6 @@ def webhooks_update(
 )
 def webhooks_enable(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to enable.")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Enable a disabled webhook."""
@@ -264,7 +258,6 @@ def webhooks_enable(
 )
 def webhooks_disable(
     webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to disable.")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Disable an active webhook."""
@@ -290,7 +283,6 @@ def webhooks_delete(
             help="Skip confirmation prompt.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete a webhook permanently."""

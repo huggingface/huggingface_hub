@@ -40,7 +40,6 @@ from huggingface_hub.utils import (
 )
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     SearchOpt,
     TokenOpt,
     api_object_to_dict,
@@ -239,7 +238,6 @@ def create(
         ),
     ] = False,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a new bucket."""
     api = get_hf_api(token=token)
@@ -323,7 +321,6 @@ def list_cmd(
     ] = False,
     search: SearchOpt = None,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """List buckets or files in a bucket.
 
@@ -466,7 +463,6 @@ def info(
         ),
     ],
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Get info about a bucket."""
     api = get_hf_api(token=token)
@@ -512,7 +508,6 @@ def delete(
         ),
     ] = False,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a bucket.
 
@@ -598,7 +593,6 @@ def remove(
         ),
     ] = None,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Remove files from a bucket.
 
@@ -707,7 +701,6 @@ def move(
         ),
     ],
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
     # Parse from_id
@@ -902,7 +895,6 @@ def cp(
         str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
     ] = None,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Copy files to or from buckets."""
     api = get_hf_api(token=token)

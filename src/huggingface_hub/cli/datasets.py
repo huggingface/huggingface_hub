@@ -37,7 +37,6 @@ from huggingface_hub.repocard import DatasetCard
 from ._cli_utils import (
     AuthorOpt,
     FilterOpt,
-    FormatWithAutoOpt,
     LimitOpt,
     RevisionOpt,
     SearchOpt,
@@ -47,7 +46,7 @@ from ._cli_utils import (
     make_expand_properties_parser,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
@@ -86,7 +85,6 @@ def datasets_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List datasets on the Hub."""
@@ -117,7 +115,6 @@ def datasets_info(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a dataset on the Hub."""
@@ -144,7 +141,6 @@ def datasets_parquet(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     subset: Annotated[str | None, typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
     split: Annotated[str | None, typer.Option(help="Filter parquet entries by split.")] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List parquet file URLs available for a dataset."""
@@ -166,7 +162,6 @@ def datasets_parquet(
 )
 def datasets_sql(
     sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
@@ -190,7 +185,6 @@ def datasets_card(
     dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
     text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get the dataset card (README) for a dataset on the Hub."""

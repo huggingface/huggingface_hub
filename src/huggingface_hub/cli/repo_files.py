@@ -21,7 +21,6 @@ from typing import Annotated
 import typer
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
@@ -30,7 +29,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 repo_files_cli = typer_factory(
@@ -70,7 +69,6 @@ def repo_files_delete(
         ),
     ] = False,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     out.warning("`hf repo-files delete` is deprecated. Use `hf repos delete-files` instead.")
     api = get_hf_api(token=token)

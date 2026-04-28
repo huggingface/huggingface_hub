@@ -22,7 +22,6 @@ from huggingface_hub import logging
 from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -31,7 +30,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -85,7 +84,6 @@ def upload_large_folder(
             help="Whether to disable progress bars.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Upload a large folder to the Hub. Recommended for resumable uploads."""
     if not os.path.isdir(local_path):

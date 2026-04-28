@@ -35,7 +35,6 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundE
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
-    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -51,7 +50,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -157,7 +156,6 @@ def repo_create(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
@@ -214,7 +212,6 @@ def repo_duplicate(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Duplicate a repo on the Hub (model, dataset, or Space)."""
     api = get_hf_api(token=token)
@@ -254,7 +251,6 @@ def repo_delete(
             help="Answer Yes to prompt automatically.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a repo from the Hub. This is an irreversible operation."""
     out.confirm(f"You are about to permanently delete {repo_type.value} '{repo_id}'. Proceed?", yes=yes)
@@ -273,7 +269,6 @@ def repo_move(
     to_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Move a repository from a namespace to another namespace."""
     api = get_hf_api(token=token)
@@ -306,7 +301,6 @@ def repo_settings(
     protected: ProtectedOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Update the settings of a repository."""
     api = get_hf_api(token=token)
@@ -356,7 +350,6 @@ def repo_delete_files(
         ),
     ] = False,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete files from a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -396,7 +389,6 @@ def branch_create(
             help="If set to True, do not raise an error if branch already exists.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a new branch for a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -421,7 +413,6 @@ def branch_delete(
     ],
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a branch from a repo on the Hub."""
     api = get_hf_api(token=token)
@@ -459,7 +450,6 @@ def tag_create(
     revision: RevisionOpt = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Create a tag for a repo."""
     repo_type_str = repo_type.value
@@ -482,7 +472,6 @@ def tag_list(
     repo_id: RepoIdArg,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """List tags for a repo."""
     repo_type_str = repo_type.value
@@ -514,7 +503,6 @@ def tag_delete(
     ] = False,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Delete a tag for a repo."""
     repo_type_str = repo_type.value
