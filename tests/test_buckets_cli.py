@@ -246,7 +246,7 @@ def test_rm_single_file(api: HfApi, bucket_write: str):
 
     result = cli(f"hf buckets rm {bucket_write}/remove.txt --yes")
     assert result.exit_code == 0
-    assert f"delete: {BUCKET_PREFIX}{bucket_write}/remove.txt" in result.output
+    assert "remove.txt" in result.output
 
     assert _remote_files(api, bucket_write) == {"keep.txt"}
 
@@ -427,7 +427,7 @@ def test_move_bucket(api: HfApi, bucket_write: str):
     new_bucket_id = f"{USER}/{bucket_name()}"
     result = cli(f"hf buckets move {bucket_write} {new_bucket_id}")
     assert result.exit_code == 0
-    assert "Bucket moved:" in result.output
+    assert "Bucket moved" in result.output
 
     # Verify move worked - new bucket should exist
     info = api.bucket_info(new_bucket_id)
@@ -506,6 +506,25 @@ def test_bucket_list_error_recursive_with_namespace():
     assert "Cannot use --recursive when listing buckets" in result.output
 
 
+def test_bucket_list_search_error_with_files(tree_bucket: str):
+    """Cannot use --search when listing files."""
+    result = cli(f"hf buckets list {tree_bucket} --search foo")
+    assert result.exit_code != 0
+    assert "Cannot use --search when listing files" in result.output
+
+
+def test_bucket_list_search_term_exists(bucket_read: str, bucket_write: str):
+    search_term = bucket_read.split("/")[1].split("-")[1]  # e.g. 9447e4
+    result = cli(f"hf buckets list {USER} --search {search_term} --quiet")
+    assert bucket_read in result.stdout
+    assert bucket_write not in result.stdout
+
+
+def test_bucket_list_search_term_empty_results():
+    result = cli(f"hf buckets list {USER} --search does-not-exist-1234567890")
+    assert "No results found." in result.stdout
+
+
 # =============================================================================
 # List files
 # =============================================================================
@@ -523,7 +542,7 @@ def _check_list_output(command: str, expected_lines: list[str]) -> None:
     """Run a `hf buckets list` command and assert output matches expected lines exactly."""
     result = cli(command)
     assert result.exit_code == 0
-    actual = [line for line in result.output.splitlines() if line.strip()]
+    actual = [line for line in result.stdout.splitlines() if line.strip()]
     assert actual == expected_lines
 
 
@@ -664,7 +683,7 @@ def test_list_files_empty_bucket(api: HfApi):
 
 
 def test_list_files_quiet(tree_bucket: str):
-    """--quiet prints one filename per line."""
+    """--quiet prints one path per line."""
     _check_list_output(
         f"hf buckets list {tree_bucket} -R --quiet",
         [
@@ -757,7 +776,7 @@ def test_cp_upload_file_to_bucket_root(api: HfApi, tmp_path: Path):
 
     result = cli(f"hf buckets cp {local_file} hf://buckets/{bucket_id}")
     assert result.exit_code == 0
-    assert "Uploaded:" in result.output
+    assert "Uploaded" in result.output
 
     # Verify file exists in bucket with basename as remote path
     files = {f.path for f in api.list_bucket_tree(bucket_id)}
@@ -814,7 +833,7 @@ def test_cp_upload_from_stdin(api: HfApi):
 
     result = cli(f"hf buckets cp - hf://buckets/{bucket_id}/from-stdin.txt", input="stdin data")
     assert result.exit_code == 0
-    assert "Uploaded:" in result.output
+    assert "Uploaded" in result.output
 
 
 # -- Download tests --
@@ -825,7 +844,7 @@ def test_cp_download_to_explicit_file(bucket_with_files: str, tmp_path: Path):
     output_file = tmp_path / "output.txt"
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/file.txt {output_file}")
     assert result.exit_code == 0
-    assert "Downloaded:" in result.output
+    assert "Downloaded" in result.output
     assert output_file.read_text() == "hello"
 
 

@@ -32,6 +32,7 @@ import typer
 from huggingface_hub._dataset_viewer import execute_raw_sql_query
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
+from huggingface_hub.repocard import DatasetCard
 
 from ._cli_utils import (
     AuthorOpt,
@@ -72,6 +73,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
+        "hf datasets ls --filter benchmark:official",
     ],
 )
 def datasets_ls(
@@ -173,3 +175,32 @@ def datasets_sql(
     except ImportError as e:
         raise CLIError(str(e)) from e
     out.table(result)
+
+
+@datasets_cli.command(
+    "card",
+    examples=[
+        "hf datasets card HuggingFaceFW/fineweb",
+        "hf datasets card HuggingFaceFW/fineweb --metadata",
+        "hf datasets card HuggingFaceFW/fineweb --metadata --format json",
+        "hf datasets card HuggingFaceFW/fineweb --text",
+    ],
+)
+def datasets_card(
+    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    token: TokenOpt = None,
+) -> None:
+    """Get the dataset card (README) for a dataset on the Hub."""
+    if metadata and text:
+        raise CLIError("--metadata and --text are mutually exclusive.")
+    card = DatasetCard.load(dataset_id, token=token)
+    if metadata:
+        out.dict(card.data.to_dict())
+    elif text:
+        out.text(card.text)
+    else:
+        out.text(card.content)
+        out.hint(f"Use `hf datasets card {dataset_id} --metadata` to extract only the card metadata.")
