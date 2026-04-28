@@ -11,19 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Centralized parser for Hugging Face Hub URIs (``hf://...``).
+"""Centralized parser for Hugging Face Hub URIs ('hf://...').
 
-A *HF URI* is a URI-like string that identifies a location on the Hugging Face
+A HF URI is a URI-like string that identifies a location on the Hugging Face
 Hub: a model/dataset/space/kernel repository, a bucket, optionally a revision,
 optionally a path inside the repo or bucket, and optionally a local mount path
-with a ``:ro``/``:rw`` flag (used by Spaces and Jobs volumes).
+with a ':ro'/':rw' flag (used by Spaces and Jobs volumes).
 
-Canonical syntax::
+Canonical syntax:
 
-    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+```
+hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+```
 
-See ``docs/source/en/package_reference/hf_uris.md`` for the full grammar and
-examples.
+See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examples.
 """
 
 import re
@@ -37,46 +38,46 @@ from ._validators import validate_repo_id
 
 
 # Inverse map (singular → plural URI prefix). Built once from the canonical
-# ``constants.HF_URI_TYPE_PREFIXES`` and used to render URIs.
+# 'constants.HF_URI_TYPE_PREFIXES' and used to render URIs.
 _TYPE_TO_PREFIX: dict[constants.HfUriType, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIXES.items()}
 
-# Same map but typed as ``dict[str, str]`` so it can be indexed with arbitrary
+# Same map but typed as 'dict[str, str]' so it can be indexed with arbitrary
 # strings without confusing the type-checker (used only to suggest the plural
-# form when the user wrote a singular type like ``hf://dataset/...``).
+# form when the user wrote a singular type like 'hf://dataset/...').
 _PLURAL_FROM_SINGULAR_NAME: dict[str, str] = {str(k): v for k, v in _TYPE_TO_PREFIX.items()}
 
-# Special revisions that contain a ``/``. They take precedence when splitting
-# the part after ``@`` into ``<revision>/<path-in-repo>``. Matches ``refs/pr/N``
-# (Pull Request refs) and ``refs/convert/<name>`` (e.g. parquet conversions).
+# Special revisions that contain a '/'. They take precedence when splitting
+# the part after '@' into '<revision>/<path-in-repo>'. Matches 'refs/pr/N'
+# (Pull Request refs) and 'refs/convert/<name>' (e.g. parquet conversions).
 _SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/\w+|pr/\d+)")
 
 
 @dataclass(frozen=True)
 class HfUri:
-    """Parsed representation of a Hugging Face Hub URI (``hf://...``).
+    """Parsed representation of a Hugging Face Hub URI ('hf://...').
 
     Attributes:
         type (`str`):
-            One of ``"model"``, ``"dataset"``, ``"space"``, ``"kernel"`` or ``"bucket"``.
+            One of '"model"', '"dataset"', '"space"', '"kernel"' or '"bucket"'.
         id (`str`):
-            The repository id (e.g. ``"gpt2"`` or ``"my-org/my-model"``) for repo
-            URIs, or the bucket id (always ``"namespace/name"``) for bucket URIs.
+            The repository id (e.g. '"gpt2"' or '"my-org/my-model"') for repo
+            URIs, or the bucket id (always '"namespace/name"') for bucket URIs.
             Use the [`repo_id`] and [`bucket_id`] convenience properties when
             relevant.
         revision (`str`, *optional*):
-            The revision specified after ``@`` in the URI, URL-decoded.
-            ``None`` if no revision was specified, or for bucket URIs (which
-            never carry a revision). Special refs like ``"refs/pr/10"`` and
-            ``"refs/convert/parquet"`` are preserved as-is.
+            The revision specified after '@' in the URI, URL-decoded.
+            'None' if no revision was specified, or for bucket URIs (which
+            never carry a revision). Special refs like '"refs/pr/10"' and
+            '"refs/convert/parquet"' are preserved as-is.
         path_in_repo (`str`):
             The path inside the repo or bucket. Empty string if the URI
             points at the root.
         mount_path (`str`, *optional*):
-            The local mount path specified after ``:`` (always starts with ``/``).
-            ``None`` if the URI is a plain location URI.
+            The local mount path specified after ':' (always starts with '/').
+            'None' if the URI is a plain location URI.
         read_only (`bool`, *optional*):
-            ``True`` if the URI ends with ``:ro``, ``False`` if it ends with
-            ``:rw``, ``None`` if no read/write flag was provided.
+            'True' if the URI ends with ':ro', 'False' if it ends with
+            ':rw', 'None' if no read/write flag was provided.
     """
 
     type: constants.HfUriType
@@ -88,12 +89,12 @@ class HfUri:
 
     @property
     def is_bucket(self) -> bool:
-        """``True`` if this URI points at a bucket."""
+        """'True' if this URI points at a bucket."""
         return self.type == "bucket"
 
     @property
     def is_repo(self) -> bool:
-        """``True`` if this URI points at a repository (model, dataset, space or kernel)."""
+        """'True' if this URI points at a repository (model, dataset, space or kernel)."""
         return self.type != "bucket"
 
     @property
@@ -121,10 +122,10 @@ class HfUri:
         return self.to_string()
 
     def to_string(self) -> str:
-        """Render the URI as a canonical ``hf://`` string.
+        """Render the URI as a canonical 'hf://' string.
 
-        The type prefix is always written explicitly (e.g. ``hf://models/gpt2``,
-        not ``hf://gpt2``). Round-tripping ``parse_hf_uri(uri.to_string())``
+        The type prefix is always written explicitly (e.g. 'hf://models/gpt2',
+        not 'hf://gpt2'). Round-tripping 'parse_hf_uri(uri.to_string())'
         always yields the same URI.
         """
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]
@@ -142,19 +143,19 @@ class HfUri:
 
 
 def parse_hf_uri(uri: str) -> HfUri:
-    """Parse a Hugging Face Hub URI (``hf://...``).
+    """Parse a Hugging Face Hub URI ('hf://...').
 
     A HF URI is a URI-like string identifying a location on the Hugging Face
     Hub. The full grammar is::
 
         hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
 
-    See ``docs/source/en/package_reference/hf_uris.md`` for the full
+    See 'docs/source/en/package_reference/hf_uris.md' for the full
     specification.
 
     Args:
         uri (`str`):
-            The URI to parse. Must start with ``hf://``.
+            The URI to parse. Must start with 'hf://'.
 
     Returns:
         [`HfUri`]: the parsed URI.
@@ -195,10 +196,10 @@ def parse_hf_uri(uri: str) -> HfUri:
 
 
 def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
-    """Split the ``:<MOUNT_PATH>[:ro|:rw]`` suffix from ``body``.
+    """Split the ':<MOUNT_PATH>[:ro|:rw]' suffix from 'body'.
 
-    Returns ``(location, mount_path, read_only)`` where ``mount_path`` is
-    ``None`` if no mount segment is present.
+    Returns '(location, mount_path, read_only)' where 'mount_path' is
+    'None' if no mount segment is present.
     """
     read_only: bool | None = None
     if body.endswith(":ro"):
@@ -208,9 +209,9 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
         read_only = False
         body = body[:-3]
 
-    # Mount paths always start with '/', so the delimiter is ``:/``. We use
+    # Mount paths always start with '/', so the delimiter is ':/'. We use
     # rfind() because the mount segment is always trailing — paths inside
-    # repos may technically contain ``:`` characters.
+    # repos may technically contain ':' characters.
     idx = body.rfind(":/")
     if idx == -1:
         if read_only is not None:
@@ -233,10 +234,10 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
 
 
 def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
-    """Detect the (optional) type prefix and return ``(type, remaining_location)``.
+    """Detect the (optional) type prefix and return '(type, remaining_location)'.
 
-    A missing type prefix defaults to ``"model"``. Singular forms (``model/``,
-    ``dataset/``, etc.) are explicitly rejected with a helpful error.
+    A missing type prefix defaults to '"model"'. Singular forms ('model/',
+    'dataset/', etc.) are explicitly rejected with a helpful error.
     """
     slash_idx = location.find("/")
     if slash_idx == -1:
@@ -272,7 +273,7 @@ def _parse_bucket_body(
     *,
     raw: str,
 ) -> HfUri:
-    """Parse the body of a bucket URI: ``namespace/name[/path]``."""
+    """Parse the body of a bucket URI: 'namespace/name[/path]'."""
     if "@" in location:
         raise HfUriError(f"Invalid HF URI '{raw}': bucket URIs do not support a revision marker ('@').")
     location = location.strip("/")
@@ -299,7 +300,7 @@ def _parse_repo_body(
     *,
     raw: str,
 ) -> HfUri:
-    """Parse the body of a repo URI: ``<repo_id>[@<revision>][/<path>]``."""
+    """Parse the body of a repo URI: '<repo_id>[@<revision>][/<path>]'."""
     location = location.strip("/")
     if not location:
         raise HfUriError(f"Invalid HF URI '{raw}': missing repository id.")
