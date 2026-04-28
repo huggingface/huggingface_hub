@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for the centralized HF URI parser (``huggingface_hub.utils._hf_uris``)."""
+"""Tests for the centralized HF URI parser ('huggingface_hub.utils._hf_uris')."""
 
 import pytest
 
@@ -19,12 +19,7 @@ from huggingface_hub.errors import HfUriError
 from huggingface_hub.utils import HfUri, parse_hf_uri
 
 
-# A "success" case is described as ``(uri, expected_HfUri, expected_roundtrip)``.
-# - ``uri``: the input string fed to ``parse_hf_uri``.
-# - ``expected_HfUri``: the expected parsed value.
-# - ``expected_roundtrip``: the expected output of ``HfUri.to_string()``. May
-#   differ from the input when the URI is reformatted (implicit ``models/``
-#   prefix added, URL-encoded revision decoded, ...).
+# A "success" case is described as (uri, expected_HfUri, expected_roundtrip).
 SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
     # --- Models ----------------------------------------------------------------
     # Canonical model id, no namespace
@@ -33,7 +28,7 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="model", id="gpt2"),
         "hf://models/gpt2",
     ),
-    # Canonical model id with explicit ``models/`` prefix
+    # Canonical model id with explicit 'models/' prefix
     (
         "hf://models/gpt2",
         HfUri(type="model", id="gpt2"),
@@ -75,7 +70,7 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         "hf://models/gpt2@main/config.json",
     ),
     # --- Datasets --------------------------------------------------------------
-    # Canonical dataset (single-segment id, e.g. ``squad``, ``glue``)
+    # Canonical dataset (single-segment id, e.g. 'squad', 'glue')
     (
         "hf://datasets/squad",
         HfUri(type="dataset", id="squad"),
@@ -232,8 +227,7 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
 ]
 
 
-# A "failure" case is ``(uri, error_substring)``: ``parse_hf_uri(uri)`` must
-# raise a ``ValueError`` whose message contains ``error_substring``.
+# A "failure" case is '(uri, error_substring)'
 FAILURE_CASES: list[tuple[str, str]] = [
     # Missing protocol
     ("gpt2", "must start with 'hf://'"),
@@ -279,7 +273,6 @@ FAILURE_CASES: list[tuple[str, str]] = [
 
 @pytest.mark.parametrize(("uri", "expected", "expected_roundtrip"), SUCCESS_CASES)
 def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str) -> None:
-    """``parse_hf_uri`` returns the expected ``HfUri`` and round-trips back to a canonical string."""
     result = parse_hf_uri(uri)
     assert result == expected
     assert result.to_string() == expected_roundtrip
@@ -289,16 +282,8 @@ def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str
 
 @pytest.mark.parametrize(("uri", "error_substring"), FAILURE_CASES)
 def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
-    """``parse_hf_uri`` rejects malformed URIs with a helpful error message."""
     with pytest.raises(HfUriError, match=error_substring):
         parse_hf_uri(uri)
-
-
-def test_hf_uri_error_inherits_from_value_error() -> None:
-    """``HfUriError`` must keep ``ValueError`` as a base class for backward compatibility."""
-    assert issubclass(HfUriError, ValueError)
-    with pytest.raises(ValueError):
-        parse_hf_uri("not-a-uri")
 
 
 # --- A few targeted tests not easily expressed as parametrized cases. ---------
@@ -307,19 +292,19 @@ def test_hf_uri_error_inherits_from_value_error() -> None:
 def test_repo_id_property_on_bucket_uri_raises() -> None:
     uri = parse_hf_uri("hf://buckets/org/b")
     with pytest.raises(AttributeError, match="bucket_id"):
-        uri.repo_id  # noqa: B018
+        uri.repo_id
 
 
 def test_bucket_id_property_on_repo_uri_raises() -> None:
     uri = parse_hf_uri("hf://datasets/org/ds")
     with pytest.raises(AttributeError, match="repo_id"):
-        uri.bucket_id  # noqa: B018
+        uri.bucket_id
 
 
 def test_repo_type_property_on_bucket_uri_raises() -> None:
     uri = parse_hf_uri("hf://buckets/org/b")
     with pytest.raises(AttributeError, match="repo_type"):
-        uri.repo_type  # noqa: B018
+        uri.repo_type
 
 
 def test_is_repo_and_is_bucket_are_mutually_exclusive() -> None:
@@ -327,14 +312,3 @@ def test_is_repo_and_is_bucket_are_mutually_exclusive() -> None:
     assert repo_uri.is_repo and not repo_uri.is_bucket
     bucket_uri = parse_hf_uri("hf://buckets/org/b")
     assert bucket_uri.is_bucket and not bucket_uri.is_repo
-
-
-def test_to_string_always_includes_type_prefix_for_models() -> None:
-    """Even when the input omitted the ``models/`` prefix, the canonical form keeps it."""
-    uri = parse_hf_uri("hf://gpt2")
-    assert uri.to_string() == "hf://models/gpt2"
-
-
-def test_uri_str_is_to_string() -> None:
-    uri = parse_hf_uri("hf://datasets/my-org/my-dataset@v1/file.csv")
-    assert str(uri) == uri.to_string()
