@@ -137,7 +137,7 @@ class _Cached(_cached_base):
             return obj
 
 
-class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
+class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[conflicting-metaclass]
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 

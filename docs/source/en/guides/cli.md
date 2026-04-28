@@ -817,6 +817,24 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 
 Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
 
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
+
 ## hf datasets
 
 Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
@@ -830,6 +848,9 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 # Search for datasets
 >>> hf datasets ls --search "code"
 
+# List official benchmark datasets
+>>> hf datasets ls --filter benchmark:official
+
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
 ```
@@ -838,6 +859,24 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 
 ```bash
 >>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
 ```
 
 ### List parquet URLs
@@ -896,6 +935,52 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ```bash
 >>> hf spaces info enzostvs/deepsite
+```
+
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card mteb/leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card mteb/leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --text
+```
+
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
+### Pause a Space
+
+Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
+
+```bash
+>>> hf spaces pause username/my-space
+```
+
+### Restart a Space
+
+Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild the Space from scratch without using the build cache.
+
+```bash
+>>> hf spaces restart username/my-space
+>>> hf spaces restart username/my-space --factory-reboot
+```
+
+### Update Space settings
+
+Use `hf spaces settings` to update the settings of a Space. For example, configure how long the Space stays idle before going to sleep with `--sleep-time` (only available on upgraded hardware — see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details). Run `hf spaces settings --help` to see all supported options.
+
+```bash
+>>> hf spaces settings username/my-space --sleep-time 3600
 ```
 
 ## hf papers
