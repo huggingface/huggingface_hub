@@ -31,7 +31,13 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
 from .errors import BucketNotFoundError, HfHubHTTPError, XetAuthorizationError
-from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
+from .utils import (
+    XetFileData,
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+    parse_datetime,
+)
 from .utils._terminal import StatusLine
 from .utils._xet import XetTokenType, fetch_xet_connection_info_from_repo_info
 
@@ -1323,6 +1329,27 @@ def _normalize_s3_path(s3_url: str) -> str:
     return s3_url
 
 
+def _list_existing_dest_paths(api: "HfApi", bucket_id: str, dest_prefix: str) -> set[str]:
+    """List relative paths already present at the destination, for skip-existing logic."""
+    existing: set[str] = set()
+    prefix = dest_prefix.strip("/")
+    for item in api.list_bucket_tree(bucket_id, prefix=prefix or None, recursive=True):
+        if isinstance(item, BucketFolder):
+            continue
+        path = item.path
+        if prefix:
+            if path.startswith(prefix + "/"):
+                rel_path = path[len(prefix) + 1 :]
+            elif path == prefix:
+                rel_path = path.rsplit("/", 1)[-1] if "/" in path else path
+            else:
+                continue
+        else:
+            rel_path = path
+        existing.add(rel_path)
+    return existing
+
+
 def _compute_import_plan(
     s3_source: str,
     bucket_dest: str,
@@ -1330,26 +1357,47 @@ def _compute_import_plan(
     s3_fs: Any,
     filter_matcher: FilterMatcher,
     status: StatusLine,
+    api: "HfApi | None" = None,
+    skip_existing: bool = False,
 ) -> SyncPlan:
     """Compute an import plan by listing S3 files and building a SyncPlan.
 
     Each file to import becomes a SyncOperation with action="upload".
+
+    When ``skip_existing`` is True, files already present at the destination
+    (matched by relative path) are excluded from the plan.
     """
     s3_raw = _normalize_s3_path(s3_source)
     s3_bucket_name = s3_raw.split("/")[0]
     s3_prefix = s3_raw[len(s3_bucket_name) :].strip("/")
     full_s3_prefix = f"{s3_bucket_name}/{s3_prefix}" if s3_prefix else s3_bucket_name
 
+    existing_dest_paths: set[str] = set()
+    if skip_existing:
+        if api is None:
+            raise ValueError("`api` is required when `skip_existing=True`.")
+        bucket_id, dest_prefix = _parse_bucket_path(bucket_dest)
+        status.update("Listing existing destination files...")
+        existing_dest_paths = _list_existing_dest_paths(api, bucket_id, dest_prefix)
+        status.done(f"Found {len(existing_dest_paths)} files already at destination (will be skipped)")
+
     status.update("Listing S3 files...")
 
     all_files: list[tuple[str, int]] = []
+    skipped_existing = 0
     for rel_path, size in _list_s3_files(s3_fs, full_s3_prefix, prefix=full_s3_prefix):
         if not filter_matcher.matches(rel_path):
+            continue
+        if skip_existing and rel_path in existing_dest_paths:
+            skipped_existing += 1
             continue
         all_files.append((rel_path, size))
         status.update(f"Listing S3 files ({len(all_files)} found)")
 
-    status.done(f"Found {len(all_files)} files in S3")
+    if skip_existing and skipped_existing:
+        status.done(f"Found {len(all_files)} files in S3 (skipped {skipped_existing} already at destination)")
+    else:
+        status.done(f"Found {len(all_files)} files in S3")
 
     import_plan = SyncPlan(
         source=s3_source,
@@ -1462,96 +1510,122 @@ def _execute_import_plan(
                 return None
             return op.path, local_tmp, op.size or 0
         except Exception as e:
-            logger.warning(f"Failed to download s3://{s3_key}: {e}")
-            return None
-
-    with tempfile.TemporaryDirectory(prefix="hf-s3-import-") as tmp_dir:
-        for batch_index, batch in enumerate(batches, start=1):
-            status.update(f"Batch {batch_index}/{len(batches)}: downloading {len(batch)} files from S3")
-
-            downloaded: list[tuple[str, str, int]] = []
-
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = {executor.submit(_download_one, op, tmp_dir): op for op in batch}
-                for future in as_completed(futures):
-                    result = future.result()
-                    if result is not None:
-                        downloaded.append(result)
-                    else:
-                        stats.files_failed += 1
-
-            if not downloaded:
-                continue
-
-            add_files: list[tuple[str | Path | bytes, str]] = []
-            downloaded_by_dest: dict[str, tuple[str, str, int]] = {}
-            for rel_path, local_tmp, size in downloaded:
-                remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
-                add_files.append((local_tmp, remote_dest))
-                downloaded_by_dest[remote_dest] = (rel_path, local_tmp, size)
-
-            status.update(f"Batch {batch_index}/{len(batches)}: uploading {len(add_files)} files to HF bucket")
-
-            # Upload with retry: on failure, split the batch in half and retry each sub-batch.
-            # This isolates problematic files (e.g. directories) instead of failing the whole batch.
-            upload_queue: list[list[tuple[str | Path | bytes, str]]] = [add_files]
-            succeeded_dests: set[str] = set()
-            while upload_queue:
-                chunk = upload_queue.pop(0)
-                try:
-                    if quiet:
-                        disable_progress_bars()
-                    try:
-                        api.batch_bucket_files(bucket_id, add=chunk)
-                    finally:
-                        if quiet:
-                            enable_progress_bars()
-                    succeeded_dests.update(dest for _, dest in chunk)
-                except Exception as e:
-                    # Auth failures will never be resolved by splitting the batch. Re-raise
-                    # immediately to avoid hammering /xet-write-token with recursive retries.
-                    if isinstance(e, XetAuthorizationError):
-                        raise
-                    if (
-                        isinstance(e, HfHubHTTPError)
-                        and e.response is not None
-                        and e.response.status_code in (401, 403)
-                    ):
-                        raise
-                    if len(chunk) == 1:
-                        _, dest = chunk[0]
-                        logger.error(f"Failed to upload file '{dest}': {e}")
-                    else:
-                        mid = len(chunk) // 2
-                        logger.warning(
-                            f"Batch upload failed ({e}), splitting {len(chunk)} files into"
-                            f" sub-batches of {mid} and {len(chunk) - mid} and retrying"
-                        )
-                        upload_queue.append(chunk[:mid])
-                        upload_queue.append(chunk[mid:])
-
-            for dest in succeeded_dests:
-                rel_path, local_tmp, size = downloaded_by_dest[dest]
-                stats.files_transferred += 1
-                stats.bytes_transferred += size
-                if verbose:
-                    print(f"  {rel_path} ({_format_size(size, human_readable=True)})")
-            failed_count = len(downloaded_by_dest) - len(succeeded_dests)
-            stats.files_failed += failed_count
-
-            for _, local_tmp, _ in downloaded:
+            # Best-effort cleanup of any partial bytes left on disk so the buffer
+            # budget isn't silently consumed by failed downloads.
+            if os.path.isfile(local_tmp):
                 try:
                     os.remove(local_tmp)
                 except OSError:
                     pass
+            logger.warning(f"Failed to download s3://{s3_key}: {e}")
+            return None
 
-            elapsed = time.monotonic() - start_time
-            throughput = (stats.bytes_transferred / (1024 * 1024)) / elapsed if elapsed > 0 else 0
-            status.update(
-                f"Progress: {stats.files_transferred}/{total_files} files, "
-                f"{_format_size(stats.bytes_transferred, human_readable=True)}, "
-                f"{throughput:.1f} MB/s"
-            )
+    # Disable hf_xet's per-batch tqdm progress bars during import. The reporter creates
+    # ~12 bars per batch which (1) flood non-TTY logs (HF Jobs UI becomes unresponsive)
+    # and (2) reset on every batch, providing little value vs. the batch-level summary
+    # we emit ourselves with throughput.
+    progress_bars_were_disabled = are_progress_bars_disabled()
+    if not progress_bars_were_disabled:
+        disable_progress_bars()
+
+    try:
+        for batch_index, batch in enumerate(batches, start=1):
+            # One TemporaryDirectory per batch: guarantees full cleanup between batches
+            # so the local buffer is fully reclaimed before the next batch starts (even
+            # if individual file removals failed silently in the previous batch).
+            with tempfile.TemporaryDirectory(prefix="hf-s3-import-") as tmp_dir:
+                batch_start = time.monotonic()
+                status.log(
+                    f"Batch {batch_index}/{len(batches)}: downloading {len(batch)} files from S3",
+                    force=True,
+                )
+
+                downloaded: list[tuple[str, str, int]] = []
+
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    futures = {executor.submit(_download_one, op, tmp_dir): op for op in batch}
+                    for future in as_completed(futures):
+                        result = future.result()
+                        if result is not None:
+                            downloaded.append(result)
+                        else:
+                            stats.files_failed += 1
+
+                if not downloaded:
+                    continue
+
+                add_files: list[tuple[str | Path | bytes, str]] = []
+                downloaded_by_dest: dict[str, tuple[str, str, int]] = {}
+                batch_bytes = 0
+                for rel_path, local_tmp, size in downloaded:
+                    remote_dest = f"{dest_prefix}/{rel_path}" if dest_prefix else rel_path
+                    add_files.append((local_tmp, remote_dest))
+                    downloaded_by_dest[remote_dest] = (rel_path, local_tmp, size)
+                    batch_bytes += size
+
+                status.log(
+                    f"Batch {batch_index}/{len(batches)}: uploading {len(add_files)} files to HF bucket",
+                )
+
+                # Upload with retry: on failure, split the batch in half and retry each sub-batch.
+                # This isolates problematic files (e.g. directories) instead of failing the whole batch.
+                upload_queue: list[list[tuple[str | Path | bytes, str]]] = [add_files]
+                succeeded_dests: set[str] = set()
+                while upload_queue:
+                    chunk = upload_queue.pop(0)
+                    try:
+                        api.batch_bucket_files(bucket_id, add=chunk)
+                        succeeded_dests.update(dest for _, dest in chunk)
+                    except Exception as e:
+                        # Auth failures will never be resolved by splitting the batch. Re-raise
+                        # immediately to avoid hammering /xet-write-token with recursive retries.
+                        if isinstance(e, XetAuthorizationError):
+                            raise
+                        if (
+                            isinstance(e, HfHubHTTPError)
+                            and e.response is not None
+                            and e.response.status_code in (401, 403)
+                        ):
+                            raise
+                        if len(chunk) == 1:
+                            _, dest = chunk[0]
+                            logger.error(f"Failed to upload file '{dest}': {e}")
+                        else:
+                            mid = len(chunk) // 2
+                            logger.warning(
+                                f"Batch upload failed ({e}), splitting {len(chunk)} files into"
+                                f" sub-batches of {mid} and {len(chunk) - mid} and retrying"
+                            )
+                            upload_queue.append(chunk[:mid])
+                            upload_queue.append(chunk[mid:])
+
+                for dest in succeeded_dests:
+                    rel_path, local_tmp, size = downloaded_by_dest[dest]
+                    stats.files_transferred += 1
+                    stats.bytes_transferred += size
+                    if verbose:
+                        print(f"  {rel_path} ({_format_size(size, human_readable=True)})")
+                failed_count = len(downloaded_by_dest) - len(succeeded_dests)
+                stats.files_failed += failed_count
+
+                # Per-batch summary with both recent (this batch) and overall throughput.
+                # Forced log so each batch emits exactly one progress line in non-TTY,
+                # which keeps the Hub Jobs UI responsive even on long imports.
+                batch_elapsed = max(time.monotonic() - batch_start, 1e-6)
+                elapsed = max(time.monotonic() - start_time, 1e-6)
+                batch_throughput = (batch_bytes / (1024 * 1024)) / batch_elapsed
+                avg_throughput = (stats.bytes_transferred / (1024 * 1024)) / elapsed
+                status.log(
+                    f"Batch {batch_index}/{len(batches)} done | "
+                    f"{stats.files_transferred}/{total_files} files | "
+                    f"{_format_size(stats.bytes_transferred, human_readable=True)} | "
+                    f"batch {batch_throughput:.1f} MB/s, avg {avg_throughput:.1f} MB/s",
+                    force=True,
+                )
+            # tmp_dir torn down here — buffer fully reclaimed before next batch.
+    finally:
+        if not progress_bars_were_disabled:
+            enable_progress_bars()
 
     stats.elapsed_seconds = time.monotonic() - start_time
     status.done(stats.summary_str())
@@ -1573,6 +1647,7 @@ def import_from_s3(
     dry_run: bool = False,
     plan: str | None = None,
     apply: str | None = None,
+    skip_existing: bool = False,
     verbose: bool = False,
     quiet: bool = False,
     workers: int = 4,
@@ -1616,6 +1691,9 @@ def import_from_s3(
         buffer_size (`int`, *optional*):
             Maximum local temporary disk space in bytes. Fails early if any single file exceeds this
             limit, and constrains batch sizes to stay within budget.
+        skip_existing (`bool`):
+            Skip files whose path already exists at the destination. Useful for resuming
+            interrupted imports without re-transferring already-uploaded files.
         token:
             HF token override.
 
@@ -1658,6 +1736,19 @@ def import_from_s3(
             )
 
         status = StatusLine(enabled=not quiet)
+
+        if skip_existing:
+            bucket_id, dest_prefix = _parse_bucket_path(import_plan.dest)
+            status.update("Listing existing destination files...")
+            existing = _list_existing_dest_paths(api, bucket_id, dest_prefix)
+            if existing:
+                before = len(import_plan.operations)
+                import_plan.operations = [
+                    op for op in import_plan.operations if not (op.action == "upload" and op.path in existing)
+                ]
+                skipped = before - len(import_plan.operations)
+                status.done(f"Skipping {skipped} file(s) already present at destination")
+
         if not quiet:
             _print_plan_summary(import_plan)
             print("Executing plan...")
@@ -1716,6 +1807,8 @@ def import_from_s3(
         s3_fs=s3,
         filter_matcher=filter_matcher,
         status=status,
+        api=api,
+        skip_existing=skip_existing,
     )
 
     if dry_run:

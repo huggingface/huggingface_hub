@@ -725,3 +725,139 @@ class TestAuthFailureFastFail:
 
         # Generic error: 1 (full batch, fails) + 2 (each file as its own chunk) = 3 calls.
         assert api.batch_bucket_files.call_count == 3
+
+
+class TestSkipExistingAndBuffer:
+    def test_skip_existing_filters_planned_uploads(self):
+        """--skip-existing must drop S3 files whose path already exists at the destination."""
+        api = MagicMock()
+        # Destination already has "old.txt"; "new.txt" still needs to be transferred.
+        existing_file = MagicMock()
+        existing_file.path = "old.txt"
+        api.list_bucket_tree.return_value = iter([existing_file])
+
+        mock_s3fs_module, _ = _make_s3_mocks(
+            [
+                {"name": "my-bucket/old.txt", "type": "file", "size": 100},
+                {"name": "my-bucket/new.txt", "type": "file", "size": 200},
+            ]
+        )
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            from huggingface_hub._buckets import SyncPlan
+
+            result = import_from_s3(
+                s3_source="s3://my-bucket",
+                bucket_dest="hf://buckets/user/my-bucket",
+                api=api,
+                skip_existing=True,
+                dry_run=True,
+            )
+
+        assert isinstance(result, SyncPlan)
+        paths = [op.path for op in result.operations]
+        assert paths == ["new.txt"]
+
+    def test_skip_existing_in_apply_mode_drops_existing_ops(self):
+        """When applying a saved plan with --skip-existing, ops for existing files must be dropped."""
+        api = MagicMock()
+        existing_file = MagicMock()
+        existing_file.path = "already-there.txt"
+        api.list_bucket_tree.return_value = iter([existing_file])
+
+        plan_content = [
+            json.dumps(
+                {
+                    "type": "header",
+                    "source": "s3://my-bucket",
+                    "dest": "hf://buckets/user/my-bucket",
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "summary": {"uploads": 2, "downloads": 0, "deletes": 0, "skips": 0, "total_size": 10},
+                }
+            ),
+            json.dumps(
+                {"type": "operation", "action": "upload", "path": "already-there.txt", "size": 5, "reason": "new file"}
+            ),
+            json.dumps(
+                {"type": "operation", "action": "upload", "path": "fresh.txt", "size": 5, "reason": "new file"}
+            ),
+        ]
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write("\n".join(plan_content) + "\n")
+            plan_file = f.name
+
+        mock_s3 = MagicMock()
+
+        def mock_get(s3_key, local_path):
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "w") as f:
+                f.write("hello")
+
+        mock_s3.get = mock_get
+        mock_s3fs_module = MagicMock()
+        mock_s3fs_module.S3FileSystem = MagicMock(return_value=mock_s3)
+
+        try:
+            with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+                stats = import_from_s3(
+                    api=api,
+                    apply=plan_file,
+                    skip_existing=True,
+                    quiet=True,
+                )
+        finally:
+            os.unlink(plan_file)
+
+        # Only the non-existing file should be transferred.
+        assert isinstance(stats, ImportStats)
+        assert stats.files_transferred == 1
+        assert api.batch_bucket_files.call_count == 1
+        add_list = api.batch_bucket_files.call_args[1]["add"]
+        assert [dest for _, dest in add_list] == ["fresh.txt"]
+
+    def test_per_batch_tmp_dir_is_cleaned_up(self):
+        """Buffer is reclaimed between batches: the per-batch tmp dir must not leak across batches."""
+        import tempfile as _tf
+
+        api = MagicMock()
+        mock_s3fs_module, mock_s3 = _make_s3_mocks(
+            [
+                {"name": "my-bucket/a.bin", "type": "file", "size": 600},
+                {"name": "my-bucket/b.bin", "type": "file", "size": 600},
+            ]
+        )
+
+        seen_tmp_dirs: list[str] = []
+
+        def mock_get(s3_key, local_path):
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "wb") as f:
+                f.write(b"x" * 600)
+            # Track which tmp dirs got used during the import.
+            tmp_root = local_path
+            while os.path.basename(tmp_root) and not os.path.basename(tmp_root).startswith("hf-s3-import-"):
+                tmp_root = os.path.dirname(tmp_root)
+            if tmp_root and tmp_root not in seen_tmp_dirs:
+                seen_tmp_dirs.append(tmp_root)
+
+        mock_s3.get = mock_get
+
+        with patch.dict("sys.modules", {"s3fs": mock_s3fs_module}):
+            stats = import_from_s3(
+                s3_source="s3://my-bucket",
+                bucket_dest="hf://buckets/user/my-bucket",
+                api=api,
+                buffer_size=1000,  # Forces 2 batches of 1 file each
+                quiet=True,
+            )
+
+        assert isinstance(stats, ImportStats)
+        assert stats.files_transferred == 2
+        # Each batch uses its own TemporaryDirectory, so the two batches must NOT share a tmp dir...
+        assert len(seen_tmp_dirs) == 2
+        # ...and once the import finishes, every tmp dir must be gone (TemporaryDirectory cleanup).
+        for d in seen_tmp_dirs:
+            assert not os.path.exists(d), f"tmp dir was not cleaned up: {d}"
+        # Sanity: the parent (system tmp) still exists.
+        assert os.path.exists(_tf.gettempdir())

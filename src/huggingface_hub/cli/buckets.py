@@ -1016,6 +1016,7 @@ def cp(
         "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl",
         "hf buckets import --apply import-plan.jsonl",
         "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g",
+        "hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --skip-existing",
     ],
 )
 def import_cmd(
@@ -1083,6 +1084,13 @@ def import_cmd(
             help="Maximum local temporary disk space during import (e.g. '10g', '500m').",
         ),
     ] = None,
+    skip_existing: Annotated[
+        bool,
+        typer.Option(
+            "--skip-existing",
+            help="Skip files already present at the destination (resume an interrupted import).",
+        ),
+    ] = False,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -1114,6 +1122,7 @@ def import_cmd(
         plan=plan,
         apply=apply,
         dry_run=dry_run,
+        skip_existing=skip_existing,
         verbose=verbose,
         quiet=out.mode == OutputFormatWithAuto.quiet,
         workers=workers,

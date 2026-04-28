@@ -379,6 +379,7 @@ $ hf buckets import [OPTIONS] [SOURCE] [DEST]
 * `--filter-from TEXT`: Read include/exclude patterns from file.
 * `-w, --workers INTEGER`: Number of parallel S3 download threads.  [default: 4]
 * `--buffer-size TEXT`: Maximum local temporary disk space during import (e.g. '10g', '500m').
+* `--skip-existing`: Skip files already present at the destination (resume an interrupted import).
 * `-v, --verbose`: Show detailed logging with reasoning.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -392,6 +393,7 @@ Examples
   $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --plan import-plan.jsonl
   $ hf buckets import --apply import-plan.jsonl
   $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --buffer-size 10g
+  $ hf buckets import s3://my-data-bucket hf://buckets/user/my-bucket --skip-existing
 
 Learn more
   Use `hf <command> --help` for more information about a command.
