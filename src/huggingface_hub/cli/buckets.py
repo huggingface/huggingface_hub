@@ -834,14 +834,6 @@ def sync(
             help="Show detailed logging with reasoning.",
         ),
     ] = False,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            "--quiet",
-            "-q",
-            help="Minimal output.",
-        ),
-    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """Sync files between local directory and a bucket."""
@@ -861,9 +853,9 @@ def sync(
         apply=apply,
         dry_run=dry_run,
         verbose=verbose,
-        quiet=quiet,
+        quiet=out.is_quiet(),
     )
-    if plan and not quiet:
+    if plan and not out.is_quiet():
         out.hint(f"Run `hf buckets sync --apply {plan}` to execute this plan.")
 
 

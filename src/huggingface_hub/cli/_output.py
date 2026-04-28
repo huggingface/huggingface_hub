@@ -59,6 +59,9 @@ class Output:
         if mode != OutputFormatWithAuto.human:
             disable_progress_bars()
 
+    def is_quiet(self) -> bool:
+        return self.mode == OutputFormatWithAuto.quiet
+
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
         if msg is not None:
