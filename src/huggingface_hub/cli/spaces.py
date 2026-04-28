@@ -403,7 +403,7 @@ def spaces_sleep(
             f"Sleep time was not applied (returned {runtime.sleep_time}). "
             "Configurable sleep time requires upgraded hardware."
         )
-       return
+        return
     out.result("Sleep time set", space_id=space_id, sleep_time=runtime.sleep_time)
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 

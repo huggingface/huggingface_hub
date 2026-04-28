@@ -2133,6 +2133,7 @@ class TestSpacesLifecycleCommands:
     def test_sleep(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
             api = api_cls.return_value
+            api.set_space_sleep_time.return_value = Mock(sleep_time=300)
             result = runner.invoke(app, ["spaces", "sleep", "user/my-space", "--seconds", "300"])
         assert result.exit_code == 0, result.output
         api_cls.assert_called_once_with(token=None)

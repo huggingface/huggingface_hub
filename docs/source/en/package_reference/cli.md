@@ -3808,7 +3808,7 @@ $ hf spaces sleep [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `--seconds INTEGER`: Idle time in seconds after which the Space goes to sleep. Only available on upgraded hardware.  [required]
+* `--seconds INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.  [required]
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
