@@ -513,7 +513,6 @@ $ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 * `--existing`: Skip creating new files on receiver (only update existing files).
 * `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
 * `-v, --verbose`: Show detailed logging with reasoning.
-* `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -3880,7 +3879,6 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `--existing`: Skip creating new files on receiver (only update existing files).
 * `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
 * `-v, --verbose`: Show detailed logging with reasoning.
-* `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
