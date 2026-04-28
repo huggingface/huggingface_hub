@@ -1053,7 +1053,7 @@ Learn more
 
 ### `hf datasets leaderboard`
 
-List model scores from a dataset leaderboard.
+List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores.
 
 **Usage**:
 
