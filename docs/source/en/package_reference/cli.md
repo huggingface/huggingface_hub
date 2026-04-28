@@ -3712,14 +3712,12 @@ $ hf spaces pause [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `-y, --yes`: Answer Yes to prompt automatically.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces pause username/my-space
-  $ hf spaces pause username/my-space --yes
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3743,15 +3741,13 @@ $ hf spaces restart [OPTIONS] SPACE_ID
 **Options**:
 
 * `--factory-reboot`: Rebuild the Space from scratch without using the build cache.
-* `-y, --yes`: Answer Yes to prompt automatically.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces restart username/my-space
-  $ hf spaces restart username/my-space --yes
-  $ hf spaces restart username/my-space --factory-reboot --yes
+  $ hf spaces restart username/my-space --factory-reboot
 
 Learn more
   Use `hf <command> --help` for more information about a command.

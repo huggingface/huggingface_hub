@@ -964,7 +964,6 @@ Use `hf spaces pause` to pause a Space when you are not using it (paused time is
 
 ```bash
 >>> hf spaces pause username/my-space
->>> hf spaces pause username/my-space --yes
 ```
 
 ### Restart a Space
@@ -973,7 +972,7 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 
 ```bash
 >>> hf spaces restart username/my-space
->>> hf spaces restart username/my-space --factory-reboot --yes
+>>> hf spaces restart username/my-space --factory-reboot
 ```
 
 ### Set Space sleep time

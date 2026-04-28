@@ -300,24 +300,14 @@ def dev_mode(
     "pause",
     examples=[
         "hf spaces pause username/my-space",
-        "hf spaces pause username/my-space --yes",
     ],
 )
 def spaces_pause(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    yes: Annotated[
-        bool,
-        typer.Option(
-            "-y",
-            "--yes",
-            help="Answer Yes to prompt automatically.",
-        ),
-    ] = False,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Pause a Space."""
-    out.confirm(f"You are about to pause Space '{space_id}'. Proceed?", yes=yes)
     api = get_hf_api(token=token)
     runtime = api.pause_space(space_id)
     out.result("Space paused", space_id=space_id, stage=runtime.stage)
@@ -331,8 +321,7 @@ def spaces_pause(
     "restart",
     examples=[
         "hf spaces restart username/my-space",
-        "hf spaces restart username/my-space --yes",
-        "hf spaces restart username/my-space --factory-reboot --yes",
+        "hf spaces restart username/my-space --factory-reboot",
     ],
 )
 def spaces_restart(
@@ -344,25 +333,10 @@ def spaces_restart(
             help="Rebuild the Space from scratch without using the build cache.",
         ),
     ] = False,
-    yes: Annotated[
-        bool,
-        typer.Option(
-            "-y",
-            "--yes",
-            help="Answer Yes to prompt automatically.",
-        ),
-    ] = False,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Restart a Space."""
-    if factory_reboot:
-        prompt = (
-            f"You are about to restart Space '{space_id}' with a factory reboot (build cache will be wiped). Proceed?"
-        )
-    else:
-        prompt = f"You are about to restart Space '{space_id}'. Proceed?"
-    out.confirm(prompt, yes=yes)
     api = get_hf_api(token=token)
     runtime = api.restart_space(space_id, factory_reboot=factory_reboot)
     out.result(
