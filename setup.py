@@ -53,6 +53,7 @@ extras["s3"] = ["s3fs"]
 
 extras["testing"] = (
     extras["oauth"]
+    + extras["s3"]
     + [
         "jedi",
         "Jinja2",
