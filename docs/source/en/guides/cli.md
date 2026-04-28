@@ -855,6 +855,15 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 >>> hf datasets ls --sort downloads --limit 10
 ```
 
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+```
+
 ### Get dataset info
 
 ```bash
