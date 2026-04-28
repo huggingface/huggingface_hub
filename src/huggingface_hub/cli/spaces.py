@@ -398,12 +398,6 @@ def spaces_sleep(
     """Set the idle sleep time for a Space."""
     api = get_hf_api(token=token)
     runtime = api.set_space_sleep_time(space_id, sleep_time=seconds)
-    if runtime.sleep_time != seconds:
-        out.warning(
-            f"Sleep time was not applied (returned {runtime.sleep_time}). "
-            "Configurable sleep time requires upgraded hardware."
-        )
-        return
     out.result("Sleep time set", space_id=space_id, sleep_time=runtime.sleep_time)
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
