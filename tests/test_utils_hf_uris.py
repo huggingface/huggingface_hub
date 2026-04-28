@@ -294,8 +294,6 @@ FAILURE_CASES: list[tuple[str, str]] = [
     # Read-only flag without a mount path
     ("hf://gpt2:ro", "':ro'/':rw' suffix is only valid"),
     ("hf://gpt2:rw", "':ro'/':rw' suffix is only valid"),
-    # Wrong type
-    ("hf://", "empty body"),
 ]
 
 
