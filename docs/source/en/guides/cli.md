@@ -114,6 +114,18 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 
 Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
+### Updating
+
+To upgrade to the latest version, run:
+
+```bash
+>>> hf update
+```
+
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+
+By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
+
 ## hf auth login
 
 In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
@@ -574,6 +586,9 @@ username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls my-org
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
 ```
 
 To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
@@ -671,9 +686,9 @@ To filter by prefix, append the prefix to the bucket path:
 >>> hf buckets list username/my-bucket/sub -R
 ```
 
-### Copy single files
+### Copy files
 
-Use `hf buckets cp` to copy individual files to and from a bucket, or to copy any file hosted on the Hub to a Bucket.
+Use `hf buckets cp` to copy local files to and from a bucket, or to copy any files hosted on the Hub to a Bucket.
 
 To upload a file:
 
@@ -715,7 +730,7 @@ To copy from a repo or a bucket on the Hub:
 
 Notes:
 
-- Bucket-to-repo copy is not supported.
+- Bucket-to-repo copy is not yet supported.
 
 ### Sync directories
 
@@ -802,6 +817,24 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 
 Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
 
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
+
 ## hf datasets
 
 Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
@@ -815,14 +848,44 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 # Search for datasets
 >>> hf datasets ls --search "code"
 
+# List official benchmark datasets
+>>> hf datasets ls --filter benchmark:official
+
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
+```
+
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
 ```
 
 ### Get dataset info
 
 ```bash
 >>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
 ```
 
 ### List parquet URLs
@@ -881,6 +944,52 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 ```bash
 >>> hf spaces info enzostvs/deepsite
+```
+
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card mteb/leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card mteb/leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --text
+```
+
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
+### Pause a Space
+
+Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
+
+```bash
+>>> hf spaces pause username/my-space
+```
+
+### Restart a Space
+
+Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild the Space from scratch without using the build cache.
+
+```bash
+>>> hf spaces restart username/my-space
+>>> hf spaces restart username/my-space --factory-reboot
+```
+
+### Update Space settings
+
+Use `hf spaces settings` to update the settings of a Space. For example, configure how long the Space stays idle before going to sleep with `--sleep-time` (only available on upgraded hardware — see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details). Run `hf spaces settings --help` to see all supported options.
+
+```bash
+>>> hf spaces settings username/my-space --sleep-time 3600
 ```
 
 ## hf papers

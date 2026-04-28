@@ -56,6 +56,11 @@ class ReloadOperationUI(TypedDict):
     updated: bool
 
 
+class ReloadOperationFile(TypedDict):
+    kind: Literal["file"]
+    created: bool
+
+
 class ApiCreateReloadRequest(TypedDict):
     filepath: str
     contents: str
@@ -86,6 +91,7 @@ class ApiGetReloadEventSourceData(TypedDict):
         | ReloadOperationObject
         | ReloadOperationRun
         | ReloadOperationUI
+        | ReloadOperationFile
     )
 
 

@@ -194,6 +194,9 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
+HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
+
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
 # as curl commands for reproducibility.
 HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
@@ -246,6 +249,10 @@ HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISA
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
+
+# Bucket and mount path used when launching Jobs
+HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
+HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
 
 # hf_transfer is not used anymore. Let's warn user is case they set the env variable
 if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:

@@ -469,5 +469,9 @@ class CLIError(Exception):
     """CLI error with clean message (no traceback by default)."""
 
 
+class ConfirmationError(CLIError):
+    """Raised when a confirmation prompt is declined (non-interactive mode)."""
+
+
 class CLIExtensionInstallError(CLIError):
     """Error during CLI extension installation."""

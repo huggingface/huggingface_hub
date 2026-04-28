@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import inspect
 import itertools
 import json
@@ -25,10 +24,11 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
 from urllib.parse import quote, unquote
 
@@ -72,7 +72,7 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable, Volume
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -187,6 +187,7 @@ ExpandDatasetProperty_T = Literal[
     "gated",
     "lastModified",
     "likes",
+    "mainSize",
     "paperswithcode_id",
     "private",
     "resourceGroup",
@@ -1141,6 +1142,8 @@ class DatasetInfo:
             Date of last commit to the repo.
         likes (`int`):
             Number of likes of the dataset.
+        main_size (`int`, *optional*):
+            Size in bytes of the main branch of the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
         private (`bool`):
@@ -1171,6 +1174,7 @@ class DatasetInfo:
     gated: Literal["auto", "manual", False] | None
     last_modified: datetime | None
     likes: int | None
+    main_size: int | None
     paperswithcode_id: str | None
     private: bool | None
     resource_group: dict | None
@@ -1194,6 +1198,7 @@ class DatasetInfo:
         self.downloads = kwargs.pop("downloads", None)
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
+        self.main_size = kwargs.pop("mainSize", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
@@ -2327,6 +2332,7 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @_deprecate_arguments(version="2.0", deprecated_args=["model_name"], custom_message="Use `search` instead.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2376,9 +2382,6 @@ class HfApi:
             inference_provider (`Literal["all"]` or `str`, *optional*):
                 A string to filter models on the Hub that are served by a specific provider.
                 Pass `"all"` to get all models served by at least one provider.
-            model_name (`str`, *optional*):
-                A string that contain complete or partial names for models on the
-                Hub, such as "bert" or "bert-base-cased"
             trained_dataset (`str` or `List`, *optional*):
                 A string tag or a list of string tags of the trained dataset for a
                 model on the Hub.
@@ -2418,7 +2421,8 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-
+            model_name (`str`, *optional*):
+                (deprecated). Use `search` instead.
 
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
@@ -2490,7 +2494,7 @@ class HfApi:
         if num_parameters is not None:
             params["num_parameters"] = num_parameters
         search_list = []
-        if model_name:
+        if model_name:  # deprecated
             search_list.append(model_name)
         if search:
             search_list.append(search)
@@ -2608,7 +2612,7 @@ class HfApi:
             expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"mainSize"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2906,6 +2910,65 @@ class HfApi:
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
+    def search_spaces(
+        self,
+        query: str,
+        *,
+        filter: str | Iterable[str] | None = None,
+        sdk: str | list[str] | None = None,
+        include_non_running: bool = False,
+        token: bool | str | None = None,
+    ) -> Iterable[SpaceSearchResult]:
+        """Search Spaces on the Hub using semantic search.
+
+        This endpoint uses semantic search (embedding-based) for multi-word queries
+        and full-text search for single-word queries.
+
+        Args:
+            query (`str`):
+                The search query string.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string tag or list of tags to filter by.
+            sdk (`str` or `list[str]`, *optional*):
+                Filter by SDK (e.g. `"gradio"`, `"docker"`, `"static"`).
+            include_non_running (`bool`, *optional*):
+                Whether to include non-running Spaces in results. Defaults to `False`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[SpaceSearchResult]`: an iterable of [`SpaceSearchResult`] objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> results = list(api.search_spaces("generate image"))
+            >>> results[0].id
+            'mrfakename/Z-Image-Turbo'
+            >>> results[0].ai_category
+            'Image Generation'
+            ```
+        """
+        path = f"{self.endpoint}/api/spaces/semantic-search"
+        headers = self._build_hf_headers(token=token)
+        params: dict[str, Any] = {"q": query}
+        if filter is not None:
+            params["filter"] = filter
+        if sdk is not None:
+            params["sdk"] = sdk
+        if include_non_running:
+            params["includeNonRunning"] = True
+
+        r = get_session().get(path, headers=headers, params=params)
+        hf_raise_for_status(r)
+        for item in r.json():
+            yield SpaceSearchResult(item)
+
+    @validate_hf_hub_args
     def unlike(
         self,
         repo_id: str,
@@ -3178,7 +3241,7 @@ class HfApi:
             expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"mainSize"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7984,6 +8047,179 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    def _stream_sse_events(
+        self,
+        *,
+        url: str,
+        log_label: str,
+        timeout: int,
+        follow: bool,
+        token: bool | str | None = None,
+        skip_previous_events_on_retry: bool = True,
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
+        on_iteration_end: Callable[[], bool] | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        # Shared SSE streaming loop with retry/backoff and event-index dedup.
+        # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
+        #   - on_iteration_end is None: retries are the only backstop (Spaces).
+        #   - on_iteration_end is set: it polls authoritative state after every
+        #     failed iteration; ReadTimeouts/tolerated errors fall through to it
+        #     instead of consuming retries (Jobs).
+        nb_tries = 0
+        max_retries = 5 if follow else 0
+        min_wait_time = 1
+        max_wait_time = 10
+        sleep_time = 0
+        start_event_idx = 0
+        error_to_retry: Exception | None = None
+        while True:
+            if error_to_retry is not None:
+                logger.warning(f"'{error_to_retry}' thrown while requesting {log_label}")
+                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
+                error_to_retry = None
+                time.sleep(sleep_time)
+            try:
+                with get_session().stream(
+                    "GET",
+                    url,
+                    headers=self._build_hf_headers(token=token),
+                    timeout=timeout,
+                ) as response:
+                    if response.status_code == 200:
+                        event_idx = -1
+                        for line in response.iter_lines():
+                            if line and line.startswith("data: {"):
+                                event_idx += 1
+                                if event_idx >= start_event_idx:
+                                    if skip_previous_events_on_retry:
+                                        start_event_idx += 1
+                                    yield json.loads(line[len("data: ") :])
+                        break
+                    elif response.status_code not in tolerated_status_codes:
+                        hf_raise_for_status(response)
+            except HfHubHTTPError:
+                # Permanent HTTP error (404/403/...). Never retry — fail fast.
+                raise
+            except httpx.DecodingError:
+                # Response ended prematurely.
+                break
+            except KeyboardInterrupt:
+                break
+            except (httpx.HTTPError, httpcore.TimeoutException) as err:
+                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
+                if is_no_new_line_timeout and not follow:
+                    break  # no-follow: timeout means the buffer is drained
+                if on_iteration_end is not None:
+                    # Authoritative-state mode: ReadTimeouts and tolerated errors
+                    # fall through to the post-iteration check without consuming
+                    # retries. Note: ReadTimeout is handled here regardless of
+                    # `tolerated_exception_types` — entries in that tuple only
+                    # fire for non-timeout errors.
+                    if is_no_new_line_timeout or type(err) in tolerated_exception_types:
+                        pass
+                    elif nb_tries >= max_retries:
+                        raise
+                    else:
+                        nb_tries += 1
+                        sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                        error_to_retry = err
+                else:
+                    # Retry-only mode: every error in follow mode burns a retry.
+                    if nb_tries >= max_retries:
+                        if is_no_new_line_timeout:
+                            break  # follow mode, silent stream, retries exhausted: give up
+                        raise
+                    nb_tries += 1
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    error_to_retry = err
+            if on_iteration_end is not None and on_iteration_end():
+                break
+
+    def _fetch_space_logs_sse(
+        self,
+        *,
+        repo_id: str,
+        build: bool,
+        timeout: int,
+        follow: bool,
+        token: bool | str | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        log_type = "build" if build else "run"
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/spaces/{repo_id}/logs/{log_type}",
+            log_label=f"spaces /logs/{log_type} for repo_id={repo_id!r}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+        )
+
+    @validate_hf_hub_args
+    def fetch_space_logs(
+        self,
+        repo_id: str,
+        *,
+        build: bool = False,
+        follow: bool = False,
+        token: bool | str | None = None,
+    ) -> Iterable[str]:
+        """Fetch the run or build logs of a Space on the Hub.
+
+        Useful for debugging a Space that is failing to build or crashing at runtime,
+        especially from a script or agentic workflow where reading logs in a browser
+        is not an option.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space. Example: `"bigcode/in-the-stack"`.
+            build (`bool`, *optional*, defaults to `False`):
+                If `True`, fetch the container build logs (useful when a Space is stuck
+                in `BUILD_ERROR`). If `False` (default), fetch the run logs, i.e. the
+                stdout/stderr of the running application.
+            follow (`bool`, *optional*, defaults to `False`):
+                If `True`, stream logs in real-time (blocking) until the server closes
+                the stream or `KeyboardInterrupt` is raised. If `False` (default), fetch
+                only the currently buffered logs and return immediately (non-blocking,
+                like `docker logs`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token, which is
+                the recommended authentication method. Set to `False` to disable
+                authentication. See
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[str]`: A generator yielding log lines as they become available.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import fetch_space_logs
+            >>> # Non-blocking: print currently available run logs and exit.
+            >>> for line in fetch_space_logs("username/my-space"):
+            ...     print(line, end="")
+
+            >>> # Debug a build failure:
+            >>> for line in fetch_space_logs("username/my-space", build=True):
+            ...     print(line, end="")
+
+            >>> # Stream run logs until the server closes the stream.
+            >>> for line in fetch_space_logs("username/my-space", follow=True):
+            ...     print(line, end="")
+            ```
+        """
+        # - Spaces /logs/{run|build} is SSE with `data: {"data": "...", "timestamp": "..."}` events.
+        # - Keep-alives are sent as empty `data:` messages (skipped by the `data: {` filter).
+        # - In no-follow mode we use a short read timeout to drain the buffer and return.
+        timeout = 120 if follow else 5
+        for event in self._fetch_space_logs_sse(
+            repo_id=repo_id,
+            build=build,
+            timeout=timeout,
+            follow=follow,
+            token=token,
+        ):
+            yield event["data"]
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -11198,76 +11434,37 @@ class HfApi:
         route: str,
         timeout: int,
         skip_previous_events_on_retry: bool,
-        double_check_job_has_finished_on_status_code_or_error: tuple[int | type[Exception], ...],
+        tolerated_status_codes: tuple[int, ...] = (),
+        tolerated_exception_types: tuple[type[Exception], ...] = (),
         follow: bool = True,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        # We don't use http_backoff since we need to check ourselves if the job is still running
-        nb_tries = 0
-        max_retries = 5 if follow else 0
-        min_wait_time = 1
-        max_wait_time = 10
-        sleep_time = 0
-        start_event_idx = 0
-        error_to_retry = None
-        while True:
-            if error_to_retry is not None:
-                logger.warning(f"'{error_to_retry}' thrown while requesting jobs /{route} for {job_id=}")
-                logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
-                error_to_retry = None
-                time.sleep(sleep_time)
-            try:
-                with get_session().stream(
-                    "GET",
-                    f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
-                    headers=self._build_hf_headers(token=token),
-                    timeout=timeout,
-                ) as response:
-                    if response.status_code == 200:
-                        event_idx = -1
-                        for line in response.iter_lines():
-                            if line and line.startswith("data: {"):
-                                event_idx += 1
-                                if event_idx >= start_event_idx:
-                                    if skip_previous_events_on_retry:
-                                        start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
-                        break
-                    elif response.status_code not in double_check_job_has_finished_on_status_code_or_error:
-                        hf_raise_for_status(response)
-            except httpx.HTTPStatusError:
-                raise
-            except httpx.DecodingError:
-                # Response ended prematurely
-                break
-            except KeyboardInterrupt:
-                break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
-                if is_no_new_line_timeout:
-                    if not follow:
-                        break  # no-follow mode: got all buffered events
-                    # follow mode: job is likely finished
-                    pass
-                elif type(err) in double_check_job_has_finished_on_status_code_or_error:
-                    pass
-                elif nb_tries >= max_retries:
-                    raise
-                else:
-                    nb_tries += 1
-                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
-                    error_to_retry = err
+
+        def has_job_finished() -> bool:
+            # We don't use http_backoff: this is the authoritative check that
+            # decides whether to keep streaming.
             job_status_response = get_session().get(
                 f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
                 headers=self._build_hf_headers(token=token),
             )
             hf_raise_for_status(job_status_response)
             job_status = job_status_response.json()
-            if "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING"):
-                break
+            return "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING")
+
+        yield from self._stream_sse_events(
+            url=f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
+            log_label=f"jobs /{route} for {job_id=}",
+            timeout=timeout,
+            follow=follow,
+            token=token,
+            skip_previous_events_on_retry=skip_previous_events_on_retry,
+            tolerated_status_codes=tolerated_status_codes,
+            tolerated_exception_types=tolerated_exception_types,
+            on_iteration_end=has_job_finished,
+        )
 
     def fetch_job_logs(
         self,
@@ -11328,7 +11525,6 @@ class HfApi:
             route="logs",
             timeout=timeout,
             skip_previous_events_on_retry=True,
-            double_check_job_has_finished_on_status_code_or_error=tuple(),
             follow=follow,
             namespace=namespace,
             token=token,
@@ -11399,7 +11595,7 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            double_check_job_has_finished_on_status_code_or_error=(500, httpx.ReadTimeout),
+            tolerated_status_codes=(500,),
             namespace=namespace,
             token=token,
         )
@@ -11655,7 +11851,7 @@ class HfApi:
         secrets = secrets or {}
 
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -11664,7 +11860,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.run_job(
             image=image,
@@ -12074,7 +12273,7 @@ class HfApi:
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -12083,7 +12282,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.create_scheduled_job(
             image=image,
@@ -12112,7 +12314,8 @@ class HfApi:
         secrets: dict[str, Any] | None,
         namespace: str | None,
         token: bool | str | None,
-    ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+        volumes: list[Volume] | None = None,
+    ) -> tuple[list[str], dict[str, Any], dict[str, Any], list[Volume]]:
         env = env or {}
         secrets = secrets or {}
 
@@ -12145,50 +12348,85 @@ class HfApi:
         if len(local_files_to_include) == 0:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
-        else:
-            # Find appropriate remote file names
-            remote_to_local_file_names: dict[str, str] = {}
-            for local_file_to_include in local_files_to_include:
-                local_file_path = Path(local_file_to_include)
-                # remove spaces for proper xargs parsing
-                remote_file_path = Path(local_file_path.name.replace(" ", "_"))
-                if remote_file_path.name in remote_to_local_file_names:
-                    for i in itertools.count():
-                        remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
-                        if remote_file_name not in remote_to_local_file_names:
-                            remote_to_local_file_names[remote_file_name] = local_file_to_include
-                            break
-                else:
-                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
-            local_to_remote_file_names = {
-                local_file_to_include: remote_file_name
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
-            }
+            return command, env, secrets, []
 
-            # Replace local paths with remote paths in command
-            if script in local_to_remote_file_names:
-                script = local_to_remote_file_names[script]
-            script_args = [
-                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
-            ]
+        # Find appropriate remote file names
+        remote_to_local_file_names: dict[str, str] = {}
+        for local_file_to_include in local_files_to_include:
+            local_file_path = Path(local_file_to_include)
+            # Sanitize spaces for predictable remote paths
+            remote_file_path = Path(local_file_path.name.replace(" ", "_"))
+            if remote_file_path.name in remote_to_local_file_names:
+                for i in itertools.count():
+                    remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
+                    if remote_file_name not in remote_to_local_file_names:
+                        remote_to_local_file_names[remote_file_name] = local_file_to_include
+                        break
+            else:
+                remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+        local_to_remote_file_names = {
+            local_file_to_include: remote_file_name
+            for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        }
 
-            # Load content to pass as environment variable with format
-            # file1 base64content1
-            # file2 base64content2
-            # ...
-            env["LOCAL_FILES_ENCODED"] = "\n".join(
-                remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        # Local files are shipped to the job via a bucket mounted at /data.
+        existing_mount_paths = {v.mount_path for v in (volumes or [])}
+        if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
+            raise ValueError(
+                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
-            # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
-            quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
-            command = [
-                "bash",
-                "-c",
-                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
-                + f"uv run {' '.join(quoted_parts)}",
-            ]
-        return command, env, secrets
+
+        extra_volumes = self._upload_scripts_to_bucket(
+            namespace=namespace,
+            remote_to_local_file_names=remote_to_local_file_names,
+            token=token,
+        )
+        # Rewrite script and script_args to reference the mounted path. The bucket
+        # volume is scoped to the per-job subfolder (via `Volume.path`), so the job
+        # container sees the uploaded files directly at the mount root.
+        mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
+        if script in local_to_remote_file_names:
+            script = f"{mount_path}/{local_to_remote_file_names[script]}"
+        script_args = [
+            f"{mount_path}/{local_to_remote_file_names[arg]}" if arg in local_to_remote_file_names else arg
+            for arg in script_args
+        ]
+        command = ["uv", "run"] + uv_args + [script] + script_args
+        return command, env, secrets, extra_volumes
+
+    def _upload_scripts_to_bucket(
+        self,
+        *,
+        namespace: str,
+        remote_to_local_file_names: dict[str, str],
+        token: bool | str | None,
+    ) -> list[Volume]:
+        """Upload script files to a per-job subfolder in the artifacts bucket.
+
+        Creates a bucket `/jobs-artifacts` (if it doesn't exist) and uploads
+        each script to `{timestamp}-{random}/{remote_name}` inside it. Returns a
+        [`Volume`] scoped to that bucket subfolder. Volume is in read-write mode so the Job can save data back to this bucket.
+        """
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
+
+        bucket_url = self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
+
+        add_ops: list[tuple[str | Path | bytes, str]] = [
+            (Path(local_path), f"{subfolder_id}/{remote_name}")
+            for remote_name, local_path in remote_to_local_file_names.items()
+        ]
+        self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
+        print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
+
+        volume = Volume(
+            type="bucket",
+            source=bucket_id,
+            mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
+            path=subfolder_id,
+            read_only=False,
+        )
+        return [volume]
 
     @validate_hf_hub_args
     def create_bucket(
@@ -12332,6 +12570,7 @@ class HfApi:
         self,
         namespace: str | None = None,
         *,
+        search: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[BucketInfo]:
         """List buckets on the Hub under a certain namespace.
@@ -12339,6 +12578,8 @@ class HfApi:
         Args:
             namespace (`str`, *optional*):
                 List buckets under this namespace (user or organization). Defaults to listing user's buckets.
+            search (`str`, *optional*):
+                A search string to filter bucket names.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12356,12 +12597,18 @@ class HfApi:
 
             >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
+
+            >>> for bucket in list_buckets(search="my-prefix"): # filter buckets by name
+            ...     print(bucket)
             ```
         """
         if namespace is None:
             namespace = "me"
+        params: dict[str, Any] = {}
+        if search is not None:
+            params["search"] = search
         for item in paginate(
-            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/buckets/{namespace}", params=params, headers=self._build_hf_headers(token=token)
         ):
             yield BucketInfo(**item)
 
@@ -13581,6 +13828,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+search_spaces = api.search_spaces
 space_info = api.space_info
 
 kernel_info = api.kernel_info
@@ -13669,6 +13917,7 @@ set_space_volumes = api.set_space_volumes
 delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
+fetch_space_logs = api.fetch_space_logs
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints

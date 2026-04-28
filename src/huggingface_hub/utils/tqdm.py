@@ -82,6 +82,7 @@ Group-based control:
 import io
 import logging
 import os
+import threading
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
@@ -231,6 +232,13 @@ class tqdm(old_tqdm):
         except AttributeError:
             if attr != "_lock":
                 raise
+
+
+# Prevent tqdm's default multiprocessing write-lock from spawning a resource
+# tracker subprocess via fork_exec(). That path fails when stderr has an invalid
+# fd (e.g. Textual TUIs that return -1 from sys.stderr.fileno()). Inter-process
+# bar coordination on the HF subclass is not a supported use case. See #4065.
+tqdm.set_lock(threading.RLock())
 
 
 class silent_tqdm:

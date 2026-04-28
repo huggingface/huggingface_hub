@@ -8,6 +8,7 @@ from _pytest.fixtures import SubRequest
 import huggingface_hub
 from huggingface_hub import constants
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
+from huggingface_hub.utils._detect_agent import _STANDARD_AGENT_VARS, _TOOL_AGENTS
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -23,6 +24,20 @@ def patch_constants(mocker):
         mocker.patch.object(constants, "HF_TOKEN_PATH", os.path.join(cache_dir, "token"))
         mocker.patch.object(constants, "HF_STORED_TOKENS_PATH", os.path.join(cache_dir, "stored_tokens"))
         yield
+
+
+@pytest.fixture(autouse=True)
+def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deterministic baseline: no agent env vars, no ANSI colors, reset output mode."""
+    all_vars = list(_STANDARD_AGENT_VARS)
+    for env_vars, _ in _TOOL_AGENTS:
+        all_vars.extend(env_vars)
+    for var in all_vars:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("NO_COLOR", "1")
+    from huggingface_hub.cli._output import out
+
+    out.set_mode()
 
 
 logger = logging.get_logger(__name__)

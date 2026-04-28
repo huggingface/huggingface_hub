@@ -16,18 +16,21 @@
 Kept for backward compatibility. Users are nudged to use `hf repos delete-files` instead.
 """
 
-import sys
 from typing import Annotated
 
 import typer
 
-from huggingface_hub import logging
-from huggingface_hub.utils import ANSI
-
-from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-
-
-logger = logging.get_logger(__name__)
+from ._cli_utils import (
+    FormatWithAutoOpt,
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
+from ._output import OutputFormatWithAuto, out
 
 
 repo_files_cli = typer_factory(
@@ -67,11 +70,9 @@ def repo_files_delete(
         ),
     ] = False,
     token: TokenOpt = None,
+    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
-    print(
-        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repos delete-files` instead."),
-        file=sys.stderr,
-    )
+    out.warning("`hf repo-files delete` is deprecated. Use `hf repos delete-files` instead.")
     api = get_hf_api(token=token)
     url = api.delete_files(
         delete_patterns=patterns,
@@ -82,5 +83,4 @@ def repo_files_delete(
         commit_description=commit_description,
         create_pr=create_pr,
     )
-    print(f"Files correctly deleted from repo. Commit: {url}.")
-    logging.set_verbosity_warning()
+    out.result("Files deleted", repo_id=repo_id, commit_url=url)

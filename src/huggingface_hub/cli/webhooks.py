@@ -294,11 +294,7 @@ def webhooks_delete(
     token: TokenOpt = None,
 ) -> None:
     """Delete a webhook permanently."""
-    if not yes:
-        confirm = typer.confirm(f"Are you sure you want to delete webhook '{webhook_id}'?")
-        if not confirm:
-            out.text("Aborted.")
-            raise typer.Abort()
+    out.confirm(f"Are you sure you want to delete webhook '{webhook_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.delete_webhook(webhook_id)
     out.result("Webhook deleted", id=webhook_id)

@@ -14,6 +14,7 @@
 
 
 import json
+import time
 from collections import deque
 from collections.abc import Iterator
 from typing import Literal, TypedDict
@@ -27,6 +28,12 @@ from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
 
 HOT_RELOADING_PORT = 7887
+CLIENT_TIMEOUT = 20
+
+
+class MultiReplicaStreamWarning(TypedDict):
+    kind: Literal["warning"]
+    message: str
 
 
 class MultiReplicaStreamEvent(TypedDict):
@@ -57,15 +64,19 @@ class ReloadClient:
         self.client = httpx.Client(
             base_url=f"{base_host}/--replicas/+{replica_hash}",
             headers=build_hf_headers(token=token),
+            timeout=CLIENT_TIMEOUT,
         )
 
-    def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData]:
+    def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData] | int:
         req = ApiGetReloadRequest(reloadId=reload_id)
         with self.client.stream("POST", "/get-reload", json=req) as res:
+            if res.status_code != 200:
+                return res.status_code
             hf_raise_for_status(res)
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
                     yield json.loads(event.data)
+        return None
 
 
 def multi_replica_reload_events(
@@ -74,7 +85,10 @@ def multi_replica_reload_events(
     subdomain: str,
     replica_hashes: list[str],
     token: str | None,
-) -> Iterator[MultiReplicaStreamEvent | MultiReplicaStreamReplicaHash | MultiReplicaStreamFullMatch]:
+    max_retries: int = 10,
+) -> Iterator[
+    MultiReplicaStreamWarning | MultiReplicaStreamEvent | MultiReplicaStreamReplicaHash | MultiReplicaStreamFullMatch
+]:
     clients = [
         ReloadClient(
             host=host,
@@ -89,9 +103,20 @@ def multi_replica_reload_events(
     for client_index, client in enumerate(clients):
         if len(clients) > 1:
             yield {"kind": "replicaHash", "hash": client.replica_hash}
+
+        retries = 0
+        while isinstance((events := client.get_reload(commit_sha)), int):
+            if (retries := retries + 1) > max_retries:
+                raise Exception("Too many retries reached")
+            if (status_code := events) not in (200, 204):
+                raise Exception(f"Unexpected {status_code=} on `ReloadClient.get_reload`")
+            subject = "reloadId" if status_code == 204 else "replica"
+            yield {"kind": "warning", "message": f"Retrying on unexpected {subject} not found"}
+            time.sleep(2)
+
         full_match = True
         replay: deque[ApiGetReloadEventSourceData] = deque()
-        for event_index, event in enumerate(client.get_reload(commit_sha)):
+        for event_index, event in enumerate(events):
             if client_index == 0:
                 first_client_events[event_index] = event
             elif full_match := full_match and first_client_events.get(event_index) == event:
@@ -100,5 +125,6 @@ def multi_replica_reload_events(
             while replay:
                 yield {"kind": "event", "event": replay.popleft()}
             yield {"kind": "event", "event": event}
+
         if client_index > 0 and full_match:
             yield {"kind": "fullMatch"}

@@ -309,11 +309,7 @@ def discussion_close(
     token: TokenOpt = None,
 ) -> None:
     """Close a discussion or pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Close #{num} on '{repo_id}'?")
-        if not confirm:
-            out.text("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Close #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.change_discussion_status(
         repo_id=repo_id,
@@ -355,11 +351,7 @@ def discussion_reopen(
     token: TokenOpt = None,
 ) -> None:
     """Reopen a closed discussion or pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Reopen #{num} on '{repo_id}'?")
-        if not confirm:
-            out.text("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Reopen #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.change_discussion_status(
         repo_id=repo_id,
@@ -431,11 +423,7 @@ def discussion_merge(
     token: TokenOpt = None,
 ) -> None:
     """Merge a pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Merge #{num} on '{repo_id}'?")
-        if not confirm:
-            out.text("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Merge #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.merge_pull_request(
         repo_id=repo_id,

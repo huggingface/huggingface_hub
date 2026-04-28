@@ -17,7 +17,7 @@ import pytest
 
 from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
 from huggingface_hub.cli._output import Output, _format_table_cell_human, _to_header
-from huggingface_hub.utils._detect_agent import _STANDARD_AGENT_VARS, _TOOL_AGENTS
+from huggingface_hub.errors import ConfirmationError
 
 
 HUMAN = OutputFormatWithAuto.human
@@ -33,17 +33,6 @@ def _normalize(text: str) -> list[str]:
     lines = text.split("\n")
     baseline = len(lines[-1]) - len(lines[-1].lstrip()) if lines else 0
     return [line[baseline:].rstrip() for line in lines if line.strip()]
-
-
-@pytest.fixture(autouse=True)
-def _clean_env(monkeypatch):
-    """Deterministic baseline: no agent env vars, no ANSI colors."""
-    all_vars = list(_STANDARD_AGENT_VARS)
-    for env_vars, _ in _TOOL_AGENTS:
-        all_vars.extend(env_vars)
-    for var in all_vars:
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("NO_COLOR", "1")
 
 
 @pytest.fixture
@@ -307,6 +296,26 @@ def test_hint(check):
         Hint: Set HF_DEBUG=1 for full traceback.
         """,
     )
+
+
+# =============================================================================
+# out.confirm()
+# =============================================================================
+
+
+@pytest.mark.parametrize("mode", [HUMAN, AGENT, JSON, QUIET])
+def test_confirm_yes_skips(mode):
+    o = Output()
+    o.set_mode(mode)
+    o.confirm("Delete everything?", yes=True)  # should not raise
+
+
+@pytest.mark.parametrize("mode", [AGENT, JSON, QUIET])
+def test_confirm_non_human_raises(mode):
+    o = Output()
+    o.set_mode(mode)
+    with pytest.raises(ConfirmationError, match="Use --yes to skip confirmation"):
+        o.confirm("Delete everything?")
 
 
 # =============================================================================
