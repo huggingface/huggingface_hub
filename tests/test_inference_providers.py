@@ -1794,6 +1794,24 @@ class TestTogetherProvider:
         assert payload["guidance"] == 7.5  # renamed field
         assert payload["model"] == "black-forest-labs/FLUX.1-schnell"
 
+    def test_prepare_payload_as_dict_image_to_image_omitted_prompt(self):
+        # The client always passes `"prompt": None` when the user omits it; make sure we
+        # coerce it to an empty string instead of forwarding `null` to Together.
+        helper = TogetherImageToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/input.jpg",
+            {"prompt": None, "negative_prompt": None},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="black-forest-labs/FLUX.1-Kontext-pro",
+                providerId="black-forest-labs/FLUX.1-Kontext-pro",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload["prompt"] == ""
+        assert "negative_prompt" not in payload
+
     def test_image_to_image_get_response(self):
         helper = TogetherImageToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"output_image_bytes").decode()}]})
@@ -1975,6 +1993,43 @@ class TestTogetherProvider:
             "https://api.together.xyz/v2/videos/job-123", headers={"authorization": "Bearer key"}
         )
         get_session_mock.return_value.get.assert_any_call("https://files.example.com/video.mp4")
+
+    def test_video_get_response_polls_through_queued_status(self, mocker):
+        # Together returns "queued" before transitioning to "in_progress"; the loop must keep polling.
+        helper = TogetherTextToVideoTask()
+        request_params = RequestParameters(
+            url="https://api.together.xyz/v2/videos",
+            task="text-to-video",
+            model="some/video-model",
+            json={},
+            data=None,
+            headers={"authorization": "Bearer key"},
+        )
+        mocker.patch("huggingface_hub.inference._providers.together.time.sleep")
+        queued_response = MagicMock()
+        queued_response.json.return_value = {"id": "job-123", "status": "queued"}
+        in_progress_response = MagicMock()
+        in_progress_response.json.return_value = {"id": "job-123", "status": "in_progress"}
+        completed_response = MagicMock()
+        completed_response.json.return_value = {
+            "id": "job-123",
+            "status": "completed",
+            "outputs": {"video_url": "https://files.example.com/video.mp4"},
+        }
+        video_response = MagicMock(content=b"video_bytes")
+        get_session_mock = mocker.patch("huggingface_hub.inference._providers.together.get_session")
+        get_session_mock.return_value.get.side_effect = [
+            in_progress_response,
+            completed_response,
+            video_response,
+        ]
+        mocker.patch("huggingface_hub.inference._providers.together.hf_raise_for_status")
+
+        result = helper.get_response({"id": "job-123", "status": "queued"}, request_params)
+
+        assert result == b"video_bytes"
+        # Two polling calls (queued -> in_progress -> completed) plus the final video download.
+        assert get_session_mock.return_value.get.call_count == 3
 
 
 class TestWavespeedAIProvider:

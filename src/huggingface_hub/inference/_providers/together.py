@@ -30,6 +30,10 @@ _BASE_URL = "https://api.together.xyz"
 # Polling interval for async video generation (in seconds).
 _VIDEO_POLLING_INTERVAL = 2.0
 
+# Job statuses that mean "keep polling". Together returns "queued" before transitioning to
+# "in_progress", so we must treat both as pending.
+_VIDEO_PENDING_STATUSES = {"queued", "in_progress"}
+
 
 class TogetherTask(TaskProviderHelper, ABC):
     """Base class for Together API tasks."""
@@ -119,8 +123,11 @@ class TogetherImageToImageTask(TogetherTask):
         mapped_model = provider_mapping_info.provider_id
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
 
-        prompt = parameters.pop("prompt", "")
+        # Filter `None` values first: the client always passes `"prompt": None` when the user
+        # omits the argument, so popping before filtering would yield `None` instead of the
+        # `""` default and send `"prompt": null` to Together (rejected by Flux Kontext).
         parameters = filter_none(parameters)
+        prompt = parameters.pop("prompt", "")
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
         if "guidance_scale" in parameters:
@@ -236,7 +243,7 @@ class TogetherVideoTask(TogetherTask, ABC):
 
         logger.info("Generating video, polling for completion...")
         status = job.get("status")
-        while status == "in_progress":
+        while status in _VIDEO_PENDING_STATUSES:
             time.sleep(_VIDEO_POLLING_INTERVAL)
             status_response = get_session().get(status_url, headers=request_params.headers)
             hf_raise_for_status(status_response)
