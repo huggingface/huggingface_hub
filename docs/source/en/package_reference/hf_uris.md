@@ -96,15 +96,13 @@ HfUri(type='dataset', id='squad', revision='refs/pr/3', path_in_repo='train.json
 HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir', mount_path='/mnt', read_only=True)
 ```
 
-[`HfUri`] is round-trippable via [`HfUri.to_string`], which always emits the
+[`HfUri`] is round-trippable via [`HfUri.to_uri`], which always emits the
 canonical form (with an explicit type prefix):
 
 ```python
 >>> uri = parse_hf_uri("hf://gpt2@v1/config.json")
->>> uri.to_string()
+>>> uri.to_uri()
 'hf://models/gpt2@v1/config.json'
->>> str(uri) == uri.to_string()
-True
 ```
 
 Use the `type` and `id` fields directly. The boolean properties [`is_repo`]

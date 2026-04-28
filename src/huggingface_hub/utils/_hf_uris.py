@@ -90,13 +90,13 @@ class HfUri:
         return self.type != "bucket"
 
     def __str__(self) -> str:
-        return self.to_string()
+        return self.to_uri()
 
-    def to_string(self) -> str:
+    def to_uri(self) -> str:
         """Render the URI as a canonical 'hf://' string.
 
         The type prefix is always written explicitly (e.g. 'hf://models/gpt2',
-        not 'hf://gpt2'). Round-tripping 'parse_hf_uri(uri.to_string())'
+        not 'hf://gpt2'). Round-tripping 'parse_hf_uri(uri.to_uri())'
         always yields the same URI.
         """
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]

@@ -275,7 +275,7 @@ FAILURE_CASES: list[tuple[str, str]] = [
 def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str) -> None:
     result = parse_hf_uri(uri)
     assert result == expected
-    assert result.to_string() == expected_roundtrip
+    assert result.to_uri() == expected_roundtrip
     # Re-parsing the canonical form must yield the same URI (idempotency).
     assert parse_hf_uri(expected_roundtrip) == expected
 
@@ -294,3 +294,15 @@ def test_is_repo_and_is_bucket_are_mutually_exclusive() -> None:
     assert repo_uri.is_repo and not repo_uri.is_bucket
     bucket_uri = parse_hf_uri("hf://buckets/org/b")
     assert bucket_uri.is_bucket and not bucket_uri.is_repo
+
+
+def test_uri_str_is_to_uri() -> None:
+    uri = parse_hf_uri("hf://datasets/my-org/my-dataset@v1/file.csv")
+    assert str(uri) == uri.to_uri()
+
+
+def test_hf_uri_error_inherits_from_value_error() -> None:
+    """HfUriError must keep ValueError as a base class for backward compatibility."""
+    assert issubclass(HfUriError, ValueError)
+    with pytest.raises(ValueError):
+        parse_hf_uri("not-a-uri")
