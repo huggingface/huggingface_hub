@@ -13,10 +13,9 @@
 # limitations under the License.
 """Tests for the centralized HF URI parser (``huggingface_hub.utils._hf_uris``)."""
 
-from __future__ import annotations
-
 import pytest
 
+from huggingface_hub.errors import HfUriError
 from huggingface_hub.utils import HfUri, parse_hf_uri
 
 
@@ -291,8 +290,15 @@ def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str
 @pytest.mark.parametrize(("uri", "error_substring"), FAILURE_CASES)
 def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
     """``parse_hf_uri`` rejects malformed URIs with a helpful error message."""
-    with pytest.raises(ValueError, match=error_substring):
+    with pytest.raises(HfUriError, match=error_substring):
         parse_hf_uri(uri)
+
+
+def test_hf_uri_error_inherits_from_value_error() -> None:
+    """``HfUriError`` must keep ``ValueError`` as a base class for backward compatibility."""
+    assert issubclass(HfUriError, ValueError)
+    with pytest.raises(ValueError):
+        parse_hf_uri("not-a-uri")
 
 
 # --- A few targeted tests not easily expressed as parametrized cases. ---------
