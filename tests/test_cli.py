@@ -3588,7 +3588,8 @@ class TestJsonShorthand:
 
     def test_json_on_command_without_format(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["download", "--json", DUMMY_MODEL_ID])
-        assert result.exit_code != 0
+        assert result.exit_code == 0
+        assert '"path"' in result.output
 
     def test_json_not_rewritten_for_extensions_exec(self, runner: CliRunner) -> None:
         """--json must NOT be rewritten to --format json for `extensions exec` (pass-through to external binary)."""
