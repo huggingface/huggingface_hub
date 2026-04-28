@@ -123,6 +123,20 @@ REPO_TYPES_MAPPING = {
     "kernels": REPO_TYPE_KERNEL,
 }
 
+# HF Hub URIs (``hf://...``). See ``huggingface_hub/utils/_hf_uris.py``
+# and ``docs/source/en/package_reference/hf_uris.md`` for the full grammar.
+HF_PROTOCOL = "hf://"
+HfUriType = Literal["model", "dataset", "space", "kernel", "bucket"]
+# Maps the plural URI prefix that may appear in a HF URI (e.g. ``datasets/``)
+# to the canonical singular type name. Buckets are first-class HF URI types.
+HF_URI_TYPE_PREFIXES: dict[str, HfUriType] = {
+    "models": "model",
+    "datasets": "dataset",
+    "spaces": "space",
+    "kernels": "kernel",
+    "buckets": "bucket",
+}
+
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
