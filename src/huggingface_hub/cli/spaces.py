@@ -374,12 +374,12 @@ def spaces_hardware(
         items.append(
             {
                 "name": hw.name,
-                "pretty_name": hw.pretty_name,
+                "pretty name": hw.pretty_name,
                 "cpu": hw.cpu,
                 "ram": hw.ram,
                 "accelerator": accelerator,
-                "cost_min": cost_min,
-                "cost_hour": cost_hour,
+                "cost/min": cost_min,
+                "cost/hour": cost_hour,
             }
         )
     out.table(items)
