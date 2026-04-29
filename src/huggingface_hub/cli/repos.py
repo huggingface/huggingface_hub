@@ -29,9 +29,11 @@ from typing import Annotated, Literal
 
 import typer
 
-from huggingface_hub import SpaceHardware, SpaceStorage, repo_info
+from huggingface_hub import SpaceHardware, SpaceStorage
+from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_MODEL, REPO_TYPE_SPACE
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 
+from ..utils._cache_manager import _format_size
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
@@ -310,28 +312,23 @@ def repo_list(
     """List repos and buckets on the Hub."""
     api = get_hf_api(token=token)
 
-    try:
-        identity = api.whoami(token=token)
-    except HfHubHTTPError as e:
-        if e.response.status_code == 401:
-            raise CLIError("Authentication required. Please log in with `hf auth login` or set your HF_TOKEN.") from e
-        raise
-    username = identity.get("name") or identity.get("id")
+    identity = api.whoami(token=token)
+    username = identity.get("name")
     if not username:
         raise CLIError("Could not determine username from identity response.")
 
     items: list[dict] = []
-    repo_types: list[str] = [repo_type.value] if repo_type is not None else ["model", "dataset", "space"]
-
-    all_repo_ids: list[tuple[str, str]] = []
+    repo_types: list[str] = (
+        [repo_type.value] if repo_type is not None else [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
+    )
 
     for rt in repo_types:
         match rt:
-            case "model":
+            case _ if rt == REPO_TYPE_MODEL:
                 repos = api.list_models(author=username, expand=["lastModified", "private"])
-            case "dataset":
+            case _ if rt == REPO_TYPE_DATASET:
                 repos = api.list_datasets(author=username, expand=["lastModified", "private"])
-            case "space":
+            case _ if rt == REPO_TYPE_SPACE:
                 repos = api.list_spaces(author=username, expand=["lastModified", "private"])
             case _:
                 continue
@@ -342,7 +339,6 @@ def repo_list(
             private = getattr(repo, "private", None)
             if repo_id is None:
                 continue
-            all_repo_ids.append((repo_id, rt))
             items.append(
                 {
                     "repo_id": repo_id,
@@ -353,17 +349,8 @@ def repo_list(
             )
 
     total_storage = 0
-    for repo_id, rt in all_repo_ids:
-        try:
-            ri = repo_info(repo_id, repo_type=rt)
-            used_storage = getattr(ri, "used_storage", None) or 0
-        except Exception:
-            used_storage = 0
-        for item in items:
-            if item["repo_id"] == repo_id:
-                item["usedStorage"] = used_storage
-                total_storage += used_storage
-                break
+    for item in items:
+        item["usedStorage"] = ""
 
     for bucket in api.list_buckets(namespace=username):
         items.append(
@@ -402,7 +389,7 @@ def repo_list(
                 "type": item["type"],
                 "lastModified": _format_datetime(item["lastModified"]),
                 "visibility": item["visibility"],
-                "usedStorage": _format_bytes(used_storage) if used_storage else "",
+                "usedStorage": _format_size(used_storage) if used_storage else "",
                 "pctOfTotal": pct,
             }
         )
@@ -654,21 +641,6 @@ def tag_delete(
     except RevisionNotFoundError as e:
         raise CLIError(f"Tag '{tag}' not found on '{repo_id}'.") from e
     out.result("Tag deleted", tag=tag, repo_type=repo_type_str, repo_id=repo_id)
-
-
-def _format_bytes(n: int | None) -> str:
-    """Format bytes as a human-readable size string."""
-    if n is None:
-        return ""
-    for unit, label in [
-        (1024**4, "TiB"),
-        (1024**3, "GiB"),
-        (1024**2, "MiB"),
-        (1024**1, "KiB"),
-    ]:
-        if n >= unit:
-            return f"{n / unit:.1f} {label}"
-    return f"{n} B"
 
 
 _REPO_TYPE_LABEL = {"model": "model", "dataset": "dataset", "space": "space"}

@@ -3766,10 +3766,7 @@ class TestRepoListCommand:
     """Tests for `hf repos list`."""
 
     def test_repo_list_basic(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.repos.repo_info") as repo_info_mock,
-        ):
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.whoami.return_value = {"name": "testuser"}
             model_info = ModelInfo(id="testuser/my-model", author="testuser")
@@ -3779,7 +3776,6 @@ class TestRepoListCommand:
             api.list_datasets.return_value = [dataset_info]
             api.list_spaces.return_value = [space_info]
             api.list_buckets.return_value = []
-            repo_info_mock.return_value = Mock(used_storage=1024 * 1024)
             result = runner.invoke(app, ["repos", "list"])
 
         assert result.exit_code == 0
@@ -3793,10 +3789,7 @@ class TestRepoListCommand:
         assert "my-space" in result.output
 
     def test_repo_list_filter_by_type(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.repos.repo_info") as repo_info_mock,
-        ):
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.whoami.return_value = {"name": "testuser"}
             model_info = ModelInfo(id="testuser/my-model", author="testuser")
@@ -3804,7 +3797,6 @@ class TestRepoListCommand:
             api.list_datasets.return_value = []
             api.list_spaces.return_value = []
             api.list_buckets.return_value = []
-            repo_info_mock.return_value = Mock(used_storage=1024 * 1024)
             result = runner.invoke(app, ["repos", "list", "--repo-type", "model"])
 
         assert result.exit_code == 0
@@ -3814,17 +3806,13 @@ class TestRepoListCommand:
         assert "my-model" in result.output
 
     def test_repo_list_with_limit(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.repos.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.repos.repo_info") as repo_info_mock,
-        ):
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.whoami.return_value = {"name": "testuser"}
             api.list_models.return_value = []
             api.list_datasets.return_value = []
             api.list_spaces.return_value = []
             api.list_buckets.return_value = []
-            repo_info_mock.return_value = Mock(used_storage=0)
             result = runner.invoke(app, ["repos", "list", "--limit", "5"])
 
         assert result.exit_code == 0
