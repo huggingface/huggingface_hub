@@ -118,7 +118,7 @@ def models_ls(
     When called with a model ID, lists files in that model repo.
     """
     if repo_id is not None:
-        list_repo_files_cmd(
+        return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="model",
             human_readable=human_readable,
@@ -127,30 +127,30 @@ def models_ls(
             revision=revision,
             token=token,
         )
-    else:
-        if as_tree:
-            raise typer.BadParameter("Cannot use --tree when listing models.")
-        if recursive:
-            raise typer.BadParameter("Cannot use --recursive when listing models.")
-        if human_readable:
-            raise typer.BadParameter("Cannot use --human-readable when listing models.")
-        if revision is not None:
-            raise typer.BadParameter("Cannot use --revision when listing models.")
-        api = get_hf_api(token=token)
-        sort_key = sort.value if sort else None
-        results = [
-            api_object_to_dict(model_info)
-            for model_info in api.list_models(
-                filter=filter,
-                author=author,
-                search=search,
-                num_parameters=num_parameters,
-                sort=sort_key,
-                limit=limit,
-                expand=expand,  # type: ignore
-            )
-        ]
-        out.table(results)
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing models.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing models.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing models.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing models.")
+    api = get_hf_api(token=token)
+    sort_key = sort.value if sort else None
+    results = [
+        api_object_to_dict(model_info)
+        for model_info in api.list_models(
+            filter=filter,
+            author=author,
+            search=search,
+            num_parameters=num_parameters,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore
+        )
+    ]
+    out.table(results)
 
 
 @models_cli.command(

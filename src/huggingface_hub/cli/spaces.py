@@ -137,7 +137,7 @@ def spaces_ls(
     When called with a space ID, lists files in that space repo.
     """
     if repo_id is not None:
-        list_repo_files_cmd(
+        return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="space",
             human_readable=human_readable,
@@ -146,29 +146,29 @@ def spaces_ls(
             revision=revision,
             token=token,
         )
-    else:
-        if as_tree:
-            raise typer.BadParameter("Cannot use --tree when listing spaces.")
-        if recursive:
-            raise typer.BadParameter("Cannot use --recursive when listing spaces.")
-        if human_readable:
-            raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
-        if revision is not None:
-            raise typer.BadParameter("Cannot use --revision when listing spaces.")
-        api = get_hf_api(token=token)
-        sort_key = sort.value if sort else None
-        results = [
-            api_object_to_dict(space_info)
-            for space_info in api.list_spaces(
-                filter=filter,
-                author=author,
-                search=search,
-                sort=sort_key,
-                limit=limit,
-                expand=expand,  # type: ignore[arg-type]
-            )
-        ]
-        out.table(results)
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing spaces.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing spaces.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing spaces.")
+    api = get_hf_api(token=token)
+    sort_key = sort.value if sort else None
+    results = [
+        api_object_to_dict(space_info)
+        for space_info in api.list_spaces(
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore[arg-type]
+        )
+    ]
+    out.table(results)
 
 
 @spaces_cli.command(

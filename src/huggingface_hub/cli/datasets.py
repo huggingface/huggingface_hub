@@ -116,7 +116,7 @@ def datasets_ls(
     When called with a dataset ID, lists files in that dataset repo.
     """
     if repo_id is not None:
-        list_repo_files_cmd(
+        return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="dataset",
             human_readable=human_readable,
@@ -125,29 +125,30 @@ def datasets_ls(
             revision=revision,
             token=token,
         )
-    else:
-        if as_tree:
-            raise typer.BadParameter("Cannot use --tree when listing datasets.")
-        if recursive:
-            raise typer.BadParameter("Cannot use --recursive when listing datasets.")
-        if human_readable:
-            raise typer.BadParameter("Cannot use --human-readable when listing datasets.")
-        if revision is not None:
-            raise typer.BadParameter("Cannot use --revision when listing datasets.")
-        api = get_hf_api(token=token)
-        sort_key = sort.value if sort else None
-        results = [
-            api_object_to_dict(dataset_info)
-            for dataset_info in api.list_datasets(
-                filter=filter,
-                author=author,
-                search=search,
-                sort=sort_key,
-                limit=limit,
-                expand=expand,  # type: ignore
-            )
-        ]
-        out.table(results)
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing datasets.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing datasets.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing datasets.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing datasets.")
+
+    api = get_hf_api(token=token)
+    sort_key = sort.value if sort else None
+    results = [
+        api_object_to_dict(dataset_info)
+        for dataset_info in api.list_datasets(
+            filter=filter,
+            author=author,
+            search=search,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,  # type: ignore
+        )
+    ]
+    out.table(results)
 
 
 @datasets_cli.command(
