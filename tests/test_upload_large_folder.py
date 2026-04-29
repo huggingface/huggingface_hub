@@ -1,14 +1,17 @@
 # tests/test_upload_large_folder.py
 import unittest
+from hashlib import sha256
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from huggingface_hub._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths
 from huggingface_hub._upload_large_folder import (
     COMMIT_SIZE_SCALE,
     MAX_FILES_PER_FOLDER,
     MAX_FILES_PER_REPO,
     LargeUploadStatus,
+    _build_hacky_operation,
     _validate_upload_limits,
 )
 
@@ -41,6 +44,30 @@ def test_update_chunk_transitions(status, start_idx, success, delta_items, durat
 
     assert status._chunk_idx == expected_idx
     assert status.target_chunk() == COMMIT_SIZE_SCALE[expected_idx]
+
+
+def test_build_hacky_operation_preserves_lfs_preupload_state(tmp_path):
+    file_path = tmp_path / "file.bin"
+    content = b"content"
+    file_path.write_bytes(content)
+
+    paths = LocalUploadFilePaths(
+        path_in_repo="file.bin",
+        file_path=file_path,
+        lock_path=tmp_path / "file.bin.lock",
+        metadata_path=tmp_path / "file.bin.metadata",
+    )
+    metadata = LocalUploadFileMetadata(
+        size=len(content),
+        sha256=sha256(content).hexdigest(),
+        upload_mode="lfs",
+        is_uploaded=True,
+    )
+
+    operation = _build_hacky_operation((paths, metadata))
+
+    assert operation._is_uploaded
+    assert operation.path_or_fileobj == b""
 
 
 class TestValidateUploadLimits(unittest.TestCase):

@@ -724,6 +724,9 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
     operation._upload_mode = metadata.upload_mode  # type: ignore
     operation._should_ignore = metadata.should_ignore
     operation._remote_oid = metadata.remote_oid
+    operation._is_uploaded = metadata.is_uploaded
+    if metadata.is_uploaded and metadata.upload_mode == "lfs":
+        operation.path_or_fileobj = b""
     return operation
 
 
