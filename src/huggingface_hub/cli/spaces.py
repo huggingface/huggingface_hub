@@ -385,12 +385,12 @@ def spaces_settings(
         runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
     else:
         runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
-    result_kwargs: dict[str, object] = {"space_id": space_id}
-    if hardware is not None:
-        result_kwargs["hardware"] = runtime.requested_hardware
-    if sleep_time is not None:
-        result_kwargs["sleep_time"] = runtime.sleep_time
-    out.result("Space settings updated", **result_kwargs)
+    out.result(
+        "Space settings updated",
+        space_id=space_id,
+        hardware=runtime.requested_hardware,
+        sleep_time=runtime.sleep_time,
+    )
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
 
