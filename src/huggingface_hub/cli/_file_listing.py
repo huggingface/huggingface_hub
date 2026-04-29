@@ -15,28 +15,38 @@
 
 import json
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Sequence
 
 import typer
+
+from huggingface_hub._buckets import BucketFile, BucketFolder
+from huggingface_hub.hf_api import RepoFile, RepoFolder
 
 from ._cli_utils import api_object_to_dict, get_hf_api
 from ._output import OutputFormatWithAuto, out
 
 
-def is_folder(item: Any) -> bool:
-    """Check if an item is a folder (not a file). Files have a `size` attribute."""
-    return not hasattr(item, "size") or not isinstance(getattr(item, "size"), int)
+BucketItem = BucketFile | BucketFolder
+RepoItem = RepoFile | RepoFolder
+ListingItem = BucketItem | RepoItem
 
 
-def get_item_date(item: Any) -> datetime | None:
+def is_folder(item: ListingItem) -> bool:
+    """Check if an item is a folder (not a file)."""
+    return isinstance(item, (BucketFolder, RepoFolder))
+
+
+def get_item_date(item: ListingItem) -> datetime | None:
     """Extract date from an item, supporting both repo items (last_commit.date) and bucket items (mtime/uploaded_at)."""
-    if hasattr(item, "mtime") and getattr(item, "mtime") is not None:
-        return getattr(item, "mtime")
-    if hasattr(item, "uploaded_at") and getattr(item, "uploaded_at") is not None:
-        return getattr(item, "uploaded_at")
-    if hasattr(item, "last_commit") and getattr(item, "last_commit") is not None:
-        return getattr(item, "last_commit").date
-    return None
+    match item:
+        case BucketFile(mtime=mtime) if mtime is not None:
+            return mtime
+        case BucketFile(uploaded_at=uploaded_at) | BucketFolder(uploaded_at=uploaded_at) if uploaded_at is not None:
+            return uploaded_at
+        case RepoFile(last_commit=last_commit) | RepoFolder(last_commit=last_commit) if last_commit is not None:
+            return last_commit.date
+        case _:
+            return None
 
 
 def format_size(size: int | float, human_readable: bool = False) -> str:
@@ -63,7 +73,7 @@ def format_date(dt: datetime | None, human_readable: bool = False) -> str:
 
 
 def build_tree(
-    items: Sequence[Any],
+    items: Sequence[BucketItem] | Sequence[RepoItem],
     human_readable: bool = False,
     quiet: bool = False,
 ) -> list[str]:
@@ -95,7 +105,7 @@ def build_tree(
     if not quiet:
         for item in items:
             if not is_folder(item):
-                size_str = format_size(item.size, human_readable)  # type: ignore[union-attr]
+                size_str = format_size(item.size, human_readable)
                 max_size_width = max(max_size_width, len(size_str))
                 date_str = format_date(get_item_date(item), human_readable)
                 max_date_width = max(max_date_width, len(date_str))
@@ -169,7 +179,7 @@ def list_repo_files_cmd(
 ) -> None:
     """List files in a repo on the Hub. Used by models/datasets/spaces ls commands."""
     if as_tree and out.mode == OutputFormatWithAuto.json:
-        raise typer.BadParameter("Cannot use --tree with json format.")
+        raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
     items = list(api.list_repo_tree(repo_id, recursive=recursive, revision=revision, repo_type=repo_type))
@@ -177,7 +187,7 @@ def list_repo_files_cmd(
 
 
 def print_file_listing(
-    items: Sequence[Any],
+    items: Sequence[BucketItem] | Sequence[RepoItem],
     *,
     human_readable: bool = False,
     as_tree: bool = False,
@@ -212,7 +222,7 @@ def print_file_listing(
                 date_str = format_date(get_item_date(item), human_readable)
                 print(f"{'':>12}  {date_str:>19}  {item.path}/")
             else:
-                size_str = format_size(item.size, human_readable)  # type: ignore[union-attr]
+                size_str = format_size(item.size, human_readable)
                 date_str = format_date(get_item_date(item), human_readable)
                 print(f"{size_str:>12}  {date_str:>19}  {item.path}")
 
