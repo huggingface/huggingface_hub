@@ -440,10 +440,10 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     chosen_flag: str | None = None
 
     def _check_conflict(new_flag: str) -> None:
-        # Reject mixing different kinds of formatting flags before parsing values,
-        # so the user gets a "mutually exclusive" error rather than e.g. an
-        # "invalid value" error for the second flag.
-        if chosen_flag is not None and _flag_kind(chosen_flag) != _flag_kind(new_flag):
+        # Reject any second formatting flag before parsing values, so the user gets
+        # a "mutually exclusive" error rather than e.g. an "invalid value" error
+        # from the second flag's argument.
+        if chosen_flag is not None:
             raise click.UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
 
     i = 0
