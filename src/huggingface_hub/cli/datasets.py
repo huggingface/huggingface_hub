@@ -46,6 +46,7 @@ from ._cli_utils import (
     make_expand_properties_parser,
     typer_factory,
 )
+from ._file_listing import list_repo_files_cmd
 from ._output import out
 
 
@@ -73,9 +74,16 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
         "hf datasets ls --filter benchmark:official",
+        "hf datasets ls HuggingFaceFW/fineweb",
+        "hf datasets ls HuggingFaceFW/fineweb -R",
+        "hf datasets ls HuggingFaceFW/fineweb --tree -h",
     ],
 )
 def datasets_ls(
+    repo_id: Annotated[
+        str | None,
+        typer.Argument(help="Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets."),
+    ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
@@ -85,9 +93,58 @@ def datasets_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+    ] = False,
+    revision: RevisionOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """List datasets on the Hub."""
+    """List datasets on the Hub, or files in a dataset repo.
+
+    When called with no argument, lists datasets on the Hub.
+    When called with a dataset ID, lists files in that dataset repo.
+    """
+    if repo_id is not None:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
+        if author is not None:
+            raise typer.BadParameter("Cannot use --author when listing files.")
+        if filter is not None:
+            raise typer.BadParameter("Cannot use --filter when listing files.")
+        if sort is not None:
+            raise typer.BadParameter("Cannot use --sort when listing files.")
+        if limit != 10:
+            raise typer.BadParameter("Cannot use --limit when listing files.")
+        if expand is not None:
+            raise typer.BadParameter("Cannot use --expand when listing files.")
+        return list_repo_files_cmd(
+            repo_id=repo_id,
+            repo_type="dataset",
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            revision=revision,
+            token=token,
+        )
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing datasets.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing datasets.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing datasets.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing datasets.")
+
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -102,6 +159,30 @@ def datasets_ls(
         )
     ]
     out.table(results)
+
+
+@datasets_cli.command(
+    "leaderboard",
+    examples=[
+        "hf datasets leaderboard SWE-bench/SWE-bench_Verified",
+        "hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json",
+    ],
+)
+def datasets_leaderboard(
+    dataset_id: Annotated[str, typer.Argument(help="The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).")],
+    limit: LimitOpt = 20,
+    token: TokenOpt = None,
+) -> None:
+    """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores."""
+    api = get_hf_api(token=token)
+    leaderboard = api.get_dataset_leaderboard(repo_id=dataset_id)
+    results = [api_object_to_dict(entry) for entry in leaderboard[:limit]]
+    out.table(
+        results,
+        headers=["rank", "model_id", "value", "source"],
+        id_key="model_id",
+        alignments={"rank": "right", "value": "right"},
+    )
 
 
 @datasets_cli.command(

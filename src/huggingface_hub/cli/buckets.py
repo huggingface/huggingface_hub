@@ -13,10 +13,8 @@
 # limitations under the License.
 """Contains commands to interact with buckets via the CLI."""
 
-import json
 import os
 import sys
-from datetime import datetime
 from typing import Annotated
 
 import typer
@@ -25,7 +23,6 @@ from huggingface_hub import logging
 from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
-    BucketFolder,
     FilterMatcher,
     _is_bucket_path,
     _parse_bucket_path,
@@ -42,10 +39,10 @@ from huggingface_hub.utils import (
 from ._cli_utils import (
     SearchOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
     typer_factory,
 )
+from ._file_listing import format_size, print_file_listing
 from ._output import OutputFormatWithAuto, out
 
 
@@ -74,136 +71,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
             f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
             f" or {BUCKET_PREFIX}namespace/bucket_name"
         )
-
-
-def _format_size(size: int | float, human_readable: bool = False) -> str:
-    """Format a size in bytes."""
-    if not human_readable:
-        return str(size)
-
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1000:
-            if unit == "B":
-                return f"{size} {unit}"
-            return f"{size:.1f} {unit}"
-        size /= 1000
-    return f"{size:.1f} PB"
-
-
-def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
-    """Format mtime datetime to a readable date string."""
-    if mtime is None:
-        return ""
-    if human_readable:
-        return mtime.strftime("%b %d %H:%M")
-    return mtime.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _build_tree(
-    items: list[BucketFile | BucketFolder],
-    human_readable: bool = False,
-    quiet: bool = False,
-) -> list[str]:
-    """Build a tree representation of files and directories.
-
-    Produces ASCII tree with size and date columns before the tree connector.
-    When quiet=True, only the tree structure is shown (no size/date).
-
-    Args:
-        items: List of BucketFile/BucketFolder items
-        human_readable: Whether to show human-readable sizes and short dates
-        quiet: If True, show only the tree structure without sizes/dates
-
-    Returns:
-        List of formatted tree lines
-    """
-    # Build a nested structure
-    tree: dict = {}
-
-    for item in items:
-        parts = item.path.split("/")
-        current = tree
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {"__children__": {}}
-            current = current[part]["__children__"]
-
-        final_part = parts[-1]
-        if isinstance(item, BucketFolder):
-            if final_part not in current:
-                current[final_part] = {"__children__": {}}
-        else:
-            current[final_part] = {"__item__": item}
-
-    # Compute prefix width for alignment (size + date columns)
-    prefix_width = 0
-    max_size_width = 0
-    max_date_width = 0
-    if not quiet:
-        for item in items:
-            if isinstance(item, BucketFile):
-                size_str = _format_size(item.size, human_readable)
-                max_size_width = max(max_size_width, len(size_str))
-                date_str = _format_mtime(item.mtime, human_readable)
-                max_date_width = max(max_date_width, len(date_str))
-        if max_size_width > 0:
-            prefix_width = max_size_width + 2 + max_date_width
-
-    # Render tree
-    lines: list[str] = []
-    _render_tree(
-        tree,
-        lines,
-        "",
-        prefix_width=prefix_width,
-        max_size_width=max_size_width,
-        human_readable=human_readable,
-    )
-    return lines
-
-
-def _render_tree(
-    node: dict,
-    lines: list[str],
-    indent: str,
-    prefix_width: int = 0,
-    max_size_width: int = 0,
-    human_readable: bool = False,
-) -> None:
-    """Recursively render a tree structure with size+date prefix."""
-    items = sorted(node.items())
-    for i, (name, value) in enumerate(items):
-        is_last = i == len(items) - 1
-        connector = "└── " if is_last else "├── "
-
-        is_dir = "__children__" in value
-        children = value.get("__children__", {})
-
-        if prefix_width > 0:
-            if is_dir:
-                prefix = " " * prefix_width
-            else:
-                item = value.get("__item__")
-                if item is not None:
-                    size_str = _format_size(item.size, human_readable)
-                    date_str = _format_mtime(item.mtime, human_readable)
-                    prefix = f"{size_str:>{max_size_width}}  {date_str}"
-                else:
-                    prefix = " " * prefix_width
-            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
-        else:
-            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
-
-        if children:
-            child_indent = indent + ("    " if is_last else "│   ")
-            _render_tree(
-                children,
-                lines,
-                child_indent,
-                prefix_width=prefix_width,
-                max_size_width=max_size_width,
-                human_readable=human_readable,
-            )
 
 
 @buckets_cli.command(
@@ -377,7 +244,7 @@ def _list_buckets(
         {
             "id": bucket.id,
             "private": bucket.private,
-            "size": _format_size(bucket.size, human_readable) if human_readable else bucket.size,
+            "size": format_size(bucket.size, human_readable) if human_readable else bucket.size,
             "total_files": bucket.total_files,
             "created_at": bucket.created_at,
         }
@@ -394,7 +261,6 @@ def _list_files(
     token: str | None,
 ) -> None:
     """List files in a bucket."""
-    # Validate incompatible flags
     if as_tree and out.mode == OutputFormatWithAuto.json:
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
@@ -405,7 +271,6 @@ def _list_files(
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
-    # Fetch items from the bucket
     items = list(
         api.list_bucket_tree(
             bucket_id,
@@ -414,38 +279,7 @@ def _list_files(
         )
     )
 
-    if not items:
-        out.text("(empty)")
-        return
-
-    has_directories = any(isinstance(item, BucketFolder) for item in items)
-
-    if as_tree:
-        # Tree is a human-only view — print directly regardless of mode
-        quiet = out.mode == OutputFormatWithAuto.quiet
-        for line in _build_tree(items, human_readable=human_readable, quiet=quiet):
-            print(line)
-    elif out.mode == OutputFormatWithAuto.json:
-        print(json.dumps([api_object_to_dict(item) for item in items], indent=2))
-    elif out.mode == OutputFormatWithAuto.quiet:
-        for item in items:
-            if isinstance(item, BucketFolder):
-                print(f"{item.path}/")
-            else:
-                print(item.path)
-    else:
-        # Flat table format
-        for item in items:
-            if isinstance(item, BucketFolder):
-                mtime_str = _format_mtime(item.uploaded_at, human_readable)
-                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
-            else:
-                size_str = _format_size(item.size, human_readable)
-                mtime_str = _format_mtime(item.mtime, human_readable)
-                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
-
-    if not recursive and has_directories:
-        out.hint("Use -R to list files recursively.")
+    print_file_listing(items, human_readable=human_readable, as_tree=as_tree, recursive=recursive)
 
 
 @buckets_cli.command(
@@ -638,7 +472,7 @@ def remove(
 
         file_paths = [f.path for f in matched_files]
         total_size = sum(f.size for f in matched_files)
-        size_str = _format_size(total_size, human_readable=True)
+        size_str = format_size(total_size, human_readable=True)
 
         if not file_paths:
             out.text("No files to remove.")

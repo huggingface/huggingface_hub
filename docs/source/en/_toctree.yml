@@ -78,6 +78,8 @@
       title: MCP Client
     - local: package_reference/hf_file_system
       title: HfFileSystem
+    - local: package_reference/hf_uris
+      title: HF URIs
     - local: package_reference/utilities
       title: Utilities
     - local: package_reference/community

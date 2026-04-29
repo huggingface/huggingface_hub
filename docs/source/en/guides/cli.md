@@ -834,6 +834,22 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 >>> hf models ls --sort downloads --limit 10
 ```
 
+When called with a model ID, `hf models ls` lists files in that model repo:
+
+```bash
+# List files in a model repo
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct
+
+# List files recursively
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+
+# Tree view with human-readable sizes
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
+
+# List files at a specific revision
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --revision main
+```
+
 ### Get model info
 
 ```bash
@@ -878,6 +894,28 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
+```
+
+When called with a dataset ID, `hf datasets ls` lists files in that dataset repo:
+
+```bash
+# List files in a dataset repo
+>>> hf datasets ls HuggingFaceFW/fineweb
+
+# List files recursively with human-readable sizes
+>>> hf datasets ls HuggingFaceFW/fineweb -R -h
+
+# Tree view
+>>> hf datasets ls HuggingFaceFW/fineweb --tree
+```
+
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
 ```
 
 ### Get dataset info
@@ -956,10 +994,20 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 >>> hf spaces ls --sort likes --limit 10
 ```
 
+When called with a Space ID, `hf spaces ls` lists files in that Space repo:
+
+```bash
+# List files in a Space repo
+>>> hf spaces ls victor/deepsite
+
+# List files recursively with tree view
+>>> hf spaces ls victor/deepsite --tree -R -h
+```
+
 ### Get Space info
 
 ```bash
->>> hf spaces info enzostvs/deepsite
+>>> hf spaces info victor/deepsite
 ```
 
 ### Get Space card
@@ -1002,11 +1050,15 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 
 ### Update Space settings
 
-Use `hf spaces settings` to update the settings of a Space. For example, configure how long the Space stays idle before going to sleep with `--sleep-time` (only available on upgraded hardware — see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details). Run `hf spaces settings --help` to see all supported options.
+Use `hf spaces settings` to update the settings of a Space.
 
 ```bash
 >>> hf spaces settings username/my-space --sleep-time 3600
+>>> hf spaces settings username/my-space --hardware t4-medium
 ```
+
+- `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`).
 
 ## hf papers
 

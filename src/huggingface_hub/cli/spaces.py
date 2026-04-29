@@ -44,7 +44,7 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
-from huggingface_hub._space_api import SpaceStage
+from huggingface_hub._space_api import SpaceHardware, SpaceStage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
@@ -65,6 +65,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._file_listing import list_repo_files_cmd
 from ._output import out
 
 
@@ -94,9 +95,16 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',
+        "hf spaces ls victor/deepsite",
+        "hf spaces ls victor/deepsite -R",
+        "hf spaces ls victor/deepsite --tree -h",
     ],
 )
 def spaces_ls(
+    repo_id: Annotated[
+        str | None,
+        typer.Argument(help="Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces."),
+    ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
@@ -106,9 +114,57 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+    ] = False,
+    revision: RevisionOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """List spaces on the Hub."""
+    """List spaces on the Hub, or files in a space repo.
+
+    When called with no argument, lists spaces on the Hub.
+    When called with a space ID, lists files in that space repo.
+    """
+    if repo_id is not None:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
+        if author is not None:
+            raise typer.BadParameter("Cannot use --author when listing files.")
+        if filter is not None:
+            raise typer.BadParameter("Cannot use --filter when listing files.")
+        if sort is not None:
+            raise typer.BadParameter("Cannot use --sort when listing files.")
+        if limit != 10:
+            raise typer.BadParameter("Cannot use --limit when listing files.")
+        if expand is not None:
+            raise typer.BadParameter("Cannot use --expand when listing files.")
+        return list_repo_files_cmd(
+            repo_id=repo_id,
+            repo_type="space",
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            revision=revision,
+            token=token,
+        )
+
+    if as_tree:
+        raise typer.BadParameter("Cannot use --tree when listing spaces.")
+    if recursive:
+        raise typer.BadParameter("Cannot use --recursive when listing spaces.")
+    if human_readable:
+        raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
+    if revision is not None:
+        raise typer.BadParameter("Cannot use --revision when listing spaces.")
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -348,6 +404,7 @@ def spaces_restart(
     "settings",
     examples=[
         "hf spaces settings username/my-space --sleep-time 300",
+        "hf spaces settings username/my-space --hardware t4-medium",
     ],
 )
 def spaces_settings(
@@ -359,14 +416,29 @@ def spaces_settings(
             help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
         ),
     ] = None,
+    hardware: Annotated[
+        SpaceHardware | None,
+        typer.Option(
+            "--hardware",
+            help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4').",
+        ),
+    ] = None,
     token: TokenOpt = None,
 ) -> None:
     """Update the settings of a Space."""
-    if sleep_time is None:
-        raise CLIError("Specify at least one setting to update.")
     api = get_hf_api(token=token)
-    runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
-    out.result("Space settings updated", space_id=space_id, sleep_time=runtime.sleep_time)
+    if hardware is not None:
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+    elif sleep_time is not None:
+        runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    else:
+        raise CLIError("Specify at least one setting to update.")
+    out.result(
+        "Space settings updated",
+        space_id=space_id,
+        hardware=runtime.requested_hardware,
+        sleep_time=runtime.sleep_time,
+    )
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
 

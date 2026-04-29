@@ -564,14 +564,14 @@ def _populated_bucket(api: HfApi) -> str:
 
 @pytest.fixture
 def tree_bucket(monkeypatch: pytest.MonkeyPatch, _populated_bucket: str) -> str:
-    """Use populated bucket + make _format_mtime return a fixed date for exact output matching."""
+    """Use populated bucket + make format_date return a fixed date for exact output matching."""
 
-    def _fixed(mtime, human_readable=False):
-        if mtime is None:
+    def _fixed(dt, human_readable=False):
+        if dt is None:
             return ""
         return MTIME_FIX_SHORT if human_readable else MTIME_FIX
 
-    monkeypatch.setattr("huggingface_hub.cli.buckets._format_mtime", _fixed)
+    monkeypatch.setattr("huggingface_hub.cli._file_listing.format_date", _fixed)
 
     return _populated_bucket
 
