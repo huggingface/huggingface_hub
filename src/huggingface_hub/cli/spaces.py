@@ -371,7 +371,7 @@ def spaces_settings(
         SpaceHardware | None,
         typer.Option(
             "--hardware",
-            help="Hardware flavor to run the Space on (e.g. 'cpu-basic', 't4-medium', 'l4x4').",
+            help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4').",
         ),
     ] = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,

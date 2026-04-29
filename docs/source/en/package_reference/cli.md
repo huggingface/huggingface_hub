@@ -3837,7 +3837,7 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 **Options**:
 
 * `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
-* `--hardware [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Hardware flavor to run the Space on (e.g. 'cpu-basic', 't4-medium', 'l4x4').
+* `--hardware [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4').
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
