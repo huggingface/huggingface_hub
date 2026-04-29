@@ -13932,6 +13932,7 @@ get_space_variables = api.get_space_variables
 add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
+list_spaces_hardware = api.list_spaces_hardware
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
