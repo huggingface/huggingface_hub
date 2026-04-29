@@ -373,8 +373,8 @@ _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
         "--format [auto|human|agent|json|quiet]",
         "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.",
     ),
-    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
     ("--json", "JSON output. Equivalent to '--format json'."),
+    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
 ]
 
 
