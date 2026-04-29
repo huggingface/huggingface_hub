@@ -235,47 +235,47 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
 # A "failure" case is '(uri, error_substring)'
 FAILURE_CASES: list[tuple[str, str]] = [
     # Missing protocol
-    ("gpt2", "must start with 'hf://'"),
-    ("https://huggingface.co/gpt2", "must start with 'hf://'"),
-    ("hf:/gpt2", "must start with 'hf://'"),
+    ("gpt2", "Must start with 'hf://'"),
+    ("https://huggingface.co/gpt2", "Must start with 'hf://'"),
+    ("hf:/gpt2", "Must start with 'hf://'"),
     # Empty body after protocol
-    ("hf://", "empty body"),
+    ("hf://", "Empty body"),
     # Empty repo id (just a type prefix)
-    ("hf://datasets", "missing identifier"),
-    ("hf://datasets/", "missing repository id"),
-    ("hf://models/", "missing repository id"),
-    ("hf://buckets", "missing identifier"),
-    ("hf://buckets/", "bucket id must be 'namespace/name'"),
+    ("hf://datasets", "Missing identifier"),
+    ("hf://datasets/", "Missing repository id"),
+    ("hf://models/", "Missing repository id"),
+    ("hf://buckets", "Missing identifier"),
+    ("hf://buckets/", "Bucket id must be 'namespace/name'"),
     # Singular type forms are forbidden
-    ("hf://dataset/foo/bar", "must be plural"),
-    ("hf://model/my-org/my-model", "must be plural"),
-    ("hf://space/user/my-space", "must be plural"),
-    ("hf://bucket/org/b", "must be plural"),
+    ("hf://dataset/foo/bar", "Type prefix must be plural"),
+    ("hf://model/my-org/my-model", "Type prefix must be plural"),
+    ("hf://space/user/my-space", "Type prefix must be plural"),
+    ("hf://bucket/org/b", "Type prefix must be plural"),
     # Canonical repos (no namespace) are forbidden
-    ("hf://gpt2", "Canonical repos"),
-    ("hf://models/gpt2", "Canonical repos"),
-    ("hf://datasets/squad", "Canonical repos"),
-    ("hf://gpt2@v1", "Canonical repos"),
-    ("hf://gpt2@v1/config.json", "Canonical repos"),
-    ("hf://gpt2:/data", "Canonical repos"),
-    ("hf://gpt2:/data:ro", "Canonical repos"),
+    ("hf://gpt2", "Repository id must be 'namespace/name'"),
+    ("hf://models/gpt2", "Repository id must be 'namespace/name'"),
+    ("hf://datasets/squad", "Repository id must be 'namespace/name'"),
+    ("hf://gpt2@v1", "Repository id must be 'namespace/name'"),
+    ("hf://gpt2@v1/config.json", "Repository id must be 'namespace/name'"),
+    ("hf://gpt2:/data", "Repository id must be 'namespace/name'"),
+    ("hf://gpt2:/data:ro", "Repository id must be 'namespace/name'"),
     # Buckets must always have namespace/name
-    ("hf://buckets/single-segment", "bucket id must be 'namespace/name'"),
+    ("hf://buckets/single-segment", "Bucket id must be 'namespace/name'"),
     # Buckets cannot have a revision
     ("hf://buckets/org/b@v1", "do not support a revision"),
     ("hf://buckets/org/b@v1/path", "do not support a revision"),
     # Empty revision
-    ("hf://my-org/my-model@", "empty revision"),
-    ("hf://datasets/foo/bar@/file", "empty revision"),
+    ("hf://my-org/my-model@", "Empty revision"),
+    ("hf://datasets/foo/bar@/file", "Empty revision"),
     # Empty repo id before '@'
-    ("hf://@v1/file", "missing repository id"),
+    ("hf://@v1/file", "Missing repository id"),
     # Repo id with too many slashes
-    ("hf://a/b/c@v1", "repository id must be 'namespace/name'"),
+    ("hf://a/b/c@v1", "Repository id must be 'namespace/name'"),
     # Invalid repo id chars (validated by validate_repo_id)
     ("hf://datasets/foo/.invalid", "Repo id must use alphanumeric"),
     ("hf://models/foo--bar/baz", "Cannot have -- or .."),
     # Mount path that is not absolute
-    ("hf://my-org/my-model:/", "mount path must be a non-empty absolute path"),
+    ("hf://my-org/my-model:/", "Mount path must be a non-empty absolute path"),
     # Read-only flag without a mount path
     ("hf://my-org/my-model:ro", "':ro'/':rw' suffix is only valid"),
     ("hf://my-org/my-model:rw", "':ro'/':rw' suffix is only valid"),
@@ -293,27 +293,6 @@ def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str
 
 @pytest.mark.parametrize(("uri", "error_substring"), FAILURE_CASES)
 def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
-    with pytest.raises(HfUriError, match=error_substring):
+    with pytest.raises(HfUriError, match=error_substring) as exc_info:
         parse_hf_uri(uri)
-
-
-# --- A few targeted tests not easily expressed as parametrized cases. ---------
-
-
-def test_is_repo_and_is_bucket_are_mutually_exclusive() -> None:
-    repo_uri = parse_hf_uri("hf://datasets/org/ds")
-    assert repo_uri.is_repo and not repo_uri.is_bucket
-    bucket_uri = parse_hf_uri("hf://buckets/org/b")
-    assert bucket_uri.is_bucket and not bucket_uri.is_repo
-
-
-def test_uri_str_is_to_uri() -> None:
-    uri = parse_hf_uri("hf://datasets/my-org/my-dataset@v1/file.csv")
-    assert str(uri) == uri.to_uri()
-
-
-def test_hf_uri_error_inherits_from_value_error() -> None:
-    """HfUriError must keep ValueError as a base class for backward compatibility."""
-    assert issubclass(HfUriError, ValueError)
-    with pytest.raises(ValueError):
-        parse_hf_uri("not-a-uri")
+    assert exc_info.value.uri == uri

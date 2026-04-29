@@ -39,12 +39,7 @@ from ._validators import validate_repo_id
 
 # Inverse map (singular → plural URI prefix). Built once from the canonical
 # 'constants.HF_URI_TYPE_PREFIXES' and used to render URIs.
-_TYPE_TO_PREFIX: dict[constants.HfUriType, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIXES.items()}
-
-# Same map but typed as 'dict[str, str]' so it can be indexed with arbitrary
-# strings without confusing the type-checker (used only to suggest the plural
-# form when the user wrote a singular type like 'hf://dataset/...').
-_PLURAL_FROM_SINGULAR_NAME: dict[str, str] = {str(k): v for k, v in _TYPE_TO_PREFIX.items()}
+_TYPE_TO_PREFIX: dict[str, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIXES.items()}
 
 # Special revisions that contain a '/'. They take precedence when splitting
 # the part after '@' into '<revision>/<path-in-repo>'. Matches 'refs/pr/N'
@@ -154,14 +149,15 @@ def parse_hf_uri(uri: str) -> HfUri:
     """
     if not uri.startswith(constants.HF_PROTOCOL):
         raise HfUriError(
-            f"Invalid HF URI '{uri}': must start with '{constants.HF_PROTOCOL}'. "
-            f"Expected format: {constants.HF_PROTOCOL}[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]"
+            uri,
+            f"Must start with '{constants.HF_PROTOCOL}'. "
+            f"Expected format: {constants.HF_PROTOCOL}[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]",
         )
 
     raw = uri
     body = uri[len(constants.HF_PROTOCOL) :]
     if not body:
-        raise HfUriError(f"Invalid HF URI '{raw}': empty body after '{constants.HF_PROTOCOL}'.")
+        raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
 
     location, mount_path, read_only = _split_mount(body, raw=raw)
     type_, location = _split_type(location, raw=raw)
@@ -190,18 +186,18 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
     if idx == -1:
         if read_only is not None:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': ':ro'/':rw' suffix is only valid when a mount path is provided "
-                "(e.g. 'hf://...:/<MOUNT_PATH>:ro')."
+                uri=raw,
+                msg="':ro'/':rw' suffix is only valid when a mount path is provided (e.g. 'hf://...:/<MOUNT_PATH>:ro').",
             )
         return body, None, None
 
     location = body[:idx]
     mount_path = body[idx + 1 :]  # includes the leading '/'
     if not location:
-        raise HfUriError(f"Invalid HF URI '{raw}': missing location before mount path.")
+        raise HfUriError(uri=raw, msg="Missing location before mount path.")
     if not mount_path.startswith("/") or mount_path == "/":
         raise HfUriError(
-            f"Invalid HF URI '{raw}': mount path must be a non-empty absolute path starting with '/', got '{mount_path}'."
+            uri=raw, msg=f"Mount path must be a non-empty absolute path starting with '/', got '{mount_path}'."
         )
     return location, mount_path, read_only
 
@@ -216,11 +212,13 @@ def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
         # Single segment, no prefix. Reject if it looks like a bare type name.
         if location in constants.HF_URI_TYPE_PREFIXES:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': missing identifier after '{location}'. Expected '{constants.HF_PROTOCOL}{location}/<ID>'."
+                uri=raw,
+                msg=f"Missing identifier after '{location}'. Expected '{constants.HF_PROTOCOL}{location}/<ID>'.",
             )
-        if (singular_plural := _PLURAL_FROM_SINGULAR_NAME.get(location)) is not None:
+        if (singular_plural := _TYPE_TO_PREFIX.get(location)) is not None:
             raise HfUriError(
-                f"Invalid HF URI '{raw}': type prefix must be plural. Did you mean '{constants.HF_PROTOCOL}{singular_plural}/...'?"
+                uri=raw,
+                msg=f"Type prefix must be plural. Did you mean '{constants.HF_PROTOCOL}{singular_plural}/...'?",
             )
         return "model", location
 
@@ -228,9 +226,9 @@ def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
     rest = location[slash_idx + 1 :]
     if first in constants.HF_URI_TYPE_PREFIXES:
         return constants.HF_URI_TYPE_PREFIXES[first], rest
-    if (singular_plural := _PLURAL_FROM_SINGULAR_NAME.get(first)) is not None:
+    if (singular_plural := _TYPE_TO_PREFIX.get(first)) is not None:
         raise HfUriError(
-            f"Invalid HF URI '{raw}': type prefix must be plural, got '{first}/'. Did you mean '{singular_plural}/'?"
+            uri=raw, msg=f"Type prefix must be plural, got '{first}/'. Did you mean '{singular_plural}/'?"
         )
     return "model", location
 
@@ -245,11 +243,11 @@ def _parse_bucket_body(
 ) -> HfUri:
     """Parse the body of a bucket URI: 'namespace/name[/path]'."""
     if "@" in location:
-        raise HfUriError(f"Invalid HF URI '{raw}': bucket URIs do not support a revision marker ('@').")
+        raise HfUriError(uri=raw, msg="Bucket URIs do not support a revision marker ('@').")
     location = location.strip("/")
     parts = location.split("/", 2)
     if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise HfUriError(f"Invalid HF URI '{raw}': bucket id must be 'namespace/name', got '{location}'.")
+        raise HfUriError(uri=raw, msg=f"Bucket id must be 'namespace/name', got '{location}'.")
     bucket_id = f"{parts[0]}/{parts[1]}"
     path_in_bucket = parts[2].strip("/") if len(parts) >= 3 else ""
     return HfUri(
@@ -273,7 +271,7 @@ def _parse_repo_body(
     """Parse the body of a repo URI: '<repo_id>[@<revision>][/<path>]'."""
     location = location.strip("/")
     if not location:
-        raise HfUriError(f"Invalid HF URI '{raw}': missing repository id.")
+        raise HfUriError(uri=raw, msg="Missing repository id.")
 
     # The first '@' separates the repo_id from the revision (and rest of path).
     # No valid repo_id contains '@' and no valid revision contains '@'.
@@ -284,24 +282,16 @@ def _parse_repo_body(
         revision = None
         parts = location.split("/", 2)
         if len(parts) < 2:
-            raise HfUriError(
-                f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{location}'. "
-                "Canonical repos (without a namespace) are not supported."
-            )
+            raise HfUriError(uri=raw, msg=f"Repository id must be 'namespace/name', got '{location}'. ")
         repo_id = f"{parts[0]}/{parts[1]}"
         path_in_repo = parts[2] if len(parts) > 2 else ""
     else:
         repo_id = location[:at_idx]
         rev_and_path = location[at_idx + 1 :]
         if not repo_id:
-            raise HfUriError(f"Invalid HF URI '{raw}': missing repository id before '@'.")
-        if "/" not in repo_id:
-            raise HfUriError(
-                f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{repo_id}'. "
-                "Canonical repos (without a namespace) are not supported."
-            )
-        if repo_id.count("/") > 1:
-            raise HfUriError(f"Invalid HF URI '{raw}': repository id must be 'namespace/name', got '{repo_id}'.")
+            raise HfUriError(uri=raw, msg="Missing repository id before '@'.")
+        if repo_id.count("/") != 1:
+            raise HfUriError(uri=raw, msg=f"Repository id must be 'namespace/name', got '{repo_id}'.")
         # Special refs like 'refs/pr/10' contain '/' and must be matched eagerly,
         # otherwise we would split them at the first '/' and treat the rest as a path.
         match = _SPECIAL_REFS_REVISION_REGEX.match(rev_and_path)
@@ -318,12 +308,12 @@ def _parse_repo_body(
                 path_in_repo = rev_and_path[slash_idx + 1 :]
         revision = unquote(revision)
         if not revision:
-            raise HfUriError(f"Invalid HF URI '{raw}': empty revision after '@'.")
+            raise HfUriError(uri=raw, msg="Empty revision after '@'.")
 
     try:
         validate_repo_id(repo_id)
     except HFValidationError as e:
-        raise HfUriError(f"Invalid HF URI '{raw}': {e}") from e
+        raise HfUriError(uri=raw, msg=str(e)) from e
 
     return HfUri(
         type=type_,

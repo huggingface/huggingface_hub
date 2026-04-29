@@ -180,6 +180,10 @@ class HfUriError(ValueError):
     Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
 
+    def __init__(self, uri: str, msg: str):
+        super().__init__(f"Invalid HF URI '{uri}'. {msg}")
+        self.uri = uri
+
 
 # FILE METADATA ERRORS
 
