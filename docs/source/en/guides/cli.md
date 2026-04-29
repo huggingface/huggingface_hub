@@ -809,6 +809,22 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 >>> hf models ls --sort downloads --limit 10
 ```
 
+When called with a model ID, `hf models ls` lists files in that model repo — similar to `hf buckets ls`:
+
+```bash
+# List files in a model repo
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct
+
+# List files recursively
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+
+# Tree view with human-readable sizes
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
+
+# List files at a specific revision
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --revision main
+```
+
 ### Get model info
 
 ```bash
@@ -853,6 +869,19 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
+```
+
+When called with a dataset ID, `hf datasets ls` lists files in that dataset repo:
+
+```bash
+# List files in a dataset repo
+>>> hf datasets ls HuggingFaceFW/fineweb
+
+# List files recursively with human-readable sizes
+>>> hf datasets ls HuggingFaceFW/fineweb -R -h
+
+# Tree view
+>>> hf datasets ls HuggingFaceFW/fineweb --tree
 ```
 
 ### List a dataset leaderboard
@@ -938,6 +967,16 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 
 # Sort by likes
 >>> hf spaces ls --sort likes --limit 10
+```
+
+When called with a Space ID, `hf spaces ls` lists files in that Space repo:
+
+```bash
+# List files in a Space repo
+>>> hf spaces ls enzostvs/deepsite
+
+# List files recursively with tree view
+>>> hf spaces ls enzostvs/deepsite --tree -R -h
 ```
 
 ### Get Space info

@@ -22,7 +22,7 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import ModelInfo, RepoFile, RepoFolder
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1785,6 +1785,44 @@ class TestModelsLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
+    def test_models_ls_files(self, runner: CliRunner) -> None:
+        """When a repo_id is passed, `hf models ls <repo_id>` lists files in that repo."""
+        file1 = RepoFile(path="config.json", size=1234, oid="abc123")
+        file2 = RepoFile(path="model.safetensors", size=5000000, oid="def456")
+        folder = RepoFolder(path="subfolder", oid="ghi789")
+
+        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_repo_tree.return_value = iter([file1, file2, folder])
+            result = runner.invoke(app, ["models", "ls", "user/my-model", "--format", "json"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert len(output) == 3
+        assert output[0]["path"] == "config.json"
+        api.list_repo_tree.assert_called_once_with("user/my-model", recursive=False, revision=None, repo_type="model")
+
+    def test_models_ls_files_recursive(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_repo_tree.return_value = iter([])
+            result = runner.invoke(app, ["models", "ls", "user/my-model", "-R"])
+
+        assert result.exit_code == 0
+        api.list_repo_tree.assert_called_once_with("user/my-model", recursive=True, revision=None, repo_type="model")
+
+    def test_models_ls_files_tree_incompatible_with_json(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_repo_tree.return_value = iter([])
+            result = runner.invoke(app, ["models", "ls", "user/my-model", "--tree", "--format", "json"])
+
+        assert result.exit_code != 0
+
+    def test_models_ls_tree_without_repo_id_fails(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--tree"])
+        assert result.exit_code != 0
+
 
 class TestDatasetsLsCommand:
     def test_datasets_ls_with_sort(self, runner: CliRunner) -> None:
@@ -1796,6 +1834,20 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+    def test_datasets_ls_files(self, runner: CliRunner) -> None:
+        file1 = RepoFile(path="data.parquet", size=99999, oid="abc")
+        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_repo_tree.return_value = iter([file1])
+            result = runner.invoke(app, ["datasets", "ls", "user/my-dataset", "--format", "json"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output[0]["path"] == "data.parquet"
+        api.list_repo_tree.assert_called_once_with(
+            "user/my-dataset", recursive=False, revision=None, repo_type="dataset"
+        )
 
 
 class TestModelsCardCommand:
@@ -2080,6 +2132,18 @@ class TestSpacesLsCommand:
         result = runner.invoke(app, ["spaces", "ls", "--sort", "downloads"])
         assert result.exit_code == 2
         assert "Invalid value" in result.output
+
+    def test_spaces_ls_files(self, runner: CliRunner) -> None:
+        file1 = RepoFile(path="app.py", size=512, oid="abc")
+        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_repo_tree.return_value = iter([file1])
+            result = runner.invoke(app, ["spaces", "ls", "user/my-space", "--format", "json"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert output[0]["path"] == "app.py"
+        api.list_repo_tree.assert_called_once_with("user/my-space", recursive=False, revision=None, repo_type="space")
 
 
 class TestSpacesLogsCommand:

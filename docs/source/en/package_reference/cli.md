@@ -983,7 +983,7 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 * `card`: Get the dataset card (README) for a...
 * `info`: Get info about a dataset on the Hub.
 * `leaderboard`: List model scores from a dataset leaderboard.
-* `list`: List datasets on the Hub. [alias: ls]
+* `list`: List datasets on the Hub, or files in a... [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
 
@@ -1083,13 +1083,20 @@ Learn more
 
 ### `hf datasets list`
 
-List datasets on the Hub. [alias: ls]
+List datasets on the Hub, or files in a dataset repo. [alias: ls]
+
+When called with no argument, lists datasets on the Hub.
+When called with a dataset ID, lists files in that dataset repo.
 
 **Usage**:
 
 ```console
-$ hf datasets list [OPTIONS]
+$ hf datasets list [OPTIONS] [REPO_ID]
 ```
+
+**Arguments**:
+
+* `[REPO_ID]`: Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets.
 
 **Options**:
 
@@ -1099,6 +1106,10 @@ $ hf datasets list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1108,6 +1119,9 @@ Examples
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
   $ hf datasets ls --filter benchmark:official
+  $ hf datasets ls HuggingFaceFW/fineweb
+  $ hf datasets ls HuggingFaceFW/fineweb -R
+  $ hf datasets ls HuggingFaceFW/fineweb --tree -h
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2700,7 +2714,7 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 * `card`: Get the model card (README) for a model on...
 * `info`: Get info about a model on the Hub.
-* `list`: List models on the Hub. [alias: ls]
+* `list`: List models on the Hub, or files in a... [alias: ls]
 
 ### `hf models card`
 
@@ -2768,13 +2782,20 @@ Learn more
 
 ### `hf models list`
 
-List models on the Hub. [alias: ls]
+List models on the Hub, or files in a model repo. [alias: ls]
+
+When called with no argument, lists models on the Hub.
+When called with a model ID, lists files in that model repo.
 
 **Usage**:
 
 ```console
-$ hf models list [OPTIONS]
+$ hf models list [OPTIONS] [REPO_ID]
 ```
+
+**Arguments**:
+
+* `[REPO_ID]`: Model ID (e.g. `username/repo-name`) to list files from. If omitted, lists models.
 
 **Options**:
 
@@ -2785,6 +2806,10 @@ $ hf models list [OPTIONS]
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2793,6 +2818,9 @@ Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3506,7 +3534,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
-* `list`: List spaces on the Hub. [alias: ls]
+* `list`: List spaces on the Hub, or files in a... [alias: ls]
 * `logs`: Fetch the run or build logs of a Space.
 * `pause`: Pause a Space.
 * `restart`: Restart a Space.
@@ -3660,13 +3688,20 @@ Learn more
 
 ### `hf spaces list`
 
-List spaces on the Hub. [alias: ls]
+List spaces on the Hub, or files in a space repo. [alias: ls]
+
+When called with no argument, lists spaces on the Hub.
+When called with a space ID, lists files in that space repo.
 
 **Usage**:
 
 ```console
-$ hf spaces list [OPTIONS]
+$ hf spaces list [OPTIONS] [REPO_ID]
 ```
+
+**Arguments**:
+
+* `[REPO_ID]`: Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces.
 
 **Options**:
 
@@ -3676,6 +3711,10 @@ $ hf spaces list [OPTIONS]
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 10]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -3683,6 +3722,9 @@ $ hf spaces list [OPTIONS]
 Examples
   $ hf spaces ls --limit 10
   $ hf spaces ls --search "chatbot" --author huggingface
+  $ hf spaces ls enzostvs/deepsite
+  $ hf spaces ls enzostvs/deepsite -R
+  $ hf spaces ls enzostvs/deepsite --tree -h
 
 Learn more
   Use `hf <command> --help` for more information about a command.

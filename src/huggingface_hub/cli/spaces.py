@@ -66,6 +66,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._file_listing import list_repo_files_cmd
 from ._output import OutputFormatWithAuto, out
 
 
@@ -95,9 +96,16 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',
+        "hf spaces ls enzostvs/deepsite",
+        "hf spaces ls enzostvs/deepsite -R",
+        "hf spaces ls enzostvs/deepsite --tree -h",
     ],
 )
 def spaces_ls(
+    repo_id: Annotated[
+        str | None,
+        typer.Argument(help="Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces."),
+    ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
@@ -107,24 +115,60 @@ def spaces_ls(
     ] = None,
     limit: LimitOpt = 10,
     expand: ExpandOpt = None,
+    human_readable: Annotated[
+        bool,
+        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+    ] = False,
+    as_tree: Annotated[
+        bool,
+        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+    ] = False,
+    recursive: Annotated[
+        bool,
+        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+    ] = False,
+    revision: RevisionOpt = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """List spaces on the Hub."""
-    api = get_hf_api(token=token)
-    sort_key = sort.value if sort else None
-    results = [
-        api_object_to_dict(space_info)
-        for space_info in api.list_spaces(
-            filter=filter,
-            author=author,
-            search=search,
-            sort=sort_key,
-            limit=limit,
-            expand=expand,  # type: ignore[arg-type]
+    """List spaces on the Hub, or files in a space repo.
+
+    When called with no argument, lists spaces on the Hub.
+    When called with a space ID, lists files in that space repo.
+    """
+    if repo_id is not None:
+        list_repo_files_cmd(
+            repo_id=repo_id,
+            repo_type="space",
+            human_readable=human_readable,
+            as_tree=as_tree,
+            recursive=recursive,
+            revision=revision,
+            token=token,
         )
-    ]
-    out.table(results)
+    else:
+        if as_tree:
+            raise typer.BadParameter("Cannot use --tree when listing spaces.")
+        if recursive:
+            raise typer.BadParameter("Cannot use --recursive when listing spaces.")
+        if human_readable:
+            raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
+        if revision is not None:
+            raise typer.BadParameter("Cannot use --revision when listing spaces.")
+        api = get_hf_api(token=token)
+        sort_key = sort.value if sort else None
+        results = [
+            api_object_to_dict(space_info)
+            for space_info in api.list_spaces(
+                filter=filter,
+                author=author,
+                search=search,
+                sort=sort_key,
+                limit=limit,
+                expand=expand,  # type: ignore[arg-type]
+            )
+        ]
+        out.table(results)
 
 
 @spaces_cli.command(
