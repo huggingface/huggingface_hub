@@ -855,6 +855,15 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 >>> hf datasets ls --sort downloads --limit 10
 ```
 
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+```
+
 ### Get dataset info
 
 ```bash
@@ -977,11 +986,15 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 
 ### Update Space settings
 
-Use `hf spaces settings` to update the settings of a Space. For example, configure how long the Space stays idle before going to sleep with `--sleep-time` (only available on upgraded hardware — see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time) for details). Run `hf spaces settings --help` to see all supported options.
+Use `hf spaces settings` to update the settings of a Space.
 
 ```bash
 >>> hf spaces settings username/my-space --sleep-time 3600
+>>> hf spaces settings username/my-space --hardware t4-medium
 ```
+
+- `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`).
 
 ## hf papers
 

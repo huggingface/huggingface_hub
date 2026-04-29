@@ -44,7 +44,7 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
-from huggingface_hub._space_api import SpaceStage
+from huggingface_hub._space_api import SpaceHardware, SpaceStage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
@@ -355,6 +355,7 @@ def spaces_restart(
     "settings",
     examples=[
         "hf spaces settings username/my-space --sleep-time 300",
+        "hf spaces settings username/my-space --hardware t4-medium",
     ],
 )
 def spaces_settings(
@@ -366,15 +367,30 @@ def spaces_settings(
             help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
         ),
     ] = None,
+    hardware: Annotated[
+        SpaceHardware | None,
+        typer.Option(
+            "--hardware",
+            help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4').",
+        ),
+    ] = None,
     format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update the settings of a Space."""
-    if sleep_time is None:
-        raise CLIError("Specify at least one setting to update.")
     api = get_hf_api(token=token)
-    runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
-    out.result("Space settings updated", space_id=space_id, sleep_time=runtime.sleep_time)
+    if hardware is not None:
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+    elif sleep_time is not None:
+        runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    else:
+        raise CLIError("Specify at least one setting to update.")
+    out.result(
+        "Space settings updated",
+        space_id=space_id,
+        hardware=runtime.requested_hardware,
+        sleep_time=runtime.sleep_time,
+    )
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
 
 
