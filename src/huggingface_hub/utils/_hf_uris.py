@@ -34,7 +34,6 @@ See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examp
 """
 
 import re
-import typing
 from dataclasses import dataclass, field
 from urllib.parse import unquote
 
@@ -55,8 +54,8 @@ _TYPE_TO_PREFIX: dict[str, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIX
 # so names like 'parquet-v2' or 'duckdb.v1' round-trip correctly.
 _SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
 
-# Same as constants.HfUriType, but as a set of strings for easy lookup.
-_VALID_URI_TYPES: frozenset[str] = frozenset(typing.get_args(constants.HfUriType))
+# Same as constants.HfUriType, but as a set of strings for easy lookup.)
+_VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.values())
 
 
 @dataclass(frozen=True)
@@ -315,10 +314,6 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
     mount_path = body[idx + 1 :]  # includes the leading '/'
     if not location:
         raise HfUriError(uri=raw, msg="Missing location before mount path.")
-    if not mount_path.startswith("/") or mount_path == "/":
-        raise HfUriError(
-            uri=raw, msg=f"Mount path must be a non-empty absolute path starting with '/', got '{mount_path}'."
-        )
     return location, mount_path, read_only
 
 
