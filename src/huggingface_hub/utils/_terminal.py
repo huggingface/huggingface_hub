@@ -16,15 +16,27 @@
 import os
 import shutil
 import sys
+import time
 
 
 class StatusLine:
-    """Minimal TTY status line for sync progress (stderr, single-line overwrite)."""
+    """Status line for sync/import progress (stderr).
 
-    def __init__(self, enabled: bool = True):
-        self._active = enabled and sys.stderr.isatty()
+    On a TTY: single-line overwrite using carriage returns.
+    Off a TTY: ``update()`` is silent (avoids log spam) while ``log()`` prints a
+    plain throttled line — useful for non-interactive environments like CI or
+    HF Jobs where the UI struggles with high log throughput.
+    """
+
+    def __init__(self, enabled: bool = True, log_interval: float = 10.0):
+        self._enabled = enabled
+        self._is_tty = sys.stderr.isatty()
+        self._active = enabled and self._is_tty
+        self._log_interval = log_interval
+        self._last_log_at: float = 0.0
 
     def update(self, msg: str) -> None:
+        """TTY-only single-line update (silent in non-TTY)."""
         if not self._active:
             return
         width = shutil.get_terminal_size().columns
@@ -33,8 +45,31 @@ class StatusLine:
         sys.stderr.write(f"\r\033[K\033[90m{msg}\033[0m")
         sys.stderr.flush()
 
+    def log(self, msg: str, *, force: bool = False) -> None:
+        """Print progress that survives in non-TTY environments.
+
+        On a TTY, behaves like ``update`` (single-line overwrite). Off a TTY,
+        prints a fresh stderr line, throttled to ``log_interval`` seconds unless
+        ``force=True`` (use force for milestones like batch boundaries).
+        """
+        if not self._enabled:
+            return
+        if self._is_tty:
+            self.update(msg)
+            return
+        now = time.monotonic()
+        if not force and (now - self._last_log_at) < self._log_interval:
+            return
+        self._last_log_at = now
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
+
     def done(self, msg: str) -> None:
-        if not self._active:
+        if not self._enabled:
+            return
+        if not self._is_tty:
+            sys.stderr.write(msg + "\n")
+            sys.stderr.flush()
             return
         width = shutil.get_terminal_size().columns
         if len(msg) > width - 1:
