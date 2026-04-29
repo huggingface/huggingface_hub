@@ -7786,18 +7786,14 @@ class HfApi:
     def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
         """List available hardware options for Spaces.
 
-        The response format is the same as for Jobs hardware ([`list_jobs_hardware`]),
-        but the catalog differs: `cpu-basic` is free and `zero-a10g` (ZeroGPU) is available.
-
         Returns:
             `list[JobHardware]`: A list of available hardware configurations.
 
         Example:
 
         ```python
-        >>> from huggingface_hub import HfApi
-        >>> api = HfApi()
-        >>> hardware_list = api.list_spaces_hardware()
+        >>> from huggingface_hub import list_spaces_hardware
+        >>> hardware_list = list_spaces_hardware()
         >>> hardware_list[0]
         JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
         >>> hardware_list[0].name

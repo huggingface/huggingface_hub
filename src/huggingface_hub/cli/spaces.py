@@ -381,7 +381,7 @@ def spaces_hardware(
             }
         )
     out.table(items)
-    out.hint("Use `hf spaces settings <space_id> --hardware <name>` to set hardware on a Space.")
+    out.hint("Use `hf spaces settings <space_id> --hardware <name>` to request hardware for a Space.")
 
 
 @spaces_cli.command(
