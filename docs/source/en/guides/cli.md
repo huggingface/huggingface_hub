@@ -991,8 +991,8 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 >>> hf spaces settings username/my-space --hardware t4-medium
 ```
 
-- `--sleep-time SECONDS`: idle time before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
-- `--hardware FLAVOR`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`).
+- `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`).
 
 ## hf papers
 
