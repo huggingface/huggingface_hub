@@ -323,15 +323,14 @@ def repo_list(
     )
 
     for rt in repo_types:
-        match rt:
-            case _ if rt == REPO_TYPE_MODEL:
-                repos = api.list_models(author=username, expand=["lastModified", "private"])
-            case _ if rt == REPO_TYPE_DATASET:
-                repos = api.list_datasets(author=username, expand=["lastModified", "private"])
-            case _ if rt == REPO_TYPE_SPACE:
-                repos = api.list_spaces(author=username, expand=["lastModified", "private"])
-            case _:
-                continue
+        if rt == REPO_TYPE_MODEL:
+            repos = api.list_models(author=username, expand=["lastModified", "private"])
+        elif rt == REPO_TYPE_DATASET:
+            repos = api.list_datasets(author=username, expand=["lastModified", "private"])
+        elif rt == REPO_TYPE_SPACE:
+            repos = api.list_spaces(author=username, expand=["lastModified", "private"])
+        else:
+            continue
 
         for repo in repos:
             repo_id = getattr(repo, "id", None)
@@ -365,7 +364,7 @@ def repo_list(
         total_storage += bucket.size
 
     if sort == "lastModified":
-        items.sort(key=lambda x: x["lastModified"] or "", reverse=True)
+        items.sort(key=lambda x: x["lastModified"] if x["lastModified"] else "", reverse=True)
     else:
         items.sort(key=lambda x: x["repo_id"])
 
