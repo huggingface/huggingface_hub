@@ -181,8 +181,9 @@ class HfUriError(ValueError):
     """
 
     def __init__(self, uri: str, msg: str):
-        super().__init__(f"Invalid HF URI '{uri}'. {msg}")
         self.uri = uri
+        full_msg = f"Invalid HF URI '{uri}'. {msg}" if uri else f"Invalid HF URI. {msg}"
+        super().__init__(full_msg)
 
 
 # FILE METADATA ERRORS

@@ -279,6 +279,12 @@ FAILURE_CASES: list[tuple[str, str]] = [
     # Read-only flag without a mount path
     ("hf://my-org/my-model:ro", "':ro'/':rw' suffix is only valid"),
     ("hf://my-org/my-model:rw", "':ro'/':rw' suffix is only valid"),
+    # Empty path segments (adjacent slashes)
+    ("hf://models/org/m//sub", "empty segments"),
+    ("hf://buckets/org/b//sub", "empty segments"),
+    ("hf://models/org/m/sub//dir", "empty segments"),
+    ("hf://models/org/m@main//file.txt", "empty segments"),
+    ("hf://datasets/foo/bar@refs/pr/10//file.csv", "empty segments"),
 ]
 
 
@@ -296,3 +302,22 @@ def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring) as exc_info:
         parse_hf_uri(uri)
     assert exc_info.value.uri == uri
+
+
+DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
+    ({"type": "unknown", "id": "org/repo"}, "Invalid type"),
+    ({"type": "model", "id": "gpt2"}, "namespace/name"),
+    ({"type": "model", "id": "a/b/c"}, "namespace/name"),
+    ({"type": "dataset", "id": "foo--bar/baz"}, "Cannot have -- or .."),
+    ({"type": "model", "id": "org/repo", "revision": ""}, "empty string"),
+    ({"type": "bucket", "id": "org/bucket", "revision": "main"}, "do not support a revision"),
+    ({"type": "model", "id": "org/repo", "path_in_repo": "a//b"}, "empty segments"),
+    ({"type": "model", "id": "org/repo", "mount_path": "relative"}, "absolute path"),
+    ({"type": "model", "id": "org/repo", "read_only": True}, "read_only"),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "error_substring"), DIRECT_INIT_INVALID_CASES)
+def test_hf_uri_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
+    with pytest.raises(HfUriError, match=error_substring):
+        HfUri(**kwargs)

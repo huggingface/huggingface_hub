@@ -28,7 +28,8 @@ See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examp
 """
 
 import re
-from dataclasses import dataclass
+import typing
+from dataclasses import dataclass, field
 from urllib.parse import unquote
 
 from huggingface_hub import constants
@@ -37,7 +38,7 @@ from huggingface_hub.errors import HfUriError, HFValidationError
 from ._validators import validate_repo_id
 
 
-# Inverse map (singular → plural URI prefix). Built once from the canonical
+# Inverse map (singular -> plural URI prefix). Built once from the canonical
 # 'constants.HF_URI_TYPE_PREFIXES' and used to render URIs.
 _TYPE_TO_PREFIX: dict[str, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIXES.items()}
 
@@ -47,6 +48,9 @@ _TYPE_TO_PREFIX: dict[str, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIX
 # The conversion name allows the typical git ref characters '[a-zA-Z0-9_.-]'
 # so names like 'parquet-v2' or 'duckdb.v1' round-trip correctly.
 _SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
+
+# Same as constants.HfUriType, but as a set of strings for easy lookup.
+_VALID_URI_TYPES: frozenset[str] = frozenset(typing.get_args(constants.HfUriType))
 
 
 @dataclass(frozen=True)
@@ -75,6 +79,44 @@ class HfUri:
     path_in_repo: str = ""
     mount_path: str | None = None
     read_only: bool | None = None
+    _raw: str | None = field(repr=False, hash=False, compare=False, default=None)
+
+    def __post_init__(self) -> None:
+        uri = self._raw or ""  # For error messages
+
+        # Check valid URI type
+        if self.type not in _VALID_URI_TYPES:
+            raise HfUriError(uri=uri, msg=f"Invalid type '{self.type}'. Must be one of {sorted(_VALID_URI_TYPES)}.")
+
+        # Check valid ID
+        if not self.id or self.id.count("/") != 1:
+            raise HfUriError(uri=uri, msg=f"Id must be 'namespace/name', got '{self.id}'.")
+        if self.type != "bucket":
+            try:
+                validate_repo_id(self.id)
+            except HFValidationError as e:
+                raise HfUriError(uri=uri, msg=str(e)) from e
+
+        # Check valid revision
+        if self.revision is not None and not self.revision:
+            raise HfUriError(uri=uri, msg="Revision must not be an empty string.")
+        if self.type == "bucket" and self.revision is not None:
+            raise HfUriError(uri=uri, msg="Bucket URIs do not support a revision.")
+
+        # Check valid path in repo
+        if self.path_in_repo:
+            if self.path_in_repo.startswith("/") or "//" in self.path_in_repo:
+                raise HfUriError(uri=uri, msg=f"Path must not contain empty segments (got '{self.path_in_repo}').")
+
+        # Check valid mount path
+        if self.mount_path is not None:
+            if not self.mount_path.startswith("/") or self.mount_path == "/":
+                raise HfUriError(
+                    uri=uri,
+                    msg=f"Mount path must be a non-empty absolute path starting with '/', got '{self.mount_path}'.",
+                )
+        if self.read_only is not None and self.mount_path is None:
+            raise HfUriError(uri=uri, msg="read_only can only be set when mount_path is provided.")
 
     @property
     def is_bucket(self) -> bool:
@@ -248,7 +290,7 @@ def _parse_bucket_body(
     if len(parts) < 2 or not parts[0] or not parts[1]:
         raise HfUriError(uri=raw, msg=f"Bucket id must be 'namespace/name', got '{location}'.")
     bucket_id = f"{parts[0]}/{parts[1]}"
-    path_in_bucket = parts[2].strip("/") if len(parts) >= 3 else ""
+    path_in_bucket = parts[2] if len(parts) >= 3 else ""
     return HfUri(
         type=type_,
         id=bucket_id,
@@ -256,6 +298,7 @@ def _parse_bucket_body(
         path_in_repo=path_in_bucket,
         mount_path=mount_path,
         read_only=read_only,
+        _raw=raw,
     )
 
 
@@ -296,7 +339,7 @@ def _parse_repo_body(
         match = _SPECIAL_REFS_REVISION_REGEX.match(rev_and_path)
         if match is not None:
             revision = match.group()
-            path_in_repo = rev_and_path[len(revision) :].lstrip("/")
+            path_in_repo = rev_and_path[len(revision) :].removeprefix("/")
         else:
             slash_idx = rev_and_path.find("/")
             if slash_idx == -1:
@@ -309,11 +352,6 @@ def _parse_repo_body(
         if not revision:
             raise HfUriError(uri=raw, msg="Empty revision after '@'.")
 
-    try:
-        validate_repo_id(repo_id)
-    except HFValidationError as e:
-        raise HfUriError(uri=raw, msg=str(e)) from e
-
     return HfUri(
         type=type_,
         id=repo_id,
@@ -321,4 +359,5 @@ def _parse_repo_body(
         path_in_repo=path_in_repo,
         mount_path=mount_path,
         read_only=read_only,
+        _raw=raw,
     )
