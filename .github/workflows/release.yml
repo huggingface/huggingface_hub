@@ -486,7 +486,6 @@ jobs:
             gh release create "$TAG" \
               --title "v${VERSION}" \
               --draft \
-              --latest \
               --generate-notes
           fi
 
