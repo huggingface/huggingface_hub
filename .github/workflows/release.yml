@@ -386,7 +386,6 @@ jobs:
           gh release create "${{ needs.prepare.outputs.tag }}" \
             --title "v${{ needs.prepare.outputs.version }}" \
             --draft \
-            --latest=false \
             --generate-notes
 
       # --- Prerelease: generate notes only if no draft exists for this minor ---
