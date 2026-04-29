@@ -984,6 +984,14 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 >>> hf spaces restart username/my-space --factory-reboot
 ```
 
+### List available hardware
+
+Use `hf spaces hardware` to list all available hardware options for Spaces, including pricing.
+
+```bash
+>>> hf spaces hardware
+```
+
 ### Update Space settings
 
 Use `hf spaces settings` to update the settings of a Space.
@@ -994,7 +1002,7 @@ Use `hf spaces settings` to update the settings of a Space.
 ```
 
 - `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
-- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`). Run `hf spaces hardware` to see all options.
 
 ## hf papers
 

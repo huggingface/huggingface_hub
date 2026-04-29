@@ -2113,6 +2113,57 @@ class TestSpacesLogsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
+class TestSpacesHardwareCommand:
+    def test_list_hardware(self, runner: CliRunner) -> None:
+        """`hf spaces hardware` lists available hardware with pricing."""
+        from huggingface_hub._jobs_api import JobHardware
+
+        hardware = [
+            JobHardware(
+                **{
+                    "name": "cpu-basic",
+                    "prettyName": "CPU Basic",
+                    "cpu": "2 vCPU",
+                    "ram": "16 GB",
+                    "accelerator": None,
+                    "unitCostMicroUSD": 0,
+                    "unitCostUSD": 0,
+                    "unitLabel": "minute",
+                }
+            ),
+            JobHardware(
+                **{
+                    "name": "t4-small",
+                    "prettyName": "Nvidia T4 - small",
+                    "cpu": "4 vCPU",
+                    "ram": "15 GB",
+                    "accelerator": {
+                        "type": "gpu",
+                        "model": "T4",
+                        "quantity": "1",
+                        "vram": "16 GB",
+                        "manufacturer": "Nvidia",
+                    },
+                    "unitCostMicroUSD": 6667,
+                    "unitCostUSD": 0.006667,
+                    "unitLabel": "minute",
+                }
+            ),
+        ]
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_spaces_hardware.return_value = hardware
+            result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert len(output) == 2
+        assert output[0]["name"] == "cpu-basic"
+        assert output[0]["cost"] == "free"
+        assert output[1]["name"] == "t4-small"
+        assert output[1]["accelerator"] == "1x T4 (16 GB)"
+        assert "$0.40/h" in output[1]["cost"]
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
