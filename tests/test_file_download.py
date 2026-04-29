@@ -492,6 +492,31 @@ class CachedDownloadTests(unittest.TestCase):
             )
             self.assertEqual(attempt, _CACHED_NO_EXIST)
 
+    def test_try_to_load_from_cache_strips_refs_whitespace(self):
+        """Regression test for #4133.
+
+        Refs files copied between environments may pick up trailing newlines.
+        The commit hash read from `refs/<revision>` must be stripped so the
+        snapshot path resolves correctly.
+        """
+        with SoftTemporaryDirectory() as cache_dir:
+            commit_hash = "f90f040c7cb709ee7c55bddb3af1941289361ad6"
+            repo_dir = Path(cache_dir) / "models--user--repo"
+            (repo_dir / "refs").mkdir(parents=True)
+            (repo_dir / "refs" / "main").write_text(f"{commit_hash}\n")
+            snapshot_dir = repo_dir / "snapshots" / commit_hash
+            snapshot_dir.mkdir(parents=True)
+            file_path = snapshot_dir / "config.json"
+            file_path.write_text("{}")
+
+            attempt = try_to_load_from_cache(
+                "user/repo",
+                filename="config.json",
+                revision="main",
+                cache_dir=cache_dir,
+            )
+            self.assertEqual(attempt, str(file_path))
+
     def test_get_hf_file_metadata_basic(self) -> None:
         """Test getting metadata from a file on the Hub."""
         url = hf_hub_url(

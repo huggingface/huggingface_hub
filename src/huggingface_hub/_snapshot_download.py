@@ -287,7 +287,7 @@ def snapshot_download(
             if os.path.exists(ref_path):
                 # retrieve commit_hash from refs file
                 with open(ref_path) as f:
-                    commit_hash = f.read()
+                    commit_hash = f.read().strip()
 
         # Try to locate snapshot folder for this commit hash
         if commit_hash is not None and local_dir is None:
