@@ -13,7 +13,8 @@
 # to point to the final tag, and opens a PR to bump main to the next dev version (e.g., 1.7.0.dev0).
 #
 # For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
-# the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release.
+# the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release. Patch releases are NOT marked as
+# "latest release" on GitHub — only minor releases get that label, so that the latest minor version stays highlighted.
 #
 # The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
 # (huggingface-hub-bot) for PR creation in the post-release job. Since events triggered by GITHUB_TOKEN do not
@@ -478,7 +479,8 @@ jobs:
             echo "Updating existing draft release from $EXISTING_TAG to $TAG"
             gh release edit "$EXISTING_TAG" \
               --tag "$TAG" \
-              --prerelease=false
+              --prerelease=false \
+              --latest
           else
             echo "::warning::No draft release found for v${MINOR}. Creating new release with auto-generated notes."
             gh release create "$TAG" \
