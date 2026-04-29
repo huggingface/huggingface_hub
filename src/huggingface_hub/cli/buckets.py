@@ -235,8 +235,6 @@ def _list_buckets(
         raise typer.BadParameter("Cannot use --tree when listing buckets.")
     if recursive:
         raise typer.BadParameter("Cannot use --recursive when listing buckets.")
-    if human_readable:
-        raise typer.BadParameter("Cannot use --human-readable when listing buckets.")
 
     # Handle hf://buckets/namespace format
     if namespace is not None and namespace.startswith(BUCKET_PREFIX):
