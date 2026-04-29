@@ -31,11 +31,6 @@ RepoItem = RepoFile | RepoFolder
 ListingItem = BucketItem | RepoItem
 
 
-def is_folder(item: ListingItem) -> bool:
-    """Check if an item is a folder (not a file)."""
-    return isinstance(item, (BucketFolder, RepoFolder))
-
-
 def get_item_date(item: ListingItem) -> datetime | None:
     """Extract date from an item, supporting both repo items (last_commit.date) and bucket items (mtime/uploaded_at)."""
     match item:
@@ -93,7 +88,7 @@ def build_tree(
             current = current[part]["__children__"]
 
         final_part = parts[-1]
-        if is_folder(item):
+        if isinstance(item, BucketFolder | RepoFolder):
             if final_part not in current:
                 current[final_part] = {"__children__": {}}
         else:
@@ -104,7 +99,7 @@ def build_tree(
     max_date_width = 0
     if not quiet:
         for item in items:
-            if not is_folder(item):
+            if isinstance(item, BucketFile | RepoFile):
                 size_str = format_size(item.size, human_readable)
                 max_size_width = max(max_size_width, len(size_str))
                 date_str = format_date(get_item_date(item), human_readable)
@@ -202,7 +197,7 @@ def print_file_listing(
         out.text("(empty)")
         return
 
-    has_directories = any(is_folder(item) for item in items)
+    has_directories = any(isinstance(item, BucketFolder | RepoFolder) for item in items)
 
     if as_tree:
         quiet = out.mode == OutputFormatWithAuto.quiet
@@ -212,13 +207,13 @@ def print_file_listing(
         print(json.dumps([api_object_to_dict(item) for item in items], indent=2))
     elif out.mode == OutputFormatWithAuto.quiet:
         for item in items:
-            if is_folder(item):
+            if isinstance(item, BucketFolder | RepoFolder):
                 print(f"{item.path}/")
             else:
                 print(item.path)
     else:
         for item in items:
-            if is_folder(item):
+            if isinstance(item, BucketFolder | RepoFolder):
                 date_str = format_date(get_item_date(item), human_readable)
                 print(f"{'':>12}  {date_str:>19}  {item.path}/")
             else:
