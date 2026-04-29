@@ -42,6 +42,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
+* `update`: Update the `hf` CLI to the latest version.
 * `upload`: Upload a file or a folder to the Hub.
 * `upload-large-folder`: Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
@@ -979,10 +980,44 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the dataset card (README) for a...
 * `info`: Get info about a dataset on the Hub.
 * `list`: List datasets on the Hub. [alias: ls]
 * `parquet`: List parquet file URLs available for a...
 * `sql`: Execute a raw SQL query with DuckDB...
+
+### `hf datasets card`
+
+Get the dataset card (README) for a dataset on the Hub.
+
+**Usage**:
+
+```console
+$ hf datasets card [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets card HuggingFaceFW/fineweb
+  $ hf datasets card HuggingFaceFW/fineweb --metadata
+  $ hf datasets card HuggingFaceFW/fineweb --metadata --format json
+  $ hf datasets card HuggingFaceFW/fineweb --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf datasets info`
 
@@ -1041,6 +1076,7 @@ Examples
   $ hf datasets ls
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
+  $ hf datasets ls --filter benchmark:official
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2631,8 +2667,42 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the model card (README) for a model on...
 * `info`: Get info about a model on the Hub.
 * `list`: List models on the Hub. [alias: ls]
+
+### `hf models card`
+
+Get the model card (README) for a model on the Hub.
+
+**Usage**:
+
+```console
+$ hf models card [OPTIONS] MODEL_ID
+```
+
+**Arguments**:
+
+* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf models card google/gemma-4-31B-it
+  $ hf models card google/gemma-4-31B-it --metadata
+  $ hf models card google/gemma-4-31B-it --metadata --format json
+  $ hf models card google/gemma-4-31B-it --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf models info`
 
@@ -3401,13 +3471,50 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `card`: Get the Space card (README) for a Space on...
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
 * `list`: List spaces on the Hub. [alias: ls]
 * `logs`: Fetch the run or build logs of a Space.
+* `pause`: Pause a Space.
+* `restart`: Restart a Space.
 * `search`: Search spaces on the Hub using semantic...
+* `settings`: Update the settings of a Space.
 * `volumes`: Manage volumes for a Space on the Hub.
+
+### `hf spaces card`
+
+Get the Space card (README) for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces card [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces card mteb/leaderboard
+  $ hf spaces card mteb/leaderboard --metadata
+  $ hf spaces card mteb/leaderboard --metadata --format json
+  $ hf spaces card mteb/leaderboard --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf spaces dev-mode`
 
@@ -3589,6 +3696,64 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf spaces pause`
+
+Pause a Space.
+
+**Usage**:
+
+```console
+$ hf spaces pause [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces pause username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces restart`
+
+Restart a Space.
+
+**Usage**:
+
+```console
+$ hf spaces restart [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--factory-reboot`: Rebuild the Space from scratch without using the build cache.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces restart username/my-space
+  $ hf spaces restart username/my-space --factory-reboot
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf spaces search`
 
 Search spaces on the Hub using semantic search.
@@ -3618,6 +3783,35 @@ Examples
   $ hf spaces search "generate image"
   $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
   $ hf spaces search "remove background from photo" --description --json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces settings`
+
+Update the settings of a Space.
+
+**Usage**:
+
+```console
+$ hf spaces settings [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
+* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces settings username/my-space --sleep-time 300
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3763,6 +3957,20 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `-v, --verbose`: Show detailed logging with reasoning.
 * `-q, --quiet`: Minimal output.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf update`
+
+Update the `hf` CLI to the latest version.
+
+**Usage**:
+
+```console
+$ hf update [OPTIONS]
+```
+
+**Options**:
+
 * `--help`: Show this message and exit.
 
 ## `hf upload`

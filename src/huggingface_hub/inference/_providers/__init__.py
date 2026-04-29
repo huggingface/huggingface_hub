@@ -11,6 +11,7 @@ from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
 from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
+from .deepinfra import DeepInfraConversationalTask, DeepInfraTextGenerationTask
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageSegmentationTask,
@@ -68,6 +69,7 @@ PROVIDER_T = Literal[
     "cerebras",
     "clarifai",
     "cohere",
+    "deepinfra",
     "fal-ai",
     "featherless-ai",
     "fireworks-ai",
@@ -105,6 +107,10 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
+    },
+    "deepinfra": {
+        "conversational": DeepInfraConversationalTask(),
+        "text-generation": DeepInfraTextGenerationTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),

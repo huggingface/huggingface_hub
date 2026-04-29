@@ -125,8 +125,9 @@ class AsyncInferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"nvidia"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
-            Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
+            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"nvidia"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
+            Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
+            switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
@@ -1052,7 +1053,7 @@ class AsyncInferenceClient:
 
     async def feature_extraction(
         self,
-        text: str,
+        text: str | list[str],
         *,
         normalize: bool | None = None,
         prompt_name: str | None = None,
@@ -1063,11 +1064,11 @@ class AsyncInferenceClient:
         model: str | None = None,
     ) -> "np.ndarray":
         """
-        Generate embeddings for a given text.
+        Generate embeddings for a given text or batch of texts.
 
         Args:
-            text (`str`):
-                The text to embed.
+            text (`str` or `list[str]`):
+                The text or list of texts to embed.
             model (`str`, *optional*):
                 The model to use for the feature extraction task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended feature extraction model will be used.
@@ -1094,7 +1095,7 @@ class AsyncInferenceClient:
                 Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
-            `np.ndarray`: The embedding representing the input text as a float32 numpy array.
+            `np.ndarray`: The embedding representing the input text(s) as a float32 numpy array.
 
         Raises:
             [`InferenceTimeoutError`]:
