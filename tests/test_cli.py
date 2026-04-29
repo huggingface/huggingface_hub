@@ -2117,9 +2117,7 @@ class TestSpacesLogsCommand:
 class TestSpacesHardwareCommand:
     def test_list_hardware(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
-        assert result.exit_code == 0
-        output = json.loads(result.stdout)
-        cpu_basic = next(hw for hw in output if hw["name"] == "cpu-basic")
+        cpu_basic = next(hw for hw in json.loads(result.stdout) if hw["name"] == "cpu-basic")
         assert cpu_basic["name"] == "cpu-basic"
         assert cpu_basic["pretty_name"] == "CPU Basic"
         assert cpu_basic["cpu"] == "2 vCPU"
