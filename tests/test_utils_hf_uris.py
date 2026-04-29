@@ -16,11 +16,13 @@
 import pytest
 
 from huggingface_hub.errors import HfUriError
-from huggingface_hub.utils import HfUri, parse_hf_uri
+from huggingface_hub.utils import HfMount, HfUri, parse_hf_mount, parse_hf_uri
 
 
-# A "success" case is described as (uri, expected_HfUri, expected_roundtrip).
-SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
+# ---------------------------------------------------------------------------
+# HfUri success cases: (uri, expected_HfUri, expected_roundtrip)
+# ---------------------------------------------------------------------------
+URI_SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
     # --- Models ----------------------------------------------------------------
     # Namespaced model (implicit type prefix)
     (
@@ -156,84 +158,13 @@ SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="refs/pr/3"),
         "hf://models/my-org/my-model@refs/pr/3",
     ),
-    # --- Mount path + ro/rw ----------------------------------------------------
-    (
-        "hf://my-org/my-model:/data",
-        HfUri(type="model", id="my-org/my-model", mount_path="/data"),
-        "hf://models/my-org/my-model:/data",
-    ),
-    (
-        "hf://my-org/my-model:/data:ro",
-        HfUri(type="model", id="my-org/my-model", mount_path="/data", read_only=True),
-        "hf://models/my-org/my-model:/data:ro",
-    ),
-    (
-        "hf://my-org/my-model:/data:rw",
-        HfUri(type="model", id="my-org/my-model", mount_path="/data", read_only=False),
-        "hf://models/my-org/my-model:/data:rw",
-    ),
-    (
-        "hf://datasets/my-org/my-dataset:/mnt",
-        HfUri(type="dataset", id="my-org/my-dataset", mount_path="/mnt"),
-        "hf://datasets/my-org/my-dataset:/mnt",
-    ),
-    # Mount path with revision
-    (
-        "hf://datasets/my-org/my-dataset@v1:/mnt:ro",
-        HfUri(
-            type="dataset",
-            id="my-org/my-dataset",
-            revision="v1",
-            mount_path="/mnt",
-            read_only=True,
-        ),
-        "hf://datasets/my-org/my-dataset@v1:/mnt:ro",
-    ),
-    # Mount path with sub-path inside repo
-    (
-        "hf://datasets/my-org/my-dataset/train:/mnt",
-        HfUri(
-            type="dataset",
-            id="my-org/my-dataset",
-            path_in_repo="train",
-            mount_path="/mnt",
-        ),
-        "hf://datasets/my-org/my-dataset/train:/mnt",
-    ),
-    # Bucket with mount path and ro/rw
-    (
-        "hf://buckets/my-org/my-bucket:/mnt:rw",
-        HfUri(
-            type="bucket",
-            id="my-org/my-bucket",
-            mount_path="/mnt",
-            read_only=False,
-        ),
-        "hf://buckets/my-org/my-bucket:/mnt:rw",
-    ),
-    # Bucket with sub-path and mount
-    (
-        "hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro",
-        HfUri(
-            type="bucket",
-            id="my-org/my-bucket",
-            path_in_repo="sub/dir",
-            mount_path="/mnt",
-            read_only=True,
-        ),
-        "hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro",
-    ),
-    # Mount path with several path segments
-    (
-        "hf://my-org/my-model:/path/to/mount",
-        HfUri(type="model", id="my-org/my-model", mount_path="/path/to/mount"),
-        "hf://models/my-org/my-model:/path/to/mount",
-    ),
 ]
 
 
-# A "failure" case is '(uri, error_substring)'
-FAILURE_CASES: list[tuple[str, str]] = [
+# ---------------------------------------------------------------------------
+# HfUri failure cases: (uri, error_substring)
+# ---------------------------------------------------------------------------
+URI_FAILURE_CASES: list[tuple[str, str]] = [
     # Missing protocol
     ("gpt2", "Must start with 'hf://'"),
     ("https://huggingface.co/gpt2", "Must start with 'hf://'"),
@@ -257,8 +188,6 @@ FAILURE_CASES: list[tuple[str, str]] = [
     ("hf://datasets/squad", "Repository id must be 'namespace/name'"),
     ("hf://gpt2@v1", "Repository id must be 'namespace/name'"),
     ("hf://gpt2@v1/config.json", "Repository id must be 'namespace/name'"),
-    ("hf://gpt2:/data", "Repository id must be 'namespace/name'"),
-    ("hf://gpt2:/data:ro", "Repository id must be 'namespace/name'"),
     # Buckets must always have namespace/name
     ("hf://buckets/single-segment", "Bucket id must be 'namespace/name'"),
     # Buckets cannot have a revision
@@ -274,11 +203,6 @@ FAILURE_CASES: list[tuple[str, str]] = [
     # Invalid repo id chars (validated by validate_repo_id)
     ("hf://datasets/foo/.invalid", "Repo id must use alphanumeric"),
     ("hf://models/foo--bar/baz", "Cannot have -- or .."),
-    # Mount path that is not absolute
-    ("hf://my-org/my-model:/", "Mount path must be a non-empty absolute path"),
-    # Read-only flag without a mount path
-    ("hf://my-org/my-model:ro", "':ro'/':rw' suffix is only valid"),
-    ("hf://my-org/my-model:rw", "':ro'/':rw' suffix is only valid"),
     # Empty path segments (adjacent slashes)
     ("hf://models/org/m//sub", "empty segments"),
     ("hf://buckets/org/b//sub", "empty segments"),
@@ -288,7 +212,126 @@ FAILURE_CASES: list[tuple[str, str]] = [
 ]
 
 
-@pytest.mark.parametrize(("uri", "expected", "expected_roundtrip"), SUCCESS_CASES)
+# ---------------------------------------------------------------------------
+# HfUri direct init invalid cases: (kwargs, error_substring)
+# ---------------------------------------------------------------------------
+URI_DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
+    ({"type": "unknown", "id": "org/repo"}, "Invalid type"),
+    ({"type": "model", "id": "gpt2"}, "namespace/name"),
+    ({"type": "model", "id": "a/b/c"}, "namespace/name"),
+    ({"type": "dataset", "id": "foo--bar/baz"}, "Cannot have -- or .."),
+    ({"type": "model", "id": "org/repo", "revision": ""}, "empty string"),
+    ({"type": "bucket", "id": "org/bucket", "revision": "main"}, "do not support a revision"),
+    ({"type": "model", "id": "org/repo", "path_in_repo": "a//b"}, "empty segments"),
+]
+
+
+# ---------------------------------------------------------------------------
+# HfMount success cases: (mount_str, expected_HfMount, expected_roundtrip)
+# ---------------------------------------------------------------------------
+MOUNT_SUCCESS_CASES: list[tuple[str, HfMount, str]] = [
+    (
+        "hf://my-org/my-model:/data",
+        HfMount(source=HfUri(type="model", id="my-org/my-model"), mount_path="/data"),
+        "hf://models/my-org/my-model:/data",
+    ),
+    (
+        "hf://my-org/my-model:/data:ro",
+        HfMount(source=HfUri(type="model", id="my-org/my-model"), mount_path="/data", read_only=True),
+        "hf://models/my-org/my-model:/data:ro",
+    ),
+    (
+        "hf://my-org/my-model:/data:rw",
+        HfMount(source=HfUri(type="model", id="my-org/my-model"), mount_path="/data", read_only=False),
+        "hf://models/my-org/my-model:/data:rw",
+    ),
+    (
+        "hf://datasets/my-org/my-dataset:/mnt",
+        HfMount(source=HfUri(type="dataset", id="my-org/my-dataset"), mount_path="/mnt"),
+        "hf://datasets/my-org/my-dataset:/mnt",
+    ),
+    # Mount path with revision
+    (
+        "hf://datasets/my-org/my-dataset@v1:/mnt:ro",
+        HfMount(
+            source=HfUri(type="dataset", id="my-org/my-dataset", revision="v1"),
+            mount_path="/mnt",
+            read_only=True,
+        ),
+        "hf://datasets/my-org/my-dataset@v1:/mnt:ro",
+    ),
+    # Mount path with sub-path inside repo
+    (
+        "hf://datasets/my-org/my-dataset/train:/mnt",
+        HfMount(
+            source=HfUri(type="dataset", id="my-org/my-dataset", path_in_repo="train"),
+            mount_path="/mnt",
+        ),
+        "hf://datasets/my-org/my-dataset/train:/mnt",
+    ),
+    # Bucket with mount path and ro/rw
+    (
+        "hf://buckets/my-org/my-bucket:/mnt:rw",
+        HfMount(
+            source=HfUri(type="bucket", id="my-org/my-bucket"),
+            mount_path="/mnt",
+            read_only=False,
+        ),
+        "hf://buckets/my-org/my-bucket:/mnt:rw",
+    ),
+    # Bucket with sub-path and mount
+    (
+        "hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro",
+        HfMount(
+            source=HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/dir"),
+            mount_path="/mnt",
+            read_only=True,
+        ),
+        "hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro",
+    ),
+    # Mount path with several path segments
+    (
+        "hf://my-org/my-model:/path/to/mount",
+        HfMount(source=HfUri(type="model", id="my-org/my-model"), mount_path="/path/to/mount"),
+        "hf://models/my-org/my-model:/path/to/mount",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# HfMount failure cases: (mount_str, error_substring)
+# ---------------------------------------------------------------------------
+MOUNT_FAILURE_CASES: list[tuple[str, str]] = [
+    # Missing protocol
+    ("my-org/my-model:/data", "Must start with 'hf://'"),
+    # Missing mount path entirely
+    ("hf://my-org/my-model", "Missing mount path"),
+    # Mount path that is just '/'
+    ("hf://my-org/my-model:/", "Mount path must be a non-empty absolute path"),
+    # Read-only flag without a mount path
+    ("hf://my-org/my-model:ro", "':ro'/':rw' suffix is only valid"),
+    ("hf://my-org/my-model:rw", "':ro'/':rw' suffix is only valid"),
+    # Invalid URI inside the mount (canonical repo without namespace)
+    ("hf://gpt2:/data", "Repository id must be 'namespace/name'"),
+    ("hf://gpt2:/data:ro", "Repository id must be 'namespace/name'"),
+]
+
+
+# ---------------------------------------------------------------------------
+# HfMount direct init invalid cases: (kwargs, error_substring)
+# ---------------------------------------------------------------------------
+MOUNT_DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
+    ({"source": HfUri(type="model", id="org/repo"), "mount_path": "relative"}, "absolute path"),
+    ({"source": HfUri(type="model", id="org/repo"), "mount_path": "/"}, "absolute path"),
+]
+
+
+# ===========================================================================
+# Tests
+# ===========================================================================
+
+
+@pytest.mark.parametrize(("uri", "expected", "expected_roundtrip"), URI_SUCCESS_CASES)
 def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str) -> None:
     result = parse_hf_uri(uri)
     assert result == expected
@@ -297,27 +340,36 @@ def test_parse_hf_uri_success(uri: str, expected: HfUri, expected_roundtrip: str
     assert parse_hf_uri(expected_roundtrip) == expected
 
 
-@pytest.mark.parametrize(("uri", "error_substring"), FAILURE_CASES)
+@pytest.mark.parametrize(("uri", "error_substring"), URI_FAILURE_CASES)
 def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring) as exc_info:
         parse_hf_uri(uri)
     assert exc_info.value.uri == uri
 
 
-DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
-    ({"type": "unknown", "id": "org/repo"}, "Invalid type"),
-    ({"type": "model", "id": "gpt2"}, "namespace/name"),
-    ({"type": "model", "id": "a/b/c"}, "namespace/name"),
-    ({"type": "dataset", "id": "foo--bar/baz"}, "Cannot have -- or .."),
-    ({"type": "model", "id": "org/repo", "revision": ""}, "empty string"),
-    ({"type": "bucket", "id": "org/bucket", "revision": "main"}, "do not support a revision"),
-    ({"type": "model", "id": "org/repo", "path_in_repo": "a//b"}, "empty segments"),
-    ({"type": "model", "id": "org/repo", "mount_path": "relative"}, "absolute path"),
-    ({"type": "model", "id": "org/repo", "read_only": True}, "read_only"),
-]
-
-
-@pytest.mark.parametrize(("kwargs", "error_substring"), DIRECT_INIT_INVALID_CASES)
+@pytest.mark.parametrize(("kwargs", "error_substring"), URI_DIRECT_INIT_INVALID_CASES)
 def test_hf_uri_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring):
         HfUri(**kwargs)
+
+
+@pytest.mark.parametrize(("mount_str", "expected", "expected_roundtrip"), MOUNT_SUCCESS_CASES)
+def test_parse_hf_mount_success(mount_str: str, expected: HfMount, expected_roundtrip: str) -> None:
+    result = parse_hf_mount(mount_str)
+    assert result == expected
+    assert result.to_uri() == expected_roundtrip
+    # Re-parsing the canonical form must yield the same mount (idempotency).
+    assert parse_hf_mount(expected_roundtrip) == expected
+
+
+@pytest.mark.parametrize(("mount_str", "error_substring"), MOUNT_FAILURE_CASES)
+def test_parse_hf_mount_failure(mount_str: str, error_substring: str) -> None:
+    with pytest.raises(HfUriError, match=error_substring) as exc_info:
+        parse_hf_mount(mount_str)
+    assert exc_info.value.uri == mount_str
+
+
+@pytest.mark.parametrize(("kwargs", "error_substring"), MOUNT_DIRECT_INIT_INVALID_CASES)
+def test_hf_mount_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
+    with pytest.raises(HfUriError, match=error_substring):
+        HfMount(**kwargs)

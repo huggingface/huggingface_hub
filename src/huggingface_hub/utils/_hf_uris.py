@@ -11,17 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Centralized parser for Hugging Face Hub URIs ('hf://...').
+"""Centralized parser for Hugging Face Hub URIs ('hf://...') and mount specifications.
 
 A HF URI is a URI-like string that identifies a location on the Hugging Face
 Hub: a model/dataset/space/kernel repository, a bucket, optionally a revision,
-optionally a path inside the repo or bucket, and optionally a local mount path
-with a ':ro'/':rw' flag (used by Spaces and Jobs volumes).
+and optionally a path inside the repo or bucket.
 
 Canonical syntax:
 
 ```
-hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]
+```
+
+A HF mount wraps a HF URI with a local mount path and an optional ':ro'/':rw'
+flag (used by Spaces and Jobs volumes):
+
+```
+hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]:<MOUNT_PATH>[:ro|:rw]
 ```
 
 See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examples.
@@ -67,18 +73,12 @@ class HfUri:
             never carry a revision). Special refs like 'refs/pr/10' and 'refs/convert/parquet' are preserved as-is.
         path_in_repo (`str`):
             The path inside the repo or bucket. Empty string if the URI points at the root.
-        mount_path (`str`, *optional*):
-            The local mount path specified after ':' (always starts with '/'). 'None' if the URI is a plain location URI.
-        read_only (`bool`, *optional*):
-            True if the URI ends with ':ro', False if it ends with ':rw', 'None' if no read/write flag was provided.
     """
 
     type: constants.HfUriType
     id: str
     revision: str | None = None
     path_in_repo: str = ""
-    mount_path: str | None = None
-    read_only: bool | None = None
     _raw: str | None = field(repr=False, hash=False, compare=False, default=None)
 
     def __post_init__(self) -> None:
@@ -108,16 +108,6 @@ class HfUri:
             if self.path_in_repo.startswith("/") or "//" in self.path_in_repo:
                 raise HfUriError(uri=uri, msg=f"Path must not contain empty segments (got '{self.path_in_repo}').")
 
-        # Check valid mount path
-        if self.mount_path is not None:
-            if not self.mount_path.startswith("/") or self.mount_path == "/":
-                raise HfUriError(
-                    uri=uri,
-                    msg=f"Mount path must be a non-empty absolute path starting with '/', got '{self.mount_path}'.",
-                )
-        if self.read_only is not None and self.mount_path is None:
-            raise HfUriError(uri=uri, msg="read_only can only be set when mount_path is provided.")
-
     @property
     def is_bucket(self) -> bool:
         """True if this URI points at a bucket."""
@@ -127,9 +117,6 @@ class HfUri:
     def is_repo(self) -> bool:
         """True if this URI points at a repository (model, dataset, space or kernel)."""
         return self.type != "bucket"
-
-    def __str__(self) -> str:
-        return self.to_uri()
 
     def to_uri(self) -> str:
         """Render the URI as a canonical 'hf://' string.
@@ -147,12 +134,49 @@ class HfUri:
             parts.append(f"@{revision}")
         if self.path_in_repo:
             parts.append(f"/{self.path_in_repo}")
-        if self.mount_path is not None:
-            parts.append(f":{self.mount_path}")
-            if self.read_only is True:
-                parts.append(":ro")
-            elif self.read_only is False:
-                parts.append(":rw")
+        return "".join(parts)
+
+
+@dataclass(frozen=True)
+class HfMount:
+    """A HF URI paired with a local mount path and optional read-only flag.
+
+    Used by Spaces and Jobs to describe volume mounts. The full syntax is:
+
+    ```
+    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]:<MOUNT_PATH>[:ro|:rw]
+    ```
+
+    Attributes:
+        source ([`HfUri`]):
+            The parsed HF URI identifying the Hub resource to mount.
+        mount_path (`str`):
+            The local mount path (always starts with '/').
+        read_only (`bool`, *optional*):
+            True if the mount ends with ':ro', False if it ends with ':rw', 'None' if no flag was provided.
+    """
+
+    source: HfUri
+    mount_path: str
+    read_only: bool | None = None
+    _raw: str | None = field(repr=False, hash=False, compare=False, default=None)
+
+    def __post_init__(self) -> None:
+        raw = self._raw or ""
+        if not self.mount_path.startswith("/") or self.mount_path == "/":
+            raise HfUriError(
+                uri=raw,
+                msg=f"Mount path must be a non-empty absolute path starting with '/', got '{self.mount_path}'.",
+            )
+
+    def to_uri(self) -> str:
+        """Render the mount as a canonical 'hf://' string.
+
+        Example: 'hf://models/my-org/my-model:/data:ro'
+        """
+        parts = [self.source.to_uri(), ":", self.mount_path]
+        if self.read_only is not None:
+            parts.append(":ro" if self.read_only else ":rw")
         return "".join(parts)
 
 
@@ -162,7 +186,7 @@ def parse_hf_uri(uri: str) -> HfUri:
     A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is:
 
     ```
-    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]
+    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]
     ```
 
     See 'docs/source/en/package_reference/hf_uris.md' for the full specification.
@@ -182,18 +206,16 @@ def parse_hf_uri(uri: str) -> HfUri:
         ```py
         >>> from huggingface_hub.utils import parse_hf_uri
         >>> parse_hf_uri("hf://my-org/my-model")
-        HfUri(type='model', id='my-org/my-model', revision=None, path_in_repo='', mount_path=None, read_only=None)
+        HfUri(type='model', id='my-org/my-model', revision=None, path_in_repo='')
         >>> parse_hf_uri("hf://datasets/my-org/my-dataset@refs/pr/3/train.json")
-        HfUri(type='dataset', id='my-org/my-dataset', revision='refs/pr/3', path_in_repo='train.json', mount_path=None, read_only=None)
-        >>> parse_hf_uri("hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro")
-        HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir', mount_path='/mnt', read_only=True)
+        HfUri(type='dataset', id='my-org/my-dataset', revision='refs/pr/3', path_in_repo='train.json')
         ```
     """
     if not uri.startswith(constants.HF_PROTOCOL):
         raise HfUriError(
             uri,
             f"Must start with '{constants.HF_PROTOCOL}'. "
-            f"Expected format: {constants.HF_PROTOCOL}[<TYPE>/]<ID>[@<REVISION>][/<PATH>][:<MOUNT_PATH>[:ro|:rw]]",
+            f"Expected format: {constants.HF_PROTOCOL}[<TYPE>/]<ID>[@<REVISION>][/<PATH>]",
         )
 
     raw = uri
@@ -201,12 +223,69 @@ def parse_hf_uri(uri: str) -> HfUri:
     if not body:
         raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
 
-    location, mount_path, read_only = _split_mount(body, raw=raw)
-    type_, location = _split_type(location, raw=raw)
+    type_, location = _split_type(body, raw=raw)
 
     if type_ == "bucket":
-        return _parse_bucket_body(location, type_, mount_path, read_only, raw=raw)
-    return _parse_repo_body(location, type_, mount_path, read_only, raw=raw)
+        return _parse_bucket_body(location, type_, raw=raw)
+    return _parse_repo_body(location, type_, raw=raw)
+
+
+def parse_hf_mount(mount_str: str) -> HfMount:
+    """Parse a HF mount specification ('hf://...:<MOUNT_PATH>[:ro|:rw]').
+
+    A mount specification is a HF URI followed by a local mount path and an optional read-only/read-write flag.
+    The full grammar is:
+
+    ```
+    hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]:<MOUNT_PATH>[:ro|:rw]
+    ```
+
+    See 'docs/source/en/package_reference/hf_uris.md' for the full specification.
+
+    Args:
+        mount_str (`str`):
+            The mount string to parse. Must start with 'hf://' and contain a ':<MOUNT_PATH>' segment.
+
+    Returns:
+        [`HfMount`]: the parsed mount.
+
+    Raises:
+        [`HfUriError`]:
+            If the mount string is malformed (missing mount path, invalid URI, etc.).
+
+    Examples:
+        ```py
+        >>> from huggingface_hub.utils import parse_hf_mount
+        >>> parse_hf_mount("hf://my-org/my-model:/data:ro")
+        HfMount(source=HfUri(type='model', id='my-org/my-model', revision=None, path_in_repo=''), mount_path='/data', read_only=True)
+        >>> parse_hf_mount("hf://buckets/my-org/my-bucket/sub/dir:/mnt:rw")
+        HfMount(source=HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir'), mount_path='/mnt', read_only=False)
+        ```
+    """
+    if not mount_str.startswith(constants.HF_PROTOCOL):
+        raise HfUriError(
+            uri=mount_str,
+            msg=f"Must start with '{constants.HF_PROTOCOL}'.",
+        )
+
+    raw = mount_str
+    body = mount_str[len(constants.HF_PROTOCOL) :]
+    if not body:
+        raise HfUriError(uri=raw, msg=f"Empty body after '{constants.HF_PROTOCOL}'.")
+
+    location, mount_path, read_only = _split_mount(body, raw=raw)
+
+    if mount_path is None:
+        raise HfUriError(uri=raw, msg="Missing mount path. Expected ':<MOUNT_PATH>' (e.g. 'hf://org/model:/data').")
+
+    # Re-assemble the URI part and parse it
+    uri_str = constants.HF_PROTOCOL + location
+    try:
+        source = parse_hf_uri(uri_str)
+    except HfUriError as e:
+        raise HfUriError(uri=raw, msg=e.msg) from e
+
+    return HfMount(source=source, mount_path=mount_path, read_only=read_only, _raw=raw)
 
 
 def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
@@ -277,8 +356,6 @@ def _split_type(location: str, *, raw: str) -> tuple[constants.HfUriType, str]:
 def _parse_bucket_body(
     location: str,
     type_: constants.HfUriType,
-    mount_path: str | None,
-    read_only: bool | None,
     *,
     raw: str,
 ) -> HfUri:
@@ -296,8 +373,6 @@ def _parse_bucket_body(
         id=bucket_id,
         revision=None,
         path_in_repo=path_in_bucket,
-        mount_path=mount_path,
-        read_only=read_only,
         _raw=raw,
     )
 
@@ -305,8 +380,6 @@ def _parse_bucket_body(
 def _parse_repo_body(
     location: str,
     type_: constants.HfUriType,
-    mount_path: str | None,
-    read_only: bool | None,
     *,
     raw: str,
 ) -> HfUri:
@@ -357,7 +430,5 @@ def _parse_repo_body(
         id=repo_id,
         revision=revision,
         path_in_repo=path_in_repo,
-        mount_path=mount_path,
-        read_only=read_only,
         _raw=raw,
     )

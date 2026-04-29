@@ -182,6 +182,7 @@ class HfUriError(ValueError):
 
     def __init__(self, uri: str, msg: str):
         self.uri = uri
+        self.msg = msg
         full_msg = f"Invalid HF URI '{uri}'. {msg}" if uri else f"Invalid HF URI. {msg}"
         super().__init__(full_msg)
 
