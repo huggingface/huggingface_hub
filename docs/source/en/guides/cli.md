@@ -986,6 +986,8 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 
 ### Update Space settings
 
+Use `hf spaces settings` to update the settings of a Space.
+
 ```bash
 >>> hf spaces settings username/my-space --sleep-time 3600
 >>> hf spaces settings username/my-space --hardware t4-medium
