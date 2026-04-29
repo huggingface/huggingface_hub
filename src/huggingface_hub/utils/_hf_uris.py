@@ -172,13 +172,12 @@ def _split_mount(body: str, *, raw: str) -> tuple[str, str | None, bool | None]:
 
     Returns '(location, mount_path, read_only)' where 'mount_path' is 'None' if no mount segment is present.
     """
-    read_only: bool | None = None
     if body.endswith(":ro"):
-        read_only = True
-        body = body[:-3]
+        read_only, body = True, body.removesuffix(":ro")
     elif body.endswith(":rw"):
-        read_only = False
-        body = body[:-3]
+        read_only, body = False, body.removesuffix(":rw")
+    else:
+        read_only = None
 
     # Mount paths always start with '/', so the delimiter is ':/'.
     # We use rfind() because the mount segment is always trailing
