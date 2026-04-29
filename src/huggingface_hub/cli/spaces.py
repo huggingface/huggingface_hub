@@ -369,7 +369,8 @@ def spaces_hardware(
         accelerator = (
             f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})" if hw.accelerator else None
         )
-        cost_per_hour = f"${hw.unit_cost_usd * 60:.2f}/h" if hw.unit_cost_usd else "free"
+        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
+        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
         items.append(
             {
                 "name": hw.name,
@@ -377,7 +378,8 @@ def spaces_hardware(
                 "cpu": hw.cpu,
                 "ram": hw.ram,
                 "accelerator": accelerator,
-                "cost": cost_per_hour,
+                "cost_min": cost_min,
+                "cost_hour": cost_hour,
             }
         )
     out.table(items)

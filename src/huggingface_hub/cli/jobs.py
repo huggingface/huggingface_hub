@@ -662,12 +662,12 @@ def jobs_hardware() -> None:
     rows: list[list[str | int]] = []
 
     for hw in hardware_list:
-        accelerator_info = "N/A"
+        accelerator_info = ""
         if hw.accelerator:
             accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
-        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd is not None else "N/A"
-        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd is not None else "N/A"
-        rows.append([hw.name, hw.pretty_name or "N/A", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+        cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
+        cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
+        rows.append([hw.name, hw.pretty_name or "", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
 
     if not rows:
         print("No hardware options found")
