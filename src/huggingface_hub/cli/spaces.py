@@ -96,9 +96,9 @@ spaces_cli.add_typer(volumes_cli, name="volumes")
     examples=[
         "hf spaces ls --limit 10",
         'hf spaces ls --search "chatbot" --author huggingface',
-        "hf spaces ls enzostvs/deepsite",
-        "hf spaces ls enzostvs/deepsite -R",
-        "hf spaces ls enzostvs/deepsite --tree -h",
+        "hf spaces ls victor/deepsite",
+        "hf spaces ls victor/deepsite -R",
+        "hf spaces ls victor/deepsite --tree -h",
     ],
 )
 def spaces_ls(

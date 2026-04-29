@@ -1,4 +1,4 @@
-# Copyright 2025-present, the HuggingFace Inc. team.
+# Copyright 2026-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
 # limitations under the License.
 """Shared helpers for listing files in buckets and repos (tree view, flat view, formatting)."""
 
-from __future__ import annotations
-
 import json
 from datetime import datetime
 from typing import Any, Sequence
+
+import typer
 
 from ._cli_utils import api_object_to_dict, get_hf_api
 from ._output import OutputFormatWithAuto, out
@@ -168,10 +168,8 @@ def list_repo_files_cmd(
     token: str | None,
 ) -> None:
     """List files in a repo on the Hub. Used by models/datasets/spaces ls commands."""
-    import typer
-
     if as_tree and out.mode == OutputFormatWithAuto.json:
-        raise typer.BadParameter("Cannot use --tree with --format json.")
+        raise typer.BadParameter("Cannot use --tree with json format.")
 
     api = get_hf_api(token=token)
     items = list(api.list_repo_tree(repo_id, recursive=recursive, revision=revision, repo_type=repo_type))

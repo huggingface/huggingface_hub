@@ -74,11 +74,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         )
 
 
-def _format_size(size: int | float, human_readable: bool = False) -> str:
-    """Format a size in bytes. Thin wrapper kept for `_list_buckets`."""
-    return format_size(size, human_readable)
-
-
 @buckets_cli.command(
     name="create",
     examples=[
@@ -252,7 +247,7 @@ def _list_buckets(
         {
             "id": bucket.id,
             "private": bucket.private,
-            "size": _format_size(bucket.size, human_readable) if human_readable else bucket.size,
+            "size": format_size(bucket.size, human_readable) if human_readable else bucket.size,
             "total_files": bucket.total_files,
             "created_at": bucket.created_at,
         }
@@ -483,7 +478,7 @@ def remove(
 
         file_paths = [f.path for f in matched_files]
         total_size = sum(f.size for f in matched_files)
-        size_str = _format_size(total_size, human_readable=True)
+        size_str = format_size(total_size, human_readable=True)
 
         if not file_paths:
             out.text("No files to remove.")

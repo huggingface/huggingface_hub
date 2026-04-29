@@ -809,7 +809,7 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 >>> hf models ls --sort downloads --limit 10
 ```
 
-When called with a model ID, `hf models ls` lists files in that model repo — similar to `hf buckets ls`:
+When called with a model ID, `hf models ls` lists files in that model repo:
 
 ```bash
 # List files in a model repo
@@ -973,16 +973,16 @@ When called with a Space ID, `hf spaces ls` lists files in that Space repo:
 
 ```bash
 # List files in a Space repo
->>> hf spaces ls enzostvs/deepsite
+>>> hf spaces ls victor/deepsite
 
 # List files recursively with tree view
->>> hf spaces ls enzostvs/deepsite --tree -R -h
+>>> hf spaces ls victor/deepsite --tree -R -h
 ```
 
 ### Get Space info
 
 ```bash
->>> hf spaces info enzostvs/deepsite
+>>> hf spaces info victor/deepsite
 ```
 
 ### Get Space card

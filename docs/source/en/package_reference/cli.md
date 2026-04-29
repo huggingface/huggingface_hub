@@ -3722,9 +3722,9 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 Examples
   $ hf spaces ls --limit 10
   $ hf spaces ls --search "chatbot" --author huggingface
-  $ hf spaces ls enzostvs/deepsite
-  $ hf spaces ls enzostvs/deepsite -R
-  $ hf spaces ls enzostvs/deepsite --tree -h
+  $ hf spaces ls victor/deepsite
+  $ hf spaces ls victor/deepsite -R
+  $ hf spaces ls victor/deepsite --tree -h
 
 Learn more
   Use `hf <command> --help` for more information about a command.
