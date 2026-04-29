@@ -117,8 +117,6 @@ class HFCliTyperGroup(TyperGroup):
       commands don't need to declare these options themselves.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     - enriches "No such option" / "No such command" errors with available options or commands.
-    - documents the global formatting options in a dedicated "Formatting options"
-      help section on every command.
     """
 
     def invoke(self, ctx: click.Context) -> None:
@@ -190,14 +188,6 @@ class HFCliTyperGroup(TyperGroup):
             _consume_format_flags_for_leaf(resolved_cmd, sub_args)
 
         return name, resolved_cmd, sub_args
-
-    def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        # MultiCommand.format_options writes regular options + the commands list. We
-        # insert the "Formatting options" section in between so it sits with the
-        # other options instead of below the subcommand list.
-        click.Command.format_options(self, ctx, formatter)
-        _format_formatting_options_section(formatter)
-        self.format_commands(ctx, formatter)
 
     @staticmethod
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
