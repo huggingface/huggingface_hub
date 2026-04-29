@@ -118,6 +118,20 @@ def models_ls(
     When called with a model ID, lists files in that model repo.
     """
     if repo_id is not None:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
+        if author is not None:
+            raise typer.BadParameter("Cannot use --author when listing files.")
+        if filter is not None:
+            raise typer.BadParameter("Cannot use --filter when listing files.")
+        if num_parameters is not None:
+            raise typer.BadParameter("Cannot use --num-parameters when listing files.")
+        if sort is not None:
+            raise typer.BadParameter("Cannot use --sort when listing files.")
+        if limit != 10:
+            raise typer.BadParameter("Cannot use --limit when listing files.")
+        if expand is not None:
+            raise typer.BadParameter("Cannot use --expand when listing files.")
         return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="model",
