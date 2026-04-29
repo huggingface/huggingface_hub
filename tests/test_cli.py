@@ -2123,7 +2123,8 @@ class TestSpacesHardwareCommand:
         assert cpu_basic["cpu"] == "2 vCPU"
         assert cpu_basic["ram"] == "16 GB"
         assert cpu_basic["accelerator"] is None
-        assert cpu_basic["cost"] == "free"
+        assert cpu_basic["cost_min"] == "free"
+        assert cpu_basic["cost_hour"] == "free"
 
 
 class TestInferenceEndpointsCommands:
