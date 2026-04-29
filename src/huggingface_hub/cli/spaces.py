@@ -378,13 +378,13 @@ def spaces_settings(
     token: TokenOpt = None,
 ) -> None:
     """Update the settings of a Space."""
-    if sleep_time is None and hardware is None:
-        raise CLIError("Specify at least one setting to update.")
     api = get_hf_api(token=token)
     if hardware is not None:
         runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
-    else:
+    elif sleep_time is not None:
         runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
+    else:
+        raise CLIError("Specify at least one setting to update.")
     out.result(
         "Space settings updated",
         space_id=space_id,
