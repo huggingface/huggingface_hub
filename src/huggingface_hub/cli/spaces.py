@@ -49,7 +49,7 @@ from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, Repositor
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
-from huggingface_hub.utils import StatusLine, are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
@@ -314,7 +314,7 @@ def dev_mode(
         SpaceStage.APP_STARTING: "app starting...",
         SpaceStage.RUNNING_APP_STARTING: "app starting...",
     }
-    status = StatusLine()
+    status = out.status()
     while True:
         info = api.space_info(space_id)
         if info.runtime is None:

@@ -641,7 +641,13 @@ jobs:
           fi
 
   # ============================================================
-  # 4c. SOCIAL POSTS — generate draft social media posts for prereleases
+  # 4c. SOCIAL POSTS & BUCKET ARCHIVE — generate drafts on minor-release
+  #
+  # Runs on minor-release (not prerelease) so that release notes can be
+  # manually reviewed/edited between the RC and the final release. Fetches
+  # the (possibly edited) notes from the GitHub draft release, generates
+  # social media drafts, and uploads everything (social posts,
+  # release_notes.txt) to the HF bucket.
   # ============================================================
   social-posts:
     permissions:
@@ -649,7 +655,7 @@ jobs:
     needs: [prepare, release-notes]
     # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
     # This also allows re-running this job after manually editing the draft release notes.
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -674,14 +680,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
           VERSION="${{ needs.prepare.outputs.version }}"
           MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 
-          RELEASE_TAG=$(gh release list --json tagName,isDraft,isPrerelease --limit 100 \
-            | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          # After the release-notes job, the draft release has been promoted to the final tag.
+          # Try the exact tag first, then fall back to searching by minor version.
+          RELEASE_TAG=""
+          if gh release view "$TAG" --json tagName -q '.tagName' >/dev/null 2>&1; then
+            RELEASE_TAG="$TAG"
+          else
+            RELEASE_TAG=$(gh release list --json tagName,isDraft --limit 100 \
+              | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          fi
 
           if [[ -z "$RELEASE_TAG" ]]; then
-            echo "::warning::No release found for v${MINOR}. Skipping social media draft generation (likely because release-notes failed)."
+            echo "::warning::No release found for v${MINOR}. Skipping drafts generation (likely because release-notes failed)."
             echo "found=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -703,15 +717,21 @@ jobs:
             --version "v${BASE_VERSION}" \
             --input .release-notes/notes.md
 
-      - name: Upload drafts to bucket
+      - name: Upload to bucket
         if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
-          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          hf buckets sync .release-notes/socials/ \
-            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/socials/"
+
+          # Stage all artifacts into a single directory for one sync
+          STAGING=".release-notes/bucket"
+          mkdir -p "${STAGING}/socials"
+          cp .release-notes/socials/* "${STAGING}/socials/" 2>/dev/null || true
+          cp .release-notes/notes.md "${STAGING}/release_notes.txt"
+
+          hf buckets sync "${STAGING}/" \
+            "hf://buckets/huggingface/releases/huggingface_hub/${VERSION}/"
 
       - name: Print drafts to summary
         if: ${{ steps.fetch.outputs.found == 'true' }}
@@ -737,7 +757,7 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}/socials"
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}"
           if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
             TEXT="⚠️ *Social media drafts* — skipped (no release found)"
           elif [[ "${{ job.status }}" == "success" ]]; then
