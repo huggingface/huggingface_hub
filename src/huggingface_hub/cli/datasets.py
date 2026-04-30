@@ -166,6 +166,7 @@ def datasets_ls(
     examples=[
         "hf datasets leaderboard SWE-bench/SWE-bench_Verified",
         "hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json",
+        "hf datasets ls --filter benchmark:official  # list available leaderboards",
     ],
 )
 def datasets_leaderboard(
@@ -173,7 +174,7 @@ def datasets_leaderboard(
     limit: LimitOpt = 20,
     token: TokenOpt = None,
 ) -> None:
-    """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores."""
+    """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores. Use 'hf datasets ls --filter benchmark:official' to list available leaderboards."""
     api = get_hf_api(token=token)
     leaderboard = api.get_dataset_leaderboard(repo_id=dataset_id)
     results = [api_object_to_dict(entry) for entry in leaderboard[:limit]]
@@ -183,6 +184,9 @@ def datasets_leaderboard(
         id_key="model_id",
         alignments={"rank": "right", "value": "right"},
     )
+    out.hint("Use 'hf datasets ls --filter benchmark:official' to list available leaderboards.")
+    if leaderboard:
+        out.hint(f"Use 'hf models info {leaderboard[0].model_id}' to get details about a model.")
 
 
 @datasets_cli.command(

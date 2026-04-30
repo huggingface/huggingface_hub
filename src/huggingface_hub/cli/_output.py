@@ -25,7 +25,7 @@ from typing import Any
 import typer
 
 from huggingface_hub.errors import ConfirmationError
-from huggingface_hub.utils import ANSI, disable_progress_bars, is_agent, tabulate
+from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
 
 
 # TODO: remove OutputFormat in _cli_utils.py once all commands are migrated to OutputFormatWithAuto.
@@ -166,6 +166,13 @@ class Output:
         if self.mode != OutputFormatWithAuto.human:
             raise ConfirmationError(f"{message} Use --yes to skip confirmation.")
         typer.confirm(message, default=default, abort=True)
+
+    def status(self, message: str | None = None) -> StatusLine:
+        """Return a status line that emits only in human mode (no-op otherwise)."""
+        status = StatusLine(enabled=self.mode == OutputFormatWithAuto.human)
+        if message is not None:
+            status.update(message)
+        return status
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""

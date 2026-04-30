@@ -1030,7 +1030,7 @@ Learn more
 
 ### `hf datasets leaderboard`
 
-List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores.
+List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores. Use 'hf datasets ls --filter benchmark:official' to list available leaderboards.
 
 **Usage**:
 
@@ -1051,6 +1051,7 @@ $ hf datasets leaderboard [OPTIONS] DATASET_ID
 Examples
   $ hf datasets leaderboard SWE-bench/SWE-bench_Verified
   $ hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+  $ hf datasets ls --filter benchmark:official  # list available leaderboards
 
 Learn more
   Use `hf <command> --help` for more information about a command.
