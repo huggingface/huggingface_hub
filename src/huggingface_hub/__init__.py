@@ -294,6 +294,7 @@ _SUBMOD_ATTRS = {
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
+        "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
         "list_webhooks",
@@ -1020,6 +1021,7 @@ __all__ = [
     "list_repo_refs",
     "list_repo_tree",
     "list_spaces",
+    "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
     "list_webhooks",
@@ -1434,6 +1436,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
         list_webhooks,  # noqa: F401

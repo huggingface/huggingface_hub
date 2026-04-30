@@ -2169,6 +2169,20 @@ class TestSpacesLogsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
+@with_production_testing
+class TestSpacesHardwareCommand:
+    def test_list_hardware(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
+        cpu_basic = next(hw for hw in json.loads(result.stdout) if hw["name"] == "cpu-basic")
+        assert cpu_basic["name"] == "cpu-basic"
+        assert cpu_basic["pretty name"] == "CPU Basic"
+        assert cpu_basic["cpu"] == "2 vCPU"
+        assert cpu_basic["ram"] == "16 GB"
+        assert cpu_basic["accelerator"] is None
+        assert cpu_basic["cost/min"] == "free"
+        assert cpu_basic["cost/hour"] == "free"
+
+
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})

@@ -7783,6 +7783,29 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+        """List available hardware options for Spaces.
+
+        Returns:
+            `list[JobHardware]`: A list of available hardware configurations.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import list_spaces_hardware
+        >>> hardware_list = list_spaces_hardware()
+        >>> hardware_list[0]
+        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
+        >>> hardware_list[0].name
+        'cpu-basic'
+        ```
+        """
+        response = get_session().get(
+            f"{self.endpoint}/api/spaces/hardware", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+        return [JobHardware(**hardware) for hardware in response.json()]
+
     @validate_hf_hub_args
     def request_space_hardware(
         self,
@@ -13905,6 +13928,7 @@ get_space_variables = api.get_space_variables
 add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
+list_spaces_hardware = api.list_spaces_hardware
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space

@@ -497,12 +497,6 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
             args[idx : idx + 1] = ["--format", "quiet"]
 
 
-def _flag_kind(flag: str) -> str:
-    if flag in ("-q", "--quiet"):
-        return "--quiet"
-    return flag
-
-
 def _parse_format_value(value: str) -> "OutputFormatWithAuto":
     try:
         return OutputFormatWithAuto(value)
