@@ -3831,8 +3831,39 @@ $ hf spaces secrets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `add`: Add or update secrets for a Space.
 * `delete`: Remove a secret from a Space.
-* `set`: Set secrets for a Space.
+
+#### `hf spaces secrets add`
+
+Add or update secrets for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces secrets add [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces secrets add username/my-space -s HF_TOKEN=hf_xxx
+  $ hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...
+  $ hf spaces secrets add username/my-space --secrets-file .env.secrets
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 #### `hf spaces secrets delete`
 
@@ -3852,45 +3883,12 @@ $ hf spaces secrets delete [OPTIONS] SPACE_ID KEY
 **Options**:
 
 * `-y, --yes`: Answer Yes to prompt automatically.
-* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces secrets delete username/my-space HF_TOKEN
   $ hf spaces secrets delete username/my-space HF_TOKEN --yes
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-#### `hf spaces secrets set`
-
-Set secrets for a Space.
-
-**Usage**:
-
-```console
-$ hf spaces secrets set [OPTIONS] SPACE_ID
-```
-
-**Arguments**:
-
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-
-**Options**:
-
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
-* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf spaces secrets set username/my-space -s HF_TOKEN=hf_xxx
-  $ hf spaces secrets set username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...
-  $ hf spaces secrets set username/my-space --secrets-file .env.secrets
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3943,9 +3941,40 @@ $ hf spaces variables [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `add`: Add or update environment variables for a...
 * `delete`: Remove an environment variable from a Space.
 * `list`: List environment variables for a Space. [alias: ls]
-* `set`: Set environment variables for a Space.
+
+#### `hf spaces variables add`
+
+Add or update environment variables for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces variables add [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces variables add username/my-space -e DEBUG=1
+  $ hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+  $ hf spaces variables add username/my-space --env-file .env
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 #### `hf spaces variables delete`
 
@@ -3964,12 +3993,13 @@ $ hf spaces variables delete [OPTIONS] SPACE_ID KEY
 
 **Options**:
 
-* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
+* `-y, --yes`: Answer Yes to prompt automatically.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces variables delete username/my-space DEBUG
+  $ hf spaces variables delete username/my-space DEBUG --yes
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3992,44 +4022,11 @@ $ hf spaces variables list [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces variables ls username/my-space
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-#### `hf spaces variables set`
-
-Set environment variables for a Space.
-
-**Usage**:
-
-```console
-$ hf spaces variables set [OPTIONS] SPACE_ID
-```
-
-**Arguments**:
-
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-
-**Options**:
-
-* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--format [agent|auto|human|json|quiet]`: Output format.  [default: auto]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf spaces variables set username/my-space -e DEBUG=1
-  $ hf spaces variables set username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
-  $ hf spaces variables set username/my-space --env-file .env
 
 Learn more
   Use `hf <command> --help` for more information about a command.

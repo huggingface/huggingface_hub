@@ -1070,11 +1070,11 @@ Use `hf spaces settings` to update the settings of a Space.
 
 ### Manage Space secrets
 
-Use `hf spaces secrets set` to add or update one or more secrets on a Space, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
+Use `hf spaces secrets add` to add or update one or more secrets on a Space, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
 
 ```bash
->>> hf spaces secrets set username/my-space -s OPENAI_API_KEY=sk-...
->>> hf spaces secrets set username/my-space --secrets-file .env.secrets
+>>> hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-...
+>>> hf spaces secrets add username/my-space --secrets-file .env.secrets
 >>> hf spaces secrets delete username/my-space OPENAI_API_KEY --yes
 ```
 
@@ -1083,13 +1083,13 @@ Use `hf spaces secrets set` to add or update one or more secrets on a Space, and
 
 ### Manage Space environment variables
 
-Use `hf spaces variables` to manage non-secret environment variables on a Space. Unlike secrets, variables are readable, so `ls` shows both keys and values. Pass `--env-file PATH` on `set` to load from a `.env`-style file.
+Use `hf spaces variables` to manage non-secret environment variables on a Space. Unlike secrets, variables are readable, so `ls` shows both keys and values. Pass `--env-file PATH` on `add` to load from a `.env`-style file.
 
 ```bash
 >>> hf spaces variables ls username/my-space
->>> hf spaces variables set username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
->>> hf spaces variables set username/my-space --env-file .env
->>> hf spaces variables delete username/my-space MAX_TOKENS
+>>> hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+>>> hf spaces variables add username/my-space --env-file .env
+>>> hf spaces variables delete username/my-space MAX_TOKENS --yes
 ```
 
 ## hf papers

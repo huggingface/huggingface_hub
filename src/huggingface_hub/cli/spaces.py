@@ -879,28 +879,27 @@ def volumes_delete(
 
 
 @secrets_cli.command(
-    "set",
+    "add",
     examples=[
-        "hf spaces secrets set username/my-space -s HF_TOKEN=hf_xxx",
-        "hf spaces secrets set username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...",
-        "hf spaces secrets set username/my-space --secrets-file .env.secrets",
+        "hf spaces secrets add username/my-space -s HF_TOKEN=hf_xxx",
+        "hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...",
+        "hf spaces secrets add username/my-space --secrets-file .env.secrets",
     ],
 )
-def secrets_set(
+def secrets_add(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     secrets: SecretsOpt = None,
     secrets_file: SecretsFileOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Set secrets for a Space."""
+    """Add or update secrets for a Space."""
     secrets_map = parse_env_map(secrets, secrets_file)
     if not secrets_map:
         raise CLIError("At least one secret must be specified with -s/--secrets or --secrets-file.")
     api = get_hf_api(token=token)
     for key, value in secrets_map.items():
         api.add_space_secret(space_id, key=key, value=value or "")
-    out.result("Secrets set", space_id=space_id, keys=list(secrets_map))
+    out.result("Secrets added", space_id=space_id, keys=list(secrets_map))
     out.hint(f"Use `hf spaces secrets delete {space_id} <key>` to remove a secret from a Space.")
 
 
@@ -922,7 +921,6 @@ def secrets_delete(
             help="Answer Yes to prompt automatically.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Remove a secret from a Space."""
@@ -933,7 +931,7 @@ def secrets_delete(
     api = get_hf_api(token=token)
     api.delete_space_secret(space_id, key=key)
     out.result("Secret deleted", space_id=space_id, key=key)
-    out.hint(f"Use `hf spaces secrets set {space_id} -s {key}=<value>` to re-add a secret to a Space.")
+    out.hint(f"Use `hf spaces secrets add {space_id} -s {key}=<value>` to re-add a secret to a Space.")
 
 
 @variables_cli.command(
@@ -942,7 +940,6 @@ def secrets_delete(
 )
 def variables_ls(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List environment variables for a Space."""
@@ -950,46 +947,59 @@ def variables_ls(
     variables = api.get_space_variables(space_id)
     items = [api_object_to_dict(v) for v in variables.values()]
     out.table(items)
-    out.hint(f"Use `hf spaces variables set {space_id} -e KEY=VALUE` to set variables for a Space.")
+    out.hint(f"Use `hf spaces variables add {space_id} -e KEY=VALUE` to add variables to a Space.")
 
 
 @variables_cli.command(
-    "set",
+    "add",
     examples=[
-        "hf spaces variables set username/my-space -e DEBUG=1",
-        "hf spaces variables set username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512",
-        "hf spaces variables set username/my-space --env-file .env",
+        "hf spaces variables add username/my-space -e DEBUG=1",
+        "hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512",
+        "hf spaces variables add username/my-space --env-file .env",
     ],
 )
-def variables_set(
+def variables_add(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
-    """Set environment variables for a Space."""
+    """Add or update environment variables for a Space."""
     env_map = parse_env_map(env, env_file)
     if not env_map:
         raise CLIError("At least one variable must be specified with -e/--env or --env-file.")
     api = get_hf_api(token=token)
     for key, value in env_map.items():
         api.add_space_variable(space_id, key=key, value=value or "")
-    out.result("Variables set", space_id=space_id, keys=list(env_map))
+    out.result("Variables added", space_id=space_id, keys=list(env_map))
     out.hint(f"Use `hf spaces variables ls {space_id}` to list variables for a Space.")
 
 
 @variables_cli.command(
     "delete",
-    examples=["hf spaces variables delete username/my-space DEBUG"],
+    examples=[
+        "hf spaces variables delete username/my-space DEBUG",
+        "hf spaces variables delete username/my-space DEBUG --yes",
+    ],
 )
 def variables_delete(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
     key: Annotated[str, typer.Argument(help="Name of the variable to remove.")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """Remove an environment variable from a Space."""
+    out.confirm(
+        f"You are about to remove variable '{key}' from Space '{space_id}'. Proceed?",
+        yes=yes,
+    )
     api = get_hf_api(token=token)
     api.delete_space_variable(space_id, key=key)
     out.result("Variable deleted", space_id=space_id, key=key)
