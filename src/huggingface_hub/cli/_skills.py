@@ -53,15 +53,16 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
 
 def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
     """Re-sync managed marketplace skill installs from the bucket."""
+    skill_dirs = _iter_unique_skill_dirs(roots)
+    if selector is not None:
+        selector_lower = selector.strip().lower()
+        skill_dirs = [d for d in skill_dirs if d.name.lower() == selector_lower]
+        if not skill_dirs:
+            raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
+
     api = get_hf_api()
     marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
-    updates = [
-        _apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in _iter_unique_skill_dirs(roots)
-    ]
-    filtered = _filter_updates(updates, selector)
-    if selector is not None and not filtered:
-        raise CLIError(f"No installed skills match '{selector}'.")
-    return filtered
+    return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
 
 
 def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
@@ -242,10 +243,3 @@ def _apply_single_update(api, skill_dir: Path, marketplace_skills: dict[str, Mar
         return replace(base, status="source_unreachable", detail=str(exc))
 
     return replace(base, status="up_to_date")
-
-
-def _filter_updates(updates: list[SkillUpdateInfo], selector: str | None) -> list[SkillUpdateInfo]:
-    if selector is None:
-        return updates
-    selector_lower = selector.strip().lower()
-    return [update for update in updates if update.name.lower() == selector_lower]
