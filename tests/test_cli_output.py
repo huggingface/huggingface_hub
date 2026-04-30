@@ -325,7 +325,7 @@ def test_confirm_non_human_raises(mode):
 # =============================================================================
 
 
-def test_status(check, monkeypatch):
+def test_status_only_enabled_for_humans(check, monkeypatch):
     class FakeStatusLine:
         def __init__(self, *, enabled=True):
             self.enabled = enabled
