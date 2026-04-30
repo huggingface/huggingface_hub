@@ -646,8 +646,8 @@ jobs:
   # Runs on minor-release (not prerelease) so that release notes can be
   # manually reviewed/edited between the RC and the final release. Fetches
   # the (possibly edited) notes from the GitHub draft release, generates
-  # social media drafts and a Slack announcement, and uploads everything
-  # (social posts, slack.txt, release_notes.txt) to the HF bucket.
+  # social media drafts, and uploads everything (social posts,
+  # release_notes.txt) to the HF bucket.
   # ============================================================
   social-posts:
     permissions:
@@ -716,18 +716,6 @@ jobs:
             --version "v${VERSION}" \
             --input .release-notes/notes.md
 
-      - name: Generate Slack announcement
-        if: ${{ steps.fetch.outputs.found == 'true' }}
-        env:
-          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
-          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
-        run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
-          python -m utils.release_notes.generate_slack_message \
-            --version "v${VERSION}" \
-            --rc-version "${VERSION}" \
-            --input .release-notes/notes.md
-
       - name: Upload to bucket
         if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
@@ -740,7 +728,6 @@ jobs:
           mkdir -p "${STAGING}/socials"
           cp .release-notes/socials/* "${STAGING}/socials/" 2>/dev/null || true
           cp .release-notes/notes.md "${STAGING}/release_notes.txt"
-          cp ".release-notes/SLACK_MESSAGE_v${VERSION}.md" "${STAGING}/slack.txt"
 
           hf buckets sync "${STAGING}/" \
             "hf://buckets/huggingface/releases/huggingface_hub/${VERSION}/"
@@ -759,10 +746,6 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
-          echo "## Slack Announcement" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat ".release-notes/SLACK_MESSAGE_v${{ needs.prepare.outputs.version }}.md" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Slack
         if: ${{ always() && needs.prepare.outputs.message_ts }}
@@ -774,11 +757,11 @@ jobs:
           VERSION="${{ needs.prepare.outputs.version }}"
           BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${VERSION}"
           if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
-            TEXT="⚠️ *Social & Slack drafts* — skipped (no release found)"
+            TEXT="⚠️ *Social media drafts* — skipped (no release found)"
           elif [[ "${{ job.status }}" == "success" ]]; then
-            TEXT="✅ *Social & Slack drafts* — <${BUCKET_URL}|uploaded to bucket>"
+            TEXT="✅ *Social media drafts* — <${BUCKET_URL}|uploaded to bucket>"
           else
-            TEXT="❌ *Social & Slack drafts* — generation failed"
+            TEXT="❌ *Social media drafts* — generation failed"
           fi
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
