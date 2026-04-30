@@ -28,7 +28,7 @@ from typing import Annotated, Literal
 import typer
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
-from huggingface_hub.utils import StatusLine, get_session, logging
+from huggingface_hub.utils import get_session, logging
 
 from ._cli_utils import typer_factory
 from ._output import out
@@ -386,7 +386,7 @@ def _install_python_extension(
     venv_dir = extension_dir / "venv"
     installed = False
 
-    status = StatusLine()
+    status = out.status()
     try:
         status.update(f"Creating virtual environment in {venv_dir}")
         if extension_dir.exists():
