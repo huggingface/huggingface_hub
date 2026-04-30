@@ -430,20 +430,20 @@ def skills_add(
 
 
 @skills_cli.command(
-    "upgrade",
+    "update",
     examples=[
-        "hf skills upgrade",
-        "hf skills upgrade hf-cli",
-        "hf skills upgrade huggingface-gradio --dest=~/my-skills",
-        "hf skills upgrade --claude",
+        "hf skills update",
+        "hf skills update hf-cli",
+        "hf skills update huggingface-gradio --dest=~/my-skills",
+        "hf skills update --claude",
     ],
 )
-def skills_upgrade(
+def skills_update(
     name: Annotated[
         str | None,
-        typer.Argument(help="Optional installed skill name to upgrade.", show_default=False),
+        typer.Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Upgrade skills installed for Claude.")] = False,
+    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
         typer.Option(
@@ -455,11 +455,11 @@ def skills_upgrade(
     dest: Annotated[
         Path | None,
         typer.Option(
-            help="Upgrade skills in a custom skills directory.",
+            help="Update skills in a custom skills directory.",
         ),
     ] = None,
 ) -> None:
-    """Upgrade installed Hugging Face marketplace skills."""
+    """Update installed Hugging Face marketplace skills."""
     roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
     results = _skills.apply_updates(roots, selector=name)
