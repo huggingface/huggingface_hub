@@ -1051,6 +1051,7 @@ $ hf datasets leaderboard [OPTIONS] DATASET_ID
 Examples
   $ hf datasets leaderboard SWE-bench/SWE-bench_Verified
   $ hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+  $ hf datasets ls --filter benchmark:official  # list available leaderboards
 
 Learn more
   Use `hf <command> --help` for more information about a command.
