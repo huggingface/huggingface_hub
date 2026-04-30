@@ -3856,7 +3856,7 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf spaces secrets add username/my-space -s HF_TOKEN=hf_xxx
+  $ hf spaces secrets add username/my-space -s HF_TOKEN
   $ hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...
   $ hf spaces secrets add username/my-space --secrets-file .env.secrets
 
