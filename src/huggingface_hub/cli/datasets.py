@@ -174,7 +174,7 @@ def datasets_leaderboard(
     limit: LimitOpt = 20,
     token: TokenOpt = None,
 ) -> None:
-    """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores."""
+    """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores. Use 'hf datasets ls --filter benchmark:official' to list available leaderboards."""
     api = get_hf_api(token=token)
     leaderboard = api.get_dataset_leaderboard(repo_id=dataset_id)
     results = [api_object_to_dict(entry) for entry in leaderboard[:limit]]
