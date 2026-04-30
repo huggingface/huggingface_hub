@@ -1079,7 +1079,7 @@ Use `hf spaces secrets add` to add or update one or more secrets on a Space, and
 ```
 
 > [!NOTE]
-> There is no `hf spaces secrets ls` command. The Hub exposes secrets as write-only — once set, their values cannot be read back via the API. To audit which keys exist on a Space, view it in the browser.
+> There is no `hf spaces secrets ls` command. The Hub exposes secrets as write-only — once set, their values cannot be read back via the API.
 
 ### Manage Space environment variables
 
