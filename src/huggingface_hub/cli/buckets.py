@@ -30,7 +30,6 @@ from huggingface_hub._buckets import (
 )
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
-    StatusLine,
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
@@ -450,8 +449,7 @@ def remove(
     api = get_hf_api(token=token)
 
     if recursive:
-        status = StatusLine(enabled=out.mode == OutputFormatWithAuto.human)
-        status.update("Listing files from remote")
+        status = out.status("Listing files from remote")
 
         all_files: list[BucketFile] = []
         for item in api.list_bucket_tree(
