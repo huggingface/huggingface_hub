@@ -586,11 +586,16 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
+    from .utils._xet import _GLOBAL_XET_HOLDER, XetTokenType, get_xet_session, xet_connection_info_refresh_url
     from .utils._xet_progress_reporting import XetProgressReporter
 
-    _endpoint = endpoint or constants.ENDPOINT
-    refresh_url = f"{_endpoint}/api/{repo_type}s/{repo_id}/xet-write-token/{revision}"
+    refresh_url = xet_connection_info_refresh_url(
+        token_type=XetTokenType.WRITE,
+        repo_id=repo_id,
+        repo_type=repo_type,
+        revision=revision,
+        endpoint=endpoint,
+    )
     if create_pr:
         refresh_url += "?create_pr=1"
 
