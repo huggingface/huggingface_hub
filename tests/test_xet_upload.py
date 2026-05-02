@@ -227,7 +227,7 @@ class TestXetUpload:
             mock_lfs.assert_called_once()
 
     def test_request_headers_passed_to_upload_files(self, tmp_path):
-        """Test that headers (minus authorization) are passed as custom_headers and full headers to with_token_refresh_url."""
+        """Test that headers (minus authorization) are passed as custom_headers and full headers to token_refresh_headers."""
         headers = {
             "authorization": "Bearer my_token",
             "x-custom-header": "custom_value",
@@ -239,18 +239,10 @@ class TestXetUpload:
         addition = CommitOperationAdd(path_in_repo="test_file.bin", path_or_fileobj=test_file)
 
         mock_commit = MagicMock()
-        mock_commit.upload_file.return_value = MagicMock()
-        mock_commit.commit.return_value = MagicMock()
-
-        mock_builder = MagicMock()
-        for method in ("with_token_refresh_url", "with_custom_headers"):
-            getattr(mock_builder, method).return_value = mock_builder
-        mock_builder.build.return_value = mock_commit
-
         mock_session = MagicMock()
-        mock_session.new_upload_commit.return_value = mock_builder
+        mock_session.new_upload_commit.return_value = mock_commit
 
-        with patch("hf_xet.XetSession", return_value=mock_session):
+        with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
             with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
@@ -259,18 +251,17 @@ class TestXetUpload:
                     headers=headers,
                 )
 
-        mock_commit.upload_file.assert_called_once()
+        mock_commit.__enter__.return_value.start_upload_file.assert_called_once()
+        kwargs = mock_session.new_upload_commit.call_args.kwargs
         # Verify custom_headers excludes authorization
-        custom_headers_arg = mock_builder.with_custom_headers.call_args[0][0]
-        assert custom_headers_arg.get("x-custom-header") == "custom_value"
-        assert custom_headers_arg.get("user-agent") == "test-agent"
-        assert "authorization" not in custom_headers_arg
-        # Verify full headers (incl. auth) passed to with_token_refresh_url
-        refresh_headers_arg = mock_builder.with_token_refresh_url.call_args[0][1]
-        assert "authorization" in refresh_headers_arg
+        assert kwargs["custom_headers"].get("x-custom-header") == "custom_value"
+        assert kwargs["custom_headers"].get("user-agent") == "test-agent"
+        assert "authorization" not in kwargs["custom_headers"]
+        # Verify full headers (incl. auth) passed as token_refresh_headers
+        assert "authorization" in kwargs["token_refresh_headers"]
 
     def test_request_headers_passed_to_upload_bytes(self):
-        """Test that headers (minus authorization) are passed as custom_headers to hf_xet builder."""
+        """Test that headers (minus authorization) are passed as custom_headers to new_upload_commit."""
         headers = {
             "authorization": "Bearer my_token",
             "x-custom-header": "custom_value",
@@ -280,18 +271,10 @@ class TestXetUpload:
         addition = CommitOperationAdd(path_in_repo="test_file.bin", path_or_fileobj=b"test content")
 
         mock_commit = MagicMock()
-        mock_commit.upload_bytes.return_value = MagicMock()
-        mock_commit.commit.return_value = MagicMock()
-
-        mock_builder = MagicMock()
-        for method in ("with_token_refresh_url", "with_custom_headers"):
-            getattr(mock_builder, method).return_value = mock_builder
-        mock_builder.build.return_value = mock_commit
-
         mock_session = MagicMock()
-        mock_session.new_upload_commit.return_value = mock_builder
+        mock_session.new_upload_commit.return_value = mock_commit
 
-        with patch("hf_xet.XetSession", return_value=mock_session):
+        with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
             with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
@@ -300,15 +283,14 @@ class TestXetUpload:
                     headers=headers,
                 )
 
-        mock_commit.upload_bytes.assert_called_once()
+        mock_commit.__enter__.return_value.start_upload_bytes.assert_called_once()
+        kwargs = mock_session.new_upload_commit.call_args.kwargs
         # Verify custom_headers excludes authorization
-        custom_headers_arg = mock_builder.with_custom_headers.call_args[0][0]
-        assert custom_headers_arg.get("x-custom-header") == "custom_value"
-        assert custom_headers_arg.get("user-agent") == "test-agent"
-        assert "authorization" not in custom_headers_arg
-        # Verify full headers (incl. auth) passed to with_token_refresh_url
-        refresh_headers_arg = mock_builder.with_token_refresh_url.call_args[0][1]
-        assert "authorization" in refresh_headers_arg
+        assert kwargs["custom_headers"].get("x-custom-header") == "custom_value"
+        assert kwargs["custom_headers"].get("user-agent") == "test-agent"
+        assert "authorization" not in kwargs["custom_headers"]
+        # Verify full headers (incl. auth) passed as token_refresh_headers
+        assert "authorization" in kwargs["token_refresh_headers"]
 
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
@@ -362,7 +344,7 @@ class TestBucketXetUploadSkipSha256:
     """Test that bucket uploads pass skip_sha256=True to hf_xet."""
 
     def test_skip_sha256_passed_for_bucket_uploads(self, api, tmp_path):
-        """Upload from both filepath and bytes to a real bucket. Sha256Policy.skip() is used internally."""
+        """Upload from both filepath and bytes to a real bucket. SKIP_SHA256 is used internally."""
         bucket_url = api.create_bucket(repo_name(prefix="bucket"))
         bucket_id = bucket_url.bucket_id
 
@@ -511,12 +493,14 @@ class TestXetE2E:
 
         incomplete_path = Path(tmp_path) / "file.bin.incomplete"
 
-        # Use the new XetSession API with token refresh URL
-        group = (
-            XetSession().new_file_download_group().with_token_refresh_url(xet_filedata.refresh_route, headers).build()
-        )
-        group.download_file(XetFileInfo(xet_filedata.file_hash, expected_size), str(incomplete_path.absolute()))
-        group.finish()
+        # Use the XetSession API with token refresh URL
+        with XetSession().new_file_download_group(
+            token_refresh_url=xet_filedata.refresh_route,
+            token_refresh_headers=headers,
+        ) as group:
+            group.start_download_file(
+                XetFileInfo(xet_filedata.file_hash, expected_size), str(incomplete_path.absolute())
+            )
 
         # Check that the downloaded file is the same as the uploaded file
         with open(incomplete_path, "rb") as f:

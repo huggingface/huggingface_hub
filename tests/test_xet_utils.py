@@ -386,19 +386,19 @@ def test_xet_session_holder_fork_safety_unit():
                     and holder._session_pid == os.getpid()  # PID updated
                     and holder._session_pid != parent_pid  # different from parent
                 )
-                os.write(w_fd, b"\x01" if ok else b"\x00")
+                os.write(w_fd, b"SUCCESS" if ok else b"FAILURE")
             except Exception:
-                os.write(w_fd, b"\x00")
+                os.write(w_fd, b"FAILURE")
             finally:
                 os.close(w_fd)
                 os._exit(0)
         else:
             # ---- parent process ----
             os.close(w_fd)
-            result = os.read(r_fd, 1)
+            result = os.read(r_fd, 7)
             os.close(r_fd)
             os.waitpid(child_pid, 0)
-            assert result == b"\x01", "Child process reported fork-safety failure"
+            assert result == b"SUCCESS", "Child process reported fork-safety failure"
 
 
 def _worker_get_session_pid(_):

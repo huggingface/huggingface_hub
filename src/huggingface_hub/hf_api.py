@@ -120,7 +120,6 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
-from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -2187,17 +2186,9 @@ class HfApi:
         self.user_agent = user_agent
         self.headers = headers
         self._thread_pool: ThreadPoolExecutor | None = None
-        self._xet_session_holder = None  # lazily initialized by _get_xet_session_holder()
 
         # /whoami-v2 is the only endpoint for which we may want to cache results
         self._whoami_cache: dict[str, dict] = {}
-
-    def _get_xet_session_holder(self):
-        if self._xet_session_holder is None and is_xet_available():
-            from .utils._xet import XetSessionHolder
-
-            self._xet_session_holder = XetSessionHolder()
-        return self._xet_session_holder
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
@@ -5197,7 +5188,6 @@ class HfApi:
             **upload_kwargs,  # type: ignore[arg-type]
             num_threads=num_threads,
             create_pr=create_pr,
-            xet_session_holder=self._get_xet_session_holder(),
         )
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
@@ -6192,7 +6182,6 @@ class HfApi:
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
-            xet_session_holder=self._get_xet_session_holder(),
         )
 
     @overload
@@ -13145,9 +13134,9 @@ class HfApi:
         if not operations:
             return
 
-        from hf_xet import Sha256Policy
+        from hf_xet import SKIP_SHA256
 
-        from .utils._xet import XetSessionHolder
+        from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
@@ -13172,35 +13161,33 @@ class HfApi:
             else:
                 progress, progress_callback = None, None
 
-            holder = self._get_xet_session_holder() or XetSessionHolder()
-            session = holder.get()
-            builder = (
-                session.new_upload_commit()
-                .with_token_refresh_url(refresh_url, headers)
-                .with_custom_headers(xet_headers)
-            )
-            if progress_callback is not None:
-                builder = builder.with_progress_callback(progress_callback)
-            commit = builder.build()
+            session = get_xet_session()
 
             try:
-                path_handles = [
-                    (commit.upload_file(str(op.source), sha256=Sha256Policy.skip()), op)
-                    for op in add_path_operations
-                    if op.xet_hash is None
-                ]
-                bytes_handles = [
-                    (commit.upload_bytes(op.source, sha256=Sha256Policy.skip()), op)
-                    for op in add_bytes_operations
-                    if op.xet_hash is None
-                ]
-                commit.commit()
+                path_handles = []
+                bytes_handles = []
+                with session.new_upload_commit(
+                    token_refresh_url=refresh_url,
+                    token_refresh_headers=headers,
+                    custom_headers=xet_headers,
+                    progress_callback=progress_callback,
+                ) as commit:
+                    path_handles = [
+                        (commit.start_upload_file(str(op.source), sha256=SKIP_SHA256), op)
+                        for op in add_path_operations
+                        if op.xet_hash is None
+                    ]
+                    bytes_handles = [
+                        (commit.start_upload_bytes(op.source, sha256=SKIP_SHA256), op)
+                        for op in add_bytes_operations
+                        if op.xet_hash is None
+                    ]
                 for handle, op in path_handles + bytes_handles:
                     result = handle.result()
                     op.xet_hash = result.xet_info.hash
                     op.size = result.xet_info.file_size
             except KeyboardInterrupt:
-                holder.sigint_abort()
+                _GLOBAL_XET_HOLDER.sigint_abort()
                 raise
             finally:
                 if owns_progress and progress is not None:
@@ -13352,7 +13339,7 @@ class HfApi:
         """
         from hf_xet import XetFileInfo  # type: ignore[no-redef]
 
-        from .utils._xet import XetSessionHolder
+        from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
 
         headers = self._build_hf_headers(token=token)
 
@@ -13419,8 +13406,7 @@ class HfApi:
             name="huggingface_hub.download_bucket_files",
         )
 
-        holder = self._get_xet_session_holder() or XetSessionHolder()
-        session = holder.get()
+        session = get_xet_session()
 
         with progress_cm as progress:
             _prev = [0]
@@ -13430,19 +13416,17 @@ class HfApi:
                 progress.update(max(0, current - _prev[0]))
                 _prev[0] = current
 
-            group = (
-                session.new_file_download_group()
-                .with_token_refresh_url(metadata.xet_file_data.refresh_route, headers)
-                .with_custom_headers(xet_headers)
-                .with_progress_callback(_on_progress)
-                .build()
-            )
-            for xet_info, dest in non_zero_download_items:
-                group.download_file(xet_info, dest)
             try:
-                group.finish()
+                with session.new_file_download_group(
+                    token_refresh_url=metadata.xet_file_data.refresh_route,
+                    token_refresh_headers=headers,
+                    custom_headers=xet_headers,
+                    progress_callback=_on_progress,
+                ) as group:
+                    for xet_info, dest in non_zero_download_items:
+                        group.start_download_file(xet_info, dest)
             except KeyboardInterrupt:
-                holder.sigint_abort()
+                _GLOBAL_XET_HOLDER.sigint_abort()
                 raise
 
     @validate_hf_hub_args

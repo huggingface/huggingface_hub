@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -254,9 +255,15 @@ def _is_expired(connection_info: XetConnectionInfo) -> bool:
 
 
 class XetSessionHolder:
-    """Holds an optional XetSession; supports safe re-creation after sigint_abort or fork."""
+    """Holds an optional XetSession; supports safe re-creation after sigint_abort or fork.
+
+    Thread-safe: a ``threading.Lock`` guards all state mutations, which matters
+    for free-threaded Python (3.14t) where multiple threads can race on ``get()``
+    or ``sigint_abort()`` without the GIL serialising them.
+    """
 
     def __init__(self):
+        self._lock = threading.Lock()
         self._session = None
         self._session_pid: int | None = None
 
@@ -267,29 +274,44 @@ class XetSessionHolder:
         the session (i.e. we are in a forked child), the old session is discarded
         and a fresh session is created for this process.
         """
-        current_pid = os.getpid()
+        with self._lock:
+            current_pid = os.getpid()
 
-        if self._session is not None and self._session_pid != current_pid:
-            # Fork detected. Discard the parent's session; the Rust Drop will
-            # call discard_runtime() (std::mem::forget) rather than the normal
-            # shutdown path, so this returns immediately without blocking.
-            self._session = None
-            self._session_pid = None
+            if self._session is not None and self._session_pid != current_pid:
+                # Fork detected. Discard the parent's session; the Rust Drop will
+                # call discard_runtime() (std::mem::forget) rather than the normal
+                # shutdown path, so this returns immediately without blocking.
+                self._session = None
+                self._session_pid = None
 
-        if self._session is None:
-            from hf_xet import XetSession
+            if self._session is None:
+                from hf_xet import XetSession
 
-            self._session = XetSession()
-            self._session_pid = current_pid
+                self._session = XetSession()
+                self._session_pid = current_pid
 
-        return self._session
+            return self._session
 
     def sigint_abort(self):
         """Abort the current session and clear it so the next get() creates a fresh one."""
-        if self._session is not None:
-            try:
-                self._session.sigint_abort()
-            except Exception:
-                pass
-            self._session = None
-            self._session_pid = None
+        with self._lock:
+            if self._session is not None:
+                try:
+                    self._session.sigint_abort()
+                except Exception:
+                    pass
+                self._session = None
+                self._session_pid = None
+
+
+_GLOBAL_XET_HOLDER = XetSessionHolder()
+
+
+def get_xet_session():
+    """Return the global :class:`hf_xet.XetSession`, creating it on first call.
+
+    The session is shared across all calls within a process, just as the HTTP
+    client returned by :func:`~huggingface_hub.utils._http.get_session` is shared.
+    It is created lazily and is fork-safe and thread-safe.
+    """
+    return _GLOBAL_XET_HOLDER.get()

@@ -233,7 +233,7 @@ class TestXetFileDownload:
                 mocks["http_get"].assert_not_called()
 
     def test_request_headers_passed_to_download_files(self, tmp_path):
-        """Test that headers (minus authorization) are passed as custom_headers to the download group builder."""
+        """Test that headers (minus authorization) are passed as custom_headers to new_file_download_group."""
         headers = {
             "authorization": "Bearer my_token",
             "x-custom-header": "custom_value",
@@ -241,19 +241,11 @@ class TestXetFileDownload:
         }
 
         mock_group = MagicMock()
-        mock_group.download_file.return_value = MagicMock()
-        mock_group.finish.return_value = MagicMock()
-
-        mock_builder = MagicMock()
-        for method in ("with_token_refresh_url", "with_custom_headers", "with_progress_callback"):
-            getattr(mock_builder, method).return_value = mock_builder
-        mock_builder.build.return_value = mock_group
-
         mock_session = MagicMock()
-        mock_session.new_file_download_group.return_value = mock_builder
+        mock_session.new_file_download_group.return_value = mock_group
 
         with self._patch_xet_file_metadata(with_xet_data=True):
-            with patch("hf_xet.XetSession", return_value=mock_session):
+            with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
                         DUMMY_XET_MODEL_ID,
@@ -263,15 +255,14 @@ class TestXetFileDownload:
                         headers=headers,
                     )
 
-        mock_group.download_file.assert_called_once()
+        mock_group.__enter__.return_value.start_download_file.assert_called_once()
+        kwargs = mock_session.new_file_download_group.call_args.kwargs
         # Verify custom_headers excludes authorization
-        custom_headers_arg = mock_builder.with_custom_headers.call_args[0][0]
-        assert custom_headers_arg.get("x-custom-header") == "custom_value"
-        assert custom_headers_arg.get("user-agent") == "test-agent"
-        assert "authorization" not in custom_headers_arg
-        # Verify full headers (incl. auth) passed to with_token_refresh_url
-        refresh_headers_arg = mock_builder.with_token_refresh_url.call_args[0][1]
-        assert "authorization" in refresh_headers_arg
+        assert kwargs["custom_headers"].get("x-custom-header") == "custom_value"
+        assert kwargs["custom_headers"].get("user-agent") == "test-agent"
+        assert "authorization" not in kwargs["custom_headers"]
+        # Verify full headers (incl. auth) passed as token_refresh_headers
+        assert "authorization" in kwargs["token_refresh_headers"]
 
 
 @requires("hf_xet")

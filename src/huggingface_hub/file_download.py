@@ -461,7 +461,6 @@ def xet_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _tqdm_bar: tqdm | None = None,
-    xet_session_holder=None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -533,13 +532,12 @@ def xet_get(
         _tqdm_bar=_tqdm_bar,
     )
 
-    from .utils._xet import XetSessionHolder
+    from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
 
     xet_headers = headers.copy()
     xet_headers.pop("authorization", None)
 
-    holder = xet_session_holder if xet_session_holder is not None else XetSessionHolder()
-    session = holder.get()
+    session = get_xet_session()
 
     with progress_cm as progress:
         _prev = [0]
@@ -549,18 +547,18 @@ def xet_get(
             progress.update(max(0, current - _prev[0]))
             _prev[0] = current
 
-        group = (
-            session.new_file_download_group()
-            .with_token_refresh_url(xet_file_data.refresh_route, headers)
-            .with_custom_headers(xet_headers)
-            .with_progress_callback(_on_progress)
-            .build()
-        )
-        group.download_file(XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute()))
         try:
-            group.finish()
+            with session.new_file_download_group(
+                token_refresh_url=xet_file_data.refresh_route,
+                token_refresh_headers=headers,
+                custom_headers=xet_headers,
+                progress_callback=_on_progress,
+            ) as group:
+                group.start_download_file(
+                    XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
+                )
         except KeyboardInterrupt:
-            holder.sigint_abort()
+            _GLOBAL_XET_HOLDER.sigint_abort()
             raise
 
 
@@ -758,7 +756,6 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[False] = False,
-    xet_session_holder=None,
 ) -> str: ...
 
 
@@ -783,7 +780,6 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: Literal[True] = True,
-    xet_session_holder=None,
 ) -> DryRunFileInfo: ...
 
 
@@ -808,7 +804,6 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
-    xet_session_holder=None,
 ) -> str | DryRunFileInfo: ...
 
 
@@ -833,7 +828,6 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
-    xet_session_holder=None,
 ) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
 
@@ -995,7 +989,6 @@ def hf_hub_download(
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
-            xet_session_holder=xet_session_holder,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -1016,7 +1009,6 @@ def hf_hub_download(
             force_download=force_download,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
-            xet_session_holder=xet_session_holder,
         )
 
 
@@ -1039,7 +1031,6 @@ def _hf_hub_download_to_cache_dir(
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-    xet_session_holder=None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
@@ -1230,7 +1221,6 @@ def _hf_hub_download_to_cache_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
-            xet_session_holder=xet_session_holder,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1258,7 +1248,6 @@ def _hf_hub_download_to_local_dir(
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-    xet_session_holder=None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
@@ -1443,7 +1432,6 @@ def _hf_hub_download_to_local_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
-            xet_session_holder=xet_session_holder,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1809,7 +1797,6 @@ def _download_to_tmp_and_move(
     etag: str | None,
     xet_file_data: XetFileData | None,
     tqdm_class: type[base_tqdm] | None = None,
-    xet_session_holder=None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1856,7 +1843,6 @@ def _download_to_tmp_and_move(
                 expected_size=expected_size,
                 displayed_filename=filename,
                 tqdm_class=tqdm_class,
-                xet_session_holder=xet_session_holder,
             )
         else:
             if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:

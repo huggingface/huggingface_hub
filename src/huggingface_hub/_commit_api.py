@@ -364,7 +364,6 @@ def _upload_files(
     num_threads: int = 5,
     revision: str | None = None,
     create_pr: bool | None = None,
-    xet_session_holder=None,
 ):
     """
     Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
@@ -433,7 +432,6 @@ def _upload_files(
             endpoint=endpoint,
             revision=revision,
             create_pr=create_pr,
-            xet_session_holder=xet_session_holder,
         )
 
 
@@ -531,7 +529,6 @@ def _upload_xet_files(
     endpoint: str | None = None,
     revision: str | None = None,
     create_pr: bool | None = None,
-    xet_session_holder=None,
 ):
     """
     Uploads the content of `additions` to the Hub using the xet storage protocol.
@@ -589,9 +586,7 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from hf_xet import Sha256Policy
-
-    from .utils._xet import XetSessionHolder
+    from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
     from .utils._xet_progress_reporting import XetProgressReporter
 
     _endpoint = endpoint or constants.ENDPOINT
@@ -602,30 +597,30 @@ def _upload_xet_files(
     xet_headers = headers.copy()
     xet_headers.pop("authorization", None)
 
+    session = get_xet_session()
+
     if not are_progress_bars_disabled():
         progress = XetProgressReporter()
         progress_callback = progress.update_progress
     else:
         progress, progress_callback = None, None
 
-    holder = xet_session_holder if xet_session_holder is not None else XetSessionHolder()
-    session = holder.get()
-    builder = session.new_upload_commit().with_token_refresh_url(refresh_url, headers).with_custom_headers(xet_headers)
-    if progress_callback is not None:
-        builder = builder.with_progress_callback(progress_callback)
-    commit = builder.build()
-
     try:
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
-        for op in all_paths_ops:
-            commit.upload_file(str(op.path_or_fileobj), sha256=Sha256Policy.provided(op.upload_info.sha256.hex()))
-        for op in all_bytes_ops:
-            commit.upload_bytes(op.path_or_fileobj, sha256=Sha256Policy.provided(op.upload_info.sha256.hex()))
-        commit.commit()
+        with session.new_upload_commit(
+            token_refresh_url=refresh_url,
+            token_refresh_headers=headers,
+            custom_headers=xet_headers,
+            progress_callback=progress_callback,
+        ) as commit:
+            for op in all_paths_ops:
+                commit.start_upload_file(str(op.path_or_fileobj), sha256=op.upload_info.sha256.hex())
+            for op in all_bytes_ops:
+                commit.start_upload_bytes(op.path_or_fileobj, sha256=op.upload_info.sha256.hex())
     except KeyboardInterrupt:
-        holder.sigint_abort()
+        _GLOBAL_XET_HOLDER.sigint_abort()
         raise
     finally:
         if progress is not None:
