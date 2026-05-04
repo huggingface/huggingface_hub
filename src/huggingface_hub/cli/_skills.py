@@ -10,6 +10,7 @@ from typing import Any, Literal
 from huggingface_hub._buckets import BucketFile
 from huggingface_hub.errors import CLIError
 
+from ..utils import disable_progress_bars
 from ._cli_utils import get_hf_api
 
 
@@ -41,14 +42,15 @@ class SkillUpdateInfo:
 def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> Path:
     """Resolve a marketplace skill by name and install it."""
     api = get_hf_api()
-    marketplace_skills = _load_marketplace_skills(api)
-    skill = _select_marketplace_skill(marketplace_skills, skill_name)
-    if skill is None:
-        raise CLIError(
-            f"Skill '{skill_name}' not found in {DEFAULT_SKILLS_BUCKET_ID}. "
-            "Try `hf skills add` to install `hf-cli` or use a known skill name."
-        )
-    return _install_marketplace_skill(api, skill, destination_root, force=force)
+    with disable_progress_bars():
+        marketplace_skills = _load_marketplace_skills(api)
+        skill = _select_marketplace_skill(marketplace_skills, skill_name)
+        if skill is None:
+            raise CLIError(
+                f"Skill '{skill_name}' not found in {DEFAULT_SKILLS_BUCKET_ID}. "
+                "Try `hf skills add` to install `hf-cli` or use a known skill name."
+            )
+        return _install_marketplace_skill(api, skill, destination_root, force=force)
 
 
 def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
@@ -61,8 +63,9 @@ def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillU
             raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
 
     api = get_hf_api()
-    marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
-    return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
+    with disable_progress_bars():
+        marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
+        return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
 
 
 def _load_marketplace_skills(api) -> list[MarketplaceSkill]:

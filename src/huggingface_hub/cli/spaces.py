@@ -49,7 +49,7 @@ from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, Repositor
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
-from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import (
     AuthorOpt,
@@ -622,20 +622,14 @@ def spaces_hot_reload(
                 ) from e
         temp_dir = tempfile.TemporaryDirectory()
         local_path = os.path.join(temp_dir.name, filename)
-        if not (pbar_disabled := are_progress_bars_disabled()):
-            disable_progress_bars()
-        try:
-            hf_hub_download(
-                repo_type="space",
-                repo_id=space_id,
-                filename=filename,
-                local_dir=temp_dir.name,
-            )
-        except RemoteEntryNotFoundError:
-            typer.secho(f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK)
-        finally:
-            if not pbar_disabled:
-                enable_progress_bars()
+        with disable_progress_bars():
+            try:
+                hf_hub_download(repo_type="space", repo_id=space_id, filename=filename, local_dir=temp_dir.name)
+            except RemoteEntryNotFoundError:
+                typer.secho(
+                    f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK
+                )
+
         editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
             persistent_temp_dir = tempfile.mkdtemp()
