@@ -72,7 +72,15 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
+from ._space_api import (
+    SpaceHardware,
+    SpaceRuntime,
+    SpaceSearchResult,
+    SpaceSecret,
+    SpaceStorage,
+    SpaceVariable,
+    Volume,
+)
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -7668,6 +7676,43 @@ class HfApi:
             json={"key": key},
         )
         hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def get_space_secrets(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceSecret]:
+        """Gets all secrets from a Space.
+
+        Secret values are write-only and cannot be read back. Only the key, description, and last update time
+        are returned.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `dict[str, SpaceSecret]`: Dictionary of [`SpaceSecret`] objects keyed by secret name.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.get_space_secrets("username/my-space")
+        {'HF_TOKEN': SpaceSecret(key='HF_TOKEN', description='...', updated_at=datetime.datetime(...))}
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceSecret(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
     def get_space_variables(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceVariable]:

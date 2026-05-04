@@ -105,6 +105,7 @@ _SUBMOD_ATTRS = {
     "_space_api": [
         "SpaceHardware",
         "SpaceRuntime",
+        "SpaceSecret",
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
@@ -262,6 +263,7 @@ _SUBMOD_ATTRS = {
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
+        "get_space_secrets",
         "get_space_variables",
         "get_user_overview",
         "get_webhook",
@@ -802,6 +804,7 @@ __all__ = [
     "SpaceInfo",
     "SpaceRuntime",
     "SpaceSearchResult",
+    "SpaceSecret",
     "SpaceStage",
     "SpaceStorage",
     "SpaceVariable",
@@ -980,6 +983,7 @@ __all__ = [
     "get_safetensors_metadata",
     "get_session",
     "get_space_runtime",
+    "get_space_secrets",
     "get_space_variables",
     "get_token",
     "get_torch_storage_id",
@@ -1249,6 +1253,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
+        SpaceSecret,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
@@ -1404,6 +1409,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
+        get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
