@@ -51,6 +51,9 @@ logger = logging.get_logger()
 # Arbitrary maximum length of a cell in a table output
 _MAX_CELL_LENGTH = 35
 
+# Arbitrary default limit for models/datasets/spaces list commands.
+REPO_LIST_DEFAULT_LIMIT = 30
+
 if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
 

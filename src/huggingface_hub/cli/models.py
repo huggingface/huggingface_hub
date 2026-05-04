@@ -34,6 +34,7 @@ from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 from huggingface_hub.repocard import ModelCard
 
 from ._cli_utils import (
+    REPO_LIST_DEFAULT_LIMIT,
     AuthorOpt,
     FilterOpt,
     LimitOpt,
@@ -93,7 +94,7 @@ def models_ls(
         ModelSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
-    limit: LimitOpt = 30,
+    limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
@@ -126,7 +127,7 @@ def models_ls(
             raise typer.BadParameter("Cannot use --num-parameters when listing files.")
         if sort is not None:
             raise typer.BadParameter("Cannot use --sort when listing files.")
-        if limit != 10:
+        if limit != REPO_LIST_DEFAULT_LIMIT:
             raise typer.BadParameter("Cannot use --limit when listing files.")
         if expand is not None:
             raise typer.BadParameter("Cannot use --expand when listing files.")

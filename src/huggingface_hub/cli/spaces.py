@@ -52,6 +52,7 @@ from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import (
+    REPO_LIST_DEFAULT_LIMIT,
     AuthorOpt,
     FilterOpt,
     LimitOpt,
@@ -112,7 +113,7 @@ def spaces_ls(
         SpaceSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
-    limit: LimitOpt = 30,
+    limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
@@ -143,7 +144,7 @@ def spaces_ls(
             raise typer.BadParameter("Cannot use --filter when listing files.")
         if sort is not None:
             raise typer.BadParameter("Cannot use --sort when listing files.")
-        if limit != 10:
+        if limit != REPO_LIST_DEFAULT_LIMIT:
             raise typer.BadParameter("Cannot use --limit when listing files.")
         if expand is not None:
             raise typer.BadParameter("Cannot use --expand when listing files.")
