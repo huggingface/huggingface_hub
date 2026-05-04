@@ -3363,7 +3363,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 * `add`: Download a Hugging Face skill and install...
 * `preview`: Print the generated `hf-cli` SKILL.md to...
-* `upgrade`: Upgrade installed Hugging Face marketplace...
+* `update`: Update installed Hugging Face marketplace...
 
 ### `hf skills add`
 
@@ -3416,32 +3416,32 @@ $ hf skills preview [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-### `hf skills upgrade`
+### `hf skills update`
 
-Upgrade installed Hugging Face marketplace skills.
+Update installed Hugging Face marketplace skills.
 
 **Usage**:
 
 ```console
-$ hf skills upgrade [OPTIONS] [NAME]
+$ hf skills update [OPTIONS] [NAME]
 ```
 
 **Arguments**:
 
-* `[NAME]`: Optional installed skill name to upgrade.
+* `[NAME]`: Optional installed skill name to update.
 
 **Options**:
 
-* `--claude`: Upgrade skills installed for Claude.
+* `--claude`: Update skills installed for Claude.
 * `-g, --global`: Use global skills directories instead of the current project.
-* `--dest PATH`: Upgrade skills in a custom skills directory.
+* `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf skills upgrade
-  $ hf skills upgrade hf-cli
-  $ hf skills upgrade huggingface-gradio --dest=~/my-skills
-  $ hf skills upgrade --claude
+  $ hf skills update
+  $ hf skills update hf-cli
+  $ hf skills update huggingface-gradio --dest=~/my-skills
+  $ hf skills update --claude
 
 Learn more
   Use `hf <command> --help` for more information about a command.

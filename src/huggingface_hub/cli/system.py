@@ -18,7 +18,7 @@ import typer
 from huggingface_hub import __version__
 
 from ..utils import dump_environment_info
-from ._cli_utils import run_update
+from ._cli_utils import _fetch_latest_pypi_version, run_update
 from ._output import out
 
 
@@ -34,6 +34,13 @@ def version() -> None:
 
 def update() -> None:
     """Update the `hf` CLI to the latest version."""
+    out.text(f"Current version: {__version__}")
+    out.text("Checking for updates to latest version...")
+    latest_version = _fetch_latest_pypi_version("huggingface_hub")
+    if latest_version is not None and __version__ == latest_version:
+        out.text(f"hf is up to date ({__version__})")
+        return
+
     returncode = run_update()
     if returncode != 0:
         raise typer.Exit(code=returncode)

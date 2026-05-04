@@ -3841,12 +3841,22 @@ class TestSkillsMarketplaceCLI:
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
 
     @with_production_testing
-    def test_upgrade_resyncs_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
+    def test_update_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
         add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
         assert add_result.exit_code == 0, add_result.output
 
-        result = runner.invoke(app, ["skills", "upgrade", "--dest", str(dest)])
+        result = runner.invoke(app, ["skills", "update", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
-        assert "huggingface-gradio: up_to_date" in result.stdout
+        skill_dir = dest / "huggingface-gradio"
+        assert skill_dir.joinpath("SKILL.md").is_file()
+        assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
+        # Live marketplace content can change between the add and update calls.
+        assert any(
+            status in result.stdout
+            for status in (
+                "huggingface-gradio: up_to_date",
+                "huggingface-gradio: updated",
+            )
+        ), result.stdout
