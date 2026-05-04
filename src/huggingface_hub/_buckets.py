@@ -1311,6 +1311,9 @@ def _list_s3_files(s3_fs: Any, s3_path: str, prefix: str = "") -> Iterator[tuple
     for entry in entries:
         if entry["type"] == "directory":
             dir_rel = entry["name"]
+            # s3fs can return the queried directory itself in listings — skip it to avoid infinite recursion
+            if dir_rel.strip("/") == s3_path.strip("/"):
+                continue
             yield from _list_s3_files(s3_fs, dir_rel, prefix)
         else:
             full_key = entry["name"]
