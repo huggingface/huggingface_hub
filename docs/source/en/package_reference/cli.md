@@ -3419,8 +3419,8 @@ $ hf skills list [OPTIONS]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf skills ls
-  $ hf skills ls --format json
+  $ hf skills list
+  $ hf skills list --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

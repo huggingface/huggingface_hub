@@ -372,11 +372,11 @@ def skills_preview() -> None:
 @skills_cli.command(
     "list | ls",
     examples=[
-        "hf skills ls",
-        "hf skills ls --format json",
+        "hf skills list",
+        "hf skills list --format json",
     ],
 )
-def skills_ls(
+def skills_list(
     token: TokenOpt = None,
 ) -> None:
     """List available skills from the Hugging Face marketplace."""
