@@ -1080,7 +1080,7 @@ Use `hf spaces secrets ls` to list secrets on a Space, `hf spaces secrets add` t
 ```
 
 > [!NOTE]
-> Secret values are write-only — `hf spaces secrets ls` shows keys, descriptions, and update timestamps, but never the secret values themselves.
+> Secret values are write-only so `hf spaces secrets ls` shows keys, descriptions, and update timestamps, but never the secret values themselves.
 
 ### Manage Space environment variables
 
