@@ -13967,6 +13967,7 @@ rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
 
 # Space API
+get_space_secrets = api.get_space_secrets
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_variables = api.get_space_variables
