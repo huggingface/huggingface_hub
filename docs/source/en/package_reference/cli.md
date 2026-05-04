@@ -1081,7 +1081,7 @@ $ hf datasets list [OPTIONS] [REPO_ID]
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).
@@ -2753,7 +2753,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).
@@ -3665,7 +3665,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
-* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).

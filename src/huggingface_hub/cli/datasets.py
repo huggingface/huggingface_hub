@@ -91,7 +91,7 @@ def datasets_ls(
         DatasetSortEnum | None,
         typer.Option(help="Sort results."),
     ] = None,
-    limit: LimitOpt = 10,
+    limit: LimitOpt = 30,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
