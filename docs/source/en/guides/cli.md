@@ -1068,6 +1068,30 @@ Use `hf spaces settings` to update the settings of a Space.
 - `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
 - `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`). Run `hf spaces hardware` to see all options.
 
+### Manage Space secrets
+
+Use `hf spaces secrets add` to add or update one or more secrets on a Space, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
+
+```bash
+>>> hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-...
+>>> hf spaces secrets add username/my-space --secrets-file .env.secrets
+>>> hf spaces secrets delete username/my-space OPENAI_API_KEY --yes
+```
+
+> [!NOTE]
+> There is no `hf spaces secrets ls` command. The Hub exposes secrets as write-only — once set, their values cannot be read back via the API.
+
+### Manage Space environment variables
+
+Use `hf spaces variables` to manage non-secret environment variables on a Space. Unlike secrets, variables are readable, so `ls` shows both keys and values. Pass `--env-file PATH` on `add` to load from a `.env`-style file.
+
+```bash
+>>> hf spaces variables ls username/my-space
+>>> hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+>>> hf spaces variables add username/my-space --env-file .env
+>>> hf spaces variables delete username/my-space MAX_TOKENS --yes
+```
+
 ## hf papers
 
 Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
