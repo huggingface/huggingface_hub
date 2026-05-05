@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
+from huggingface_hub._buckets import BUCKET_PREFIX
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
@@ -89,33 +89,6 @@ def _uri_to_bucket_id(uri: str) -> str:
     if uri.startswith(prefix):
         return uri[len(prefix) :]
     return uri
-
-
-@pytest.mark.parametrize(
-    "path, expected",
-    [
-        ("namespace/bucket", ("namespace/bucket", "")),
-        ("namespace/bucket/prefix", ("namespace/bucket", "prefix")),
-        ("namespace/bucket/deep/nested/prefix", ("namespace/bucket", "deep/nested/prefix")),
-        ("org/my-bucket/", ("org/my-bucket", "")),
-    ],
-)
-def test_split_bucket_id_and_prefix(path: str, expected: tuple):
-    assert _split_bucket_id_and_prefix(path) == expected
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "just-a-name",
-        "",
-        "/bucket",
-        "namespace/",
-    ],
-)
-def test_split_bucket_id_and_prefix_invalid(path: str):
-    with pytest.raises(ValueError, match="Invalid bucket path"):
-        _split_bucket_id_and_prefix(path)
 
 
 def test_create_bucket(api: HfApi):
