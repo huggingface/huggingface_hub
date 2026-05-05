@@ -817,7 +817,7 @@ VolumesOpt = Annotated[
 
 
 def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
-    """Parse volume specs from CLI arguments using the centralized HF URI parser.
+    """Parse volume specs from CLI arguments.
 
     Format: hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]
     Where TYPE is one of: models, datasets, spaces, buckets (defaults to models if omitted).
@@ -840,14 +840,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
 
     result: list[Volume] = []
     for raw_spec in volumes:
-        try:
-            mount = parse_hf_mount(raw_spec)
-        except HfUriError as e:
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data. "
-                f"Details: {e.msg}"
-            )
+        mount = parse_hf_mount(raw_spec)
         result.append(
             Volume(
                 type=mount.source.type,
