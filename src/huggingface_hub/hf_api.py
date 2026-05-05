@@ -54,7 +54,7 @@ from ._buckets import (
     _BucketAddFile,
     _BucketCopyFile,
     _BucketDeleteFile,
-    _split_bucket_id_and_prefix,
+    _parse_bucket_uri,
     sync_bucket_internal,
 )
 from ._commit_api import (
@@ -12469,10 +12469,10 @@ class HfApi:
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user
         else:
-            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
-            if prefix:
+            parsed = _parse_bucket_uri(bucket_id)
+            if parsed.path_in_repo:
                 raise ValueError(f"Invalid bucket ID: {bucket_id}")
-            namespace, name = bucket_id_parsed.split("/")
+            namespace, name = parsed.id.split("/")
 
         response = get_session().post(
             f"{self.endpoint}/api/buckets/{namespace}/{name}",

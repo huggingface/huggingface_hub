@@ -59,20 +59,6 @@ _SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time compa
 # =============================================================================
 
 
-def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
-    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
-
-    Returns (bucket_id, prefix) where prefix may be empty string.
-    Raises ValueError if path doesn't contain at least namespace/name.
-    """
-    parts = path.split("/", 2)
-    if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
-
-
 @dataclass
 class BucketInfo:
     """
@@ -197,13 +183,12 @@ class BucketUrl:
         # Remove leading "buckets/" prefix
         if url_path.startswith("buckets/"):
             url_path = url_path[len("buckets/") :]
-        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
-        if prefix:
+        parsed = _parse_bucket_uri(url_path)
+        if parsed.path_in_repo:
             raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = bucket_id.split("/")[0]
-        self.bucket_id = bucket_id
-
-        self.uri = HfUri(type="bucket", id=self.bucket_id)
+        self.namespace = parsed.id.split("/")[0]
+        self.bucket_id = parsed.id
+        self.uri = parsed
 
 
 @dataclass
@@ -260,22 +245,22 @@ class BucketFolder:
 # =============================================================================
 
 
-def _parse_bucket_path(path: str) -> tuple[str, str]:
-    """Parse a bucket path like hf://buckets/namespace/bucket_name/prefix into (bucket_id, prefix).
+def _parse_bucket_uri(path: str) -> HfUri:
+    """Parse a bucket path into a HfUri.
 
-    Returns:
-        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
-        Trailing slashes are preserved in the prefix (they signal directory semantics for uploads).
+    Accepts both ``hf://buckets/namespace/name(/prefix)`` and plain ``namespace/name(/prefix)``.
     """
-    parsed = parse_hf_uri(path)
-    if not parsed.is_bucket:
-        raise ValueError(f"Invalid bucket path: {path}. Must be a bucket URI (hf://buckets/...).")
-
-    # parse_hf_uri strips trailing slashes; preserve them as they signal directory semantics
-    prefix = parsed.path_in_repo
-    if prefix and path.endswith("/"):
-        prefix += "/"
-    return parsed.id, prefix
+    if path.startswith(constants.HF_PROTOCOL):
+        parsed = parse_hf_uri(path)
+        if not parsed.is_bucket:
+            raise ValueError(f"Invalid bucket path: {path}. Must be a bucket URI (hf://buckets/...).")
+        return parsed
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = parts[2].strip("/") if len(parts) > 2 else ""
+    return HfUri(type="bucket", id=bucket_id, path_in_repo=prefix)
 
 
 def _is_bucket_path(path: str) -> bool:
@@ -590,7 +575,8 @@ def _compute_sync_plan(
     if is_upload:
         # Local -> Remote
         local_path = os.path.abspath(source)
-        bucket_id, prefix = _parse_bucket_path(dest)
+        parsed = _parse_bucket_uri(dest)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
 
         if not os.path.isdir(local_path):
             raise ValueError(f"Source must be a directory: {local_path}")
@@ -688,7 +674,8 @@ def _compute_sync_plan(
 
     else:
         # Remote -> Local (download)
-        bucket_id, prefix = _parse_bucket_path(source)
+        parsed = _parse_bucket_uri(source)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
         local_path = os.path.abspath(dest)
 
         # Get remote and local file lists
@@ -891,8 +878,8 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
 
     if is_upload:
         local_path = os.path.abspath(plan.source)
-        bucket_id, prefix = _parse_bucket_path(plan.dest)
-        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+        parsed = _parse_bucket_uri(plan.dest)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
 
         # Collect operations
         add_files: list[tuple[str | Path | bytes, str]] = []
@@ -930,8 +917,8 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
             )
 
     elif is_download:
-        bucket_id, prefix = _parse_bucket_path(plan.source)
-        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+        parsed = _parse_bucket_uri(plan.source)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
         local_path = os.path.abspath(plan.dest)
 
         # Ensure local directory exists
