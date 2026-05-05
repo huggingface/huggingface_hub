@@ -257,10 +257,26 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
 
     Returns:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
+        Trailing slashes are preserved in the prefix (they signal directory semantics for uploads).
     """
-    if not path.startswith(BUCKET_PREFIX):
-        raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    from .errors import HfUriError
+    from .utils import parse_hf_uri
+
+    try:
+        parsed = parse_hf_uri(path)
+    except HfUriError:
+        # Fallback for paths with '@' in filenames (valid in bucket paths, but
+        # rejected by parse_hf_uri which interprets '@' as a revision marker).
+        if not path.startswith(BUCKET_PREFIX):
+            raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
+        return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    if not parsed.is_bucket:
+        raise ValueError(f"Invalid bucket path: {path}. Must be a bucket URI (hf://buckets/...).")
+    # parse_hf_uri strips trailing slashes; preserve them as they signal directory semantics
+    prefix = parsed.path_in_repo
+    if prefix and path.endswith("/"):
+        prefix += "/"
+    return parsed.id, prefix
 
 
 def _is_bucket_path(path: str) -> bool:

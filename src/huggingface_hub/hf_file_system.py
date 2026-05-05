@@ -24,12 +24,13 @@ from .errors import (
     BucketNotFoundError,
     EntryNotFoundError,
     HfHubHTTPError,
+    HfUriError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
+from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
 
 
@@ -308,59 +309,108 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         path = self._strip_protocol(path)
         if not path:
-            # can't list repositories at root
             raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
-        elif path.split("/")[0] == "buckets":
-            bucket_id = "/".join(path.split("/")[1:3])
-            path = "/".join(path.split("/")[3:])
+
+        # --- Bucket paths: delegate to parse_hf_uri ---
+        if path.split("/")[0] == "buckets":
+            try:
+                parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
+            except HfUriError:
+                # Fallback for paths with '@' in filenames (valid in bucket paths, but
+                # rejected by parse_hf_uri which interprets '@' as a revision marker).
+                parsed = None
+            if parsed is not None:
+                bucket_id = parsed.id
+                bucket_path = parsed.path_in_repo
+            else:
+                bucket_id = "/".join(path.split("/")[1:3])
+                bucket_path = "/".join(path.split("/")[3:])
             bucket_exists, err = self._bucket_exists(bucket_id)
             if not bucket_exists:
                 _raise_file_not_found(path, err)
-            return HfFileSystemResolvedBucketPath(bucket_id=bucket_id, path=path)
-        elif path.split("/")[0] + "/" in constants.REPO_TYPES_URL_PREFIXES.values():
+            return HfFileSystemResolvedBucketPath(bucket_id=bucket_id, path=bucket_path)
+
+        # --- Extract repo type prefix ---
+        first_segment = path.split("/")[0]
+        if first_segment in constants.HF_URI_TYPE_PREFIXES:
             if "/" not in path:
-                # can't list repositories at the repository type level
                 raise NotImplementedError("Access to repositories lists is not implemented.")
-            repo_type, path = path.split("/", 1)
-            repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+            repo_type = constants.HF_URI_TYPE_PREFIXES[first_segment]
+            path = path.split("/", 1)[1]
         else:
             repo_type = constants.REPO_TYPE_MODEL
-        if path.count("/") > 0:
-            if "@" in "/".join(path.split("/")[:2]):
-                repo_id, revision_in_path = path.split("@", 1)
-                if "/" in revision_in_path:
-                    match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
-                    if match is not None and revision in (None, match.group()):
-                        # Handle `refs/convert/parquet` and PR revisions separately
-                        path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
-                        revision_in_path = match.group()
-                    else:
-                        revision_in_path, path_in_repo = revision_in_path.split("/", 1)
-                else:
-                    path_in_repo = ""
-                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
-                repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
+
+        # --- Paths with @ revision: delegate to parse_hf_uri for consistent special-ref handling ---
+        if path.count("/") > 0 and "@" in "/".join(path.split("/")[:2]):
+            type_prefix = constants.REPO_TYPES_URL_PREFIXES.get(repo_type, "")
+            try:
+                parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{type_prefix}{path}")
+            except HfUriError:
+                parsed = None
+
+            # If the caller provided an explicit revision that conflicts with the parsed
+            # special ref, discard the parse and fall through to manual splitting (e.g. the
+            # user has a branch literally named "refs" and a file at "pr/10").
+            if parsed is not None and revision is not None and parsed.revision != revision:
+                parsed = None
+
+            if parsed is not None:
+                revision = _align_revision_in_path_with_revision(parsed.revision, revision)
+                repo_and_revision_exist, err = self._repo_and_revision_exist(parsed.type, parsed.id, revision)
                 if not repo_and_revision_exist:
                     _raise_file_not_found(path, err)
+                # Extract raw revision from original path for unresolve() fidelity
+                raw_after_at = path.split("@", 1)[1]
+                if parsed.path_in_repo:
+                    raw_revision = raw_after_at[: -(len(parsed.path_in_repo) + 1)]
+                else:
+                    raw_revision = raw_after_at
+                revision = revision if revision is not None else constants.DEFAULT_REVISION
+                return HfFileSystemResolvedRepositoryPath(
+                    repo_type, parsed.id, revision, parsed.path_in_repo, _raw_revision=raw_revision
+                )
+
+            # Fallback for single-segment repo IDs (e.g. "gpt2@dev/file.txt")
+            repo_id, revision_in_path = path.split("@", 1)
+            if "/" in revision_in_path:
+                match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
+                if match is not None and revision in (None, match.group()):
+                    path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
+                    revision_in_path = match.group()
+                else:
+                    revision_in_path, path_in_repo = revision_in_path.split("/", 1)
             else:
-                revision_in_path = None
-                repo_id_with_namespace = "/".join(path.split("/")[:2])
-                path_in_repo_with_namespace = "/".join(path.split("/")[2:])
-                repo_id_without_namespace = path.split("/")[0]
-                path_in_repo_without_namespace = "/".join(path.split("/")[1:])
-                repo_id = repo_id_with_namespace
-                path_in_repo = path_in_repo_with_namespace
-                repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                if not repo_and_revision_exist:
-                    if isinstance(err, (RepositoryNotFoundError, HFValidationError)):
-                        repo_id = repo_id_without_namespace
-                        path_in_repo = path_in_repo_without_namespace
-                        repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                        if not repo_and_revision_exist:
-                            _raise_file_not_found(path, err)
-                    else:
+                path_in_repo = ""
+            revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
+            repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
+            if not repo_and_revision_exist:
+                _raise_file_not_found(path, err)
+            revision = revision if revision is not None else constants.DEFAULT_REVISION
+            return HfFileSystemResolvedRepositoryPath(
+                repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
+            )
+
+        # --- Multi-segment paths without @ (ambiguous: namespace/name vs name/path) ---
+        if path.count("/") > 0:
+            revision_in_path = None
+            repo_id_with_namespace = "/".join(path.split("/")[:2])
+            path_in_repo_with_namespace = "/".join(path.split("/")[2:])
+            repo_id_without_namespace = path.split("/")[0]
+            path_in_repo_without_namespace = "/".join(path.split("/")[1:])
+            repo_id = repo_id_with_namespace
+            path_in_repo = path_in_repo_with_namespace
+            repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
+            if not repo_and_revision_exist:
+                if isinstance(err, (RepositoryNotFoundError, HFValidationError)):
+                    repo_id = repo_id_without_namespace
+                    path_in_repo = path_in_repo_without_namespace
+                    repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
+                    if not repo_and_revision_exist:
                         _raise_file_not_found(path, err)
+                else:
+                    _raise_file_not_found(path, err)
         else:
+            # --- Single segment: repo root, possibly with @revision ---
             repo_id = path
             path_in_repo = ""
             if "@" in path:

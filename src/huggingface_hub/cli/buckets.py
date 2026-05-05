@@ -19,14 +19,13 @@ from typing import Annotated
 
 import typer
 
-from huggingface_hub import logging
+from huggingface_hub import constants, logging
 from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
     FilterMatcher,
     _is_bucket_path,
     _parse_bucket_path,
-    _split_bucket_id_and_prefix,
 )
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
@@ -50,7 +49,7 @@ buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
 
 def _is_hf_handle(path: str) -> bool:
-    return path.startswith("hf://")
+    return path.startswith(constants.HF_PROTOCOL)
 
 
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
@@ -59,8 +58,10 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
     Returns:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
     """
-    if argument.startswith(BUCKET_PREFIX):
+    if argument.startswith(constants.HF_PROTOCOL):
         return _parse_bucket_path(argument)
+    from huggingface_hub._buckets import _split_bucket_id_and_prefix
+
     try:
         return _split_bucket_id_and_prefix(argument)
     except ValueError:

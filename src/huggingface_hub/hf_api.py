@@ -30,7 +30,7 @@ from itertools import islice
 from pathlib import Path
 from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 import httpcore
 import httpx
@@ -116,6 +116,7 @@ from .utils import (
     logging,
     paginate,
     parse_datetime,
+    parse_hf_uri,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
     silent_tqdm,
@@ -408,59 +409,14 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
 
 def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
-    # TODO: Harmonize hf:// parsing. See https://github.com/huggingface/huggingface_hub/issues/3971
-    if not hf_handle.startswith("hf://"):
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
-
-    path = hf_handle.removeprefix("hf://")
-    if path.startswith("buckets/"):
-        bucket_id, bucket_path = _split_bucket_id_and_prefix(path.removeprefix("buckets/"))
-        return _BucketCopyHandle(
-            bucket_id=bucket_id,
-            path=bucket_path.strip("/"),
-        )
-
-    path = path.strip("/")
-    if path == "":
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
-
-    parts = path.split("/")
-    repo_type: str = constants.REPO_TYPE_MODEL
-    if parts[0] in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
-        parts = parts[1:]
-
-    if len(parts) < 2:
-        raise ValueError(
-            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' or with explicit repo type prefix."
-        )
-
-    namespace, repo_name_with_revision = parts[0], parts[1]
-    remaining_parts = parts[2:]
-    revision: str | None = None
-    if "@" in repo_name_with_revision:
-        repo_name, revision = repo_name_with_revision.split("@", 1)
-    else:
-        repo_name = repo_name_with_revision
-
-    if revision is None:
-        revision = constants.DEFAULT_REVISION
-    else:
-        revision = unquote(revision)
-        if remaining_parts:
-            maybe_special_ref = f"{revision}/{remaining_parts[0]}"
-            match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
-            if match is not None:
-                revision = match.group()
-                suffix = maybe_special_ref.removeprefix(revision).lstrip("/")
-                remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
-
-    repo_path = "/".join(remaining_parts).strip("/")
+    parsed = parse_hf_uri(hf_handle)
+    if parsed.is_bucket:
+        return _BucketCopyHandle(bucket_id=parsed.id, path=parsed.path_in_repo)
     return _RepoCopyHandle(
-        repo_type=repo_type,  # type: ignore
-        repo_id=f"{namespace}/{repo_name}",
-        revision=revision,
-        path=repo_path,
+        repo_type=parsed.type,  # type: ignore
+        repo_id=parsed.id,
+        revision=parsed.revision or constants.DEFAULT_REVISION,
+        path=parsed.path_in_repo,
     )
 
 
