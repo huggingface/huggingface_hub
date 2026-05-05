@@ -161,7 +161,7 @@ class Volume:
             data["path"] = self.path
         return data
 
-    def to_hf_mount_uri(self) -> str:
+    def to_uri(self) -> str:
         """Return the volume as an HF mount URI in the format expected by the CLI."""
         return HfMount(
             source=HfUri(type=self.type, id=self.source, revision=self.revision, path_in_repo=self.path or ""),

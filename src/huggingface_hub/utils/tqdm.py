@@ -128,7 +128,6 @@ class disable_progress_bars:
     """
 
     def __init__(self, name: str | None = None) -> None:
-
         self.name = name
 
         if HF_HUB_DISABLE_PROGRESS_BARS is False:
