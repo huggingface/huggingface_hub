@@ -1,4 +1,5 @@
 import base64
+import json
 import time
 from abc import ABC
 from typing import Any
@@ -38,6 +39,17 @@ _VIDEO_MAX_POLL_ATTEMPTS = 150  # ~5 minutes at _VIDEO_POLLING_INTERVAL
 _VIDEO_PENDING_STATUSES = {"queued", "in_progress"}
 
 
+def _coerce_multipart(value: Any) -> str | bytes | tuple:
+    """Coerce a value to a type accepted by multipart/form-data fields."""
+    if isinstance(value, (str, bytes, tuple)):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (dict, list)):
+        return json.dumps(value)
+    return str(value)
+
+
 class TogetherTask(TaskProviderHelper, ABC):
     """Base class for Together API tasks."""
 
@@ -54,7 +66,7 @@ class TogetherTask(TaskProviderHelper, ABC):
                 return "/v1/audio/transcriptions"
             case "feature-extraction":
                 return "/v1/embeddings"
-            case "text-to-video" | "image-text-to-video":
+            case "text-to-video":
                 # Video creation lives under /v2 (see https://docs.together.ai/reference/create-videos).
                 return "/v2/videos"
         raise ValueError(f"Unsupported task '{self.task}' for Together API.")
@@ -192,13 +204,6 @@ class TogetherAutomaticSpeechRecognitionTask(TogetherTask):
     def __init__(self):
         super().__init__("automatic-speech-recognition")
 
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> dict | None:
-        # The Together /v1/audio/transcriptions endpoint expects multipart/form-data.
-        # We build the body in `_prepare_payload_as_bytes` instead.
-        return None
-
     def _prepare_payload_as_bytes(
         self,
         inputs: Any,
@@ -218,15 +223,18 @@ class TogetherAutomaticSpeechRecognitionTask(TogetherTask):
             fields["file"] = (f"audio.{extension}", bytes(audio), mime_type)
 
         for key, value in filter_none(parameters or {}).items():
-            fields[key] = str(value) if not isinstance(value, (str, bytes, tuple)) else value
+            fields[key] = _coerce_multipart(value)
         for key, value in (extra_payload or {}).items():
-            fields[key] = str(value) if not isinstance(value, (str, bytes, tuple)) else value
+            fields[key] = _coerce_multipart(value)
 
         body, content_type = encode_multipart_formdata(fields)
         return MimeBytes(body, mime_type=content_type)
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
-        return {"text": _as_dict(response).get("text", "")}
+        text = _as_dict(response).get("text")
+        if not isinstance(text, str):
+            raise ValueError(f"Unexpected ASR response from Together: missing 'text' field. Got: {response!r}")
+        return {"text": text}
 
 
 class TogetherVideoTask(TogetherTask, ABC):
@@ -289,25 +297,3 @@ class TogetherTextToVideoTask(TogetherVideoTask):
             "model": provider_mapping_info.provider_id,
             **filter_none(parameters),
         }
-
-
-class TogetherImageTextToVideoTask(TogetherVideoTask):
-    def __init__(self):
-        super().__init__("image-text-to-video")
-
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> dict | None:
-        # Follows the HF `image-text-to-video` schema: image goes in `inputs`, prompt in `parameters.prompt`.
-        image_url = _as_url(inputs, default_mime_type="image/jpeg")
-        parameters = filter_none(parameters)
-        prompt = parameters.pop("prompt", None)
-
-        payload: dict[str, Any] = {
-            "model": provider_mapping_info.provider_id,
-            "media": {"reference_images": [image_url]},
-            **parameters,
-        }
-        if prompt is not None:
-            payload["prompt"] = prompt
-        return payload
