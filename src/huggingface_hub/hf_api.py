@@ -408,8 +408,8 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     return repo_type, namespace, repo_id
 
 
-def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
-    parsed = parse_hf_uri(hf_handle)
+def _parse_hf_copy_uri(hf_uri: str) -> _BucketCopyHandle | _RepoCopyHandle:
+    parsed = parse_hf_uri(hf_uri)
     if parsed.is_bucket:
         return _BucketCopyHandle(bucket_id=parsed.id, path=parsed.path_in_repo)
     return _RepoCopyHandle(
@@ -12453,7 +12453,7 @@ class HfApi:
             'user/my-bucket'
             >>> url.url
             'https://huggingface.co/buckets/user/my-bucket'
-            >>> url.handle
+            >>> url.uri.to_uri()
             'hf://buckets/user/my-bucket'
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
@@ -12810,11 +12810,10 @@ class HfApi:
 
         Args:
             source (`str`):
-                Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
+                Source location as an `hf://` URI. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
                 or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
             destination (`str`):
-                Destination location as an `hf://` handle pointing to a bucket
-                (e.g. `"hf://buckets/my-bucket/target/path"`).
+                Destination location as an `hf://` URI pointing to a bucket (e.g. `"hf://buckets/my-bucket/target/path"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12842,14 +12841,14 @@ class HfApi:
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
-        source_handle = _parse_hf_copy_handle(source)
-        destination_handle = _parse_hf_copy_handle(destination)
+        source_uri = _parse_hf_copy_uri(source)
+        destination_uri = _parse_hf_copy_uri(destination)
 
-        if isinstance(destination_handle, _RepoCopyHandle):
+        if isinstance(destination_uri, _RepoCopyHandle):
             raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
 
-        destination_bucket_id = destination_handle.bucket_id
-        destination_path = destination_handle.path
+        destination_bucket_id = destination_uri.bucket_id
+        destination_path = destination_uri.path
         destination_is_directory = False
         destination_exists_as_directory = False
 
@@ -12926,31 +12925,29 @@ class HfApi:
                         target_path,
                         file.xet_hash,
                         file.size,
-                        source_handle.repo_type,  # type: ignore
-                        source_handle.repo_id,  # type: ignore
+                        source_uri.repo_type,  # type: ignore
+                        source_uri.repo_id,  # type: ignore
                     )
                 )
             else:
                 pending_downloads.append((file.path, target_path))
 
         # === Source is a bucket: always hash-based copy (no download needed) ===
-        if isinstance(source_handle, _BucketCopyHandle):
-            source_path = source_handle.path
-            source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+        if isinstance(source_uri, _BucketCopyHandle):
+            source_path = source_uri.path
+            source_path_info = list(self.get_bucket_paths_info(source_uri.bucket_id, [source_path], token=token))
 
             if source_path_info:
                 # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
                 all_copies.append(
-                    _build_copy_op(
-                        target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
-                    )
+                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source_uri.bucket_id)
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
                 for item in self.list_bucket_tree(
-                    source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
+                    source_uri.bucket_id, prefix=source_path or None, recursive=True, token=token
                 ):
                     if not isinstance(item, BucketFile):
                         continue
@@ -12958,19 +12955,19 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
                     all_copies.append(
-                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
+                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_uri.bucket_id)
                     )
 
         # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
         else:
-            source_path = source_handle.path
+            source_path = source_uri.path
             source_repo_path_info: list[RepoFile | RepoFolder] = []
             if source_path != "":
                 source_repo_path_info = self.get_paths_info(
-                    repo_id=source_handle.repo_id,
+                    repo_id=source_uri.repo_id,
                     paths=[source_path],
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
+                    repo_type=source_uri.repo_type,
+                    revision=source_uri.revision,
                     token=token,
                 )
 
@@ -12983,11 +12980,11 @@ class HfApi:
             else:
                 # Source path is a folder — list and copy all files recursively
                 for repo_item in self.list_repo_tree(
-                    repo_id=source_handle.repo_id,
+                    repo_id=source_uri.repo_id,
                     path_in_repo=source_path,
                     recursive=True,
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
+                    repo_type=source_uri.repo_type,
+                    revision=source_uri.revision,
                     token=token,
                 ):
                     if not isinstance(repo_item, RepoFile):
@@ -13004,10 +13001,10 @@ class HfApi:
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
                 local_path = self.hf_hub_download(
-                    repo_id=source_handle.repo_id,  # type: ignore
-                    repo_type=source_handle.repo_type,  # type: ignore
+                    repo_id=source_uri.repo_id,  # type: ignore
+                    repo_type=source_uri.repo_type,  # type: ignore
                     filename=file_path,
-                    revision=source_handle.revision,  # type: ignore
+                    revision=source_uri.revision,  # type: ignore
                     token=token,
                     tqdm_class=silent_tqdm,  # type: ignore
                 )

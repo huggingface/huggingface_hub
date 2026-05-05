@@ -31,8 +31,16 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
 from .errors import BucketNotFoundError
-from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
-from .utils._terminal import StatusLine
+from .utils import (
+    HfUri,
+    StatusLine,
+    XetFileData,
+    disable_progress_bars,
+    enable_progress_bars,
+    is_hf_uri,
+    parse_datetime,
+    parse_hf_uri,
+)
 
 
 if TYPE_CHECKING:
@@ -166,7 +174,7 @@ class BucketUrl:
     - namespace (`str`)
     - bucket_id (`str`)
     - url (`str`)
-    - handle (`str`)
+    - uri (`str`)
 
     Args:
         url (`str`):
@@ -179,7 +187,7 @@ class BucketUrl:
     endpoint: str = ""
     namespace: str = field(init=False)
     bucket_id: str = field(init=False)
-    handle: str = field(init=False)
+    uri: HfUri = field(init=False)
 
     def __post_init__(self) -> None:
         self.endpoint = self.endpoint or constants.ENDPOINT
@@ -195,7 +203,7 @@ class BucketUrl:
         self.namespace = bucket_id.split("/")[0]
         self.bucket_id = bucket_id
 
-        self.handle = f"hf://buckets/{self.bucket_id}"
+        self.uri = HfUri(type="bucket", id=self.bucket_id)
 
 
 @dataclass
@@ -259,19 +267,10 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
         tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
         Trailing slashes are preserved in the prefix (they signal directory semantics for uploads).
     """
-    from .errors import HfUriError
-    from .utils import parse_hf_uri
-
-    try:
-        parsed = parse_hf_uri(path)
-    except HfUriError:
-        # Fallback for paths with '@' in filenames (valid in bucket paths, but
-        # rejected by parse_hf_uri which interprets '@' as a revision marker).
-        if not path.startswith(BUCKET_PREFIX):
-            raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-        return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    parsed = parse_hf_uri(path)
     if not parsed.is_bucket:
         raise ValueError(f"Invalid bucket path: {path}. Must be a bucket URI (hf://buckets/...).")
+
     # parse_hf_uri strips trailing slashes; preserve them as they signal directory semantics
     prefix = parsed.path_in_repo
     if prefix and path.endswith("/"):
@@ -281,7 +280,7 @@ def _parse_bucket_path(path: str) -> tuple[str, str]:
 
 def _is_bucket_path(path: str) -> bool:
     """Check if a path is a bucket path."""
-    return path.startswith(BUCKET_PREFIX)
+    return is_hf_uri(path) and parse_hf_uri(path).is_bucket
 
 
 # =============================================================================

@@ -20,24 +20,10 @@ from typing import Annotated
 import typer
 
 from huggingface_hub import constants, logging
-from huggingface_hub._buckets import (
-    BUCKET_PREFIX,
-    BucketFile,
-    FilterMatcher,
-    _is_bucket_path,
-    _parse_bucket_path,
-)
-from huggingface_hub.utils import (
-    SoftTemporaryDirectory,
-    disable_progress_bars,
-)
+from huggingface_hub._buckets import BUCKET_PREFIX, BucketFile, FilterMatcher, _is_bucket_path, _parse_bucket_path
+from huggingface_hub.utils import SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
 
-from ._cli_utils import (
-    SearchOpt,
-    TokenOpt,
-    get_hf_api,
-    typer_factory,
-)
+from ._cli_utils import SearchOpt, TokenOpt, get_hf_api, typer_factory
 from ._file_listing import format_size, print_file_listing
 from ._output import OutputFormatWithAuto, out
 
@@ -46,10 +32,6 @@ logger = logging.get_logger(__name__)
 
 
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
-
-
-def _is_hf_handle(path: str) -> bool:
-    return path.startswith(constants.HF_PROTOCOL)
 
 
 def _parse_bucket_argument(argument: str) -> tuple[str, str]:
@@ -124,7 +106,7 @@ def create(
         private=private if private else None,
         exist_ok=exist_ok,
     )
-    out.result("Bucket created", handle=bucket_url.handle, url=bucket_url.url)
+    out.result("Bucket created", uri=bucket_url.uri.to_uri(), url=bucket_url.url)
 
 
 def _is_bucket_id(argument: str) -> bool:
@@ -712,18 +694,18 @@ def sync(
 )
 def cp(
     src: Annotated[
-        str, typer.Argument(help="Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin")
+        str, typer.Argument(help="Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin")
     ],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, bucket hf://... URI, or - for stdout")
     ] = None,
     token: TokenOpt = None,
 ) -> None:
     """Copy files to or from buckets."""
     api = get_hf_api(token=token)
 
-    src_is_hf = _is_hf_handle(src)
-    dst_is_hf = dst is not None and _is_hf_handle(dst)
+    src_is_hf = is_hf_uri(src)
+    dst_is_hf = dst is not None and is_hf_uri(dst)
     src_is_bucket = _is_bucket_path(src)
     dst_is_bucket = dst is not None and _is_bucket_path(dst)
     src_is_stdin = src == "-"

@@ -33,6 +33,7 @@ hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]:<MOUNT_PATH>[:ro|:rw]
 See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examples.
 """
 
+import functools
 import re
 from dataclasses import dataclass, field
 from urllib.parse import unquote
@@ -179,6 +180,16 @@ class HfMount:
         return "".join(parts)
 
 
+def is_hf_uri(uri: str) -> bool:
+    """Check if a string is a valie hf:// URI."""
+    try:
+        parse_hf_uri(uri)
+        return True
+    except HfUriError:
+        return False
+
+
+@functools.lru_cache
 def parse_hf_uri(uri: str) -> HfUri:
     """Parse a Hugging Face Hub URI ('hf://...').
 
