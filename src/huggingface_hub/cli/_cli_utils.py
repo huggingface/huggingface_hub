@@ -855,6 +855,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
                 mount_path=mount.mount_path,
                 read_only=mount.read_only,
                 path=mount.source.path_in_repo or None,
+                revision=mount.source.revision or None,
             )
         )
     return result
