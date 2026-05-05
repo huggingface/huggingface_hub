@@ -33,7 +33,7 @@ import typer
 from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import Volume, __version__, constants
-from huggingface_hub.errors import CLIError, HfUriError
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import (
     get_session,
     hf_raise_for_status,
