@@ -43,6 +43,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._dotenv import load_dotenv
 
+from ._help_formatter import StyledContext
 from ._output import OutputFormatWithAuto, out
 
 
@@ -121,6 +122,8 @@ class HFCliTyperGroup(TyperGroup):
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     - enriches "No such option" / "No such command" errors with available options or commands.
     """
+
+    context_class = StyledContext
 
     def invoke(self, ctx: click.Context) -> None:
         """Enrich unknown-option errors with available options or subcommands.
@@ -574,6 +577,7 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
         f"TyperCommand{topic.capitalize()}",
         (TyperCommand,),
         {
+            "context_class": StyledContext,
             "topic": topic,
             "examples": examples or [],
             "format_epilog": format_epilog,
@@ -645,7 +649,7 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
         add_completion=True,
         no_args_is_help=True,
         cls=cls,
-        # Disable rich completely for consistent experience
+        # Disable Typer's Rich markup (we use our own ANSI formatting via StyledHelpFormatter)
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
