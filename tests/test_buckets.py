@@ -282,10 +282,10 @@ def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read:
         warnings.simplefilter("always")
         api.download_bucket_files(bucket_read, files)
 
-        # Verify warning was issued for missing file
-        assert len(w) == 1
-        assert "non_existent_file.txt" in str(w[0].message)
-        assert "not found" in str(w[0].message).lower()
+        # Verify warning was issued for missing file (ignore unrelated deprecation warnings)
+        not_found_warnings = [x for x in w if "non_existent_file.txt" in str(x.message)]
+        assert len(not_found_warnings) == 1
+        assert "not found" in str(not_found_warnings[0].message).lower()
 
     # Valid file should be downloaded
     assert (tmp_path / "file.txt").exists()
