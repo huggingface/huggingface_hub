@@ -332,6 +332,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         # --- Extract repo type prefix ---
         first_segment = path.split("/")[0]
+        repo_type: str
+        revision_in_path: str | None
         if first_segment in constants.HF_URI_TYPE_PREFIXES:
             if "/" not in path:
                 raise NotImplementedError("Access to repositories lists is not implemented.")
