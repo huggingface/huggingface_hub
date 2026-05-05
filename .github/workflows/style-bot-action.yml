@@ -115,6 +115,7 @@ jobs:
           HEAD_REPO_FULL_NAME: ${{ steps.pr_info.outputs.headRepoFullName }}
           COMMENT_DATE: ${{ github.event.comment.created_at }}
         with:
+          github-token: ${{ secrets.bot_token }}
           script: |
             const headSha = process.env.HEAD_SHA;
             const [headOwner, headRepo] = process.env.HEAD_REPO_FULL_NAME.split('/');
