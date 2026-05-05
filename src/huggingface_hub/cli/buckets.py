@@ -40,11 +40,6 @@ logger = logging.get_logger(__name__)
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
 
 
-def _parse_bucket_argument(argument: str) -> HfUri:
-    """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'."""
-    return _parse_bucket_uri(argument)
-
-
 @buckets_cli.command(
     name="create",
     examples=[
@@ -83,7 +78,7 @@ def create(
 
     if bucket_id.startswith(BUCKET_PREFIX):
         try:
-            parsed = _parse_bucket_argument(bucket_id)
+            parsed = _parse_bucket_uri(bucket_id)
         except ValueError as e:
             raise typer.BadParameter(str(e))
         if parsed.path_in_repo:
@@ -239,7 +234,7 @@ def _list_files(
     api = get_hf_api(token=token)
 
     try:
-        parsed = _parse_bucket_argument(argument)
+        parsed = _parse_bucket_uri(argument)
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
@@ -274,7 +269,7 @@ def info(
     api = get_hf_api(token=token)
 
     try:
-        parsed = _parse_bucket_argument(bucket_id)
+        parsed = _parse_bucket_uri(bucket_id)
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
@@ -321,7 +316,7 @@ def delete(
     """
     if bucket_id.startswith(BUCKET_PREFIX):
         try:
-            parsed = _parse_bucket_argument(bucket_id)
+            parsed = _parse_bucket_uri(bucket_id)
         except ValueError as e:
             raise typer.BadParameter(str(e))
         if parsed.path_in_repo:
@@ -405,7 +400,7 @@ def remove(
     To delete an entire bucket, use `hf buckets delete` instead.
     """
     try:
-        parsed = _parse_bucket_argument(argument)
+        parsed = _parse_bucket_uri(argument)
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
@@ -512,7 +507,7 @@ def move(
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
     # Parse from_id
-    parsed_from = _parse_bucket_argument(from_id)
+    parsed_from = _parse_bucket_uri(from_id)
     if parsed_from.path_in_repo:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {from_id}."
@@ -520,7 +515,7 @@ def move(
         )
 
     # Parse to_id
-    parsed_to = _parse_bucket_argument(to_id)
+    parsed_to = _parse_bucket_uri(to_id)
     if parsed_to.path_in_repo:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {to_id}."
