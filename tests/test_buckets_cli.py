@@ -22,7 +22,7 @@ from typer.testing import CliRunner, Result
 from huggingface_hub import HfApi
 from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
 from huggingface_hub.cli.hf import app
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
@@ -1001,7 +1001,7 @@ def test_cp_error_remote_source_not_found(bucket_with_files: str):
     dest_bucket = bucket_with_files  # reuse as destination, doesn't matter
     result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/doesnotexist.txt hf://buckets/{dest_bucket}/out.txt")
     assert result.exit_code != 0
-    assert "No files found" in result.output
+    assert isinstance(result.exception, EntryNotFoundError)
 
 
 # =============================================================================
