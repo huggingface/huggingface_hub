@@ -67,7 +67,7 @@ def _version_callback(value: bool) -> None:
 @app.callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
-        bool | None, typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
+        bool | None, typer.Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
 ) -> None:
     pass
