@@ -12849,6 +12849,10 @@ class HfApi:
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
+        When copying folders, a trailing `/` on the source path uses rsync-style semantics: copy the *contents*
+        of the folder into the destination, without nesting the source folder itself. Without a trailing `/`,
+        the source folder is nested inside the destination (like `cp -r`).
+
         When copying from a repository, `.gitattributes` files are automatically excluded since they are
         git-specific metadata and not relevant in a bucket context.
 
@@ -12876,7 +12880,10 @@ class HfApi:
             # Copy a single file between buckets
             >>> copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
 
-            # Copy a folder from a bucket to another bucket
+            # Copy a folder into another bucket (nests: backup/models/...)
+            >>> copy_files("hf://buckets/my-bucket/models", "hf://buckets/other-bucket/backup/")
+
+            # Copy folder contents (trailing /): files go directly into backup/
             >>> copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
 
             # Copy a file from a model repo to a bucket
@@ -12886,6 +12893,10 @@ class HfApi:
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
+        # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
+        # Check before parsing strips the slash.
+        source_is_contents_only = source.endswith("/")
+
         source_handle = _parse_hf_copy_handle(source)
         destination_handle = _parse_hf_copy_handle(destination)
 
@@ -12939,10 +12950,10 @@ class HfApi:
             if rel_path == "":
                 raise ValueError("Cannot copy an empty relative path.")
 
-            # Match Unix `cp -r` behavior: when the destination already exists as a
-            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
-            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
-            if destination_exists_as_directory and src_root_path is not None:
+            # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
+            # Without trailing slash, match `cp -r` behavior: nest source folder inside
+            # existing destination directory. Non-existing destination always uses rename semantics.
+            if destination_exists_as_directory and src_root_path is not None and not source_is_contents_only:
                 src_dir_basename = src_root_path.rsplit("/", 1)[-1]
                 rel_path = f"{src_dir_basename}/{rel_path}"
 

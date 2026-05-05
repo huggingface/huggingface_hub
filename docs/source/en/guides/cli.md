@@ -753,6 +753,16 @@ To copy from a repo or a bucket on the Hub:
 >>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
 ```
 
+When copying folders, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+
+```bash
+# Without trailing slash: "logs" dir is nested => archive/logs/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+
+# With trailing slash: only contents of "logs" are copied => archive/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+```
+
 Notes:
 
 - Bucket-to-repo copy is not yet supported.

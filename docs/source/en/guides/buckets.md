@@ -525,6 +525,16 @@ The same is available from the CLI:
 >>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
 ```
 
+When copying folders, a trailing `/` on the source uses rsync-style semantics — only the *contents* of the folder are copied, without nesting the folder itself:
+
+```bash
+# Without trailing slash: "logs" dir is nested => destination/logs/...
+>>> hf buckets cp hf://buckets/username/source-bucket/logs hf://buckets/username/destination-bucket/
+
+# With trailing slash: only contents of "logs" are copied => destination/...
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/
+```
+
 Notes:
 
 - Bucket-to-repo copy is not yet supported.

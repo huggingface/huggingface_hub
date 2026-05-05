@@ -405,6 +405,27 @@ def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str
 
 
 @requires("hf_xet")
+def test_copy_files_folder_contents_to_existing_folder_with_trailing_slash(
+    api: HfApi, bucket_write: str, bucket_write_2: str
+):
+    """source=folder/ (trailing slash), dest exists => copy contents, no nesting (rsync semantics)."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
+    api.batch_bucket_files(bucket_write_2, add=[(b"existing", "target-folder/existing.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder/",
+        f"hf://buckets/{bucket_write_2}/target-folder",
+    )
+
+    # Trailing slash on source = "copy contents of folder" => no nesting
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "target-folder/existing.txt" in destination_files
+    assert "target-folder/a.txt" in destination_files
+    assert "target-folder/sub/b.txt" in destination_files
+    assert "target-folder/folder/a.txt" not in destination_files
+
+
+@requires("hf_xet")
 def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     """source=file, dest is an existing file => must work (overwrite)."""
     api.batch_bucket_files(bucket_write, add=[(b"new-content", "source.txt")])
