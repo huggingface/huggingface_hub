@@ -314,22 +314,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         # --- Bucket paths: delegate to parse_hf_uri ---
         if path.split("/")[0] == "buckets":
-            try:
-                parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
-            except HfUriError:
-                # Fallback for paths with '@' in filenames (valid in bucket paths, but
-                # rejected by parse_hf_uri which interprets '@' as a revision marker).
-                parsed = None
-            if parsed is not None:
-                bucket_id = parsed.id
-                bucket_path = parsed.path_in_repo
-            else:
-                bucket_id = "/".join(path.split("/")[1:3])
-                bucket_path = "/".join(path.split("/")[3:])
-            bucket_exists, err = self._bucket_exists(bucket_id)
+            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
+            bucket_exists, err = self._bucket_exists(parsed.id)
             if not bucket_exists:
                 _raise_file_not_found(path, err)
-            return HfFileSystemResolvedBucketPath(bucket_id=bucket_id, path=bucket_path)
+            return HfFileSystemResolvedBucketPath(bucket_id=parsed.id, path=parsed.path_in_repo)
 
         # --- Extract repo type prefix ---
         first_segment = path.split("/")[0]

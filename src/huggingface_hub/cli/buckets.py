@@ -27,7 +27,7 @@ from huggingface_hub._buckets import (
     _is_bucket_path,
     _parse_bucket_uri,
 )
-from huggingface_hub.utils import HfUri, SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
+from huggingface_hub.utils import SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
 
 from ._cli_utils import SearchOpt, TokenOpt, get_hf_api, typer_factory
 from ._file_listing import format_size, print_file_listing
