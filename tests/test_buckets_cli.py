@@ -996,6 +996,14 @@ def test_cp_error_source_file_not_found():
     assert "not found" in result.output.lower()
 
 
+def test_cp_error_remote_source_not_found(bucket_with_files: str):
+    """Copying a non-existent file from a bucket raises an error."""
+    dest_bucket = bucket_with_files  # reuse as destination, doesn't matter
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/doesnotexist.txt hf://buckets/{dest_bucket}/out.txt")
+    assert result.exit_code != 0
+    assert "No files found" in result.output
+
+
 # =============================================================================
 # Sync
 # =============================================================================
