@@ -270,7 +270,8 @@ Examples
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
   $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
   $ hf buckets cp - hf://buckets/user/my-bucket/config.json
-  $ hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/
+  $ hf buckets cp hf://buckets/user/my-bucket/logs hf://buckets/user/archive-bucket/  # nests logs/ dir
+  $ hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/  # copies contents only
   $ hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/
 
 Learn more
@@ -3834,6 +3835,7 @@ $ hf spaces secrets [OPTIONS] COMMAND [ARGS]...
 
 * `add`: Add or update secrets for a Space.
 * `delete`: Remove a secret from a Space.
+* `list`: List secrets for a Space. [alias: ls]
 
 #### `hf spaces secrets add`
 
@@ -3890,6 +3892,33 @@ $ hf spaces secrets delete [OPTIONS] SPACE_ID KEY
 Examples
   $ hf spaces secrets delete username/my-space HF_TOKEN
   $ hf spaces secrets delete username/my-space HF_TOKEN --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces secrets list`
+
+List secrets for a Space. Secret values are write-only and not returned. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf spaces secrets list [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces secrets ls username/my-space
 
 Learn more
   Use `hf <command> --help` for more information about a command.
