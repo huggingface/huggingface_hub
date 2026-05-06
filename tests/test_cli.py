@@ -21,7 +21,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -3264,12 +3264,12 @@ class TestParseVolumes:
 
     @pytest.mark.parametrize("spec", ["hf://org/model", "hf://org/model:data", "hf://gpt2:/data"])
     def test_invalid_volume_spec(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="Invalid volume format"):
+        with pytest.raises(HfUriError, match="Invalid HF URI"):
             parse_volumes([spec])
 
     @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
     def test_missing_hf_prefix(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="(?i)must start with 'hf://'"):
+        with pytest.raises(HfUriError, match="(?i)must start with 'hf://'"):
             parse_volumes([spec])
 
     def test_read_only_suffix(self) -> None:
