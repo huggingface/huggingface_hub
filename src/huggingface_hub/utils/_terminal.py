@@ -17,6 +17,8 @@ import os
 import shutil
 import sys
 
+from ._detect_agent import is_agent
+
 
 class StatusLine:
     """Minimal TTY status line for sync progress (stderr, single-line overwrite)."""
@@ -87,7 +89,7 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR"):
+        if os.environ.get("NO_COLOR") or is_agent():
             # See https://no-color.org/
             return s
         return f"{code}{s}{cls._reset}"

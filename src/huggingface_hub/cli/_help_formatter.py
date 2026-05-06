@@ -18,21 +18,11 @@ commands/options. ANSI codes are only emitted when stdout is a TTY and the proce
 (`is_agent()`). Otherwise the output is identical to the default Click formatter.
 """
 
-import sys
 from collections.abc import Sequence
 
 import click
 
-from huggingface_hub.utils import ANSI, is_agent
-
-
-def _use_ansi() -> bool:
-    """Return True when ANSI escape codes should be emitted."""
-    if is_agent():
-        return False
-    if not sys.stdout.isatty():
-        return False
-    return True
+from huggingface_hub.utils import ANSI
 
 
 class StyledHelpFormatter(click.HelpFormatter):
@@ -43,19 +33,12 @@ class StyledHelpFormatter(click.HelpFormatter):
 
     def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
-        self.ansi = _use_ansi()
 
     def write_heading(self, heading: str) -> None:
-        if not self.ansi:
-            return super().write_heading(heading)
-
         styled = ANSI.underline(heading + ":")
         self.write(f"{'':>{self.current_indent}}{styled}\n")
 
     def write_dl(self, rows: Sequence[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
-        if not self.ansi:
-            return super().write_dl(rows, col_max=col_max, col_spacing=col_spacing)
-
         rows = [(ANSI.bold(first), second) for first, second in rows]
         super().write_dl(rows, col_max=col_max, col_spacing=col_spacing)
 
