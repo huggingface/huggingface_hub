@@ -11,12 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Pretty ANSI help formatter for the `hf` CLI.
-
-Subclasses Click's `HelpFormatter` to add underlined section headings, a styled usage line, and bold
-commands/options. ANSI codes are only emitted when stdout is a TTY and the process is not driven by an AI agent
-(`is_agent()`). Otherwise the output is identical to the default Click formatter.
-"""
+"""Pretty ANSI help formatter for the `hf` CLI."""
 
 from collections.abc import Sequence
 
@@ -26,11 +21,6 @@ from huggingface_hub.utils import ANSI
 
 
 class StyledHelpFormatter(click.HelpFormatter):
-    """Click ``HelpFormatter`` with ANSI styling for human-friendly output.
-
-    ANSI is disabled when the output is piped, driven by an AI agent, or the `NO_COLOR` environment variable is set.
-    """
-
     def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
 
@@ -44,6 +34,4 @@ class StyledHelpFormatter(click.HelpFormatter):
 
 
 class StyledContext(click.Context):
-    """Click ``Context`` that uses :class:`StyledHelpFormatter`."""
-
     formatter_class = StyledHelpFormatter
