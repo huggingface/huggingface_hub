@@ -335,87 +335,53 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # --- Paths with @ revision: delegate to parse_hf_uri for consistent special-ref handling ---
         if path.count("/") > 0 and "@" in "/".join(path.split("/")[:2]):
             type_prefix = constants.REPO_TYPES_URL_PREFIXES.get(repo_type, "")
-            parsed_or_none: HfUri | None
+            parsed: HfUri | None
             try:
-                parsed_or_none = parse_hf_uri(f"{constants.HF_PROTOCOL}{type_prefix}{path}")
+                parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{type_prefix}{path}")
             except HfUriError:
-                parsed_or_none = None
+                parsed = None
 
-            # If the caller provided an explicit revision that conflicts with the parsed
-            # special ref, discard the parse and fall through to manual splitting (e.g. the
-            # user has a branch literally named "refs" and a file at "pr/10").
-            if parsed_or_none is not None and revision is not None and parsed_or_none.revision != revision:
-                parsed_or_none = None
+            if parsed is not None:
+                # If the caller provided an explicit revision that conflicts with the parsed
+                # special ref, fall back to simple splitting (e.g. the user has a branch
+                # literally named "refs" and a file at "pr/10").
+                if revision is not None and parsed.revision != revision:
+                    repo_id, after_at = path.split("@", 1)
+                    revision_in_path, path_in_repo = after_at.split("/", 1) if "/" in after_at else (after_at, "")
+                    revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
+                    repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
+                    if not repo_and_revision_exist:
+                        _raise_file_not_found(path, err)
+                    revision = revision if revision is not None else constants.DEFAULT_REVISION
+                    return HfFileSystemResolvedRepositoryPath(
+                        repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
+                    )
 
-            if parsed_or_none is not None:
-                revision = _align_revision_in_path_with_revision(parsed_or_none.revision, revision)
-                repo_and_revision_exist, err = self._repo_and_revision_exist(
-                    parsed_or_none.type, parsed_or_none.id, revision
-                )
+                revision = _align_revision_in_path_with_revision(parsed.revision, revision)
+                repo_and_revision_exist, err = self._repo_and_revision_exist(parsed.type, parsed.id, revision)
                 if not repo_and_revision_exist:
                     _raise_file_not_found(path, err)
                 # Extract raw revision from original path for unresolve() fidelity
                 raw_after_at = path.split("@", 1)[1]
-                if parsed_or_none.path_in_repo:
-                    raw_revision = raw_after_at[: -(len(parsed_or_none.path_in_repo) + 1)]
+                if parsed.path_in_repo:
+                    raw_revision = raw_after_at[: -(len(parsed.path_in_repo) + 1)]
                 else:
                     raw_revision = raw_after_at
                 revision = revision if revision is not None else constants.DEFAULT_REVISION
                 return HfFileSystemResolvedRepositoryPath(
-                    repo_type, parsed_or_none.id, revision, parsed_or_none.path_in_repo, _raw_revision=raw_revision
+                    repo_type, parsed.id, revision, parsed.path_in_repo, _raw_revision=raw_revision
                 )
 
-            # Fallback for single-segment repo IDs (e.g. "gpt2@dev/file.txt")
-            repo_id, revision_in_path = path.split("@", 1)
-            if "/" in revision_in_path:
-                match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
-                if match is not None and revision in (None, match.group()):
-                    path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
-                    revision_in_path = match.group()
-                else:
-                    revision_in_path, path_in_repo = revision_in_path.split("/", 1)
-            else:
-                path_in_repo = ""
-            revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
+        # --- Multi-segment paths without @ ---
+        if path.count("/") > 0:
+            revision_in_path = None
+            repo_id = "/".join(path.split("/")[:2])
+            path_in_repo = "/".join(path.split("/")[2:])
             repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
             if not repo_and_revision_exist:
                 _raise_file_not_found(path, err)
-            revision = revision if revision is not None else constants.DEFAULT_REVISION
-            return HfFileSystemResolvedRepositoryPath(
-                repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
-            )
-
-        # --- Multi-segment paths without @ (ambiguous: namespace/name vs name/path) ---
-        if path.count("/") > 0:
-            revision_in_path = None
-            repo_id_with_namespace = "/".join(path.split("/")[:2])
-            path_in_repo_with_namespace = "/".join(path.split("/")[2:])
-            repo_id_without_namespace = path.split("/")[0]
-            path_in_repo_without_namespace = "/".join(path.split("/")[1:])
-            repo_id = repo_id_with_namespace
-            path_in_repo = path_in_repo_with_namespace
-            repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
-            if not repo_and_revision_exist:
-                if isinstance(err, (RepositoryNotFoundError, HFValidationError)):
-                    repo_id = repo_id_without_namespace
-                    path_in_repo = path_in_repo_without_namespace
-                    repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                    if not repo_and_revision_exist:
-                        _raise_file_not_found(path, err)
-                else:
-                    _raise_file_not_found(path, err)
         else:
-            # --- Single segment: repo root, possibly with @revision ---
-            repo_id = path
-            path_in_repo = ""
-            if "@" in path:
-                repo_id, revision_in_path = path.split("@", 1)
-                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
-            else:
-                revision_in_path = None
-            repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
-            if not repo_and_revision_exist:
-                raise NotImplementedError("Access to repositories lists is not implemented.")
+            raise NotImplementedError("Access to repositories lists is not implemented.")
 
         revision = revision if revision is not None else constants.DEFAULT_REVISION
         return HfFileSystemResolvedRepositoryPath(

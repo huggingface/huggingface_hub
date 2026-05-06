@@ -721,13 +721,6 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
 @pytest.mark.parametrize(
     "root_path,revision,repo_type,repo_id,resolved_revision",
     [
-        # Parse without namespace
-        ("gpt2", None, "model", "gpt2", "main"),
-        ("gpt2", "dev", "model", "gpt2", "dev"),
-        ("gpt2@dev", None, "model", "gpt2", "dev"),
-        ("datasets/squad", None, "dataset", "squad", "main"),
-        ("datasets/squad", "dev", "dataset", "squad", "dev"),
-        ("datasets/squad@dev", None, "dataset", "squad", "dev"),
         # Parse with namespace
         ("username/my_model", None, "model", "username/my_model", "main"),
         ("username/my_model", "dev", "model", "username/my_model", "dev"),
@@ -735,16 +728,8 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
         ("datasets/username/my_dataset", None, "dataset", "username/my_dataset", "main"),
         ("datasets/username/my_dataset", "dev", "dataset", "username/my_dataset", "dev"),
         ("datasets/username/my_dataset@dev", None, "dataset", "username/my_dataset", "dev"),
-        # Parse with hf:// protocol
-        ("hf://gpt2", None, "model", "gpt2", "main"),
-        ("hf://gpt2", "dev", "model", "gpt2", "dev"),
-        ("hf://gpt2@dev", None, "model", "gpt2", "dev"),
-        ("hf://datasets/squad", None, "dataset", "squad", "main"),
-        ("hf://datasets/squad", "dev", "dataset", "squad", "dev"),
-        ("hf://datasets/squad@dev", None, "dataset", "squad", "dev"),
         # Parse with `refs/convert/parquet` and `refs/pr/(\d)+` revisions.
         # Regression tests for https://github.com/huggingface/huggingface_hub/issues/1710.
-        ("datasets/squad@refs/convert/parquet", None, "dataset", "squad", "refs/convert/parquet"),
         (
             "hf://datasets/username/my_dataset@refs/convert/parquet",
             None,
@@ -752,8 +737,6 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
             "username/my_dataset",
             "refs/convert/parquet",
         ),
-        ("gpt2@refs/pr/2", None, "model", "gpt2", "refs/pr/2"),
-        ("gpt2@refs%2Fpr%2F2", None, "model", "gpt2", "refs/pr/2"),
         ("hf://username/my_model@refs/pr/10", None, "model", "username/my_model", "refs/pr/10"),
         ("hf://username/my_model@refs/pr/10", "refs/pr/10", "model", "username/my_model", "refs/pr/10"),
         ("hf://username/my_model@refs%2Fpr%2F10", "refs/pr/10", "model", "username/my_model", "refs/pr/10"),
@@ -800,8 +783,6 @@ def test_resolve_bucket_path(root_path: str, path: str):
 @pytest.mark.parametrize(
     "path,revision,expected_path",
     [
-        ("hf://datasets/squad@dev", None, "datasets/squad@dev"),
-        ("datasets/squad@refs/convert/parquet", None, "datasets/squad@refs/convert/parquet"),
         ("hf://username/my_model@refs/pr/10", None, "username/my_model@refs/pr/10"),
         ("username/my_model", "refs/weirdo", "username/my_model@refs%2Fweirdo"),  # not a "special revision" -> encode
     ],
@@ -844,7 +825,7 @@ def test_resolve_path_with_refs_revision() -> None:
 
 def mock_repo_info(fs: HfFileSystem):
     def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
-        if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
+        if repo_id not in ["username/my_dataset", "username/my_model"]:
             raise RepositoryNotFoundError(repo_id, response=Mock())
         if revision is not None and revision not in ["main", "dev", "refs"] and not revision.startswith("refs/"):
             raise RevisionNotFoundError(revision, response=Mock())
@@ -863,7 +844,7 @@ def mock_bucket_info(fs: HfFileSystem):
 def test_resolve_path_with_non_matching_revisions():
     fs = HfFileSystem()
     with pytest.raises(ValueError):
-        fs.resolve_path("gpt2@dev", revision="main")
+        fs.resolve_path("username/my_model@dev", revision="main")
 
 
 @pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets"])
