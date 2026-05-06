@@ -50,7 +50,6 @@ class ANSI:
 
     _blue = "\u001b[34m"
     _bold = "\u001b[1m"
-    _dim = "\u001b[2m"
     _gray = "\u001b[90m"
     _green = "\u001b[32m"
     _red = "\u001b[31m"
@@ -64,10 +63,6 @@ class ANSI:
     @classmethod
     def bold(cls, s: str) -> str:
         return cls._format(s, cls._bold)
-
-    @classmethod
-    def dim(cls, s: str) -> str:
-        return cls._format(s, cls._dim)
 
     @classmethod
     def gray(cls, s: str) -> str:

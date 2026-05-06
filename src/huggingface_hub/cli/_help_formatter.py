@@ -64,7 +64,7 @@ class StyledHelpFormatter(click.HelpFormatter):
 
     def write_text(self, text: str) -> None:
         if self.ansi:
-            text = _EXAMPLE_RE.sub(lambda m: ANSI.dim(m.group(1)), text)
+            text = _EXAMPLE_RE.sub(lambda m: ANSI.gray(m.group(1)), text)
             if self.current_indent == 0 and _HEADING_LINE_RE.match(text):
                 text = ANSI.bold(text)
         super().write_text(text)
