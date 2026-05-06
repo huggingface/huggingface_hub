@@ -9,8 +9,8 @@ from pathlib import Path
 from threading import Lock, Thread
 from typing import Optional
 
-from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
-from .utils import filter_repo_objects
+from .hf_api import CommitInfo, CommitOperationAdd, HfApi
+from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 
 
 logger = logging.getLogger(__name__)
