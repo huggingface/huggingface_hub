@@ -248,7 +248,7 @@ class BucketFolder:
 def _parse_bucket_uri(path: str) -> HfUri:
     """Parse a bucket path into a HfUri.
 
-    Accepts both ``hf://buckets/namespace/name(/prefix)`` and plain ``namespace/name(/prefix)``.
+    Accepts both `hf://buckets/namespace/name(/path/in/repo)` and plain `namespace/name(/path/in/repo)`.
     """
     if path.startswith(constants.HF_PROTOCOL):
         parsed = parse_hf_uri(path)
@@ -259,7 +259,7 @@ def _parse_bucket_uri(path: str) -> HfUri:
     if len(parts) < 2 or not parts[0] or not parts[1]:
         raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
     bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2].strip("/") if len(parts) > 2 else ""
+    prefix = "/".join(parts[2:])
     return HfUri(type="bucket", id=bucket_id, path_in_repo=prefix)
 
 
