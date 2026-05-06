@@ -46,12 +46,17 @@ class StyledHelpFormatter(click.HelpFormatter):
         self.ansi = _use_ansi()
 
     def write_heading(self, heading: str) -> None:
-        styled = ANSI.underline(heading + ":") if self.ansi else heading + ":"
+        if not self.ansi:
+            return super().write_heading(heading)
+
+        styled = ANSI.underline(heading + ":")
         self.write(f"{'':>{self.current_indent}}{styled}\n")
 
     def write_dl(self, rows: Sequence[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
-        if self.ansi:
-            rows = [(ANSI.bold(first), second) for first, second in rows]
+        if not self.ansi:
+            return super().write_dl(rows, col_max=col_max, col_spacing=col_spacing)
+
+        rows = [(ANSI.bold(first), second) for first, second in rows]
         super().write_dl(rows, col_max=col_max, col_spacing=col_spacing)
 
 
