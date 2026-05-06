@@ -150,7 +150,7 @@ def upload_folder_v2(
 
     # -- Create PR upfront if requested ----------------------------------------
     pr_url: str | None = None
-    target_revision = revision
+    target_revision: str | None = revision
     if create_pr:
         pr = api.create_pull_request(
             repo_id=repo_id,
