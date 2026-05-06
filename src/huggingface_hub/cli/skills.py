@@ -327,6 +327,8 @@ def _remove_existing(path: Path, force: bool) -> None:
 def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     """Install a marketplace skill into a skills directory. Returns the installed path."""
     try:
+        if skill_name.strip().lower() == DEFAULT_SKILL_ID:
+            return _skills.install_skill_from_content(DEFAULT_SKILL_ID, build_skill_md(), skills_dir, force=force)
         return _skills.add_skill(skill_name, skills_dir, force=force)
     except FileExistsError as exc:
         raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
@@ -461,7 +463,11 @@ def skills_update(
     """Update installed Hugging Face marketplace skills."""
     roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
-    results = _skills.update_skills(roots, selector=name)
+    results = _skills.update_skills(
+        roots,
+        selector=name,
+        generated_content_overrides={DEFAULT_SKILL_ID: build_skill_md()},
+    )
     if not results:
         print("No installed skills found.")
         return

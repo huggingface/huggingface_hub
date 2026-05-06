@@ -53,8 +53,43 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
         return _install_marketplace_skill(api, skill, destination_root, force=force)
 
 
-def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
-    """Re-sync managed marketplace skill installs from the bucket."""
+def install_skill_from_content(name: str, content: str, destination_root: Path, force: bool = False) -> Path:
+    """Install a skill by writing generated content directly (no bucket download)."""
+    destination_root = destination_root.expanduser().resolve()
+    destination_root.mkdir(parents=True, exist_ok=True)
+    install_dir = destination_root / name
+    already_exists = install_dir.exists()
+
+    if already_exists and not force:
+        raise FileExistsError(f"Skill already exists: {install_dir}")
+
+    if already_exists:
+        with tempfile.TemporaryDirectory(dir=destination_root, prefix=f".{install_dir.name}.install-") as tmp_dir_str:
+            staged_dir = Path(tmp_dir_str) / install_dir.name
+            _write_skill_content(staged_dir, content)
+            _atomic_replace_directory(existing_dir=install_dir, staged_dir=staged_dir)
+        return install_dir
+
+    try:
+        _write_skill_content(install_dir, content)
+    except Exception:
+        if install_dir.exists():
+            shutil.rmtree(install_dir)
+        raise
+    return install_dir
+
+
+def update_skills(
+    roots: list[Path],
+    selector: str | None = None,
+    generated_content_overrides: dict[str, str] | None = None,
+) -> list[SkillUpdateInfo]:
+    """Re-sync managed marketplace skill installs from the bucket.
+
+    Skills whose lowercased name appears in *generated_content_overrides* are
+    updated from the provided content instead of being re-downloaded from the
+    marketplace bucket (used for the ``hf-cli`` skill which is generated locally).
+    """
     skill_dirs = _iter_unique_skill_dirs(roots)
     if selector is not None:
         selector_lower = selector.strip().lower()
@@ -62,10 +97,19 @@ def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillU
         if not skill_dirs:
             raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
 
-    api = get_hf_api()
-    with disable_progress_bars():
-        marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
-        return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
+    overrides = generated_content_overrides or {}
+    needs_marketplace = any(
+        d.name.lower() not in overrides and (d / MANAGED_MARKER_FILENAME).exists() for d in skill_dirs
+    )
+
+    api = None
+    marketplace_skills: dict[str, MarketplaceSkill] = {}
+    if needs_marketplace:
+        api = get_hf_api()
+        with disable_progress_bars():
+            marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
+
+    return [_apply_single_update(api, skill_dir, marketplace_skills, overrides) for skill_dir in skill_dirs]
 
 
 def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
@@ -155,6 +199,13 @@ def _populate_install_dir(api, skill: MarketplaceSkill, install_dir: Path) -> No
     (install_dir / MANAGED_MARKER_FILENAME).touch()
 
 
+def _write_skill_content(install_dir: Path, content: str) -> None:
+    """Write generated skill content as SKILL.md and mark as managed."""
+    install_dir.mkdir(parents=True, exist_ok=True)
+    (install_dir / "SKILL.md").write_text(content, encoding="utf-8")
+    (install_dir / MANAGED_MARKER_FILENAME).touch()
+
+
 def _validate_installed_skill_dir(skill_dir: Path) -> None:
     skill_file = skill_dir / "SKILL.md"
     if not skill_file.is_file():
@@ -230,11 +281,23 @@ def _iter_unique_skill_dirs(roots: list[Path]) -> list[Path]:
     return discovered
 
 
-def _apply_single_update(api, skill_dir: Path, marketplace_skills: dict[str, MarketplaceSkill]) -> SkillUpdateInfo:
+def _apply_single_update(
+    api,
+    skill_dir: Path,
+    marketplace_skills: dict[str, MarketplaceSkill],
+    generated_content_overrides: dict[str, str],
+) -> SkillUpdateInfo:
     base = SkillUpdateInfo(name=skill_dir.name, skill_dir=skill_dir, status="unmanaged")
 
     if not (skill_dir / MANAGED_MARKER_FILENAME).exists():
         return base
+
+    if content := generated_content_overrides.get(skill_dir.name.lower()):
+        try:
+            install_skill_from_content(skill_dir.name, content, skill_dir.parent, force=True)
+        except Exception as exc:
+            return replace(base, status="source_unreachable", detail=str(exc))
+        return replace(base, status="up_to_date")
 
     skill = marketplace_skills.get(skill_dir.name.lower())
     if skill is None:
