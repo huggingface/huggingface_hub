@@ -78,6 +78,7 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         "hf buckets create hf://buckets/user/my-bucket",
         "hf buckets create user/my-bucket --private",
         "hf buckets create user/my-bucket --exist-ok",
+        "hf buckets create user/my-bucket --region us",
     ],
 )
 def create(
@@ -94,6 +95,13 @@ def create(
             help="Create a private bucket.",
         ),
     ] = False,
+    region: Annotated[
+        Literal["us", "eu"] | None,
+        typer.Option(
+            "--region",
+            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.",
+        ),
+    ] = None,
     exist_ok: Annotated[
         bool,
         typer.Option(
@@ -121,6 +129,7 @@ def create(
     bucket_url = api.create_bucket(
         bucket_id,
         private=private if private else None,
+        region=region,
         exist_ok=exist_ok,
     )
     out.result("Bucket created", handle=bucket_url.handle, url=bucket_url.url)

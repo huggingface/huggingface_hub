@@ -12503,6 +12503,7 @@ class HfApi:
         *,
         private: bool | None = None,
         resource_group_id: str | None = None,
+        region: Literal["us", "eu"] | None = None,
         exist_ok: bool = False,
         token: bool | str | None = None,
     ) -> BucketUrl:
@@ -12521,6 +12522,9 @@ class HfApi:
                 of a resource group can be found in the URL of the resource's page on the Hub
                 (e.g. `"66670e5163145ca562cb1988"`). To learn more about resource groups, see
                 https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the bucket. Can be one of `"us"` or `"eu"`. If not specified, the bucket will be
+                created in the default region.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if the bucket already exists.
             token (`bool` or `str`, *optional*):
@@ -12547,6 +12551,9 @@ class HfApi:
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
             BucketUrl(...)
+
+            >>> create_bucket(bucket_id="my-bucket", region="us")
+            BucketUrl(...)
             ```
         """
         payload: dict[str, Any] = {}
@@ -12554,6 +12561,8 @@ class HfApi:
             payload["private"] = private
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user

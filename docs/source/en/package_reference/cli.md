@@ -296,6 +296,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 **Options**:
 
 * `--private`: Create a private bucket.
+* `--region TEXT`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -306,6 +307,7 @@ Examples
   $ hf buckets create hf://buckets/user/my-bucket
   $ hf buckets create user/my-bucket --private
   $ hf buckets create user/my-bucket --exist-ok
+  $ hf buckets create user/my-bucket --region us
 
 Learn more
   Use `hf <command> --help` for more information about a command.
