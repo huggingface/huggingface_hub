@@ -232,6 +232,8 @@ DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "tr
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
 DailyPapersSort_T = Literal["publishedAt", "trending"]
 
+REPO_REGIONS = Literal["us", "eu"]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
@@ -12503,7 +12505,7 @@ class HfApi:
         *,
         private: bool | None = None,
         resource_group_id: str | None = None,
-        region: Literal["us", "eu"] | None = None,
+        region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
         token: bool | str | None = None,
     ) -> BucketUrl:

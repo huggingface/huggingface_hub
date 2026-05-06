@@ -15,7 +15,7 @@
 
 import os
 import sys
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 
@@ -33,6 +33,7 @@ from huggingface_hub.utils import (
     disable_progress_bars,
 )
 
+from ..hf_api import REPO_REGIONS
 from ._cli_utils import (
     SearchOpt,
     TokenOpt,
@@ -96,7 +97,7 @@ def create(
         ),
     ] = False,
     region: Annotated[
-        Literal["us", "eu"] | None,
+        REPO_REGIONS | None,
         typer.Option(
             "--region",
             help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.",
