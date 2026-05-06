@@ -4378,6 +4378,7 @@ class HfApi:
         repo_type: str | None = None,
         exist_ok: bool = False,
         resource_group_id: str | None = None,
+        region: REPO_REGIONS | None = None,
         space_sdk: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_storage: SpaceStorage | None = None,
@@ -4414,6 +4415,9 @@ class HfApi:
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the repo. Can be one of `"us"` or `"eu"`. If not specified, the repo will be
+                created in the default region.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
@@ -4495,6 +4499,8 @@ class HfApi:
 
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         headers = self._build_hf_headers(token=token)
         while True:

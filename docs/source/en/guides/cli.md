@@ -1287,6 +1287,12 @@ Create a private dataset or a Space:
 
 Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
 
+Create a repo in a specific region:
+
+```bash
+>>> hf repos create my-model --region us
+```
+
 ### Delete a repo
 
 ```bash
