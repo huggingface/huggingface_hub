@@ -649,7 +649,7 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
         add_completion=True,
         no_args_is_help=True,
         cls=cls,
-        # Disable Typer's Rich markup (we use our own ANSI formatting via StyledHelpFormatter)
+        # Disable rich completely for consistent experience
         rich_markup_mode=None,
         rich_help_panel=None,
         pretty_exceptions_enable=False,
