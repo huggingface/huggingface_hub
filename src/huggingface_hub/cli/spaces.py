@@ -511,11 +511,11 @@ def spaces_settings(
     ],
 )
 def spaces_duplicate(
-    from_id: Annotated[str, typer.Argument(help="Source Space ID to duplicate (e.g. `username/my-space`).")],
+    from_id: Annotated[str, typer.Argument(help="The source space ID (e.g. `username/my-space`).")],
     to_id: Annotated[
         str | None,
         typer.Argument(
-            help="Destination Space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same Space name.",
+            help="Destination space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same space name.",
         ),
     ] = None,
     private: PrivateOpt = None,
@@ -525,7 +525,7 @@ def spaces_duplicate(
     exist_ok: Annotated[
         bool,
         typer.Option(
-            help="Do not raise an error if Space already exists.",
+            help="Do not raise an error if repo already exists.",
         ),
     ] = False,
     hardware: Annotated[

@@ -3559,8 +3559,8 @@ $ hf spaces duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Arguments**:
 
-* `FROM_ID`: Source Space ID to duplicate (e.g. `username/my-space`).  [required]
-* `[TO_ID]`: Destination Space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same Space name.
+* `FROM_ID`: The source space ID (e.g. `username/my-space`).  [required]
+* `[TO_ID]`: Destination space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same space name.
 
 **Options**:
 
@@ -3568,7 +3568,7 @@ $ hf spaces duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--exist-ok / --no-exist-ok`: Do not raise an error if Space already exists.  [default: no-exist-ok]
+* `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--hardware [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large').
 * `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
