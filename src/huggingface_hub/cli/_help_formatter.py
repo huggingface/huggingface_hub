@@ -21,9 +21,6 @@ from huggingface_hub.utils import ANSI
 
 
 class StyledHelpFormatter(click.HelpFormatter):
-    def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        super().__init__(*args, **kwargs)
-
     def write_heading(self, heading: str) -> None:
         styled = ANSI.underline(heading + ":")
         self.write(f"{'':>{self.current_indent}}{styled}\n")
