@@ -44,7 +44,7 @@ from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
-from huggingface_hub._space_api import SpaceHardware, SpaceStage
+from huggingface_hub._space_api import SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
@@ -58,6 +58,7 @@ from ._cli_utils import (
     EnvOpt,
     FilterOpt,
     LimitOpt,
+    PrivateOpt,
     RevisionOpt,
     SearchOpt,
     SecretsFileOpt,
@@ -65,6 +66,7 @@ from ._cli_utils import (
     TokenOpt,
     VolumesOpt,
     api_object_to_dict,
+    env_map_to_key_value_list,
     get_hf_api,
     make_expand_properties_parser,
     parse_env_map,
@@ -88,6 +90,22 @@ ExpandOpt = Annotated[
     typer.Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
+    ),
+]
+
+PublicOpt = Annotated[
+    bool | None,
+    typer.Option(
+        "--public",
+        help="Whether to make the repo public. Ignored if the repo already exists.",
+    ),
+]
+
+ProtectedOpt = Annotated[
+    bool | None,
+    typer.Option(
+        "--protected",
+        help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
     ),
 ]
 
@@ -482,6 +500,83 @@ def spaces_settings(
         sleep_time=runtime.sleep_time,
     )
     out.hint(f"Use `hf spaces info {space_id}` to verify the runtime configuration.")
+
+
+@spaces_cli.command(
+    "duplicate",
+    examples=[
+        "hf spaces duplicate username/my-space",
+        "hf spaces duplicate username/my-space my-copy --private",
+        "hf spaces duplicate username/my-space my-copy --hardware l4x4 --secrets HF_TOKEN -v hf://buckets/org/b:/data",
+    ],
+)
+def spaces_duplicate(
+    from_id: Annotated[str, typer.Argument(help="Source Space ID to duplicate (e.g. `username/my-space`).")],
+    to_id: Annotated[
+        str | None,
+        typer.Argument(
+            help="Destination Space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same Space name.",
+        ),
+    ] = None,
+    private: PrivateOpt = None,
+    public: PublicOpt = None,
+    protected: ProtectedOpt = None,
+    token: TokenOpt = None,
+    exist_ok: Annotated[
+        bool,
+        typer.Option(
+            help="Do not raise an error if Space already exists.",
+        ),
+    ] = False,
+    hardware: Annotated[
+        SpaceHardware | None,
+        typer.Option(
+            "--hardware",
+            help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.",
+        ),
+    ] = None,
+    storage: Annotated[
+        SpaceStorage | None,
+        typer.Option(
+            "--storage",
+            help="(Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large').",
+        ),
+    ] = None,
+    sleep_time: Annotated[
+        int | None,
+        typer.Option(
+            "--sleep-time",
+            help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
+        ),
+    ] = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    env: EnvOpt = None,
+    env_file: EnvFileOpt = None,
+    volume: VolumesOpt = None,
+) -> None:
+    """Duplicate a Space on the Hub."""
+    api = get_hf_api(token=token)
+    repo_url = api.duplicate_repo(
+        from_id=from_id,
+        to_id=to_id,
+        repo_type="space",
+        visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
+        token=token,
+        exist_ok=exist_ok,
+        space_hardware=hardware,
+        space_storage=storage,
+        space_sleep_time=sleep_time,
+        space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
+        space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
+        space_volumes=parse_volumes(volume),
+    )
+    out.result("Space duplicated", from_id=from_id, to_id=repo_url.repo_id, url=str(repo_url))
+    out.hint(f"Use `hf spaces info {repo_url.repo_id}` to monitor the runtime stage.")
+    out.hint(
+        f"Source secrets and variables are not copied. "
+        f"Run `hf spaces secrets ls {from_id}` and `hf spaces variables ls {from_id}` to see what to set on the new Space."
+    )
 
 
 @spaces_cli.command(
