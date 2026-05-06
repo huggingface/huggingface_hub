@@ -54,6 +54,7 @@ class ANSI:
     _green = "\u001b[32m"
     _red = "\u001b[31m"
     _reset = "\u001b[0m"
+    _underline = "\u001b[4m"
     _yellow = "\u001b[33m"
 
     @classmethod
@@ -75,6 +76,10 @@ class ANSI:
     @classmethod
     def red(cls, s: str) -> str:
         return cls._format(s, cls._bold + cls._red)
+
+    @classmethod
+    def underline(cls, s: str) -> str:
+        return cls._format(s, cls._underline)
 
     @classmethod
     def yellow(cls, s: str) -> str:
