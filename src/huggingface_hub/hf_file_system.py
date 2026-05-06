@@ -24,7 +24,6 @@ from .errors import (
     BucketNotFoundError,
     EntryNotFoundError,
     HfHubHTTPError,
-    HfUriError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -322,8 +321,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             revision_in_path_decoded = unquote(revision_in_path)
             if revision_in_path_decoded != revision:
                 raise ValueError(
-                    f'Revision specified in path ("{revision_in_path_decoded}") and in `revision` argument ("{revision}")'
-                    " are not the same."
+                    f'Revision specified in path ("{revision_in_path_decoded}") and in `revision` argument ("{revision}") are not the same.'
                 )
             repo_and_revision_exist, err = self._repo_and_revision_exist(parsed.type, repo_id, revision)
             if not repo_and_revision_exist:
