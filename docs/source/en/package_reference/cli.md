@@ -296,7 +296,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 **Options**:
 
 * `--private`: Create a private bucket.
-* `--region TEXT`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.
+* `--region [us|eu]`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.

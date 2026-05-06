@@ -15,7 +15,7 @@
 
 import os
 import sys
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
