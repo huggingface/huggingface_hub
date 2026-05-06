@@ -753,6 +753,16 @@ To copy from a repo or a bucket on the Hub:
 >>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
 ```
 
+When copying folders, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+
+```bash
+# Without trailing slash: "logs" dir is nested => archive/logs/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+
+# With trailing slash: only contents of "logs" are copied => archive/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+```
+
 Notes:
 
 - Bucket-to-repo copy is not yet supported.
@@ -1070,16 +1080,17 @@ Use `hf spaces settings` to update the settings of a Space.
 
 ### Manage Space secrets
 
-Use `hf spaces secrets add` to add or update one or more secrets on a Space, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
+Use `hf spaces secrets ls` to list secrets on a Space, `hf spaces secrets add` to add or update one or more secrets, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
 
 ```bash
+>>> hf spaces secrets ls username/my-space
 >>> hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-...
 >>> hf spaces secrets add username/my-space --secrets-file .env.secrets
 >>> hf spaces secrets delete username/my-space OPENAI_API_KEY --yes
 ```
 
 > [!NOTE]
-> There is no `hf spaces secrets ls` command. The Hub exposes secrets as write-only — once set, their values cannot be read back via the API.
+> Secret values are write-only so `hf spaces secrets ls` shows keys, descriptions, and update timestamps, but never the secret values themselves.
 
 ### Manage Space environment variables
 
