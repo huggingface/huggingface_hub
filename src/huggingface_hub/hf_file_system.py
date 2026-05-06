@@ -296,13 +296,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 If trying to list repositories.
         """
         path = self._strip_protocol(path)
-        if not path:
+        if not path or path.count("/") == 0:
+            # can't list repositories at root
             raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
 
-        try:
-            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
-        except HfUriError:
-            raise NotImplementedError("Access to repositories lists is not implemented.")
+        parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
 
         # --- Buckets ---
         if parsed.is_bucket:
