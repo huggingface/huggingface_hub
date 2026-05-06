@@ -13098,6 +13098,15 @@ class HfApi:
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
 
+        # Raise if no source files were found
+        if not all_copies and not all_adds and not pending_downloads:
+            if isinstance(source_handle, _BucketCopyHandle):
+                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_handle.bucket_id}'.")
+            else:
+                raise EntryNotFoundError(
+                    f"No files found at '{source}' in {source_handle.repo_type} '{source_handle.repo_id}'."
+                )
+
         # Download non-xet files in parallel
         if pending_downloads:
 
