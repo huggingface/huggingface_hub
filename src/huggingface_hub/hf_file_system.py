@@ -312,6 +312,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             # can't list repositories at root
             raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
 
+        parsed: HfUri | None = None
+
         # --- Bucket paths: delegate to parse_hf_uri ---
         if path.split("/")[0] == "buckets":
             parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
@@ -335,7 +337,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # --- Paths with @ revision: delegate to parse_hf_uri for consistent special-ref handling ---
         if path.count("/") > 0 and "@" in "/".join(path.split("/")[:2]):
             type_prefix = constants.REPO_TYPES_URL_PREFIXES.get(repo_type, "")
-            parsed: HfUri | None
             try:
                 parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{type_prefix}{path}")
             except HfUriError:
