@@ -3467,6 +3467,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 * `card`: Get the Space card (README) for a Space on...
 * `dev-mode`: Enable or disable dev mode on a Space.
+* `duplicate`: Duplicate a Space on the Hub.
 * `hardware`: List available hardware options for Spaces.
 * `hot-reload`: Hot-reload any Python file of a Space...
 * `info`: Get info about a space on the Hub.
@@ -3540,6 +3541,48 @@ $ hf spaces dev-mode [OPTIONS] SPACE_ID
 
 Examples
   $ hf spaces dev-mode my-user-name/deepsite
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces duplicate`
+
+Duplicate a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces duplicate [OPTIONS] FROM_ID [TO_ID]
+```
+
+**Arguments**:
+
+* `FROM_ID`: Source Space ID to duplicate (e.g. `username/my-space`).  [required]
+* `[TO_ID]`: Destination Space ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same Space name.
+
+**Options**:
+
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--exist-ok / --no-exist-ok`: Do not raise an error if Space already exists.  [default: no-exist-ok]
+* `--hardware [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
+* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large').
+* `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces duplicate username/my-space
+  $ hf spaces duplicate username/my-space my-copy --private
+  $ hf spaces duplicate username/my-space my-copy --hardware l4x4 --secrets HF_TOKEN -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
