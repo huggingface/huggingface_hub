@@ -1130,8 +1130,11 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     Path(constants.CHECK_FOR_UPDATE_DONE_PATH).parent.mkdir(parents=True, exist_ok=True)
     Path(constants.CHECK_FOR_UPDATE_DONE_PATH).touch()
 
-    # Check latest version from PyPI
-    latest_version = _fetch_latest_pypi_version(library)
+    # Check latest version from the appropriate registry
+    if library == "huggingface_hub" and installation_method() == "brew":
+        latest_version = _fetch_latest_brew_version()
+    else:
+        latest_version = _fetch_latest_pypi_version(library)
     if latest_version is None or current_version == latest_version:
         return
 
@@ -1158,6 +1161,17 @@ def _fetch_latest_pypi_version(library: str) -> str | None:
         return response.json()["info"]["version"]
     except Exception:
         logger.debug("Error while fetching latest version from PyPI.", exc_info=True)
+        return None
+
+
+def _fetch_latest_brew_version() -> str | None:
+    """Fetch the latest version of the `hf` formula from the Homebrew registry. Returns None if the request fails."""
+    try:
+        response = get_session().get("https://formulae.brew.sh/api/formula/hf.json", timeout=2)
+        hf_raise_for_status(response)
+        return response.json()["versions"]["stable"]
+    except Exception:
+        logger.debug("Error while fetching latest version from Homebrew.", exc_info=True)
         return None
 
 
