@@ -411,6 +411,8 @@ def _stat_local(path: str) -> tuple[int, float] | None:
 def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     """List all files in a local directory.
 
+    Follows symlinks so that symlinked subdirectories are traversed.
+
     Yields:
         tuple: (relative_path, size, mtime_ms) for each file
     """
@@ -418,7 +420,10 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     if not os.path.isdir(local_path):
         raise ValueError(f"Local path must be a directory: {local_path}")
 
-    for root, _, files in os.walk(local_path):
+    def _on_walk_error(error: OSError) -> None:
+        logger.warning(f"Cannot list directory (skipping): {error}")
+
+    for root, _, files in os.walk(local_path, followlinks=True, onerror=_on_walk_error):
         for filename in files:
             full_path = os.path.join(root, filename)
             stat_info = _stat_local(full_path)
@@ -565,6 +570,13 @@ def _compute_sync_plan(
     if not is_upload and not is_download:
         raise ValueError("One of source or dest must be a bucket path (hf://buckets/...) and the other must be local.")
 
+    # Resolve local paths to absolute so the plan output is unambiguous
+    # and plan files work correctly regardless of CWD.
+    if is_upload:
+        source = os.path.abspath(source)
+    else:
+        dest = os.path.abspath(dest)
+
     plan = SyncPlan(
         source=source,
         dest=dest,
@@ -574,7 +586,7 @@ def _compute_sync_plan(
     remote_total: int | None = None
     if is_upload:
         # Local -> Remote
-        local_path = os.path.abspath(source)
+        local_path = source
         bucket_id, prefix = _parse_bucket_path(dest)
 
         if not os.path.isdir(local_path):
@@ -674,7 +686,7 @@ def _compute_sync_plan(
     else:
         # Remote -> Local (download)
         bucket_id, prefix = _parse_bucket_path(source)
-        local_path = os.path.abspath(dest)
+        local_path = dest
 
         # Get remote and local file lists
         remote_files = {}

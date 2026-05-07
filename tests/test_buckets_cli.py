@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
+from huggingface_hub._buckets import BUCKET_PREFIX, _list_local_files, _split_bucket_id_and_prefix
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -1028,6 +1028,52 @@ def _make_local_dir(tmp_path: Path, files: dict[str, str]) -> Path:
     return data_dir
 
 
+# -- _list_local_files unit tests (no Hub access needed) --
+
+
+class TestListLocalFiles:
+    def test_follows_symlinked_directories(self, tmp_path: Path):
+        """Symlinked directories should be traversed."""
+        # Create a real directory with files
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        (real_dir / "file1.txt").write_text("a")
+        (real_dir / "nested").mkdir()
+        (real_dir / "nested" / "file2.txt").write_text("b")
+
+        # Create a separate directory that symlinks to the real one
+        root = tmp_path / "root"
+        root.mkdir()
+        (root / "direct.txt").write_text("c")
+        (root / "linked").symlink_to(real_dir)
+
+        files = {path for path, _, _ in _list_local_files(str(root))}
+        assert files == {"direct.txt", "linked/file1.txt", "linked/nested/file2.txt"}
+
+    def test_warns_on_inaccessible_directory(self, tmp_path: Path, caplog):
+        """Inaccessible directories should log a warning, not crash."""
+        import logging
+        import os
+
+        root = tmp_path / "root"
+        root.mkdir()
+        (root / "ok.txt").write_text("ok")
+        no_access = root / "noaccess"
+        no_access.mkdir()
+        (no_access / "hidden.txt").write_text("hidden")
+        os.chmod(str(no_access), 0o000)
+
+        try:
+            with caplog.at_level(logging.WARNING, logger="huggingface_hub._buckets"):
+                files = {path for path, _, _ in _list_local_files(str(root))}
+
+            assert "ok.txt" in files
+            assert "noaccess/hidden.txt" not in files
+            assert any("Cannot list directory" in msg for msg in caplog.messages)
+        finally:
+            os.chmod(str(no_access), 0o755)
+
+
 # -- Upload tests --
 
 
@@ -1282,6 +1328,10 @@ def test_sync_plan_saves_file(bucket_write: str, tmp_path: Path):
     header = json.loads(lines[0])
     assert header["type"] == "header"
     assert header["summary"]["uploads"] == 1
+    # Source path in the plan should be resolved to an absolute path
+    import os
+
+    assert os.path.isabs(header["source"])
 
     op = json.loads(lines[1])
     assert op["type"] == "operation"
