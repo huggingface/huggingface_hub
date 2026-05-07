@@ -118,6 +118,8 @@ from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
     XetConnectionInfo,
     XetFileData,
+    XetTokenType,
+    fetch_xet_connection_info_from_repo_info,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )

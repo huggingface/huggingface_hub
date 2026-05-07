@@ -538,12 +538,13 @@ def xet_get(
     session = get_xet_session()
 
     with progress_cm as progress:
-        _prev = [0]
+        _prev = 0
 
         def _on_progress(group_report, _):
+            nonlocal _prev
             current = group_report.total_bytes_completed
-            progress.update(max(0, current - _prev[0]))
-            _prev[0] = current
+            progress.update(max(0, current - _prev))
+            _prev = current
 
         try:
             with session.new_file_download_group(
