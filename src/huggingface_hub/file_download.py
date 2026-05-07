@@ -417,15 +417,30 @@ def http_get(
 
         with progress_cm as progress:
             new_resume_size = resume_size
+            last_progress_update = time.monotonic()
+            pending_progress_update = 0
             try:
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                     if chunk:  # filter out keep-alive new chunks
-                        progress.update(len(chunk))
+                        n_bytes = len(chunk)
+                        pending_progress_update += n_bytes
                         temp_file.write(chunk)
-                        new_resume_size += len(chunk)
+                        new_resume_size += n_bytes
+
+                        now = time.monotonic()
+                        if now - last_progress_update >= 1.0:
+                            progress.update(pending_progress_update)
+                            pending_progress_update = 0
+                            last_progress_update = now
+
                         # Some data has been downloaded from the server so we reset the number of retries.
                         _nb_retries = 5
+
+                if pending_progress_update > 0:
+                    progress.update(pending_progress_update)
             except (httpx.ConnectError, httpx.TimeoutException) as e:
+                if pending_progress_update > 0:
+                    progress.update(pending_progress_update)
                 # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
                 # a transient error (network outage?). We log a warning message and try to resume the download a few times
                 # before giving up. Tre retry mechanism is basic but should be enough in most cases.
