@@ -29,7 +29,13 @@ from huggingface_hub._buckets import (
 )
 from huggingface_hub.utils import SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
 
-from ._cli_utils import SearchOpt, TokenOpt, get_hf_api, typer_factory
+from ..hf_api import REPO_REGIONS
+from ._cli_utils import (
+    SearchOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
 from ._file_listing import format_size, print_file_listing
 from ._output import OutputFormatWithAuto, out
 
@@ -48,6 +54,7 @@ buckets_cli = typer_factory(help="Commands to interact with buckets.")
         "hf buckets create hf://buckets/user/my-bucket",
         "hf buckets create user/my-bucket --private",
         "hf buckets create user/my-bucket --exist-ok",
+        "hf buckets create user/my-bucket --region us",
     ],
 )
 def create(
@@ -64,6 +71,13 @@ def create(
             help="Create a private bucket.",
         ),
     ] = False,
+    region: Annotated[
+        REPO_REGIONS | None,
+        typer.Option(
+            "--region",
+            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
+        ),
+    ] = None,
     exist_ok: Annotated[
         bool,
         typer.Option(
@@ -91,6 +105,7 @@ def create(
     bucket_url = api.create_bucket(
         bucket_id,
         private=private if private else None,
+        region=region,
         exist_ok=exist_ok,
     )
     out.result("Bucket created", uri=bucket_url.uri.to_uri(), url=bucket_url.url)
