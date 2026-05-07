@@ -13297,7 +13297,7 @@ class HfApi:
 
         from hf_xet import SKIP_SHA256
 
-        from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
+        from .utils._xet import XetTokenType, abort_xet_session, get_xet_session, xet_connection_info_refresh_url
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
@@ -13308,13 +13308,19 @@ class HfApi:
         add_path_operations = [op for op in add_operations if not isinstance(op.source, bytes)]
 
         if len(add_operations_to_upload) > 0:
-            refresh_url = f"{self.endpoint}/api/buckets/{bucket_id}/xet-write-token"
+            refresh_url = xet_connection_info_refresh_url(
+                token_type=XetTokenType.WRITE,
+                repo_id=bucket_id,
+                repo_type="bucket",
+                endpoint=self.endpoint,
+            )
             xet_headers = headers.copy()
             xet_headers.pop("authorization", None)
 
             owns_progress = _progress is None
             if _progress is not None:
                 progress = _progress
+                progress.reset_for_next_commit()
                 progress_callback = progress.update_progress
             elif not are_progress_bars_disabled():
                 progress = XetProgressReporter()
@@ -13348,7 +13354,7 @@ class HfApi:
                     op.xet_hash = result.xet_info.hash
                     op.size = result.xet_info.file_size
             except KeyboardInterrupt:
-                _GLOBAL_XET_HOLDER.sigint_abort()
+                abort_xet_session()
                 raise
             finally:
                 if owns_progress and progress is not None:
@@ -13500,7 +13506,7 @@ class HfApi:
         """
         from hf_xet import XetFileInfo  # type: ignore[no-redef]
 
-        from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
+        from .utils._xet import abort_xet_session, get_xet_session
 
         headers = self._build_hf_headers(token=token)
 
@@ -13587,7 +13593,7 @@ class HfApi:
                     for xet_info, dest in non_zero_download_items:
                         group.start_download_file(xet_info, dest)
             except KeyboardInterrupt:
-                _GLOBAL_XET_HOLDER.sigint_abort()
+                abort_xet_session()
                 raise
 
     @validate_hf_hub_args

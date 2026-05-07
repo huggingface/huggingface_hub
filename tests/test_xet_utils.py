@@ -16,6 +16,7 @@ from huggingface_hub.utils._xet import (
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
+    xet_connection_info_refresh_url,
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -431,3 +432,39 @@ def test_xet_session_holder_fork_safety_multiprocessing():
     for wpid in worker_pids:
         assert wpid != parent_pid, f"Worker used parent's session PID {parent_pid}"
         assert wpid is not None
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected_suffix",
+    [
+        (
+            {"token_type": XetTokenType.WRITE, "repo_id": "user/mymodel", "repo_type": "model", "revision": "main"},
+            "/api/models/user/mymodel/xet-write-token/main",
+        ),
+        (
+            {"token_type": XetTokenType.WRITE, "repo_id": "user/mymodel", "repo_type": "model", "revision": None},
+            "/api/models/user/mymodel/xet-write-token/None",
+        ),
+        (
+            {"token_type": XetTokenType.WRITE, "repo_id": "user/mybucket", "repo_type": "bucket", "revision": None},
+            "/api/buckets/user/mybucket/xet-write-token",
+        ),
+        (
+            {
+                "token_type": XetTokenType.WRITE,
+                "repo_id": "user/mybucket",
+                "repo_type": "bucket",
+                "revision": "some-rev",
+            },
+            "/api/buckets/user/mybucket/xet-write-token/some-rev",
+        ),
+        (
+            {"token_type": XetTokenType.READ, "repo_id": "user/myds", "repo_type": "dataset", "revision": "v1"},
+            "/api/datasets/user/myds/xet-read-token/v1",
+        ),
+    ],
+)
+def test_xet_connection_info_refresh_url(kwargs, expected_suffix):
+    endpoint = "https://huggingface.co"
+    url = xet_connection_info_refresh_url(**kwargs, endpoint=endpoint)
+    assert url == endpoint + expected_suffix

@@ -586,7 +586,7 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from .utils._xet import _GLOBAL_XET_HOLDER, XetTokenType, get_xet_session, xet_connection_info_refresh_url
+    from .utils._xet import XetTokenType, abort_xet_session, get_xet_session, xet_connection_info_refresh_url
     from .utils._xet_progress_reporting import XetProgressReporter
 
     refresh_url = xet_connection_info_refresh_url(
@@ -603,14 +603,15 @@ def _upload_xet_files(
     xet_headers.pop("authorization", None)
 
     session = get_xet_session()
-
-    if not are_progress_bars_disabled():
-        progress = XetProgressReporter()
-        progress_callback = progress.update_progress
-    else:
-        progress, progress_callback = None, None
+    progress = None
 
     try:
+        if not are_progress_bars_disabled():
+            progress = XetProgressReporter()
+            progress_callback = progress.update_progress
+        else:
+            progress_callback = None
+
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
@@ -625,7 +626,7 @@ def _upload_xet_files(
             for op in all_bytes_ops:
                 commit.start_upload_bytes(op.path_or_fileobj, sha256=op.upload_info.sha256.hex())
     except KeyboardInterrupt:
-        _GLOBAL_XET_HOLDER.sigint_abort()
+        abort_xet_session()
         raise
     finally:
         if progress is not None:

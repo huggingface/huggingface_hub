@@ -138,7 +138,7 @@ def xet_connection_info_refresh_url(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated by a `/`.
         repo_type (`str`):
-            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+            Type of the repo (e.g. `"model"`, `"dataset"`, `"space"`, `"bucket"`).
         revision (`str`, `optional`):
             The revision of the repo to get the token for.
         endpoint (`str`, `optional`):
@@ -351,3 +351,12 @@ def get_xet_session():
     It is created lazily and is fork-safe and thread-safe.
     """
     return _GLOBAL_XET_HOLDER.get()
+
+
+def abort_xet_session():
+    """Abort the global xet session after a KeyboardInterrupt.
+
+    Cancels any in-flight Rust operation and clears the session so the next
+    call to :func:`get_xet_session` starts fresh (notebook-friendly).
+    """
+    _GLOBAL_XET_HOLDER.sigint_abort()

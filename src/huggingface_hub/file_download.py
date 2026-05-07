@@ -532,7 +532,7 @@ def xet_get(
         _tqdm_bar=_tqdm_bar,
     )
 
-    from .utils._xet import _GLOBAL_XET_HOLDER, get_xet_session
+    from .utils._xet import abort_xet_session, get_xet_session
 
     xet_headers = headers.copy()
     xet_headers.pop("authorization", None)
@@ -558,7 +558,7 @@ def xet_get(
                     XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
                 )
         except KeyboardInterrupt:
-            _GLOBAL_XET_HOLDER.sigint_abort()
+            abort_xet_session()
             raise
 
 

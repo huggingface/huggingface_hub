@@ -66,6 +66,14 @@ class XetProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
+    def reset_for_next_commit(self):
+        """Reset per-commit state so the reporter can be reused across multiple upload commits."""
+        self._prev_bytes_completed = 0
+        self._prev_transfer_bytes_completed = 0
+        self.known_items.clear()
+        self.completed_items.clear()
+        self.item_state.clear()
+
     def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
         for item in item_reports.values():
