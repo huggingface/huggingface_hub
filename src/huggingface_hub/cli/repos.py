@@ -154,7 +154,7 @@ def repo_create(
         REPO_REGIONS | None,
         typer.Option(
             "--region",
-            help="Cloud region in which to create the repo. Can be one of 'us' or 'eu'.",
+            help="Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.",
         ),
     ] = None,
     hardware: SpaceHardwareOpt = None,

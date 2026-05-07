@@ -4417,7 +4417,7 @@ class HfApi:
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
             region (`Literal["us", "eu"]`, *optional*):
                 Cloud region in which to create the repo. Can be one of `"us"` or `"eu"`. If not specified, the repo will be
-                created in the default region.
+                created in the default region. Requires Team plan or above.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
@@ -12532,7 +12532,7 @@ class HfApi:
                 https://huggingface.co/docs/hub/en/security-resource-groups.
             region (`Literal["us", "eu"]`, *optional*):
                 Cloud region in which to create the bucket. Can be one of `"us"` or `"eu"`. If not specified, the bucket will be
-                created in the default region.
+                created in the default region. Requires Team plan or above.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if the bucket already exists.
             token (`bool` or `str`, *optional*):

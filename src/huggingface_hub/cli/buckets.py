@@ -100,7 +100,7 @@ def create(
         REPO_REGIONS | None,
         typer.Option(
             "--region",
-            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'.",
+            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
         ),
     ] = None,
     exist_ok: Annotated[
