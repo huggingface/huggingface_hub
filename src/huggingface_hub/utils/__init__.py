@@ -118,9 +118,6 @@ from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
     XetConnectionInfo,
     XetFileData,
-    XetSessionHolder,
-    abort_xet_session,
-    get_xet_session,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
 )
