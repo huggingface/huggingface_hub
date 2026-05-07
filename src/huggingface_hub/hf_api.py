@@ -13247,7 +13247,7 @@ class HfApi:
                 self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
         finally:
             if progress is not None:
-                progress.close(False)
+                progress.close()
 
         return
 
@@ -13297,7 +13297,13 @@ class HfApi:
 
         from hf_xet import SKIP_SHA256
 
-        from .utils._xet import XetTokenType, abort_xet_session, get_xet_session, xet_connection_info_refresh_url
+        from .utils._xet import (
+            XetTokenType,
+            abort_xet_session,
+            get_xet_session,
+            xet_connection_info_refresh_url,
+            xet_headers_without_auth,
+        )
         from .utils._xet_progress_reporting import XetProgressReporter
 
         headers = self._build_hf_headers(token=token)
@@ -13314,8 +13320,7 @@ class HfApi:
                 repo_type="bucket",
                 endpoint=self.endpoint,
             )
-            xet_headers = headers.copy()
-            xet_headers.pop("authorization", None)
+            xet_headers = xet_headers_without_auth(headers)
 
             owns_progress = _progress is None
             if _progress is not None:
@@ -13358,7 +13363,7 @@ class HfApi:
                 raise
             finally:
                 if owns_progress and progress is not None:
-                    progress.close(False)
+                    progress.close()
 
         # 3. /batch call
         def _payload_as_ndjson() -> Iterable[bytes]:
@@ -13506,7 +13511,7 @@ class HfApi:
         """
         from hf_xet import XetFileInfo  # type: ignore[no-redef]
 
-        from .utils._xet import abort_xet_session, get_xet_session
+        from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
 
         headers = self._build_hf_headers(token=token)
 
@@ -13561,8 +13566,7 @@ class HfApi:
         remote_path = first_valid_bucket_file.path
         metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
 
-        xet_headers = headers.copy()
-        xet_headers.pop("authorization", None)
+        xet_headers = xet_headers_without_auth(headers)
 
         # Download files
         progress_cm = _get_progress_bar_context(

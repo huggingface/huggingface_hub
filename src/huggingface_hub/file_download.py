@@ -532,10 +532,9 @@ def xet_get(
         _tqdm_bar=_tqdm_bar,
     )
 
-    from .utils._xet import abort_xet_session, get_xet_session
+    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
 
-    xet_headers = headers.copy()
-    xet_headers.pop("authorization", None)
+    xet_headers = xet_headers_without_auth(headers)
 
     session = get_xet_session()
 

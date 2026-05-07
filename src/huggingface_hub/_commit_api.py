@@ -586,7 +586,13 @@ def _upload_xet_files(
         return
 
     # at this point, we know that hf_xet is installed
-    from .utils._xet import XetTokenType, abort_xet_session, get_xet_session, xet_connection_info_refresh_url
+    from .utils._xet import (
+        XetTokenType,
+        abort_xet_session,
+        get_xet_session,
+        xet_connection_info_refresh_url,
+        xet_headers_without_auth,
+    )
     from .utils._xet_progress_reporting import XetProgressReporter
 
     refresh_url = xet_connection_info_refresh_url(
@@ -599,8 +605,7 @@ def _upload_xet_files(
     if create_pr:
         refresh_url += "?create_pr=1"
 
-    xet_headers = headers.copy()
-    xet_headers.pop("authorization", None)
+    xet_headers = xet_headers_without_auth(headers)
 
     session = get_xet_session()
     progress = None
@@ -630,7 +635,7 @@ def _upload_xet_files(
         raise
     finally:
         if progress is not None:
-            progress.close(False)
+            progress.close()
 
 
 def _validate_preupload_info(preupload_info: dict):

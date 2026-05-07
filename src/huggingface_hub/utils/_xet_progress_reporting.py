@@ -168,7 +168,7 @@ class XetProgressReporter:
         self.upload_bar.set_postfix_str(postfix(group_report.total_transfer_bytes_completion_rate), refresh=False)
         self.upload_bar.update(transfer_inc)
 
-    def close(self, _success):
+    def close(self):
         self.data_processing_bar.close()
         self.upload_bar.close()
 

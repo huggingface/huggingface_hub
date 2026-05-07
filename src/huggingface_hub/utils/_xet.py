@@ -353,6 +353,17 @@ def get_xet_session():
     return _GLOBAL_XET_HOLDER.get()
 
 
+def xet_headers_without_auth(headers: dict[str, str]) -> dict[str, str]:
+    """Return a copy of headers with the authorization header removed.
+
+    Xet storage requests use a short-lived xet access token for auth, so the
+    Hub authorization header must not be forwarded to xet storage endpoints.
+    """
+    xet_headers = headers.copy()
+    xet_headers.pop("authorization", None)
+    return xet_headers
+
+
 def abort_xet_session():
     """Abort the global xet session after a KeyboardInterrupt.
 
