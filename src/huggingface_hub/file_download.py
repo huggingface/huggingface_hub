@@ -483,24 +483,23 @@ def xet_get(
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
         for efficient storage and transfer.
 
-        `hf_xet.download_files` manages downloading files by:
-        - Taking a list of files to download (each with its unique content hash)
+        ``session.new_file_download_group()`` manages downloading files by:
+        - Registering download tasks (each with its unique content hash) and starting download immediately in the background
         - Connecting to a storage server (CAS server) that knows how files are chunked
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works by regularly refreshing access tokens through `refresh_xet_connection_info` to maintain a valid
-        connection to the storage server.
+        Authentication works transparently: the download group accepts a ``token_refresh_url``
+        that is used to refresh the short-lived xet access token as needed.
 
         The download process works like this:
-        1. Create a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
-        2. Download files in parallel:
-            2.1. Prepare to write the file to disk
-            2.2. Ask the server "how is this file split into chunks?" using the file's unique hash
+        1. Download tasks run in parallel:
+            1.1. Prepare to write the file to disk or to a stream (e.g. truncate file, set up cache)
+            1.2. Ask the server "how is this file split into chunks?" using the file's unique hash
                 The server responds with:
                 - Which chunks make up the complete file
                 - Where each chunk can be downloaded from
-            2.3. For each needed chunk:
+            1.3. For each needed chunk:
                 - Checks if we already have it in our local cache
                 - If not, download it from cloud storage (S3)
                 - Save it to cache for future use
