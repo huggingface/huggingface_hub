@@ -13015,7 +13015,9 @@ class HfApi:
         if isinstance(destination_handle, _RepoCopyHandle):
             if isinstance(source_handle, _BucketCopyHandle):
                 raise ValueError("Bucket-to-repo copy is not supported.")
-            self._copy_repo_to_repo(source_handle, destination_handle, source_is_contents_only, source, token=token)
+            self._copy_repo_to_repo(
+                source_handle, destination_handle, source_is_contents_only, source, destination, token=token
+            )
             return
 
         # === Bucket destination ===
@@ -13188,6 +13190,7 @@ class HfApi:
         destination: _RepoCopyHandle,
         source_is_contents_only: bool,
         source_str: str,
+        destination_str: str,
         *,
         token: str | bool | None = None,
     ) -> None:
@@ -13212,16 +13215,19 @@ class HfApi:
                 destination_is_directory = True
                 destination_exists_as_directory = True
             else:
-                destination_exists_as_directory = any(
-                    self.list_repo_tree(
-                        repo_id=destination.repo_id,
-                        path_in_repo=destination_path,
-                        repo_type=destination.repo_type,
-                        revision=destination.revision,
-                        token=token,
+                try:
+                    destination_exists_as_directory = any(
+                        self.list_repo_tree(
+                            repo_id=destination.repo_id,
+                            path_in_repo=destination_path,
+                            repo_type=destination.repo_type,
+                            revision=destination.revision,
+                            token=token,
+                        )
                     )
-                )
-                destination_is_directory = destination_exists_as_directory or source_str.endswith("/")
+                except RemoteEntryNotFoundError:
+                    destination_exists_as_directory = False
+                destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
 
         def _resolve_target(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
             return _resolve_copy_target_path(
