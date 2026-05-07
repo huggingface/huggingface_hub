@@ -31,6 +31,7 @@ import typer
 
 from huggingface_hub import SpaceHardware, SpaceStorage
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.hf_api import REPO_REGIONS
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -121,6 +122,7 @@ SpaceSleepTimeOpt = Annotated[
         "hf repos create my-dataset --repo-type dataset --private",
         "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
         "hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data",
+        "hf repos create my-model --region us",
     ],
 )
 def repo_create(
@@ -148,6 +150,13 @@ def repo_create(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
     ] = None,
+    region: Annotated[
+        REPO_REGIONS | None,
+        typer.Option(
+            "--region",
+            help="Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.",
+        ),
+    ] = None,
     hardware: SpaceHardwareOpt = None,
     storage: SpaceStorageOpt = None,
     sleep_time: SpaceSleepTimeOpt = None,
@@ -166,6 +175,7 @@ def repo_create(
         token=token,
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
+        region=region,
         space_sdk=space_sdk,
         space_hardware=hardware,
         space_storage=storage,

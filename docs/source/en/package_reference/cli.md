@@ -296,6 +296,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 **Options**:
 
 * `--private`: Create a private bucket.
+* `--region [us|eu]`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -306,6 +307,7 @@ Examples
   $ hf buckets create hf://buckets/user/my-bucket
   $ hf buckets create user/my-bucket --private
   $ hf buckets create user/my-bucket --exist-ok
+  $ hf buckets create user/my-bucket --region us
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3044,6 +3046,7 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
+* `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
@@ -3059,6 +3062,7 @@ Examples
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
   $ hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data
+  $ hf repos create my-model --region us
 
 Learn more
   Use `hf <command> --help` for more information about a command.
