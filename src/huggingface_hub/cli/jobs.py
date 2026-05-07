@@ -324,7 +324,13 @@ def jobs_run(
 
 
 @jobs_cli.command(
-    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>", "hf jobs logs -f --tail 100 <job_id>"]
+    "logs",
+    examples=[
+        "hf jobs logs <job_id>",
+        "hf jobs logs -f <job_id>",
+        "hf jobs logs --tail 20 <job_id>",
+        "hf jobs logs -f --tail 100 <job_id>",
+    ],
 )
 def jobs_logs(
     job_id: JobIdArg,
