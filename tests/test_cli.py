@@ -33,7 +33,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, requires, with_production_testing
 
 
 @pytest.fixture
@@ -892,6 +892,13 @@ class TestDownloadCommand:
         assert kwargs["allow_patterns"] == ["art/**"]
         assert kwargs["ignore_patterns"] is None
 
+    def test_download_without_args_prints_help(self, runner: CliRunner) -> None:
+        """`hf download` without args should print help (like groups do), not error out."""
+        result = runner.invoke(app, ["download"])
+        assert result.exit_code == 0
+        assert "Usage:" in result.stdout and "download [OPTIONS] REPO_ID" in result.stdout
+        assert "Download files from the Hub." in result.stdout
+
 
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
@@ -1316,6 +1323,7 @@ class TestRepoCreateCommand:
             token=None,
             exist_ok=False,
             resource_group_id=None,
+            region=None,
             space_sdk="gradio",
             space_hardware="t4-medium",
             space_storage="small",
@@ -1338,6 +1346,7 @@ class TestRepoCreateCommand:
             token=None,
             exist_ok=False,
             resource_group_id=None,
+            region=None,
             space_sdk=None,
             space_hardware=None,
             space_storage=None,
@@ -1778,6 +1787,43 @@ class TestModelsLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
+    @with_production_testing
+    def test_models_ls_files_json(self, runner: CliRunner) -> None:
+        """List files from a real model repo on the Hub (JSON output)."""
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "config.json" in paths
+        assert "tokenizer.json" in paths
+
+    @with_production_testing
+    def test_models_ls_files_quiet(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "quiet"])
+        assert result.exit_code == 0
+        lines = result.stdout.strip().splitlines()
+        assert "config.json" in lines
+        assert "onnx/" in lines
+
+    @with_production_testing
+    def test_models_ls_files_tree(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--tree"])
+        assert result.exit_code == 0
+        assert "├──" in result.stdout or "└──" in result.stdout
+        assert "config.json" in result.stdout
+
+    @with_production_testing
+    def test_models_ls_files_recursive(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "-R", "--format", "quiet"])
+        assert result.exit_code == 0
+        lines = result.stdout.strip().splitlines()
+        assert "config.json" in lines
+        assert any(line.startswith("onnx/") for line in lines)
+
+    def test_models_ls_tree_without_repo_id_fails(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--tree"])
+        assert result.exit_code != 0
+
 
 class TestDatasetsLsCommand:
     def test_datasets_ls_with_sort(self, runner: CliRunner) -> None:
@@ -1789,6 +1835,39 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+    @with_production_testing
+    def test_datasets_ls_files(self, runner: CliRunner) -> None:
+        """List files from a real dataset repo on the Hub."""
+        result = runner.invoke(app, ["datasets", "ls", "rajpurkar/squad", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "README.md" in paths
+
+
+class TestModelsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "card", "Qwen/Qwen3-0.6B"])
+        assert "library_name: transformers" in result.stdout
+        assert "# Qwen3-0.6B" in result.stdout
+
+
+class TestDatasetsCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["datasets", "card", "HuggingFaceFW/fineweb"])
+        assert "license: odc-by" in result.stdout
+        assert "# 🍷 FineWeb" in result.stdout
+
+
+class TestSpacesCardCommand:
+    @with_production_testing
+    def test_card_full(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "card", "mteb/leaderboard"])
+        assert "license: mit" in result.stdout
+        assert "# MTEB Leaderboard" in result.stdout
 
 
 class TestPapersCommand:
@@ -2050,6 +2129,16 @@ class TestSpacesLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
+    @with_production_testing
+    def test_spaces_ls_files(self, runner: CliRunner) -> None:
+        """List files from a real space repo on the Hub."""
+        result = runner.invoke(app, ["spaces", "ls", "gradio/theme_builder", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "README.md" in paths
+        assert "run.py" in paths
+
 
 class TestSpacesLogsCommand:
     def test_build_logs_follow(self, runner: CliRunner) -> None:
@@ -2080,6 +2169,20 @@ class TestSpacesLogsCommand:
         result = runner.invoke(app, ["spaces", "logs", "-f", "--tail", "5", "user/my-space"])
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
+
+
+@with_production_testing
+class TestSpacesHardwareCommand:
+    def test_list_hardware(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
+        cpu_basic = next(hw for hw in json.loads(result.stdout) if hw["name"] == "cpu-basic")
+        assert cpu_basic["name"] == "cpu-basic"
+        assert cpu_basic["pretty name"] == "CPU Basic"
+        assert cpu_basic["cpu"] == "2 vCPU"
+        assert cpu_basic["ram"] == "16 GB"
+        assert cpu_basic["accelerator"] is None
+        assert cpu_basic["cost/min"] == "free"
+        assert cpu_basic["cost/hour"] == "free"
 
 
 class TestInferenceEndpointsCommands:
@@ -2919,36 +3022,167 @@ class TestJobsCommand:
         assert volume_2.read_only is None
 
 
-class TestCreateUvCommandQuoting:
-    """Test that shell metacharacters in uv args are properly quoted in bash -c commands."""
+class TestBucketTransport:
+    """Tests for the bucket-based script transport used when `hf jobs uv run` is given local files."""
 
-    def test_dependencies_with_version_specifiers_are_quoted(self, tmp_path: Path) -> None:
-        """Regression test: --with 'torch>=2.1' must be quoted so bash doesn't interpret '>' as redirection."""
+    def test_bucket_transport_uploads_and_returns_volume(self, tmp_path: Path) -> None:
+        """Local scripts are uploaded to a bucket and a Volume mounting them is returned."""
         from huggingface_hub.hf_api import HfApi
 
         script_path = tmp_path / "train.py"
         script_path.write_text("print('hello')")
 
         api = HfApi()
-        command, env, secrets = api._create_uv_command_env_and_secrets(
-            script=str(script_path),
-            script_args=None,
-            dependencies=["torch>=2.1", "numpy"],
-            python=None,
-            env=None,
-            secrets=None,
-            namespace="test-user",
-            token=None,
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            patch.object(api, "batch_bucket_files") as mock_batch,
+        ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
+            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=["torch>=2.1"],
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+        # Bucket was created with correct ID and private=True (so scripts/artifacts aren't public)
+        mock_create_bucket.assert_called_once_with(
+            bucket_id="test-user/jobs-artifacts", exist_ok=True, token=None, private=True
         )
 
-        assert command[0] == "bash"
-        assert command[1] == "-c"
-        bash_script = command[2]
-        # The version specifier must be quoted to prevent shell redirection
-        assert "'torch>=2.1'" in bash_script
-        assert "'numpy'" in bash_script
-        # The script name must also be quoted
-        assert "'train.py'" in bash_script
+        # Files were uploaded under a {timestamp}-{hex}/ subfolder at the bucket root
+        mock_batch.assert_called_once()
+        call_kwargs = mock_batch.call_args
+        assert call_kwargs.kwargs["bucket_id"] == "test-user/jobs-artifacts"
+        add_ops = call_kwargs.kwargs["add"]
+        assert len(add_ops) == 1
+        upload_path = add_ops[0][1]
+        assert upload_path.endswith("/train.py")
+        # subfolder is {timestamp}-{hex}, so upload path is "{subfolder}/train.py"
+        assert upload_path.count("/") == 1
+
+        # Command is plain uv run (no bash -c wrapper)
+        assert command[0] == "uv"
+        assert command[1] == "run"
+        assert "--with" in command
+        assert "torch>=2.1" in command
+        # Script path is /data/train.py — the volume is scoped to the per-job
+        # subfolder via Volume.path, so the job sees its files at the mount root.
+        script_arg = [arg for arg in command if "train.py" in arg][0]
+        assert script_arg == "/data/train.py"
+
+        # No LOCAL_FILES_ENCODED in env (the old base64 transport is gone)
+        assert "LOCAL_FILES_ENCODED" not in env
+
+        # Extra volume returned, scoped to the per-job subfolder
+        assert len(extra_volumes) == 1
+        vol = extra_volumes[0]
+        assert vol.type == "bucket"
+        assert vol.source == "test-user/jobs-artifacts"
+        assert vol.mount_path == "/data"
+        assert vol.path is not None
+        # The volume path and the remote upload path share the same subfolder
+        assert upload_path.startswith(vol.path + "/")
+        # Mounted read-write so jobs can write output artifacts back to the bucket
+        assert vol.read_only is False
+
+    def test_bucket_upload_failure_propagates(self, tmp_path: Path) -> None:
+        """When bucket creation/upload fails, the exception propagates (no silent fallback)."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket", side_effect=Exception("network error")),
+            pytest.raises(Exception, match="network error"),
+        ):
+            api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+    def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
+        """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("print('hello')")
+
+        existing_volume = Volume(type="bucket", source="user/other-bucket", mount_path="/data")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            pytest.raises(ValueError, match="/data"),
+        ):
+            api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=None,
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+                volumes=[existing_volume],
+            )
+        # Never attempted bucket creation
+        mock_create_bucket.assert_not_called()
+
+    def test_bucket_transport_with_multiple_files(self, tmp_path: Path) -> None:
+        """Multiple local files are all uploaded to the bucket under the same per-job subfolder."""
+        from huggingface_hub.hf_api import HfApi
+
+        script_path = tmp_path / "train.py"
+        script_path.write_text("import config")
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("lr: 0.001")
+
+        api = HfApi()
+        with (
+            patch.object(api, "create_bucket") as mock_create_bucket,
+            patch.object(api, "batch_bucket_files") as mock_batch,
+        ):
+            mock_create_bucket.return_value.url = "https://huggingface.co/buckets/test-user/jobs-artifacts"
+            command, env, secrets, extra_volumes = api._create_uv_command_env_and_secrets(
+                script=str(script_path),
+                script_args=[str(config_path)],
+                dependencies=None,
+                python=None,
+                env=None,
+                secrets=None,
+                namespace="test-user",
+                token=None,
+            )
+
+        # Both files uploaded under the same {timestamp}-{hex}/ subfolder at the bucket root
+        add_ops = mock_batch.call_args.kwargs["add"]
+        assert len(add_ops) == 2
+        uploaded_names = {op[1].split("/")[-1] for op in add_ops}
+        assert uploaded_names == {"train.py", "config.yaml"}
+        upload_prefixes = {op[1].rsplit("/", 1)[0] for op in add_ops}
+        assert len(upload_prefixes) == 1  # same subfolder for both files
+
+        # Both command args reference the mount root directly (no subfolder in the path)
+        assert command[0] == "uv"
+        mounted_args = sorted(arg for arg in command if arg.startswith("/data/"))
+        assert mounted_args == ["/data/config.yaml", "/data/train.py"]
+
+        # Volume is scoped to the shared subfolder via Volume.path
+        assert len(extra_volumes) == 1
+        assert extra_volumes[0].path == upload_prefixes.pop()
 
 
 class TestParseNamespaceFromJobId:
@@ -3332,6 +3566,33 @@ class TestWebhooksCommand:
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
+class TestGlobalFormattingFlags:
+    """Test the global --format / --json / -q flags handled in `_cli_utils.py`."""
+
+    def test_help_shows_formatting_options_section(self, runner: CliRunner) -> None:
+        """Modern leaf commands document the global formatting flags in a dedicated section."""
+        result = runner.invoke(app, ["models", "ls", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" in result.output
+        # Each flag is listed in the section.
+        assert "--format" in result.output
+        assert "--json" in result.output
+        assert "--quiet" in result.output
+
+    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
+        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
+        and don't get the duplicated 'Formatting options' section."""
+        result = runner.invoke(app, ["jobs", "ps", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+    def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
+        """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""
+        result = runner.invoke(app, ["extensions", "exec", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+
 class TestJsonShorthand:
     """Test the hidden --json shorthand that rewrites to --format json."""
 
@@ -3567,7 +3828,9 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
+@requires("hf_xet")
 class TestSkillsMarketplaceCLI:
+    @with_production_testing
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
 
@@ -3579,18 +3842,19 @@ class TestSkillsMarketplaceCLI:
         assert skill_dir.joinpath("SKILL.md").is_file()
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
 
-    def test_upgrade_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
+    @with_production_testing
+    def test_update_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
         add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
         assert add_result.exit_code == 0, add_result.output
 
-        result = runner.invoke(app, ["skills", "upgrade", "--dest", str(dest)])
+        result = runner.invoke(app, ["skills", "update", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
         skill_dir = dest / "huggingface-gradio"
         assert skill_dir.joinpath("SKILL.md").is_file()
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
-        # Live marketplace content can change between the add and upgrade calls.
+        # Live marketplace content can change between the add and update calls.
         assert any(
             status in result.stdout
             for status in (

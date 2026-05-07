@@ -123,6 +123,20 @@ REPO_TYPES_MAPPING = {
     "kernels": REPO_TYPE_KERNEL,
 }
 
+# HF Hub URIs (``hf://...``). See ``huggingface_hub/utils/_hf_uris.py``
+# and ``docs/source/en/package_reference/hf_uris.md`` for the full grammar.
+HF_PROTOCOL = "hf://"
+HfUriType = Literal["model", "dataset", "space", "kernel", "bucket"]
+# Maps the plural URI prefix that may appear in a HF URI (e.g. ``datasets/``)
+# to the canonical singular type name. Buckets are first-class HF URI types.
+HF_URI_TYPE_PREFIXES: dict[str, HfUriType] = {
+    "models": "model",
+    "datasets": "dataset",
+    "spaces": "space",
+    "kernels": "kernel",
+    "buckets": "bucket",
+}
+
 
 DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
 DISCUSSION_TYPES: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
@@ -194,6 +208,9 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
+HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
+
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
 # as curl commands for reproducibility.
 HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
@@ -246,6 +263,10 @@ HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISA
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
 HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
+
+# Bucket and mount path used when launching Jobs
+HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
+HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
 
 # hf_transfer is not used anymore. Let's warn user is case they set the env variable
 if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:

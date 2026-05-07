@@ -7,8 +7,8 @@ import typer
 from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric
 from huggingface_hub.errors import HfHubHTTPError
 
-from ._cli_utils import FormatWithAutoOpt, TokenOpt, get_hf_api, typer_factory
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._output import out
 
 
 ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
@@ -36,7 +36,6 @@ NamespaceOpt = Annotated[
 @ie_cli.command("list | ls", examples=["hf endpoints ls", "hf endpoints ls --namespace my-org"])
 def ls(
     namespace: NamespaceOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Lists all Inference Endpoints for the given namespace."""
@@ -122,7 +121,6 @@ def deploy(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
     min_replica: Annotated[
         int,
@@ -194,7 +192,6 @@ def deploy_from_catalog(
         ),
     ] = None,
     namespace: NamespaceOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Deploy an Inference Endpoint from the Model Catalog."""
@@ -215,7 +212,6 @@ def deploy_from_catalog(
 
 
 def list_catalog(
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List available Catalog models."""
@@ -240,7 +236,6 @@ ie_cli.add_typer(catalog_app, name="catalog")
 def describe(
     name: NameArg,
     namespace: NamespaceOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get information about an existing endpoint."""
@@ -330,7 +325,6 @@ def update(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
@@ -367,7 +361,6 @@ def delete(
         bool,
         typer.Option("--yes", help="Skip confirmation prompts."),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete an Inference Endpoint permanently."""
@@ -387,7 +380,6 @@ def delete(
 def pause(
     name: NameArg,
     namespace: NamespaceOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Pause an Inference Endpoint."""
@@ -412,7 +404,6 @@ def resume(
             help="If `True`, the method will raise an error if the Inference Endpoint is already running.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Resume an Inference Endpoint."""
@@ -434,7 +425,6 @@ def resume(
 def scale_to_zero(
     name: NameArg,
     namespace: NamespaceOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Scale an Inference Endpoint to zero."""

@@ -13,10 +13,8 @@
 # limitations under the License.
 """Contains commands to interact with buckets via the CLI."""
 
-import json
 import os
 import sys
-from datetime import datetime
 from typing import Annotated
 
 import typer
@@ -25,7 +23,6 @@ from huggingface_hub import logging
 from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
-    BucketFolder,
     FilterMatcher,
     _is_bucket_path,
     _parse_bucket_path,
@@ -33,23 +30,18 @@ from huggingface_hub._buckets import (
 )
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
-    StatusLine,
-    are_progress_bars_disabled,
     disable_progress_bars,
-    enable_progress_bars,
 )
 
+from ..hf_api import REPO_REGIONS
 from ._cli_utils import (
-    FormatOpt,
-    OutputFormat,
-    QuietOpt,
+    SearchOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
-from ._output import out
+from ._file_listing import format_size, print_file_listing
+from ._output import OutputFormatWithAuto, out
 
 
 logger = logging.get_logger(__name__)
@@ -79,136 +71,6 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         )
 
 
-def _format_size(size: int | float, human_readable: bool = False) -> str:
-    """Format a size in bytes."""
-    if not human_readable:
-        return str(size)
-
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1000:
-            if unit == "B":
-                return f"{size} {unit}"
-            return f"{size:.1f} {unit}"
-        size /= 1000
-    return f"{size:.1f} PB"
-
-
-def _format_mtime(mtime: datetime | None, human_readable: bool = False) -> str:
-    """Format mtime datetime to a readable date string."""
-    if mtime is None:
-        return ""
-    if human_readable:
-        return mtime.strftime("%b %d %H:%M")
-    return mtime.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _build_tree(
-    items: list[BucketFile | BucketFolder],
-    human_readable: bool = False,
-    quiet: bool = False,
-) -> list[str]:
-    """Build a tree representation of files and directories.
-
-    Produces ASCII tree with size and date columns before the tree connector.
-    When quiet=True, only the tree structure is shown (no size/date).
-
-    Args:
-        items: List of BucketFile/BucketFolder items
-        human_readable: Whether to show human-readable sizes and short dates
-        quiet: If True, show only the tree structure without sizes/dates
-
-    Returns:
-        List of formatted tree lines
-    """
-    # Build a nested structure
-    tree: dict = {}
-
-    for item in items:
-        parts = item.path.split("/")
-        current = tree
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {"__children__": {}}
-            current = current[part]["__children__"]
-
-        final_part = parts[-1]
-        if isinstance(item, BucketFolder):
-            if final_part not in current:
-                current[final_part] = {"__children__": {}}
-        else:
-            current[final_part] = {"__item__": item}
-
-    # Compute prefix width for alignment (size + date columns)
-    prefix_width = 0
-    max_size_width = 0
-    max_date_width = 0
-    if not quiet:
-        for item in items:
-            if isinstance(item, BucketFile):
-                size_str = _format_size(item.size, human_readable)
-                max_size_width = max(max_size_width, len(size_str))
-                date_str = _format_mtime(item.mtime, human_readable)
-                max_date_width = max(max_date_width, len(date_str))
-        if max_size_width > 0:
-            prefix_width = max_size_width + 2 + max_date_width
-
-    # Render tree
-    lines: list[str] = []
-    _render_tree(
-        tree,
-        lines,
-        "",
-        prefix_width=prefix_width,
-        max_size_width=max_size_width,
-        human_readable=human_readable,
-    )
-    return lines
-
-
-def _render_tree(
-    node: dict,
-    lines: list[str],
-    indent: str,
-    prefix_width: int = 0,
-    max_size_width: int = 0,
-    human_readable: bool = False,
-) -> None:
-    """Recursively render a tree structure with size+date prefix."""
-    items = sorted(node.items())
-    for i, (name, value) in enumerate(items):
-        is_last = i == len(items) - 1
-        connector = "└── " if is_last else "├── "
-
-        is_dir = "__children__" in value
-        children = value.get("__children__", {})
-
-        if prefix_width > 0:
-            if is_dir:
-                prefix = " " * prefix_width
-            else:
-                item = value.get("__item__")
-                if item is not None:
-                    size_str = _format_size(item.size, human_readable)
-                    date_str = _format_mtime(item.mtime, human_readable)
-                    prefix = f"{size_str:>{max_size_width}}  {date_str}"
-                else:
-                    prefix = " " * prefix_width
-            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
-        else:
-            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
-
-        if children:
-            child_indent = indent + ("    " if is_last else "│   ")
-            _render_tree(
-                children,
-                lines,
-                child_indent,
-                prefix_width=prefix_width,
-                max_size_width=max_size_width,
-                human_readable=human_readable,
-            )
-
-
 @buckets_cli.command(
     name="create",
     examples=[
@@ -217,6 +79,7 @@ def _render_tree(
         "hf buckets create hf://buckets/user/my-bucket",
         "hf buckets create user/my-bucket --private",
         "hf buckets create user/my-bucket --exist-ok",
+        "hf buckets create user/my-bucket --region us",
     ],
 )
 def create(
@@ -233,6 +96,13 @@ def create(
             help="Create a private bucket.",
         ),
     ] = False,
+    region: Annotated[
+        REPO_REGIONS | None,
+        typer.Option(
+            "--region",
+            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
+        ),
+    ] = None,
     exist_ok: Annotated[
         bool,
         typer.Option(
@@ -240,7 +110,6 @@ def create(
             help="Do not raise an error if the bucket already exists.",
         ),
     ] = False,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Create a new bucket."""
@@ -261,12 +130,10 @@ def create(
     bucket_url = api.create_bucket(
         bucket_id,
         private=private if private else None,
+        region=region,
         exist_ok=exist_ok,
     )
-    if quiet:
-        print(bucket_url.handle)
-    else:
-        print(f"Bucket created: {bucket_url.url} (handle: {bucket_url.handle})")
+    out.result("Bucket created", handle=bucket_url.handle, url=bucket_url.url)
 
 
 def _is_bucket_id(argument: str) -> bool:
@@ -283,6 +150,7 @@ def _is_bucket_id(argument: str) -> bool:
     examples=[
         "hf buckets list",
         "hf buckets list huggingface",
+        'hf buckets list --search "my-prefix"',
         "hf buckets list user/my-bucket",
         "hf buckets list user/my-bucket -R",
         "hf buckets list user/my-bucket -h",
@@ -325,8 +193,7 @@ def list_cmd(
             help="List files recursively (only for listing files).",
         ),
     ] = False,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
+    search: SearchOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """List buckets or files in a bucket.
@@ -338,34 +205,32 @@ def list_cmd(
     is_file_mode = argument is not None and _is_bucket_id(argument)
 
     if is_file_mode:
+        if search is not None:
+            raise typer.BadParameter("Cannot use --search when listing files.")
         _list_files(
             argument=argument,  # type: ignore
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
-            format=format,
-            quiet=quiet,
             token=token,
         )
     else:
         _list_buckets(
             namespace=argument,
+            search=search,
             human_readable=human_readable,
             as_tree=as_tree,
             recursive=recursive,
-            format=format,
-            quiet=quiet,
             token=token,
         )
 
 
 def _list_buckets(
     namespace: str | None,
+    search: str | None,
     human_readable: bool,
     as_tree: bool,
     recursive: bool,
-    format: OutputFormat,
-    quiet: bool,
     token: str | None,
 ) -> None:
     """List buckets in a namespace."""
@@ -382,29 +247,17 @@ def _list_buckets(
         namespace = namespace.rstrip("/")
 
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(bucket) for bucket in api.list_buckets(namespace=namespace)]
-
-    if not results:
-        if not quiet and format != OutputFormat.json:
-            resolved_namespace = namespace if namespace is not None else api.whoami()["name"]
-            print(f"No buckets found under namespace '{resolved_namespace}'.")
-            return
-
-    headers = ["id", "private", "size", "total_files", "created_at"]
-
-    def row_fn(item: dict) -> list[str]:
-        from ._cli_utils import _format_cell
-
-        return [
-            _format_cell(item.get("id")),
-            _format_cell(item.get("private")),
-            _format_size(item.get("size", 0), human_readable=human_readable),
-            _format_cell(item.get("total_files")),
-            _format_cell(item.get("created_at")),
-        ]
-
-    alignments = {"size": "right", "total_files": "right"}
-    print_list_output(results, format=format, quiet=quiet, headers=headers, row_fn=row_fn, alignments=alignments)
+    items = [
+        {
+            "id": bucket.id,
+            "private": bucket.private,
+            "size": format_size(bucket.size, human_readable) if human_readable else bucket.size,
+            "total_files": bucket.total_files,
+            "created_at": bucket.created_at,
+        }
+        for bucket in api.list_buckets(namespace=namespace, search=search)
+    ]
+    out.table(items, alignments={"size": "right", "total_files": "right"})
 
 
 def _list_files(
@@ -412,13 +265,10 @@ def _list_files(
     human_readable: bool,
     as_tree: bool,
     recursive: bool,
-    format: OutputFormat,
-    quiet: bool,
     token: str | None,
 ) -> None:
     """List files in a bucket."""
-    # Validate incompatible flags
-    if as_tree and format == OutputFormat.json:
+    if as_tree and out.mode == OutputFormatWithAuto.json:
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
@@ -428,7 +278,6 @@ def _list_files(
     except ValueError as e:
         raise typer.BadParameter(str(e))
 
-    # Fetch items from the bucket
     items = list(
         api.list_bucket_tree(
             bucket_id,
@@ -437,39 +286,7 @@ def _list_files(
         )
     )
 
-    if not items:
-        print("(empty)")
-        return
-
-    has_directories = any(isinstance(item, BucketFolder) for item in items)
-
-    if format == OutputFormat.json:
-        results = [api_object_to_dict(item) for item in items]
-        print(json.dumps(results, indent=2))
-    elif as_tree:
-        # Tree format with size+date prefix, or quiet for structure only
-        tree_lines = _build_tree(items, human_readable=human_readable, quiet=quiet)
-        for line in tree_lines:
-            print(line)
-    elif quiet:
-        for item in items:
-            if isinstance(item, BucketFolder):
-                print(f"{item.path}/")
-            else:
-                print(item.path)
-    else:
-        # Flat table format
-        for item in items:
-            if isinstance(item, BucketFolder):
-                mtime_str = _format_mtime(item.uploaded_at, human_readable)
-                print(f"{'':>12}  {mtime_str:>19}  {item.path}/")
-            else:
-                size_str = _format_size(item.size, human_readable)
-                mtime_str = _format_mtime(item.mtime, human_readable)
-                print(f"{size_str:>12}  {mtime_str:>19}  {item.path}")
-
-    if not recursive and has_directories:
-        StatusLine().done("Use -R to list files recursively.")
+    print_file_listing(items, human_readable=human_readable, as_tree=as_tree, recursive=recursive)
 
 
 @buckets_cli.command(
@@ -486,7 +303,6 @@ def info(
             help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a bucket."""
@@ -498,10 +314,7 @@ def info(
         raise typer.BadParameter(str(e))
 
     bucket = api.bucket_info(parsed_id)
-    if quiet:
-        print(bucket.id)
-    else:
-        print(json.dumps(api_object_to_dict(bucket), indent=2))
+    out.dict(bucket, id_key="id")
 
 
 @buckets_cli.command(
@@ -535,7 +348,6 @@ def delete(
             help="Do not raise an error if the bucket does not exist.",
         ),
     ] = False,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Delete a bucket.
@@ -563,10 +375,7 @@ def delete(
 
     api = get_hf_api(token=token)
     api.delete_bucket(bucket_id, missing_ok=missing_ok)
-    if quiet:
-        print(bucket_id)
-    else:
-        print(f"Bucket deleted: {bucket_id}")
+    out.result("Bucket deleted", bucket_id=bucket_id)
 
 
 @buckets_cli.command(
@@ -624,7 +433,6 @@ def remove(
             help="Exclude files matching pattern (can specify multiple). Requires --recursive.",
         ),
     ] = None,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Remove files from a bucket.
@@ -649,8 +457,7 @@ def remove(
     api = get_hf_api(token=token)
 
     if recursive:
-        status = StatusLine(enabled=not quiet)
-        status.update("Listing files from remote")
+        status = out.status("Listing files from remote")
 
         all_files: list[BucketFile] = []
         for item in api.list_bucket_tree(
@@ -671,35 +478,30 @@ def remove(
 
         file_paths = [f.path for f in matched_files]
         total_size = sum(f.size for f in matched_files)
-        size_str = _format_size(total_size, human_readable=True)
+        size_str = format_size(total_size, human_readable=True)
 
         if not file_paths:
-            if not quiet:
-                print("No files to remove.")
+            out.text("No files to remove.")
             return
 
         count_label = f"{len(file_paths)} file(s) totaling {size_str}"
 
         if not yes and not dry_run:
-            if not quiet:
-                for path in file_paths:
-                    print(f"  {path}")
+            out.text("\n".join(f"  {path}" for path in file_paths))
             out.confirm(f"Remove {count_label} from '{bucket_id}'?", yes=False)
 
         if dry_run:
-            for path in file_paths:
-                print(f"delete: {BUCKET_PREFIX}{bucket_id}/{path}")
-            print(f"(dry run) {count_label} would be removed.")
+            out.text("\n".join(f"delete: {BUCKET_PREFIX}{bucket_id}/{path}" for path in file_paths))
+            out.text(f"(dry run) {count_label} would be removed.")
             return
 
         api.batch_bucket_files(bucket_id, delete=file_paths)
-        if quiet:
-            for path in file_paths:
-                print(path)
-        else:
-            for path in file_paths:
-                print(f"delete: {BUCKET_PREFIX}{bucket_id}/{path}")
-            print(f"Removed {count_label} from '{bucket_id}'.")
+        out.result(
+            f"Removed {count_label} from '{bucket_id}'",
+            bucket_id=bucket_id,
+            files_deleted=len(file_paths),
+            size=size_str,
+        )
 
     else:
         file_path = prefix.rstrip("/")
@@ -707,17 +509,14 @@ def remove(
             raise typer.BadParameter("File path cannot be empty.")
 
         if dry_run:
-            print(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
-            print("(dry run) 1 file would be removed.")
+            out.text(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
+            out.text("(dry run) 1 file would be removed.")
             return
 
         out.confirm(f"Remove '{file_path}' from '{bucket_id}'?", yes=yes)
 
         api.batch_bucket_files(bucket_id, delete=[file_path])
-        if quiet:
-            print(file_path)
-        else:
-            print(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
+        out.result("File removed", path=file_path, bucket_id=bucket_id)
 
 
 @buckets_cli.command(
@@ -762,7 +561,7 @@ def move(
 
     api = get_hf_api(token=token)
     api.move_bucket(from_id=parsed_from_id, to_id=parsed_to_id)
-    print(f"Bucket moved: {parsed_from_id} -> {parsed_to_id}")
+    out.result("Bucket moved", from_id=parsed_from_id, to_id=parsed_to_id)
 
 
 # =============================================================================
@@ -875,14 +674,6 @@ def sync(
             help="Show detailed logging with reasoning.",
         ),
     ] = False,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            "--quiet",
-            "-q",
-            help="Minimal output.",
-        ),
-    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """Sync files between local directory and a bucket."""
@@ -902,8 +693,10 @@ def sync(
         apply=apply,
         dry_run=dry_run,
         verbose=verbose,
-        quiet=quiet,
+        quiet=out.is_quiet(),
     )
+    if plan and not out.is_quiet():
+        out.hint(f"Run `hf buckets sync --apply {plan}` to execute this plan.")
 
 
 # =============================================================================
@@ -922,7 +715,8 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
-        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/",
+        "hf buckets cp hf://buckets/user/my-bucket/logs hf://buckets/user/archive-bucket/  # nests logs/ dir",
+        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/  # copies contents only",
         "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
     ],
 )
@@ -933,7 +727,6 @@ def cp(
     dst: Annotated[
         str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
     ] = None,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """Copy files to or from buckets."""
@@ -948,18 +741,12 @@ def cp(
 
     # Remote to remote copy
     if src_is_hf and dst_is_hf:
-        if quiet:
-            disable_progress_bars()
         try:
             api.copy_files(src, dst)  # type: ignore
         except ValueError as e:
             raise typer.BadParameter(str(e))
-        finally:
-            if quiet:
-                enable_progress_bars()
 
-        if not quiet:
-            print(f"Copied: {src} -> {dst}")
+        out.result("Copied", src=src, dst=dst)
         return
 
     # Local to remote copy
@@ -994,19 +781,13 @@ def cp(
         if dst_is_stdout:
             # Download to stdout: always suppress progress bars to avoid polluting output
             # Only re-enable if they weren't already disabled by the caller
-            pbar_was_disabled = are_progress_bars_disabled()
-            if not pbar_was_disabled:
-                disable_progress_bars()
-            try:
+            with disable_progress_bars():
                 with SoftTemporaryDirectory() as tmp_dir:
                     tmp_path = os.path.join(tmp_dir, filename)
                     api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
                     with open(tmp_path, "rb") as f:
                         while chunk := f.read(32_000_000):  # 32MB chunks
                             sys.stdout.buffer.write(chunk)
-            finally:
-                if not pbar_was_disabled:
-                    enable_progress_bars()
         else:
             # Download to file
             if dst is None:
@@ -1021,32 +802,16 @@ def cp(
             if parent_dir:
                 os.makedirs(parent_dir, exist_ok=True)
 
-            if quiet:
-                disable_progress_bars()
-            try:
-                api.download_bucket_files(bucket_id, [(prefix, local_path)])
-            finally:
-                if quiet:
-                    enable_progress_bars()
-
-            if not quiet:
-                print(f"Downloaded: {src} -> {local_path}")
+            api.download_bucket_files(bucket_id, [(prefix, local_path)])
+            out.result("Downloaded", src=src, dst=local_path)
 
     elif src_is_stdin:
         # Upload from stdin
         bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore
         data = sys.stdin.buffer.read()
 
-        if quiet:
-            disable_progress_bars()
-        try:
-            api.batch_bucket_files(bucket_id, add=[(data, remote_path)])
-        finally:
-            if quiet:
-                enable_progress_bars()
-
-        if not quiet:
-            print(f"Uploaded: stdin -> {dst}")
+        api.batch_bucket_files(bucket_id, add=[(data, remote_path)])
+        out.result("Uploaded", src="stdin", dst=dst)
 
     else:
         # Upload from file
@@ -1062,13 +827,5 @@ def cp(
         else:
             remote_path = prefix
 
-        if quiet:
-            disable_progress_bars()
-        try:
-            api.batch_bucket_files(bucket_id, add=[(src, remote_path)])
-        finally:
-            if quiet:
-                enable_progress_bars()
-
-        if not quiet:
-            print(f"Uploaded: {src} -> {BUCKET_PREFIX}{bucket_id}/{remote_path}")
+        api.batch_bucket_files(bucket_id, add=[(src, remote_path)])
+        out.result("Uploaded", src=src, dst=f"{BUCKET_PREFIX}{bucket_id}/{remote_path}")

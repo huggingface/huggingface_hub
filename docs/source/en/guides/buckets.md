@@ -34,6 +34,10 @@ BucketUrl(...)
 # Don't error if bucket already exists
 >>> create_bucket("my-bucket", exist_ok=True)
 BucketUrl(...)
+
+# Create a bucket in a specific region
+>>> create_bucket("my-bucket", region="us")
+BucketUrl(...)
 ```
 
 Or via CLI:
@@ -47,6 +51,9 @@ Bucket created: https://huggingface.co/buckets/username/my-bucket (handle: hf://
 
 # Don't error if bucket already exists
 >>> hf buckets create my-bucket --exist-ok
+
+# Create a bucket in a specific region
+>>> hf buckets create my-bucket --region us
 ```
 
 You can also specify the full `namespace/bucket_name` format to create a bucket under an organization:
@@ -128,6 +135,16 @@ username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls huggingface
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
+```
+
+You can also filter buckets by name using `search`:
+
+```py
+>>> for bucket in list_buckets(search="checkpoint"):
+...     print(bucket.id)
 ```
 
 You can use the `--quiet` and `--format json` options to get different output format. This is particularly interesting if you want to pipe the output to another tool like `grep` or `jq`.
@@ -513,6 +530,16 @@ The same is available from the CLI:
 
 # Repo to bucket
 >>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
+```
+
+When copying folders, a trailing `/` on the source uses rsync-style semantics — only the *contents* of the folder are copied, without nesting the folder itself:
+
+```bash
+# Without trailing slash: "logs" dir is nested => destination/logs/...
+>>> hf buckets cp hf://buckets/username/source-bucket/logs hf://buckets/username/destination-bucket/
+
+# With trailing slash: only contents of "logs" are copied => destination/...
+>>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/
 ```
 
 Notes:

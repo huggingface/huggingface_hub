@@ -43,7 +43,7 @@ from typer.main import get_command
 from huggingface_hub.errors import CLIError
 
 from . import _skills
-from ._cli_utils import typer_factory
+from ._cli_utils import _has_local_formatting_option, typer_factory
 
 
 DEFAULT_SKILL_ID = "hf-cli"
@@ -101,6 +101,7 @@ Some command examples:
 
 - Use `hf <command> --help` for full options, descriptions, usage, and real-world examples
 - Authenticate with `HF_TOKEN` env var (recommended) or with `--token`
+- Update the CLI with `hf update` (uses the correct command for the detected install method)
 """
 
 CENTRAL_LOCAL = Path(".agents/skills")
@@ -116,6 +117,16 @@ _INLINE_FLAG_EXCLUDE = {"--token"}
 _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
     "--format": "Output format: `--format json` (or `--json`) or `--format table` (default).",
     "--token": "Use a User Access Token. Prefer setting `HF_TOKEN` env var instead of passing `--token`.",
+}
+
+# Global formatting flags injected into the skill markdown for commands that
+# accept them. They aren't real click params on the command (they're consumed
+# globally — see ``_consume_format_flags_for_leaf`` in ``_cli_utils.py``) so we
+# add them synthetically here.
+_GLOBAL_FORMAT_INLINE_FLAGS = ["--format CHOICE"]
+_GLOBAL_COMMON_FLAGS: dict[str, tuple[str, str]] = {
+    "--format": ("--format", "Output format."),
+    "--quiet": ("-q / --quiet", "Quiet output (one ID per line)."),
 }
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
@@ -172,11 +183,18 @@ def _iter_optional_params(cmd: Command):
             yield p, long_name, short_name
 
 
+def _accepts_global_format_flags(cmd: Command) -> bool:
+    """Return True if the leaf command accepts the global '--format' / '--json' / '-q' flags."""
+    if cmd.context_settings.get("ignore_unknown_options"):
+        return False
+    return not _has_local_formatting_option(cmd)
+
+
 def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:
     """Return long-form flag names (--foo) for optional, non-internal params.
 
-    Boolean flags are bare (``--dry-run``).  Value-taking options include a
-    type hint (``--include TEXT``, ``--max-workers INTEGER``).
+    Boolean flags are bare ('--dry-run').  Value-taking options include a type hint ('--include TEXT', '--max-workers INTEGER').
+    Synthetic global formatting flags are appended for commands that accept them.
     """
     flags: list[str] = []
     for p, long_name, _short in _iter_optional_params(cmd):
@@ -187,6 +205,8 @@ def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[st
         else:
             type_name = getattr(p.type, "name", "").upper() or "VALUE"
             flags.append(f"{long_name} {type_name}")
+    if _accepts_global_format_flags(cmd):
+        flags.extend(flag for flag in _GLOBAL_FORMAT_INLINE_FLAGS if not (exclude and flag.split()[0] in exclude))
     return flags
 
 
@@ -205,6 +225,12 @@ def _compute_common_flags(
                 display = f"{short_name} / {long_name}" if short_name else long_name
                 help_text = (getattr(p, "help", None) or "").split("\n")[0].strip()
                 flag_info[long_name] = (display, help_text)
+
+    # Inject the global formatting flags as common flags whenever any leaf
+    # command accepts them (the vast majority do).
+    if any(_accepts_global_format_flags(cmd) for _path, cmd in leaf_commands):
+        for long_name, entry in _GLOBAL_COMMON_FLAGS.items():
+            flag_info.setdefault(long_name, entry)
 
     return flag_info
 
@@ -300,9 +326,8 @@ def _remove_existing(path: Path, force: bool) -> None:
 
 def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     """Install a marketplace skill into a skills directory. Returns the installed path."""
-    skill = _skills.get_marketplace_skill(skill_name)
     try:
-        return _skills.install_marketplace_skill(skill, skills_dir, force=force)
+        return _skills.add_skill(skill_name, skills_dir, force=force)
     except FileExistsError as exc:
         raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
 
@@ -404,20 +429,20 @@ def skills_add(
 
 
 @skills_cli.command(
-    "upgrade",
+    "update",
     examples=[
-        "hf skills upgrade",
-        "hf skills upgrade hf-cli",
-        "hf skills upgrade huggingface-gradio --dest=~/my-skills",
-        "hf skills upgrade --claude",
+        "hf skills update",
+        "hf skills update hf-cli",
+        "hf skills update huggingface-gradio --dest=~/my-skills",
+        "hf skills update --claude",
     ],
 )
-def skills_upgrade(
+def skills_update(
     name: Annotated[
         str | None,
-        typer.Argument(help="Optional installed skill name to upgrade.", show_default=False),
+        typer.Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Upgrade skills installed for Claude.")] = False,
+    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
         typer.Option(
@@ -429,14 +454,14 @@ def skills_upgrade(
     dest: Annotated[
         Path | None,
         typer.Option(
-            help="Upgrade skills in a custom skills directory.",
+            help="Update skills in a custom skills directory.",
         ),
     ] = None,
 ) -> None:
-    """Upgrade installed Hugging Face marketplace skills."""
+    """Update installed Hugging Face marketplace skills."""
     roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
-    results = _skills.apply_updates(roots, selector=name)
+    results = _skills.update_skills(roots, selector=name)
     if not results:
         print("No installed skills found.")
         return

@@ -114,6 +114,43 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 
 Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
+### Updating
+
+To upgrade to the latest version, run:
+
+```bash
+>>> hf update
+```
+
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+
+By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
+
+## Output formatting
+
+Most `hf` commands accept the same set of global formatting flags. They are documented in a dedicated `Formatting options` section in every `--help` page, and can be added to any command without having to declare them per-command:
+
+| Flag | Equivalent | Description |
+| ---- | ---------- | ----------- |
+| `--format <value>` | — | Pick the output format explicitly. Accepted values: `auto` (default), `human`, `agent`, `json`, `quiet`. |
+| `--json` | `--format json` | Print structured JSON. Useful for piping into `jq` or other scripts. |
+| `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
+
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two of these flags (e.g. `--json` together with `--format table`) raises a usage error.
+
+```bash
+# JSON output for scripting
+>>> hf models ls --search bert --limit 2 --json | jq '.[].id'
+
+# IDs only, one per line
+>>> hf collections ls --owner nvidia -q
+nvidia/nemotron-supervised-fine-tuning-69eab9824c9120a3a3b1e25e
+nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
+```
+
+> [!TIP]
+> A handful of commands keep their own local formatting options. For example, `hf jobs ps` and `hf jobs scheduled ps` accept Go templates via `--format` (e.g. `--format '{{.id}} {{.status}}'`); `hf buckets sync` has its own `-q` / `--quiet` to control sync verbosity. In those cases the global flags are silently rewritten so user-facing behaviour stays unchanged.
+
 ## hf auth login
 
 In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
@@ -574,6 +611,9 @@ username/logs                321.8 MB        2000 2026-02-13
 
 # List buckets in a specific namespace
 >>> hf buckets ls my-org
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
 ```
 
 To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
@@ -713,6 +753,16 @@ To copy from a repo or a bucket on the Hub:
 >>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
 ```
 
+When copying folders, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+
+```bash
+# Without trailing slash: "logs" dir is nested => archive/logs/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+
+# With trailing slash: only contents of "logs" are copied => archive/...
+>>> hf buckets cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+```
+
 Notes:
 
 - Bucket-to-repo copy is not yet supported.
@@ -794,6 +844,22 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 >>> hf models ls --sort downloads --limit 10
 ```
 
+When called with a model ID, `hf models ls` lists files in that model repo:
+
+```bash
+# List files in a model repo
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct
+
+# List files recursively
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+
+# Tree view with human-readable sizes
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
+
+# List files at a specific revision
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --revision main
+```
+
 ### Get model info
 
 ```bash
@@ -801,6 +867,24 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 ```
 
 Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
+
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
 
 ## hf datasets
 
@@ -815,14 +899,57 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 # Search for datasets
 >>> hf datasets ls --search "code"
 
+# List official benchmark datasets
+>>> hf datasets ls --filter benchmark:official
+
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
+```
+
+When called with a dataset ID, `hf datasets ls` lists files in that dataset repo:
+
+```bash
+# List files in a dataset repo
+>>> hf datasets ls HuggingFaceFW/fineweb
+
+# List files recursively with human-readable sizes
+>>> hf datasets ls HuggingFaceFW/fineweb -R -h
+
+# Tree view
+>>> hf datasets ls HuggingFaceFW/fineweb --tree
+```
+
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
 ```
 
 ### Get dataset info
 
 ```bash
 >>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
 ```
 
 ### List parquet URLs
@@ -877,10 +1004,103 @@ Use `hf spaces` to list Spaces on the Hub and get detailed information about a s
 >>> hf spaces ls --sort likes --limit 10
 ```
 
+When called with a Space ID, `hf spaces ls` lists files in that Space repo:
+
+```bash
+# List files in a Space repo
+>>> hf spaces ls victor/deepsite
+
+# List files recursively with tree view
+>>> hf spaces ls victor/deepsite --tree -R -h
+```
+
 ### Get Space info
 
 ```bash
->>> hf spaces info enzostvs/deepsite
+>>> hf spaces info victor/deepsite
+```
+
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card mteb/leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card mteb/leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --text
+```
+
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
+### Pause a Space
+
+Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
+
+```bash
+>>> hf spaces pause username/my-space
+```
+
+### Restart a Space
+
+Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild the Space from scratch without using the build cache.
+
+```bash
+>>> hf spaces restart username/my-space
+>>> hf spaces restart username/my-space --factory-reboot
+```
+
+### List available hardware
+
+Use `hf spaces hardware` to list all available hardware options for Spaces, including pricing.
+
+```bash
+>>> hf spaces hardware
+```
+
+### Update Space settings
+
+Use `hf spaces settings` to update the settings of a Space.
+
+```bash
+>>> hf spaces settings username/my-space --sleep-time 3600
+>>> hf spaces settings username/my-space --hardware t4-medium
+```
+
+- `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`). Run `hf spaces hardware` to see all options.
+
+### Manage Space secrets
+
+Use `hf spaces secrets ls` to list secrets on a Space, `hf spaces secrets add` to add or update one or more secrets, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
+
+```bash
+>>> hf spaces secrets ls username/my-space
+>>> hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-...
+>>> hf spaces secrets add username/my-space --secrets-file .env.secrets
+>>> hf spaces secrets delete username/my-space OPENAI_API_KEY --yes
+```
+
+> [!NOTE]
+> Secret values are write-only so `hf spaces secrets ls` shows keys, descriptions, and update timestamps, but never the secret values themselves.
+
+### Manage Space environment variables
+
+Use `hf spaces variables` to manage non-secret environment variables on a Space. Unlike secrets, variables are readable, so `ls` shows both keys and values. Pass `--env-file PATH` on `add` to load from a `.env`-style file.
+
+```bash
+>>> hf spaces variables ls username/my-space
+>>> hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+>>> hf spaces variables add username/my-space --env-file .env
+>>> hf spaces variables delete username/my-space MAX_TOKENS --yes
 ```
 
 ## hf papers
@@ -1066,6 +1286,12 @@ Create a private dataset or a Space:
 ```
 
 Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
+
+Create a repo in a specific region:
+
+```bash
+>>> hf repos create my-model --region us
+```
 
 ### Delete a repo
 

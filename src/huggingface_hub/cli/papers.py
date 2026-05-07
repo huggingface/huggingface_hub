@@ -52,14 +52,13 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.hf_api import DailyPapersSort_T
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     LimitOpt,
     TokenOpt,
     api_object_to_dict,
     get_hf_api,
     typer_factory,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 _SORT_OPTIONS = get_args(DailyPapersSort_T)
@@ -114,7 +113,6 @@ def papers_ls(
         typer.Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List daily papers on the Hub."""
@@ -151,7 +149,6 @@ def papers_ls(
 def papers_search(
     query: Annotated[str, typer.Argument(help="Search query string.")],
     limit: LimitOpt = 20,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Search papers on the Hub."""
@@ -168,7 +165,6 @@ def papers_search(
 )
 def papers_info(
     paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a paper on the Hub."""

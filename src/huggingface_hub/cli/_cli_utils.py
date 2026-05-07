@@ -35,8 +35,6 @@ from typer.core import TyperCommand, TyperGroup
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import (
-    ANSI,
-    disable_progress_bars,
     get_session,
     hf_raise_for_status,
     installation_method,
@@ -52,6 +50,9 @@ logger = logging.get_logger()
 
 # Arbitrary maximum length of a cell in a table output
 _MAX_CELL_LENGTH = 35
+
+# Arbitrary default limit for models/datasets/spaces list commands.
+REPO_LIST_DEFAULT_LIMIT = 30
 
 if TYPE_CHECKING:
     from huggingface_hub.hf_api import HfApi
@@ -114,7 +115,9 @@ class HFCliTyperGroup(TyperGroup):
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
-    - rewrites ``--json`` to ``--format json`` for commands that accept ``--format``.
+    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``)
+      anywhere in the args of a leaf command and applies them to ``out``, so leaf
+      commands don't need to declare these options themselves.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
     - enriches "No such option" / "No such command" errors with available options or commands.
     """
@@ -155,12 +158,10 @@ class HFCliTyperGroup(TyperGroup):
         cmd = self.get_command(ctx, cmd_name) if cmd_name else None
 
         if cmd is not None:
-            self._rewrite_json_shorthand(cmd, args)
-            self._rewrite_quiet_shorthand(cmd, args)
             self._rewrite_repo_type_prefix(cmd, args)
 
         try:
-            return super().resolve_command(ctx, args)
+            name, resolved_cmd, sub_args = super().resolve_command(ctx, args)
         except click.UsageError as e:
             # Unknown subcommand -> add fuzzy suggestions and list available commands.
             if cmd is None and cmd_name is not None:
@@ -183,43 +184,13 @@ class HFCliTyperGroup(TyperGroup):
                 _enrich_usage_error(e, "commands", items)
             raise
 
-    @staticmethod
-    def _rewrite_json_shorthand(cmd: click.Command, args: list[str]) -> None:
-        """Rewrite hidden ``--json`` shorthand to ``--format json``.
+        # If we just resolved a leaf command, eagerly consume any global formatting
+        # flags (--format / --json / -q / --quiet) from its args before click parses
+        # them.  Group resolution is recursive — leaves (and only leaves) need this.
+        if resolved_cmd is not None and not isinstance(resolved_cmd, click.Group):
+            _consume_format_flags_for_leaf(resolved_cmd, sub_args)
 
-        Only applies to commands that accept ``--format``.  This avoids rewriting
-        ``--json`` for commands that pass args through to external binaries
-        (e.g. ``hf extensions exec``) or that simply don't support ``--format``.
-        """
-        if "--json" not in args:
-            return
-        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
-        if has_format_option:
-            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-            idx = args.index("--json")
-            args[idx : idx + 1] = ["--format", "json"]
-
-    @staticmethod
-    def _rewrite_quiet_shorthand(cmd: click.Command, args: list[str]) -> None:
-        """Rewrite ``-q`` / ``--quiet`` shorthand to ``--format quiet``.
-
-        Only applies to commands that accept ``--format`` but do NOT already
-        have their own ``--quiet`` / ``-q`` option.
-        """
-        has_quiet = "-q" in args or "--quiet" in args
-        if not has_quiet:
-            return
-        has_format_option = any(isinstance(param, click.Option) and "--format" in param.opts for param in cmd.params)
-        has_quiet_option = any(
-            isinstance(param, click.Option) and ("--quiet" in param.opts or "-q" in param.opts) for param in cmd.params
-        )
-        if has_format_option and not has_quiet_option:
-            if any(arg == "--format" or arg.startswith("--format=") for arg in args):
-                raise click.UsageError("'--quiet' and '--format' are mutually exclusive.")
-            flag = "-q" if "-q" in args else "--quiet"
-            idx = args.index(flag)
-            args[idx : idx + 1] = ["--format", "quiet"]
+        return name, resolved_cmd, sub_args
 
     @staticmethod
     def _rewrite_repo_type_prefix(cmd: click.Command, args: list[str]) -> None:
@@ -390,6 +361,153 @@ class HFCliTyperGroup(TyperGroup):
         return sorted(primary_names)
 
 
+_FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
+    (
+        "--format [auto|human|agent|json|quiet]",
+        "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.",
+    ),
+    ("--json", "JSON output. Equivalent to '--format json'."),
+    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+]
+
+
+def _format_formatting_options_section(formatter: click.HelpFormatter) -> None:
+    with formatter.section("Formatting options"):
+        formatter.write_dl(_FORMATTING_OPTIONS_HELP_RECORDS)
+
+
+def _has_local_formatting_option(cmd: click.Command) -> bool:
+    """Return True if the command defines its own --format, --json or --quiet / -q.
+
+    Used to skip the global formatting flag pre-processor and the duplicated "Formatting options" help section for
+    legacy commands like 'hf jobs ps' that have their own format/quiet options.
+    """
+    for param in cmd.params:
+        if not isinstance(param, click.Option):
+            continue
+        opts = (*param.opts, *param.secondary_opts)
+        if "--format" in opts or "--json" in opts or "--quiet" in opts or "-q" in opts:
+            return True
+    return False
+
+
+def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
+    """Apply global formatting flags from 'args' to a leaf command.
+
+    Two modes, depending on the command:
+
+    * **Pass-through commands** (ignore_unknown_options=True, e.g. 'hf extensions exec'):
+      args are forwarded verbatim to an external binary; we don't touch them.
+
+    * **Legacy commands with a local --format option** (e.g. 'hf jobs ps' whose '--format' accepts Go templates):
+      the global flags are rewritten in-place to the legacy form ('--json' → '--format json', '--quiet'/'-q' → '--format quiet'
+      when the cmd has no own '--quiet') so click can parse them locally. This preserves backwards compatibility with the previous shorthand behavior.
+
+    * **Modern commands** (no local format/quiet/json options): the flags '--format <value>' / '--json' / '--quiet' / '-q' are stripped from 'args' and applied to the singleton 'out'.
+
+    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
+    """
+    if cmd.context_settings.get("ignore_unknown_options"):
+        return
+
+    has_local_format = False
+    has_local_quiet = False
+    has_local_json = False
+    for param in cmd.params:
+        if not isinstance(param, click.Option):
+            continue
+        opts = (*param.opts, *param.secondary_opts)
+        if "--format" in opts:
+            has_local_format = True
+        if "--quiet" in opts or "-q" in opts:
+            has_local_quiet = True
+        if "--json" in opts:
+            has_local_json = True
+
+    if has_local_format:
+        _rewrite_legacy_shorthands(args, rewrite_json=not has_local_json, rewrite_quiet=not has_local_quiet)
+        return
+
+    # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
+    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
+    chosen_flag: str | None = None
+
+    def _check_conflict(new_flag: str) -> None:
+        # Reject any second formatting flag before parsing values, so the user gets
+        # a "mutually exclusive" error rather than e.g. an "invalid value" error
+        # from the second flag's argument.
+        if chosen_flag is not None:
+            raise click.UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            break  # everything after '--' is a positional literal
+        if arg == "--format":
+            _check_conflict("--format")
+            if i + 1 >= len(args):
+                raise click.UsageError("Option '--format' requires a value.")
+            chosen_mode = _parse_format_value(args[i + 1])
+            chosen_flag = "--format"
+            del args[i : i + 2]  # --format value => 2 args removed
+            continue
+        if arg.startswith("--format="):
+            _check_conflict("--format")
+            chosen_mode = _parse_format_value(arg[len("--format=") :])
+            chosen_flag = "--format"
+            del args[i : i + 1]
+            continue
+        if arg == "--json":
+            _check_conflict("--json")
+            chosen_mode = OutputFormatWithAuto.json
+            chosen_flag = "--json"
+            del args[i : i + 1]
+            continue
+        if arg in ("-q", "--quiet"):
+            _check_conflict(arg)
+            chosen_mode = OutputFormatWithAuto.quiet
+            chosen_flag = arg
+            del args[i : i + 1]
+            continue
+        i += 1
+
+    out.set_mode(chosen_mode)
+
+
+def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
+    """Rewrite --json / -q / --quiet to --format ... for legacy commands.
+
+    Used for commands like 'hf jobs ps' that still own their '--format' option.
+    The rewrite lets users keep using the global shorthand while click parses
+    '--format <value>' locally.
+    """
+    has_format_in_args = any(arg == "--format" or arg.startswith("--format=") for arg in args)
+
+    if rewrite_json and "--json" in args:
+        if has_format_in_args:
+            raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+        idx = args.index("--json")
+        args[idx : idx + 1] = ["--format", "json"]
+        has_format_in_args = True
+
+    if rewrite_quiet:
+        flag = "-q" if "-q" in args else ("--quiet" if "--quiet" in args else None)
+        if flag is not None:
+            if has_format_in_args:
+                raise click.UsageError(f"'{flag}' and '--format' are mutually exclusive.")
+            idx = args.index(flag)
+            args[idx : idx + 1] = ["--format", "quiet"]
+
+
+def _parse_format_value(value: str) -> "OutputFormatWithAuto":
+    try:
+        return OutputFormatWithAuto(value)
+    except ValueError:
+        valid = ", ".join(m.value for m in OutputFormatWithAuto)
+        raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
+
+
 def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
     """Append a list of available options or commands to a usage error message."""
     if not items or error.ctx is None or f"Available {label} for" in error.message:
@@ -433,10 +551,35 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
+    def format_options(self: TyperCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        TyperCommand.format_options(self, ctx, formatter)
+        # Skip the section for commands that define their own --format / --quiet / --json,
+        # or for pass-through commands that forward args to an external binary.
+        if _has_local_formatting_option(self):
+            return
+        if self.context_settings.get("ignore_unknown_options"):
+            return
+        _format_formatting_options_section(formatter)
+
+    def parse_args(self: click.Command, ctx: click.Context, args: list[str]) -> list[str]:
+        # Show help when a command with required arguments is invoked without any args
+        # (mirrors group behavior: `hf jobs` prints help, so `hf download` should too).
+        if not args and not ctx.resilient_parsing:
+            if any(isinstance(p, click.Argument) and p.required for p in self.params):
+                click.echo(ctx.get_help(), color=ctx.color)
+                ctx.exit()
+        return TyperCommand.parse_args(self, ctx, args)
+
     return type(
         f"TyperCommand{topic.capitalize()}",
         (TyperCommand,),
-        {"topic": topic, "examples": examples or [], "format_epilog": format_epilog},
+        {
+            "topic": topic,
+            "examples": examples or [],
+            "format_epilog": format_epilog,
+            "format_options": format_options,
+            "parse_args": parse_args,
+        },
     )
 
 
@@ -667,7 +810,7 @@ VolumesOpt = Annotated[
         "TYPE is one of: models, datasets, spaces, buckets. "
         "TYPE defaults to models if omitted. "
         "models, datasets and spaces are always mounted read-only. buckets are read+write by default. "
-        "E.g. -v hf://gpt2:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
+        "E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
     ),
 ]
 
@@ -691,7 +834,6 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     Optional ':ro' or ':rw' suffix for read-only or read-write.
 
     Examples:
-        hf://gpt2:/data                          (model, implicit type)
         hf://my-org/my-model:/data                (model, implicit type)
         hf://models/my-org/my-model:/data         (model, explicit type)
         hf://datasets/my-org/my-dataset:/data:ro
@@ -720,7 +862,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         if not spec.startswith(_HF_PREFIX):
             raise CLIError(
                 f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
             )
         spec = spec[len(_HF_PREFIX) :]
 
@@ -728,7 +870,7 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         colon_slash_idx = spec.find(":/")
         if colon_slash_idx == -1:
             raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://gpt2:/data"
+                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
             )
         source_part = spec[:colon_slash_idx]
         mount_path = spec[colon_slash_idx + 1 :]
@@ -790,27 +932,24 @@ FormatOpt = Annotated[
 
 
 def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
+    """Callback for the legacy FormatWithAutoOpt option type.
+
+    Most commands now rely on the global --format / --json / -q flags consumed by _consume_format_flags_for_leaf instead
+    of declaring FormatWithAutoOpt themselves.  This callback is kept for the rare cases where a command still wires
+    FormatWithAutoOpt explicitly.
+    """
     out.set_mode(value)
-    if out.mode != OutputFormatWithAuto.human:
-        disable_progress_bars()
     return value
 
 
 FormatWithAutoOpt = Annotated[
     OutputFormatWithAuto,
-    typer.Option(
-        help="Output format.",
-        callback=_set_output_mode,
-    ),
+    typer.Option(help="Output format.", callback=_set_output_mode),
 ]
 
 QuietOpt = Annotated[
     bool,
-    typer.Option(
-        "-q",
-        "--quiet",
-        help="Print only IDs (one per line).",
-    ),
+    typer.Option("-q", "--quiet", help="Print only IDs (one per line)."),
 ]
 
 
@@ -953,10 +1092,10 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
     """
     Check whether a newer version of a library is available on PyPI.
 
-    If a newer version is found and stdin/stderr are attached to a TTY, prompt the user to update interactively.
-    Otherwise (non-TTY or update command cannot be determined), print a warning to stderr.
+    If a newer version is found, print a hint pointing at `hf update`.
 
     If current version is a pre-release (e.g. `1.0.0.rc1`), or a dev version (e.g. `1.0.0.dev1`), no check is performed.
+    If `HF_HUB_DISABLE_UPDATE_CHECK` is set, the check is skipped entirely.
 
     This function is called at the entry point of the CLI. It only performs the check once every 24 hours, and any error
     during the check is caught and logged, to avoid breaking the CLI.
@@ -972,6 +1111,9 @@ def check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> Non
 
 
 def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> None:
+    if constants.HF_HUB_DISABLE_UPDATE_CHECK:
+        return
+
     current_version = importlib.metadata.version(library)
 
     # Skip if current version is a pre-release or dev version
@@ -989,12 +1131,8 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     Path(constants.CHECK_FOR_UPDATE_DONE_PATH).touch()
 
     # Check latest version from PyPI
-    response = get_session().get(f"https://pypi.org/pypi/{library}/json", timeout=2)
-    hf_raise_for_status(response)
-    data = response.json()
-    latest_version = data["info"]["version"]
-
-    if current_version == latest_version:
+    latest_version = _fetch_latest_pypi_version(library)
+    if latest_version is None or current_version == latest_version:
         return
 
     if library == "huggingface_hub":
@@ -1002,81 +1140,39 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     else:
         update_command = _get_transformers_update_command()
 
-    if sys.stdin.isatty() and sys.stderr.isatty() and update_command is not None:
-        _prompt_autoupdate(library, current_version, latest_version, update_command)
-    else:
-        display_cmd = " ".join(update_command) if update_command else None
-        update_hint = f"To update, run: {ANSI.bold(display_cmd)}" if display_cmd else ""
-        click.echo(
-            ANSI.yellow(
-                f"A new version of {library} ({latest_version}) is available! "
-                f"You are using version {current_version}." + (f"\n{update_hint}" if update_hint else "") + "\n"
-            ),
-            file=sys.stderr,
-        )
+    message = f"A new version of {library} ({latest_version}) is available! You are using version {current_version}."
+    if update_command is not None:
+        match library:
+            case "huggingface_hub":
+                message += "\nTo update, run: hf update"
+            case _:
+                message += f"\nTo update, run: {' '.join(update_command)}"
+    out.hint(message)
 
 
-def _prompt_autoupdate(
-    library: str,
-    current_version: str,
-    latest_version: str,
-    update_command: list[str],
-) -> None:
-    """Interactively ask the user if they want to update, and run the update command if accepted.
-
-    After a successful update the CLI exits so the user can re-run their command with the new version.
-    All output goes to stderr to keep stdout clean for command output.
-    """
-    display_cmd = " ".join(update_command)
-
-    click.echo("", file=sys.stderr)
-    click.echo(
-        ANSI.yellow(f"  A new version of {library} is available: {current_version} → {latest_version}"),
-        file=sys.stderr,
-    )
-    click.echo("", file=sys.stderr)
-
-    click.echo(
-        ANSI.yellow("  Do you want to update now? [Y/n] ") + ANSI.gray(f"({display_cmd})") + " ",
-        file=sys.stderr,
-        nl=False,
-    )
+def _fetch_latest_pypi_version(library: str) -> str | None:
+    """Fetch the latest version of a library from PyPI. Returns None if the request fails."""
     try:
-        raw_answer = sys.stdin.readline()
-    except (EOFError, KeyboardInterrupt):
-        click.echo("", file=sys.stderr)
-        return
+        response = get_session().get(f"https://pypi.org/pypi/{library}/json", timeout=2)
+        hf_raise_for_status(response)
+        return response.json()["info"]["version"]
+    except Exception:
+        logger.debug("Error while fetching latest version from PyPI.", exc_info=True)
+        return None
 
-    if raw_answer == "":
-        # EOF (e.g. Ctrl+D) — treat as cancellation, not acceptance
-        click.echo("", file=sys.stderr)
-        return
 
-    answer = raw_answer.strip().lower()  # Note: if user press 'Enter', raw_answer is `\n`
-    if answer in ("", "y", "yes"):
-        click.echo("", file=sys.stderr)
-        click.echo(ANSI.gray(f"  Running: {display_cmd}"), file=sys.stderr)
-        click.echo("", file=sys.stderr)
-        returncode = subprocess.call(update_command)
-        if returncode == 0:
-            click.echo("", file=sys.stderr)
-            click.echo(
-                ANSI.green(f"  ✓ Successfully updated {library} to {latest_version}. Please re-run your command."),
-                file=sys.stderr,
-            )
-            raise SystemExit(0)
-        else:
-            click.echo("", file=sys.stderr)
-            click.echo(
-                ANSI.red(f"  ✗ Update failed (exit code {returncode}). Please update manually."),
-                file=sys.stderr,
-            )
-    else:
-        click.echo(
-            ANSI.gray(f"  Skipped. You can update later with: {display_cmd}"),
-            file=sys.stderr,
+def run_update() -> int:
+    """Run the install-method-appropriate update command for the `hf` CLI.
+
+    Raises CLIError if the installation method can't be determined.
+    Returns the subprocess exit code on success/failure of the update itself.
+    """
+    cmd = _get_huggingface_hub_update_command()
+    if cmd is None:
+        raise CLIError(
+            "Cannot determine how to update huggingface_hub (unknown installation method). Please update manually."
         )
-    click.echo("", file=sys.stderr)
+    return subprocess.call(cmd)
 
 
 def _get_huggingface_hub_update_command() -> list[str] | None:

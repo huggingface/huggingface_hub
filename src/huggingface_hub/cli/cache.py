@@ -27,8 +27,8 @@ from huggingface_hub.errors import CLIError
 
 from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
 from ..utils._parsing import parse_duration, parse_size
-from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._output import out
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -370,7 +370,6 @@ def ls(
             help="Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.",
         ),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     sort: Annotated[
         SortOptions | None,
         typer.Option(
@@ -512,7 +511,6 @@ def rm(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Remove cached repositories or revisions."""
     try:
@@ -590,7 +588,6 @@ def prune(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Remove detached revisions from the cache."""
     try:
@@ -681,7 +678,6 @@ def verify(
         ),
     ] = False,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Verify checksums for a single repo revision from cache or a local directory.
 

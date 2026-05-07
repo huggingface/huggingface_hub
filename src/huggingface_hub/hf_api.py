@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import base64
 import inspect
 import itertools
 import json
@@ -25,10 +24,11 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from itertools import islice
 from pathlib import Path
+from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
 from urllib.parse import quote, unquote
 
@@ -70,7 +70,15 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
+from ._space_api import (
+    SpaceHardware,
+    SpaceRuntime,
+    SpaceSearchResult,
+    SpaceSecret,
+    SpaceStorage,
+    SpaceVariable,
+    Volume,
+)
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -182,6 +190,7 @@ ExpandDatasetProperty_T = Literal[
     "gated",
     "lastModified",
     "likes",
+    "mainSize",
     "paperswithcode_id",
     "private",
     "resourceGroup",
@@ -217,6 +226,8 @@ ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "tren
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
 DailyPapersSort_T = Literal["publishedAt", "trending"]
+
+REPO_REGIONS = Literal["us", "eu"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -1136,6 +1147,8 @@ class DatasetInfo:
             Date of last commit to the repo.
         likes (`int`):
             Number of likes of the dataset.
+        main_size (`int`, *optional*):
+            Size in bytes of the main branch of the dataset.
         paperswithcode_id (`str`, *optional*):
             Papers with code ID of the dataset.
         private (`bool`):
@@ -1166,6 +1179,7 @@ class DatasetInfo:
     gated: Literal["auto", "manual", False] | None
     last_modified: datetime | None
     likes: int | None
+    main_size: int | None
     paperswithcode_id: str | None
     private: bool | None
     resource_group: dict | None
@@ -1189,6 +1203,7 @@ class DatasetInfo:
         self.downloads = kwargs.pop("downloads", None)
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
+        self.main_size = kwargs.pop("mainSize", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
         self.trending_score = kwargs.pop("trendingScore", None)
@@ -2602,7 +2617,7 @@ class HfApi:
             expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"mainSize"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -3231,7 +3246,7 @@ class HfApi:
             expand (`list[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`,`"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"mainSize"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -4358,6 +4373,7 @@ class HfApi:
         repo_type: str | None = None,
         exist_ok: bool = False,
         resource_group_id: str | None = None,
+        region: REPO_REGIONS | None = None,
         space_sdk: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_storage: SpaceStorage | None = None,
@@ -4394,6 +4410,9 @@ class HfApi:
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the repo. Can be one of `"us"` or `"eu"`. If not specified, the repo will be
+                created in the default region. Requires Team plan or above.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
@@ -4475,6 +4494,8 @@ class HfApi:
 
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         headers = self._build_hf_headers(token=token)
         while True:
@@ -7664,6 +7685,43 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
+    def get_space_secrets(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceSecret]:
+        """Gets all secrets from a Space.
+
+        Secret values are write-only and cannot be read back. Only the key, description, and last update time
+        are returned.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `dict[str, SpaceSecret]`: Dictionary of [`SpaceSecret`] objects keyed by secret name.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.get_space_secrets("username/my-space")
+        {'HF_TOKEN': SpaceSecret(key='HF_TOKEN', description='...', updated_at=datetime.datetime(...))}
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceSecret(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
     def get_space_variables(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceVariable]:
         """Gets all variables from a Space.
 
@@ -7776,6 +7834,29 @@ class HfApi:
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
+
+    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+        """List available hardware options for Spaces.
+
+        Returns:
+            `list[JobHardware]`: A list of available hardware configurations.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import list_spaces_hardware
+        >>> hardware_list = list_spaces_hardware()
+        >>> hardware_list[0]
+        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
+        >>> hardware_list[0].name
+        'cpu-basic'
+        ```
+        """
+        response = get_session().get(
+            f"{self.endpoint}/api/spaces/hardware", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+        return [JobHardware(**hardware) for hardware in response.json()]
 
     @validate_hf_hub_args
     def request_space_hardware(
@@ -11845,7 +11926,7 @@ class HfApi:
         secrets = secrets or {}
 
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -11854,7 +11935,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.run_job(
             image=image,
@@ -12264,7 +12348,7 @@ class HfApi:
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         # Build command
-        command, env, secrets = self._create_uv_command_env_and_secrets(
+        command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
             script_args=script_args,
             dependencies=dependencies,
@@ -12273,7 +12357,10 @@ class HfApi:
             secrets=secrets,
             namespace=namespace,
             token=token,
+            volumes=volumes,
         )
+        if extra_volumes:
+            volumes = (volumes or []) + extra_volumes
         # Create RunCommand args
         return self.create_scheduled_job(
             image=image,
@@ -12302,7 +12389,8 @@ class HfApi:
         secrets: dict[str, Any] | None,
         namespace: str | None,
         token: bool | str | None,
-    ) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+        volumes: list[Volume] | None = None,
+    ) -> tuple[list[str], dict[str, Any], dict[str, Any], list[Volume]]:
         env = env or {}
         secrets = secrets or {}
 
@@ -12335,50 +12423,85 @@ class HfApi:
         if len(local_files_to_include) == 0:
             # Direct URL execution or command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
-        else:
-            # Find appropriate remote file names
-            remote_to_local_file_names: dict[str, str] = {}
-            for local_file_to_include in local_files_to_include:
-                local_file_path = Path(local_file_to_include)
-                # remove spaces for proper xargs parsing
-                remote_file_path = Path(local_file_path.name.replace(" ", "_"))
-                if remote_file_path.name in remote_to_local_file_names:
-                    for i in itertools.count():
-                        remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
-                        if remote_file_name not in remote_to_local_file_names:
-                            remote_to_local_file_names[remote_file_name] = local_file_to_include
-                            break
-                else:
-                    remote_to_local_file_names[remote_file_path.name] = local_file_to_include
-            local_to_remote_file_names = {
-                local_file_to_include: remote_file_name
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
-            }
+            return command, env, secrets, []
 
-            # Replace local paths with remote paths in command
-            if script in local_to_remote_file_names:
-                script = local_to_remote_file_names[script]
-            script_args = [
-                local_to_remote_file_names[arg] if arg in local_to_remote_file_names else arg for arg in script_args
-            ]
+        # Find appropriate remote file names
+        remote_to_local_file_names: dict[str, str] = {}
+        for local_file_to_include in local_files_to_include:
+            local_file_path = Path(local_file_to_include)
+            # Sanitize spaces for predictable remote paths
+            remote_file_path = Path(local_file_path.name.replace(" ", "_"))
+            if remote_file_path.name in remote_to_local_file_names:
+                for i in itertools.count():
+                    remote_file_name = remote_file_path.with_stem(remote_file_path.stem + f"({i})").name
+                    if remote_file_name not in remote_to_local_file_names:
+                        remote_to_local_file_names[remote_file_name] = local_file_to_include
+                        break
+            else:
+                remote_to_local_file_names[remote_file_path.name] = local_file_to_include
+        local_to_remote_file_names = {
+            local_file_to_include: remote_file_name
+            for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        }
 
-            # Load content to pass as environment variable with format
-            # file1 base64content1
-            # file2 base64content2
-            # ...
-            env["LOCAL_FILES_ENCODED"] = "\n".join(
-                remote_file_name + " " + base64.b64encode(Path(local_file_to_include).read_bytes()).decode()
-                for remote_file_name, local_file_to_include in remote_to_local_file_names.items()
+        # Local files are shipped to the job via a bucket mounted at /data.
+        existing_mount_paths = {v.mount_path for v in (volumes or [])}
+        if constants.HF_JOBS_ARTIFACTS_MOUNT_PATH in existing_mount_paths:
+            raise ValueError(
+                f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
-            # Shell-quote each arg to prevent metacharacters (e.g. '>') from being interpreted by bash
-            quoted_parts = ["'" + arg.replace("'", r"'\''") + "'" for arg in [*uv_args, script, *script_args]]
-            command = [
-                "bash",
-                "-c",
-                """echo $LOCAL_FILES_ENCODED | xargs -n 2 bash -c 'echo "$1" | base64 -d > "$0"' && """
-                + f"uv run {' '.join(quoted_parts)}",
-            ]
-        return command, env, secrets
+
+        extra_volumes = self._upload_scripts_to_bucket(
+            namespace=namespace,
+            remote_to_local_file_names=remote_to_local_file_names,
+            token=token,
+        )
+        # Rewrite script and script_args to reference the mounted path. The bucket
+        # volume is scoped to the per-job subfolder (via `Volume.path`), so the job
+        # container sees the uploaded files directly at the mount root.
+        mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
+        if script in local_to_remote_file_names:
+            script = f"{mount_path}/{local_to_remote_file_names[script]}"
+        script_args = [
+            f"{mount_path}/{local_to_remote_file_names[arg]}" if arg in local_to_remote_file_names else arg
+            for arg in script_args
+        ]
+        command = ["uv", "run"] + uv_args + [script] + script_args
+        return command, env, secrets, extra_volumes
+
+    def _upload_scripts_to_bucket(
+        self,
+        *,
+        namespace: str,
+        remote_to_local_file_names: dict[str, str],
+        token: bool | str | None,
+    ) -> list[Volume]:
+        """Upload script files to a per-job subfolder in the artifacts bucket.
+
+        Creates a bucket `/jobs-artifacts` (if it doesn't exist) and uploads
+        each script to `{timestamp}-{random}/{remote_name}` inside it. Returns a
+        [`Volume`] scoped to that bucket subfolder. Volume is in read-write mode so the Job can save data back to this bucket.
+        """
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        subfolder_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{token_hex(3)}"
+
+        bucket_url = self.create_bucket(bucket_id=bucket_id, exist_ok=True, token=token, private=True)
+
+        add_ops: list[tuple[str | Path | bytes, str]] = [
+            (Path(local_path), f"{subfolder_id}/{remote_name}")
+            for remote_name, local_path in remote_to_local_file_names.items()
+        ]
+        self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
+        print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
+
+        volume = Volume(
+            type="bucket",
+            source=bucket_id,
+            mount_path=constants.HF_JOBS_ARTIFACTS_MOUNT_PATH,
+            path=subfolder_id,
+            read_only=False,
+        )
+        return [volume]
 
     @validate_hf_hub_args
     def create_bucket(
@@ -12387,6 +12510,7 @@ class HfApi:
         *,
         private: bool | None = None,
         resource_group_id: str | None = None,
+        region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
         token: bool | str | None = None,
     ) -> BucketUrl:
@@ -12405,6 +12529,9 @@ class HfApi:
                 of a resource group can be found in the URL of the resource's page on the Hub
                 (e.g. `"66670e5163145ca562cb1988"`). To learn more about resource groups, see
                 https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the bucket. Can be one of `"us"` or `"eu"`. If not specified, the bucket will be
+                created in the default region. Requires Team plan or above.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if the bucket already exists.
             token (`bool` or `str`, *optional*):
@@ -12431,6 +12558,9 @@ class HfApi:
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
             BucketUrl(...)
+
+            >>> create_bucket(bucket_id="my-bucket", region="us")
+            BucketUrl(...)
             ```
         """
         payload: dict[str, Any] = {}
@@ -12438,6 +12568,8 @@ class HfApi:
             payload["private"] = private
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user
@@ -12522,6 +12654,7 @@ class HfApi:
         self,
         namespace: str | None = None,
         *,
+        search: str | None = None,
         token: bool | str | None = None,
     ) -> Iterable[BucketInfo]:
         """List buckets on the Hub under a certain namespace.
@@ -12529,6 +12662,8 @@ class HfApi:
         Args:
             namespace (`str`, *optional*):
                 List buckets under this namespace (user or organization). Defaults to listing user's buckets.
+            search (`str`, *optional*):
+                A search string to filter bucket names.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12546,12 +12681,18 @@ class HfApi:
 
             >>> for bucket in list_buckets(namespace="huggingface"): # lists buckets in the "huggingface" organization
             ...     print(bucket)
+
+            >>> for bucket in list_buckets(search="my-prefix"): # filter buckets by name
+            ...     print(bucket)
             ```
         """
         if namespace is None:
             namespace = "me"
+        params: dict[str, Any] = {}
+        if search is not None:
+            params["search"] = search
         for item in paginate(
-            f"{self.endpoint}/api/buckets/{namespace}", params={}, headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/buckets/{namespace}", params=params, headers=self._build_hf_headers(token=token)
         ):
             yield BucketInfo(**item)
 
@@ -12769,6 +12910,10 @@ class HfApi:
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
+        When copying folders, a trailing `/` on the source path uses rsync-style semantics: copy the *contents*
+        of the folder into the destination, without nesting the source folder itself. Without a trailing `/`,
+        the source folder is nested inside the destination (like `cp -r`).
+
         When copying from a repository, `.gitattributes` files are automatically excluded since they are
         git-specific metadata and not relevant in a bucket context.
 
@@ -12796,7 +12941,10 @@ class HfApi:
             # Copy a single file between buckets
             >>> copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
 
-            # Copy a folder from a bucket to another bucket
+            # Copy a folder into another bucket (nests: backup/models/...)
+            >>> copy_files("hf://buckets/my-bucket/models", "hf://buckets/other-bucket/backup/")
+
+            # Copy folder contents (trailing /): files go directly into backup/
             >>> copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
 
             # Copy a file from a model repo to a bucket
@@ -12806,6 +12954,10 @@ class HfApi:
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
+        # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
+        # Check before parsing strips the slash.
+        source_is_contents_only = source.endswith("/")
+
         source_handle = _parse_hf_copy_handle(source)
         destination_handle = _parse_hf_copy_handle(destination)
 
@@ -12859,10 +13011,10 @@ class HfApi:
             if rel_path == "":
                 raise ValueError("Cannot copy an empty relative path.")
 
-            # Match Unix `cp -r` behavior: when the destination already exists as a
-            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
-            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
-            if destination_exists_as_directory and src_root_path is not None:
+            # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
+            # Without trailing slash, match `cp -r` behavior: nest source folder inside
+            # existing destination directory. Non-existing destination always uses rename semantics.
+            if destination_exists_as_directory and src_root_path is not None and not source_is_contents_only:
                 src_dir_basename = src_root_path.rsplit("/", 1)[-1]
                 rel_path = f"{src_dir_basename}/{rel_path}"
 
@@ -12961,6 +13113,15 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
+
+        # Raise if no source files were found
+        if not all_copies and not all_adds and not pending_downloads:
+            if isinstance(source_handle, _BucketCopyHandle):
+                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_handle.bucket_id}'.")
+            else:
+                raise EntryNotFoundError(
+                    f"No files found at '{source}' in {source_handle.repo_type} '{source_handle.repo_id}'."
+                )
 
         # Download non-xet files in parallel
         if pending_downloads:
@@ -13796,12 +13957,14 @@ rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
 
 # Space API
+get_space_secrets = api.get_space_secrets
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_variables = api.get_space_variables
 add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
+list_spaces_hardware = api.list_spaces_hardware
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space

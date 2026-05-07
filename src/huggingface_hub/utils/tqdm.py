@@ -82,6 +82,7 @@ Group-based control:
 import io
 import logging
 import os
+import threading
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
@@ -101,17 +102,21 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 # If `HF_HUB_DISABLE_PROGRESS_BARS` is not defined (None), it implies that users can manage
 # progress bar visibility through code. By default, progress bars are turned on.
 
-
 progress_bar_states: dict[str, bool] = {}
 
 
-def disable_progress_bars(name: str | None = None) -> None:
+class disable_progress_bars:
     """
     Disable progress bars either globally or for a specified group.
 
     This function updates the state of progress bars based on a group name.
     If no group name is provided, all progress bars are disabled. The operation
     respects the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable's setting.
+
+    Works as both a regular call and a context manager:
+        disable_progress_bars()           # disables until enable_progress_bars()
+        with disable_progress_bars():     # disables for the block, re-enables on exit
+            ...
 
     Args:
         name (`str`, *optional*):
@@ -121,20 +126,33 @@ def disable_progress_bars(name: str | None = None) -> None:
     Raises:
         Warning: If the environment variable precludes changes.
     """
-    if HF_HUB_DISABLE_PROGRESS_BARS is False:
-        warnings.warn(
-            "Cannot disable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has priority."
-        )
-        return
 
-    if name is None:
-        progress_bar_states.clear()
-        progress_bar_states["_global"] = False
-    else:
-        keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
-        for key in keys_to_remove:
-            del progress_bar_states[key]
-        progress_bar_states[name] = False
+    def __init__(self, name: str | None = None) -> None:
+        self.name = name
+
+        if HF_HUB_DISABLE_PROGRESS_BARS is False:
+            warnings.warn(
+                "Cannot disable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has priority."
+            )
+            self._should_reenable = False
+            return
+
+        self._should_reenable = not are_progress_bars_disabled(name)
+        if name is None:
+            progress_bar_states.clear()
+            progress_bar_states["_global"] = False
+        else:
+            keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
+            for key in keys_to_remove:
+                del progress_bar_states[key]
+            progress_bar_states[name] = False
+
+    def __enter__(self) -> "disable_progress_bars":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        if self._should_reenable:
+            enable_progress_bars(self.name)
 
 
 def enable_progress_bars(name: str | None = None) -> None:
@@ -231,6 +249,13 @@ class tqdm(old_tqdm):
         except AttributeError:
             if attr != "_lock":
                 raise
+
+
+# Prevent tqdm's default multiprocessing write-lock from spawning a resource
+# tracker subprocess via fork_exec(). That path fails when stderr has an invalid
+# fd (e.g. Textual TUIs that return -1 from sys.stderr.fileno()). Inter-process
+# bar coordination on the HF subclass is not a supported use case. See #4065.
+tqdm.set_lock(threading.RLock())
 
 
 class silent_tqdm:
