@@ -393,6 +393,14 @@ def http_get(
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
+        if total is None:
+            # Hub serves compressible text files (e.g. vocab.json) with
+            # `Content-Encoding: gzip` and `Transfer-Encoding: chunked`, so the
+            # response carries no `Content-Length`. Fall back to the caller's
+            # `expected_size` (always known from the metadata HEAD on the hf_hub
+            # path) so the progress bar — and any aggregating wrapper such as
+            # snapshot_download's `_AggregatedTqdm` — still sees the file size.
+            total = expected_size
 
         if displayed_filename is None:
             displayed_filename = url
