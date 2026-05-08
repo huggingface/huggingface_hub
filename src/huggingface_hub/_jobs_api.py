@@ -55,6 +55,18 @@ class JobOwner:
 
 
 @dataclass
+class JobInitiator:
+    type: str
+    id: str
+    name: str | None
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs["type"]
+        self.id = kwargs["id"]
+        self.name = kwargs.get("name")
+
+
+@dataclass
 class JobInfo:
     """
     Contains information about a Job.
@@ -90,6 +102,8 @@ class JobInfo:
             See [`JobStage`] for possible stage values.
         owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
+        initiator (`JobInitiator` or `None`):
+            What triggered the Job, e.g. `JobInitiator(type="scheduled-job", id="...")` for a cron-triggered run.
 
     Example:
 
@@ -123,6 +137,7 @@ class JobInfo:
     volumes: list[Volume] | None
     status: JobStatus
     owner: JobOwner
+    initiator: JobInitiator | None
 
     # Inferred fields
     endpoint: str
@@ -146,6 +161,8 @@ class JobInfo:
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
+        initiator = kwargs.get("initiator")
+        self.initiator = JobInitiator(**initiator) if initiator else None
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
