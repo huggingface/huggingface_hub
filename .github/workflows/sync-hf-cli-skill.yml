@@ -65,6 +65,7 @@ jobs:
       - name: Check for HF CLI skill changes
         id: check_changes
         working-directory: skills-repo
+        # git diff returns zero if there is no diff
         run: |
           if git diff --quiet -- skills/hf-cli/SKILL.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
