@@ -1244,6 +1244,108 @@ class TestHttpGet:
         assert temp_file.tell() == 100
         assert temp_file.getvalue() == b"B" * 100
 
+    def test_http_get_retry_reuses_tqdm_class_instance(self):
+        """Retries must not re-instantiate the user-supplied tqdm_class.
+
+        Regression test for the snapshot_download bug where ``_AggregatedTqdm``
+        was re-constructed on every retry, inflating the shared bar's ``total``
+        by ``expected_size`` and advancing ``n`` by ``resume_size`` per retry.
+
+        This test uses a stand-in ``tqdm_class`` that aggregates into a shared
+        ``parent`` object (same shape as ``_AggregatedTqdm``) and asserts the
+        parent ends with exactly one file's worth of total/n after two
+        transient failures.
+        """
+
+        class _Parent:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+
+            def refresh(self):
+                pass
+
+            def update(self, n):
+                self.n += n
+
+        parent = _Parent()
+
+        class _AggregatedLikeTqdm:
+            instances = 0
+
+            def __init__(self, *args, **kwargs):
+                type(self).instances += 1
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    parent.total += total
+                    parent.refresh()
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    parent.update(initial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                pass
+
+            def update(self, n=1):
+                parent.update(n)
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout #1")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"B" * 25
+            raise httpx.TimeoutException("Fake timeout #2")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"C" * 45  # remaining 100 - 30 - 25
+
+        r1 = Mock()
+        r1.status_code = 200
+        r1.headers = {"Content-Length": "100"}
+        r1.iter_bytes.return_value = _iter_content_1()
+
+        r2 = Mock()
+        r2.status_code = 206
+        r2.headers = {"Content-Length": "70", "Content-Range": "bytes 30-99/100"}
+        r2.iter_bytes.return_value = _iter_content_2()
+
+        r3 = Mock()
+        r3.status_code = 206
+        r3.headers = {"Content-Length": "45", "Content-Range": "bytes 55-99/100"}
+        r3.iter_bytes.return_value = _iter_content_3()
+
+        responses = iter([r1, r2, r3])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=100,
+                tqdm_class=_AggregatedLikeTqdm,
+            )
+
+        # File on disk is correct.
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 25 + b"C" * 45
+
+        # The wrapper class was constructed exactly once for the whole download,
+        # not once per retry.
+        assert _AggregatedLikeTqdm.instances == 1
+
+        # Shared parent bar reflects one file's total and full progress, not
+        # 3x the file size (one per attempt).
+        assert parent.total == 100
+        assert parent.n == 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")

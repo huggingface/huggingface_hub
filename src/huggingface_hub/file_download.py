@@ -442,7 +442,11 @@ def http_get(
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
-                    _tqdm_bar=_tqdm_bar,
+                    # Reuse the existing progress bar across retries so a custom
+                    # `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
+                    # which mutates a shared parent bar in `__init__`) is not
+                    # re-instantiated and does not double-count `total`/`initial`.
+                    _tqdm_bar=progress,
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():
