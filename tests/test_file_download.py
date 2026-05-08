@@ -1346,6 +1346,89 @@ class TestHttpGet:
         assert parent.total == 100
         assert parent.n == 100
 
+    def test_http_get_retry_rolls_back_reused_bar_when_range_ignored(self):
+        """When a retry's server ignores Range and returns 200 with the full body,
+        the reused progress bar must be rolled back by ``resume_size`` so the
+        upcoming full re-download is not double-counted.
+
+        Without the rollback, a 100-byte file with a 30-byte first attempt
+        followed by a Range-ignored 200 retry would end at parent.n = 130.
+        """
+
+        class _Parent:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+
+            def refresh(self):
+                pass
+
+            def update(self, n):
+                self.n += n
+
+        parent = _Parent()
+
+        class _AggregatedLikeTqdm:
+            def __init__(self, *args, **kwargs):
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    parent.total += total
+                    parent.refresh()
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    parent.update(initial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                pass
+
+            def update(self, n=1):
+                parent.update(n)
+
+        def _iter_first() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("first timeout")
+
+        def _iter_second() -> Iterable[bytes]:
+            # Server ignores Range header and returns full body
+            yield b"B" * 100
+
+        r1 = Mock()
+        r1.status_code = 200
+        r1.headers = {"Content-Length": "100"}
+        r1.iter_bytes.return_value = _iter_first()
+
+        r2 = Mock()
+        r2.status_code = 200  # 200, not 206 — Range was ignored on the retry
+        r2.headers = {"Content-Length": "100"}
+        r2.iter_bytes.return_value = _iter_second()
+
+        responses = iter([r1, r2])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=100,
+                tqdm_class=_AggregatedLikeTqdm,
+            )
+
+        # File on disk holds only the retry's full body (first attempt was truncated).
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"B" * 100
+
+        # Parent bar lands exactly on file_size, not 130 (which is what the
+        # bug would produce without the rollback).
+        assert parent.total == 100
+        assert parent.n == 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")

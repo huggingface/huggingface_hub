@@ -383,6 +383,13 @@ def http_get(
         if resume_size > 0 and response.status_code == 200:
             temp_file.seek(0)
             temp_file.truncate()
+            if _tqdm_bar is not None:
+                # When the progress bar is reused across retries, its counter has
+                # already been advanced by `resume_size` worth of chunks from
+                # earlier attempts. Those bytes are gone from disk now, so roll
+                # the counter back to keep the upcoming full re-download from
+                # double-counting (e.g. ending at 130/100 on a 100-byte file).
+                _tqdm_bar.update(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
