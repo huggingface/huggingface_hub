@@ -38,7 +38,7 @@ class TestXetFileDownload:
             etag="mock_etag",
             location="mock_location",
             size=1024,
-            xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route") if with_xet_data else None,
+            xet_file_data=XetFileData(file_hash="a" * 64, refresh_route="mock/route") if with_xet_data else None,
         )
         try:
             yield mock_metadata
@@ -253,16 +253,23 @@ class TestXetFileDownload:
                     mocks["http_get"].assert_not_called()
 
     def test_request_headers_passed_to_download_files(self, tmp_path):
-        """Test that headers (minus authorization) are passed as request_headers to hf_xet.download_files."""
+        """Test that headers (minus authorization) are passed as custom_headers to XetSession.new_file_download_group."""
         headers = {
             "authorization": "Bearer my_token",
             "x-custom-header": "custom_value",
             "user-agent": "test-agent",
         }
 
+        mock_group = Mock()
+        mock_group.__enter__ = Mock(return_value=mock_group)
+        mock_group.__exit__ = Mock(return_value=False)
+        mock_group.start_download_file = Mock()
+        mock_session = Mock()
+        mock_session.new_file_download_group = Mock(return_value=mock_group)
+
         with self._patch_xet_file_metadata(with_xet_data=True):
             with self._patch_get_refresh_xet_connection_info():
-                with patch("hf_xet.download_files") as mock:
+                with patch("hf_xet.XetSession", return_value=mock_session):
                     hf_hub_download(
                         DUMMY_XET_MODEL_ID,
                         filename=DUMMY_XET_FILE,
@@ -270,11 +277,11 @@ class TestXetFileDownload:
                         force_download=True,
                         headers=headers,
                     )
-                    mock.assert_called_once()
-                    request_headers = mock.call_args.kwargs["request_headers"]
-                    assert request_headers.get("x-custom-header") == "custom_value"
-                    assert request_headers.get("user-agent") == "test-agent"
-                    assert "authorization" not in request_headers
+                    mock_session.new_file_download_group.assert_called_once()
+                    custom_headers = mock_session.new_file_download_group.call_args.kwargs["custom_headers"]
+                    assert custom_headers.get("x-custom-header") == "custom_value"
+                    assert custom_headers.get("user-agent") == "test-agent"
+                    assert "authorization" not in custom_headers
 
 
 @requires("hf_xet")

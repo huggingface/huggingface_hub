@@ -13535,7 +13535,7 @@ class HfApi:
             ... )
             ```
         """
-        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo, XetSession  # type: ignore[no-redef]
 
         headers = self._build_hf_headers(token=token)
 
@@ -13560,7 +13560,7 @@ class HfApi:
                 for path in missing_paths:
                     warnings.warn(f"File '{path}' not found in bucket '{bucket_id}'. Skipping.")
 
-        xet_download_infos = []
+        xet_download_infos: list[tuple[XetFileInfo, str]] = []
         first_valid_bucket_file: BucketFile | None = None
         for remote_file, local_path in files:
             if not isinstance(remote_file, BucketFile):
@@ -13570,10 +13570,9 @@ class HfApi:
             if first_valid_bucket_file is None:
                 first_valid_bucket_file = remote_file
             xet_download_infos.append(
-                PyXetDownloadInfo(
-                    destination_path=str(Path(local_path).absolute()),
-                    hash=remote_file.xet_hash,
-                    file_size=remote_file.size,
+                (
+                    XetFileInfo(hash=remote_file.xet_hash, file_size=remote_file.size),
+                    str(Path(local_path).absolute()),
                 )
             )
 
@@ -13586,18 +13585,12 @@ class HfApi:
         metadata = self.get_bucket_file_metadata(bucket_id, remote_path, token=token)
         connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
 
-        def token_refresher() -> tuple[str, int]:
-            connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers=headers)
-            if connection_info is None:
-                raise ValueError("Failed to refresh token using xet metadata.")
-            return connection_info.access_token, connection_info.expiration_unix_epoch
-
         # Create empty files for zero-size files (no need to download them)
         # and filter them out from xet_download_infos to avoid passing to xet library
-        non_zero_download_infos = []
-        for download_info in xet_download_infos:
-            if download_info.file_size == 0:
-                dest_path = Path(download_info.destination_path)
+        non_zero_download_infos: list[tuple[XetFileInfo, str]] = []
+        for file_info, dest_path_str in xet_download_infos:
+            if file_info.file_size == 0:
+                dest_path = Path(dest_path_str)
                 if dest_path.exists():
                     # already exists => make sure it's an empty file
                     if dest_path.is_dir():
@@ -13609,7 +13602,7 @@ class HfApi:
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     dest_path.touch()
             else:
-                non_zero_download_infos.append(download_info)
+                non_zero_download_infos.append((file_info, dest_path_str))
 
         # If only zero-size files, nothing more to download
         if len(non_zero_download_infos) == 0:
@@ -13619,23 +13612,32 @@ class HfApi:
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=sum(info.file_size for info in non_zero_download_infos),
+            total=sum(info.file_size for info, _ in non_zero_download_infos),
             initial=0,
             name="huggingface_hub.download_bucket_files",
         )
 
         with progress_cm as progress:
+            _last_completed = [0.0]
 
-            def progress_updater(progress_bytes: float):
-                progress.update(progress_bytes)
+            def on_progress(group_report, _item_reports):
+                completed = group_report.total_bytes_completed
+                delta = completed - _last_completed[0]
+                if delta > 0:
+                    progress.update(delta)
+                _last_completed[0] = completed
 
-            download_files(
-                non_zero_download_infos,
+            session = XetSession()
+            with session.new_file_download_group(
                 endpoint=connection_info.endpoint,
-                token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-                token_refresher=token_refresher,
-                progress_updater=[progress_updater] * len(non_zero_download_infos),
-            )
+                token=connection_info.access_token,
+                token_expiry_unix_secs=connection_info.expiration_unix_epoch,
+                token_refresh_url=metadata.xet_file_data.refresh_route,
+                token_refresh_headers=headers,
+                progress_callback=on_progress,
+            ) as group:
+                for file_info, dest_path_str in non_zero_download_infos:
+                    group.start_download_file(file_info, dest_path_str)
 
     @validate_hf_hub_args
     def sync_bucket(

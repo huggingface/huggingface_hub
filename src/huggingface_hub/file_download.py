@@ -484,13 +484,13 @@ def xet_get(
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
         for efficient storage and transfer.
 
-        `hf_xet.download_files` manages downloading files by:
+        `hf_xet.XetSession.new_file_download_group` manages downloading files by:
         - Taking a list of files to download (each with its unique content hash)
         - Connecting to a storage server (CAS server) that knows how files are chunked
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works by regularly refreshing access tokens through `refresh_xet_connection_info` to maintain a valid
+        Authentication works by regularly refreshing access tokens through `token_refresh_url` to maintain a valid
         connection to the storage server.
 
         The download process works like this:
@@ -509,7 +509,7 @@ def xet_get(
 
     """
     try:
-        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo, XetSession  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
@@ -517,18 +517,6 @@ def xet_get(
         )
 
     connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-
-    def token_refresher() -> tuple[str, int]:
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-        if connection_info is None:
-            raise ValueError("Failed to refresh token using xet metadata.")
-        return connection_info.access_token, connection_info.expiration_unix_epoch
-
-    xet_download_info = [
-        PyXetDownloadInfo(
-            destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size
-        )
-    ]
 
     if not displayed_filename:
         displayed_filename = incomplete_path.name
@@ -551,18 +539,29 @@ def xet_get(
     xet_headers.pop("authorization", None)
 
     with progress_cm as progress:
+        _last_completed = [0.0]
 
-        def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
+        def on_progress(group_report, _item_reports):
+            completed = group_report.total_bytes_completed
+            delta = completed - _last_completed[0]
+            if delta > 0:
+                progress.update(delta)
+            _last_completed[0] = completed
 
-        download_files(
-            xet_download_info,
+        session = XetSession()
+        with session.new_file_download_group(
             endpoint=connection_info.endpoint,
-            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-            token_refresher=token_refresher,
-            progress_updater=[progress_updater],
-            request_headers=xet_headers,
-        )
+            token=connection_info.access_token,
+            token_expiry_unix_secs=connection_info.expiration_unix_epoch,
+            token_refresh_url=xet_file_data.refresh_route,
+            token_refresh_headers=headers,
+            custom_headers=xet_headers,
+            progress_callback=on_progress,
+        ) as group:
+            group.start_download_file(
+                XetFileInfo(hash=xet_file_data.file_hash, file_size=expected_size),
+                str(incomplete_path.absolute()),
+            )
 
 
 def _normalize_etag(etag: str | None) -> str | None:
