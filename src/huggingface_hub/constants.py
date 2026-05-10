@@ -268,11 +268,10 @@ HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE
 HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
 HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
 
-# hf_transfer is not used anymore. Warn the user whenever the legacy env var is set.
+# hf_transfer is not used anymore. Let's warn user is case they set the env variable.
 # Note: we use FutureWarning (shown by default) instead of DeprecationWarning (silenced
-# by default for end users) because most affected users only set the legacy flag and
-# would never see a DeprecationWarning under standard `python` execution.
-if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")):
+# by default for end users) so users running standard `python` actually see the message.
+if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
     import warnings
 
     warnings.warn(
