@@ -84,6 +84,10 @@ Integer value to define the number of seconds to wait for server response when f
 
 Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
 
+### HF_HUB_DOWNLOAD_CHUNK_SIZE
+
+Integer value (in bytes) to control the chunk size used by the HTTP download path (`hf_hub_download`, `snapshot_download` with `HF_HUB_DISABLE_XET=1`). The progress callback fires once per chunk, so a smaller value makes progress bars animate more smoothly on slow connections; a larger value reduces per-byte Python overhead. Defaults to `10485760` (10 MiB).
+
 ## Xet 
 
 ### Other Xet environment variables

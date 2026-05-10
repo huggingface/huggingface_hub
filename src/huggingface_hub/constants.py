@@ -35,7 +35,12 @@ EVAL_RESULTS_FOLDER = ".eval_results"
 DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
-DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
+DEFAULT_DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
+# Allow users to tune the HTTP-download chunk size at the system level.
+# A smaller chunk size makes the per-chunk progress callback fire more often
+# (smoother progress bars on slow connections), at the cost of slightly more
+# Python overhead per byte. See issue #4129 for context.
+DOWNLOAD_CHUNK_SIZE = _as_int(os.environ.get("HF_HUB_DOWNLOAD_CHUNK_SIZE")) or DEFAULT_DOWNLOAD_CHUNK_SIZE
 MAX_HTTP_DOWNLOAD_SIZE = 50 * 1000 * 1000 * 1000  # 50 GB
 
 # Constants for serialization
