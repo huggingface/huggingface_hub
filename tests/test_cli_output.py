@@ -145,6 +145,27 @@ def test_table(check):
     )
 
 
+def test_table_truncation_hint(capsys):
+    """Hint is printed to stderr in human mode when any cell value is truncated."""
+    items = [{"id": "x" * 40, "likes": 1}]  # id is 40 chars, exceeds _MAX_CELL_LENGTH (35)
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table(items)
+    captured = capsys.readouterr()
+    assert "--format json" in captured.err
+    assert "--format agent" in captured.err
+
+
+def test_table_no_truncation_hint_when_fits(capsys):
+    """No hint is printed to stderr when all cell values fit within the limit."""
+    items = [{"id": "short-id", "likes": 1}]
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table(items)
+    captured = capsys.readouterr()
+    assert captured.err == ""
+
+
 def test_table_empty(check):
     check(
         lambda out: out.table([]),

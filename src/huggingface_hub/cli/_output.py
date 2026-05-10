@@ -114,6 +114,8 @@ class Output:
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
+                if any(len(_format_table_value_human(v)) > _MAX_CELL_LENGTH for row in rows for v in row):
+                    self.hint("Some values were truncated. Use '--format json' or '--format agent' to see full values.")
             case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
