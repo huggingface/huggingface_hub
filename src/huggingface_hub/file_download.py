@@ -434,6 +434,11 @@ def http_get(
                     raise
                 logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
                 time.sleep(1)
+                # Pass the live progress wrapper into the retry so
+                # `_get_progress_bar_context` short-circuits to `nullcontext(progress)`
+                # instead of constructing a fresh `_AggregatedTqdm`. Otherwise the
+                # snapshot-level shared bar's `total` and `n` get re-incremented on
+                # every retry — see issue #4208.
                 return http_get(
                     url=url,
                     temp_file=temp_file,
@@ -442,7 +447,7 @@ def http_get(
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
-                    _tqdm_bar=_tqdm_bar,
+                    _tqdm_bar=progress,
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():

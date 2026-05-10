@@ -1117,6 +1117,81 @@ class TestHttpGet:
         # Note: The range headers are now handled internally by http_get's retry mechanism
         # The test verifies that the download completed successfully after retries
 
+    def test_http_get_retry_does_not_inflate_aggregated_progress_total(self, caplog):
+        """Regression for https://github.com/huggingface/huggingface_hub/issues/4208.
+
+        When `http_get` retries after a mid-stream `TimeoutException`, the
+        recursive call must reuse the live progress wrapper (`_tqdm_bar=progress`),
+        not pass the original `_tqdm_bar=None` through. Otherwise the snapshot-level
+        aggregated bar's `total` and `n` get re-incremented on every retry — what
+        the user reports as `1.42G/2.85G` for a single 971 MB file.
+        """
+
+        def _iter_content_fail_then_resume() -> Iterable[bytes]:
+            yield b"x" * 30
+            raise httpx.TimeoutException("Fake TimeoutException")
+
+        def _iter_content_resume_finish() -> Iterable[bytes]:
+            yield b"x" * 70
+
+        # Track every time the snapshot-level shared `total` and `n` are mutated
+        # via a fake `_AggregatedTqdm` matching the real one in `_snapshot_download.py`.
+        FILE_SIZE = 100
+        shared = {"total": 0, "n": 0, "init_calls": 0}
+
+        class _AggregatedTqdm:
+            def __init__(self, *args, **kwargs):
+                shared["init_calls"] += 1
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    shared["total"] += total
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    shared["n"] += initial
+
+            def update(self, n):
+                shared["n"] += n
+
+            def close(self):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def refresh(self):
+                pass
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            mock_response = Mock()
+            mock_response.headers = {"Content-Length": str(FILE_SIZE)}
+            mock_response.iter_bytes.side_effect = [
+                _iter_content_fail_then_resume(),
+                _iter_content_resume_finish(),
+            ]
+            mock_stream_backoff.return_value.__enter__.return_value = mock_response
+            mock_stream_backoff.return_value.__exit__.return_value = None
+
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=FILE_SIZE,
+                tqdm_class=_AggregatedTqdm,
+            )
+
+        assert temp_file.tell() == FILE_SIZE
+        # Pre-fix: shared["total"] == 2 * FILE_SIZE because _AggregatedTqdm.__init__
+        # ran twice (once per http_get attempt). Post-fix: __init__ only runs on the
+        # first attempt; the retry passes the live `progress` wrapper through.
+        assert shared["init_calls"] == 1, (
+            f"`_AggregatedTqdm.__init__` should be called once, not once per retry (got {shared['init_calls']})"
+        )
+        assert shared["total"] == FILE_SIZE
+        assert shared["n"] == FILE_SIZE
+
     @pytest.mark.parametrize(
         "initial_range,expected_ranges",
         [
