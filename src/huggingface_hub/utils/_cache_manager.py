@@ -719,8 +719,10 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                 continue
 
             ref_name = str(ref_path.relative_to(refs_path))
+            # See #4133: strip trailing newline that can appear when the cache
+            # directory was copied between environments.
             with ref_path.open() as f:
-                commit_hash = f.read()
+                commit_hash = f.read().strip()
 
             refs_by_hash[commit_hash].add(ref_name)
 

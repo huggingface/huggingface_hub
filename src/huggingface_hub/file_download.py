@@ -694,7 +694,9 @@ def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str,
     if revision != commit_hash:
         ref_path = Path(storage_folder) / "refs" / revision
         ref_path.parent.mkdir(parents=True, exist_ok=True)
-        if not ref_path.exists() or commit_hash != ref_path.read_text():
+        # `.strip()` to tolerate trailing newlines from caches copied between
+        # environments (#4133).
+        if not ref_path.exists() or commit_hash != ref_path.read_text().strip():
             # Update ref only if has been updated. Could cause useless error in case
             # repo is already cached and user doesn't have write access to cache folder.
             # See https://github.com/huggingface/huggingface_hub/issues/1216.
@@ -1102,8 +1104,10 @@ def _hf_hub_download_to_cache_dir(
             else:
                 ref_path = os.path.join(storage_folder, "refs", revision)
                 if os.path.isfile(ref_path):
+                    # See #4133: strip trailing newline that can appear when the cache
+                    # directory was copied between environments.
                     with open(ref_path) as f:
-                        commit_hash = f.read()
+                        commit_hash = f.read().strip()
 
             # Return pointer file if exists
             if commit_hash is not None:
@@ -1515,8 +1519,10 @@ def try_to_load_from_cache(
     if os.path.isdir(refs_dir):
         revision_file = os.path.join(refs_dir, revision)
         if os.path.isfile(revision_file):
+            # Strip whitespace: trailing newlines can appear when the cache is copied
+            # between environments — see #4133.
             with open(revision_file) as f:
-                revision = f.read()
+                revision = f.read().strip()
 
     # Check if file is cached as "no_exist"
     if os.path.isfile(os.path.join(no_exist_dir, revision, filename)):

@@ -445,6 +445,33 @@ class CachedDownloadTests(unittest.TestCase):
         # If file non-existence is not cached, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2"))
 
+    def test_try_to_load_from_cache_strips_trailing_newline_in_refs(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4133.
+
+        When the HF cache is copied between environments, `refs/<revision>` files can
+        end up with a trailing newline. The commit hash must still be resolved.
+        """
+        with SoftTemporaryDirectory() as cache_dir:
+            cache_dir = Path(cache_dir)
+            repo_id = "user/repo"
+            repo_dir = cache_dir / "models--user--repo"
+            (repo_dir / "refs").mkdir(parents=True)
+            commit_id = "f90f040c7cb709ee7c55bddb3af1941289361ad6"
+            snap = repo_dir / "snapshots" / commit_id
+            snap.mkdir(parents=True)
+            target = snap / "config.json"
+            target.write_text("{}")
+            # Trailing newline simulates the corrupted refs file from the issue.
+            (repo_dir / "refs" / "main").write_text(commit_id + "\n")
+
+            resolved = try_to_load_from_cache(
+                repo_id,
+                filename="config.json",
+                cache_dir=str(cache_dir),
+                revision="main",
+            )
+            self.assertEqual(Path(resolved).resolve(), target.resolve())
+
     def test_try_to_load_from_cache_specific_commit_id_exist(self):
         """Regression test for #1306.
 
