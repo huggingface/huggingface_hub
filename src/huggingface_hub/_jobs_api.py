@@ -58,12 +58,7 @@ class JobOwner:
 class JobInitiator:
     type: str
     id: str
-    name: str | None
-
-    def __init__(self, **kwargs) -> None:
-        self.type = kwargs["type"]
-        self.id = kwargs["id"]
-        self.name = kwargs.get("name")
+    name: str | None = None
 
 
 @dataclass
@@ -114,7 +109,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), initiator=JobInitiator(type='user', id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -162,7 +157,11 @@ class JobInfo:
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
         initiator = kwargs.get("initiator")
-        self.initiator = JobInitiator(**initiator) if initiator else None
+        self.initiator = (
+            JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name"))
+            if initiator
+            else None
+        )
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
