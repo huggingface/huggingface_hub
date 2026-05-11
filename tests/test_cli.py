@@ -3001,7 +3001,7 @@ class TestJobsCommand:
             result = runner.invoke(app, ["jobs", "ps", "-a"])
         assert result.exit_code == 0
         assert "DURATION" in result.output
-        assert "3m 19s" in result.output  # 199s formatted
+        assert "3m 7s" in result.output  # 187s running_secs formatted
         assert "--" in result.output  # SCHEDULING job has no durations
 
     def test_ps_format_json(self, runner: CliRunner) -> None:

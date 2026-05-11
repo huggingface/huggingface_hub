@@ -637,7 +637,7 @@ def jobs_ps(
             _format_cell(command_str),
             item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
             str(status.get("stage", "UNKNOWN")),
-            format_duration(durations.get("total_secs")),
+            format_duration(durations.get("running_secs")),
         ]
 
     # Custom template format
