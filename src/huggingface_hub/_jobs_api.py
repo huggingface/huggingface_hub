@@ -158,9 +158,7 @@ class JobInfo:
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
         initiator = kwargs.get("initiator")
         self.initiator = (
-            JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name"))
-            if initiator
-            else None
+            JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name")) if initiator else None
         )
 
         # Inferred fields
