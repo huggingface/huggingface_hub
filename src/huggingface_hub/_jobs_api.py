@@ -73,9 +73,9 @@ class JobDurations:
     total_secs: int | None
 
     def __init__(self, **kwargs) -> None:
-        self.scheduling_secs = kwargs.get("schedulingSecs") or kwargs.get("scheduling_secs")
-        self.running_secs = kwargs.get("runningSecs") or kwargs.get("running_secs")
-        self.total_secs = kwargs.get("totalSecs") or kwargs.get("total_secs")
+        self.scheduling_secs = kwargs.get("schedulingSecs", kwargs.get("scheduling_secs"))
+        self.running_secs = kwargs.get("runningSecs", kwargs.get("running_secs"))
+        self.total_secs = kwargs.get("totalSecs", kwargs.get("total_secs"))
 
 
 @dataclass
