@@ -282,10 +282,10 @@ def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read:
         warnings.simplefilter("always")
         api.download_bucket_files(bucket_read, files)
 
-        # Verify warning was issued for missing file
-        assert len(w) == 1
-        assert "non_existent_file.txt" in str(w[0].message)
-        assert "not found" in str(w[0].message).lower()
+        # Verify warning was issued for missing file (ignore unrelated deprecation warnings)
+        not_found_warnings = [x for x in w if "non_existent_file.txt" in str(x.message)]
+        assert len(not_found_warnings) == 1
+        assert "not found" in str(not_found_warnings[0].message).lower()
 
     # Valid file should be downloaded
     assert (tmp_path / "file.txt").exists()
@@ -402,6 +402,27 @@ def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str
     assert "target-folder/existing.txt" in destination_files
     assert "target-folder/folder/a.txt" in destination_files
     assert "target-folder/folder/sub/b.txt" in destination_files
+
+
+@requires("hf_xet")
+def test_copy_files_folder_contents_to_existing_folder_with_trailing_slash(
+    api: HfApi, bucket_write: str, bucket_write_2: str
+):
+    """source=folder/ (trailing slash), dest exists => copy contents, no nesting (rsync semantics)."""
+    api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
+    api.batch_bucket_files(bucket_write_2, add=[(b"existing", "target-folder/existing.txt")])
+
+    api.copy_files(
+        f"hf://buckets/{bucket_write}/folder/",
+        f"hf://buckets/{bucket_write_2}/target-folder",
+    )
+
+    # Trailing slash on source = "copy contents of folder" => no nesting
+    destination_files = {entry.path for entry in api.list_bucket_tree(bucket_write_2)}
+    assert "target-folder/existing.txt" in destination_files
+    assert "target-folder/a.txt" in destination_files
+    assert "target-folder/sub/b.txt" in destination_files
+    assert "target-folder/folder/a.txt" not in destination_files
 
 
 @requires("hf_xet")

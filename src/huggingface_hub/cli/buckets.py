@@ -33,6 +33,7 @@ from huggingface_hub.utils import (
     disable_progress_bars,
 )
 
+from ..hf_api import REPO_REGIONS
 from ._cli_utils import (
     SearchOpt,
     TokenOpt,
@@ -78,6 +79,7 @@ def _parse_bucket_argument(argument: str) -> tuple[str, str]:
         "hf buckets create hf://buckets/user/my-bucket",
         "hf buckets create user/my-bucket --private",
         "hf buckets create user/my-bucket --exist-ok",
+        "hf buckets create user/my-bucket --region us",
     ],
 )
 def create(
@@ -94,6 +96,13 @@ def create(
             help="Create a private bucket.",
         ),
     ] = False,
+    region: Annotated[
+        REPO_REGIONS | None,
+        typer.Option(
+            "--region",
+            help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
+        ),
+    ] = None,
     exist_ok: Annotated[
         bool,
         typer.Option(
@@ -121,6 +130,7 @@ def create(
     bucket_url = api.create_bucket(
         bucket_id,
         private=private if private else None,
+        region=region,
         exist_ok=exist_ok,
     )
     out.result("Bucket created", handle=bucket_url.handle, url=bucket_url.url)
@@ -705,7 +715,8 @@ def sync(
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
         "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
         "hf buckets cp - hf://buckets/user/my-bucket/config.json",
-        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/logs/",
+        "hf buckets cp hf://buckets/user/my-bucket/logs hf://buckets/user/archive-bucket/  # nests logs/ dir",
+        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/  # copies contents only",
         "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
     ],
 )

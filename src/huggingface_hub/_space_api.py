@@ -230,6 +230,34 @@ class SpaceRuntime:
 
 
 @dataclass
+class SpaceSecret:
+    """
+    Contains information about a secret of a Space.
+
+    Secret values are write-only and cannot be read back. Only the key, description,
+    and last update time are returned by the API.
+
+    Args:
+        key (`str`):
+            Secret key. Example: `"GITHUB_API_KEY"`
+        description (`str` or None):
+            Description of the secret. Example: `"Github API key to access the Github API"`.
+        updated_at (`datetime` or None):
+            datetime of the last update of the secret (if the secret has been updated at least once).
+    """
+
+    key: str
+    description: str | None
+    updated_at: datetime | None
+
+    def __init__(self, key: str, values: dict) -> None:
+        self.key = key
+        self.description = values.get("description")
+        updated_at = values.get("updatedAt")
+        self.updated_at = parse_datetime(updated_at) if updated_at is not None else None
+
+
+@dataclass
 class SpaceVariable:
     """
     Contains information about the current variables of a Space.

@@ -72,7 +72,15 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceSearchResult, SpaceStorage, SpaceVariable, Volume
+from ._space_api import (
+    SpaceHardware,
+    SpaceRuntime,
+    SpaceSearchResult,
+    SpaceSecret,
+    SpaceStorage,
+    SpaceVariable,
+    Volume,
+)
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
@@ -223,6 +231,8 @@ ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "tren
 DatasetSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
 SpaceSort_T = Literal["created_at", "last_modified", "likes", "trending_score"]
 DailyPapersSort_T = Literal["publishedAt", "trending"]
+
+REPO_REGIONS = Literal["us", "eu"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -4368,6 +4378,7 @@ class HfApi:
         repo_type: str | None = None,
         exist_ok: bool = False,
         resource_group_id: str | None = None,
+        region: REPO_REGIONS | None = None,
         space_sdk: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_storage: SpaceStorage | None = None,
@@ -4404,6 +4415,9 @@ class HfApi:
                 allow to define which members of the organization can access the resource. The ID of a resource group
                 can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
                 To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the repo. Can be one of `"us"` or `"eu"`. If not specified, the repo will be
+                created in the default region. Requires Team plan or above.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
@@ -4485,6 +4499,8 @@ class HfApi:
 
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         headers = self._build_hf_headers(token=token)
         while True:
@@ -7668,6 +7684,43 @@ class HfApi:
             json={"key": key},
         )
         hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def get_space_secrets(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceSecret]:
+        """Gets all secrets from a Space.
+
+        Secret values are write-only and cannot be read back. Only the key, description, and last update time
+        are returned.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `dict[str, SpaceSecret]`: Dictionary of [`SpaceSecret`] objects keyed by secret name.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.get_space_secrets("username/my-space")
+        {'HF_TOKEN': SpaceSecret(key='HF_TOKEN', description='...', updated_at=datetime.datetime(...))}
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceSecret(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
     def get_space_variables(self, repo_id: str, *, token: bool | str | None = None) -> dict[str, SpaceVariable]:
@@ -12458,6 +12511,7 @@ class HfApi:
         *,
         private: bool | None = None,
         resource_group_id: str | None = None,
+        region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
         token: bool | str | None = None,
     ) -> BucketUrl:
@@ -12476,6 +12530,9 @@ class HfApi:
                 of a resource group can be found in the URL of the resource's page on the Hub
                 (e.g. `"66670e5163145ca562cb1988"`). To learn more about resource groups, see
                 https://huggingface.co/docs/hub/en/security-resource-groups.
+            region (`Literal["us", "eu"]`, *optional*):
+                Cloud region in which to create the bucket. Can be one of `"us"` or `"eu"`. If not specified, the bucket will be
+                created in the default region. Requires Team plan or above.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if the bucket already exists.
             token (`bool` or `str`, *optional*):
@@ -12502,6 +12559,9 @@ class HfApi:
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
             BucketUrl(...)
+
+            >>> create_bucket(bucket_id="my-bucket", region="us")
+            BucketUrl(...)
             ```
         """
         payload: dict[str, Any] = {}
@@ -12509,6 +12569,8 @@ class HfApi:
             payload["private"] = private
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
+        if region is not None:
+            payload["region"] = region
 
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user
@@ -12849,6 +12911,10 @@ class HfApi:
 
         Currently, only bucket destinations are supported. Copying to a repository is not supported.
 
+        When copying folders, a trailing `/` on the source path uses rsync-style semantics: copy the *contents*
+        of the folder into the destination, without nesting the source folder itself. Without a trailing `/`,
+        the source folder is nested inside the destination (like `cp -r`).
+
         When copying from a repository, `.gitattributes` files are automatically excluded since they are
         git-specific metadata and not relevant in a bucket context.
 
@@ -12876,7 +12942,10 @@ class HfApi:
             # Copy a single file between buckets
             >>> copy_files("hf://buckets/my-bucket/data.bin", "hf://buckets/other-bucket/data.bin")
 
-            # Copy a folder from a bucket to another bucket
+            # Copy a folder into another bucket (nests: backup/models/...)
+            >>> copy_files("hf://buckets/my-bucket/models", "hf://buckets/other-bucket/backup/")
+
+            # Copy folder contents (trailing /): files go directly into backup/
             >>> copy_files("hf://buckets/my-bucket/models/", "hf://buckets/other-bucket/backup/")
 
             # Copy a file from a model repo to a bucket
@@ -12886,6 +12955,10 @@ class HfApi:
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
+        # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
+        # Check before parsing strips the slash.
+        source_is_contents_only = source.endswith("/")
+
         source_handle = _parse_hf_copy_handle(source)
         destination_handle = _parse_hf_copy_handle(destination)
 
@@ -12939,10 +13012,10 @@ class HfApi:
             if rel_path == "":
                 raise ValueError("Cannot copy an empty relative path.")
 
-            # Match Unix `cp -r` behavior: when the destination already exists as a
-            # directory, nest the source folder inside it (e.g. cp -r src dst → dst/src/...).
-            # When the destination does not exist, use rename semantics (cp -r src new → new/...).
-            if destination_exists_as_directory and src_root_path is not None:
+            # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
+            # Without trailing slash, match `cp -r` behavior: nest source folder inside
+            # existing destination directory. Non-existing destination always uses rename semantics.
+            if destination_exists_as_directory and src_root_path is not None and not source_is_contents_only:
                 src_dir_basename = src_root_path.rsplit("/", 1)[-1]
                 rel_path = f"{src_dir_basename}/{rel_path}"
 
@@ -13041,6 +13114,15 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
                     _add_repo_file(repo_item, target_path)
+
+        # Raise if no source files were found
+        if not all_copies and not all_adds and not pending_downloads:
+            if isinstance(source_handle, _BucketCopyHandle):
+                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_handle.bucket_id}'.")
+            else:
+                raise EntryNotFoundError(
+                    f"No files found at '{source}' in {source_handle.repo_type} '{source_handle.repo_id}'."
+                )
 
         # Download non-xet files in parallel
         if pending_downloads:
@@ -13922,6 +14004,7 @@ rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
 
 # Space API
+get_space_secrets = api.get_space_secrets
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_variables = api.get_space_variables

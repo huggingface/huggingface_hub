@@ -78,6 +78,15 @@ For example, an HF token to upload an image dataset to the Hub once generated fr
 >>> api.add_space_variable(repo_id=repo_id, key="MODEL_REPO_ID", value="user/repo")
 ```
 
+You can list existing secrets and variables. Secret values are write-only, so only keys, descriptions, and update timestamps are returned:
+
+```py
+>>> api.get_space_secrets(repo_id=repo_id)
+{'HF_TOKEN': SpaceSecret(key='HF_TOKEN', description=None, updated_at=datetime.datetime(...))}
+>>> api.get_space_variables(repo_id=repo_id)
+{'MODEL_REPO_ID': SpaceVariable(key='MODEL_REPO_ID', value='user/repo', description=None, updated_at=...)}
+```
+
 Secrets and variables can be deleted as well:
 ```py
 >>> api.delete_space_secret(repo_id=repo_id, key="HF_TOKEN")
