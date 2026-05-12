@@ -60,7 +60,6 @@ from huggingface_hub.inference._providers.scaleway import ScalewayConversational
 from huggingface_hub.inference._providers.together import (
     TogetherAutomaticSpeechRecognitionTask,
     TogetherFeatureExtractionTask,
-    TogetherImageTextToVideoTask,
     TogetherImageToImageTask,
     TogetherTextToImageTask,
     TogetherTextToSpeechTask,
@@ -1774,25 +1773,47 @@ class TestTogetherProvider:
         helper = TogetherImageToImageTask()
         assert helper._prepare_route("model-name", "hf_token") == "/v1/images/generations"
 
-    def test_prepare_payload_as_dict_image_to_image(self):
+    def test_prepare_payload_as_dict_image_to_image_flux2(self):
         helper = TogetherImageToImageTask()
         payload = helper._prepare_payload_as_dict(
             "https://example.com/input.jpg",
             {"prompt": "make it more colorful", "num_inference_steps": 20, "guidance_scale": 7.5},
             InferenceProviderMapping(
                 provider="together",
-                hf_model_id="black-forest-labs/FLUX.1-schnell",
-                providerId="black-forest-labs/FLUX.1-schnell",
+                hf_model_id="black-forest-labs/FLUX.2-dev",
+                providerId="black-forest-labs/FLUX.2-dev",
                 task="image-to-image",
                 status="live",
             ),
         )
         assert payload["prompt"] == "make it more colorful"
-        assert payload["image_url"] == "https://example.com/input.jpg"
+        assert payload["reference_images"] == ["https://example.com/input.jpg"]
+        assert "image_url" not in payload
         assert payload["response_format"] == "base64"
         assert payload["steps"] == 20  # renamed field
         assert payload["guidance"] == 7.5  # renamed field
-        assert payload["model"] == "black-forest-labs/FLUX.1-schnell"
+        assert payload["model"] == "black-forest-labs/FLUX.2-dev"
+
+    @pytest.mark.parametrize(
+        "provider_id",
+        ["black-forest-labs/FLUX.1-kontext-pro", "black-forest-labs/FLUX.1-schnell"],
+    )
+    def test_prepare_payload_as_dict_image_to_image_flux1(self, provider_id):
+        # FLUX.1 (Kontext + others) uses `image_url` (string) and rejects `reference_images`.
+        helper = TogetherImageToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/input.jpg",
+            {"prompt": "make it more colorful"},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id=provider_id,
+                providerId=provider_id,
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload["image_url"] == "https://example.com/input.jpg"
+        assert "reference_images" not in payload
 
     def test_prepare_payload_as_dict_image_to_image_omitted_prompt(self):
         # The client always passes `"prompt": None` when the user omits it; make sure we
@@ -1938,30 +1959,6 @@ class TestTogetherProvider:
             "width": 512,
             "height": 512,
             "steps": 30,
-        }
-
-    def test_prepare_route_image_text_to_video(self):
-        helper = TogetherImageTextToVideoTask()
-        assert helper._prepare_route("model-name", "hf_token") == "/v2/videos"
-
-    def test_prepare_payload_as_dict_image_text_to_video(self):
-        helper = TogetherImageTextToVideoTask()
-        payload = helper._prepare_payload_as_dict(
-            "https://example.com/cat.jpg",
-            {"prompt": "A cat dancing", "seconds": "5"},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="some/video-model",
-                providerId="some/video-model",
-                task="image-text-to-video",
-                status="live",
-            ),
-        )
-        assert payload == {
-            "model": "some/video-model",
-            "media": {"reference_images": ["https://example.com/cat.jpg"]},
-            "prompt": "A cat dancing",
-            "seconds": "5",
         }
 
     def test_video_get_response_polls_until_completed(self, mocker):
