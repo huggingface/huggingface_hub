@@ -48,8 +48,8 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size
 
-from ._cli_utils import FormatWithAutoOpt, RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._output import out
 
 
 DOWNLOAD_EXAMPLES = [
@@ -114,7 +114,6 @@ def download(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Download files from the Hub."""
 

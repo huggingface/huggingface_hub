@@ -22,7 +22,7 @@ from typer.testing import CliRunner, Result
 from huggingface_hub import HfApi
 from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
 from huggingface_hub.cli.hf import app
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
@@ -564,14 +564,14 @@ def _populated_bucket(api: HfApi) -> str:
 
 @pytest.fixture
 def tree_bucket(monkeypatch: pytest.MonkeyPatch, _populated_bucket: str) -> str:
-    """Use populated bucket + make _format_mtime return a fixed date for exact output matching."""
+    """Use populated bucket + make format_date return a fixed date for exact output matching."""
 
-    def _fixed(mtime, human_readable=False):
-        if mtime is None:
+    def _fixed(dt, human_readable=False):
+        if dt is None:
             return ""
         return MTIME_FIX_SHORT if human_readable else MTIME_FIX
 
-    monkeypatch.setattr("huggingface_hub.cli.buckets._format_mtime", _fixed)
+    monkeypatch.setattr("huggingface_hub.cli._file_listing.format_date", _fixed)
 
     return _populated_bucket
 
@@ -994,6 +994,14 @@ def test_cp_error_source_file_not_found():
     result = cli(f"hf buckets cp /nonexistent/file.txt hf://buckets/{USER}/some-bucket/file.txt")
     assert result.exit_code != 0
     assert "not found" in result.output.lower()
+
+
+def test_cp_error_remote_source_not_found(bucket_with_files: str):
+    """Copying a non-existent file from a bucket raises an error."""
+    dest_bucket = bucket_with_files  # reuse as destination, doesn't matter
+    result = cli(f"hf buckets cp hf://buckets/{bucket_with_files}/doesnotexist.txt hf://buckets/{dest_bucket}/out.txt")
+    assert result.exit_code != 0
+    assert isinstance(result.exception, EntryNotFoundError)
 
 
 # =============================================================================

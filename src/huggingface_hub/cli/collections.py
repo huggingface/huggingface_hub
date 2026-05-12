@@ -40,8 +40,8 @@ import typer
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import FormatWithAutoOpt, LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
+from ._output import out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -79,7 +79,6 @@ def collections_ls(
         typer.Option(help="Sort results by last modified, trending, or upvotes."),
     ] = None,
     limit: LimitOpt = 10,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """List collections on the Hub."""
@@ -105,7 +104,6 @@ def collections_ls(
 )
 def collections_info(
     collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a collection on the Hub."""
@@ -140,7 +138,6 @@ def collections_create(
         bool,
         typer.Option(help="Do not raise an error if the collection already exists."),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Create a new collection on the Hub."""
@@ -185,7 +182,6 @@ def collections_update(
         str | None,
         typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update a collection's metadata on the Hub."""
@@ -214,7 +210,6 @@ def collections_delete(
         bool,
         typer.Option(help="Do not raise an error if the collection doesn't exist."),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete a collection from the Hub."""
@@ -248,7 +243,6 @@ def collections_add_item(
         bool,
         typer.Option(help="Do not raise an error if the item is already in the collection."),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Add an item to a collection."""
@@ -284,7 +278,6 @@ def collections_update_item(
         int | None,
         typer.Option(help="The new position of the item in the collection."),
     ] = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Update an item in a collection."""
@@ -311,7 +304,6 @@ def collections_delete_item(
         bool,
         typer.Option(help="Do not raise an error if the item doesn't exist."),
     ] = False,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
     token: TokenOpt = None,
 ) -> None:
     """Delete an item from a collection."""

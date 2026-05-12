@@ -33,7 +33,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, requires, with_production_testing
 
 
 @pytest.fixture
@@ -1323,6 +1323,7 @@ class TestRepoCreateCommand:
             token=None,
             exist_ok=False,
             resource_group_id=None,
+            region=None,
             space_sdk="gradio",
             space_hardware="t4-medium",
             space_storage="small",
@@ -1345,6 +1346,7 @@ class TestRepoCreateCommand:
             token=None,
             exist_ok=False,
             resource_group_id=None,
+            region=None,
             space_sdk=None,
             space_hardware=None,
             space_storage=None,
@@ -1785,6 +1787,43 @@ class TestModelsLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
+    @with_production_testing
+    def test_models_ls_files_json(self, runner: CliRunner) -> None:
+        """List files from a real model repo on the Hub (JSON output)."""
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "config.json" in paths
+        assert "tokenizer.json" in paths
+
+    @with_production_testing
+    def test_models_ls_files_quiet(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "quiet"])
+        assert result.exit_code == 0
+        lines = result.stdout.strip().splitlines()
+        assert "config.json" in lines
+        assert "onnx/" in lines
+
+    @with_production_testing
+    def test_models_ls_files_tree(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "--tree"])
+        assert result.exit_code == 0
+        assert "├──" in result.stdout or "└──" in result.stdout
+        assert "config.json" in result.stdout
+
+    @with_production_testing
+    def test_models_ls_files_recursive(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "t5-small", "-R", "--format", "quiet"])
+        assert result.exit_code == 0
+        lines = result.stdout.strip().splitlines()
+        assert "config.json" in lines
+        assert any(line.startswith("onnx/") for line in lines)
+
+    def test_models_ls_tree_without_repo_id_fails(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["models", "ls", "--tree"])
+        assert result.exit_code != 0
+
 
 class TestDatasetsLsCommand:
     def test_datasets_ls_with_sort(self, runner: CliRunner) -> None:
@@ -1796,6 +1835,15 @@ class TestDatasetsLsCommand:
         assert result.exit_code == 0
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
+
+    @with_production_testing
+    def test_datasets_ls_files(self, runner: CliRunner) -> None:
+        """List files from a real dataset repo on the Hub."""
+        result = runner.invoke(app, ["datasets", "ls", "rajpurkar/squad", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "README.md" in paths
 
 
 class TestModelsCardCommand:
@@ -2081,6 +2129,16 @@ class TestSpacesLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
+    @with_production_testing
+    def test_spaces_ls_files(self, runner: CliRunner) -> None:
+        """List files from a real space repo on the Hub."""
+        result = runner.invoke(app, ["spaces", "ls", "gradio/theme_builder", "--format", "json"])
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        paths = {item["path"] for item in output}
+        assert "README.md" in paths
+        assert "run.py" in paths
+
 
 class TestSpacesLogsCommand:
     def test_build_logs_follow(self, runner: CliRunner) -> None:
@@ -2111,6 +2169,20 @@ class TestSpacesLogsCommand:
         result = runner.invoke(app, ["spaces", "logs", "-f", "--tail", "5", "user/my-space"])
         assert result.exit_code != 0
         assert "Cannot use --follow and --tail together" in str(result.exception)
+
+
+@with_production_testing
+class TestSpacesHardwareCommand:
+    def test_list_hardware(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
+        cpu_basic = next(hw for hw in json.loads(result.stdout) if hw["name"] == "cpu-basic")
+        assert cpu_basic["name"] == "cpu-basic"
+        assert cpu_basic["pretty name"] == "CPU Basic"
+        assert cpu_basic["cpu"] == "2 vCPU"
+        assert cpu_basic["ram"] == "16 GB"
+        assert cpu_basic["accelerator"] is None
+        assert cpu_basic["cost/min"] == "free"
+        assert cpu_basic["cost/hour"] == "free"
 
 
 class TestInferenceEndpointsCommands:
@@ -3494,6 +3566,33 @@ class TestWebhooksCommand:
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
+class TestGlobalFormattingFlags:
+    """Test the global --format / --json / -q flags handled in `_cli_utils.py`."""
+
+    def test_help_shows_formatting_options_section(self, runner: CliRunner) -> None:
+        """Modern leaf commands document the global formatting flags in a dedicated section."""
+        result = runner.invoke(app, ["models", "ls", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" in result.output
+        # Each flag is listed in the section.
+        assert "--format" in result.output
+        assert "--json" in result.output
+        assert "--quiet" in result.output
+
+    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
+        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
+        and don't get the duplicated 'Formatting options' section."""
+        result = runner.invoke(app, ["jobs", "ps", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+    def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
+        """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""
+        result = runner.invoke(app, ["extensions", "exec", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Formatting options:" not in result.output
+
+
 class TestJsonShorthand:
     """Test the hidden --json shorthand that rewrites to --format json."""
 
@@ -3729,7 +3828,9 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
+@requires("hf_xet")
 class TestSkillsMarketplaceCLI:
+    @with_production_testing
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
 
@@ -3741,18 +3842,19 @@ class TestSkillsMarketplaceCLI:
         assert skill_dir.joinpath("SKILL.md").is_file()
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
 
-    def test_upgrade_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
+    @with_production_testing
+    def test_update_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
         add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])
         assert add_result.exit_code == 0, add_result.output
 
-        result = runner.invoke(app, ["skills", "upgrade", "--dest", str(dest)])
+        result = runner.invoke(app, ["skills", "update", "--dest", str(dest)])
 
         assert result.exit_code == 0, result.output
         skill_dir = dest / "huggingface-gradio"
         assert skill_dir.joinpath("SKILL.md").is_file()
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
-        # Live marketplace content can change between the add and upgrade calls.
+        # Live marketplace content can change between the add and update calls.
         assert any(
             status in result.stdout
             for status in (

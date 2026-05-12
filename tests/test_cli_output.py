@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 import pytest
 
 from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
@@ -316,6 +318,32 @@ def test_confirm_non_human_raises(mode):
     o.set_mode(mode)
     with pytest.raises(ConfirmationError, match="Use --yes to skip confirmation"):
         o.confirm("Delete everything?")
+
+
+# =============================================================================
+# out.status()
+# =============================================================================
+
+
+def test_status_only_enabled_for_humans(check, monkeypatch):
+    class FakeStatusLine:
+        def __init__(self, *, enabled=True):
+            self.enabled = enabled
+
+        def update(self, msg):
+            if self.enabled:
+                print(msg, file=sys.stderr)
+
+    monkeypatch.setattr("huggingface_hub.cli._output.StatusLine", FakeStatusLine)
+
+    check(
+        lambda out: out.status("Working"),
+        stderr=True,
+        human="Working",
+        agent="",
+        json="",
+        quiet="",
+    )
 
 
 # =============================================================================

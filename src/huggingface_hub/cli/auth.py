@@ -39,7 +39,7 @@ from huggingface_hub.hf_api import whoami
 
 from .._login import auth_list, auth_switch, login, logout
 from ..utils import get_stored_tokens, get_token, logging
-from ._cli_utils import FormatWithAutoOpt, OutputFormatWithAuto, TokenOpt, typer_factory
+from ._cli_utils import TokenOpt, typer_factory
 from ._output import out
 
 
@@ -160,9 +160,7 @@ def auth_token() -> None:
 
 
 @auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
-def auth_whoami(
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
-) -> None:
+def auth_whoami() -> None:
     """Find out which huggingface.co account you are logged in as."""
 
     token = get_token()

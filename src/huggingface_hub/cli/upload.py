@@ -57,7 +57,6 @@ from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
 
 from ._cli_utils import (
-    FormatWithAutoOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
@@ -66,7 +65,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
-from ._output import OutputFormatWithAuto, out
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -141,7 +140,6 @@ def upload(
         ),
     ] = None,
     token: TokenOpt = None,
-    format: FormatWithAutoOpt = OutputFormatWithAuto.auto,
 ) -> None:
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
