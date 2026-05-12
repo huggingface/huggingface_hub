@@ -382,8 +382,8 @@ def skills_list(
     """List available skills from the Hugging Face marketplace."""
     install_locations: list[tuple[str, Path]] = [
         ("project", CENTRAL_LOCAL),
-        ("global", CENTRAL_GLOBAL),
         ("project (claude)", CLAUDE_LOCAL),
+        ("global", CENTRAL_GLOBAL),
         ("global (claude)", CLAUDE_GLOBAL),
     ]
     installed: dict[str, set[str]] = {}
