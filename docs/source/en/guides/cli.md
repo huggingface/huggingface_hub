@@ -1666,7 +1666,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 ```
 
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with [pre-paid credits](https://huggingface.co/settings/billing).
 
 ### Quick Start
 
