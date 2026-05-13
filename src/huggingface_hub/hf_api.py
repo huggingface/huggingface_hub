@@ -8211,6 +8211,9 @@ class HfApi:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
                     error_to_retry = err
+            # Drop params after the first attempt: the start_event_idx dedup
+            # requires a stable replay prefix, which `tail` would break.
+            params = None
             if on_iteration_end is not None and on_iteration_end():
                 break
 
