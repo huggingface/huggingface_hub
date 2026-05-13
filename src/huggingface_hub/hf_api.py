@@ -238,6 +238,10 @@ REPO_REGIONS = Literal["us", "eu"]
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
+# NOTE: This is a copy of REGEX_YAML_BLOCK from repocard.py, which must stay
+# in sync with the Hub server's YAML block parser.
+# See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
+# If you update this regex, update REGEX_YAML_BLOCK in repocard.py too (or vice versa).
 _REGEX_REPOCARD_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
 
 _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
