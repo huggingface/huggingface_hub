@@ -34,6 +34,7 @@ from urllib.parse import quote, unquote
 
 import httpcore
 import httpx
+import yaml
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -237,6 +238,7 @@ REPO_REGIONS = Literal["us", "eu"]
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
+_REGEX_REPOCARD_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
 
 _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
     "\nNote: Creating a commit assumes that the repo already exists on the"
@@ -262,6 +264,53 @@ SPECIAL_REFS_REVISION_REGEX = re.compile(
 )
 
 logger = logging.get_logger(__name__)
+
+
+def _extract_license_values_from_readme(content: str) -> list[str]:
+    match = _REGEX_REPOCARD_YAML_BLOCK.search(content)
+    if match is None:
+        return []
+
+    try:
+        data = yaml.safe_load(match.group(2))
+    except yaml.YAMLError:
+        return []
+
+    if not isinstance(data, dict):
+        return []
+
+    license_value = data.get("license")
+    if isinstance(license_value, str):
+        return [license_value]
+    if isinstance(license_value, list):
+        return [value for value in license_value if isinstance(value, str)]
+    return []
+
+
+def _is_spdx_or_later_license(value: str) -> bool:
+    return value.strip().lower().endswith("-or-later")
+
+
+def _is_license_validation_error(error: dict[str, Any]) -> bool:
+    message = str(error.get("message", "")).lower()
+    if "must be one of" in message and "license" in message:
+        return True
+
+    location = error.get("loc") or error.get("path")
+    if isinstance(location, list):
+        return any(str(item).lower() == "license" for item in location)
+    return False
+
+
+def _should_ignore_spdx_or_later_license_error(content: str, errors: list[dict[str, Any]]) -> bool:
+    if not errors or not all(_is_license_validation_error(error) for error in errors):
+        return False
+
+    license_values = _extract_license_values_from_readme(content)
+    if not license_values:
+        return False
+
+    return all(_is_spdx_or_later_license(value) for value in license_values)
 
 
 def _resolve_repo_visibility(
@@ -10993,6 +11042,13 @@ class HfApi:
             hf_raise_for_status(response)
         except BadRequestError as e:
             errors = response_content.get("errors", [])
+            if _should_ignore_spdx_or_later_license_error(content, errors):
+                warnings.warn(
+                    "Hub validation rejected SPDX license identifiers ending with '-or-later'. "
+                    "Proceeding without blocking validation. If the Hub later rejects the metadata, "
+                    "use `license_name` and `license_link` instead."
+                )
+                return
             message = "\n".join([f"- {error.get('message')}" for error in errors])
             raise ValueError(f"Invalid metadata in README.md.\n{message}") from e
 

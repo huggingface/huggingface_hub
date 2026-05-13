@@ -29,6 +29,7 @@ from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+import httpx
 import pytest
 
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
@@ -1065,6 +1066,18 @@ class CommitApiTest(HfApiCommonTest):
 
         # Commit still happened correctly
         assert isinstance(commit, CommitInfo)
+
+    def test_validate_yaml_accepts_spdx_or_later_license(self) -> None:
+        content = "---\nlicense: gpl-2.0-or-later\n---\n\n# Model Card\n"
+        response = httpx.Response(
+            status_code=400,
+            json={"errors": [{"message": '"license" must be one of [mit]'}], "warnings": []},
+            request=httpx.Request("POST", "https://huggingface.co/api/validate-yaml"),
+        )
+        with patch("huggingface_hub.hf_api.get_session") as mock_get_session:
+            mock_get_session.return_value.post.return_value = response
+            with self.assertWarnsRegex(UserWarning, "SPDX license identifiers ending with '-or-later'"):
+                self._api._validate_yaml(content)
 
     def test_create_file_with_relative_path(self):
         """Creating a file with a relative path_in_repo is forbidden.
