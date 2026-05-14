@@ -83,6 +83,7 @@ _SUBMOD_ATTRS = {
         "JobOwner",
         "JobStage",
         "JobStatus",
+        "Volume",
     ],
     "_login": [
         "auth_list",
@@ -105,11 +106,9 @@ _SUBMOD_ATTRS = {
     "_space_api": [
         "SpaceHardware",
         "SpaceRuntime",
-        "SpaceSecret",
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
-        "Volume",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -183,14 +182,12 @@ _SUBMOD_ATTRS = {
         "GitRefInfo",
         "GitRefs",
         "HfApi",
-        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
         "RepoFolder",
         "RepoUrl",
         "SpaceInfo",
-        "SpaceSearchResult",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -206,7 +203,6 @@ _SUBMOD_ATTRS = {
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
-        "copy_files",
         "create_branch",
         "create_bucket",
         "create_collection",
@@ -233,7 +229,6 @@ _SUBMOD_ATTRS = {
         "delete_space_secret",
         "delete_space_storage",
         "delete_space_variable",
-        "delete_space_volumes",
         "delete_tag",
         "delete_webhook",
         "disable_space_dev_mode",
@@ -246,7 +241,6 @@ _SUBMOD_ATTRS = {
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
-        "fetch_space_logs",
         "file_exists",
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
@@ -263,14 +257,12 @@ _SUBMOD_ATTRS = {
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
-        "get_space_secrets",
         "get_space_variables",
         "get_user_overview",
         "get_webhook",
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
-        "kernel_info",
         "list_accepted_access_requests",
         "list_bucket_tree",
         "list_buckets",
@@ -296,7 +288,6 @@ _SUBMOD_ATTRS = {
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
-        "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
         "list_webhooks",
@@ -327,9 +318,7 @@ _SUBMOD_ATTRS = {
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
-        "search_spaces",
         "set_space_sleep_time",
-        "set_space_volumes",
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
@@ -585,7 +574,6 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
-        "HfUri",
         "cached_assets_path",
         "close_session",
         "dump_environment_info",
@@ -594,7 +582,6 @@ _SUBMOD_ATTRS = {
         "get_token",
         "hf_raise_for_status",
         "logging",
-        "parse_hf_uri",
         "scan_cache_dir",
         "set_async_client_factory",
         "set_client_factory",
@@ -725,7 +712,6 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
-    "HfUri",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -768,7 +754,6 @@ __all__ = [
     "JobOwner",
     "JobStage",
     "JobStatus",
-    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -803,8 +788,6 @@ __all__ = [
     "SpaceHardware",
     "SpaceInfo",
     "SpaceRuntime",
-    "SpaceSearchResult",
-    "SpaceSecret",
     "SpaceStage",
     "SpaceStorage",
     "SpaceVariable",
@@ -918,7 +901,6 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
-    "copy_files",
     "create_branch",
     "create_bucket",
     "create_collection",
@@ -945,7 +927,6 @@ __all__ = [
     "delete_space_secret",
     "delete_space_storage",
     "delete_space_variable",
-    "delete_space_volumes",
     "delete_tag",
     "delete_webhook",
     "disable_space_dev_mode",
@@ -962,7 +943,6 @@ __all__ = [
     "export_folder_as_dduf",
     "fetch_job_logs",
     "fetch_job_metrics",
-    "fetch_space_logs",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
@@ -983,7 +963,6 @@ __all__ = [
     "get_safetensors_metadata",
     "get_session",
     "get_space_runtime",
-    "get_space_secrets",
     "get_space_variables",
     "get_token",
     "get_torch_storage_id",
@@ -999,7 +978,6 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
-    "kernel_info",
     "list_accepted_access_requests",
     "list_bucket_tree",
     "list_buckets",
@@ -1025,7 +1003,6 @@ __all__ = [
     "list_repo_refs",
     "list_repo_tree",
     "list_spaces",
-    "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
     "list_webhooks",
@@ -1045,7 +1022,6 @@ __all__ = [
     "notebook_login",
     "paper_info",
     "parse_eval_result_entries",
-    "parse_hf_uri",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
@@ -1074,11 +1050,9 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
-    "search_spaces",
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
-    "set_space_volumes",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
@@ -1233,6 +1207,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
+        Volume,  # noqa: F401
     )
     from ._login import (
         auth_list,  # noqa: F401
@@ -1253,11 +1228,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
-        SpaceSecret,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
-        Volume,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1329,14 +1302,12 @@ if TYPE_CHECKING:  # pragma: no cover
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
-        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
         RepoFolder,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
-        SpaceSearchResult,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1352,7 +1323,6 @@ if TYPE_CHECKING:  # pragma: no cover
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
-        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
@@ -1379,7 +1349,6 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
-        delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
         disable_space_dev_mode,  # noqa: F401
@@ -1392,7 +1361,6 @@ if TYPE_CHECKING:  # pragma: no cover
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
-        fetch_space_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
@@ -1409,14 +1377,12 @@ if TYPE_CHECKING:  # pragma: no cover
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
-        get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
-        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_bucket_tree,  # noqa: F401
         list_buckets,  # noqa: F401
@@ -1442,7 +1408,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
-        list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
         list_webhooks,  # noqa: F401
@@ -1473,9 +1438,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
-        search_spaces,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
-        set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
@@ -1725,7 +1688,6 @@ if TYPE_CHECKING:  # pragma: no cover
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
-        HfUri,  # noqa: F401
         cached_assets_path,  # noqa: F401
         close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
@@ -1734,7 +1696,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token,  # noqa: F401
         hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
-        parse_hf_uri,  # noqa: F401
         scan_cache_dir,  # noqa: F401
         set_async_client_factory,  # noqa: F401
         set_client_factory,  # noqa: F401
