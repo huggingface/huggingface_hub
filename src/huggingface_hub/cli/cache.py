@@ -515,8 +515,9 @@ def _build_delete_strategy(
             continue
 
         total_revision_count += len(selected_revisions)
-        partial_revision_count += len(selected_files_by_revision)
-        file_count += sum(len(files) for files in selected_files_by_revision.values())
+        # Only count partial revisions that are not already selected as full revisions
+        partial_revision_count += sum(1 for rev in selected_files_by_revision.keys() if rev not in selected_revisions)
+        file_count += sum(len(files) for rev, files in selected_files_by_revision.items() if rev not in selected_revisions)
 
         total_blob_refs: dict[Path, int] = defaultdict(int)
         selected_blob_refs: dict[Path, int] = defaultdict(int)
@@ -533,6 +534,9 @@ def _build_delete_strategy(
                 selected_blob_refs[file.blob_path] += 1
 
         for revision, files in selected_files_by_revision.items():
+            if revision in selected_revisions:
+                # Files in this revision are already counted when deleting the whole revision
+                continue
             for file in files:
                 files_to_delete.add(file.file_path)
                 selected_blob_refs[file.blob_path] += 1
@@ -838,6 +842,7 @@ def prune(
     resolution = _DeletionResolution(
         revisions=frozenset(revisions),
         selected=selected,
+        selected_files={},
         missing=(),
     )
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
