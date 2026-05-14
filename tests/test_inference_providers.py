@@ -1971,6 +1971,28 @@ class TestTogetherProvider:
         assert b'filename="audio.wav"' in body
         assert b"raw audio bytes" in body
 
+    def test_prepare_payload_as_bytes_automatic_speech_recognition_filters_none_in_extra(self):
+        # `None` values in parameters and extra_payload must be dropped so they don't
+        # serialize as the literal string "None" in multipart form fields.
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        body = helper._prepare_payload_as_bytes(
+            b"raw audio bytes",
+            {"language": None, "temperature": 0.0},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="openai/whisper-large-v3",
+                providerId="openai/whisper-large-v3",
+                task="automatic-speech-recognition",
+                status="live",
+            ),
+            extra_payload={"prompt": None, "response_format": "json"},
+        )
+        assert b"None" not in bytes(body)
+        assert b'name="response_format"' in bytes(body)
+        assert b'name="temperature"' in bytes(body)
+        assert b'name="language"' not in bytes(body)
+        assert b'name="prompt"' not in bytes(body)
+
     def test_automatic_speech_recognition_get_response(self):
         helper = TogetherAutomaticSpeechRecognitionTask()
         response = helper.get_response({"text": "Hello, world!"})

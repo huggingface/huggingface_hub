@@ -233,7 +233,7 @@ class TogetherAutomaticSpeechRecognitionTask(TogetherTask):
 
         for key, value in filter_none(parameters or {}).items():
             fields[key] = _coerce_multipart(value)
-        for key, value in (extra_payload or {}).items():
+        for key, value in filter_none(extra_payload or {}).items():
             fields[key] = _coerce_multipart(value)
 
         body, content_type = encode_multipart_formdata(fields)
