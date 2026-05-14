@@ -16,7 +16,7 @@ from huggingface_hub._jobs_api import _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormatWithAuto, out
-from huggingface_hub.cli.cache import CacheDeletionCounts
+from huggingface_hub.cli.cache import CacheDeletionCounts, _DeletionResolution
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
@@ -41,12 +41,18 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+def _make_revision(
+    commit_hash: str,
+    *,
+    refs: Optional[set[str]] = None,
+    files: Optional[set[CachedFileInfo]] = None,
+    size_on_disk: int = 0,
+) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,
         snapshot_path=Path(f"/tmp/{commit_hash}"),
-        size_on_disk=0,
-        files=frozenset(),
+        size_on_disk=size_on_disk,
+        files=frozenset(files or set()),
         refs=frozenset(refs or set()),
         last_modified=0.0,
     )
@@ -62,6 +68,17 @@ def _make_repo(repo_id: str, *, revisions: list[CachedRevisionInfo]) -> CachedRe
         revisions=frozenset(revisions),
         last_accessed=0.0,
         last_modified=0.0,
+    )
+
+
+def _make_file(commit_hash: str, path_in_repo: str, *, size_on_disk: int = 1) -> CachedFileInfo:
+    return CachedFileInfo(
+        file_name=Path(path_in_repo).name,
+        file_path=Path(f"/tmp/{commit_hash}/{path_in_repo}"),
+        blob_path=Path(f"/tmp/blobs/{commit_hash}-{path_in_repo.replace('/', '_')}"),
+        size_on_disk=size_on_disk,
+        blob_last_accessed=0.0,
+        blob_last_modified=0.0,
     )
 
 
@@ -162,61 +179,73 @@ class TestCacheCommand:
         revision = _make_revision("c" * 40)
         repo = _make_repo("user/model", revisions=[revision])
 
-        repo_lookup = {"model/user/model": repo}
-        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
-
         strategy = Mock()
         strategy.expected_freed_size_str = "0B"
 
-        hf_cache_info = Mock()
-        hf_cache_info.delete_revisions.return_value = strategy
-
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+        resolution = _DeletionResolution(
+            revisions=frozenset({revision.commit_hash}),
+            selected={repo: frozenset({revision})},
+            selected_files={},
+            missing=(),
+        )
 
         with (
-            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
-            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
-            patch(
-                "huggingface_hub.cli.cache.summarize_deletions",
-                return_value=counts,
-            ),
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=Mock()),
+            patch("huggingface_hub.cli.cache._resolve_deletion_targets", return_value=resolution),
+            patch("huggingface_hub.cli.cache._build_delete_strategy", return_value=(strategy, counts)),
             patch("huggingface_hub.cli.cache.print_cache_selected_revisions") as print_mock,
         ):
             result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--yes"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
         print_mock.assert_called_once()
 
     def test_rm_dry_run_skips_execute(self, runner: CliRunner) -> None:
         revision = _make_revision("d" * 40)
         repo = _make_repo("user/model", revisions=[revision])
-        repo_lookup = {"model/user/model": repo}
-        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
 
         strategy = Mock()
         strategy.expected_freed_size_str = "0B"
 
-        hf_cache_info = Mock()
-        hf_cache_info.delete_revisions.return_value = strategy
-
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+        resolution = _DeletionResolution(
+            revisions=frozenset({revision.commit_hash}),
+            selected={repo: frozenset({revision})},
+            selected_files={},
+            missing=(),
+        )
 
         with (
-            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
-            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
-            patch(
-                "huggingface_hub.cli.cache.summarize_deletions",
-                return_value=counts,
-            ),
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=Mock()),
+            patch("huggingface_hub.cli.cache._resolve_deletion_targets", return_value=resolution),
+            patch("huggingface_hub.cli.cache._build_delete_strategy", return_value=(strategy, counts)),
             patch("huggingface_hub.cli.cache.print_cache_selected_revisions"),
         ):
             result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--dry-run"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_not_called()
+
+    def test_rm_specific_file_target(self, runner: CliRunner) -> None:
+        commit_hash = "f" * 40
+        file_variant = _make_file(commit_hash, "UD-IQ4_NL", size_on_disk=1)
+        other_variant = _make_file(commit_hash, "UD-IQ2_M", size_on_disk=2)
+        revision = _make_revision(commit_hash, refs={"main"}, files={file_variant, other_variant}, size_on_disk=3)
+        repo = _make_repo("unsloth/gemma-4-26B-A4B-it-GGUF", revisions=[revision])
+        hf_cache_info = HFCacheInfo(size_on_disk=3, repos=frozenset({repo}), warnings=[])
+
+        with patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info):
+            result = runner.invoke(
+                app,
+                ["cache", "rm", "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_NL", "--dry-run"],
+            )
+
+        assert result.exit_code == 0
+        assert "1 file(s)" in result.stdout
+        assert "UD-IQ4_NL" in result.stdout
+        assert "Dry run: no files were deleted." in result.stdout
 
     def test_prune_dry_run(self, runner: CliRunner) -> None:
         referenced = _make_revision("e" * 40, refs={"main"})
