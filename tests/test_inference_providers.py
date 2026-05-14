@@ -59,8 +59,10 @@ from huggingface_hub.inference._providers.sambanova import SambanovaConversation
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import (
     TogetherAutomaticSpeechRecognitionTask,
+    TogetherConversationalTask,
     TogetherFeatureExtractionTask,
     TogetherImageToImageTask,
+    TogetherImageToVideoTask,
     TogetherTextToImageTask,
     TogetherTextToSpeechTask,
     TogetherTextToVideoTask,
@@ -1737,6 +1739,40 @@ class TestSambanovaProvider:
 
 
 class TestTogetherProvider:
+    def test_conversational_json_schema_flattens_envelope(self):
+        # Together accepts `{type: "json_schema", schema: <schema>}`; unwrap the OpenAI
+        # `{type: "json_schema", json_schema: {schema}}` envelope.
+        helper = TogetherConversationalTask()
+        schema = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "give me a person"}],
+            {"response_format": {"type": "json_schema", "json_schema": {"name": "person", "schema": schema}}},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
+                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload["response_format"] == {"type": "json_schema", "schema": schema}
+
+    def test_conversational_response_format_passthrough(self):
+        # Non-json_schema response formats (e.g. json_object) should pass through unchanged.
+        helper = TogetherConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "give me JSON"}],
+            {"response_format": {"type": "json_object"}},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
+                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload["response_format"] == {"type": "json_object"}
+
     def test_prepare_route_text_to_image(self):
         helper = TogetherTextToImageTask()
         assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
@@ -1759,8 +1795,8 @@ class TestTogetherProvider:
             "response_format": "base64",
             "width": 512,
             "height": 512,
-            "steps": 10,  # renamed field
-            "guidance": 1,  # renamed field
+            "steps": 10,  # renamed from num_inference_steps
+            "guidance_scale": 1,
             "model": "black-forest-labs/FLUX.1-schnell",
         }
 
@@ -1790,8 +1826,8 @@ class TestTogetherProvider:
         assert payload["reference_images"] == ["https://example.com/input.jpg"]
         assert "image_url" not in payload
         assert payload["response_format"] == "base64"
-        assert payload["steps"] == 20  # renamed field
-        assert payload["guidance"] == 7.5  # renamed field
+        assert payload["steps"] == 20  # renamed from num_inference_steps
+        assert payload["guidance_scale"] == 7.5
         assert payload["model"] == "black-forest-labs/FLUX.2-dev"
 
     @pytest.mark.parametrize(
@@ -1936,6 +1972,30 @@ class TestTogetherProvider:
         response = helper.get_response({"text": "Hello, world!"})
         assert response == {"text": "Hello, world!"}
 
+    def test_automatic_speech_recognition_get_response_with_segments(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        response = helper.get_response(
+            {
+                "text": "Hello, world!",
+                "segments": [
+                    {"id": 0, "start": 0.0, "end": 1.5, "text": "Hello,"},
+                    {"id": 1, "start": 1.5, "end": 2.7, "text": " world!"},
+                ],
+            }
+        )
+        assert response == {
+            "text": "Hello, world!",
+            "chunks": [
+                {"text": "Hello,", "timestamp": [0.0, 1.5]},
+                {"text": " world!", "timestamp": [1.5, 2.7]},
+            ],
+        }
+
+    def test_automatic_speech_recognition_get_response_missing_text(self):
+        helper = TogetherAutomaticSpeechRecognitionTask()
+        with pytest.raises(ValueError, match="missing 'text' field"):
+            helper.get_response({"segments": []})
+
     def test_prepare_route_text_to_video(self):
         helper = TogetherTextToVideoTask()
         assert helper._prepare_route("model-name", "hf_token") == "/v2/videos"
@@ -1944,7 +2004,12 @@ class TestTogetherProvider:
         helper = TogetherTextToVideoTask()
         payload = helper._prepare_payload_as_dict(
             "A cat dancing",
-            {"width": 512, "height": 512, "steps": 30},
+            {
+                "num_inference_steps": 30,
+                "target_size": {"width": 512, "height": 512},
+                "guidance_scale": 3.5,
+                "seed": 42,
+            },
             InferenceProviderMapping(
                 provider="together",
                 hf_model_id="some/video-model",
@@ -1956,9 +2021,43 @@ class TestTogetherProvider:
         assert payload == {
             "prompt": "A cat dancing",
             "model": "some/video-model",
-            "width": 512,
-            "height": 512,
-            "steps": 30,
+            "width": 512,  # extracted from target_size
+            "height": 512,  # extracted from target_size
+            "steps": 30,  # renamed from num_inference_steps
+            "guidance_scale": 3.5,
+            "seed": 42,
+        }
+
+    def test_prepare_route_image_to_video(self):
+        helper = TogetherImageToVideoTask()
+        assert helper._prepare_route("model-name", "hf_token") == "/v2/videos"
+
+    def test_prepare_payload_as_dict_image_to_video(self):
+        helper = TogetherImageToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "https://example.com/cat.jpg",
+            {
+                "prompt": "the cat starts running",
+                "seed": 42,
+                "target_size": {"width": 1920, "height": 1080},
+                "num_inference_steps": 30,
+            },
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="Wan-AI/Wan2.2-I2V-A14B",
+                providerId="Wan-AI/Wan2.2-I2V-A14B",
+                task="image-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "model": "Wan-AI/Wan2.2-I2V-A14B",
+            "frame_images": [{"input_image": "https://example.com/cat.jpg", "frame": "first"}],
+            "prompt": "the cat starts running",
+            "seed": 42,
+            "width": 1920,  # extracted from target_size
+            "height": 1080,  # extracted from target_size
+            "steps": 30,  # renamed from num_inference_steps
         }
 
     def test_video_get_response_polls_until_completed(self, mocker):

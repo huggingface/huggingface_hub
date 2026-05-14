@@ -66,7 +66,7 @@ class TogetherTask(TaskProviderHelper, ABC):
                 return "/v1/audio/transcriptions"
             case "feature-extraction":
                 return "/v1/embeddings"
-            case "text-to-video":
+            case "text-to-video" | "image-to-video":
                 # Video creation lives under /v2 (see https://docs.together.ai/reference/create-videos).
                 return "/v2/videos"
         raise ValueError(f"Unsupported task '{self.task}' for Together API.")
@@ -95,15 +95,19 @@ class TogetherConversationalTask(BaseConversationalTask):
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> dict | None:
         payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
-        response_format = parameters.get("response_format")
-        if isinstance(response_format, dict) and response_format.get("type") == "json_schema":
-            json_schema_details = response_format.get("json_schema")
-            if isinstance(json_schema_details, dict) and "schema" in json_schema_details:
-                payload["response_format"] = {  # type: ignore
-                    "type": "json_object",
-                    "schema": json_schema_details["schema"],
-                }
-
+        # Together accepts response_format `{type: "json_schema", schema: <schema>}` (flattened),
+        # so unwrap the OpenAI-style `{type: "json_schema", json_schema: {schema}}` envelope.
+        response_format = (payload or {}).get("response_format")
+        if (
+            isinstance(response_format, dict)
+            and response_format.get("type") == "json_schema"
+            and isinstance(response_format.get("json_schema"), dict)
+            and "schema" in response_format["json_schema"]
+        ):
+            payload["response_format"] = {  # type: ignore[index]
+                "type": "json_schema",
+                "schema": response_format["json_schema"]["schema"],
+            }
         return payload
 
 
@@ -118,8 +122,6 @@ class TogetherTextToImageTask(TogetherTask):
         parameters = filter_none(parameters)
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
-        if "guidance_scale" in parameters:
-            parameters["guidance"] = parameters.pop("guidance_scale")
 
         return {"prompt": inputs, "response_format": "base64", **parameters, "model": mapped_model}
 
@@ -145,8 +147,6 @@ class TogetherImageToImageTask(TogetherTask):
         prompt = parameters.pop("prompt", "")
         if "num_inference_steps" in parameters:
             parameters["steps"] = parameters.pop("num_inference_steps")
-        if "guidance_scale" in parameters:
-            parameters["guidance"] = parameters.pop("guidance_scale")
 
         # Together exposes two mutually-exclusive image inputs (see
         # https://docs.together.ai/docs/image-to-image): FLUX.1 Kontext only accepts
@@ -240,10 +240,33 @@ class TogetherAutomaticSpeechRecognitionTask(TogetherTask):
         return MimeBytes(body, mime_type=content_type)
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
-        text = _as_dict(response).get("text")
+        response_dict = _as_dict(response)
+        text = response_dict.get("text")
         if not isinstance(text, str):
             raise ValueError(f"Unexpected ASR response from Together: missing 'text' field. Got: {response!r}")
-        return {"text": text}
+        out: dict[str, Any] = {"text": text}
+        segments = response_dict.get("segments")
+        if isinstance(segments, list):
+            out["chunks"] = [
+                {"text": seg.get("text"), "timestamp": [seg.get("start"), seg.get("end")]}
+                for seg in segments
+                if isinstance(seg, dict)
+            ]
+        return out
+
+
+def _normalize_video_parameters(parameters: dict) -> dict:
+    """Map HF inference-client conventions onto Together's video API parameter names."""
+    parameters = filter_none(parameters)
+    if "num_inference_steps" in parameters:
+        parameters["steps"] = parameters.pop("num_inference_steps")
+    if "target_size" in parameters:
+        target_size = parameters.pop("target_size")
+        if "width" in target_size:
+            parameters["width"] = target_size["width"]
+        if "height" in target_size:
+            parameters["height"] = target_size["height"]
+    return parameters
 
 
 class TogetherVideoTask(TogetherTask, ABC):
@@ -304,5 +327,24 @@ class TogetherTextToVideoTask(TogetherVideoTask):
         return {
             "prompt": inputs,
             "model": provider_mapping_info.provider_id,
-            **filter_none(parameters),
+            **_normalize_video_parameters(parameters),
+        }
+
+
+class TogetherImageToVideoTask(TogetherVideoTask):
+    def __init__(self):
+        super().__init__("image-to-video")
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        # Together expects each keyframe as `{input_image, frame: "first" | "last"}`
+        # for i2v models. See https://docs.together.ai/docs/inference/videos/reference-and-keyframes.
+        # Note: `input_image` accepts a data URL or an HTTP(S) URL but the field is capped
+        # at ~60KB — users with larger inputs should host the image and pass `frame_images`
+        # directly via `extra_body`.
+        return {
+            "model": provider_mapping_info.provider_id,
+            "frame_images": [{"input_image": _as_url(inputs, default_mime_type="image/png"), "frame": "first"}],
+            **_normalize_video_parameters(parameters),
         }
