@@ -152,10 +152,10 @@ class TogetherImageToImageTask(TogetherTask):
         # https://docs.together.ai/docs/image-to-image): FLUX.1 Kontext only accepts
         # `image_url`; FLUX.2 [dev] and Google models (Gemini 3 Pro Image, Flash Image
         # 2.5) only accept `reference_images`. FLUX.2 [pro]/[flex] accept either but
-        # `reference_images` is the documented default. Use `image_url` for FLUX.1
-        # (incl. all Kontext variants) and `reference_images` for everything else.
+        # `reference_images` is the documented default. Use `image_url` only for
+        # FLUX.1 Kontext models and `reference_images` for everything else.
         lowered = mapped_model.lower()
-        use_image_url = "kontext" in lowered or "flux.1" in lowered
+        use_image_url = "kontext" in lowered and "flux.1" in lowered
         image_field: dict[str, Any] = {"image_url": image_url} if use_image_url else {"reference_images": [image_url]}
         return {
             "prompt": prompt,
