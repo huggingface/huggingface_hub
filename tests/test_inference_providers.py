@@ -1832,10 +1832,14 @@ class TestTogetherProvider:
 
     @pytest.mark.parametrize(
         "provider_id",
-        ["black-forest-labs/FLUX.1-kontext-pro", "black-forest-labs/FLUX.1-schnell"],
+        [
+            "black-forest-labs/FLUX.1-kontext-pro",
+            "black-forest-labs/FLUX.1-kontext-max",
+            "black-forest-labs/FLUX.1-kontext-dev",
+        ],
     )
-    def test_prepare_payload_as_dict_image_to_image_flux1(self, provider_id):
-        # FLUX.1 (Kontext + others) uses `image_url` (string) and rejects `reference_images`.
+    def test_prepare_payload_as_dict_image_to_image_kontext(self, provider_id):
+        # FLUX.1 Kontext variants use `image_url` (string) and reject `reference_images`.
         helper = TogetherImageToImageTask()
         payload = helper._prepare_payload_as_dict(
             "https://example.com/input.jpg",
