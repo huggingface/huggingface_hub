@@ -466,7 +466,7 @@ def skills_update(
     results = _skills.update_skills(
         roots,
         selector=name,
-        generated_content_overrides={DEFAULT_SKILL_ID: build_skill_md()},
+        local_content_providers={DEFAULT_SKILL_ID: build_skill_md},
     )
     if not results:
         print("No installed skills found.")
