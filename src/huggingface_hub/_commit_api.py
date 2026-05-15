@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NamedTuple, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -94,7 +94,6 @@ class CommitOperationCopy:
 
     Limitations:
       - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
-      - Cross-repository copies are not supported.
 
     Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
 
@@ -106,11 +105,19 @@ class CommitOperationCopy:
         src_revision (`str`, *optional*):
             The git revision of the file to be copied. Can be any valid git revision.
             Default to the target commit revision.
+        src_repo_id (`str`, *optional*):
+            The source repository to copy from (e.g. `"username/source-model"`).
+            Default to the destination repository (intra-repo copy).
+        src_repo_type (`str`, *optional*):
+            The type of the source repository (`"model"`, `"dataset"` or `"space"`).
+            Required when `src_repo_id` is set.
     """
 
     src_path_in_repo: str
     path_in_repo: str
     src_revision: str | None = None
+    src_repo_id: str | None = None
+    src_repo_type: str | None = None
     # set to the OID of the file to be copied if it has already been uploaded
     # useful to determine if a commit will be empty or not.
     _src_oid: str | None = None
@@ -121,6 +128,10 @@ class CommitOperationCopy:
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
+        if self.src_repo_id is not None and self.src_repo_type is None:
+            raise ValueError("`src_repo_type` is required when `src_repo_id` is set.")
+        if self.src_repo_type is not None and self.src_repo_id is None:
+            raise ValueError("`src_repo_id` is required when `src_repo_type` is set.")
 
 
 @dataclass
@@ -776,6 +787,13 @@ def _fetch_upload_modes(
             addition._upload_mode = "regular"
 
 
+class _CopySource(NamedTuple):
+    src_repo_id: str | None
+    src_repo_type: str | None
+    path: str
+    revision: str | None
+
+
 @validate_hf_hub_args
 def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
@@ -784,12 +802,15 @@ def _fetch_files_to_copy(
     headers: dict[str, str],
     revision: str,
     endpoint: str | None = None,
-) -> dict[tuple[str, str | None], Union["RepoFile", bytes]]:
+) -> dict[_CopySource, Union["RepoFile", bytes]]:
     """
     Fetch information about the files to copy.
 
     For LFS files, we only need their metadata (file size and sha256) while for regular files
     we need to download the raw content from the Hub.
+
+    Supports both intra-repo copies (default) and cross-repo copies (when `src_repo_id` is set
+    on the operation).
 
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
@@ -805,8 +826,9 @@ def _fetch_files_to_copy(
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `dict[tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
-        Key is the file path and revision of the file to copy.
+    Returns: `dict[_CopySource, Union[RepoFile, bytes]]]`
+        Key is `(src_repo_id, src_repo_type, path, revision)`. For intra-repo copies,
+        `src_repo_id` and `src_repo_type` are `None`.
         Value is the raw content as bytes (for regular files) or the file information as a RepoFile (for LFS files).
 
     Raises:
@@ -818,15 +840,16 @@ def _fetch_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, headers=headers)
-    files_to_copy: dict[tuple[str, str | None], Union["RepoFile", bytes]] = {}
-    # Store (path, revision) -> oid mapping
+    copies = list(copies)
+    files_to_copy: dict[_CopySource, Union["RepoFile", bytes]] = {}
     oid_info: dict[tuple[str, str | None], str | None] = {}
+
     # 1. Fetch OIDs for destination paths in batches.
     dest_paths = [op.path_in_repo for op in copies]
-    for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
+    for batch in chunk_iterable(dest_paths, FETCH_LFS_BATCH_SIZE):
         dest_repo_files = hf_api.get_paths_info(
             repo_id=repo_id,
-            paths=dest_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+            paths=list(batch),
             revision=revision,
             repo_type=repo_type,
         )
@@ -834,14 +857,18 @@ def _fetch_files_to_copy(
             if not isinstance(file, RepoFolder):
                 oid_info[(file.path, revision)] = file.blob_id
 
-    # 2. Group by source revision and fetch source file info in batches.
-    for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
-        operations = list(operations)  # type: ignore
+    # Separate intra-repo and cross-repo copies
+    intra_repo_copies = [op for op in copies if op.src_repo_id is None]
+    cross_repo_copies = [op for op in copies if op.src_repo_id is not None]
+
+    # 2. Intra-repo copies: group by source revision and fetch source file info in batches.
+    for src_revision, operations in groupby(intra_repo_copies, key=lambda op: op.src_revision):
+        operations = list(operations)  # type: ignore[assignment]
         src_paths = [op.src_path_in_repo for op in operations]
-        for offset in range(0, len(src_paths), FETCH_LFS_BATCH_SIZE):
+        for paths_batch in chunk_iterable(src_paths, FETCH_LFS_BATCH_SIZE):
             src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
-                paths=src_paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+                paths=list(paths_batch),
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
@@ -850,11 +877,10 @@ def _fetch_files_to_copy(
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
                 oid_info[(src_repo_file.path, src_revision)] = src_repo_file.blob_id
-                # If it's an LFS file, store the RepoFile object. Otherwise, download raw bytes.
+                source = _CopySource(None, None, src_repo_file.path, src_revision)
                 if src_repo_file.lfs:
-                    files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
+                    files_to_copy[source] = src_repo_file
                 else:
-                    # TODO: (optimization) download regular files to copy concurrently
                     url = hf_hub_url(
                         endpoint=endpoint,
                         repo_type=repo_type,
@@ -864,23 +890,69 @@ def _fetch_files_to_copy(
                     )
                     response = get_session().get(url, headers=headers)
                     hf_raise_for_status(response)
-                    files_to_copy[(src_repo_file.path, src_revision)] = response.content
-        # 3. Ensure all operations found a corresponding file in the Hub
-        #  and track src/dest OIDs for each operation.
+                    files_to_copy[source] = response.content
         for operation in operations:
-            if (operation.src_path_in_repo, src_revision) not in files_to_copy:
+            key = _CopySource(None, None, operation.src_path_in_repo, src_revision)
+            if key not in files_to_copy:
                 raise EntryNotFoundError(
                     f"Cannot copy {operation.src_path_in_repo} at revision "
                     f"{src_revision or revision}: file is missing on repo."
                 )
             operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
             operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
+
+    # 3. Cross-repo copies: group by (src_repo_id, src_repo_type, src_revision).
+    for (src_repo_id, src_repo_type, src_revision), operations in groupby(
+        cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
+    ):
+        operations = list(operations)  # type: ignore[assignment]
+        src_paths = [op.src_path_in_repo for op in operations]
+        for paths_batch in chunk_iterable(src_paths, FETCH_LFS_BATCH_SIZE):
+            src_repo_files = hf_api.get_paths_info(
+                repo_id=src_repo_id,
+                paths=list(paths_batch),
+                revision=src_revision or "main",
+                repo_type=src_repo_type,
+            )
+
+            for src_repo_file in src_repo_files:
+                if isinstance(src_repo_file, RepoFolder):
+                    raise NotImplementedError("Copying a folder is not implemented.")
+                source = _CopySource(src_repo_id, src_repo_type, src_repo_file.path, src_revision)
+                if src_repo_file.lfs:
+                    if not src_repo_file.xet_hash:
+                        raise ValueError(
+                            f"Cross-repo copy of LFS file '{src_repo_file.path}' from"
+                            f" {src_repo_type}s/{src_repo_id} is not supported: file has no xet hash."
+                            " Only xet-enabled repositories support cross-repo LFS copies."
+                        )
+                    files_to_copy[source] = src_repo_file
+                else:
+                    url = hf_hub_url(
+                        endpoint=endpoint,
+                        repo_type=src_repo_type,
+                        repo_id=src_repo_id,
+                        revision=src_revision or "main",
+                        filename=src_repo_file.path,
+                    )
+                    response = get_session().get(url, headers=headers)
+                    hf_raise_for_status(response)
+                    files_to_copy[source] = response.content
+        for operation in operations:
+            key = _CopySource(src_repo_id, src_repo_type, operation.src_path_in_repo, src_revision)
+            if key not in files_to_copy:
+                raise EntryNotFoundError(
+                    f"Cannot copy {operation.src_path_in_repo} at revision "
+                    f"{src_revision or 'main'} from {src_repo_type}s/{src_repo_id}: file is missing on repo."
+                )
+            operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
+
     return files_to_copy
 
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: dict[tuple[str, str | None], Union["RepoFile", bytes]],
+    files_to_copy: dict[_CopySource, Union["RepoFile", bytes]],
     commit_message: str,
     commit_description: str | None = None,
     parent_commit: str | None = None,
@@ -942,7 +1014,13 @@ def _prepare_commit_payload(
             }
         # 2.d. Case copying a file or folder
         elif isinstance(operation, CommitOperationCopy):
-            file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
+            source = _CopySource(
+                operation.src_repo_id,
+                operation.src_repo_type,
+                operation.src_path_in_repo,
+                operation.src_revision,
+            )
+            file_to_copy = files_to_copy[source]
             if isinstance(file_to_copy, bytes):
                 yield {
                     "key": "file",
@@ -953,13 +1031,19 @@ def _prepare_commit_payload(
                     },
                 }
             elif file_to_copy.lfs:
+                lfs_value: dict[str, Any] = {
+                    "path": operation.path_in_repo,
+                    "algo": "sha256",
+                    "oid": file_to_copy.lfs.sha256,
+                }
+                if operation.src_repo_id is not None:
+                    lfs_value["size"] = file_to_copy.lfs.size
+                    lfs_value["xetHash"] = file_to_copy.xet_hash
+                    lfs_value["sourceRepoType"] = operation.src_repo_type
+                    lfs_value["sourceRepoId"] = operation.src_repo_id
                 yield {
                     "key": "lfsFile",
-                    "value": {
-                        "path": operation.path_in_repo,
-                        "algo": "sha256",
-                        "oid": file_to_copy.lfs.sha256,
-                    },
+                    "value": lfs_value,
                 }
             else:
                 raise ValueError(
