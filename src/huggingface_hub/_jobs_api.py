@@ -57,15 +57,18 @@ class JobOwner:
 @dataclass
 class JobDurations:
     """
-    Contains timing breakdown for a Job.
+    Timing breakdown for a Job, computed server-side.
 
     Args:
         scheduling_secs (`int` or `None`):
-            Seconds spent in the scheduling stage before the job started running.
+            Seconds the job spent in the scheduling stage before starting to run.
+            `None` if the job never reached the running stage.
         running_secs (`int` or `None`):
-            Seconds the job spent running. May be partial while the job is in progress.
+            Seconds the job has been or was running. Recomputed on each request
+            while the job is in progress. `None` if the job never started running.
         total_secs (`int` or `None`):
-            Total seconds elapsed (scheduling + running). May be partial while in progress.
+            Total seconds elapsed since the job was created. Recomputed on each
+            request while the job is in progress.
     """
 
     scheduling_secs: int | None
@@ -117,7 +120,7 @@ class JobInfo:
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
         durations (`JobDurations` or `None`):
-            Timing breakdown of the Job (scheduling, running, total). None while the Job is still scheduling.
+            Timing breakdown of the Job. Present for all job states including SCHEDULING.
         owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
 

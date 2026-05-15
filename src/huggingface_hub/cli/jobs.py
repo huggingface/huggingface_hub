@@ -622,8 +622,8 @@ def jobs_ps(
             print("[]")
         return
 
-    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "DURATION"]
-    aliases = ["id", "image", "command", "created", "status", "duration"]
+    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "RUNTIME"]
+    aliases = ["id", "image", "command", "created", "status", "runtime"]
     items = [api_object_to_dict(job) for job in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
