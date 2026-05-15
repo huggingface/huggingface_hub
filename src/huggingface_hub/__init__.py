@@ -78,6 +78,7 @@ _SUBMOD_ATTRS = {
     ],
     "_jobs_api": [
         "JobAccelerator",
+        "JobDurations",
         "JobHardware",
         "JobInfo",
         "JobOwner",
@@ -763,6 +764,7 @@ __all__ = [
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "JobAccelerator",
+    "JobDurations",
     "JobHardware",
     "JobInfo",
     "JobOwner",
@@ -1228,6 +1230,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from ._jobs_api import (
         JobAccelerator,  # noqa: F401
+        JobDurations,  # noqa: F401
         JobHardware,  # noqa: F401
         JobInfo,  # noqa: F401
         JobOwner,  # noqa: F401

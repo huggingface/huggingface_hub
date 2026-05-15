@@ -55,6 +55,33 @@ class JobOwner:
 
 
 @dataclass
+class JobDurations:
+    """
+    Timing breakdown for a Job, computed server-side.
+
+    Args:
+        scheduling_secs (`int` or `None`):
+            Seconds the job spent in the scheduling stage before starting to run.
+            `None` if the job never reached the running stage.
+        running_secs (`int` or `None`):
+            Seconds the job has been or was running. Recomputed on each request
+            while the job is in progress. `None` if the job never started running.
+        total_secs (`int` or `None`):
+            Total seconds elapsed since the job was created. Recomputed on each
+            request while the job is in progress.
+    """
+
+    scheduling_secs: int | None
+    running_secs: int | None
+    total_secs: int | None
+
+    def __init__(self, **kwargs) -> None:
+        self.scheduling_secs = kwargs.get("schedulingSecs", kwargs.get("scheduling_secs"))
+        self.running_secs = kwargs.get("runningSecs", kwargs.get("running_secs"))
+        self.total_secs = kwargs.get("totalSecs", kwargs.get("total_secs"))
+
+
+@dataclass
 class JobInfo:
     """
     Contains information about a Job.
@@ -64,6 +91,10 @@ class JobInfo:
             Job ID.
         created_at (`datetime` or `None`):
             When the Job was created.
+        started_at (`datetime` or `None`):
+            When the Job started running. None while the Job is still scheduling.
+        finished_at (`datetime` or `None`):
+            When the Job finished. None while the Job is still scheduling or running.
         docker_image (`str` or `None`):
             The Docker image from Docker Hub used for the Job.
             Can be None if space_id is present instead.
@@ -88,6 +119,8 @@ class JobInfo:
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
+        durations (`JobDurations` or `None`):
+            Timing breakdown of the Job. Present for all job states including SCHEDULING.
         owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
 
@@ -100,7 +133,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), started_at=datetime.datetime(2025, 7, 22, 16, 6, 31, 79000, tzinfo=datetime.timezone.utc), finished_at=None, docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), durations=JobDurations(scheduling_secs=6, running_secs=2, total_secs=8), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -112,6 +145,8 @@ class JobInfo:
 
     id: str
     created_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
     docker_image: str | None
     space_id: str | None
     command: list[str] | None
@@ -122,6 +157,7 @@ class JobInfo:
     labels: dict[str, str] | None
     volumes: list[Volume] | None
     status: JobStatus
+    durations: JobDurations | None
     owner: JobOwner
 
     # Inferred fields
@@ -132,6 +168,10 @@ class JobInfo:
         self.id = kwargs["id"]
         created_at = kwargs.get("createdAt") or kwargs.get("created_at")
         self.created_at = parse_datetime(created_at) if created_at else None
+        started_at = kwargs.get("startedAt") or kwargs.get("started_at")
+        self.started_at = parse_datetime(started_at) if started_at else None
+        finished_at = kwargs.get("finishedAt") or kwargs.get("finished_at")
+        self.finished_at = parse_datetime(finished_at) if finished_at else None
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
         self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
         owner = kwargs.get("owner", {})
@@ -146,6 +186,8 @@ class JobInfo:
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
+        durations = kwargs.get("durations")
+        self.durations = JobDurations(**durations) if durations else None
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
