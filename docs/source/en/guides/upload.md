@@ -96,6 +96,9 @@ check if a local folder or file has the same name as the `repo_id`. If that's th
 Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
 set, files are uploaded at the root of the repo.
 
+> [!TIP]
+> For maximum upload throughput on large files, set the [`HF_XET_HIGH_PERFORMANCE=1`](../package_reference/environment_variables.md#hf_xet_high_performance) environment variable. This enables `hf_xet`'s high-performance mode, which saturates available bandwidth and CPU cores. Note: the legacy `HF_HUB_ENABLE_HF_TRANSFER=1` flag is no longer used since `hf_transfer` was removed in favor of `hf_xet` — set `HF_XET_HIGH_PERFORMANCE=1` instead.
+
 For more details about the CLI upload command, please refer to the [CLI guide](./cli#hf-upload).
 
 ## Upload a large folder

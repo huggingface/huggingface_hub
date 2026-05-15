@@ -1645,6 +1645,8 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 `hf jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
 
+**For a general overview of Jobs and pricing, see the [Hub Jobs documentation](https://huggingface.co/docs/hub/jobs).** For Python API usage alongside the CLI, see the [Run and manage Jobs guide](./jobs).
+
 ```bash
 # Directly run Python code
 >>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
@@ -1663,17 +1665,8 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 >>> hf jobs uv run my_script.py
 ```
 
-### ✨ Key Features
-
-- 🐳 **Docker-like CLI**: Familiar commands (`run`, `ps`, `logs`, `inspect`) to run and manage jobs
-- 🔥 **Any Hardware**: From CPUs to A100 GPUs and TPU pods - switch with a simple flag
-- 📦 **Run Anything**: Use Docker images, HF Spaces, or your custom containers
-- 🔐 **Simple Auth**: Just use your HF token
-- 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
-- 💰 **Pay-as-you-go**: Only pay for the seconds you use
-
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with [pre-paid credits](https://huggingface.co/settings/billing).
 
 ### Quick Start
 
