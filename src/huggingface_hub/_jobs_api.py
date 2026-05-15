@@ -58,12 +58,13 @@ class JobOwner:
 class JobInitiator:
     """
     Contains information about what triggered a Job.
-    
+
     Args:
         type (`str`): Initiator kind, for example `"user"`, `"org"`, `"scheduled-job"`, or `"duplicated-job"`.
         id (`str`): Identifier of the initiator.
         name (`str` or `None`): Human-readable name when available, usually for user/org initiators.
     """
+
     type: str
     id: str
     name: str | None = None
