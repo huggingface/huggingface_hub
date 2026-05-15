@@ -84,7 +84,7 @@ Integer value to define the number of seconds to wait for server response when f
 
 Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
 
-## Xet 
+## Xet
 
 ### Other Xet environment variables
 * [`HF_HUB_DISABLE_XET`](../package_reference/environment_variables#hfhubdisablexet)
@@ -100,13 +100,13 @@ Defaults to `0` (0 bytes, means chunk cache is disabled).
 
 ### HF_XET_SHARD_CACHE_SIZE_LIMIT
 
-To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
+To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads.
 
 Defaults to `4000000000` (4GB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 
-To set the number of concurrent terms (range of bytes from within a xorb, often called a chunk) downloaded from S3 per file. Increasing this will help with the speed of downloading a file if there is network bandwidth available. 
+To set the number of concurrent terms (range of bytes from within a xorb, often called a chunk) downloaded from S3 per file. Increasing this will help with the speed of downloading a file if there is network bandwidth available.
 
 Defaults to `16`.
 
@@ -154,6 +154,20 @@ If set, `huggingface_hub` will never create symlinks in the cache. Instead, file
 
 An example use case is when a shared network drive (e.g. NAS) is used as `HF_HUB_CACHE` across machines running different operating
 systems. Symlinks created on Linux are not always traversable on Windows, leading to errors. Setting `HF_HUB_DISABLE_SYMLINKS=1` avoids this problem at the cost of disk-space deduplication.
+
+### HF_HUB_USE_SOFT_FILELOCK
+
+If set, `huggingface_hub` will use a lock-file-based [`SoftFileLock`](https://py-filelock.readthedocs.io/en/latest/api.html#filelock.SoftFileLock) for all cache writes, regardless of which filesystem the cache lives on.
+
+By default `huggingface_hub` uses native `flock(2)` for fast, kernel-enforced mutual exclusion, falling back to `SoftFileLock` only when it can detect the filesystem is one where `flock(2)` is unreliable (Lustre, GPFS, NFS, SMB, CIFS — see [`tox-dev/filelock#389`](https://github.com/tox-dev/filelock/issues/389) and [`huggingface/transformers#30859`](https://github.com/huggingface/transformers/issues/30859)). On those filesystems `flock(2)` silently grants the lock to every caller without blocking, which corrupts the cache when multiple processes download or update the same repo concurrently — readers can transiently see a truncated or interleaved `config.json`.
+
+Set `HF_HUB_USE_SOFT_FILELOCK=1` to force the safe path even when autodetection misses (e.g. exotic FUSE mounts that wrap one of the unsafe backends).
+
+### HF_HUB_FORCE_FLOCK
+
+If set, `huggingface_hub` will use native `flock(2)` for all cache writes, even when filesystem autodetection would have picked `SoftFileLock`.
+
+This is the opt-back-in escape hatch for sites that have deliberately mounted a parallel filesystem with cluster-wide `flock` support (e.g. Lustre with the `flock` mount option) and want the small performance benefit of native locking. Only use it when you are certain `flock(2)` actually serializes across all nodes that share the cache — otherwise the cache will silently corrupt under concurrent writers.
 
 ### HF_HUB_DISABLE_SYMLINKS_WARNING
 

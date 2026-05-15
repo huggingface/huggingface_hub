@@ -253,6 +253,16 @@ HF_HUB_DISABLE_PROGRESS_BARS: bool | None = (
 # Disable symlinks in the cache (files are copied instead of symlinked)
 HF_HUB_DISABLE_SYMLINKS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS"))
 
+# Force `WeakFileLock` to use `SoftFileLock` (lock-file based) regardless of filesystem detection.
+# Useful on shared caches mounted on parallel filesystems (Lustre, GPFS, NFS, ...) where `flock()`
+# silently succeeds for every caller and the native lock is a no-op.
+HF_HUB_USE_SOFT_FILELOCK: bool = _is_true(os.environ.get("HF_HUB_USE_SOFT_FILELOCK"))
+
+# Opt back into native `flock()` regardless of filesystem detection. Use when you know your shared
+# filesystem is mounted with cluster-wide `flock` support (e.g. Lustre with the `flock` mount
+# option) and want the small perf benefit over `SoftFileLock`.
+HF_HUB_FORCE_FLOCK: bool = _is_true(os.environ.get("HF_HUB_FORCE_FLOCK"))
+
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
 HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING"))
 
