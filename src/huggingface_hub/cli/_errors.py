@@ -23,7 +23,9 @@ from huggingface_hub.errors import (
     EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    LocalEntryNotFoundError,
     LocalTokenNotFoundError,
+    OfflineModeIsEnabled,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -65,6 +67,13 @@ def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:
     return msg
 
 
+def _format_local_entry_not_found(error: LocalEntryNotFoundError) -> str:
+    cause = error.__cause__
+    if cause is not None:
+        return f"Local entry not found. {cause}"
+    return f"Local entry not found. {error}"
+
+
 def _format_revision_not_found(error: RevisionNotFoundError) -> str:
     label = error.repo_type if error.repo_type else "repository"
     if error.repo_id:
@@ -93,6 +102,7 @@ def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
 
 
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
+    OfflineModeIsEnabled: lambda error: str(error),
     # GatedRepoError must come before RepositoryNotFoundError (it's a subclass).
     GatedRepoError: _format_gated_repo,
     BucketNotFoundError: _format_bucket_not_found,
@@ -100,6 +110,7 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     RevisionNotFoundError: _format_revision_not_found,
     LocalTokenNotFoundError: lambda _: "Not logged in. Run 'hf auth login' first.",
     RemoteEntryNotFoundError: _format_entry_not_found,
+    LocalEntryNotFoundError: _format_local_entry_not_found,
     EntryNotFoundError: lambda error: str(error),
     HfHubHTTPError: lambda error: str(error),
     ValueError: lambda error: f"Invalid value. {error}",
