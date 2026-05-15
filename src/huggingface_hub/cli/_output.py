@@ -47,8 +47,10 @@ class Output:
     """
 
     mode: OutputFormatWithAuto
+    no_truncate: bool
 
     def __init__(self) -> None:
+        self.no_truncate = False
         self.set_mode()
 
     def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
@@ -58,6 +60,10 @@ class Output:
         self.mode = mode
         if mode != OutputFormatWithAuto.human:
             disable_progress_bars()
+
+    def set_no_truncate(self, no_truncate: bool) -> None:
+        """Toggle off cell truncation for human table output."""
+        self.no_truncate = no_truncate
 
     def is_quiet(self) -> bool:
         return self.mode == OutputFormatWithAuto.quiet
@@ -110,10 +116,31 @@ class Output:
 
         match self.mode:
             case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
-                formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
+                formatted_rows: list[list[str | int]] = []
+                scalar_truncated = False
+                container_truncated = False
+                for row in rows:
+                    formatted_row: list[str | int] = []
+                    for value in row:
+                        cell = _format_table_value_human(value)
+                        # Containers (lists/dicts) can be arbitrarily long (e.g. `tags`); always shorten
+                        # them in human mode and point users at `--format json` for full content.
+                        is_container = isinstance(value, (dict, list, set, tuple))
+                        if len(cell) > _MAX_CELL_LENGTH and (not self.no_truncate or is_container):
+                            if is_container:
+                                container_truncated = True
+                            else:
+                                scalar_truncated = True
+                            cell = cell[: _MAX_CELL_LENGTH - 3] + "..."
+                        formatted_row.append(cell)
+                    formatted_rows.append(formatted_row)
                 screaming_headers = [_to_header(h) for h in headers]
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
+                if scalar_truncated:
+                    self.hint("Use `--no-truncate` to display full values.")
+                elif container_truncated:
+                    self.hint("Use `--format json` to display full lists/dicts.")
             case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
