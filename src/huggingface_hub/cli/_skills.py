@@ -57,12 +57,13 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
 
 def install_skill_from_content(name: str, content: str, destination_root: Path, force: bool = False) -> Path:
     """Install a skill by writing generated content directly (no bucket download)."""
-    return _install_skill(
-        name,
-        destination_root,
-        populate=lambda install_dir: _write_skill_content(install_dir, content),
-        force=force,
-    )
+
+    def populate(install_dir: Path) -> None:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        (install_dir / "SKILL.md").write_text(content, encoding="utf-8")
+        (install_dir / MANAGED_MARKER_FILENAME).touch()
+
+    return _install_skill(name, destination_root, populate=populate, force=force)
 
 
 def update_skills(
@@ -211,13 +212,6 @@ def _populate_install_dir(api, skill: MarketplaceSkill, install_dir: Path) -> No
     bucket_files = _list_skill_files(api, skill)
     _download_skill_files(api, skill, bucket_files, install_dir)
     _validate_installed_skill_dir(install_dir)
-    (install_dir / MANAGED_MARKER_FILENAME).touch()
-
-
-def _write_skill_content(install_dir: Path, content: str) -> None:
-    """Write generated skill content as SKILL.md and mark as managed."""
-    install_dir.mkdir(parents=True, exist_ok=True)
-    (install_dir / "SKILL.md").write_text(content, encoding="utf-8")
     (install_dir / MANAGED_MARKER_FILENAME).touch()
 
 
