@@ -105,7 +105,6 @@ from .errors import (
 from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
-    DEFAULT_IGNORE_PATTERNS,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -5585,57 +5584,23 @@ class HfApi:
         ... )
         ```
         """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        from ._upload_folder_v2 import upload_folder_v2
 
-        # By default, upload folder to the root directory in repo.
-        if path_in_repo is None:
-            path_in_repo = ""
-
-        # Do not upload .git folder
-        if ignore_patterns is None:
-            ignore_patterns = []
-        elif isinstance(ignore_patterns, str):
-            ignore_patterns = [ignore_patterns]
-        ignore_patterns += DEFAULT_IGNORE_PATTERNS
-
-        delete_operations = self._prepare_folder_deletions(
+        return upload_folder_v2(
+            self,
             repo_id=repo_id,
-            repo_type=repo_type,
-            revision=constants.DEFAULT_REVISION if create_pr else revision,
-            token=token,
+            folder_path=folder_path,
             path_in_repo=path_in_repo,
-            delete_patterns=delete_patterns,
-        )
-        add_operations = self._prepare_upload_folder_additions(
-            folder_path,
-            path_in_repo,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            token=token,
-            repo_type=repo_type,
-        )
-
-        # Optimize operations: if some files will be overwritten, we don't need to delete them first
-        if len(add_operations) > 0:
-            added_paths = {op.path_in_repo for op in add_operations}
-            delete_operations = [
-                delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
-            ]
-        commit_operations = delete_operations + add_operations
-
-        commit_message = commit_message or "Upload folder using huggingface_hub"
-
-        return self.create_commit(
-            repo_type=repo_type,
-            repo_id=repo_id,
-            operations=commit_operations,
             commit_message=commit_message,
             commit_description=commit_description,
             token=token,
+            repo_type=repo_type,
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            delete_patterns=delete_patterns,
         )
 
     @validate_hf_hub_args
