@@ -7,9 +7,10 @@ import stat
 import time
 import uuid
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, Protocol, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -56,7 +57,61 @@ from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
 
+if TYPE_CHECKING:
+    from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
+
+
 logger = logging.get_logger(__name__)
+
+
+class ProgressBar(Protocol):
+    """Any object with a tqdm-compatible ``update(n)`` method."""
+
+    def update(self, n: int) -> None: ...
+
+
+def make_xet_progress_callback(
+    progress_bar: ProgressBar, file_size: int | None
+) -> Callable[["PyTotalProgressUpdate", "list[PyItemProgressUpdate]"], None]:
+    """Create a xet-core progress callback that scales network transfer to *file_size*.
+
+    Each callback tracks its own cumulative bytes so multiple callbacks can
+    safely share a single progress bar (e.g. multi-file bucket downloads).
+    """
+    _cumulative_transfer = 0
+    _last_contributed = 0
+
+    def _callback(
+        total_update: "PyTotalProgressUpdate",
+        item_updates: "list[PyItemProgressUpdate]",
+    ) -> None:
+        nonlocal _cumulative_transfer, _last_contributed
+        increment = total_update.total_transfer_bytes_completion_increment
+        if increment <= 0:
+            return
+
+        _cumulative_transfer += increment
+        transfer_total = total_update.total_transfer_bytes
+
+        # Indeterminate bar (unknown file size): pass through raw bytes
+        if file_size is None:
+            progress_bar.update(int(increment))
+            return
+
+        # File size known but transfer total not yet reported: skip to avoid
+        # injecting unscaled bytes into a determinate bar
+        if not transfer_total or transfer_total <= 0:
+            return
+
+        # Scale network transfer fraction to file size
+        contributed = min(round(_cumulative_transfer / transfer_total * file_size), file_size)
+        advance = contributed - _last_contributed
+        if advance > 0:
+            _last_contributed = contributed
+            progress_bar.update(advance)
+
+    return _callback
+
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
 _CACHED_NO_EXIST = object()
@@ -551,16 +606,12 @@ def xet_get(
     xet_headers.pop("authorization", None)
 
     with progress_cm as progress:
-
-        def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
-
         download_files(
             xet_download_info,
             endpoint=connection_info.endpoint,
             token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
             token_refresher=token_refresher,
-            progress_updater=[progress_updater],
+            progress_updater=[make_xet_progress_callback(progress, expected_size)],
             request_headers=xet_headers,
         )
 
