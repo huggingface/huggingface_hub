@@ -19,13 +19,24 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from huggingface_hub.errors import CLIError
 
-from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
+from ..utils import (
+    ANSI,
+    CachedFileInfo,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    CacheNotFound,
+    DeleteCacheStrategy,
+    HFCacheInfo,
+    _format_size,
+    scan_cache_dir,
+)
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 from ._output import out
@@ -41,6 +52,7 @@ cache_cli = typer_factory(help="Manage local cache directory.")
 class _DeletionResolution:
     revisions: frozenset[str]
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]]
+    selected_files: dict[CachedRepoInfo, dict[CachedRevisionInfo, frozenset[CachedFileInfo]]]
     missing: tuple[str, ...]
 
 
@@ -75,6 +87,7 @@ class CacheDeletionCounts:
     repo_count: int
     partial_revision_count: int
     total_revision_count: int
+    file_count: int = 0
 
 
 CacheEntry = tuple[CachedRepoInfo, CachedRevisionInfo | None]
@@ -83,6 +96,8 @@ RepoRefsMap = dict[CachedRepoInfo, frozenset[str]]
 
 def summarize_deletions(
     selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
+    *,
+    selected_files: Mapping[CachedRepoInfo, Mapping[CachedRevisionInfo, frozenset[CachedFileInfo]]] | None = None,
 ) -> CacheDeletionCounts:
     """Summarize deletions across repositories."""
     repo_count = 0
@@ -96,22 +111,57 @@ def summarize_deletions(
             revisions_in_full_repos += len(revisions)
 
     partial_revision_count = total_revisions - revisions_in_full_repos
-    return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions)
+    file_count = 0
+    if selected_files is not None:
+        file_count = sum(len(files) for revisions in selected_files.values() for files in revisions.values())
+
+    return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions, file_count=file_count)
 
 
-def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
+def print_cache_selected_revisions(
+    selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]],
+    selected_files: Mapping[CachedRepoInfo, Mapping[CachedRevisionInfo, frozenset[CachedFileInfo]]] | None = None,
+) -> None:
     """Pretty-print selected cache revisions during confirmation prompts."""
-    for repo in sorted(selected_by_repo.keys(), key=lambda repo: (repo.repo_type, repo.repo_id.lower())):
+    selected_files = selected_files or {}
+    repos = sorted(
+        set(selected_by_repo) | set(selected_files), key=lambda repo: (repo.repo_type, repo.repo_id.lower())
+    )
+    for repo in repos:
         repo_key = f"{repo.repo_type}/{repo.repo_id}"
-        revisions = sorted(selected_by_repo[repo], key=lambda rev: rev.commit_hash)
-        if len(revisions) == len(repo.revisions):
+        revisions = sorted(selected_by_repo.get(repo, frozenset()), key=lambda rev: rev.commit_hash)
+        revision_files = selected_files.get(repo, {})
+
+        if len(revisions) == len(repo.revisions) and not revision_files:
             out.text(f"  - {repo_key} (entire repo)")
             continue
 
         out.text(f"  - {repo_key}:")
         for revision in revisions:
             refs = " ".join(sorted(revision.refs)) or "(detached)"
-            out.text(f"      {revision.commit_hash} [{refs}] {revision.size_on_disk_str}")
+            if revision not in revision_files:
+                out.text(f"      {revision.commit_hash} [{refs}] {revision.size_on_disk_str}")
+                continue
+
+            out.text(f"      {revision.commit_hash} [{refs}]")
+            for file in sorted(
+                revision_files[revision],
+                key=lambda file: file.file_path.relative_to(revision.snapshot_path).as_posix(),
+            ):
+                relative_path = file.file_path.relative_to(revision.snapshot_path).as_posix()
+                out.text(f"        {relative_path} {file.size_on_disk_str}")
+
+        for revision in sorted(
+            (rev for rev in revision_files.keys() if rev not in revisions), key=lambda rev: rev.commit_hash
+        ):
+            refs = " ".join(sorted(revision.refs)) or "(detached)"
+            out.text(f"      {revision.commit_hash} [{refs}]")
+            for file in sorted(
+                revision_files[revision],
+                key=lambda file: file.file_path.relative_to(revision.snapshot_path).as_posix(),
+            ):
+                relative_path = file.file_path.relative_to(revision.snapshot_path).as_posix()
+                out.text(f"        {relative_path} {file.size_on_disk_str}")
 
 
 def build_cache_index(
@@ -129,6 +179,66 @@ def build_cache_index(
         for revision in repo.revisions:
             revision_lookup[revision.commit_hash.lower()] = (repo, revision)
     return repo_lookup, revision_lookup
+
+
+def _normalize_cache_id(repo_target: str) -> str:
+    target = repo_target.strip().strip("/")
+    target = re.sub(r"^https?://huggingface\.co/", "", target).strip("/")
+    target = target.removeprefix("hf://").strip("/")
+
+    parts = target.split("/")
+    if len(parts) == 1:
+        repo_type = "model"
+        namespace = None
+        repo_id = parts[0]
+    elif parts[0] in {"model", "models", "dataset", "datasets", "space", "spaces", "kernel", "kernels"}:
+        repo_type = {
+            "model": "model",
+            "models": "model",
+            "dataset": "dataset",
+            "datasets": "dataset",
+            "space": "space",
+            "spaces": "space",
+            "kernel": "kernel",
+            "kernels": "kernel",
+        }[parts[0]]
+        remaining = parts[1:]
+        if len(remaining) == 1:
+            namespace = None
+            repo_id = remaining[0]
+        else:
+            namespace = remaining[0]
+            repo_id = remaining[1]
+    else:
+        repo_type = "model"
+        namespace = parts[0]
+        repo_id = parts[1]
+
+    if namespace is None:
+        return f"{repo_type}/{repo_id}"
+    return f"{repo_type}/{namespace}/{repo_id}"
+
+
+def _resolve_file_targets(
+    repo: CachedRepoInfo,
+    path_target: str,
+) -> dict[CachedRevisionInfo, frozenset[CachedFileInfo]]:
+    selected_files: dict[CachedRevisionInfo, set[CachedFileInfo]] = defaultdict(set)
+    normalized_path_target = path_target.strip("/")
+
+    for revision in repo.revisions:
+        for file in revision.files:
+            relative_path = file.file_path.relative_to(revision.snapshot_path).as_posix()
+            if "/" in normalized_path_target:
+                matches = relative_path == normalized_path_target
+            else:
+                matches = file.file_name == normalized_path_target or relative_path.endswith(
+                    f"/{normalized_path_target}"
+                )
+            if matches:
+                selected_files[revision].add(file)
+
+    return {revision: frozenset(files) for revision, files in selected_files.items()}
 
 
 def collect_cache_entries(
@@ -301,6 +411,9 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
     repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
 
     selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
+    selected_files: dict[CachedRepoInfo, dict[CachedRevisionInfo, set[CachedFileInfo]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
     revisions: set[str] = set()
     missing: list[str] = []
 
@@ -320,7 +433,23 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             revisions.add(revision.commit_hash)
             continue
 
-        matched_repo = repo_lookup.get(lowered)
+        if ":" in target:
+            repo_target, path_target = target.split(":", 1)
+            matched_repo = repo_lookup.get(_normalize_cache_id(repo_target).lower())
+            if matched_repo is None:
+                missing.append(raw_target)
+                continue
+
+            matching_files = _resolve_file_targets(matched_repo, path_target)
+            if not matching_files:
+                missing.append(raw_target)
+                continue
+
+            for revision, files in matching_files.items():
+                selected_files[matched_repo][revision].update(files)
+            continue
+
+        matched_repo = repo_lookup.get(_normalize_cache_id(target).lower())
         if matched_repo is None:
             missing.append(raw_target)
             continue
@@ -329,12 +458,112 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             selected[matched_repo].add(revision)
             revisions.add(revision.commit_hash)
 
+    # Promote file deletions that fully remove a revision into revision deletions.
+    for repo, revision_to_files in list(selected_files.items()):
+        for revision, files in list(revision_to_files.items()):
+            if len(files) == len(revision.files):
+                selected[repo].add(revision)
+                revisions.add(revision.commit_hash)
+                del revision_to_files[revision]
+
+        if len(revision_to_files) == 0:
+            del selected_files[repo]
+
+    # Promote repos whose selected revisions cover all revisions.
+    for repo, revisions_to_delete in list(selected.items()):
+        revisions.update(revision.commit_hash for revision in revisions_to_delete)
+        if len(revisions_to_delete) == len(repo.revisions):
+            selected_files.pop(repo, None)
+
     frozen_selected = {repo: frozenset(revs) for repo, revs in selected.items()}
+    frozen_selected_files = {
+        repo: {revision: frozenset(files) for revision, files in revision_to_files.items()}
+        for repo, revision_to_files in selected_files.items()
+    }
     return _DeletionResolution(
         revisions=frozenset(revisions),
         selected=frozen_selected,
+        selected_files=frozen_selected_files,
         missing=tuple(missing),
     )
+
+
+def _build_delete_strategy(
+    hf_cache_info: HFCacheInfo, resolution: _DeletionResolution
+) -> tuple[DeleteCacheStrategy, CacheDeletionCounts]:
+    blobs_to_delete: set[Path] = set()
+    blob_sizes: dict[Path, int] = {}
+    files_to_delete: set[Path] = set()
+    refs_to_delete: set[Path] = set()
+    repos_to_delete: set[Path] = set()
+    snapshots_to_delete: set[Path] = set()
+
+    repo_count = 0
+    total_revision_count = 0
+    partial_revision_count = 0
+    file_count = 0
+
+    for repo in hf_cache_info.repos:
+        selected_revisions = resolution.selected.get(repo, frozenset())
+        selected_files_by_revision = resolution.selected_files.get(repo, {})
+
+        is_repo_fully_selected = len(selected_revisions) == len(repo.revisions) and not selected_files_by_revision
+        if is_repo_fully_selected:
+            repo_count += 1
+            total_revision_count += len(repo.revisions)
+            repos_to_delete.add(repo.repo_path)
+            continue
+
+        total_revision_count += len(selected_revisions)
+        # Only count partial revisions that are not already selected as full revisions
+        partial_revision_count += sum(1 for rev in selected_files_by_revision.keys() if rev not in selected_revisions)
+        file_count += sum(len(files) for rev, files in selected_files_by_revision.items() if rev not in selected_revisions)
+
+        total_blob_refs: dict[Path, int] = defaultdict(int)
+        selected_blob_refs: dict[Path, int] = defaultdict(int)
+
+        for revision in repo.revisions:
+            for file in revision.files:
+                total_blob_refs[file.blob_path] += 1
+                blob_sizes.setdefault(file.blob_path, file.size_on_disk)
+
+        for revision in selected_revisions:
+            snapshots_to_delete.add(revision.snapshot_path)
+            refs_to_delete.update(repo.repo_path / "refs" / ref for ref in revision.refs)
+            for file in revision.files:
+                selected_blob_refs[file.blob_path] += 1
+
+        for revision, files in selected_files_by_revision.items():
+            if revision in selected_revisions:
+                # Files in this revision are already counted when deleting the whole revision
+                continue
+            for file in files:
+                files_to_delete.add(file.file_path)
+                selected_blob_refs[file.blob_path] += 1
+
+        for blob_path, selected_count in selected_blob_refs.items():
+            if selected_count == total_blob_refs[blob_path]:
+                blobs_to_delete.add(blob_path)
+
+    expected_freed_size = sum(blob_sizes[blob_path] for blob_path in blobs_to_delete) + sum(
+        repo.size_on_disk for repo in hf_cache_info.repos if repo.repo_path in repos_to_delete
+    )
+
+    strategy = DeleteCacheStrategy(
+        blobs=frozenset(blobs_to_delete),
+        files=frozenset(files_to_delete),
+        refs=frozenset(refs_to_delete),
+        repos=frozenset(repos_to_delete),
+        snapshots=frozenset(snapshots_to_delete),
+        expected_freed_size=expected_freed_size,
+    )
+    counts = CacheDeletionCounts(
+        repo_count=repo_count,
+        partial_revision_count=partial_revision_count,
+        total_revision_count=total_revision_count,
+        file_count=file_count,
+    )
+    return strategy, counts
 
 
 #### Cache CLI commands
@@ -480,6 +709,7 @@ def ls(
     examples=[
         "hf cache rm model/gpt2",
         "hf cache rm <revision_hash>",
+        "hf cache rm unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_NL",
         "hf cache rm model/gpt2 --dry-run",
         "hf cache rm model/gpt2 --yes",
     ],
@@ -488,7 +718,7 @@ def rm(
     targets: Annotated[
         list[str],
         typer.Argument(
-            help="One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.",
+            help="One or more repo IDs (e.g. model/bert-base-uncased), revision hashes, or repo:path targets to delete.",
         ),
     ],
     cache_dir: Annotated[
@@ -512,7 +742,7 @@ def rm(
         ),
     ] = False,
 ) -> None:
-    """Remove cached repositories or revisions."""
+    """Remove cached repositories, revisions, or files."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -524,24 +754,25 @@ def rm(
         details = "\n".join(f"  - {entry}" for entry in resolution.missing)
         out.warning(f"Could not find in cache:\n{details}")
 
-    if len(resolution.revisions) == 0:
+    if len(resolution.revisions) == 0 and not resolution.selected_files:
         out.text("Nothing to delete.")
         raise typer.Exit(code=0)
 
-    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
-    counts = summarize_deletions(resolution.selected)
+    strategy, counts = _build_delete_strategy(hf_cache_info, resolution)
 
     summary_parts: list[str] = []
     if counts.repo_count:
         summary_parts.append(f"{counts.repo_count} repo(s)")
-    if counts.partial_revision_count:
-        summary_parts.append(f"{counts.partial_revision_count} revision(s)")
-    if not summary_parts:
+    if counts.total_revision_count:
         summary_parts.append(f"{counts.total_revision_count} revision(s)")
+    if counts.file_count:
+        summary_parts.append(f"{counts.file_count} file(s)")
+    if not summary_parts:
+        summary_parts.append("Nothing")
 
     summary_text = " and ".join(summary_parts)
     out.text(f"About to delete {summary_text} totalling {strategy.expected_freed_size_str}.")
-    print_cache_selected_revisions(resolution.selected)
+    print_cache_selected_revisions(resolution.selected, resolution.selected_files)
 
     if dry_run:
         out.result(
@@ -549,6 +780,7 @@ def rm(
             dry_run=True,
             repos=counts.repo_count,
             revisions=counts.total_revision_count,
+            files=counts.file_count,
             size=strategy.expected_freed_size_str,
         )
         return
@@ -556,12 +788,11 @@ def rm(
     out.confirm("Proceed with deletion?", yes=yes)
 
     strategy.execute()
-    counts = summarize_deletions(resolution.selected)
     out.result(
-        f"Deleted {counts.repo_count} repo(s) and {counts.total_revision_count} revision(s);"
-        f" freed {strategy.expected_freed_size_str}.",
+        f"Deleted {summary_text}; freed {strategy.expected_freed_size_str}.",
         repos_deleted=counts.repo_count,
         revisions_deleted=counts.total_revision_count,
+        files_deleted=counts.file_count,
         freed=strategy.expected_freed_size_str,
     )
 
@@ -611,6 +842,7 @@ def prune(
     resolution = _DeletionResolution(
         revisions=frozenset(revisions),
         selected=selected,
+        selected_files={},
         missing=(),
     )
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))

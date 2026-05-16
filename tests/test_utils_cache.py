@@ -644,6 +644,27 @@ class TestDeleteStrategyExecute(unittest.TestCase):
         self.assertTrue(snapshot_1.exists())
         self.assertFalse(snapshot_2.exists())
 
+    def test_execute_with_file_deletions(self) -> None:
+        file_path = self.cache_dir / "repo_C" / "snapshots" / "snapshot_1" / "UD-IQ4_NL"
+        file_path.parent.mkdir(parents=True)
+        file_path.touch()
+
+        blob_path = self.cache_dir / "repo_C" / "blobs" / "blob_1"
+        blob_path.parent.mkdir(parents=True)
+        blob_path.touch()
+
+        DeleteCacheStrategy(
+            expected_freed_size=123,
+            blobs={blob_path},
+            refs=set(),
+            repos=set(),
+            snapshots=set(),
+            files={file_path},
+        ).execute()
+
+        self.assertFalse(file_path.exists())
+        self.assertFalse(blob_path.exists())
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestTryDeletePath(unittest.TestCase):

@@ -552,7 +552,7 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List cached repositories or revisions. [alias: ls]
 * `prune`: Remove detached revisions from the cache.
-* `rm`: Remove cached repositories or revisions.
+* `rm`: Remove cached repositories, revisions, or...
 * `verify`: Verify checksums for a single repo...
 
 ### `hf cache list`
@@ -613,7 +613,7 @@ Learn more
 
 ### `hf cache rm`
 
-Remove cached repositories or revisions.
+Remove cached repositories, revisions, or files.
 
 **Usage**:
 
@@ -623,7 +623,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), revision hashes, or repo:path targets to delete.  [required]
 
 **Options**:
 
@@ -635,6 +635,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 Examples
   $ hf cache rm model/gpt2
   $ hf cache rm <revision_hash>
+  $ hf cache rm unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_NL
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes
 

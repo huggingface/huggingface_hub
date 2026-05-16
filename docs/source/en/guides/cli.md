@@ -1442,7 +1442,7 @@ Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 
 ### hf cache rm
 
-`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
+`hf cache rm` removes cached repositories, individual revisions, or specific files inside a cached repo. Pass one or more repo IDs (`model/bert-base-uncased`), revision hashes, or `repo_id:path_in_repo` targets:
 
 ```bash
 >>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
@@ -1452,6 +1452,15 @@ Proceed with deletion? [y/N]: y
 Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
 Cache deletion done. Saved 3.2G.
 Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+```bash
+>>> hf cache rm unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ4_NL --dry-run
+About to delete 1 file(s) totalling 2.1G.
+  - model/unsloth/gemma-4-26B-A4B-it-GGUF:
+      ffffffffffffffffffffffffffffffffffffffff [main]
+        UD-IQ4_NL 2.1G
+Dry run: no files were deleted.
 ```
 
 Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:

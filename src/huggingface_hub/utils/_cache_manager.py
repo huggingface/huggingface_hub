@@ -268,6 +268,8 @@ class DeleteCacheStrategy:
             Expected freed size once strategy is executed.
         blobs (`frozenset[Path]`):
             Set of blob file paths to be deleted.
+        files (`frozenset[Path]`):
+            Set of cached file symlinks to be deleted.
         refs (`frozenset[Path]`):
             Set of reference file paths to be deleted.
         repos (`frozenset[Path]`):
@@ -281,6 +283,7 @@ class DeleteCacheStrategy:
     refs: frozenset[Path]
     repos: frozenset[Path]
     snapshots: frozenset[Path]
+    files: frozenset[Path] = frozenset()
 
     @property
     def expected_freed_size_str(self) -> str:
@@ -307,9 +310,9 @@ class DeleteCacheStrategy:
         # up in a state where a `ref`` refers to a missing snapshot or a snapshot
         # symlink refers to a deleted blob.
 
-        # Delete entire repos
-        for path in self.repos:
-            _try_delete_path(path, path_type="repo")
+        # Delete individual files first so snapshot / repo deletions don't hide them.
+        for path in self.files:
+            _try_delete_path(path, path_type="file")
 
         # Delete snapshot directories
         for path in self.snapshots:
@@ -322,6 +325,10 @@ class DeleteCacheStrategy:
         # Delete blob files
         for path in self.blobs:
             _try_delete_path(path, path_type="blob")
+
+        # Delete entire repos last once their contents are gone.
+        for path in self.repos:
+            _try_delete_path(path, path_type="repo")
 
         logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
