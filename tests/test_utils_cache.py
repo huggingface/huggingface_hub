@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
+from huggingface_hub.file_download import try_to_load_from_cache
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
 
@@ -372,6 +373,31 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             + f"({self.repo_path}).",
         )
 
+    def test_ref_with_trailing_newline_still_resolves(self) -> None:
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4133.
+
+        A refs/<revision> file that contains a trailing newline (e.g. written with
+        `echo` or copied between environments) must still be resolved to the correct
+        snapshot.  Before the fix `f.read()` returned `hash\\n`, making the key in
+        `refs_by_hash` differ from the actual snapshot directory name and triggering a
+        spurious "missing commit hash" CorruptedCacheException.
+        """
+        # Read the clean hash that the upstream download wrote.
+        main_ref = self.refs_path / "main"
+        commit_hash = main_ref.read_text().strip()
+
+        # Overwrite the file with an explicit trailing newline to simulate the bug.
+        main_ref.write_text(commit_hash + "\n")
+
+        report = scan_cache_dir(self.cache_dir)
+
+        self.assertEqual(len(report.warnings), 0, f"Unexpected warnings: {report.warnings}")
+        self.assertEqual(len(report.repos), 1)
+        repo = list(report.repos)[0]
+        self.assertEqual(len(repo.revisions), 1)
+        revision = list(repo.revisions)[0]
+        self.assertIn("main", revision.refs)
+
     @skip_on_windows("Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
@@ -435,6 +461,62 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(readme_file_2.blob_last_accessed, repo_2.last_accessed)
         self.assertEqual(readme_file_2.blob_last_modified, repo_2.last_modified)
         self.assertEqual(revision_2.last_modified, repo_2.last_modified)
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestRefTrailingNewlineHandlingUnit(unittest.TestCase):
+    """Unit-level regression tests for https://github.com/huggingface/huggingface_hub/issues/4133.
+
+    These tests construct a minimal fake cache on-disk and do not require network access.
+    They ensure that a trailing newline in refs/<revision> files does not break cache
+    lookups in try_to_load_from_cache or scan_cache_dir.
+    """
+
+    cache_dir: Path
+
+    FAKE_REPO_ID = "test-org/my-model"
+    FAKE_COMMIT_HASH = "a" * 40
+    FAKE_FILENAME = "config.json"
+
+    def _build_minimal_cache(self, ref_content: str) -> None:
+        """Populate cache_dir with a minimal single-file cache."""
+        repo_dir = self.cache_dir / "models--test-org--my-model"
+        snapshot_dir = repo_dir / "snapshots" / self.FAKE_COMMIT_HASH
+        refs_dir = repo_dir / "refs"
+
+        snapshot_dir.mkdir(parents=True)
+        (snapshot_dir / self.FAKE_FILENAME).write_text("{}")
+
+        refs_dir.mkdir(parents=True)
+        (refs_dir / "main").write_text(ref_content)
+
+    def test_try_to_load_from_cache_strips_trailing_newline(self) -> None:
+        """try_to_load_from_cache must find the cached file even when refs/main ends with \\n."""
+        self._build_minimal_cache(ref_content=self.FAKE_COMMIT_HASH + "\n")
+
+        result = try_to_load_from_cache(
+            self.FAKE_REPO_ID,
+            filename=self.FAKE_FILENAME,
+            revision="main",
+            cache_dir=self.cache_dir,
+        )
+
+        self.assertIsNotNone(result, "Expected cached file to be found despite trailing newline in refs/main")
+        self.assertTrue(str(result).endswith(self.FAKE_FILENAME))
+
+    def test_scan_cache_strips_trailing_newline(self) -> None:
+        """scan_cache_dir must correctly map a ref whose file ends with \\n to the snapshot."""
+        self._build_minimal_cache(ref_content=self.FAKE_COMMIT_HASH + "\n")
+
+        report = scan_cache_dir(self.cache_dir)
+
+        self.assertEqual(len(report.warnings), 0, f"Unexpected warnings: {report.warnings}")
+        self.assertEqual(len(report.repos), 1)
+        repo = list(report.repos)[0]
+        self.assertEqual(len(repo.revisions), 1)
+        revision = list(repo.revisions)[0]
+        self.assertEqual(revision.commit_hash, self.FAKE_COMMIT_HASH)
+        self.assertIn("main", revision.refs)
 
 
 class TestDeleteRevisionsDryRun(unittest.TestCase):

@@ -1103,7 +1103,7 @@ def _hf_hub_download_to_cache_dir(
                 ref_path = os.path.join(storage_folder, "refs", revision)
                 if os.path.isfile(ref_path):
                     with open(ref_path) as f:
-                        commit_hash = f.read()
+                        commit_hash = f.read().strip()
 
             # Return pointer file if exists
             if commit_hash is not None:
@@ -1516,7 +1516,7 @@ def try_to_load_from_cache(
         revision_file = os.path.join(refs_dir, revision)
         if os.path.isfile(revision_file):
             with open(revision_file) as f:
-                revision = f.read()
+                revision = f.read().strip()
 
     # Check if file is cached as "no_exist"
     if os.path.isfile(os.path.join(no_exist_dir, revision, filename)):

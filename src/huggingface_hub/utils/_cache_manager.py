@@ -720,7 +720,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             ref_name = str(ref_path.relative_to(refs_path))
             with ref_path.open() as f:
-                commit_hash = f.read()
+                commit_hash = f.read().strip()
 
             refs_by_hash[commit_hash].add(ref_name)
 
