@@ -39,6 +39,7 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     installation_method,
     logging,
+    parse_hf_mount,
     tabulate,
 )
 from huggingface_hub.utils._dotenv import load_dotenv
@@ -818,14 +819,6 @@ VolumesOpt = Annotated[
     ),
 ]
 
-_HF_PREFIX = "hf://"
-_HF_VOLUME_TYPES = {
-    "models": constants.REPO_TYPE_MODEL,
-    "datasets": constants.REPO_TYPE_DATASET,
-    "spaces": constants.REPO_TYPE_SPACE,
-    "buckets": "bucket",
-}
-
 
 def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     """Parse volume specs from CLI arguments.
@@ -846,75 +839,20 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         hf://datasets/org/ds/train:/data          (with path inside repo)
         hf://buckets/org/b/sub/dir:/mnt           (with path inside bucket)
     """
-
     if not volumes:
         return None
 
     result: list[Volume] = []
     for raw_spec in volumes:
-        # Strip :ro/:rw suffix
-        spec = raw_spec
-        read_only = None
-        if spec.endswith(":ro"):
-            read_only = True
-            spec = spec[:-3]
-        elif spec.endswith(":rw"):
-            read_only = False
-            spec = spec[:-3]
-
-        # Validate hf:// prefix
-        if not spec.startswith(_HF_PREFIX):
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
-            )
-        spec = spec[len(_HF_PREFIX) :]
-
-        # Find the mount path: look for :/ pattern
-        colon_slash_idx = spec.find(":/")
-        if colon_slash_idx == -1:
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
-            )
-        source_part = spec[:colon_slash_idx]
-        mount_path = spec[colon_slash_idx + 1 :]
-
-        # Parse type from source_part (first segment before /)
-        # Then split remaining into source (namespace/name or name) and optional path.
-        slash_idx = source_part.find("/")
-        if slash_idx == -1:
-            # No slash: bare source like "gpt2" -> model type
-            vol_type_str = constants.REPO_TYPE_MODEL
-            source = source_part
-            path = None
-        else:
-            first_segment = source_part[:slash_idx]
-            if first_segment in _HF_VOLUME_TYPES:
-                vol_type_str = _HF_VOLUME_TYPES[first_segment]
-                remaining = source_part[slash_idx + 1 :]
-            else:
-                # First segment isn't a known type -> model type
-                vol_type_str = constants.REPO_TYPE_MODEL
-                remaining = source_part
-
-            # Split remaining into source (namespace/name) and optional path.
-            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
-            # Any extra segments are the path inside the repo/bucket.
-            parts = remaining.split("/", 2)
-            if len(parts) >= 3:
-                source = parts[0] + "/" + parts[1]
-                path = parts[2]
-            else:
-                source = remaining
-                path = None
-
+        mount = parse_hf_mount(raw_spec)
         result.append(
             Volume(
-                type=vol_type_str,
-                source=source,
-                mount_path=mount_path,
-                read_only=read_only,
-                path=path,
+                type=mount.source.type,
+                source=mount.source.id,
+                mount_path=mount.mount_path,
+                read_only=mount.read_only,
+                path=mount.source.path_in_repo or None,
+                revision=mount.source.revision or None,
             )
         )
     return result
