@@ -8,7 +8,7 @@ import pickle
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Type
 from unittest.mock import Mock, patch
 
 import fsspec
@@ -847,16 +847,23 @@ def test_resolve_path_with_non_matching_revisions():
         fs.resolve_path("username/my_model@dev", revision="main")
 
 
-@pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets"])
-def test_access_repositories_lists(not_supported_path):
-    # empty path => not supported
-    # wrong repo_id => ValueError
+@pytest.mark.parametrize(
+    ("not_supported_path", "expected_error"),
+    [
+        # empty path => not supported
+        ("", NotImplementedError),
+        # wrong repo_id => ValueError
+        ("foo", ValueError),
+        ("datasets", ValueError),
+    ],
+)
+def test_access_repositories_lists(not_supported_path, expected_error: Type[Exception]):
     fs = HfFileSystem()
-    with pytest.raises((NotImplementedError, ValueError)):
+    with pytest.raises(expected_error):
         fs.info(not_supported_path)
-    with pytest.raises((NotImplementedError, ValueError)):
+    with pytest.raises(expected_error):
         fs.ls(not_supported_path)
-    with pytest.raises((NotImplementedError, ValueError)):
+    with pytest.raises(expected_error):
         fs.open(not_supported_path)
 
 
