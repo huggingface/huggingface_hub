@@ -116,7 +116,7 @@ class HFCliTyperGroup(TyperGroup):
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
-    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``)
+    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``, ``--no-truncate``)
       anywhere in the args of a leaf command and applies them to ``out``, so leaf
       commands don't need to declare these options themselves.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
@@ -188,7 +188,7 @@ class HFCliTyperGroup(TyperGroup):
             raise
 
         # If we just resolved a leaf command, eagerly consume any global formatting
-        # flags (--format / --json / -q / --quiet) from its args before click parses
+        # flags (--format / --json / -q / --quiet / --no-truncate) from its args before click parses
         # them.  Group resolution is recursive — leaves (and only leaves) need this.
         if resolved_cmd is not None and not isinstance(resolved_cmd, click.Group):
             _consume_format_flags_for_leaf(resolved_cmd, sub_args)
@@ -371,6 +371,7 @@ _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
     ),
     ("--json", "JSON output. Equivalent to '--format json'."),
     ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+    ("--no-truncate", "Do not truncate scalar values in human tables (list/dict columns stay shortened)."),
 ]
 
 
@@ -408,10 +409,15 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
 
     * **Modern commands** (no local format/quiet/json options): the flags '--format <value>' / '--json' / '--quiet' / '-q' are stripped from 'args' and applied to the singleton 'out'.
 
+    '--no-truncate' is stripped for all non-pass-through commands; when present, human table cells are not truncated.
+
     Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
     """
     if cmd.context_settings.get("ignore_unknown_options"):
         return
+
+    no_truncate = _consume_no_truncate_flags(args)
+    out.set_no_truncate(no_truncate)
 
     has_local_format = False
     has_local_quiet = False
@@ -476,6 +482,24 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         i += 1
 
     out.set_mode(chosen_mode)
+
+
+def _consume_no_truncate_flags(args: list[str]) -> bool:
+    """Strip all global --no-truncate flags from args and return whether any was provided."""
+    no_truncate = False
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            break  # everything after '--' is a positional literal
+        if arg == "--no-truncate":
+            no_truncate = True
+            del args[i : i + 1]
+            continue
+        if arg.startswith("--no-truncate="):
+            raise click.UsageError("Option '--no-truncate' does not take a value.")
+        i += 1
+    return no_truncate
 
 
 def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
