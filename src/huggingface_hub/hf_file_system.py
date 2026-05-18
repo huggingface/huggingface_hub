@@ -295,9 +295,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 If trying to list repositories.
         """
         path = self._strip_protocol(path)
-        if not path or path.count("/") == 0:
-            # can't list repositories at root
+        if not path:
             raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
+        if path.count("/") == 0:
+            raise ValueError(
+                f"Repository id must be 'namespace/name', got '{path}'. Single-segment ids (e.g. 'gpt2') are no longer supported."
+            )
 
         parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
 
