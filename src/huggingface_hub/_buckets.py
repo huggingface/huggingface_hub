@@ -37,7 +37,6 @@ from .utils import (
     XetFileData,
     disable_progress_bars,
     enable_progress_bars,
-    is_hf_uri,
     parse_datetime,
     parse_hf_uri,
 )
@@ -264,8 +263,14 @@ def _parse_bucket_uri(path: str) -> HfUri:
 
 
 def _is_bucket_path(path: str) -> bool:
-    """Check if a path is a bucket path."""
-    return is_hf_uri(path) and parse_hf_uri(path).is_bucket
+    """Check if a path is a bucket path.
+
+    Do not raise if the path is not a hf:// URI.
+    Raise if the path is a hf:// URI but with an incorrect format.
+    """
+    if not path.startswith(constants.HF_PROTOCOL):
+        return False
+    return parse_hf_uri(path).is_bucket
 
 
 # =============================================================================
