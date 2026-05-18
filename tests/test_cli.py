@@ -2804,7 +2804,7 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["line 1", "line 2"])
             result = runner.invoke(app, ["jobs", "logs", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=None)
         assert "line 1" in result.output
         assert "line 2" in result.output
 
@@ -2815,7 +2815,7 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["streaming line"])
             result = runner.invoke(app, ["jobs", "logs", "-f", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=None)
         assert "streaming line" in result.output
 
     def test_logs_follow_long_flag(self, runner: CliRunner) -> None:
@@ -2825,36 +2825,38 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["streaming line"])
             result = runner.invoke(app, ["jobs", "logs", "--follow", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=None)
 
     def test_logs_tail(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs --tail 2 <id>` shows only the last 2 lines."""
+        """Test that `hf jobs logs --tail 2 <id>` forwards tail to the API."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3", "line 4"])
+            api.fetch_job_logs.return_value = iter(["line 3", "line 4"])
             result = runner.invoke(app, ["jobs", "logs", "--tail", "2", "my-job-id"])
         assert result.exit_code == 0
-        assert "line 1" not in result.output
-        assert "line 2" not in result.output
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=2)
         assert "line 3" in result.output
         assert "line 4" in result.output
 
     def test_logs_tail_short_flag(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs -n 1 <id>` shows only the last line."""
+        """Test that `hf jobs logs -n 1 <id>` forwards tail=1 to the API."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3"])
+            api.fetch_job_logs.return_value = iter(["line 3"])
             result = runner.invoke(app, ["jobs", "logs", "-n", "1", "my-job-id"])
         assert result.exit_code == 0
-        assert "line 1" not in result.output
-        assert "line 2" not in result.output
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=1)
         assert "line 3" in result.output
 
-    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs -f --tail 5 <id>` raises an error."""
-        result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
-        assert result.exit_code != 0
-        assert "Cannot use --follow and --tail together" in str(result.exception)
+    def test_logs_follow_and_tail_combined(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -f --tail 100 <id>` is allowed and forwards both."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["streaming line"])
+            result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "100", "my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=100)
+        assert "streaming line" in result.output
 
     def _make_mock_jobs(self):
         """Create mock JobInfo objects for testing ps output."""

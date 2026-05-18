@@ -8135,6 +8135,7 @@ class HfApi:
         tolerated_status_codes: tuple[int, ...] = (),
         tolerated_exception_types: tuple[type[Exception], ...] = (),
         on_iteration_end: Callable[[], bool] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterable[dict[str, Any]]:
         # Shared SSE streaming loop with retry/backoff and event-index dedup.
         # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
@@ -8161,6 +8162,7 @@ class HfApi:
                     url,
                     headers=self._build_hf_headers(token=token),
                     timeout=timeout,
+                    params=params,
                 ) as response:
                     if response.status_code == 200:
                         event_idx = -1
@@ -8209,6 +8211,9 @@ class HfApi:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
                     error_to_retry = err
+            # Drop params after the first attempt: the start_event_idx dedup
+            # requires a stable replay prefix, which `tail` would break.
+            params = None
             if on_iteration_end is not None and on_iteration_end():
                 break
 
@@ -11515,6 +11520,7 @@ class HfApi:
         follow: bool = True,
         namespace: str | None = None,
         token: bool | str | None = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -11540,6 +11546,7 @@ class HfApi:
             tolerated_status_codes=tolerated_status_codes,
             tolerated_exception_types=tolerated_exception_types,
             on_iteration_end=has_job_finished,
+            params=params,
         )
 
     def fetch_job_logs(
@@ -11548,6 +11555,7 @@ class HfApi:
         job_id: str,
         namespace: str | None = None,
         follow: bool = False,
+        tail: int | None = None,
         token: bool | str | None = None,
     ) -> Iterable[str]:
         """
@@ -11563,6 +11571,11 @@ class HfApi:
             follow (`bool`, *optional*):
                 If `True`, stream logs in real-time until the job completes (blocking).
                 If `False` (default), fetch only the currently available logs and return immediately (non-blocking).
+
+            tail (`int`, *optional*):
+                Maximum number of lines to return from the logs. When combined with `follow=True`,
+                starts from the last N lines and continues streaming new logs. When `follow=False`,
+                returns only the last N lines from currently available logs.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -11581,6 +11594,10 @@ class HfApi:
             >>> # Non-blocking: fetch only currently available logs
             >>> for log in fetch_job_logs(job_id=job.id, follow=False):
             ...     print(log)
+
+            >>> # Stream logs starting from the last 100 lines
+            >>> for log in fetch_job_logs(job_id=job.id, follow=True, tail=100):
+            ...     print(log)
             ```
         """
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
@@ -11596,6 +11613,7 @@ class HfApi:
         # quickly, then pauses waiting for new events (~30s keep-alive). 5 seconds is
         # enough to receive all buffered logs.
         timeout = 4 * seconds_between_keep_alive if follow else 5
+        params = {"tail": tail} if tail is not None else None
         for event in self._fetch_running_job_sse(
             job_id=job_id,
             route="logs",
@@ -11604,6 +11622,7 @@ class HfApi:
             follow=follow,
             namespace=namespace,
             token=token,
+            params=params,
         ):
             # timestamp = event["timestamp"]
             if not event["data"].startswith("===== Job started"):
