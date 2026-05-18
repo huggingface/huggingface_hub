@@ -40,7 +40,6 @@ from .utils import (
     hf_raise_for_status,
     logging,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
     tqdm,
     validate_hf_hub_args,
 )
@@ -484,24 +483,23 @@ def xet_get(
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
         for efficient storage and transfer.
 
-        `hf_xet.download_files` manages downloading files by:
-        - Taking a list of files to download (each with its unique content hash)
+        ``session.new_file_download_group()`` manages downloading files by:
+        - Registering download tasks (each with its unique content hash) and starting download immediately in the background
         - Connecting to a storage server (CAS server) that knows how files are chunked
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works by regularly refreshing access tokens through `refresh_xet_connection_info` to maintain a valid
-        connection to the storage server.
+        Authentication works transparently: the download group accepts a ``token_refresh_url``
+        that is used to refresh the short-lived xet access token as needed.
 
         The download process works like this:
-        1. Create a local cache folder at `~/.cache/huggingface/xet/chunk-cache` to store reusable file chunks
-        2. Download files in parallel:
-            2.1. Prepare to write the file to disk
-            2.2. Ask the server "how is this file split into chunks?" using the file's unique hash
+        1. Download tasks run in parallel:
+            1.1. Prepare to write the file to disk or to a stream (e.g. truncate file, set up cache)
+            1.2. Ask the server "how is this file split into chunks?" using the file's unique hash
                 The server responds with:
                 - Which chunks make up the complete file
                 - Where each chunk can be downloaded from
-            2.3. For each needed chunk:
+            1.3. For each needed chunk:
                 - Checks if we already have it in our local cache
                 - If not, download it from cloud storage (S3)
                 - Save it to cache for future use
@@ -509,26 +507,12 @@ def xet_get(
 
     """
     try:
-        from hf_xet import PyXetDownloadInfo, download_files  # type: ignore[no-redef]
+        from hf_xet import XetFileInfo  # type: ignore[no-redef]
     except ImportError:
         raise ValueError(
             "To use optimized download using Xet storage, you need to install the hf_xet package. "
             'Try `pip install "huggingface_hub[hf_xet]"` or `pip install hf_xet`.'
         )
-
-    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-
-    def token_refresher() -> tuple[str, int]:
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
-        if connection_info is None:
-            raise ValueError("Failed to refresh token using xet metadata.")
-        return connection_info.access_token, connection_info.expiration_unix_epoch
-
-    xet_download_info = [
-        PyXetDownloadInfo(
-            destination_path=str(incomplete_path.absolute()), hash=xet_file_data.file_hash, file_size=expected_size
-        )
-    ]
 
     if not displayed_filename:
         displayed_filename = incomplete_path.name
@@ -547,22 +531,34 @@ def xet_get(
         _tqdm_bar=_tqdm_bar,
     )
 
-    xet_headers = headers.copy()
-    xet_headers.pop("authorization", None)
+    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+
+    xet_headers = xet_headers_without_auth(headers)
+
+    session = get_xet_session()
 
     with progress_cm as progress:
+        _prev = 0
 
-        def progress_updater(progress_bytes: float):
-            progress.update(progress_bytes)
+        def _on_progress(group_report, _):
+            nonlocal _prev
+            current = group_report.total_bytes_completed
+            progress.update(max(0, current - _prev))
+            _prev = current
 
-        download_files(
-            xet_download_info,
-            endpoint=connection_info.endpoint,
-            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-            token_refresher=token_refresher,
-            progress_updater=[progress_updater],
-            request_headers=xet_headers,
-        )
+        try:
+            with session.new_file_download_group(
+                token_refresh_url=xet_file_data.refresh_route,
+                token_refresh_headers=headers,
+                custom_headers=xet_headers,
+                progress_callback=_on_progress,
+            ) as group:
+                group.start_download_file(
+                    XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
+                )
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
 
 
 def _normalize_etag(etag: str | None) -> str | None:
