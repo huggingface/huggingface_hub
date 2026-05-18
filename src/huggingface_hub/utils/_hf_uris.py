@@ -181,7 +181,7 @@ class HfMount:
 
 
 def is_hf_uri(uri: str) -> bool:
-    """Check if a string is a valie hf:// URI."""
+    """Check if a string is a valid hf:// URI."""
     try:
         parse_hf_uri(uri)
         return True

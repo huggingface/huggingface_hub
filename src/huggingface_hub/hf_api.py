@@ -12888,7 +12888,7 @@ class HfApi:
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-                If the destination is not a bucket or if the source/destination handles are invalid.
+                If the destination is not a bucket or if the source/destination URIs are invalid.
 
         Example:
             ```python

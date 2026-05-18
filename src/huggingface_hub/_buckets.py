@@ -160,7 +160,7 @@ class BucketUrl:
     - namespace (`str`)
     - bucket_id (`str`)
     - url (`str`)
-    - uri (`str`)
+    - uri (`HfUri`)
 
     Args:
         url (`str`):
