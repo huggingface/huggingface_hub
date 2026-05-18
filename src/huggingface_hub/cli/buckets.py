@@ -91,10 +91,7 @@ def create(
     api = get_hf_api(token=token)
 
     if bucket_id.startswith(BUCKET_PREFIX):
-        try:
-            parsed = _parse_bucket_uri(bucket_id)
-        except ValueError as e:
-            raise typer.BadParameter(str(e))
+        parsed = _parse_bucket_uri(bucket_id)
         if parsed.path_in_repo:
             raise typer.BadParameter(
                 f"Cannot specify a prefix for bucket creation: {bucket_id}."
@@ -247,12 +244,7 @@ def _list_files(
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
-
-    try:
-        parsed = _parse_bucket_uri(argument)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
+    parsed = _parse_bucket_uri(argument)
     items = list(
         api.list_bucket_tree(
             parsed.id,
@@ -282,12 +274,7 @@ def info(
 ) -> None:
     """Get info about a bucket."""
     api = get_hf_api(token=token)
-
-    try:
-        parsed = _parse_bucket_uri(bucket_id)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
+    parsed = _parse_bucket_uri(bucket_id)
     bucket = api.bucket_info(parsed.id)
     out.dict(bucket, id_key="id")
 
@@ -330,10 +317,7 @@ def delete(
     This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
     """
     if bucket_id.startswith(BUCKET_PREFIX):
-        try:
-            parsed = _parse_bucket_uri(bucket_id)
-        except ValueError as e:
-            raise typer.BadParameter(str(e))
+        parsed = _parse_bucket_uri(bucket_id)
         if parsed.path_in_repo:
             raise typer.BadParameter(
                 f"Cannot specify a prefix for bucket deletion: {bucket_id}."
@@ -414,11 +398,7 @@ def remove(
 
     To delete an entire bucket, use `hf buckets delete` instead.
     """
-    try:
-        parsed = _parse_bucket_uri(argument)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
+    parsed = _parse_bucket_uri(argument)
     bucket_id = parsed.id
     prefix = parsed.path_in_repo
 
