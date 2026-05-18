@@ -3367,6 +3367,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `add`: Download a Hugging Face skill and install...
+* `list`: List available skills from the Hugging... [alias: ls]
 * `preview`: Print the generated `hf-cli` SKILL.md to...
 * `update`: Update installed Hugging Face marketplace...
 
@@ -3401,6 +3402,30 @@ Examples
   $ hf skills add --global
   $ hf skills add --claude
   $ hf skills add huggingface-gradio --claude --global
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf skills list`
+
+List available skills from the Hugging Face marketplace. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf skills list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills list
+  $ hf skills list --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

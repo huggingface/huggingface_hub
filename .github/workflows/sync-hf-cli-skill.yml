@@ -62,15 +62,24 @@ jobs:
       - name: Copy generated files
         run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
 
-      - name: Regenerate skills repo artifacts
-        working-directory: skills-repo
-        run: ./scripts/publish.sh
-
-      - name: Check for changes
+      - name: Check for HF CLI skill changes
         id: check_changes
         working-directory: skills-repo
+        # git diff returns zero if there is no diff
         run: |
-          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          if git diff --quiet -- skills/hf-cli/SKILL.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No hf-cli skill changes; skipping PR"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump plugin version and regenerate skills repo artifacts
+        if: steps.check_changes.outputs.changed == 'true'
+        working-directory: skills-repo
+        run: |
+          uv run scripts/plugin_versions.py bump patch
+          ./scripts/publish.sh
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changed == 'true'
