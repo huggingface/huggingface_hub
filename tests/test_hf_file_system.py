@@ -849,12 +849,14 @@ def test_resolve_path_with_non_matching_revisions():
 
 @pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets"])
 def test_access_repositories_lists(not_supported_path):
+    # empty path => not supported
+    # wrong repo_id => ValueError
     fs = HfFileSystem()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises((NotImplementedError, ValueError)):
         fs.info(not_supported_path)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises((NotImplementedError, ValueError)):
         fs.ls(not_supported_path)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises((NotImplementedError, ValueError)):
         fs.open(not_supported_path)
 
 
