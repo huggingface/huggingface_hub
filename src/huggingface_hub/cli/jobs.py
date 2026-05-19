@@ -66,7 +66,6 @@ import multiprocessing
 import multiprocessing.pool
 import shutil
 import time
-from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from fnmatch import fnmatch
@@ -325,7 +324,13 @@ def jobs_run(
 
 
 @jobs_cli.command(
-    "logs", examples=["hf jobs logs <job_id>", "hf jobs logs -f <job_id>", "hf jobs logs --tail 20 <job_id>"]
+    "logs",
+    examples=[
+        "hf jobs logs <job_id>",
+        "hf jobs logs -f <job_id>",
+        "hf jobs logs --tail 20 <job_id>",
+        "hf jobs logs -f --tail 100 <job_id>",
+    ],
 )
 def jobs_logs(
     job_id: JobIdArg,
@@ -342,7 +347,7 @@ def jobs_logs(
         typer.Option(
             "-n",
             "--tail",
-            help="Number of lines to show from the end of the logs.",
+            help="Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.",
         ),
     ] = None,
     namespace: NamespaceOpt = None,
@@ -352,18 +357,13 @@ def jobs_logs(
 
     By default, prints currently available logs and exits (non-blocking).
     Use --follow/-f to stream logs in real-time until the job completes.
+    Use --tail/-n to limit the number of lines returned (server-side when supported).
     """
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-    if follow and tail is not None:
-        raise CLIError(
-            "Cannot use --follow and --tail together. Use --follow to stream logs or --tail to show recent logs."
-        )
 
     api = get_hf_api(token=token)
     try:
-        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow)
-        if tail is not None:
-            logs = deque(logs, maxlen=tail)
+        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
         for log in logs:
             print(log)
     except HfHubHTTPError as e:
