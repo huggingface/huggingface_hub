@@ -3578,6 +3578,7 @@ class TestGlobalFormattingFlags:
         assert "--format" in result.output
         assert "--json" in result.output
         assert "--quiet" in result.output
+        assert "--no-truncate" in result.output
 
     def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
         """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
