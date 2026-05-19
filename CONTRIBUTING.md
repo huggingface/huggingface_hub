@@ -40,6 +40,10 @@ avoids long back-and-forth review cycles that end up being frustrating for every
 Pull requests are still welcome for documentation improvements, typo fixes, or changes that have been discussed and
 scoped in an issue beforehand. But when in doubt, start with an issue.
 
+If you open a pull request, you are expected to understand the code you submit. Using AI to help write code is fine. Submitting AI-generated slop you cannot explain is not.
+
+If you use an agent, run it from the `huggingface_hub` root directory so it automatically picks up `AGENTS.md`. Your agent must follow the rules and guidelines defined there.
+
 ### The client library, `huggingface_hub`
 
 This repository hosts the `huggingface_hub`, the client library that interfaces any Python script with the Hugging Face Hub.
