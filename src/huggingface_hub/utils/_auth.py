@@ -14,6 +14,7 @@
 """Contains a helper to get the token from machine (env variable, secret or config file)."""
 
 import configparser
+import io
 import logging
 import os
 import warnings
@@ -22,6 +23,35 @@ from threading import Lock
 
 from .. import constants
 from ._runtime import is_colab_enterprise, is_google_colab
+
+
+_SECRET_FILE_MODE = 0o600
+_SECRET_DIR_MODE = 0o700
+
+
+def _write_secret(path: Path, content: str) -> None:
+    """Write `content` to `path`, restricting both the file and its parent
+    directory to owner-only on POSIX systems.
+
+    Uses `os.open(... O_CREAT, 0o600)` so the file is atomically created with
+    restricted permissions instead of being briefly world-readable between
+    `open("w")` and a subsequent `chmod` (a TOCTOU window the previous
+    `path.write_text(...)` + `chmod` implementation had).
+
+    Also tightens both the file and the parent directory after the write to
+    handle the case where they pre-existed at looser permissions (which
+    cannot be fixed by `O_CREAT` alone).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True, mode=_SECRET_DIR_MODE)
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
+    with os.fdopen(fd, "w") as f:
+        f.write(content)
+    try:
+        path.chmod(_SECRET_FILE_MODE)
+        path.parent.chmod(_SECRET_DIR_MODE)
+    except (OSError, NotImplementedError):
+        # Windows does not support POSIX modes; chmod() will raise. Best-effort.
+        pass
 
 
 _IS_GOOGLE_COLAB_CHECKED = False
@@ -156,27 +186,18 @@ def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
     """
     stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
 
-    # Write the stored tokens into an INI file. The file contains every named
-    # HF token the user has saved (personal + work + organization), so it is
-    # the worst case impact-wise if leaked. Restrict the file and its parent
-    # directory to the user (0o600 / 0o700) so a co-tenant on the same host
-    # can't recover the tokens via home-dir traversal. chmod is wrapped in
-    # try/except because Windows doesn't support POSIX modes; the mkdir mode
-    # arg likewise only applies to a freshly-created directory, so we chmod the
-    # parent again to handle the case where the cache dir already existed.
+    # The stored_tokens file contains every named HF token the user has saved
+    # (personal + work + organization). Render the INI to a string and route
+    # through _write_secret so the file is atomically created at 0o600 and the
+    # parent directory at 0o700.
     config = configparser.ConfigParser()
     for token_name in sorted(stored_tokens.keys()):
         config.add_section(token_name)
         config.set(token_name, "hf_token", stored_tokens[token_name])
 
-    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with stored_tokens_path.open("w") as config_file:
-        config.write(config_file)
-    try:
-        stored_tokens_path.chmod(0o600)
-        stored_tokens_path.parent.chmod(0o700)
-    except (OSError, NotImplementedError):
-        pass
+    buf = io.StringIO()
+    config.write(buf)
+    _write_secret(stored_tokens_path, buf.getvalue())
 
 
 def _get_token_by_name(token_name: str) -> str | None:
