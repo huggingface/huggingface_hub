@@ -21,7 +21,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -1307,7 +1307,7 @@ class TestRepoCreateCommand:
                     "--secrets",
                     "HF_TOKEN=secret_val",
                     "--volume",
-                    "hf://gpt2:/model",
+                    "hf://org/gpt2:/model",
                     "-e",
                     "THEME=dark",
                     "-e",
@@ -1330,7 +1330,7 @@ class TestRepoCreateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
-            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
+            space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
@@ -1436,7 +1436,7 @@ class TestRepoDuplicateCommand:
                     "--storage",
                     "small",
                     "--volume",
-                    "hf://gpt2:/model",
+                    "hf://org/gpt2:/model",
                     "--sleep-time",
                     "3600",
                     "--secrets",
@@ -1459,7 +1459,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
             space_variables=[{"key": "THEME", "value": "dark"}],
-            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
+            space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_duplicate_secret_from_env(self, runner: CliRunner) -> None:
@@ -3235,10 +3235,8 @@ class TestParseVolumes:
         "spec, expected_type, expected_source, expected_mount, expected_path",
         [
             # Implicit model type (no type prefix)
-            ("hf://gpt2:/data", "model", "gpt2", "/data", None),
             ("hf://my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt", None),
             # Explicit type prefixes (plural form)
-            ("hf://models/gpt2:/data", "model", "gpt2", "/data", None),
             ("hf://models/my-org/my-model:/data", "model", "my-org/my-model", "/data", None),
             ("hf://datasets/org/ds:/input", "dataset", "org/ds", "/input", None),
             ("hf://buckets/org/my-bucket:/output", "bucket", "org/my-bucket", "/output", None),
@@ -3266,14 +3264,14 @@ class TestParseVolumes:
         assert vols[0].mount_path == expected_mount
         assert vols[0].path == expected_path
 
-    @pytest.mark.parametrize("spec", ["hf://gpt2", "hf://gpt2:data"])
-    def test_invalid_mount_path(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="Invalid volume format"):
+    @pytest.mark.parametrize("spec", ["hf://org/model", "hf://org/model:data", "hf://gpt2:/data"])
+    def test_invalid_volume_spec(self, spec: str) -> None:
+        with pytest.raises(HfUriError, match="Invalid HF URI"):
             parse_volumes([spec])
 
     @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
     def test_missing_hf_prefix(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="must start with 'hf://'"):
+        with pytest.raises(HfUriError, match="(?i)must start with 'hf://'"):
             parse_volumes([spec])
 
     def test_read_only_suffix(self) -> None:
@@ -3285,10 +3283,12 @@ class TestParseVolumes:
         assert vols[0].read_only is False
 
     def test_multiple_volumes(self) -> None:
-        vols = parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
+        vols = parse_volumes(
+            ["hf://org/my-model:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"]
+        )
 
         assert vols == [
-            Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),
+            Volume(type="model", source="org/my-model", mount_path="/model", revision=None, read_only=None, path=None),
             Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
             Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
         ]
@@ -3298,9 +3298,9 @@ class TestVolume:
     """Unit tests for Volume dataclass and serialization."""
 
     def test_from_api_response_camel_case(self) -> None:
-        vol = Volume(type="model", source="gpt2", mountPath="/data", readOnly=True)
+        vol = Volume(type="model", source="org/gpt2", mountPath="/data", readOnly=True)
         assert vol.type == "model"
-        assert vol.source == "gpt2"
+        assert vol.source == "org/gpt2"
         assert vol.mount_path == "/data"
         assert vol.read_only is True
 
@@ -3315,10 +3315,10 @@ class TestVolume:
 
     def test_missing_mount_path_raises(self) -> None:
         with pytest.raises(KeyError):
-            Volume(type="model", source="gpt2")
+            Volume(type="model", source="org/gpt2")
 
     def test_optional_fields(self) -> None:
-        vol = Volume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
+        vol = Volume(type="model", source="org/gpt2", mountPath="/data", revision="v1.0", path="subdir")
         assert vol.revision == "v1.0"
         assert vol.path == "subdir"
 
@@ -3337,7 +3337,7 @@ class TestVolume:
         assert "volumes" not in spec
 
     def test_serialize_optional_fields(self) -> None:
-        vols = [Volume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
+        vols = [Volume(type="model", source="org/gpt2", mount_path="/m", revision="main", path="subdir")]
         spec = _create_job_spec(
             image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
         )

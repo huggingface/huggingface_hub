@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from huggingface_hub.utils import parse_datetime
+from huggingface_hub.utils import HfMount, HfUri, parse_datetime
 
 
 class SpaceStage(str, Enum):
@@ -161,12 +161,13 @@ class Volume:
             data["path"] = self.path
         return data
 
-    def to_hf_handle(self) -> str:
-        """Return the volume as an HF handle in the format expected by the CLI."""
-        path = f"/{self.path}" if self.path else ""
-        revision = f"@{self.revision}" if self.revision else ""
-        ro = {True: ":ro", False: ":rw", None: ""}.get(self.read_only, "")
-        return f"hf://{self.type}s/{self.source}{revision}{path}:{self.mount_path}{ro}"
+    def to_uri(self) -> str:
+        """Return the volume as an HF mount URI in the format expected by the CLI."""
+        return HfMount(
+            source=HfUri(type=self.type, id=self.source, revision=self.revision, path_in_repo=self.path or ""),
+            mount_path=self.mount_path,
+            read_only=self.read_only,
+        ).to_uri()
 
 
 @dataclass
