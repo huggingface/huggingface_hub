@@ -29,6 +29,7 @@ SkillUpdateStatus = Literal["up_to_date", "unmanaged", "source_unreachable"]
 class MarketplaceSkill:
     name: str
     repo_path: str
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,14 @@ def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
         source = plugin.get("source")
         if not isinstance(name, str) or not isinstance(source, str):
             continue
-        skills.append(MarketplaceSkill(name=name, repo_path=_normalize_repo_path(source)))
+        description = plugin.get("description")
+        skills.append(
+            MarketplaceSkill(
+                name=name,
+                repo_path=_normalize_repo_path(source),
+                description=description if isinstance(description, str) else None,
+            )
+        )
     return skills
 
 
