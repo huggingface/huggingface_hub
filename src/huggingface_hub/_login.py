@@ -439,10 +439,7 @@ def _set_active_token(
             )
         else:
             logger.warning("Token has not been saved to git credential helper.")
-    # Write token to HF_TOKEN_PATH. Route through _write_secret so the file
-    # is atomically created at 0o600 (no TOCTOU window where the token is
-    # world-readable between create and chmod) and the parent directory at
-    # 0o700.
+    # Write token to HF_TOKEN_PATH
     _write_secret(Path(constants.HF_TOKEN_PATH), token)
     logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
