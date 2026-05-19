@@ -33,6 +33,7 @@ hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]:<MOUNT_PATH>[:ro|:rw]
 See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examples.
 """
 
+import functools
 import re
 from dataclasses import dataclass, field
 from urllib.parse import unquote
@@ -179,6 +180,16 @@ class HfMount:
         return "".join(parts)
 
 
+def is_hf_uri(uri: str) -> bool:
+    """Check if a string is a valid hf:// URI."""
+    try:
+        parse_hf_uri(uri)
+        return True
+    except HfUriError:
+        return False
+
+
+@functools.lru_cache
 def parse_hf_uri(uri: str) -> HfUri:
     """Parse a Hugging Face Hub URI ('hf://...').
 
@@ -355,13 +366,13 @@ def _parse_bucket_body(
     raw: str,
 ) -> HfUri:
     """Parse the body of a bucket URI: 'namespace/name[/path]'."""
-    if "@" in location:
-        raise HfUriError(uri=raw, msg="Bucket URIs do not support a revision marker ('@').")
     location = location.strip("/")
     parts = location.split("/", 2)
     if len(parts) < 2 or not parts[0] or not parts[1]:
         raise HfUriError(uri=raw, msg=f"Bucket id must be 'namespace/name', got '{location}'.")
     bucket_id = f"{parts[0]}/{parts[1]}"
+    if "@" in bucket_id:
+        raise HfUriError(uri=raw, msg="Bucket URIs do not support a revision marker ('@').")
     path_in_bucket = parts[2] if len(parts) >= 3 else ""
     return HfUri(
         type=type_,
@@ -383,12 +394,14 @@ def _parse_repo_body(
     if not location:
         raise HfUriError(uri=raw, msg="Missing repository id.")
 
-    # The first '@' separates the repo_id from the revision (and rest of path).
-    # No valid repo_id contains '@' and no valid revision contains '@'.
+    # The '@' separates the repo_id from the revision, but only when it
+    # appears right after 'namespace/name' (at most one '/' before it).
+    # An '@' deeper in the path (e.g. in a filename like 'file@1.txt') is literal.
     at_idx = location.find("@")
     revision: str | None
-    if at_idx == -1:
-        # No revision. Take the first 2 segments as repo_id, rest as path_in_repo.
+
+    if at_idx == -1 or location[:at_idx].count("/") > 1:
+        # No '@' at all, or the '@' is past the repo_id portion (in a filename).
         revision = None
         parts = location.split("/", 2)
         if len(parts) < 2:

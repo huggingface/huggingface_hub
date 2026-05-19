@@ -30,7 +30,7 @@ from itertools import islice
 from pathlib import Path
 from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 import httpcore
 import httpx
@@ -54,7 +54,7 @@ from ._buckets import (
     _BucketAddFile,
     _BucketCopyFile,
     _BucketDeleteFile,
-    _split_bucket_id_and_prefix,
+    _parse_bucket_uri,
     sync_bucket_internal,
 )
 from ._commit_api import (
@@ -124,6 +124,7 @@ from .utils import (
     logging,
     paginate,
     parse_datetime,
+    parse_hf_uri,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
     silent_tqdm,
@@ -417,60 +418,15 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     return repo_type, namespace, repo_id
 
 
-def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
-    # TODO: Harmonize hf:// parsing. See https://github.com/huggingface/huggingface_hub/issues/3971
-    if not hf_handle.startswith("hf://"):
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
-
-    path = hf_handle.removeprefix("hf://")
-    if path.startswith("buckets/"):
-        bucket_id, bucket_path = _split_bucket_id_and_prefix(path.removeprefix("buckets/"))
-        return _BucketCopyHandle(
-            bucket_id=bucket_id,
-            path=bucket_path.strip("/"),
-        )
-
-    path = path.strip("/")
-    if path == "":
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
-
-    parts = path.split("/")
-    repo_type: str = constants.REPO_TYPE_MODEL
-    if parts[0] in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
-        parts = parts[1:]
-
-    if len(parts) < 2:
-        raise ValueError(
-            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' or with explicit repo type prefix."
-        )
-
-    namespace, repo_name_with_revision = parts[0], parts[1]
-    remaining_parts = parts[2:]
-    revision: str | None = None
-    if "@" in repo_name_with_revision:
-        repo_name, revision = repo_name_with_revision.split("@", 1)
-    else:
-        repo_name = repo_name_with_revision
-
-    if revision is None:
-        revision = constants.DEFAULT_REVISION
-    else:
-        revision = unquote(revision)
-        if remaining_parts:
-            maybe_special_ref = f"{revision}/{remaining_parts[0]}"
-            match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
-            if match is not None:
-                revision = match.group()
-                suffix = maybe_special_ref.removeprefix(revision).lstrip("/")
-                remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
-
-    repo_path = "/".join(remaining_parts).strip("/")
+def _parse_hf_copy_uri(hf_uri: str) -> _BucketCopyHandle | _RepoCopyHandle:
+    parsed = parse_hf_uri(hf_uri)
+    if parsed.is_bucket:
+        return _BucketCopyHandle(bucket_id=parsed.id, path=parsed.path_in_repo)
     return _RepoCopyHandle(
-        repo_type=repo_type,  # type: ignore
-        repo_id=f"{namespace}/{repo_name}",
-        revision=revision,
-        path=repo_path,
+        repo_type=parsed.type,  # type: ignore
+        repo_id=parsed.id,
+        revision=parsed.revision or constants.DEFAULT_REVISION,
+        path=parsed.path_in_repo,
     )
 
 
@@ -12573,7 +12529,7 @@ class HfApi:
             'user/my-bucket'
             >>> url.url
             'https://huggingface.co/buckets/user/my-bucket'
-            >>> url.handle
+            >>> url.uri.to_uri()
             'hf://buckets/user/my-bucket'
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
@@ -12594,10 +12550,10 @@ class HfApi:
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user
         else:
-            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
-            if prefix:
+            parsed = _parse_bucket_uri(bucket_id)
+            if parsed.path_in_repo:
                 raise ValueError(f"Invalid bucket ID: {bucket_id}")
-            namespace, name = bucket_id_parsed.split("/")
+            namespace, name = parsed.id.split("/")
 
         response = get_session().post(
             f"{self.endpoint}/api/buckets/{namespace}/{name}",
@@ -12939,11 +12895,10 @@ class HfApi:
 
         Args:
             source (`str`):
-                Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
+                Source location as an `hf://` URI. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
                 or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
             destination (`str`):
-                Destination location as an `hf://` handle pointing to a bucket
-                (e.g. `"hf://buckets/my-bucket/target/path"`).
+                Destination location as an `hf://` URI pointing to a bucket (e.g. `"hf://buckets/my-bucket/target/path"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12952,7 +12907,7 @@ class HfApi:
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-                If the destination is not a bucket or if the source/destination handles are invalid.
+                If the destination is not a bucket or if the source/destination URIs are invalid.
 
         Example:
             ```python
@@ -12974,18 +12929,18 @@ class HfApi:
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
             ```
         """
+        source_uri = _parse_hf_copy_uri(source)
+        destination_uri = _parse_hf_copy_uri(destination)
+
         # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
         # Check before parsing strips the slash.
         source_is_contents_only = source.endswith("/")
 
-        source_handle = _parse_hf_copy_handle(source)
-        destination_handle = _parse_hf_copy_handle(destination)
-
-        if isinstance(destination_handle, _RepoCopyHandle):
+        if isinstance(destination_uri, _RepoCopyHandle):
             raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
 
-        destination_bucket_id = destination_handle.bucket_id
-        destination_path = destination_handle.path
+        destination_bucket_id = destination_uri.bucket_id
+        destination_path = destination_uri.path
         destination_is_directory = False
         destination_exists_as_directory = False
 
@@ -13062,31 +13017,29 @@ class HfApi:
                         target_path,
                         file.xet_hash,
                         file.size,
-                        source_handle.repo_type,  # type: ignore
-                        source_handle.repo_id,  # type: ignore
+                        source_uri.repo_type,  # type: ignore
+                        source_uri.repo_id,  # type: ignore
                     )
                 )
             else:
                 pending_downloads.append((file.path, target_path))
 
         # === Source is a bucket: always hash-based copy (no download needed) ===
-        if isinstance(source_handle, _BucketCopyHandle):
-            source_path = source_handle.path
-            source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+        if isinstance(source_uri, _BucketCopyHandle):
+            source_path = source_uri.path
+            source_path_info = list(self.get_bucket_paths_info(source_uri.bucket_id, [source_path], token=token))
 
             if source_path_info:
                 # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
                 all_copies.append(
-                    _build_copy_op(
-                        target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
-                    )
+                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source_uri.bucket_id)
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
                 for item in self.list_bucket_tree(
-                    source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
+                    source_uri.bucket_id, prefix=source_path or None, recursive=True, token=token
                 ):
                     if not isinstance(item, BucketFile):
                         continue
@@ -13094,19 +13047,19 @@ class HfApi:
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
                     all_copies.append(
-                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
+                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_uri.bucket_id)
                     )
 
         # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
         else:
-            source_path = source_handle.path
+            source_path = source_uri.path
             source_repo_path_info: list[RepoFile | RepoFolder] = []
             if source_path != "":
                 source_repo_path_info = self.get_paths_info(
-                    repo_id=source_handle.repo_id,
+                    repo_id=source_uri.repo_id,
                     paths=[source_path],
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
+                    repo_type=source_uri.repo_type,
+                    revision=source_uri.revision,
                     token=token,
                 )
 
@@ -13119,11 +13072,11 @@ class HfApi:
             else:
                 # Source path is a folder — list and copy all files recursively
                 for repo_item in self.list_repo_tree(
-                    repo_id=source_handle.repo_id,
+                    repo_id=source_uri.repo_id,
                     path_in_repo=source_path,
                     recursive=True,
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
+                    repo_type=source_uri.repo_type,
+                    revision=source_uri.revision,
                     token=token,
                 ):
                     if not isinstance(repo_item, RepoFile):
@@ -13136,11 +13089,11 @@ class HfApi:
 
         # Raise if no source files were found
         if not all_copies and not all_adds and not pending_downloads:
-            if isinstance(source_handle, _BucketCopyHandle):
-                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_handle.bucket_id}'.")
+            if isinstance(source_uri, _BucketCopyHandle):
+                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_uri.bucket_id}'.")
             else:
                 raise EntryNotFoundError(
-                    f"No files found at '{source}' in {source_handle.repo_type} '{source_handle.repo_id}'."
+                    f"No files found at '{source}' in {source_uri.repo_type} '{source_uri.repo_id}'."
                 )
 
         # Download non-xet files in parallel
@@ -13149,10 +13102,10 @@ class HfApi:
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
                 local_path = self.hf_hub_download(
-                    repo_id=source_handle.repo_id,  # type: ignore
-                    repo_type=source_handle.repo_type,  # type: ignore
+                    repo_id=source_uri.repo_id,  # type: ignore
+                    repo_type=source_uri.repo_type,  # type: ignore
                     filename=file_path,
-                    revision=source_handle.revision,  # type: ignore
+                    revision=source_uri.revision,  # type: ignore
                     token=token,
                     tqdm_class=silent_tqdm,  # type: ignore
                 )
