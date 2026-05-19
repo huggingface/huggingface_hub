@@ -30,18 +30,8 @@ _SECRET_DIR_MODE = 0o700
 
 
 def _write_secret(path: Path, content: str) -> None:
-    """Write `content` to `path`, restricting both the file and its parent
-    directory to owner-only on POSIX systems.
-
-    Uses `os.open(... O_CREAT, 0o600)` so the file is atomically created with
-    restricted permissions instead of being briefly world-readable between
-    `open("w")` and a subsequent `chmod` (a TOCTOU window the previous
-    `path.write_text(...)` + `chmod` implementation had).
-
-    Also tightens both the file and the parent directory after the write to
-    handle the case where they pre-existed at looser permissions (which
-    cannot be fixed by `O_CREAT` alone).
-    """
+    """Write content to file, restricting both the file and its parent
+    directory to owner-only on POSIX systems."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=_SECRET_DIR_MODE)
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
     with os.fdopen(fd, "w") as f:
