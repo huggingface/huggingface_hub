@@ -95,16 +95,18 @@ class TogetherConversationalTask(BaseConversationalTask):
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> dict | None:
         payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
+        if payload is None:
+            return None
         # Together accepts response_format `{type: "json_schema", schema: <schema>}` (flattened),
         # so unwrap the OpenAI-style `{type: "json_schema", json_schema: {schema}}` envelope.
-        response_format = (payload or {}).get("response_format")
+        response_format = payload.get("response_format")
         if (
             isinstance(response_format, dict)
             and response_format.get("type") == "json_schema"
             and isinstance(response_format.get("json_schema"), dict)
             and "schema" in response_format["json_schema"]
         ):
-            payload["response_format"] = {  # type: ignore[index]
+            payload["response_format"] = {
                 "type": "json_schema",
                 "schema": response_format["json_schema"]["schema"],
             }
@@ -285,16 +287,19 @@ class TogetherVideoTask(TogetherTask, ABC):
         status_url = f"{request_params.url}/{job_id}"
 
         logger.info("Generating video, polling for completion...")
+        # Together usually returns `status: "queued"` on the initial POST, but the field is
+        # optional per the spec — treat a missing status as "still pending" and poll, rather
+        # than falling through to the "unexpected status" error below.
         status = job.get("status")
         for _ in range(_VIDEO_MAX_POLL_ATTEMPTS):
-            if status not in _VIDEO_PENDING_STATUSES:
+            if status is not None and status not in _VIDEO_PENDING_STATUSES:
                 break
             time.sleep(_VIDEO_POLLING_INTERVAL)
             status_response = get_session().get(status_url, headers=request_params.headers)
             hf_raise_for_status(status_response)
             job = status_response.json()
             status = job.get("status")
-            if status not in _VIDEO_PENDING_STATUSES:
+            if status is not None and status not in _VIDEO_PENDING_STATUSES:
                 break
         else:
             raise ValueError(
