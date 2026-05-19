@@ -176,10 +176,7 @@ def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
     """
     stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
 
-    # The stored_tokens file contains every named HF token the user has saved
-    # (personal + work + organization). Render the INI to a string and route
-    # through _write_secret so the file is atomically created at 0o600 and the
-    # parent directory at 0o700.
+    # Write the stored tokens into an INI file
     config = configparser.ConfigParser()
     for token_name in sorted(stored_tokens.keys()):
         config.add_section(token_name)
