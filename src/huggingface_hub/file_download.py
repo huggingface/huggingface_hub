@@ -383,9 +383,24 @@ def http_get(
         if resume_size > 0 and response.status_code == 200:
             temp_file.seek(0)
             temp_file.truncate()
+            if _tqdm_bar is not None:
+                # When the progress bar is reused across retries, its counter has
+                # already been advanced by `resume_size` worth of chunks from
+                # earlier attempts. Those bytes are gone from disk now, so roll
+                # the counter back to keep the upcoming full re-download from
+                # double-counting (e.g. ending at 130/100 on a 100-byte file).
+                _tqdm_bar.update(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
+        if total is None:
+            # Hub serves compressible text files (e.g. vocab.json) with
+            # `Content-Encoding: gzip` and `Transfer-Encoding: chunked`, so the
+            # response carries no `Content-Length`. Fall back to the caller's
+            # `expected_size` (always known from the metadata HEAD on the hf_hub
+            # path) so the progress bar — and any aggregating wrapper such as
+            # snapshot_download's `_AggregatedTqdm` — still sees the file size.
+            total = expected_size
 
         if displayed_filename is None:
             displayed_filename = url
@@ -442,7 +457,11 @@ def http_get(
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
-                    _tqdm_bar=_tqdm_bar,
+                    # Reuse the existing progress bar across retries so a custom
+                    # `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
+                    # which mutates a shared parent bar in `__init__`) is not
+                    # re-instantiated and does not double-count `total`/`initial`.
+                    _tqdm_bar=progress,
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():

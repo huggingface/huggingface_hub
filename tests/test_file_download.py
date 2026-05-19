@@ -1244,6 +1244,271 @@ class TestHttpGet:
         assert temp_file.tell() == 100
         assert temp_file.getvalue() == b"B" * 100
 
+    def test_http_get_retry_reuses_tqdm_class_instance(self):
+        """Retries must not re-instantiate the user-supplied tqdm_class.
+
+        Regression test for the snapshot_download bug where ``_AggregatedTqdm``
+        was re-constructed on every retry, inflating the shared bar's ``total``
+        by ``expected_size`` and advancing ``n`` by ``resume_size`` per retry.
+
+        This test uses a stand-in ``tqdm_class`` that aggregates into a shared
+        ``parent`` object (same shape as ``_AggregatedTqdm``) and asserts the
+        parent ends with exactly one file's worth of total/n after two
+        transient failures.
+        """
+
+        class _Parent:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+
+            def refresh(self):
+                pass
+
+            def update(self, n):
+                self.n += n
+
+        parent = _Parent()
+
+        class _AggregatedLikeTqdm:
+            instances = 0
+
+            def __init__(self, *args, **kwargs):
+                type(self).instances += 1
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    parent.total += total
+                    parent.refresh()
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    parent.update(initial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                pass
+
+            def update(self, n=1):
+                parent.update(n)
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout #1")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"B" * 25
+            raise httpx.TimeoutException("Fake timeout #2")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"C" * 45  # remaining 100 - 30 - 25
+
+        r1 = Mock()
+        r1.status_code = 200
+        r1.headers = {"Content-Length": "100"}
+        r1.iter_bytes.return_value = _iter_content_1()
+
+        r2 = Mock()
+        r2.status_code = 206
+        r2.headers = {"Content-Length": "70", "Content-Range": "bytes 30-99/100"}
+        r2.iter_bytes.return_value = _iter_content_2()
+
+        r3 = Mock()
+        r3.status_code = 206
+        r3.headers = {"Content-Length": "45", "Content-Range": "bytes 55-99/100"}
+        r3.iter_bytes.return_value = _iter_content_3()
+
+        responses = iter([r1, r2, r3])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=100,
+                tqdm_class=_AggregatedLikeTqdm,
+            )
+
+        # File on disk is correct.
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 25 + b"C" * 45
+
+        # The wrapper class was constructed exactly once for the whole download,
+        # not once per retry.
+        assert _AggregatedLikeTqdm.instances == 1
+
+        # Shared parent bar reflects one file's total and full progress, not
+        # 3x the file size (one per attempt).
+        assert parent.total == 100
+        assert parent.n == 100
+
+    def test_http_get_retry_rolls_back_reused_bar_when_range_ignored(self):
+        """When a retry's server ignores Range and returns 200 with the full body,
+        the reused progress bar must be rolled back by ``resume_size`` so the
+        upcoming full re-download is not double-counted.
+
+        Without the rollback, a 100-byte file with a 30-byte first attempt
+        followed by a Range-ignored 200 retry would end at parent.n = 130.
+        """
+
+        class _Parent:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+
+            def refresh(self):
+                pass
+
+            def update(self, n):
+                self.n += n
+
+        parent = _Parent()
+
+        class _AggregatedLikeTqdm:
+            def __init__(self, *args, **kwargs):
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    parent.total += total
+                    parent.refresh()
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    parent.update(initial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                pass
+
+            def update(self, n=1):
+                parent.update(n)
+
+        def _iter_first() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("first timeout")
+
+        def _iter_second() -> Iterable[bytes]:
+            # Server ignores Range header and returns full body
+            yield b"B" * 100
+
+        r1 = Mock()
+        r1.status_code = 200
+        r1.headers = {"Content-Length": "100"}
+        r1.iter_bytes.return_value = _iter_first()
+
+        r2 = Mock()
+        r2.status_code = 200  # 200, not 206 — Range was ignored on the retry
+        r2.headers = {"Content-Length": "100"}
+        r2.iter_bytes.return_value = _iter_second()
+
+        responses = iter([r1, r2])
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(responses)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=100,
+                tqdm_class=_AggregatedLikeTqdm,
+            )
+
+        # File on disk holds only the retry's full body (first attempt was truncated).
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"B" * 100
+
+        # Parent bar lands exactly on file_size, not 130 (which is what the
+        # bug would produce without the rollback).
+        assert parent.total == 100
+        assert parent.n == 100
+
+    def test_http_get_falls_back_to_expected_size_when_response_lacks_content_length(self):
+        """When the response is gzip+chunked (Content-Length absent), the bar's
+        total must fall back to the caller's ``expected_size``.
+
+        Reproduces the Hub's behavior for compressible text files served from
+        huggingface.co (e.g. vocab.json: ``Content-Encoding: gzip`` +
+        ``Transfer-Encoding: chunked``, no Content-Length). Without the
+        fallback, snapshot_download's ``_AggregatedTqdm`` is constructed with
+        ``total=None`` and the file never contributes to the parent bar.
+        """
+
+        class _Parent:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+
+            def refresh(self):
+                pass
+
+            def update(self, n):
+                self.n += n
+
+        parent = _Parent()
+
+        class _AggregatedLikeTqdm:
+            def __init__(self, *args, **kwargs):
+                total = kwargs.pop("total", None)
+                if total is not None:
+                    parent.total += total
+                    parent.refresh()
+                initial = kwargs.pop("initial", 0)
+                if initial:
+                    parent.update(initial)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                pass
+
+            def update(self, n=1):
+                parent.update(n)
+
+        def _iter_chunked_gzip() -> Iterable[bytes]:
+            # Decompressed content: 100 bytes. Real httpx already returns the
+            # decompressed body via iter_bytes, so we just yield 100 bytes here.
+            yield b"X" * 100
+
+        # Real-world shape: gzip + chunked + no Content-Length.
+        response = Mock()
+        response.status_code = 200
+        response.headers = {
+            "Content-Encoding": "gzip",
+            "Transfer-Encoding": "chunked",
+            "Content-Type": "application/json",
+        }
+        response.iter_bytes.return_value = _iter_chunked_gzip()
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield response
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get(
+                "fake_url",
+                temp_file=temp_file,
+                expected_size=100,
+                tqdm_class=_AggregatedLikeTqdm,
+            )
+
+        # Bytes-on-disk are correct.
+        assert temp_file.tell() == 100
+        assert temp_file.getvalue() == b"X" * 100
+
+        # Without the expected_size fallback, parent.total stays at 0 and the
+        # file silently fails to contribute to the snapshot bar.
+        assert parent.total == 100
+        assert parent.n == 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
