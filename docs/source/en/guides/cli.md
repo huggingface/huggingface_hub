@@ -1443,7 +1443,7 @@ Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 
 ### hf cache rm
 
-`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
+`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`), repo-level `hf://` URIs, or revision hashes:
 
 ```bash
 >>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
@@ -1453,6 +1453,15 @@ Proceed with deletion? [y/N]: y
 Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
 Cache deletion done. Saved 3.2G.
 Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+Repo-level `hf://` URIs are also supported:
+
+```bash
+>>> hf cache rm hf://models/openai-community/gpt2 --dry-run
+About to delete 1 repo(s) totalling 1.1G.
+  - model/openai-community/gpt2 (entire repo)
+Dry run: no files were deleted.
 ```
 
 Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
