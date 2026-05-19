@@ -121,7 +121,7 @@ SpaceSleepTimeOpt = Annotated[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
         "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
-        "hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data",
+        "hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
         "hf repos create my-model --region us",
     ],
 )
@@ -192,7 +192,7 @@ def repo_create(
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
         "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private",
-        "hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data",
+        "hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
     ],
 )
 def repo_duplicate(

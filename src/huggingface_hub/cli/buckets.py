@@ -25,13 +25,9 @@ from huggingface_hub._buckets import (
     BucketFile,
     FilterMatcher,
     _is_bucket_path,
-    _parse_bucket_path,
-    _split_bucket_id_and_prefix,
+    _parse_bucket_uri,
 )
-from huggingface_hub.utils import (
-    SoftTemporaryDirectory,
-    disable_progress_bars,
-)
+from huggingface_hub.utils import SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
 
 from ..hf_api import REPO_REGIONS
 from ._cli_utils import (
@@ -48,27 +44,6 @@ logger = logging.get_logger(__name__)
 
 
 buckets_cli = typer_factory(help="Commands to interact with buckets.")
-
-
-def _is_hf_handle(path: str) -> bool:
-    return path.startswith("hf://")
-
-
-def _parse_bucket_argument(argument: str) -> tuple[str, str]:
-    """Parse a bucket argument accepting both 'namespace/name(/prefix)' and 'hf://buckets/namespace/name(/prefix)'.
-
-    Returns:
-        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
-    """
-    if argument.startswith(BUCKET_PREFIX):
-        return _parse_bucket_path(argument)
-    try:
-        return _split_bucket_id_and_prefix(argument)
-    except ValueError:
-        raise ValueError(
-            f"Invalid bucket argument: {argument}. Must be in format namespace/bucket_name"
-            f" or {BUCKET_PREFIX}namespace/bucket_name"
-        )
 
 
 @buckets_cli.command(
@@ -116,16 +91,13 @@ def create(
     api = get_hf_api(token=token)
 
     if bucket_id.startswith(BUCKET_PREFIX):
-        try:
-            parsed_id, prefix = _parse_bucket_argument(bucket_id)
-        except ValueError as e:
-            raise typer.BadParameter(str(e))
-        if prefix:
+        parsed = _parse_bucket_uri(bucket_id)
+        if parsed.path_in_repo:
             raise typer.BadParameter(
                 f"Cannot specify a prefix for bucket creation: {bucket_id}."
                 f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
             )
-        bucket_id = parsed_id
+        bucket_id = parsed.id
 
     bucket_url = api.create_bucket(
         bucket_id,
@@ -133,7 +105,7 @@ def create(
         region=region,
         exist_ok=exist_ok,
     )
-    out.result("Bucket created", handle=bucket_url.handle, url=bucket_url.url)
+    out.result("Bucket created", uri=bucket_url.uri.to_uri(), url=bucket_url.url)
 
 
 def _is_bucket_id(argument: str) -> bool:
@@ -272,16 +244,11 @@ def _list_files(
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
-
-    try:
-        bucket_id, prefix = _parse_bucket_argument(argument)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
+    parsed = _parse_bucket_uri(argument)
     items = list(
         api.list_bucket_tree(
-            bucket_id,
-            prefix=prefix or None,
+            parsed.id,
+            prefix=parsed.path_in_repo or None,
             recursive=recursive,
         )
     )
@@ -307,13 +274,8 @@ def info(
 ) -> None:
     """Get info about a bucket."""
     api = get_hf_api(token=token)
-
-    try:
-        parsed_id, _ = _parse_bucket_argument(bucket_id)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
-
-    bucket = api.bucket_info(parsed_id)
+    parsed = _parse_bucket_uri(bucket_id)
+    bucket = api.bucket_info(parsed.id)
     out.dict(bucket, id_key="id")
 
 
@@ -355,16 +317,13 @@ def delete(
     This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
     """
     if bucket_id.startswith(BUCKET_PREFIX):
-        try:
-            parsed_id, prefix = _parse_bucket_argument(bucket_id)
-        except ValueError as e:
-            raise typer.BadParameter(str(e))
-        if prefix:
+        parsed = _parse_bucket_uri(bucket_id)
+        if parsed.path_in_repo:
             raise typer.BadParameter(
                 f"Cannot specify a prefix for bucket deletion: {bucket_id}."
                 f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
             )
-        bucket_id = parsed_id
+        bucket_id = parsed.id
     elif "/" not in bucket_id:
         raise typer.BadParameter(
             f"Invalid bucket ID: {bucket_id}."
@@ -439,10 +398,9 @@ def remove(
 
     To delete an entire bucket, use `hf buckets delete` instead.
     """
-    try:
-        bucket_id, prefix = _parse_bucket_argument(argument)
-    except ValueError as e:
-        raise typer.BadParameter(str(e))
+    parsed = _parse_bucket_uri(argument)
+    bucket_id = parsed.id
+    prefix = parsed.path_in_repo
 
     if prefix == "" and not recursive:
         raise typer.BadParameter(
@@ -462,7 +420,7 @@ def remove(
         all_files: list[BucketFile] = []
         for item in api.list_bucket_tree(
             bucket_id,
-            prefix=prefix.rstrip("/") or None,
+            prefix=prefix or None,
             recursive=True,
         ):
             if isinstance(item, BucketFile):
@@ -504,7 +462,7 @@ def remove(
         )
 
     else:
-        file_path = prefix.rstrip("/")
+        file_path = prefix
         if not file_path:
             raise typer.BadParameter("File path cannot be empty.")
 
@@ -544,24 +502,24 @@ def move(
 ) -> None:
     """Move (rename) a bucket to a new name or namespace."""
     # Parse from_id
-    parsed_from_id, from_prefix = _parse_bucket_argument(from_id)
-    if from_prefix:
+    parsed_from = _parse_bucket_uri(from_id)
+    if parsed_from.path_in_repo:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {from_id}."
             f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
 
     # Parse to_id
-    parsed_to_id, to_prefix = _parse_bucket_argument(to_id)
-    if to_prefix:
+    parsed_to = _parse_bucket_uri(to_id)
+    if parsed_to.path_in_repo:
         raise typer.BadParameter(
             f"Cannot specify a prefix for bucket move: {to_id}."
             f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
 
     api = get_hf_api(token=token)
-    api.move_bucket(from_id=parsed_from_id, to_id=parsed_to_id)
-    out.result("Bucket moved", from_id=parsed_from_id, to_id=parsed_to_id)
+    api.move_bucket(from_id=parsed_from.id, to_id=parsed_to.id)
+    out.result("Bucket moved", from_id=parsed_from.id, to_id=parsed_to.id)
 
 
 # =============================================================================
@@ -722,18 +680,18 @@ def sync(
 )
 def cp(
     src: Annotated[
-        str, typer.Argument(help="Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin")
+        str, typer.Argument(help="Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin")
     ],
     dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, bucket hf://... handle, or - for stdout")
+        str | None, typer.Argument(help="Destination: local path, bucket hf://... URI, or - for stdout")
     ] = None,
     token: TokenOpt = None,
 ) -> None:
     """Copy files to or from buckets."""
     api = get_hf_api(token=token)
 
-    src_is_hf = _is_hf_handle(src)
-    dst_is_hf = dst is not None and _is_hf_handle(dst)
+    src_is_hf = is_hf_uri(src)
+    dst_is_hf = dst is not None and is_hf_uri(dst)
     src_is_bucket = _is_bucket_path(src)
     dst_is_bucket = dst is not None and _is_bucket_path(dst)
     src_is_stdin = src == "-"
@@ -760,8 +718,8 @@ def cp(
         raise typer.BadParameter("Stdin upload requires a bucket destination.")
 
     if src_is_stdin and dst_is_bucket:
-        _, prefix = _parse_bucket_path(dst)  # type: ignore
-        if prefix == "" or prefix.endswith("/"):
+        parsed = _parse_bucket_uri(dst)  # type: ignore
+        if parsed.path_in_repo == "" or dst.endswith("/"):  # type: ignore
             raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
 
     if dst_is_stdout and not src_is_bucket:
@@ -773,8 +731,9 @@ def cp(
     # --- Determine direction and execute ---
     if src_is_bucket:
         # Download: remote -> local or stdout
-        bucket_id, prefix = _parse_bucket_path(src)
-        if prefix == "" or prefix.endswith("/"):
+        parsed = _parse_bucket_uri(src)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
+        if prefix == "" or src.endswith("/"):
             raise typer.BadParameter("Source path must include a file name, not just a bucket or directory path.")
         filename = prefix.rsplit("/", 1)[-1]
 
@@ -807,10 +766,10 @@ def cp(
 
     elif src_is_stdin:
         # Upload from stdin
-        bucket_id, remote_path = _parse_bucket_path(dst)  # type: ignore
+        parsed = _parse_bucket_uri(dst)  # type: ignore
         data = sys.stdin.buffer.read()
 
-        api.batch_bucket_files(bucket_id, add=[(data, remote_path)])
+        api.batch_bucket_files(parsed.id, add=[(data, parsed.path_in_repo)])
         out.result("Uploaded", src="stdin", dst=dst)
 
     else:
@@ -818,12 +777,13 @@ def cp(
         if not os.path.isfile(src):
             raise typer.BadParameter(f"Source file not found: {src}")
 
-        bucket_id, prefix = _parse_bucket_path(dst)  # type: ignore
+        parsed = _parse_bucket_uri(dst)  # type: ignore
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
 
         if prefix == "":
             remote_path = os.path.basename(src)
-        elif prefix.endswith("/"):
-            remote_path = prefix + os.path.basename(src)
+        elif dst.endswith("/"):  # type: ignore
+            remote_path = prefix + "/" + os.path.basename(src)
         else:
             remote_path = prefix
 

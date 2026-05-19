@@ -161,6 +161,29 @@ def test_table_empty(check):
     )
 
 
+def test_table_truncates_by_default(capsys):
+    long_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table([{"id": long_id}], headers=["id"])
+
+    captured = capsys.readouterr()
+    assert long_id not in captured.out
+    assert "..." in captured.out
+
+
+def test_table_no_truncate(capsys):
+    long_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+    o = Output()
+    o.set_mode(HUMAN)
+    o.set_no_truncate(True)
+    o.table([{"id": long_id}], headers=["id"])
+
+    captured = capsys.readouterr()
+    assert long_id in captured.out
+    assert "..." not in captured.out
+
+
 # =============================================================================
 # out.dict()
 # =============================================================================
