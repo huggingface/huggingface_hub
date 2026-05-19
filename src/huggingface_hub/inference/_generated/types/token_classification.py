@@ -17,9 +17,9 @@ class TokenClassificationParameters(BaseInferenceType):
 
     aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None
     """The strategy used to fuse tokens based on model predictions"""
-    ignore_labels: list[str] | None = None
+    ignore_labels: Optional[list[str]] = None
     """A list of labels to ignore"""
-    stride: int | None = None
+    stride: Optional[int] = None
     """The number of overlapping tokens between chunks when splitting the input text."""
 
 
@@ -29,7 +29,7 @@ class TokenClassificationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: TokenClassificationParameters | None = None
+    parameters: Optional[TokenClassificationParameters] = None
     """Additional inference parameters for Token Classification"""
 
 
@@ -45,7 +45,7 @@ class TokenClassificationOutputElement(BaseInferenceType):
     """The character position in the input where this group begins."""
     word: str
     """The corresponding text"""
-    entity: str | None = None
+    entity: Optional[str] = None
     """The predicted label for a single token"""
-    entity_group: str | None = None
+    entity_group: Optional[str] = None
     """The predicted label for a group of one or more tokens"""
