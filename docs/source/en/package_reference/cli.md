@@ -623,7 +623,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
 
 **Options**:
 
@@ -634,6 +634,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 Examples
   $ hf cache rm model/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2
   $ hf cache rm <revision_hash>
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes

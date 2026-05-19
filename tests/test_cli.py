@@ -189,6 +189,59 @@ class TestCacheCommand:
         strategy.execute.assert_called_once_with()
         print_mock.assert_called_once()
 
+    def test_rm_hf_uri_executes_strategy(self, runner: CliRunner) -> None:
+        revision = _make_revision("c" * 40)
+        repo = _make_repo("openai-community/gpt2", revisions=[revision])
+
+        repo_lookup = {"model/openai-community/gpt2": repo}
+        revision_lookup = {}
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_revisions.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
+            patch("huggingface_hub.cli.cache.print_cache_selected_revisions"),
+        ):
+            result = runner.invoke(app, ["cache", "rm", "hf://models/openai-community/gpt2", "--yes"])
+
+        assert result.exit_code == 0
+        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        strategy.execute.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "hf://models/openai-community/gpt2@main",
+            "hf://models/openai-community/gpt2/config.json",
+        ],
+    )
+    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", target])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+
+    def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", "hf://buckets/openai-community/gpt2"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Only repository hf:// URIs are supported" in str(result.exception)
+
     def test_rm_dry_run_skips_execute(self, runner: CliRunner) -> None:
         revision = _make_revision("d" * 40)
         repo = _make_repo("user/model", revisions=[revision])
