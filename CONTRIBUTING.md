@@ -26,20 +26,24 @@ helped you, or simply star the repo to say "thank you".
 Whichever way you choose to contribute, please be mindful to respect our
 [code of conduct](https://github.com/huggingface/huggingface_hub/blob/main/CODE_OF_CONDUCT.md).
 
-> Looking for a good first issue to work on?
-> Please check out our contributing guide below and then select an issue from our [curated list](https://github.com/huggingface/huggingface_hub/contribute).
-> Pick one and get started with it!
+## Found a bug or want a new feature? Open an issue first
+
+If you want to report a bug or suggest a technical improvement, **please open an issue rather than a pull request**.
+A well-written issue with concrete details (*what* is wrong or missing, *why* it matters, *how* you'd expect it to work)
+is the most helpful thing you can do. It helps us prioritize, design the right solution, and ship a fix quickly.
+
+In practice, **we prefer to implement most code changes ourselves**. As maintainers we can iterate fast, keep the code
+consistent, and ship fixes in a single pass. We will typically pick up issues and open a PR on our side when the timing
+is right. This is not about gatekeeping. It is simply how we work most efficiently on a fast-moving codebase, and it
+avoids long back-and-forth review cycles that end up being frustrating for everyone.
+
+Pull requests are still welcome for documentation improvements, typo fixes, or changes that have been discussed and
+scoped in an issue beforehand. But when in doubt, start with an issue.
 
 ### The client library, `huggingface_hub`
 
 This repository hosts the `huggingface_hub`, the client library that interfaces any Python script with the Hugging Face Hub.
 Its implementation lives in `src/huggingface_hub`, while the tests are located in `tests/`.
-
-There are many ways you can contribute to this client library:
-
-- Fixing outstanding issues with the existing code;
-- Contributing to the examples or to the documentation;
-- Submitting issues related to bugs or desired new features.
 
 ## Submitting a new issue or feature request
 
@@ -126,103 +130,65 @@ Follow these steps to start contributing:
 
    **Do not** work on the `main` branch.
 
-4. Set up a development environment by running the following command in a [virtual environment](https://docs.python.org/3/library/venv.html#creating-virtual-environments) or a conda environment you've created for working on this library:
+4. Set up a development environment. We recommend using [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
+   for a fast and reliable setup:
 
    ```bash
-   $ pip uninstall huggingface_hub # make sure huggingface_hub is not already installed
-   $ pip install -e ".[dev]" # install in editable (-e) mode
+   $ uv venv .venv
+   $ source .venv/bin/activate
+   $ uv pip install -e ".[dev]"
    ```
 
-5. Develop the features on your branch
+   > **Windows users:** we recommend using [WSL](https://docs.microsoft.com/en-us/windows/wsl/about) for development.
+   > The `make` commands below require a Unix-like shell.
 
-6. Test your implementation!
+5. Develop the features on your branch.
 
-   To make a good Pull Request you must test the features you have added.
-   To do so, we use the `unittest` framework and run them using `pytest`:
+6. Format your code and check quality. Always run both before committing:
 
    ```bash
-   $ pytest tests -k <TEST_NAME>
-   # or
-   $ pytest tests/<TEST_FILE>.py
+   $ make style   # auto-format code + regenerate generated files
+   $ make quality  # check formatting, linting, and type errors (read-only)
    ```
 
-7. Format your code.
+   `make style` applies [`ruff`](https://github.com/astral-sh/ruff) formatting and updates auto-generated files
+   (static imports, async client, CLI docs). `make quality` runs the same checks without modifying files and
+   additionally runs the [`ty`](https://docs.astral.sh/ty/) type checker. Both will run in CI, but running them
+   locally lets you iterate faster.
 
-   `huggingface_hub` relies on [`ruff`](https://github.com/astral-sh/ruff) to format its source code consistently. You
-   can apply automatic style corrections and code verifications with the following command:
+7. Test your implementation. You must test the features you have added:
 
    ```bash
-   $ make style
+   $ pytest tests/<TEST_FILE>.py           # run a specific test file
+   $ pytest tests -k <TEST_NAME>           # run tests matching a name
    ```
 
-   This command will update your code to comply with the standards of the `huggingface_hub` repository. A few custom
-   scripts are also run to ensure consistency. Once automatic style corrections have been applied, you must test that
-   it passes the quality checks:
-
-   ```bash
-   $ make quality
-   ```
-
-   Compared to `make style`, `make quality` will never update your code. In addition to the previous code formatter, it
-   also runs [`ty`](https://docs.astral.sh/ty/) type checker to check for static typing issues. All those tests will also run
-   in the CI once you open your PR but it is recommended to run them locally in order to iterate faster.
-
-   > For the commands leveraging the `make` utility, we recommend using the WSL system when running on
-   > Windows. More information [here](https://docs.microsoft.com/en-us/windows/wsl/about).
-
-8. (optional) Alternatively, you can install pre-commit hooks so that these styles are applied and checked on files
-   that you have touched in each commit:
-
-   ```bash
-   pip install pre-commit
-   pre-commit install
-   ```
-
-   You only need to do the above once in your repository's environment. If for any reason you would like to disable
-   pre-commit hooks on a commit, you can pass `-n` to your `git commit` command to temporarily disable pre-commit
-   hooks.
-
-   To permanently disable hooks, you can run the following command:
-
-   ```bash
-   pre-commit uninstall
-   ```
-
-9. Once you're happy with your changes, add changed files using `git add` and make a commit with `git commit` to record
-   your changes locally:
+8. Once you're happy with your changes, commit and push:
 
    ```bash
    $ git add modified_file.py
    $ git commit
+   $ git push -u origin a-descriptive-name-for-my-changes
    ```
 
    Please write [good commit messages](https://chris.beams.io/posts/git-commit/).
 
-   It is a good idea to sync your copy of the code with the original
-   repository regularly. The following document covers it in length: [github documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
-
-   And here's how you can do it quickly from your `git` commandline:
+   Keep your branch up to date with upstream:
 
    ```bash
    $ git fetch upstream
    $ git rebase upstream/main
    ```
 
-   Push the changes to your account using:
-
-   ```bash
-   $ git push -u origin a-descriptive-name-for-my-changes
-   ```
-
-10. Once you are satisfied (**and the [checklist below](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md#checklist)
+9. Once you are satisfied (**and the [checklist below](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md#checklist)
     is happy too**), go to the webpage of your fork on GitHub. Click on 'Pull request' to send your changes to the project maintainers for review.
 
-11. It's ok if maintainers ask you for changes. It happens all the time to core contributors
+10. It's ok if maintainers ask you for changes. It happens all the time to core contributors
     too! So everyone can see the changes in the Pull request, work in your local
     branch and push the changes to your fork. They will automatically appear in
     the pull request.
 
-12. Once your changes have been approved, one of the project maintainers will
+11. Once your changes have been approved, one of the project maintainers will
     merge your pull request for you. Good job!
 
 ### Checklist
@@ -247,23 +213,10 @@ Follow these steps to start contributing:
 An extensive test suite is included to test the library behavior and several examples. Library tests can be found in
 the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/tests).
 
-We use `pytest` in order to run the tests for the library.
-From the root of the repository they can be run with the following:
+We use `pytest` to run the tests. From the root of the repository:
 
 ```bash
-$ python -m pytest ./tests
-```
-
-You can specify a smaller set of tests in order to test only the feature you're working on.
-
-For example, the following will only run the tests in the `test_repository.py` file:
-
-```bash
-$ python -m pytest ./tests/test_repository.py
-```
-
-And the following will only run the tests that include `tag` in their name:
-
-```bash
-$ python -m pytest ./tests -k tag
+$ pytest tests/                          # run all tests (slow, many require network)
+$ pytest tests/test_repository.py        # run a specific test file
+$ pytest tests -k tag                    # run tests matching a name
 ```
