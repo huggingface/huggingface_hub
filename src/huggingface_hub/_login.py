@@ -438,10 +438,20 @@ def _set_active_token(
             )
         else:
             logger.warning("Token has not been saved to git credential helper.")
-    # Write token to HF_TOKEN_PATH
+    # Write token to HF_TOKEN_PATH. The token is sensitive — restrict the file
+    # and its parent directory to the user (0o600 / 0o700) so a co-tenant on the
+    # same host can't recover it via home-dir traversal. chmod is wrapped in
+    # try/except because Windows doesn't support POSIX modes; the mkdir mode
+    # arg likewise only applies to a freshly-created directory, so we chmod the
+    # parent again to handle the case where the cache dir already existed.
     path = Path(constants.HF_TOKEN_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(token)
+    try:
+        path.chmod(0o600)
+        path.parent.chmod(0o700)
+    except (OSError, NotImplementedError):
+        pass
     logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
 

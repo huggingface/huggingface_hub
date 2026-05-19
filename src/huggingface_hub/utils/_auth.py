@@ -156,15 +156,27 @@ def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
     """
     stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
 
-    # Write the stored tokens into an INI file
+    # Write the stored tokens into an INI file. The file contains every named
+    # HF token the user has saved (personal + work + organization), so it is
+    # the worst case impact-wise if leaked. Restrict the file and its parent
+    # directory to the user (0o600 / 0o700) so a co-tenant on the same host
+    # can't recover the tokens via home-dir traversal. chmod is wrapped in
+    # try/except because Windows doesn't support POSIX modes; the mkdir mode
+    # arg likewise only applies to a freshly-created directory, so we chmod the
+    # parent again to handle the case where the cache dir already existed.
     config = configparser.ConfigParser()
     for token_name in sorted(stored_tokens.keys()):
         config.add_section(token_name)
         config.set(token_name, "hf_token", stored_tokens[token_name])
 
-    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True)
+    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with stored_tokens_path.open("w") as config_file:
         config.write(config_file)
+    try:
+        stored_tokens_path.chmod(0o600)
+        stored_tokens_path.parent.chmod(0o700)
+    except (OSError, NotImplementedError):
+        pass
 
 
 def _get_token_by_name(token_name: str) -> str | None:
