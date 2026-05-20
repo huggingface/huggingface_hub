@@ -106,6 +106,7 @@ from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata,
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
+    HfUri,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -418,18 +419,6 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     return repo_type, namespace, repo_id
 
 
-def _parse_hf_copy_uri(hf_uri: str) -> _BucketCopyHandle | _RepoCopyHandle:
-    parsed = parse_hf_uri(hf_uri)
-    if parsed.is_bucket:
-        return _BucketCopyHandle(bucket_id=parsed.id, path=parsed.path_in_repo)
-    return _RepoCopyHandle(
-        repo_type=parsed.type,  # type: ignore
-        repo_id=parsed.id,
-        revision=parsed.revision or constants.DEFAULT_REVISION,
-        path=parsed.path_in_repo,
-    )
-
-
 @dataclass
 class LastCommitInfo(dict):
     oid: str
@@ -690,20 +679,6 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
-
-
-@dataclass(frozen=True)
-class _BucketCopyHandle:
-    bucket_id: str
-    path: str
-
-
-@dataclass(frozen=True)
-class _RepoCopyHandle:
-    repo_type: Literal["model", "dataset", "space"]
-    repo_id: str
-    revision: str
-    path: str
 
 
 def _resolve_copy_target_path(
@@ -13001,16 +12976,16 @@ class HfApi:
             >>> copy_files("hf://username/source-model/config.json", "hf://username/dest-model/config.json")
             ```
         """
-        source_uri = _parse_hf_copy_uri(source)
-        destination_uri = _parse_hf_copy_uri(destination)
+        source_uri = parse_hf_uri(source)
+        destination_uri = parse_hf_uri(destination)
 
         # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
         # Check before parsing strips the slash.
         source_is_contents_only = source.endswith("/")
 
         # Repo-to-repo: use CommitOperationCopy + create_commit
-        if isinstance(destination_uri, _RepoCopyHandle):
-            if isinstance(source_uri, _BucketCopyHandle):
+        if destination_uri.is_repo:
+            if source_uri.is_bucket:
                 raise ValueError("Bucket-to-repo copy is not supported.")
             self._copy_repo_to_repo(
                 source_uri, destination_uri, source_is_contents_only, source, destination, token=token
@@ -13018,8 +12993,8 @@ class HfApi:
             return
 
         # === Bucket destination ===
-        destination_bucket_id = destination_uri.bucket_id
-        destination_path = destination_uri.path
+        destination_bucket_id = destination_uri.id
+        destination_path = destination_uri.path_in_repo
         destination_is_directory = False
         destination_exists_as_directory = False
 
@@ -13075,48 +13050,46 @@ class HfApi:
                         target_path,
                         file.xet_hash,
                         file.size,
-                        source_uri.repo_type,  # type: ignore
-                        source_uri.repo_id,  # type: ignore
+                        source_uri.type,
+                        source_uri.id,
                     )
                 )
             else:
                 pending_downloads.append((file.path, target_path))
 
         # === Source is a bucket: always hash-based copy (no download needed) ===
-        if isinstance(source_uri, _BucketCopyHandle):
-            source_path = source_uri.path
-            source_path_info = list(self.get_bucket_paths_info(source_uri.bucket_id, [source_path], token=token))
+        if source_uri.is_bucket:
+            source_path = source_uri.path_in_repo
+            source_path_info = list(self.get_bucket_paths_info(source_uri.id, [source_path], token=token))
 
             if source_path_info:
                 # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
                 all_copies.append(
-                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source_uri.bucket_id)
+                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source_uri.id)
                 )
             else:
                 # Source path is a folder (or prefix) — list and copy all matching files
                 for item in self.list_bucket_tree(
-                    source_uri.bucket_id, prefix=source_path or None, recursive=True, token=token
+                    source_uri.id, prefix=source_path or None, recursive=True, token=token
                 ):
                     if not isinstance(item, BucketFile):
                         continue
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    all_copies.append(
-                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_uri.bucket_id)
-                    )
+                    all_copies.append(_build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_uri.id))
 
         # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
         else:
-            source_path = source_uri.path
+            source_path = source_uri.path_in_repo
             source_repo_path_info: list[RepoFile | RepoFolder] = []
             if source_path != "":
                 source_repo_path_info = self.get_paths_info(
-                    repo_id=source_uri.repo_id,
+                    repo_id=source_uri.id,
                     paths=[source_path],
-                    repo_type=source_uri.repo_type,
+                    repo_type=source_uri.type,
                     revision=source_uri.revision,
                     token=token,
                 )
@@ -13130,10 +13103,10 @@ class HfApi:
             else:
                 # Source path is a folder — list and copy all files recursively
                 for repo_item in self.list_repo_tree(
-                    repo_id=source_uri.repo_id,
+                    repo_id=source_uri.id,
                     path_in_repo=source_path,
                     recursive=True,
-                    repo_type=source_uri.repo_type,
+                    repo_type=source_uri.type,
                     revision=source_uri.revision,
                     token=token,
                 ):
@@ -13147,12 +13120,10 @@ class HfApi:
 
         # Raise if no source files were found
         if not all_copies and not all_adds and not pending_downloads:
-            if isinstance(source_uri, _BucketCopyHandle):
-                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_uri.bucket_id}'.")
+            if source_uri.is_bucket:
+                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_uri.id}'.")
             else:
-                raise EntryNotFoundError(
-                    f"No files found at '{source}' in {source_uri.repo_type} '{source_uri.repo_id}'."
-                )
+                raise EntryNotFoundError(f"No files found at '{source}' in {source_uri.type} '{source_uri.id}'.")
 
         # Download non-xet files in parallel
         if pending_downloads:
@@ -13160,10 +13131,10 @@ class HfApi:
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
                 local_path = self.hf_hub_download(
-                    repo_id=source_uri.repo_id,  # type: ignore
-                    repo_type=source_uri.repo_type,  # type: ignore
+                    repo_id=source_uri.id,
+                    repo_type=source_uri.type,
                     filename=file_path,
-                    revision=source_uri.revision,  # type: ignore
+                    revision=source_uri.revision,
                     token=token,
                     tqdm_class=silent_tqdm,  # type: ignore
                 )
@@ -13181,15 +13152,15 @@ class HfApi:
 
     def _copy_repo_to_repo(
         self,
-        source: _RepoCopyHandle,
-        destination: _RepoCopyHandle,
+        source: HfUri,
+        destination: HfUri,
         source_is_contents_only: bool,
         source_str: str,
         destination_str: str,
         *,
         token: str | bool | None = None,
     ) -> None:
-        destination_path = destination.path
+        destination_path = destination.path_in_repo
         destination_is_directory = False
         destination_exists_as_directory = False
 
@@ -13198,9 +13169,9 @@ class HfApi:
             destination_exists_as_directory = True
         else:
             dest_path_info = self.get_paths_info(
-                repo_id=destination.repo_id,
+                repo_id=destination.id,
                 paths=[destination_path],
-                repo_type=destination.repo_type,
+                repo_type=destination.type,
                 revision=destination.revision,
                 token=token,
             )
@@ -13213,9 +13184,9 @@ class HfApi:
                 try:
                     destination_exists_as_directory = any(
                         self.list_repo_tree(
-                            repo_id=destination.repo_id,
+                            repo_id=destination.id,
                             path_in_repo=destination_path,
-                            repo_type=destination.repo_type,
+                            repo_type=destination.type,
                             revision=destination.revision,
                             token=token,
                         )
@@ -13235,16 +13206,16 @@ class HfApi:
                 source_is_contents_only,
             )
 
-        is_same_repo = source.repo_id == destination.repo_id and source.repo_type == destination.repo_type
+        is_same_repo = source.id == destination.id and source.type == destination.type
 
         commit_ops: list[CommitOperationCopy] = []
-        source_path = source.path
+        source_path = source.path_in_repo
         source_repo_path_info: list[RepoFile | RepoFolder] = []
         if source_path != "":
             source_repo_path_info = self.get_paths_info(
-                repo_id=source.repo_id,
+                repo_id=source.id,
                 paths=[source_path],
-                repo_type=source.repo_type,
+                repo_type=source.type,
                 revision=source.revision,
                 token=token,
             )
@@ -13257,16 +13228,16 @@ class HfApi:
                     src_path_in_repo=file.path,
                     path_in_repo=target,
                     src_revision=source.revision,
-                    src_repo_id=None if is_same_repo else source.repo_id,
-                    src_repo_type=None if is_same_repo else source.repo_type,
+                    src_repo_id=None if is_same_repo else source.id,
+                    src_repo_type=None if is_same_repo else source.type,
                 )
             )
         else:
             for repo_item in self.list_repo_tree(
-                repo_id=source.repo_id,
+                repo_id=source.id,
                 path_in_repo=source_path,
                 recursive=True,
-                repo_type=source.repo_type,
+                repo_type=source.type,
                 revision=source.revision,
                 token=token,
             ):
@@ -13278,20 +13249,20 @@ class HfApi:
                         src_path_in_repo=repo_item.path,
                         path_in_repo=target,
                         src_revision=source.revision,
-                        src_repo_id=None if is_same_repo else source.repo_id,
-                        src_repo_type=None if is_same_repo else source.repo_type,
+                        src_repo_id=None if is_same_repo else source.id,
+                        src_repo_type=None if is_same_repo else source.type,
                     )
                 )
 
         if not commit_ops:
-            raise EntryNotFoundError(f"No files found at '{source_str}' in {source.repo_type} '{source.repo_id}'.")
+            raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
 
         self.create_commit(
-            repo_id=destination.repo_id,
-            repo_type=destination.repo_type,
+            repo_id=destination.id,
+            repo_type=destination.type,
             revision=destination.revision,
             operations=commit_ops,
-            commit_message=f"Copy files from {source.repo_type}s/{source.repo_id}",
+            commit_message=f"Copy files from {source.type}s/{source.id}",
             token=token,
         )
 
