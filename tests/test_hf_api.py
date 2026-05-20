@@ -4474,6 +4474,17 @@ class PaperApiTest(unittest.TestCase):
         paper = self.api.paper_info("2407.21783")
         assert paper.title == "The Llama 3 Herd of Models"
 
+    def test_get_paper_by_id_returns_linked_repos(self) -> None:
+        paper = self.api.paper_info("2601.15621")
+        assert paper.linked_models is not None and len(paper.linked_models) > 0
+        assert all(isinstance(m, ModelInfo) for m in paper.linked_models)
+        assert paper.num_total_models is not None and paper.num_total_models > 0
+        assert paper.linked_datasets is not None
+        assert all(isinstance(d, DatasetInfo) for d in paper.linked_datasets)
+        assert paper.num_total_datasets is not None
+        assert paper.linked_spaces is not None and len(paper.linked_spaces) > 0
+        assert all(isinstance(s, SpaceInfo) for s in paper.linked_spaces)
+
     def test_get_paper_by_id_not_found(self) -> None:
         with self.assertRaises(HfHubHTTPError) as context:
             self.api.paper_info("1234.56789")
@@ -4532,35 +4543,6 @@ class PaperApiTest(unittest.TestCase):
     def test_daily_papers_limit(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", limit=10))
         assert len(papers) == 10
-
-
-class PaperInfoParseTest(unittest.TestCase):
-    def test_paper_info_parses_linked_repos(self) -> None:
-        from huggingface_hub.hf_api import PaperInfo
-
-        paper = PaperInfo(
-            id="2502.08025",
-            linkedModels=[{"id": "user/test-model"}],
-            numTotalModels=1,
-            linkedDatasets=[{"id": "user/test-dataset"}],
-            numTotalDatasets=1,
-            linkedSpaces=[{"id": "user/test-space"}],
-        )
-        assert paper.linked_models == [{"id": "user/test-model"}]
-        assert paper.num_total_models == 1
-        assert paper.linked_datasets == [{"id": "user/test-dataset"}]
-        assert paper.num_total_datasets == 1
-        assert paper.linked_spaces == [{"id": "user/test-space"}]
-
-    def test_paper_info_linked_repos_default_to_none(self) -> None:
-        from huggingface_hub.hf_api import PaperInfo
-
-        paper = PaperInfo(id="2502.08025")
-        assert paper.linked_models is None
-        assert paper.num_total_models is None
-        assert paper.linked_datasets is None
-        assert paper.num_total_datasets is None
-        assert paper.linked_spaces is None
 
 
 class WebhookApiTest(HfApiCommonTest):
