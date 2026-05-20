@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BUCKET_PREFIX, _split_bucket_id_and_prefix
+from huggingface_hub._buckets import BUCKET_PREFIX
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -83,50 +83,23 @@ def bucket_write(api: HfApi) -> str:
 # =============================================================================
 
 
-def _handle_to_bucket_id(handle: str) -> str:
-    """Extract bucket_id from a handle like 'hf://buckets/user/name'."""
+def _uri_to_bucket_id(uri: str) -> str:
+    """Extract bucket_id from a uri like 'hf://buckets/user/name'."""
     prefix = "hf://buckets/"
-    if handle.startswith(prefix):
-        return handle[len(prefix) :]
-    return handle
-
-
-@pytest.mark.parametrize(
-    "path, expected",
-    [
-        ("namespace/bucket", ("namespace/bucket", "")),
-        ("namespace/bucket/prefix", ("namespace/bucket", "prefix")),
-        ("namespace/bucket/deep/nested/prefix", ("namespace/bucket", "deep/nested/prefix")),
-        ("org/my-bucket/", ("org/my-bucket", "")),
-    ],
-)
-def test_split_bucket_id_and_prefix(path: str, expected: tuple):
-    assert _split_bucket_id_and_prefix(path) == expected
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "just-a-name",
-        "",
-        "/bucket",
-        "namespace/",
-    ],
-)
-def test_split_bucket_id_and_prefix_invalid(path: str):
-    with pytest.raises(ValueError, match="Invalid bucket path"):
-        _split_bucket_id_and_prefix(path)
+    if uri.startswith(prefix):
+        return uri[len(prefix) :]
+    return uri
 
 
 def test_create_bucket(api: HfApi):
     name = bucket_name()
     result = cli(f"hf buckets create {name} --quiet")
     assert result.exit_code == 0
-    handle = result.output.strip()
-    assert handle == f"hf://buckets/{USER}/{name}"
+    uri = result.output.strip()
+    assert uri == f"hf://buckets/{USER}/{name}"
 
     # Verify bucket exists
-    bucket_id = _handle_to_bucket_id(handle)
+    bucket_id = _uri_to_bucket_id(uri)
     info = api.bucket_info(bucket_id)
     assert info.id == bucket_id
 
@@ -135,7 +108,7 @@ def test_create_bucket_private(api: HfApi):
     name = bucket_name()
     result = cli(f"hf buckets create {name} --private --quiet")
     assert result.exit_code == 0
-    bucket_id = _handle_to_bucket_id(result.output.strip())
+    bucket_id = _uri_to_bucket_id(result.output.strip())
 
     info = api.bucket_info(bucket_id)
     assert info.private is True
@@ -162,13 +135,13 @@ def test_create_bucket_exist_ok():
 
 def test_create_bucket_with_hf_prefix(api: HfApi):
     name = bucket_name()
-    hf_handle = f"hf://buckets/{USER}/{name}"
-    result = cli(f"hf buckets create {hf_handle} --quiet")
+    hf_uri = f"hf://buckets/{USER}/{name}"
+    result = cli(f"hf buckets create {hf_uri} --quiet")
     assert result.exit_code == 0
 
-    assert result.output.strip() == hf_handle
+    assert result.output.strip() == hf_uri
 
-    bucket_id = _handle_to_bucket_id(hf_handle)
+    bucket_id = _uri_to_bucket_id(hf_uri)
     info = api.bucket_info(bucket_id)
     assert info.id == bucket_id
 

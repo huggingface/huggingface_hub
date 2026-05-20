@@ -42,8 +42,10 @@ from typer.main import get_command
 
 from huggingface_hub.errors import CLIError
 
+from ..utils import disable_progress_bars
 from . import _skills
-from ._cli_utils import _has_local_formatting_option, typer_factory
+from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
+from ._output import out
 
 
 DEFAULT_SKILL_ID = "hf-cli"
@@ -365,6 +367,49 @@ def _resolve_update_roots(
 def skills_preview() -> None:
     """Print the generated `hf-cli` SKILL.md to stdout."""
     print(build_skill_md())
+
+
+@skills_cli.command(
+    "list | ls",
+    examples=[
+        "hf skills list",
+        "hf skills list --format json",
+    ],
+)
+def skills_list(
+    token: TokenOpt = None,
+) -> None:
+    """List available skills from the Hugging Face marketplace."""
+    install_locations: list[tuple[str, Path]] = [
+        ("project", CENTRAL_LOCAL),
+        ("project (claude)", CLAUDE_LOCAL),
+        ("global", CENTRAL_GLOBAL),
+        ("global (claude)", CLAUDE_GLOBAL),
+    ]
+    installed: dict[str, set[str]] = {}
+    for label, root in install_locations:
+        for skill_dir in _skills._iter_unique_skill_dirs([root]):
+            installed.setdefault(skill_dir.name.lower(), set()).add(label)
+
+    api = get_hf_api(token=token)
+    with disable_progress_bars():
+        skills = _skills._load_marketplace_skills(api)
+    results = [
+        {
+            "name": skill.name,
+            "description": skill.description or "",
+            **{
+                label: "yes" if label in installed.get(skill.name.lower(), set()) else ""
+                for label, _ in install_locations
+            },
+        }
+        for skill in skills
+    ]
+    out.table(
+        results,
+        id_key="name",
+        alignments={"project": "right", "global": "right", "project (claude)": "right", "global (claude)": "right"},
+    )
 
 
 @skills_cli.command(

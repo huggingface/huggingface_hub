@@ -38,6 +38,7 @@ def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
     from huggingface_hub.cli._output import out
 
     out.set_mode()
+    out.set_no_truncate(False)
 
 
 logger = logging.get_logger(__name__)

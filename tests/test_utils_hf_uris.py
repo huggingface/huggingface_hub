@@ -158,6 +158,43 @@ URI_SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="refs/pr/3"),
         "hf://models/my-org/my-model@refs/pr/3",
     ),
+    # --- '@' in filenames (literal, not a revision separator) -----------------
+    # Bucket with '@' in filename
+    (
+        "hf://buckets/my-org/my-bucket/file@1.txt",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="file@1.txt"),
+        "hf://buckets/my-org/my-bucket/file@1.txt",
+    ),
+    # Bucket with '@' in nested path
+    (
+        "hf://buckets/my-org/my-bucket/sub/data@v2.bin",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data@v2.bin"),
+        "hf://buckets/my-org/my-bucket/sub/data@v2.bin",
+    ),
+    # Repo with '@' in filename (no revision)
+    (
+        "hf://models/my-org/my-model/file@1.txt",
+        HfUri(type="model", id="my-org/my-model", path_in_repo="file@1.txt"),
+        "hf://models/my-org/my-model/file@1.txt",
+    ),
+    # Repo with '@' in nested path (no revision, implicit model type)
+    (
+        "hf://my-org/my-model/sub/data@v2.bin",
+        HfUri(type="model", id="my-org/my-model", path_in_repo="sub/data@v2.bin"),
+        "hf://models/my-org/my-model/sub/data@v2.bin",
+    ),
+    # Repo with explicit revision AND '@' in filename
+    (
+        "hf://models/my-org/my-model@main/file@1.txt",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="file@1.txt"),
+        "hf://models/my-org/my-model@main/file@1.txt",
+    ),
+    # '@' right after namespace/name is still a revision separator
+    (
+        "hf://a/b/c@v1",
+        HfUri(type="model", id="a/b", path_in_repo="c@v1"),
+        "hf://models/a/b/c@v1",
+    ),
 ]
 
 
@@ -198,8 +235,6 @@ URI_FAILURE_CASES: list[tuple[str, str]] = [
     ("hf://datasets/foo/bar@/file", "Empty revision"),
     # Empty repo id before '@'
     ("hf://@v1/file", "Missing repository id"),
-    # Repo id with too many slashes
-    ("hf://a/b/c@v1", "Repository id must be 'namespace/name'"),
     # Invalid repo id chars (validated by validate_repo_id)
     ("hf://datasets/foo/.invalid", "Repo id must use alphanumeric"),
     ("hf://models/foo--bar/baz", "Cannot have -- or .."),

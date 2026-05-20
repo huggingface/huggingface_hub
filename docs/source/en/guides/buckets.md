@@ -24,7 +24,7 @@ Create a bucket with [`create_bucket`]. You need to provide a bucket name. If yo
 >>> url = create_bucket("my-bucket")
 >>> url.bucket_id
 'username/my-bucket'
->>> url.handle
+>>> url.uri.to_uri()
 'hf://buckets/username/my-bucket'
 
 # Create a private bucket
@@ -44,7 +44,9 @@ Or via CLI:
 
 ```bash
 >>> hf buckets create my-bucket
-Bucket created: https://huggingface.co/buckets/username/my-bucket (handle: hf://buckets/username/my-bucket)
+✓ Bucket created
+  uri: hf://buckets/Wauplin/my-bucket
+  url: https://huggingface.co/buckets/Wauplin/my-bucket
 
 # Create a private bucket
 >>> hf buckets create my-bucket --private
