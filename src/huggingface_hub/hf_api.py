@@ -5273,11 +5273,10 @@ class HfApi:
             logger.debug("No cross-repo LFS files to duplicate.")
             return
 
-        # Fetch source file info and collect LFS files to duplicate.
-        # We also build a mapping from sha256 -> operations so we can trace failures back.
-        lfs_files_to_duplicate: list[dict] = []
-        sha256_to_ops: dict[str, list[CommitOperationCopy]] = {}
-        seen_oids: set[str] = set()
+        # Fetch source file info, grouped by source repo.
+        # The /lfs-files/duplicate endpoint lives on the *source* repo and takes the destination as `target`.
+        # We build a sha256 -> operations mapping to trace failures back to specific copy operations.
+        failed_oids: set[str] = set()
 
         for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
             cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
@@ -5289,6 +5288,10 @@ class HfApi:
             for op in operations:
                 path_to_ops.setdefault(op.src_path_in_repo, []).append(op)
 
+            lfs_files: list[dict] = []
+            sha256_to_ops: dict[str, list[CommitOperationCopy]] = {}
+            seen_oids: set[str] = set()
+
             for paths_batch in chunk_iterable(src_paths, 500):
                 src_repo_files = self.get_paths_info(
                     repo_id=src_repo_id,
@@ -5299,45 +5302,57 @@ class HfApi:
                 for src_file in src_repo_files:
                     if isinstance(src_file, RepoFolder):
                         continue
-                    if src_file.lfs:
-                        oid = src_file.lfs.sha256
+                    if not src_file.lfs:
+                        continue
+                    if not src_file.xet_hash:
                         for op in path_to_ops.get(src_file.path, []):
-                            sha256_to_ops.setdefault(oid, []).append(op)
-                        if oid not in seen_oids:
-                            seen_oids.add(oid)
-                            lfs_files_to_duplicate.append(
-                                {
-                                    "oid": oid,
-                                    "size": src_file.lfs.size,
-                                    "sourceRepoType": src_repo_type,
-                                    "sourceRepoId": src_repo_id,
-                                }
+                            op._duplication_failed = True
+                            logger.warning(
+                                f"Cannot duplicate LFS file '{src_file.path}' from"
+                                f" {src_repo_type}s/{src_repo_id}: file has no xet hash."
                             )
+                        continue
+                    oid = src_file.lfs.sha256
+                    for op in path_to_ops.get(src_file.path, []):
+                        sha256_to_ops.setdefault(oid, []).append(op)
+                    if oid not in seen_oids:
+                        seen_oids.add(oid)
+                        lfs_files.append(
+                            {
+                                "xetHash": src_file.xet_hash,
+                                "sha256": oid,
+                                "filename": src_file.path,
+                            }
+                        )
 
-        if not lfs_files_to_duplicate:
-            logger.debug("No cross-repo LFS files to duplicate.")
-            for op in cross_repo_copies:
-                op._is_duplicated = True
-            return
+            if not lfs_files:
+                continue
 
-        # Call the duplicate endpoint in batches and collect failures
-        failed_oids: set[str] = set()
-        duplicate_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/duplicate"
-        for batch in chunk_iterable(lfs_files_to_duplicate, DUPLICATE_LFS_BATCH_SIZE):
-            response = get_session().post(duplicate_url, headers=headers, json=list(batch))
-            hf_raise_for_status(response)
-            data = response.json()
-            for failure in data.get("failed", []):
-                logger.error(f"Failed to duplicate LFS file (sha256: {failure['sha256']}): {failure['error']}")
-                failed_oids.add(failure["sha256"])
-
-        # Mark failed operations
-        for oid in failed_oids:
-            for op in sha256_to_ops.get(oid, []):
-                op._duplication_failed = True
-                logger.warning(
-                    f"Skipping copy of '{op.src_path_in_repo}' -> '{op.path_in_repo}': LFS file duplication failed."
+            # Call the duplicate endpoint on the *source* repo, in batches
+            duplicate_url = f"{self.endpoint}/api/{src_repo_type}s/{src_repo_id}/lfs-files/duplicate"
+            for batch in chunk_iterable(lfs_files, DUPLICATE_LFS_BATCH_SIZE):
+                response = get_session().post(
+                    duplicate_url,
+                    headers=headers,
+                    json={
+                        "target": {"type": repo_type, "name": repo_id},
+                        "files": list(batch),
+                    },
                 )
+                hf_raise_for_status(response)
+                data = response.json()
+                for failure in data.get("failed", []):
+                    logger.error(f"Failed to duplicate LFS file (sha256: {failure['sha256']}): {failure['error']}")
+                    failed_oids.add(failure["sha256"])
+
+            # Mark failed operations for this source repo
+            for oid in failed_oids:
+                for op in sha256_to_ops.get(oid, []):
+                    op._duplication_failed = True
+                    logger.warning(
+                        f"Skipping copy of '{op.src_path_in_repo}' -> '{op.path_in_repo}':"
+                        " LFS file duplication failed."
+                    )
 
         for op in cross_repo_copies:
             op._is_duplicated = True
