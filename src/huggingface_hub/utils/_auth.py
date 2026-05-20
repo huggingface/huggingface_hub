@@ -14,6 +14,7 @@
 """Contains a helper to get the token from machine (env variable, secret or config file)."""
 
 import configparser
+import io
 import logging
 import os
 import warnings
@@ -22,6 +23,24 @@ from threading import Lock
 
 from .. import constants
 from ._runtime import is_colab_enterprise, is_google_colab
+
+
+_SECRET_FILE_MODE = 0o600
+_SECRET_DIR_MODE = 0o700
+
+
+def _write_secret(path: Path, content: str) -> None:
+    """Write content to file, restricting both the file and its parent directory to owner-only on POSIX systems."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=_SECRET_DIR_MODE)
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
+    with os.fdopen(fd, "w") as f:
+        f.write(content)
+    try:
+        path.chmod(_SECRET_FILE_MODE)
+        path.parent.chmod(_SECRET_DIR_MODE)
+    except (OSError, NotImplementedError):
+        # Windows does not support POSIX modes; chmod() will raise. Best-effort.
+        pass
 
 
 _IS_GOOGLE_COLAB_CHECKED = False
@@ -162,9 +181,9 @@ def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
         config.add_section(token_name)
         config.set(token_name, "hf_token", stored_tokens[token_name])
 
-    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True)
-    with stored_tokens_path.open("w") as config_file:
-        config.write(config_file)
+    buf = io.StringIO()
+    config.write(buf)
+    _write_secret(stored_tokens_path, buf.getvalue())
 
 
 def _get_token_by_name(token_name: str) -> str | None:
