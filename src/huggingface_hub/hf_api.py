@@ -58,6 +58,7 @@ from ._buckets import (
     sync_bucket_internal,
 )
 from ._commit_api import (
+    DUPLICATE_LFS_BATCH_SIZE,
     CommitOperation,
     CommitOperationAdd,
     CommitOperationCopy,
@@ -4952,6 +4953,9 @@ class HfApi:
             revision=unquoted_revision,
             endpoint=self.endpoint,
         )
+
+        self._duplicate_lfs_files(repo_id=repo_id, copies=copies, token=token, repo_type=repo_type)
+
         # Remove no-op operations (files that have not changed)
         operations_without_no_op = []
         for operation in operations:
@@ -5210,6 +5214,104 @@ class HfApi:
             addition._is_uploaded = True
             if free_memory:
                 addition.path_or_fileobj = b""
+
+    @validate_hf_hub_args
+    def _duplicate_lfs_files(
+        self,
+        repo_id: str,
+        copies: Iterable[CommitOperationCopy],
+        *,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+    ) -> None:
+        """Duplicate LFS files from source repositories to the destination repository.
+
+        This method is the equivalent of [`preupload_lfs_files`] for cross-repo copy operations. It must be called
+        before [`create_commit`] to ensure that LFS files from the source repositories are available in the destination
+        repository before the commit is created.
+
+        > [!WARNING]
+        > This is a power-user method. You shouldn't need to call it directly to make a normal commit.
+        > Use [`create_commit`] directly instead.
+
+        > [!WARNING]
+        > Commit operations will be mutated during the process. In particular, the `_is_duplicated` attribute will be
+        > set to `True` on each operation after the duplication is complete. Do not reuse the same objects except to
+        > pass them to [`create_commit`].
+
+        Args:
+            repo_id (`str`):
+                The destination repository in which you will commit the files, for example:
+                `"username/custom_transformers"`.
+
+            copies (`Iterable` of [`CommitOperationCopy`]):
+                The list of copy operations describing which files to duplicate. Only cross-repo copies (where
+                `src_repo_id` is set) with LFS files will be processed. Warning: the objects in this list will be
+                mutated to include information relative to the duplication. Do not reuse the same objects for multiple
+                commits.
+
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+            repo_type (`str`, *optional*):
+                The type of the destination repository (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+        """
+        repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        headers = self._build_hf_headers(token=token)
+
+        copies = list(copies)
+        # Filter to cross-repo copies that haven't been duplicated yet
+        cross_repo_copies = [op for op in copies if op.src_repo_id is not None and not op._is_duplicated]
+        if not cross_repo_copies:
+            logger.debug("No cross-repo LFS files to duplicate.")
+            return
+
+        # Fetch source file info and collect LFS files to duplicate
+        lfs_files_to_duplicate: list[dict] = []
+        for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
+            cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
+        ):
+            operations = list(group)
+            src_paths = [op.src_path_in_repo for op in operations]
+            for paths_batch in chunk_iterable(src_paths, 500):
+                src_repo_files = self.get_paths_info(
+                    repo_id=src_repo_id,
+                    paths=list(paths_batch),
+                    revision=src_revision or "main",
+                    repo_type=src_repo_type,
+                )
+                for src_file in src_repo_files:
+                    if isinstance(src_file, RepoFolder):
+                        continue
+                    if src_file.lfs:
+                        lfs_files_to_duplicate.append(
+                            {
+                                "oid": src_file.lfs.sha256,
+                                "size": src_file.lfs.size,
+                                "sourceRepoType": src_repo_type,
+                                "sourceRepoId": src_repo_id,
+                            }
+                        )
+
+        if not lfs_files_to_duplicate:
+            logger.debug("No cross-repo LFS files to duplicate.")
+            for op in cross_repo_copies:
+                op._is_duplicated = True
+            return
+
+        # Call the duplicate endpoint in batches
+        duplicate_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/duplicate"
+        for batch in chunk_iterable(lfs_files_to_duplicate, DUPLICATE_LFS_BATCH_SIZE):
+            response = get_session().post(duplicate_url, headers=headers, json=list(batch))
+            hf_raise_for_status(response)
+
+        for op in cross_repo_copies:
+            op._is_duplicated = True
 
     @overload
     def upload_file(  # type: ignore

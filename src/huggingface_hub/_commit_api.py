@@ -52,6 +52,7 @@ UploadMode = Literal["lfs", "regular"]
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
 FETCH_LFS_BATCH_SIZE = 500
+DUPLICATE_LFS_BATCH_SIZE = 500
 
 UPLOAD_BATCH_MAX_NUM_FILES = 256
 
@@ -124,6 +125,8 @@ class CommitOperationCopy:
     # set to the OID of the file to copy to if it has already been uploaded
     # useful to determine if a commit will be empty or not.
     _dest_oid: str | None = None
+    # set to True once cross-repo LFS files have been duplicated to the destination repo
+    _is_duplicated: bool = False
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
@@ -920,12 +923,6 @@ def _fetch_files_to_copy(
                     raise NotImplementedError("Copying a folder is not implemented.")
                 source = _CopySource(src_repo_id, src_repo_type, src_repo_file.path, src_revision)
                 if src_repo_file.lfs:
-                    if not src_repo_file.xet_hash:
-                        raise ValueError(
-                            f"Cross-repo copy of LFS file '{src_repo_file.path}' from"
-                            f" {src_repo_type}s/{src_repo_id} is not supported: file has no xet hash."
-                            " Only xet-enabled repositories support cross-repo LFS copies."
-                        )
                     files_to_copy[source] = src_repo_file
                 else:
                     url = hf_hub_url(
@@ -1031,19 +1028,13 @@ def _prepare_commit_payload(
                     },
                 }
             elif file_to_copy.lfs:
-                lfs_value: dict[str, Any] = {
-                    "path": operation.path_in_repo,
-                    "algo": "sha256",
-                    "oid": file_to_copy.lfs.sha256,
-                }
-                if operation.src_repo_id is not None:
-                    lfs_value["size"] = file_to_copy.lfs.size
-                    lfs_value["xetHash"] = file_to_copy.xet_hash
-                    lfs_value["sourceRepoType"] = operation.src_repo_type
-                    lfs_value["sourceRepoId"] = operation.src_repo_id
                 yield {
                     "key": "lfsFile",
-                    "value": lfs_value,
+                    "value": {
+                        "path": operation.path_in_repo,
+                        "algo": "sha256",
+                        "oid": file_to_copy.lfs.sha256,
+                    },
                 }
             else:
                 raise ValueError(
