@@ -40,6 +40,7 @@ from .utils._auth import (
     _get_token_from_google_colab,
     _save_stored_tokens,
     _save_token,
+    _write_secret,
     get_stored_tokens,
 )
 
@@ -439,9 +440,7 @@ def _set_active_token(
         else:
             logger.warning("Token has not been saved to git credential helper.")
     # Write token to HF_TOKEN_PATH
-    path = Path(constants.HF_TOKEN_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(token)
+    _write_secret(Path(constants.HF_TOKEN_PATH), token)
     logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
 
