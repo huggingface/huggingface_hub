@@ -4967,6 +4967,8 @@ class HfApi:
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
                 continue
+            if isinstance(operation, CommitOperationCopy) and operation._duplication_failed:
+                continue
             if (
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
@@ -5271,13 +5273,22 @@ class HfApi:
             logger.debug("No cross-repo LFS files to duplicate.")
             return
 
-        # Fetch source file info and collect LFS files to duplicate
+        # Fetch source file info and collect LFS files to duplicate.
+        # We also build a mapping from sha256 -> operations so we can trace failures back.
         lfs_files_to_duplicate: list[dict] = []
+        sha256_to_ops: dict[str, list[CommitOperationCopy]] = {}
+        seen_oids: set[str] = set()
+
         for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
             cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
         ):
             operations = list(group)
             src_paths = [op.src_path_in_repo for op in operations]
+
+            path_to_ops: dict[str, list[CommitOperationCopy]] = {}
+            for op in operations:
+                path_to_ops.setdefault(op.src_path_in_repo, []).append(op)
+
             for paths_batch in chunk_iterable(src_paths, 500):
                 src_repo_files = self.get_paths_info(
                     repo_id=src_repo_id,
@@ -5289,14 +5300,19 @@ class HfApi:
                     if isinstance(src_file, RepoFolder):
                         continue
                     if src_file.lfs:
-                        lfs_files_to_duplicate.append(
-                            {
-                                "oid": src_file.lfs.sha256,
-                                "size": src_file.lfs.size,
-                                "sourceRepoType": src_repo_type,
-                                "sourceRepoId": src_repo_id,
-                            }
-                        )
+                        oid = src_file.lfs.sha256
+                        for op in path_to_ops.get(src_file.path, []):
+                            sha256_to_ops.setdefault(oid, []).append(op)
+                        if oid not in seen_oids:
+                            seen_oids.add(oid)
+                            lfs_files_to_duplicate.append(
+                                {
+                                    "oid": oid,
+                                    "size": src_file.lfs.size,
+                                    "sourceRepoType": src_repo_type,
+                                    "sourceRepoId": src_repo_id,
+                                }
+                            )
 
         if not lfs_files_to_duplicate:
             logger.debug("No cross-repo LFS files to duplicate.")
@@ -5304,11 +5320,24 @@ class HfApi:
                 op._is_duplicated = True
             return
 
-        # Call the duplicate endpoint in batches
+        # Call the duplicate endpoint in batches and collect failures
+        failed_oids: set[str] = set()
         duplicate_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/lfs-files/duplicate"
         for batch in chunk_iterable(lfs_files_to_duplicate, DUPLICATE_LFS_BATCH_SIZE):
             response = get_session().post(duplicate_url, headers=headers, json=list(batch))
             hf_raise_for_status(response)
+            data = response.json()
+            for failure in data.get("failed", []):
+                logger.error(f"Failed to duplicate LFS file (sha256: {failure['sha256']}): {failure['error']}")
+                failed_oids.add(failure["sha256"])
+
+        # Mark failed operations
+        for oid in failed_oids:
+            for op in sha256_to_ops.get(oid, []):
+                op._duplication_failed = True
+                logger.warning(
+                    f"Skipping copy of '{op.src_path_in_repo}' -> '{op.path_in_repo}': LFS file duplication failed."
+                )
 
         for op in cross_repo_copies:
             op._is_duplicated = True

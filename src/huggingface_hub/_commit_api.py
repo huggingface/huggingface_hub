@@ -127,6 +127,8 @@ class CommitOperationCopy:
     _dest_oid: str | None = None
     # set to True once cross-repo LFS files have been duplicated to the destination repo
     _is_duplicated: bool = False
+    # set to True if the LFS duplication failed for this operation
+    _duplication_failed: bool = False
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
