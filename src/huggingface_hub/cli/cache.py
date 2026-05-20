@@ -25,7 +25,16 @@ import typer
 
 from huggingface_hub.errors import CLIError
 
-from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
+from ..utils import (
+    ANSI,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    CacheNotFound,
+    HFCacheInfo,
+    _format_size,
+    parse_hf_uri,
+    scan_cache_dir,
+)
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 from ._output import out
@@ -129,6 +138,19 @@ def build_cache_index(
         for revision in repo.revisions:
             revision_lookup[revision.commit_hash.lower()] = (repo, revision)
     return repo_lookup, revision_lookup
+
+
+def _repo_cache_id_from_target(target: str) -> str:
+    """Return the cache id matching a repo target passed to `hf cache rm`."""
+    if not target.startswith("hf://"):
+        return target
+
+    uri = parse_hf_uri(target)
+    if not uri.is_repo:
+        raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
+    if uri.revision is not None or uri.path_in_repo:
+        raise CLIError("Only repo-level hf:// URIs are supported by `hf cache rm` for now.")
+    return f"{uri.type}/{uri.id}"
 
 
 def collect_cache_entries(
@@ -320,7 +342,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             revisions.add(revision.commit_hash)
             continue
 
-        matched_repo = repo_lookup.get(lowered)
+        matched_repo = repo_lookup.get(_repo_cache_id_from_target(target).lower())
         if matched_repo is None:
             missing.append(raw_target)
             continue
@@ -479,6 +501,7 @@ def ls(
 @cache_cli.command(
     examples=[
         "hf cache rm model/gpt2",
+        "hf cache rm hf://models/openai-community/gpt2",
         "hf cache rm <revision_hash>",
         "hf cache rm model/gpt2 --dry-run",
         "hf cache rm model/gpt2 --yes",
@@ -488,7 +511,7 @@ def rm(
     targets: Annotated[
         list[str],
         typer.Argument(
-            help="One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.",
+            help="One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.",
         ),
     ],
     cache_dir: Annotated[

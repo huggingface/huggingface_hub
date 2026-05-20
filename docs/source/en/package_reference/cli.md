@@ -253,8 +253,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin  [required]
-* `[DST]`: Destination: local path, bucket hf://... handle, or - for stdout
+* `SRC`: Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin  [required]
+* `[DST]`: Destination: local path, bucket hf://... URI, or - for stdout
 
 **Options**:
 
@@ -623,7 +623,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
 
 **Options**:
 
@@ -634,6 +634,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 Examples
   $ hf cache rm model/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2
   $ hf cache rm <revision_hash>
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes
@@ -2157,6 +2158,7 @@ Fetch the logs of a Job.
 
 By default, prints currently available logs and exits (non-blocking).
 Use --follow/-f to stream logs in real-time until the job completes.
+Use --tail/-n to limit the number of lines returned (server-side when supported).
 
 **Usage**:
 
@@ -2171,7 +2173,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 **Options**:
 
 * `-f, --follow`: Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.
-* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2180,6 +2182,7 @@ Examples
   $ hf jobs logs <job_id>
   $ hf jobs logs -f <job_id>
   $ hf jobs logs --tail 20 <job_id>
+  $ hf jobs logs -f --tail 100 <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2249,7 +2252,7 @@ Examples
   $ hf jobs run python:3.12 python -c 'print("Hello!")'
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
-  $ hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
+  $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2605,7 +2608,7 @@ Examples
   $ hf jobs uv run my_script.py
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
-  $ hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py
+  $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3061,7 +3064,7 @@ Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
-  $ hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data
+  $ hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
   $ hf repos create my-model --region us
 
 Learn more
@@ -3170,7 +3173,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
-  $ hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data
+  $ hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.

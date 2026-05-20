@@ -81,6 +81,7 @@ _SUBMOD_ATTRS = {
         "JobDurations",
         "JobHardware",
         "JobInfo",
+        "JobInitiator",
         "JobOwner",
         "JobStage",
         "JobStatus",
@@ -767,6 +768,7 @@ __all__ = [
     "JobDurations",
     "JobHardware",
     "JobInfo",
+    "JobInitiator",
     "JobOwner",
     "JobStage",
     "JobStatus",
@@ -1233,6 +1235,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobDurations,  # noqa: F401
         JobHardware,  # noqa: F401
         JobInfo,  # noqa: F401
+        JobInitiator,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401

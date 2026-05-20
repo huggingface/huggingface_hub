@@ -29,7 +29,7 @@ class JobStage(str, Enum):
     ```py
     assert JobStage.COMPLETED == "COMPLETED"
     ```
-    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `RUNNING`.
+    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `SCHEDULING`, `RUNNING`.
     Taken from https://github.com/huggingface/moon-landing/blob/main/server/job_types/JobInfo.ts#L61 (private url).
     """
 
@@ -38,6 +38,7 @@ class JobStage(str, Enum):
     CANCELED = "CANCELED"
     ERROR = "ERROR"
     DELETED = "DELETED"
+    SCHEDULING = "SCHEDULING"
     RUNNING = "RUNNING"
 
 
@@ -82,6 +83,22 @@ class JobDurations:
 
 
 @dataclass
+class JobInitiator:
+    """
+    Contains information about what triggered a Job.
+
+    Args:
+        type (`str`): Initiator kind, for example `"user"`, `"org"`, `"scheduled-job"`, or `"duplicated-job"`.
+        id (`str`): Identifier of the initiator.
+        name (`str` or `None`): Human-readable name when available, usually for user/org initiators.
+    """
+
+    type: str
+    id: str
+    name: str | None = None
+
+
+@dataclass
 class JobInfo:
     """
     Contains information about a Job.
@@ -123,6 +140,8 @@ class JobInfo:
             Timing breakdown of the Job. Present for all job states including SCHEDULING.
         owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
+        initiator (`JobInitiator` or `None`):
+            What triggered the Job, e.g. `JobInitiator(type="scheduled-job", id="...")` for a cron-triggered run.
 
     Example:
 
@@ -133,7 +152,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), started_at=datetime.datetime(2025, 7, 22, 16, 6, 31, 79000, tzinfo=datetime.timezone.utc), finished_at=None, docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), durations=JobDurations(scheduling_secs=6, running_secs=2, total_secs=8), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), started_at=datetime.datetime(2025, 7, 22, 16, 6, 31, 79000, tzinfo=datetime.timezone.utc), finished_at=None, docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), durations=JobDurations(scheduling_secs=6, running_secs=2, total_secs=8), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), initiator=JobInitiator(type='user', id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -159,6 +178,7 @@ class JobInfo:
     status: JobStatus
     durations: JobDurations | None
     owner: JobOwner
+    initiator: JobInitiator | None
 
     # Inferred fields
     endpoint: str
@@ -188,6 +208,10 @@ class JobInfo:
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
         durations = kwargs.get("durations")
         self.durations = JobDurations(**durations) if durations else None
+        initiator = kwargs.get("initiator")
+        self.initiator = (
+            JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name")) if initiator else None
+        )
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
