@@ -5009,7 +5009,7 @@ class HfApi:
             )
 
         commit_payload = _prepare_commit_payload(
-            operations=operations,
+            operations=operations_without_no_op,
             files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
