@@ -358,6 +358,63 @@ def dev_mode(
 
 
 @spaces_cli.command(
+    "ssh",
+    examples=[
+        "hf spaces ssh username/my-space",
+        "hf spaces ssh username/my-space --print",
+        "hf spaces ssh username/my-space -i ~/.ssh/id_ed25519",
+    ],
+)
+def spaces_ssh(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    identity_file: Annotated[
+        Path | None,
+        typer.Option(
+            "-i",
+            "--identity-file",
+            help="Path to the SSH identity file (forwarded to `ssh -i`).",
+        ),
+    ] = None,
+    print_only: Annotated[
+        bool,
+        typer.Option(
+            "--print",
+            help="Print the SSH command instead of running it.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """SSH into a Space's Dev Mode container.
+
+    Requires Dev Mode to be running on the Space and your SSH public key to be registered
+    at https://huggingface.co/settings/keys. See:
+    https://huggingface.co/docs/hub/spaces-dev-mode
+    """
+    api = get_hf_api(token=token)
+    try:
+        info = api.space_info(space_id)
+    except RepositoryNotFoundError as e:
+        raise CLIError(f"Space '{space_id}' not found.") from e
+    if not info.subdomain:
+        raise CLIError(
+            f"No SSH endpoint available for '{space_id}'. "
+            f"Enable Dev Mode first with `hf spaces dev-mode {space_id}`."
+        )
+    cmd = ["ssh"]
+    if identity_file is not None:
+        cmd += ["-i", str(identity_file)]
+    cmd.append(f"{info.subdomain}@ssh.hf.space")
+    if print_only:
+        out.text(shlex.join(cmd))
+        return
+    try:
+        result = subprocess.run(cmd)
+    except FileNotFoundError as e:
+        raise CLIError("`ssh` command not found. Install an OpenSSH client.") from e
+    raise typer.Exit(code=result.returncode)
+
+
+@spaces_cli.command(
     "pause",
     examples=[
         "hf spaces pause username/my-space",
