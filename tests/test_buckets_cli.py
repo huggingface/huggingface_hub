@@ -901,7 +901,7 @@ def test_cp_error_bucket_to_repo(api: HfApi, bucket_write: str):
         api.batch_bucket_files(bucket_write, add=[(b"data", "file.txt")])
         result = cli(f"hf buckets cp hf://buckets/{bucket_write}/file.txt hf://{repo_id}/file.txt")
         assert result.exit_code != 0
-        assert "destination must be a bucket" in result.output.lower()
+        assert "bucket-to-repo copy is not supported" in result.output.lower()
     finally:
         api.delete_repo(repo_id=repo_id)
 
