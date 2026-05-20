@@ -5276,7 +5276,7 @@ class HfApi:
         # Fetch source file info, grouped by source repo.
         # The /lfs-files/duplicate endpoint lives on the *source* repo and takes the destination as `target`.
         # We build a sha256 -> operations mapping to trace failures back to specific copy operations.
-        failed_oids: set[str] = set()
+        cross_repo_copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
 
         for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
             cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
@@ -5291,6 +5291,7 @@ class HfApi:
             lfs_files: list[dict] = []
             sha256_to_ops: dict[str, list[CommitOperationCopy]] = {}
             seen_oids: set[str] = set()
+            failed_oids: set[str] = set()
 
             for paths_batch in chunk_iterable(src_paths, 500):
                 src_repo_files = self.get_paths_info(

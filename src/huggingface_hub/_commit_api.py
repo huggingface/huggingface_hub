@@ -907,6 +907,7 @@ def _fetch_files_to_copy(
             operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
 
     # 3. Cross-repo copies: group by (src_repo_id, src_repo_type, src_revision).
+    cross_repo_copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
     for (src_repo_id, src_repo_type, src_revision), operations in groupby(
         cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
     ):
