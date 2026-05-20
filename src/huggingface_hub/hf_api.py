@@ -1831,6 +1831,16 @@ class PaperInfo:
             URL of the GitHub repository for the paper.
         github_stars (`int`, *optional*):
             Number of stars of the GitHub repository for the paper.
+        linked_models (`list[dict]`, *optional*):
+            Models linked to the paper. Only returned by [`paper_info`].
+        num_total_models (`int`, *optional*):
+            Total number of models linked to the paper. Only returned by [`paper_info`].
+        linked_datasets (`list[dict]`, *optional*):
+            Datasets linked to the paper. Only returned by [`paper_info`].
+        num_total_datasets (`int`, *optional*):
+            Total number of datasets linked to the paper. Only returned by [`paper_info`].
+        linked_spaces (`list[dict]`, *optional*):
+            Spaces linked to the paper. Only returned by [`paper_info`].
     """
 
     id: str
@@ -1850,6 +1860,11 @@ class PaperInfo:
     project_page: str | None
     github_repo: str | None
     github_stars: int | None
+    linked_models: list[dict] | None
+    num_total_models: int | None
+    linked_datasets: list[dict] | None
+    num_total_datasets: int | None
+    linked_spaces: list[dict] | None
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
@@ -1875,6 +1890,11 @@ class PaperInfo:
         self.project_page = kwargs.pop("projectPage", None)
         self.github_repo = kwargs.pop("githubRepo", None)
         self.github_stars = kwargs.pop("githubStars", None)
+        self.linked_models = kwargs.pop("linkedModels", None)
+        self.num_total_models = kwargs.pop("numTotalModels", None)
+        self.linked_datasets = kwargs.pop("linkedDatasets", None)
+        self.num_total_datasets = kwargs.pop("numTotalDatasets", None)
+        self.linked_spaces = kwargs.pop("linkedSpaces", None)
 
         # forward compatibility
         self.__dict__.update(**kwargs)

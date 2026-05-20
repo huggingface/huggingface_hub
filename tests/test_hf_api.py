@@ -4534,6 +4534,35 @@ class PaperApiTest(unittest.TestCase):
         assert len(papers) == 10
 
 
+class PaperInfoParseTest(unittest.TestCase):
+    def test_paper_info_parses_linked_repos(self) -> None:
+        from huggingface_hub.hf_api import PaperInfo
+
+        paper = PaperInfo(
+            id="2502.08025",
+            linkedModels=[{"id": "user/test-model"}],
+            numTotalModels=1,
+            linkedDatasets=[{"id": "user/test-dataset"}],
+            numTotalDatasets=1,
+            linkedSpaces=[{"id": "user/test-space"}],
+        )
+        assert paper.linked_models == [{"id": "user/test-model"}]
+        assert paper.num_total_models == 1
+        assert paper.linked_datasets == [{"id": "user/test-dataset"}]
+        assert paper.num_total_datasets == 1
+        assert paper.linked_spaces == [{"id": "user/test-space"}]
+
+    def test_paper_info_linked_repos_default_to_none(self) -> None:
+        from huggingface_hub.hf_api import PaperInfo
+
+        paper = PaperInfo(id="2502.08025")
+        assert paper.linked_models is None
+        assert paper.num_total_models is None
+        assert paper.linked_datasets is None
+        assert paper.num_total_datasets is None
+        assert paper.linked_spaces is None
+
+
 class WebhookApiTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
