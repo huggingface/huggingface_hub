@@ -403,6 +403,7 @@ def spaces_ssh(
         new_info = _wait_for_dev_mode(api, space_id)
         if new_info is None:
             raise CLIError(f"Runtime not available for Space '{space_id}'.")
+        info = new_info
     cmd = ["ssh"]
     if identity_file is not None:
         cmd += ["-i", str(identity_file)]
