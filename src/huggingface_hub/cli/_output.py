@@ -184,14 +184,14 @@ class Output:
                 if values:
                     print(values[0])
 
-    def confirm(self, message: str, *, default: bool = False, yes: bool = False) -> None:
+    def confirm(self, message: str, *, default: bool = False, yes: bool = False, confirm_param: str = "--yes") -> None:
         """
         Ask for confirmation. Raises `ConfirmationError` in non-human modes.
         """
         if yes:
             return
         if self.mode != OutputFormatWithAuto.human:
-            raise ConfirmationError(f"{message} Use --yes to skip confirmation.")
+            raise ConfirmationError(f"{message} Use {confirm_param} to skip confirmation.")
         typer.confirm(message, default=default, abort=True)
 
     def status(self, message: str | None = None) -> StatusLine:

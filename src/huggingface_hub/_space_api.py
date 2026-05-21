@@ -214,6 +214,7 @@ class SpaceRuntime:
     requested_hardware: SpaceHardware | None
     sleep_time: int | None
     storage: SpaceStorage | None
+    dev_mode: bool
     hot_reloading: SpaceHotReloading | None
     volumes: list[Volume] | None
     raw: dict
@@ -224,6 +225,7 @@ class SpaceRuntime:
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
+        self.dev_mode = data.get("devMode", False)
         self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
         raw_volumes = data.get("volumes")
         self.volumes = [Volume(**v) for v in raw_volumes] if raw_volumes is not None else None

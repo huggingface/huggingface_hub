@@ -47,7 +47,7 @@ from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, Reloa
 from huggingface_hub._space_api import SpaceHardware, SpaceStage
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
-from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
+from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceInfo, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import disable_progress_bars
 
@@ -288,6 +288,32 @@ def spaces_search(
         out.hint("Use --description to show AI-generated descriptions.")
 
 
+_DEV_MODE_INTERMEDIATE_STATUSES = {
+    SpaceStage.BUILDING: "building...",
+    SpaceStage.RUNNING_BUILDING: "building...",
+    SpaceStage.APP_STARTING: "app starting...",
+    SpaceStage.RUNNING_APP_STARTING: "app starting...",
+}
+
+
+def _wait_for_dev_mode(api: HfApi, space_id: str) -> SpaceInfo | None:
+
+    status = out.status()
+    while True:
+        info = api.space_info(space_id)
+        if info.runtime is None:
+            return None
+        if info.runtime.stage not in _DEV_MODE_INTERMEDIATE_STATUSES:
+            break
+        status.update(_DEV_MODE_INTERMEDIATE_STATUSES[info.runtime.stage])
+        time.sleep(1)
+    if info.runtime.stage != SpaceStage.RUNNING:
+        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
+        return None
+    status.done("Dev mode ready!")
+    return info
+
+
 @spaces_cli.command(
     "dev-mode",
     examples=[
@@ -314,30 +340,11 @@ def dev_mode(
         print(f"Dev mode disabled for '{space_id}'")
         return
     api.enable_space_dev_mode(space_id)
-    info = api.space_info(space_id)
+    info = _wait_for_dev_mode(api, space_id)
+    if info is None:
+        return
     folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
     folder_query_param = f"folder={folder}" if folder else ""
-    print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
-    intermediate_statuses_and_messages = {
-        SpaceStage.BUILDING: "building...",
-        SpaceStage.RUNNING_BUILDING: "building...",
-        SpaceStage.APP_STARTING: "app starting...",
-        SpaceStage.RUNNING_APP_STARTING: "app starting...",
-    }
-    status = out.status()
-    while True:
-        info = api.space_info(space_id)
-        if info.runtime is None:
-            print("Runtime of the space unavailable")
-            return
-        if info.runtime.stage not in intermediate_statuses_and_messages:
-            break
-        status.update(intermediate_statuses_and_messages[info.runtime.stage])
-        time.sleep(1)
-    if info.runtime.stage != SpaceStage.RUNNING:
-        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
-        return
-    status.done("Dev mode ready!")
     print("Connect to dev environment:")
     print("")
     print("Web:")
@@ -349,12 +356,66 @@ def dev_mode(
     print("")
     print("Local:")
     print("1. Add your SSH key to https://huggingface.co/settings/keys")
-    print(f"2. SSH with `ssh -i <your_key> {ssh_host}`")
+    print(f"2. SSH with `hf spaces ssh {space_id}` (or `ssh -i <your_key> {ssh_host}`)")
     print("   Or open")
     print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
+
+
+@spaces_cli.command(
+    "ssh",
+    examples=[
+        "hf spaces ssh username/my-space",
+        "hf spaces ssh username/my-space --dry-run",
+        "hf spaces ssh username/my-space -i ~/.ssh/id_ed25519",
+        "hf spaces ssh username/my-space --auto",
+    ],
+)
+def spaces_ssh(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    identity_file: Annotated[
+        Path | None,
+        typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print the SSH command instead of running it."),
+    ] = False,
+    auto: Annotated[
+        bool,
+        typer.Option("--auto", help="Enable Dev Mode without prompting if not already enabled."),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """SSH into a Space's Dev Mode container.
+
+    Requires Dev Mode to be running on the Space and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+    See: https://huggingface.co/docs/hub/spaces-dev-mode
+    """
+    api = get_hf_api(token=token)
+    info = api.space_info(space_id)
+    if info.runtime is None or not info.runtime.dev_mode:
+        out.confirm(
+            f"Dev Mode is disabled on '{space_id}'. Enable it now?", yes=auto, default=True, confirm_param="--auto"
+        )
+        api.enable_space_dev_mode(space_id)
+        new_info = _wait_for_dev_mode(api, space_id)
+        if new_info is None:
+            raise CLIError(f"Runtime not available for Space '{space_id}'.")
+        info = new_info
+    cmd = ["ssh"]
+    if identity_file is not None:
+        cmd += ["-i", str(identity_file)]
+    cmd.append(f"{info.subdomain}@ssh.hf.space")
+    if dry_run:
+        out.text(shlex.join(cmd))
+        return
+    out.text(f"Running `{shlex.join(cmd)}`")
+    result = subprocess.run(cmd)
+    raise typer.Exit(code=result.returncode)
 
 
 @spaces_cli.command(
