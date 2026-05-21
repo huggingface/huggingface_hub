@@ -17,9 +17,8 @@
 # "latest release" on GitHub — only minor releases get that label, so that the latest minor version stays highlighted.
 #
 # The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
-# (huggingface-hub-bot) for PR creation in the post-release job. Since events triggered by GITHUB_TOKEN do not
-# cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml) will not fire and
-# can serve as a manual fallback if needed.
+# (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
+# Actions UI rather than reintroducing a tag-triggered fallback (which would bypass the `pypi` environment gate).
 #
 # PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
 # configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
