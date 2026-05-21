@@ -58,7 +58,6 @@ from huggingface_hub.inference._providers.replicate import (
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import (
-    TogetherAutomaticSpeechRecognitionTask,
     TogetherConversationalTask,
     TogetherFeatureExtractionTask,
     TogetherImageToImageTask,
@@ -1929,98 +1928,6 @@ class TestTogetherProvider:
         helper = TogetherTextToSpeechTask()
         response = helper.get_response(b"audio_bytes")
         assert response == b"audio_bytes"
-
-    def test_prepare_route_automatic_speech_recognition(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        assert helper._prepare_route("openai/whisper-large-v3", "hf_token") == "/v1/audio/transcriptions"
-
-    def test_prepare_payload_as_bytes_automatic_speech_recognition_url(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        body = helper._prepare_payload_as_bytes(
-            "https://example.com/audio.wav",
-            {"language": "en"},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="openai/whisper-large-v3",
-                providerId="openai/whisper-large-v3",
-                task="automatic-speech-recognition",
-                status="live",
-            ),
-            extra_payload=None,
-        )
-        assert body.mime_type.startswith("multipart/form-data")
-        assert b'name="file"\r\n\r\nhttps://example.com/audio.wav' in body
-        assert b'name="model"\r\n\r\nopenai/whisper-large-v3' in body
-        assert b'name="language"\r\n\r\nen' in body
-
-    def test_prepare_payload_as_bytes_automatic_speech_recognition_bytes(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        body = helper._prepare_payload_as_bytes(
-            b"raw audio bytes",
-            {},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="openai/whisper-large-v3",
-                providerId="openai/whisper-large-v3",
-                task="automatic-speech-recognition",
-                status="live",
-            ),
-            extra_payload=None,
-        )
-        assert body.mime_type.startswith("multipart/form-data")
-        assert b'filename="audio.wav"' in body
-        assert b"raw audio bytes" in body
-
-    def test_prepare_payload_as_bytes_automatic_speech_recognition_filters_none_in_extra(self):
-        # `None` values in parameters and extra_payload must be dropped so they don't
-        # serialize as the literal string "None" in multipart form fields.
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        body = helper._prepare_payload_as_bytes(
-            b"raw audio bytes",
-            {"language": None, "temperature": 0.0},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="openai/whisper-large-v3",
-                providerId="openai/whisper-large-v3",
-                task="automatic-speech-recognition",
-                status="live",
-            ),
-            extra_payload={"prompt": None, "response_format": "json"},
-        )
-        assert b"None" not in bytes(body)
-        assert b'name="response_format"' in bytes(body)
-        assert b'name="temperature"' in bytes(body)
-        assert b'name="language"' not in bytes(body)
-        assert b'name="prompt"' not in bytes(body)
-
-    def test_automatic_speech_recognition_get_response(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        response = helper.get_response({"text": "Hello, world!"})
-        assert response == {"text": "Hello, world!"}
-
-    def test_automatic_speech_recognition_get_response_with_segments(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        response = helper.get_response(
-            {
-                "text": "Hello, world!",
-                "segments": [
-                    {"id": 0, "start": 0.0, "end": 1.5, "text": "Hello,"},
-                    {"id": 1, "start": 1.5, "end": 2.7, "text": " world!"},
-                ],
-            }
-        )
-        assert response == {
-            "text": "Hello, world!",
-            "chunks": [
-                {"text": "Hello,", "timestamp": [0.0, 1.5]},
-                {"text": " world!", "timestamp": [1.5, 2.7]},
-            ],
-        }
-
-    def test_automatic_speech_recognition_get_response_missing_text(self):
-        helper = TogetherAutomaticSpeechRecognitionTask()
-        with pytest.raises(ValueError, match="missing 'text' field"):
-            helper.get_response({"segments": []})
 
     def test_prepare_route_text_to_video(self):
         helper = TogetherTextToVideoTask()
