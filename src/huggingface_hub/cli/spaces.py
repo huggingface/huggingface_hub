@@ -400,8 +400,8 @@ def spaces_ssh(
     if info.runtime is None or not info.runtime.dev_mode:
         out.confirm(f"Dev Mode is not enabled on '{space_id}'. Enable it now?", yes=auto)
         api.enable_space_dev_mode(space_id)
-        info = _wait_for_dev_mode(api, space_id)
-        if info is None:
+        new_info = _wait_for_dev_mode(api, space_id)
+        if new_info is None:
             raise CLIError(f"Runtime not available for Space '{space_id}'.")
     cmd = ["ssh"]
     if identity_file is not None:
