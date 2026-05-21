@@ -78,6 +78,7 @@ from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
+from huggingface_hub.utils._parsing import format_duration
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -621,12 +622,13 @@ def jobs_ps(
             print("[]")
         return
 
-    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-    aliases = ["id", "image", "command", "created", "status"]
+    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "RUNTIME"]
+    aliases = ["id", "image", "command", "created", "status", "runtime"]
     items = [api_object_to_dict(job) for job in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
         status = item.get("status", {})
+        durations = item.get("durations") or {}
         cmd = item.get("command") or []
         command_str = " ".join(cmd) if cmd else "N/A"
         return [
@@ -635,6 +637,7 @@ def jobs_ps(
             _format_cell(command_str),
             item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
             str(status.get("stage", "UNKNOWN")),
+            format_duration(durations.get("running_secs")),
         ]
 
     # Custom template format
