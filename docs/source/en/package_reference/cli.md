@@ -3509,6 +3509,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `search`: Search spaces on the Hub using semantic...
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
+* `ssh`: SSH into a Space's Dev Mode container.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
 
@@ -3981,6 +3982,43 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 Examples
   $ hf spaces settings username/my-space --sleep-time 300
   $ hf spaces settings username/my-space --hardware t4-medium
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces ssh`
+
+SSH into a Space's Dev Mode container.
+
+Requires Dev Mode to be running on the Space and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+See: https://huggingface.co/docs/hub/spaces-dev-mode
+
+**Usage**:
+
+```console
+$ hf spaces ssh [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--auto`: Enable Dev Mode without prompting if not already enabled.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces ssh username/my-space
+  $ hf spaces ssh username/my-space --dry-run
+  $ hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+  $ hf spaces ssh username/my-space --auto
 
 Learn more
   Use `hf <command> --help` for more information about a command.
