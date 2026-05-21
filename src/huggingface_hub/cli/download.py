@@ -119,8 +119,7 @@ def download(
     if local_dir is not None and cache_dir is not None:
         raise CLIError(
             "Cannot use both `--local-dir` and `--cache-dir` at the same time. "
-            "Use `--cache-dir` (or set the HF_HOME environment variable) for shared caching "
-            "(files are stored in a content-addressed layout), "
+            "Use `--cache-dir` (or set the HF_HOME environment variable) for shared caching, "
             "or `--local-dir` for a one-off download to a specific directory."
         )
 
