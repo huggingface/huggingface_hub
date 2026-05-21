@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.16.0.dev0"
+__version__ = "1.17.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -78,6 +78,7 @@ _SUBMOD_ATTRS = {
     ],
     "_jobs_api": [
         "JobAccelerator",
+        "JobDurations",
         "JobHardware",
         "JobInfo",
         "JobInitiator",
@@ -764,6 +765,7 @@ __all__ = [
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "JobAccelerator",
+    "JobDurations",
     "JobHardware",
     "JobInfo",
     "JobInitiator",
@@ -1230,6 +1232,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from ._jobs_api import (
         JobAccelerator,  # noqa: F401
+        JobDurations,  # noqa: F401
         JobHardware,  # noqa: F401
         JobInfo,  # noqa: F401
         JobInitiator,  # noqa: F401

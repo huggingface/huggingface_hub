@@ -29,7 +29,7 @@ class JobStage(str, Enum):
     ```py
     assert JobStage.COMPLETED == "COMPLETED"
     ```
-    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `RUNNING`.
+    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `SCHEDULING`, `RUNNING`.
     Taken from https://github.com/huggingface/moon-landing/blob/main/server/job_types/JobInfo.ts#L61 (private url).
     """
 
@@ -38,6 +38,7 @@ class JobStage(str, Enum):
     CANCELED = "CANCELED"
     ERROR = "ERROR"
     DELETED = "DELETED"
+    SCHEDULING = "SCHEDULING"
     RUNNING = "RUNNING"
 
 
@@ -52,6 +53,33 @@ class JobOwner:
     id: str
     name: str
     type: str
+
+
+@dataclass
+class JobDurations:
+    """
+    Timing breakdown for a Job, computed server-side.
+
+    Args:
+        scheduling_secs (`int` or `None`):
+            Seconds the job spent in the scheduling stage before starting to run.
+            `None` if the job never reached the running stage.
+        running_secs (`int` or `None`):
+            Seconds the job has been or was running. Recomputed on each request
+            while the job is in progress. `None` if the job never started running.
+        total_secs (`int` or `None`):
+            Total seconds elapsed since the job was created. Recomputed on each
+            request while the job is in progress.
+    """
+
+    scheduling_secs: int | None
+    running_secs: int | None
+    total_secs: int | None
+
+    def __init__(self, **kwargs) -> None:
+        self.scheduling_secs = kwargs.get("schedulingSecs", kwargs.get("scheduling_secs"))
+        self.running_secs = kwargs.get("runningSecs", kwargs.get("running_secs"))
+        self.total_secs = kwargs.get("totalSecs", kwargs.get("total_secs"))
 
 
 @dataclass
@@ -80,6 +108,10 @@ class JobInfo:
             Job ID.
         created_at (`datetime` or `None`):
             When the Job was created.
+        started_at (`datetime` or `None`):
+            When the Job started running. None while the Job is still scheduling.
+        finished_at (`datetime` or `None`):
+            When the Job finished. None while the Job is still scheduling or running.
         docker_image (`str` or `None`):
             The Docker image from Docker Hub used for the Job.
             Can be None if space_id is present instead.
@@ -104,6 +136,8 @@ class JobInfo:
         status: (`JobStatus` or `None`):
             Status of the Job, e.g. `JobStatus(stage="RUNNING", message=None)`
             See [`JobStage`] for possible stage values.
+        durations (`JobDurations` or `None`):
+            Timing breakdown of the Job. Present for all job states including SCHEDULING.
         owner: (`JobOwner` or `None`):
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
         initiator (`JobInitiator` or `None`):
@@ -118,7 +152,7 @@ class JobInfo:
     ...     command=["python", "-c", "print('Hello from the cloud!')"]
     ... )
     >>> job
-    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), initiator=JobInitiator(type='user', id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
+    JobInfo(id='687fb701029421ae5549d998', created_at=datetime.datetime(2025, 7, 22, 16, 6, 25, 79000, tzinfo=datetime.timezone.utc), started_at=datetime.datetime(2025, 7, 22, 16, 6, 31, 79000, tzinfo=datetime.timezone.utc), finished_at=None, docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', labels=None, status=JobStatus(stage='RUNNING', message=None), durations=JobDurations(scheduling_secs=6, running_secs=2, total_secs=8), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq', type='user'), initiator=JobInitiator(type='user', id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687fb701029421ae5549d998')
     >>> job.id
     '687fb701029421ae5549d998'
     >>> job.url
@@ -130,6 +164,8 @@ class JobInfo:
 
     id: str
     created_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
     docker_image: str | None
     space_id: str | None
     command: list[str] | None
@@ -140,6 +176,7 @@ class JobInfo:
     labels: dict[str, str] | None
     volumes: list[Volume] | None
     status: JobStatus
+    durations: JobDurations | None
     owner: JobOwner
     initiator: JobInitiator | None
 
@@ -151,6 +188,10 @@ class JobInfo:
         self.id = kwargs["id"]
         created_at = kwargs.get("createdAt") or kwargs.get("created_at")
         self.created_at = parse_datetime(created_at) if created_at else None
+        started_at = kwargs.get("startedAt") or kwargs.get("started_at")
+        self.started_at = parse_datetime(started_at) if started_at else None
+        finished_at = kwargs.get("finishedAt") or kwargs.get("finished_at")
+        self.finished_at = parse_datetime(finished_at) if finished_at else None
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
         self.space_id = kwargs.get("spaceId") or kwargs.get("space_id")
         owner = kwargs.get("owner", {})
@@ -165,6 +206,8 @@ class JobInfo:
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(stage=status["stage"], message=status.get("message"))
+        durations = kwargs.get("durations")
+        self.durations = JobDurations(**durations) if durations else None
         initiator = kwargs.get("initiator")
         self.initiator = (
             JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name")) if initiator else None
@@ -342,6 +385,8 @@ class JobHardware:
             CPU specification, e.g. `"2 vCPU"`, `"12 vCPU"`.
         ram (`str`):
             RAM specification, e.g. `"16 GB"`, `"46 GB"`.
+        ephemeral_storage (`str`):
+            Ephemeral storage specification, e.g. `"20 GB"`, `"100 GB"`.
         accelerator (`JobAccelerator` or `None`):
             GPU/accelerator details if available.
         unit_cost_micro_usd (`int`):
@@ -357,7 +402,7 @@ class JobHardware:
     >>> from huggingface_hub import list_jobs_hardware
     >>> hardware_list = list_jobs_hardware()
     >>> hardware_list[0]
-    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
     >>> hardware_list[0].name
     'cpu-basic'
     ```
@@ -367,6 +412,7 @@ class JobHardware:
     pretty_name: str
     cpu: str
     ram: str
+    ephemeral_storage: str
     accelerator: JobAccelerator | None
     unit_cost_micro_usd: int
     unit_cost_usd: float
@@ -377,6 +423,7 @@ class JobHardware:
         self.pretty_name = kwargs["prettyName"]
         self.cpu = kwargs["cpu"]
         self.ram = kwargs["ram"]
+        self.ephemeral_storage = kwargs.get("ephemeralStorage", "N/A")
         accelerator = kwargs.get("accelerator")
         self.accelerator = JobAccelerator(**accelerator) if accelerator else None
         self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]

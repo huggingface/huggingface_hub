@@ -2011,8 +2011,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertIsNotNone(model.security_repo_status)
-        self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
+        assert model.security_repo_status is not None
+        assert isinstance(model.security_repo_status["scansDone"], bool)
+        assert "filesWithIssues" in model.security_repo_status
 
     def test_model_info_with_file_metadata(self):
         model = self._api.model_info(

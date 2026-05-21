@@ -1244,6 +1244,143 @@ class TestHttpGet:
         assert temp_file.tell() == 100
         assert temp_file.getvalue() == b"B" * 100
 
+    @staticmethod
+    def _make_aggregated_tqdm():
+        """Mimic _AggregatedTqdm defined in snapshot_download."""
+
+        class _Tracker:
+            def __init__(self):
+                self.total = 0
+                self.n = 0
+                self.instances = 0
+
+        tracker = _Tracker()
+
+        class _TqdmClass:
+            def __init__(self, *args, **kwargs):
+                tracker.instances += 1
+                if (total := kwargs.get("total")) is not None:
+                    tracker.total += total
+                if initial := kwargs.get("initial", 0):
+                    tracker.n += initial
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                pass
+
+            def update(self, n=1):
+                tracker.n += n
+
+        return tracker, _TqdmClass
+
+    @staticmethod
+    def _mock_response(*, status_code=200, headers, iter_bytes):
+        r = Mock()
+        r.status_code = status_code
+        r.headers = headers
+        r.iter_bytes.return_value = iter_bytes
+        return r
+
+    @staticmethod
+    def _http_get_with_mocked_responses(responses, **http_get_kwargs):
+        """Run http_get against a sequence of mock responses, return the BytesIO."""
+        it = iter(responses)
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            yield next(it)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file, **http_get_kwargs)
+        return temp_file
+
+    def test_http_get_retry_reuses_tqdm_class_instance(self):
+        """Retries must not re-instantiate the user-supplied tqdm_class.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
+        """
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        def _fail_after(data: bytes):
+            yield data
+            raise httpx.TimeoutException("timeout")
+
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_fail_after(b"A" * 30)),
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "70", "Content-Range": "bytes 30-99/100"},
+                    iter_bytes=_fail_after(b"B" * 25),
+                ),
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "45", "Content-Range": "bytes 55-99/100"},
+                    iter_bytes=iter([b"C" * 45]),
+                ),
+            ],
+            expected_size=100,
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 25 + b"C" * 45
+        assert tracker.instances == 1
+        assert tracker.total == 100
+        assert tracker.n == 100
+
+    def test_http_get_retry_rolls_back_reused_bar_when_range_ignored(self):
+        """Test reused bar rolls back when file is re-downloaded from scratch (when Range is ignored by the server).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
+        """
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        def _fail_after(data: bytes):
+            yield data
+            raise httpx.TimeoutException("timeout")
+
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_fail_after(b"A" * 30)),
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"B" * 100])),
+            ],
+            expected_size=100,
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == b"B" * 100
+        assert tracker.total == 100
+        assert tracker.n == 100
+
+    def test_http_get_falls_back_to_expected_size_when_response_lacks_content_length(self):
+        """Test correct progress on small files when the response is gzip+chunked (i.e. no Content-Length).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
+        """
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(
+                    headers={
+                        "Content-Encoding": "gzip",
+                        "Transfer-Encoding": "chunked",
+                        "Content-Type": "application/json",
+                    },
+                    iter_bytes=iter([b"X" * 100]),
+                ),
+            ],
+            expected_size=100,
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == b"X" * 100
+        assert tracker.total == 100
+        assert tracker.n == 100
+
 
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")

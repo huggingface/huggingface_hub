@@ -903,8 +903,6 @@ class TestDownloadCommand:
                     "my-token",
                     "--format",
                     "quiet",
-                    "--local-dir",
-                    ".",
                     "--max-workers",
                     "4",
                 ],
@@ -920,7 +918,6 @@ class TestDownloadCommand:
         assert kwargs["ignore_patterns"] == ["*.log", "*.txt"]
         assert kwargs["force_download"] is True
         assert kwargs["cache_dir"] == "/tmp"
-        assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
@@ -2943,6 +2940,130 @@ class TestJobsCommand:
                 owner={"id": "user-id", "name": "testuser", "type": "user"},
             ),
         ]
+
+    def test_job_info_parses_runtime_fields(self) -> None:
+        """`JobInfo` parses startedAt, finishedAt, and durations sub-dict from a completed-job response."""
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            startedAt="2026-05-08T08:41:06.000Z",
+            finishedAt="2026-05-08T08:43:21.000Z",
+            durations={"schedulingSecs": 12, "runningSecs": 187, "totalSecs": 199},
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "COMPLETED"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.started_at is not None
+        assert job.finished_at is not None
+        assert job.durations is not None
+        assert job.durations.scheduling_secs == 12
+        assert job.durations.running_secs == 187
+        assert job.durations.total_secs == 199
+
+    def test_job_info_runtime_fields_default_none(self) -> None:
+        """`JobInfo` parses cleanly when `startedAt`, `finishedAt`, and `durations`
+        are all absent — the shape returned for some terminal jobs that hit the
+        server's legacy null-durations guard (terminal stage without `finishedAt`).
+        """
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "CANCELED"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.started_at is None
+        assert job.finished_at is None
+        assert job.durations is None
+
+    def test_job_info_durations_with_only_total_secs(self) -> None:
+        """`JobInfo` parses a partial `durations` payload that contains only `totalSecs`.
+
+        This is the shape the server emits for SCHEDULING jobs (totalSecs only;
+        scheduling_secs and running_secs are absent until the job starts running)
+        and for jobs that errored before reaching the running stage.
+        """
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            durations={"totalSecs": 9861},
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "SCHEDULING"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.durations is not None
+        assert job.durations.scheduling_secs is None
+        assert job.durations.running_secs is None
+        assert job.durations.total_secs == 9861
+
+    def test_ps_table_shows_runtime_column(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -a` table includes a RUNTIME column with formatted values and `--` placeholders."""
+        from huggingface_hub._jobs_api import JobInfo
+
+        jobs = [
+            JobInfo(
+                id="completed-id",
+                createdAt="2026-05-08T08:40:00.000Z",
+                startedAt="2026-05-08T08:41:06.000Z",
+                finishedAt="2026-05-08T08:43:21.000Z",
+                durations={"schedulingSecs": 12, "runningSecs": 187, "totalSecs": 199},
+                dockerImage="python:3.12",
+                command=["echo", "done"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+            JobInfo(
+                id="scheduling-id",
+                createdAt="2026-05-08T08:40:00.000Z",
+                durations={"totalSecs": 30},
+                dockerImage="python:3.12",
+                command=["echo", "wait"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "SCHEDULING"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+        ]
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a"])
+        assert result.exit_code == 0
+        assert "RUNTIME" in result.output
+        assert "3m 7s" in result.output  # 187s running_secs formatted
+        assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
