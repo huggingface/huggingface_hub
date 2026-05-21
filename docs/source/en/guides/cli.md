@@ -1104,6 +1104,26 @@ Use `hf spaces variables` to manage non-secret environment variables on a Space.
 >>> hf spaces variables delete username/my-space MAX_TOKENS --yes
 ```
 
+### SSH into a Space (Dev Mode)
+
+Use `hf spaces ssh` to open an SSH session into a Space's Dev Mode container. If Dev Mode is not enabled, the CLI will prompt you to enable it (or use `--auto` to skip the prompt).
+
+Your SSH public key must be registered [in your settings](https://huggingface.co/settings/keys). See the [Dev Mode documentation](https://huggingface.co/docs/hub/spaces-dev-mode) for more details.
+
+```bash
+# SSH into a Space
+>>> hf spaces ssh username/my-space
+
+# Print the SSH command without running it
+>>> hf spaces ssh username/my-space --dry-run
+
+# Auto-enable Dev Mode if disabled
+>>> hf spaces ssh username/my-space --auto
+
+# Use a specific SSH key
+>>> hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+```
+
 ## hf papers
 
 Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
