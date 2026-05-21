@@ -942,15 +942,6 @@ def hf_hub_download(
         # Respect environment variable above user value
         etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
 
-    if local_dir is not None and cache_dir is not None:
-        raise ValueError(
-            "Cannot use both `local_dir` and `cache_dir` at the same time. "
-            "`cache_dir` is meant for shared caching (files are stored in a content-addressed layout), "
-            "while `local_dir` downloads files directly to a specific directory. "
-            "Please use `cache_dir` (or set the HF_HOME environment variable) for shared caching, "
-            "or `local_dir` for a one-off download to a specific location."
-        )
-
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
     if revision is None:

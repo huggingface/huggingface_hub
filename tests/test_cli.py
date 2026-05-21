@@ -1177,6 +1177,16 @@ class TestDownloadImpl:
                 exclude=["*.bin"],
             )
 
+    def test_download_cache_dir_and_local_dir_raises_error(self) -> None:
+        """Test that combining --cache-dir with --local-dir raises an error."""
+        with pytest.raises(CLIError, match="Cannot use both `--local-dir` and `--cache-dir`"):
+            download(
+                repo_id="author/model",
+                repo_type=RepoType.model,
+                cache_dir="/tmp/cache",
+                local_dir="/tmp/local",
+            )
+
 
 class TestTagCommands:
     def test_tag_create_basic(self, runner: CliRunner) -> None:
