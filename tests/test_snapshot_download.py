@@ -245,29 +245,30 @@ class SnapshotDownloadTests(unittest.TestCase):
     def test_download_to_local_dir(self) -> None:
         """Download a repository to local dir.
 
-        Cache dir is not used.
         Symlinks are not used.
 
         This test is here to check once the normal behavior with snapshot_download.
         More individual tests exists in `test_file_download.py`.
         """
+        with SoftTemporaryDirectory() as local_dir:
+            returned_path = snapshot_download(self.repo_id, local_dir=local_dir)
+
+            # Files have been downloaded in correct structure
+            assert (Path(local_dir) / "dummy_file.txt").is_file()
+            assert (Path(local_dir) / "dummy_file_2.txt").is_file()
+            assert (Path(local_dir) / "subpath" / "file.txt").is_file()
+
+            # Symlinks are not used anymore
+            assert not (Path(local_dir) / "dummy_file.txt").is_symlink()
+            assert not (Path(local_dir) / "dummy_file_2.txt").is_symlink()
+            assert not (Path(local_dir) / "subpath" / "file.txt").is_symlink()
+
+            # Check returns local dir
+            assert Path(returned_path).resolve() == Path(local_dir).resolve()
+
+    def test_cannot_use_both_cache_dir_and_local_dir(self):
+        """Test that passing both cache_dir and local_dir raises a ValueError."""
         with SoftTemporaryDirectory() as cache_dir:
             with SoftTemporaryDirectory() as local_dir:
-                returned_path = snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)
-
-                # Files have been downloaded in correct structure
-                assert (Path(local_dir) / "dummy_file.txt").is_file()
-                assert (Path(local_dir) / "dummy_file_2.txt").is_file()
-                assert (Path(local_dir) / "subpath" / "file.txt").is_file()
-
-                # Symlinks are not used anymore
-                assert not (Path(local_dir) / "dummy_file.txt").is_symlink()
-                assert not (Path(local_dir) / "dummy_file_2.txt").is_symlink()
-                assert not (Path(local_dir) / "subpath" / "file.txt").is_symlink()
-
-                # Check returns local dir and not cache dir
-                assert Path(returned_path).resolve() == Path(local_dir).resolve()
-
-                # Nothing has been added to cache dir (except some subfolders created)
-                for path in cache_dir.glob("*"):
-                    assert path.is_dir()
+                with self.assertRaises(ValueError, msg="Cannot use both `local_dir` and `cache_dir`"):
+                    snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)

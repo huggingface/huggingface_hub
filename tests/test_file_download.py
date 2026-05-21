@@ -805,21 +805,11 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
         # existing file overwritten
         assert Path(path).read_text() == "content"
 
-    def test_file_exists_in_cache(self):
-        # 1 HEAD call + return early
-        self.api.hf_hub_download(self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir)
-
-        with self.with_patch_download() as mock:
-            # Download to local dir
-            # => file is already in Hub cache
-            # => we assume it's faster to make a local copy rather than re-downloading
-            # => duplicate file locally
-            path = self.api.hf_hub_download(
+    def test_cannot_use_both_cache_dir_and_local_dir(self):
+        with self.assertRaises(ValueError, msg="Cannot use both `local_dir` and `cache_dir`"):
+            self.api.hf_hub_download(
                 self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir, local_dir=self.local_dir
             )
-        mock.assert_not_called()
-
-        assert Path(path) == self.file_path
 
     def test_file_exists_and_overwrites(self):
         # 1 HEAD call + 1 download
