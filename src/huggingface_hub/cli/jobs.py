@@ -660,8 +660,8 @@ def jobs_hardware() -> None:
     """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
-    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-    headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "STORAGE", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+    headers_aliases = ["name", "prettyName", "cpu", "ram", "ephemeralStorage", "accelerator", "costMin", "costHour"]
     rows: list[list[str | int]] = []
 
     for hw in hardware_list:
@@ -670,7 +670,18 @@ def jobs_hardware() -> None:
             accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
         cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
         cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
-        rows.append([hw.name, hw.pretty_name or "", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+        rows.append(
+            [
+                hw.name,
+                hw.pretty_name or "",
+                hw.cpu,
+                hw.ram,
+                hw.ephemeral_storage,
+                accelerator_info,
+                cost_min,
+                cost_hour,
+            ]
+        )
 
     if not rows:
         print("No hardware options found")

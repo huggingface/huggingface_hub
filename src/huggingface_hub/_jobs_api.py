@@ -385,6 +385,8 @@ class JobHardware:
             CPU specification, e.g. `"2 vCPU"`, `"12 vCPU"`.
         ram (`str`):
             RAM specification, e.g. `"16 GB"`, `"46 GB"`.
+        ephemeral_storage (`str`):
+            Ephemeral storage specification, e.g. `"20 GB"`, `"100 GB"`.
         accelerator (`JobAccelerator` or `None`):
             GPU/accelerator details if available.
         unit_cost_micro_usd (`int`):
@@ -400,7 +402,7 @@ class JobHardware:
     >>> from huggingface_hub import list_jobs_hardware
     >>> hardware_list = list_jobs_hardware()
     >>> hardware_list[0]
-    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
     >>> hardware_list[0].name
     'cpu-basic'
     ```
@@ -410,6 +412,7 @@ class JobHardware:
     pretty_name: str
     cpu: str
     ram: str
+    ephemeral_storage: str
     accelerator: JobAccelerator | None
     unit_cost_micro_usd: int
     unit_cost_usd: float
@@ -420,6 +423,7 @@ class JobHardware:
         self.pretty_name = kwargs["prettyName"]
         self.cpu = kwargs["cpu"]
         self.ram = kwargs["ram"]
+        self.ephemeral_storage = kwargs.get("ephemeralStorage", "N/A")
         accelerator = kwargs.get("accelerator")
         self.accelerator = JobAccelerator(**accelerator) if accelerator else None
         self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]
