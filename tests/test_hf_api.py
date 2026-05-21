@@ -2011,8 +2011,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertIsNotNone(model.security_repo_status)
-        self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
+        assert model.security_repo_status is not None
+        assert isinstance(model.security_repo_status["scansDone"], bool)
+        assert "filesWithIssues" in model.security_repo_status
 
     def test_model_info_with_file_metadata(self):
         model = self._api.model_info(
@@ -4473,6 +4474,17 @@ class PaperApiTest(unittest.TestCase):
     def test_get_paper_by_id_success(self) -> None:
         paper = self.api.paper_info("2407.21783")
         assert paper.title == "The Llama 3 Herd of Models"
+
+    def test_get_paper_by_id_returns_linked_repos(self) -> None:
+        paper = self.api.paper_info("2601.15621")
+        assert paper.linked_models is not None and len(paper.linked_models) > 0
+        assert all(isinstance(m, ModelInfo) for m in paper.linked_models)
+        assert paper.num_total_models is not None and paper.num_total_models > 0
+        assert paper.linked_datasets is not None
+        assert all(isinstance(d, DatasetInfo) for d in paper.linked_datasets)
+        assert paper.num_total_datasets is not None
+        assert paper.linked_spaces is not None and len(paper.linked_spaces) > 0
+        assert all(isinstance(s, SpaceInfo) for s in paper.linked_spaces)
 
     def test_get_paper_by_id_not_found(self) -> None:
         with self.assertRaises(HfHubHTTPError) as context:

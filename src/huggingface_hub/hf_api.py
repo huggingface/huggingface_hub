@@ -1831,6 +1831,16 @@ class PaperInfo:
             URL of the GitHub repository for the paper.
         github_stars (`int`, *optional*):
             Number of stars of the GitHub repository for the paper.
+        linked_models (`list[ModelInfo]`, *optional*):
+            Models linked to the paper. Only returned by [`paper_info`].
+        num_total_models (`int`, *optional*):
+            Total number of models linked to the paper. Only returned by [`paper_info`].
+        linked_datasets (`list[DatasetInfo]`, *optional*):
+            Datasets linked to the paper. Only returned by [`paper_info`].
+        num_total_datasets (`int`, *optional*):
+            Total number of datasets linked to the paper. Only returned by [`paper_info`].
+        linked_spaces (`list[SpaceInfo]`, *optional*):
+            Spaces linked to the paper. Only returned by [`paper_info`].
     """
 
     id: str
@@ -1850,6 +1860,11 @@ class PaperInfo:
     project_page: str | None
     github_repo: str | None
     github_stars: int | None
+    linked_models: list[ModelInfo] | None
+    num_total_models: int | None
+    linked_datasets: list[DatasetInfo] | None
+    num_total_datasets: int | None
+    linked_spaces: list[SpaceInfo] | None
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
@@ -1875,6 +1890,14 @@ class PaperInfo:
         self.project_page = kwargs.pop("projectPage", None)
         self.github_repo = kwargs.pop("githubRepo", None)
         self.github_stars = kwargs.pop("githubStars", None)
+        linked_models = kwargs.pop("linkedModels", None)
+        self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
+        self.num_total_models = kwargs.pop("numTotalModels", None)
+        linked_datasets = kwargs.pop("linkedDatasets", None)
+        self.linked_datasets = [DatasetInfo(**d) for d in linked_datasets] if linked_datasets is not None else None
+        self.num_total_datasets = kwargs.pop("numTotalDatasets", None)
+        linked_spaces = kwargs.pop("linkedSpaces", None)
+        self.linked_spaces = [SpaceInfo(**s) for s in linked_spaces] if linked_spaces is not None else None
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -11697,7 +11720,7 @@ class HfApi:
         >>> api = HfApi()
         >>> hardware_list = api.list_jobs_hardware()
         >>> hardware_list[0]
-        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
         >>> hardware_list[0].name
         'cpu-basic'
 

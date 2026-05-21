@@ -51,7 +51,17 @@ from .replicate import (
 )
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
-from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import (
+    TogetherAutomaticSpeechRecognitionTask,
+    TogetherConversationalTask,
+    TogetherFeatureExtractionTask,
+    TogetherImageToImageTask,
+    TogetherImageToVideoTask,
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+    TogetherTextToSpeechTask,
+    TogetherTextToVideoTask,
+)
 from .wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -207,9 +217,15 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
-        "text-to-image": TogetherTextToImageTask(),
+        "automatic-speech-recognition": TogetherAutomaticSpeechRecognitionTask(),
         "conversational": TogetherConversationalTask(),
+        "feature-extraction": TogetherFeatureExtractionTask(),
+        "image-to-image": TogetherImageToImageTask(),
+        "image-to-video": TogetherImageToVideoTask(),
         "text-generation": TogetherTextGenerationTask(),
+        "text-to-image": TogetherTextToImageTask(),
+        "text-to-speech": TogetherTextToSpeechTask(),
+        "text-to-video": TogetherTextToVideoTask(),
     },
     "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),

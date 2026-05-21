@@ -78,6 +78,7 @@ from huggingface_hub import SpaceHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
+from huggingface_hub.utils._parsing import format_duration
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -621,12 +622,13 @@ def jobs_ps(
             print("[]")
         return
 
-    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS"]
-    aliases = ["id", "image", "command", "created", "status"]
+    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "RUNTIME"]
+    aliases = ["id", "image", "command", "created", "status", "runtime"]
     items = [api_object_to_dict(job) for job in filtered_jobs]
 
     def row_fn(item: dict[str, Any]) -> list[str]:
         status = item.get("status", {})
+        durations = item.get("durations") or {}
         cmd = item.get("command") or []
         command_str = " ".join(cmd) if cmd else "N/A"
         return [
@@ -635,6 +637,7 @@ def jobs_ps(
             _format_cell(command_str),
             item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
             str(status.get("stage", "UNKNOWN")),
+            format_duration(durations.get("running_secs")),
         ]
 
     # Custom template format
@@ -657,8 +660,8 @@ def jobs_hardware() -> None:
     """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
-    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-    headers_aliases = ["name", "prettyName", "cpu", "ram", "accelerator", "costMin", "costHour"]
+    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "STORAGE", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
+    headers_aliases = ["name", "prettyName", "cpu", "ram", "ephemeralStorage", "accelerator", "costMin", "costHour"]
     rows: list[list[str | int]] = []
 
     for hw in hardware_list:
@@ -667,7 +670,18 @@ def jobs_hardware() -> None:
             accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
         cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
         cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
-        rows.append([hw.name, hw.pretty_name or "", hw.cpu, hw.ram, accelerator_info, cost_min, cost_hour])
+        rows.append(
+            [
+                hw.name,
+                hw.pretty_name or "",
+                hw.cpu,
+                hw.ram,
+                hw.ephemeral_storage,
+                accelerator_info,
+                cost_min,
+                cost_hour,
+            ]
+        )
 
     if not rows:
         print("No hardware options found")

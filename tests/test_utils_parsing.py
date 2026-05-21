@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from huggingface_hub.utils._parsing import format_timesince, parse_duration, parse_size
+from huggingface_hub.utils._parsing import format_duration, format_timesince, parse_duration, parse_size
 
 
 @pytest.mark.parametrize(
@@ -87,3 +87,23 @@ def test_parse_duration_invalid(value):
 )
 def test_format_timesince(value, expected):
     assert format_timesince(time.time() - value) == expected
+
+
+@pytest.mark.parametrize(
+    ("secs", "expected"),
+    [
+        (None, "--"),
+        (0, "0s"),
+        (1, "1s"),
+        (45, "45s"),
+        (59, "59s"),
+        (60, "1m 0s"),
+        (61, "1m 1s"),
+        (199, "3m 19s"),
+        (3599, "59m 59s"),
+        (3600, "1h 0m"),
+        (8100, "2h 15m"),
+    ],
+)
+def test_format_duration(secs, expected):
+    assert format_duration(secs) == expected
