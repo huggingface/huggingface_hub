@@ -903,8 +903,6 @@ class TestDownloadCommand:
                     "my-token",
                     "--format",
                     "quiet",
-                    "--local-dir",
-                    ".",
                     "--max-workers",
                     "4",
                 ],
@@ -920,7 +918,6 @@ class TestDownloadCommand:
         assert kwargs["ignore_patterns"] == ["*.log", "*.txt"]
         assert kwargs["force_download"] is True
         assert kwargs["cache_dir"] == "/tmp"
-        assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
