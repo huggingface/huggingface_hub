@@ -398,7 +398,7 @@ def spaces_ssh(
     api = get_hf_api(token=token)
     info = api.space_info(space_id)
     if info.runtime is None or not info.runtime.dev_mode:
-        out.confirm(f"Dev Mode is not enabled on '{space_id}'. Enable it now?", yes=auto)
+        out.confirm(f"Dev Mode is not enabled on '{space_id}'. Enable it now?", yes=auto, confirm_param="--auto")
         api.enable_space_dev_mode(space_id)
         new_info = _wait_for_dev_mode(api, space_id)
         if new_info is None:
