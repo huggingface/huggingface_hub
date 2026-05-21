@@ -21,9 +21,11 @@
 # cascade, the existing tag-triggered workflows (python-release.yml, python-release-hf.yml) will not fire and
 # can serve as a manual fallback if needed.
 #
+# PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
+# configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
+# Environment (with required reviewers) must exist in the repo settings.
+#
 # Required secrets:
-# - PYPI_TOKEN_DIST_HUGGINGFACE_HUB      : publish `huggingface_hub` package to PyPI
-# - PYPI_TOKEN_DIST_HF                   : publish `hf` package to PyPI
 # - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
 # - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
 # - RELEASE_BUCKET_HF_TOKEN              : HF TOKEN scoped to push data to the huggingface/releases bucket
@@ -267,10 +269,22 @@ jobs:
 
   # ============================================================
   # 2. PUBLISH — PyPI (huggingface_hub)
+  #
+  # Uses PyPI Trusted Publishing (OIDC) instead of long-lived API tokens.
+  # Generates PEP 740 attestations / Sigstore provenance for every artifact.
+  # Requires:
+  #   - a Trusted Publisher configured on PyPI for `huggingface-hub` matching
+  #     repo `huggingface/huggingface_hub`, workflow `release.yml`, env `pypi`
+  #   - a `pypi` GitHub Environment with required reviewers
   # ============================================================
   publish-pypi:
     permissions:
       contents: read
+      id-token: write      # mint OIDC token for PyPI Trusted Publishing
+      attestations: write  # generate PEP 740 / Sigstore attestations
+    environment:
+      name: pypi
+      url: https://pypi.org/project/huggingface-hub/
     needs: prepare
     runs-on: ubuntu-latest
     steps:
@@ -280,14 +294,15 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.10"
-      - name: Install build dependencies
-        run: pip install setuptools wheel twine
+      - name: Install build frontend
+        run: pip install build
       - name: Build package
-        run: python setup.py sdist bdist_wheel
-      - name: Upload to PyPI
-        run: twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HUGGINGFACE_HUB }}
+        run: python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        with:
+          attestations: true
+          print-hash: true
 
       - name: Notify Slack
         if: ${{ always() && needs.prepare.outputs.message_ts }}
@@ -312,10 +327,19 @@ jobs:
 
   # ============================================================
   # 3. PUBLISH — PyPI (hf CLI)
+  #
+  # Same Trusted Publishing setup as `publish-pypi`, scoped to the `hf`
+  # project on PyPI. Requires a separate Trusted Publisher on the `hf`
+  # PyPI project with identical workflow/env constraints.
   # ============================================================
   publish-hf-cli:
     permissions:
       contents: read
+      id-token: write      # mint OIDC token for PyPI Trusted Publishing
+      attestations: write  # generate PEP 740 / Sigstore attestations
+    environment:
+      name: pypi
+      url: https://pypi.org/project/hf/
     needs: prepare
     runs-on: ubuntu-latest
     steps:
@@ -325,14 +349,16 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.10"
-      - name: Install build dependencies
-        run: pip install setuptools wheel twine
+      - name: Install build frontend
+        run: pip install build
       - name: Build hf CLI package
-        run: cd utils/hf && python setup.py sdist bdist_wheel
-      - name: Upload to PyPI
-        run: cd utils/hf && twine upload dist/* -u __token__ -p "$PYPI_TOKEN"
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_DIST_HF }}
+        run: cd utils/hf && python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        with:
+          packages-dir: utils/hf/dist
+          attestations: true
+          print-hash: true
 
       - name: Notify Slack
         if: ${{ always() && needs.prepare.outputs.message_ts }}
