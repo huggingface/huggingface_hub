@@ -1246,12 +1246,7 @@ class TestHttpGet:
 
     @staticmethod
     def _make_aggregated_tqdm():
-        """Create a (tracker, tqdm_class) pair mimicking _AggregatedTqdm.
-
-        The tracker accumulates total/n/instances the same way the real
-        _AggregatedTqdm's parent bar does, so tests can assert correct
-        progress accounting without pulling in the real implementation.
-        """
+        """Mimic _AggregatedTqdm defined in snapshot_download."""
 
         class _Tracker:
             def __init__(self):
@@ -1305,8 +1300,7 @@ class TestHttpGet:
     def test_http_get_retry_reuses_tqdm_class_instance(self):
         """Retries must not re-instantiate the user-supplied tqdm_class.
 
-        Regression test: _AggregatedTqdm was re-constructed on every retry,
-        inflating the shared bar's total and advancing n per retry.
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
         """
         tracker, tqdm_class = self._make_aggregated_tqdm()
 
@@ -1338,8 +1332,9 @@ class TestHttpGet:
         assert tracker.n == 100
 
     def test_http_get_retry_rolls_back_reused_bar_when_range_ignored(self):
-        """When a retry server ignores Range and returns 200, the reused bar
-        must be rolled back so the full re-download is not double-counted.
+        """Test reused bar rolls back when file is re-downloaded from scratch (when Range is ignored by the server).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
         """
         tracker, tqdm_class = self._make_aggregated_tqdm()
 
@@ -1361,15 +1356,20 @@ class TestHttpGet:
         assert tracker.n == 100
 
     def test_http_get_falls_back_to_expected_size_when_response_lacks_content_length(self):
-        """When the response is gzip+chunked (no Content-Length), the bar's
-        total must fall back to expected_size so _AggregatedTqdm still works.
+        """Test correct progress on small files when the response is gzip+chunked (i.e. no Content-Length).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4208.
         """
         tracker, tqdm_class = self._make_aggregated_tqdm()
 
         temp_file = self._http_get_with_mocked_responses(
             [
                 self._mock_response(
-                    headers={"Content-Encoding": "gzip", "Transfer-Encoding": "chunked", "Content-Type": "application/json"},
+                    headers={
+                        "Content-Encoding": "gzip",
+                        "Transfer-Encoding": "chunked",
+                        "Content-Type": "application/json",
+                    },
                     iter_bytes=iter([b"X" * 100]),
                 ),
             ],
