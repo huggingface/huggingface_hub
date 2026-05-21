@@ -1,10 +1,14 @@
 import unittest
 
+import pytest
+
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
+    CommitOperationCopy,
     CommitOperationDelete,
     _warn_on_overwriting_operations,
 )
+from huggingface_hub.hf_api import _resolve_copy_target_path
 
 
 class TestCommitOperationDelete(unittest.TestCase):
@@ -142,3 +146,142 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
 
     def test_delete_folder_then_add(self) -> None:
         _warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
+
+
+class TestCommitOperationCopy(unittest.TestCase):
+    def test_intra_repo_copy(self):
+        op = CommitOperationCopy(src_path_in_repo="src.bin", path_in_repo="dst.bin")
+        assert op.src_repo_id is None
+        assert op.src_repo_type is None
+
+    def test_cross_repo_copy(self):
+        op = CommitOperationCopy(
+            src_path_in_repo="weights.bin",
+            path_in_repo="weights.bin",
+            src_repo_id="user/source",
+            src_repo_type="model",
+        )
+        assert op.src_repo_id == "user/source"
+        assert op.src_repo_type == "model"
+
+    def test_cross_repo_copy_missing_repo_type(self):
+        with pytest.raises(ValueError, match="`src_repo_type` is required when `src_repo_id` is set"):
+            CommitOperationCopy(
+                src_path_in_repo="src.bin",
+                path_in_repo="dst.bin",
+                src_repo_id="user/source",
+            )
+
+    def test_cross_repo_copy_missing_repo_id(self):
+        with pytest.raises(ValueError, match="`src_repo_id` is required when `src_repo_type` is set"):
+            CommitOperationCopy(
+                src_path_in_repo="src.bin",
+                path_in_repo="dst.bin",
+                src_repo_type="model",
+            )
+
+    def test_path_normalization(self):
+        op = CommitOperationCopy(src_path_in_repo="./src.bin", path_in_repo="/dst.bin")
+        assert op.src_path_in_repo == "src.bin"
+        assert op.path_in_repo == "dst.bin"
+
+
+_RESOLVE_DEFAULTS = {
+    "src_file_path": "file.txt",
+    "src_root_path": None,
+    "is_single_file": True,
+    "destination_path": "",
+    "destination_is_directory": False,
+    "destination_exists_as_directory": False,
+    "source_is_contents_only": False,
+}
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        # Single file cases
+        ({"src_file_path": "file.txt", "destination_path": ""}, "file.txt"),
+        ({"src_file_path": "file.txt", "destination_path": "renamed.txt"}, "renamed.txt"),
+        ({"src_file_path": "file.txt", "destination_path": "dir", "destination_is_directory": True}, "dir/file.txt"),
+        # Folder to nonexistent destination (rename semantics)
+        (
+            {
+                "src_file_path": "folder/a.txt",
+                "src_root_path": "folder",
+                "is_single_file": False,
+                "destination_path": "target",
+            },
+            "target/a.txt",
+        ),
+        # Folder to existing directory (cp -r nesting)
+        (
+            {
+                "src_file_path": "folder/a.txt",
+                "src_root_path": "folder",
+                "is_single_file": False,
+                "destination_path": "target",
+                "destination_exists_as_directory": True,
+            },
+            "target/folder/a.txt",
+        ),
+        # Trailing slash on source (rsync semantics, no nesting)
+        (
+            {
+                "src_file_path": "folder/a.txt",
+                "src_root_path": "folder",
+                "is_single_file": False,
+                "destination_path": "target",
+                "destination_exists_as_directory": True,
+                "source_is_contents_only": True,
+            },
+            "target/a.txt",
+        ),
+        # Folder to root (existing dir)
+        (
+            {
+                "src_file_path": "folder/sub/a.txt",
+                "src_root_path": "folder",
+                "is_single_file": False,
+                "destination_path": "",
+                "destination_exists_as_directory": True,
+            },
+            "folder/sub/a.txt",
+        ),
+        # Folder contents to root
+        (
+            {
+                "src_file_path": "folder/sub/a.txt",
+                "src_root_path": "folder",
+                "is_single_file": False,
+                "destination_path": "",
+                "destination_exists_as_directory": True,
+                "source_is_contents_only": True,
+            },
+            "sub/a.txt",
+        ),
+        # Nested subfolder
+        (
+            {
+                "src_file_path": "data/train/a.csv",
+                "src_root_path": "data",
+                "is_single_file": False,
+                "destination_path": "backup",
+            },
+            "backup/train/a.csv",
+        ),
+    ],
+    ids=[
+        "single_file_to_root",
+        "single_file_to_explicit_path",
+        "single_file_to_directory",
+        "folder_to_nonexistent_dest",
+        "folder_to_existing_dir_nests",
+        "folder_contents_trailing_slash",
+        "folder_to_root",
+        "folder_contents_to_root",
+        "nested_subfolder",
+    ],
+)
+def test_resolve_copy_target_path(kwargs, expected):
+    assert _resolve_copy_target_path(**{**_RESOLVE_DEFAULTS, **kwargs}) == expected

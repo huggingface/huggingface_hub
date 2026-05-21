@@ -983,6 +983,51 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
     @use_tmp_repo()
+    def test_commit_cross_repo_copy(self, repo_url: RepoUrl) -> None:
+        """Test CommitOperationCopy with cross-repo copies."""
+        src_repo_id = repo_url.repo_id
+
+        # Create a destination repo
+        dest_repo_url = self._api.create_repo(repo_id=repo_name(prefix="model"))
+        dest_repo_id = dest_repo_url.repo_id
+        try:
+            # Upload files to source repo
+            self._api.upload_file(path_or_fileobj=b"regular content", repo_id=src_repo_id, path_in_repo="file.txt")
+            self._api.upload_file(path_or_fileobj=b"LFS content", repo_id=src_repo_id, path_in_repo="weights.bin")
+
+            # Cross-repo copy: both regular and LFS files
+            self._api.create_commit(
+                repo_id=dest_repo_id,
+                commit_message="Cross-repo copy.",
+                operations=[
+                    CommitOperationCopy(
+                        src_path_in_repo="file.txt",
+                        path_in_repo="copied_file.txt",
+                        src_repo_id=src_repo_id,
+                        src_repo_type="model",
+                    ),
+                    CommitOperationCopy(
+                        src_path_in_repo="weights.bin",
+                        path_in_repo="copied_weights.bin",
+                        src_repo_id=src_repo_id,
+                        src_repo_type="model",
+                    ),
+                ],
+            )
+
+            # Check files exist in destination
+            dest_files = self._api.list_repo_files(repo_id=dest_repo_id)
+            self.assertIn("copied_file.txt", dest_files)
+            self.assertIn("copied_weights.bin", dest_files)
+
+            # Verify LFS content was duplicated correctly
+            src_info = self._api.get_paths_info(repo_id=src_repo_id, paths=["weights.bin"])
+            dest_info = self._api.get_paths_info(repo_id=dest_repo_id, paths=["copied_weights.bin"])
+            self.assertEqual(src_info[0].lfs["sha256"], dest_info[0].lfs["sha256"])
+        finally:
+            self._api.delete_repo(repo_id=dest_repo_id)
+
+    @use_tmp_repo()
     def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
 

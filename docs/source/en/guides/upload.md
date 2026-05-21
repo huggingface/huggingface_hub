@@ -371,11 +371,13 @@ There are three types of operations supported by [`create_commit`]:
 
 - [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
-- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+- [`CommitOperationCopy`] copies a file within a repository or across repositories. This operation accepts the following arguments:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if you want to copy a file from a different branch/revision.
+  - `src_repo_id`: optional - the source repository to copy from (e.g. `"username/source-model"`). Defaults to the destination repository.
+  - `src_repo_type`: optional - the type of the source repository (`"model"`, `"dataset"` or `"space"`). Required when `src_repo_id` is set.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 

@@ -93,8 +93,12 @@ class CommitOperationCopy:
     """
     Data structure holding necessary info to copy a file in a repository on the Hub.
 
-    Limitations:
-      - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
+    Both LFS files and regular files are supported. LFS files are copied server-side while regular files are
+    downloaded and re-uploaded as part of the commit.
+
+    Cross-repository copies are supported by setting `src_repo_id` and `src_repo_type`. For cross-repo LFS copies,
+    the LFS objects are duplicated to the destination repository before the commit is created. This is handled
+    automatically by [`create_commit`].
 
     Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
 
@@ -112,6 +116,34 @@ class CommitOperationCopy:
         src_repo_type (`str`, *optional*):
             The type of the source repository (`"model"`, `"dataset"` or `"space"`).
             Required when `src_repo_id` is set.
+
+    Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi, CommitOperationCopy
+        >>> api = HfApi()
+
+        # Copy a file within the same repo
+        >>> api.create_commit(
+        ...     repo_id="username/my-model",
+        ...     operations=[CommitOperationCopy(src_path_in_repo="weights.bin", path_in_repo="weights_backup.bin")],
+        ...     commit_message="Backup weights",
+        ... )
+
+        # Cross-repo copy
+        >>> api.create_commit(
+        ...     repo_id="username/my-model",
+        ...     operations=[
+        ...         CommitOperationCopy(
+        ...             src_path_in_repo="config.json",
+        ...             path_in_repo="config.json",
+        ...             src_repo_id="username/source-model",
+        ...             src_repo_type="model",
+        ...         )
+        ...     ],
+        ...     commit_message="Copy config from source model",
+        ... )
+        ```
     """
 
     src_path_in_repo: str

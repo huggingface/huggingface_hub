@@ -504,9 +504,9 @@ Use `hf buckets sync` to download all files from a bucket to a local directory:
 
 See the [Sync directories](#sync-directories) section below for the full set of sync options.
 
-## Copy files to Bucket
+## Copy files on the Hub
 
-Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
+Use [`copy_files`] to copy files between locations on the Hub — buckets, repositories, or across both:
 
 ```py
 >>> from huggingface_hub import copy_files
@@ -522,9 +522,15 @@ Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
 ...     "hf://datasets/username/my-dataset/processed/",
 ...     "hf://buckets/username/my-bucket/datasets/processed/",
 ... )
+
+# Repo to repo (cross-repo copy)
+>>> copy_files(
+...     "hf://username/source-model/config.json",
+...     "hf://username/dest-model/config.json",
+... )
 ```
 
-The same is available from the CLI:
+The same is available from the CLI for bucket destinations:
 
 ```bash
 # Bucket to bucket
@@ -546,9 +552,10 @@ When copying folders, a trailing `/` on the source uses rsync-style semantics �
 
 Notes:
 
-- Bucket-to-repo copy is not yet supported.
-- Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
+- Bucket-to-repo copy is not supported.
+- For bucket destinations, files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.
+- Repo-to-repo copies use [`CommitOperationCopy`] under the hood and create a commit on the destination repository. Both LFS and regular files are supported.
 
 ## Sync directories
 
