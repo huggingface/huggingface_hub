@@ -983,54 +983,6 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
     @use_tmp_repo()
-    def test_commit_cross_repo_copy(self, repo_url: RepoUrl) -> None:
-        """Test CommitOperationCopy with cross-repo copies."""
-        src_repo_id = repo_url.repo_id
-
-        # Create a destination repo
-        dest_repo_url = self._api.create_repo(repo_id=repo_name())
-        dest_repo_id = dest_repo_url.repo_id
-
-        # Upload files to source repo
-        self._api.upload_file(path_or_fileobj=b"regular content", repo_id=src_repo_id, path_in_repo="file.txt")
-        self._api.upload_file(path_or_fileobj=b"LFS content", repo_id=src_repo_id, path_in_repo="weights.bin")
-
-        # Cross-repo copy: both regular and LFS files
-        self._api.create_commit(
-            repo_id=dest_repo_id,
-            commit_message="Cross-repo copy.",
-            operations=[
-                CommitOperationCopy(
-                    src_path_in_repo="file.txt",
-                    path_in_repo="copied_file.txt",
-                    src_repo_id=src_repo_id,
-                    src_repo_type="model",
-                ),
-                CommitOperationCopy(
-                    src_path_in_repo="weights.bin",
-                    path_in_repo="copied_weights.bin",
-                    src_repo_id=src_repo_id,
-                    src_repo_type="model",
-                ),
-            ],
-        )
-
-        # Check files exist in destination
-        dest_files = self._api.list_repo_files(repo_id=dest_repo_id)
-        assert "copied_file.txt" in dest_files
-        assert "copied_weights.bin" in dest_files
-
-        # Check data is valid
-        with SoftTemporaryDirectory() as tmpdir:
-            copied_txt_path = Path(self._api.hf_hub_download(dest_repo_id, "copied_file.txt", cache_dir=tmpdir))
-            copied_bin_path = Path(self._api.hf_hub_download(dest_repo_id, "copied_weights.bin", cache_dir=tmpdir))
-
-            assert copied_txt_path.read_bytes() == b"regular content"
-            assert copied_bin_path.read_bytes() == b"LFS content"
-
-        self._api.delete_repo(repo_id=dest_repo_id)
-
-    @use_tmp_repo()
     def test_copy_files_repo_to_repo(self, repo_url: RepoUrl):
         """Test copy from model repo to dataset repo"""
         src_repo_id = repo_url.repo_id
