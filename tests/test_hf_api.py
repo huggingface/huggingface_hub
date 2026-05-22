@@ -1031,6 +1031,46 @@ class CommitApiTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=dest_repo_id)
 
     @use_tmp_repo()
+    def test_copy_files_repo_to_repo(self, repo_url: RepoUrl):
+        """Test copy from model repo to dataset repo"""
+        src_repo_id = repo_url.repo_id
+        dst_repo_id = self._api.create_repo(repo_id=repo_name(), repo_type="dataset").repo_id
+
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="config.json", path_or_fileobj=b'{"key": "value"}')
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="data/a.txt", path_or_fileobj=b"text data")
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="data/sub/lfs.bin", path_or_fileobj=b"binary data")
+
+        # Copy a single file
+        self._api.copy_files(f"hf://{src_repo_id}/config.json", f"hf://datasets/{dst_repo_id}/config.json")
+
+        # Copy folder (1 text, 1 LFS)
+        self._api.copy_files(f"hf://{src_repo_id}/data/", f"hf://datasets/{dst_repo_id}/copied/")
+
+        # Verify files were copied
+        dst_files = self._api.list_repo_files(dst_repo_id, repo_type="dataset")
+        assert "config.json" in dst_files
+        assert "copied/a.txt" in dst_files
+        assert "copied/sub/lfs.bin" in dst_files
+
+        # Check data is valid
+        with SoftTemporaryDirectory() as tmpdir:
+            copied_config_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "config.json", cache_dir=tmpdir, repo_type="dataset")
+            )
+            copied_txt_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "copied/a.txt", cache_dir=tmpdir, repo_type="dataset")
+            )
+            copied_bin_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "copied/sub/lfs.bin", cache_dir=tmpdir, repo_type="dataset")
+            )
+
+            assert copied_config_path.read_bytes() == b'{"key": "value"}'
+            assert copied_txt_path.read_bytes() == b"text data"
+            assert copied_bin_path.read_bytes() == b"binary data"
+
+        self._api.delete_repo(dst_repo_id, repo_type="dataset")
+
+    @use_tmp_repo()
     def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
 

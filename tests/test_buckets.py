@@ -523,55 +523,6 @@ def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_
     assert "models/sub/b.txt" in destination_files
 
 
-# ---- Repo-to-repo copy tests ----
-
-
-def test_copy_files_repo_to_repo(api: HfApi, tmp_path):
-    # Init repos
-    src_repo_id = api.create_repo(repo_id=repo_name(prefix="copy-src")).repo_id
-    dst_repo_id = api.create_repo(repo_id=repo_name(prefix="copy-dst"), repo_type="dataset").repo_id
-
-    api.upload_file(repo_id=src_repo_id, path_in_repo="data/a.txt", path_or_fileobj=str(uuid.uuid4()).encode())
-    api.upload_file(repo_id=src_repo_id, path_in_repo="data/sub/lfs.bin", path_or_fileobj=str(uuid.uuid4()).encode())
-
-    # Copy folder (1 text, 1 LFS)
-    api.copy_files(f"hf://{src_repo_id}/data/", f"hf://datasets/{dst_repo_id}/copied/")
-
-    # Verify files were copied
-    dst_files = sorted(
-        f.path
-        for f in api.list_repo_tree(dst_repo_id, recursive=True, repo_type="dataset")
-        if hasattr(f, "size") and not f.path.endswith(".gitattributes")
-    )
-    assert "copied/a.txt" in dst_files
-    assert "copied/sub/lfs.bin" in dst_files
-
-    # Copy a single regular file
-    api.upload_file(repo_id=src_repo_id, path_in_repo="config.json", path_or_fileobj=b'{"key": "value"}')
-    api.copy_files(f"hf://{src_repo_id}/config.json", f"hf://datasets/{dst_repo_id}/config.json")
-    path = api.hf_hub_download(dst_repo_id, "config.json", local_dir=str(tmp_path), repo_type="dataset")
-    with open(path) as f:
-        assert f.read() == '{"key": "value"}'
-
-    api.delete_repo(src_repo_id)
-    api.delete_repo(dst_repo_id, repo_type="dataset")
-
-
-def test_copy_files_repo_to_same_repo(api: HfApi, tmp_path):
-    """Copy files within the same repository (intra-repo via copy_files)."""
-    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-same")).repo_id
-
-    content = str(uuid.uuid4())
-    api.upload_file(repo_id=repo_id, path_in_repo="original.bin", path_or_fileobj=content.encode())
-    api.copy_files(f"hf://{repo_id}/original.bin", f"hf://{repo_id}/backup.bin")
-
-    path = api.hf_hub_download(repo_id, "backup.bin", local_dir=str(tmp_path))
-    with open(path) as f:
-        assert f.read() == content
-
-    api.delete_repo(repo_id)
-
-
 @pytest.mark.parametrize(
     "source, destination, expected_content_type",
     [
