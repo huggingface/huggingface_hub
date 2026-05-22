@@ -61,13 +61,11 @@ Usage:
 
 """
 
-import json
 import multiprocessing
 import multiprocessing.pool
 import shutil
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import asdict
 from fnmatch import fnmatch
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
@@ -97,6 +95,7 @@ from ._cli_utils import (
     print_list_output,
     typer_factory,
 )
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -313,15 +312,12 @@ def jobs_run(
         timeout=timeout,
         namespace=namespace,
     )
-    # Always print the job ID to the user
-    print(f"Job started with ID: {job.id}")
-    print(f"View at: {job.url}")
-
+    out.result("Job started", id=job.id, url=job.url)
     if detach:
+        out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
         return
-    # Now let's stream the logs
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        print(log)
+        out.text(log)
 
 
 @jobs_cli.command(
@@ -366,7 +362,7 @@ def jobs_logs(
     try:
         logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
         for log in logs:
-            print(log)
+            out.text(log)
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
         if status == 404:
@@ -660,33 +656,27 @@ def jobs_hardware() -> None:
     """List available hardware options for Jobs"""
     api = get_hf_api()
     hardware_list = api.list_jobs_hardware()
-    table_headers = ["NAME", "PRETTY NAME", "CPU", "RAM", "STORAGE", "ACCELERATOR", "COST/MIN", "COST/HOUR"]
-    headers_aliases = ["name", "prettyName", "cpu", "ram", "ephemeralStorage", "accelerator", "costMin", "costHour"]
-    rows: list[list[str | int]] = []
-
+    items = []
     for hw in hardware_list:
-        accelerator_info = ""
-        if hw.accelerator:
-            accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
+        accelerator = (
+            f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})" if hw.accelerator else None
+        )
         cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
         cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
-        rows.append(
-            [
-                hw.name,
-                hw.pretty_name or "",
-                hw.cpu,
-                hw.ram,
-                hw.ephemeral_storage,
-                accelerator_info,
-                cost_min,
-                cost_hour,
-            ]
+        items.append(
+            {
+                "name": hw.name,
+                "pretty name": hw.pretty_name,
+                "cpu": hw.cpu,
+                "ram": hw.ram,
+                "storage": hw.ephemeral_storage,
+                "accelerator": accelerator,
+                "cost/min": cost_min,
+                "cost/hour": cost_hour,
+            }
         )
-
-    if not rows:
-        print("No hardware options found")
-        return
-    _print_output(rows, table_headers, headers_aliases, None)
+    out.table(items)
+    out.hint("Use `hf jobs run --flavor <name> ...` to request a specific hardware flavor.")
 
 
 @jobs_cli.command("inspect", examples=["hf jobs inspect <job_id>"])
@@ -709,7 +699,6 @@ def jobs_inspect(
     api = get_hf_api(token=token)
     try:
         jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-        print(json.dumps([asdict(job) for job in jobs], indent=4, default=str))
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
         if status == 404:
@@ -718,6 +707,7 @@ def jobs_inspect(
             raise CLIError("Access denied. You may not have permission to view this job.") from e
         else:
             raise CLIError(f"Failed to inspect job: {e}") from e
+    out.dict([api_object_to_dict(job) for job in jobs])
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -739,6 +729,7 @@ def jobs_cancel(
             raise CLIError("Access denied. You may not have permission to cancel this job.") from e
         else:
             raise CLIError(f"Failed to cancel job: {e}") from e
+    out.result("Job cancelled", id=job_id)
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
@@ -792,14 +783,12 @@ def jobs_uv_run(
         timeout=timeout,
         namespace=namespace,
     )
-    # Always print the job ID to the user
-    print(f"Job started with ID: {job.id}")
-    print(f"View at: {job.url}")
+    out.result("Job started", id=job.id, url=job.url)
     if detach:
+        out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
         return
-    # Now let's stream the logs
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        print(log)
+        out.text(log)
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
@@ -847,7 +836,8 @@ def scheduled_run(
         timeout=timeout,
         namespace=namespace,
     )
-    print(f"Scheduled Job created with ID: {scheduled_job.id}")
+    out.result("Scheduled Job created", id=scheduled_job.id)
+    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
 
 
 @scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
@@ -978,7 +968,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    print(json.dumps([asdict(scheduled_job) for scheduled_job in scheduled_jobs], indent=4, default=str))
+    out.dict([api_object_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
@@ -991,6 +981,7 @@ def scheduled_delete(
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.delete_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    out.result("Scheduled Job deleted", id=scheduled_job_id)
 
 
 @scheduled_app.command("suspend", examples=["hf jobs scheduled suspend <id>"])
@@ -1003,6 +994,8 @@ def scheduled_suspend(
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.suspend_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    out.result("Scheduled Job suspended", id=scheduled_job_id)
+    out.hint(f"Use `hf jobs scheduled resume {scheduled_job_id}` to resume it.")
 
 
 @scheduled_app.command("resume", examples=["hf jobs scheduled resume <id>"])
@@ -1015,6 +1008,7 @@ def scheduled_resume(
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    out.result("Scheduled Job resumed", id=scheduled_job_id)
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
@@ -1071,7 +1065,8 @@ def scheduled_uv_run(
         timeout=timeout,
         namespace=namespace,
     )
-    print(f"Scheduled Job created with ID: {job.id}")
+    out.result("Scheduled Job created", id=job.id)
+    out.hint(f"Use `hf jobs scheduled inspect {job.id}` to view its details.")
 
 
 ### UTILS
