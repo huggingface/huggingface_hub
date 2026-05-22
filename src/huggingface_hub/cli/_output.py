@@ -121,28 +121,9 @@ class Output:
                 formatted_rows: list[list[str]] = [[_format_table_value_human(v) for v in row] for row in rows]
                 container_flags = [[isinstance(v, (dict, list, set, tuple)) for v in row] for row in rows]
 
-                # Per-column natural width. Container cells (lists/dicts like `tags`) cap their
-                # contribution at _MAX_CELL_LENGTH so a single fat column can't dominate.
-                natural = [len(h) for h in screaming_headers]
-                for r, fmt_row in enumerate(formatted_rows):
-                    for c, cell in enumerate(fmt_row):
-                        length = min(len(cell), _MAX_CELL_LENGTH) if container_flags[r][c] else len(cell)
-                        natural[c] = max(natural[c], length)
-
-                caps = _compute_column_caps(screaming_headers, natural, no_truncate=self.no_truncate)
-
-                scalar_truncated = False
-                container_truncated = False
-                for r, fmt_row in enumerate(formatted_rows):
-                    for c, cell in enumerate(fmt_row):
-                        is_container = container_flags[r][c]
-                        cap = min(caps[c], _MAX_CELL_LENGTH) if is_container else caps[c]
-                        if len(cell) > cap:
-                            if is_container:
-                                container_truncated = True
-                            else:
-                                scalar_truncated = True
-                            fmt_row[c] = cell[: cap - 3] + "..."
+                scalar_truncated, container_truncated = _truncate_columns(
+                    screaming_headers, formatted_rows, container_flags, no_truncate=self.no_truncate
+                )
 
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(
@@ -258,8 +239,6 @@ def _dataclass_to_dict(info: Any) -> dict[str, Any]:
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
-_MAX_CELL_LENGTH = 35
-_MIN_CELL_WIDTH = 10
 
 
 def _strip_ansi(text: str) -> str:
@@ -297,46 +276,57 @@ def _format_table_value_human(value: Any) -> str:
     return _single_line(str(value))
 
 
-def _format_table_cell_human(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value + truncate it for table display."""
-    cell = _format_table_value_human(value)
-    if len(cell) > max_len:
-        cell = cell[: max_len - 3] + "..."
-    return cell
-
-
-def _compute_column_caps(
+def _truncate_columns(
     headers: list[str],
-    natural: list[int],
+    rows: list[list[str]],
+    container_flags: list[list[bool]],
     *,
     no_truncate: bool,
-) -> list[int]:
-    """Per-column maximum cell width for the human table layout."""
-    if no_truncate:
-        return natural.copy()
-    if not sys.stdout.isatty():
-        # Piped output: legacy fixed cap so scripts see stable widths.
-        return [min(w, _MAX_CELL_LENGTH) for w in natural]
+) -> tuple[bool, bool]:
+    """Truncate cells in-place to fit the current terminal width.
 
-    # `shutil.get_terminal_size` is cross-platform: $COLUMNS env first, then OS-native API.
-    budget = shutil.get_terminal_size((80, 24)).columns - max(0, len(natural) - 1)
+    Returns `(scalar_truncated, container_truncated)` so the caller can emit the
+    right hint. `shutil.get_terminal_size` is cross-platform: it honors `$COLUMNS`,
+    then queries the OS-native API, then falls back to `(80, 24)`.
+    """
+    if no_truncate or not rows:
+        return False, False
+
+    n = len(headers)
+    # Per-column natural width: longest of header label and cell values.
+    natural = [max(len(headers[c]), *(len(rows[r][c]) for r in range(len(rows)))) for c in range(n)]
+
+    # `max(0, n - 1)` accounts for the single-space separator between columns.
+    budget = shutil.get_terminal_size().columns - max(0, n - 1)
     if sum(natural) <= budget:
-        return natural.copy()
+        return False, False
 
-    # Shrink the widest column 1 char at a time until the table fits. Floors keep
-    # the header label and a minimum useful width per column.
-    target = natural.copy()
-    min_widths = [max(_MIN_CELL_WIDTH, len(h)) for h in headers]
-    while sum(target) > budget:
+    # Shrink the widest column 1 char at a time. Floors keep the header label
+    # visible; the `4` is the minimum cap that still produces a useful "x..."
+    # truncation (3 chars for the ellipsis + 1 content char).
+    caps = natural.copy()
+    min_widths = [max(len(h), 4) for h in headers]
+    while sum(caps) > budget:
         widest = max(
-            (i for i, w in enumerate(target) if w > min_widths[i]),
-            key=lambda i: target[i],
+            (i for i, w in enumerate(caps) if w > min_widths[i]),
+            key=lambda i: caps[i],
             default=-1,
         )
         if widest < 0:
-            break  # everything at floor — table wraps
-        target[widest] -= 1
-    return target
+            break  # everything at floor — table wraps slightly
+        caps[widest] -= 1
+
+    scalar_truncated = False
+    container_truncated = False
+    for r, row in enumerate(rows):
+        for c, cell in enumerate(row):
+            if len(cell) > caps[c]:
+                if container_flags[r][c]:
+                    container_truncated = True
+                else:
+                    scalar_truncated = True
+                row[c] = cell[: caps[c] - 3] + "..."
+    return scalar_truncated, container_truncated
 
 
 def _format_table_cell_agent(value: Any) -> str:

@@ -20,7 +20,7 @@ import sys
 import pytest
 
 from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
-from huggingface_hub.cli._output import Output, _format_table_cell_human, _to_header
+from huggingface_hub.cli._output import Output, _to_header
 from huggingface_hub.errors import ConfirmationError
 
 
@@ -163,43 +163,38 @@ def test_table_empty(check):
     )
 
 
-def test_table_truncates_by_default(capsys):
-    long_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
+    """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
     o = Output()
     o.set_mode(HUMAN)
-    o.table([{"id": long_id}], headers=["id"])
+    o.table([{"id": "some-org/some-very-long-model-name-here", "likes": 9}], headers=["id", "likes"])
 
     captured = capsys.readouterr()
-    assert long_id not in captured.out
-    assert "..." in captured.out
+    assert (
+        captured.out.strip()
+        == """
+ID                                 LIKES
+---------------------------------- -----
+some-org/some-very-long-model-n... 9
+""".strip()
+    )
 
 
-def test_table_no_truncate(capsys):
-    long_id = "org/very-long-model-name-that-exceeds-thirty-five-characters"
+def test_table_no_truncate(monkeypatch, capsys):
+    """--no-truncate bypasses adaptive truncation even when the table overflows the terminal."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
+    long_id = "some-org/some-very-long-model-name-here"
     o = Output()
     o.set_mode(HUMAN)
     o.set_no_truncate(True)
-    o.table([{"id": long_id}], headers=["id"])
+    o.table([{"id": long_id, "likes": 9}], headers=["id", "likes"])
 
     captured = capsys.readouterr()
     assert long_id in captured.out
     assert "..." not in captured.out
-
-
-def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
-    """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(shutil, "get_terminal_size", lambda fallback=(80, 24): os.terminal_size((40, 24)))
-
-    long_id = "some-org/some-very-long-model-name-here"  # 39 chars
-    o = Output()
-    o.set_mode(HUMAN)
-    o.table([{"id": long_id, "likes": 9}], headers=["id", "likes"])
-
-    captured = capsys.readouterr()
-    assert long_id not in captured.out  # `id` shrunk
-    assert "..." in captured.out
-    assert "9" in captured.out  # `likes` preserved
 
 
 # =============================================================================
@@ -402,17 +397,3 @@ def test_status_only_enabled_for_humans(check, monkeypatch):
 )
 def test_to_header(input, expected):
     assert _to_header(input) == expected
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        ("short", "short"),  # short string unchanged
-        ("x" * 50, "x" * 32 + "..."),  # long string truncated at 35 chars
-        (True, "✔"),  # bool True → checkmark
-        (False, ""),  # bool False → empty
-        (["a", "b"], "a, b"),  # list → comma-separated
-    ],
-)
-def test_format_table_cell_human(value, expected):
-    assert _format_table_cell_human(value) == expected
