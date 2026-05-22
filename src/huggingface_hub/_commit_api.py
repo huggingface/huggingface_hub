@@ -116,34 +116,6 @@ class CommitOperationCopy:
         src_repo_type (`str`, *optional*):
             The type of the source repository (`"model"`, `"dataset"` or `"space"`).
             Required when `src_repo_id` is set.
-
-    Example:
-
-        ```python
-        >>> from huggingface_hub import HfApi, CommitOperationCopy
-        >>> api = HfApi()
-
-        # Copy a file within the same repo
-        >>> api.create_commit(
-        ...     repo_id="username/my-model",
-        ...     operations=[CommitOperationCopy(src_path_in_repo="weights.bin", path_in_repo="weights_backup.bin")],
-        ...     commit_message="Backup weights",
-        ... )
-
-        # Cross-repo copy
-        >>> api.create_commit(
-        ...     repo_id="username/my-model",
-        ...     operations=[
-        ...         CommitOperationCopy(
-        ...             src_path_in_repo="config.json",
-        ...             path_in_repo="config.json",
-        ...             src_repo_id="username/source-model",
-        ...             src_repo_type="model",
-        ...         )
-        ...     ],
-        ...     commit_message="Copy config from source model",
-        ... )
-        ```
     """
 
     src_path_in_repo: str
