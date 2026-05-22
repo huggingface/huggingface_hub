@@ -415,9 +415,9 @@ class _GlobalFlags:
     """Parsed values for the global formatting flags consumed off a leaf command's args."""
 
     no_truncate: bool = False
-    format_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
-    # The flag spelling that set ``format_mode``, kept for error messages.
-    # ``None`` means no format-family flag was consumed (``format_mode`` is the default).
+    # The output mode the user requested, or ``None`` if no format-family flag was passed.
+    format_mode: OutputFormatWithAuto | None = None
+    # The flag spelling the user typed (e.g. ``"--json"``), used in error messages.
     format_flag: str | None = None
 
 
@@ -515,15 +515,16 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     )
     out.set_no_truncate(flags.no_truncate)
 
+    if flags.format_mode is None:
+        return
+
     if not has_local_format:
-        # Modern command: apply the parsed mode (defaults to ``auto`` if no flag was supplied).
+        # Modern command: apply the parsed mode to ``out``.
         out.set_mode(flags.format_mode)
         return
 
-    # Legacy command with its own ``--format``: re-emit any consumed shorthand as
+    # Legacy command with its own ``--format``: re-emit the consumed shorthand as
     # ``--format <value>`` so click parses it locally.
-    if flags.format_flag is None:
-        return
     if any(arg == "--format" or arg.startswith("--format=") for arg in args):
         raise click.UsageError(f"'{flags.format_flag}' and '--format' are mutually exclusive.")
     args.extend(["--format", flags.format_mode.value])
