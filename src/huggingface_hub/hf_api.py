@@ -5299,19 +5299,12 @@ class HfApi:
                         continue
                     if not src_file.xet_hash:
                         raise ValueError(
-                            f"Cannot duplicate LFS file '{src_file.path}' from"
-                            f" {src_repo_type}s/{src_repo_id}: file has no xet hash."
+                            f"Cannot duplicate LFS file '{src_file.path}' from {src_repo_type}s/{src_repo_id}: file has no xet hash."
                         )
                     oid = src_file.lfs.sha256
                     if oid not in seen_oids:
                         seen_oids.add(oid)
-                        lfs_files.append(
-                            {
-                                "xetHash": src_file.xet_hash,
-                                "sha256": oid,
-                                "filename": src_file.path,
-                            }
-                        )
+                        lfs_files.append({"xetHash": src_file.xet_hash, "sha256": oid, "filename": src_file.path})
 
             if not lfs_files:
                 continue
@@ -5322,10 +5315,7 @@ class HfApi:
                 response = get_session().post(
                     duplicate_url,
                     headers=headers,
-                    json={
-                        "target": {"type": repo_type, "name": repo_id},
-                        "files": list(batch),
-                    },
+                    json={"target": {"type": repo_type, "name": repo_id}, "files": list(batch)},
                 )
                 hf_raise_for_status(response)
                 data = response.json()
