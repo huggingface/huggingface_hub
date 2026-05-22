@@ -83,29 +83,46 @@ def _normalize_command_aliases(content: str) -> str:
         flags=re.MULTILINE,
     )
 
-    # Transform section headers: `## `hf cmd | alias`` or `### `hf parent cmd | alias``
-    # and add alias info to the description on the next non-empty line.
-    # Match the *last* aliased segment so parent aliases (e.g. `repos | repo`) are preserved.
+    # Transform section headers: `## `hf repos | repo branch create`` → `## `hf repos branch create``
+    # Strip aliases from *all* segments in the command path, and append alias info for the
+    # *leaf* command only (the last segment that has aliases) to the description line.
     def _transform_section(match: re.Match) -> str:
-        hashes = match.group(1)  # "##" or "###"
-        prefix = match.group(2)  # "hf" or "hf parent"
-        full_name = match.group(3)  # "cmd | alias"
-        whitespace = match.group(4)  # newlines between header and description
-        description = match.group(5)  # first line of description
+        hashes = match.group(1)  # "##", "###", ...
+        command_path = match.group(2)  # "hf repos | repo branch create"
+        whitespace = match.group(3)  # newlines between header and description
+        description = match.group(4)  # first line of description
 
-        parts = [p.strip() for p in full_name.split("|")]
-        primary = parts[0]
-        aliases = parts[1:]
+        # Split path into segments, strip aliases from each.
+        # Only annotate the description when the *leaf* (last) segment has aliases.
+        segments = re.split(r"\s+", command_path)
+        primary_segments: list[str] = []
+        last_aliases: list[str] = []
+        i = 0
+        while i < len(segments):
+            seg = segments[i]
+            if i + 1 < len(segments) and segments[i + 1] == "|":
+                aliases = []
+                j = i + 1
+                while j < len(segments) and segments[j] == "|":
+                    aliases.append(segments[j + 1])
+                    j += 2
+                primary_segments.append(seg)
+                last_aliases = aliases
+                i = j
+            else:
+                primary_segments.append(seg)
+                last_aliases = []  # reset — a plain segment followed, so leaf has no alias
+                i += 1
 
-        new_header = f"{hashes} `{prefix} {primary}`"
-        if aliases:
-            new_description = f"{description} {_format_aliases(aliases)}"
+        new_header = f"{hashes} `{' '.join(primary_segments)}`"
+        if last_aliases:
+            new_description = f"{description} {_format_aliases(last_aliases)}"
         else:
             new_description = description
         return f"{new_header}{whitespace}{new_description}"
 
     content = re.sub(
-        r"^(#{2,}) `(hf(?: [\w-]+(?: \| [\w-]+)?)*) ([\w-]+(?: \| [\w-]+)+)`(\n+)([^\n#*]+)",
+        r"^(#{2,}) `(hf(?: [\w-]+(?: \| [\w-]+)?)+(?: [\w-]+)*)`(\n+)([^\n#*]+)",
         _transform_section,
         content,
         flags=re.MULTILINE,
