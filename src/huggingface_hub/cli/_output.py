@@ -124,8 +124,8 @@ class Output:
                 # Per-column natural width. Container cells (lists/dicts like `tags`) cap their
                 # contribution at _MAX_CELL_LENGTH so a single fat column can't dominate.
                 natural = [len(h) for h in screaming_headers]
-                for r, row in enumerate(formatted_rows):
-                    for c, cell in enumerate(row):
+                for r, fmt_row in enumerate(formatted_rows):
+                    for c, cell in enumerate(fmt_row):
                         length = min(len(cell), _MAX_CELL_LENGTH) if container_flags[r][c] else len(cell)
                         natural[c] = max(natural[c], length)
 
@@ -133,8 +133,8 @@ class Output:
 
                 scalar_truncated = False
                 container_truncated = False
-                for r, row in enumerate(formatted_rows):
-                    for c, cell in enumerate(row):
+                for r, fmt_row in enumerate(formatted_rows):
+                    for c, cell in enumerate(fmt_row):
                         is_container = container_flags[r][c]
                         cap = min(caps[c], _MAX_CELL_LENGTH) if is_container else caps[c]
                         if len(cell) > cap:
@@ -142,10 +142,16 @@ class Output:
                                 container_truncated = True
                             else:
                                 scalar_truncated = True
-                            row[c] = cell[: cap - 3] + "..."
+                            fmt_row[c] = cell[: cap - 3] + "..."
 
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-                print(tabulate(cast("list[list[str | int]]", formatted_rows), headers=screaming_headers, alignments=screaming_alignments))
+                print(
+                    tabulate(
+                        cast("list[list[str | int]]", formatted_rows),
+                        headers=screaming_headers,
+                        alignments=screaming_alignments,
+                    )
+                )
                 if scalar_truncated:
                     self.hint("Use `--no-truncate` to display full values.")
                 elif container_truncated:
