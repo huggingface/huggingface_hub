@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import shutil
 import sys
 
 import pytest
@@ -182,6 +184,22 @@ def test_table_no_truncate(capsys):
     captured = capsys.readouterr()
     assert long_id in captured.out
     assert "..." not in captured.out
+
+
+def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
+    """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda fallback=(80, 24): os.terminal_size((40, 24)))
+
+    long_id = "some-org/some-very-long-model-name-here"  # 39 chars
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table([{"id": long_id, "likes": 9}], headers=["id", "likes"])
+
+    captured = capsys.readouterr()
+    assert long_id not in captured.out  # `id` shrunk
+    assert "..." in captured.out
+    assert "9" in captured.out  # `likes` preserved
 
 
 # =============================================================================
