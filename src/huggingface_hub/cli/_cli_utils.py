@@ -381,151 +381,152 @@ def _format_formatting_options_section(formatter: click.HelpFormatter) -> None:
         formatter.write_dl(_FORMATTING_OPTIONS_HELP_RECORDS)
 
 
-def _has_local_formatting_option(cmd: click.Command) -> bool:
-    """Return True if the command defines its own --format, --json or --quiet / -q.
+def _local_formatting_options(cmd: click.Command) -> tuple[bool, bool, bool]:
+    """Return ``(has_format, has_json, has_quiet)`` for the local formatting options ``cmd`` defines.
 
-    Used to skip the global formatting flag pre-processor and the duplicated "Formatting options" help section for
-    legacy commands like 'hf jobs ps' that have their own format/quiet options.
+    Used to know which global shorthands a legacy command shadows with its own option of the
+    same name, so we leave those in place for click to parse.
     """
-    for param in cmd.params:
-        if not isinstance(param, click.Option):
-            continue
-        opts = (*param.opts, *param.secondary_opts)
-        if "--format" in opts or "--json" in opts or "--quiet" in opts or "-q" in opts:
-            return True
-    return False
-
-
-def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
-    """Apply global formatting flags from 'args' to a leaf command.
-
-    Two modes, depending on the command:
-
-    * **Pass-through commands** (ignore_unknown_options=True, e.g. 'hf extensions exec'):
-      args are forwarded verbatim to an external binary; we don't touch them.
-
-    * **Legacy commands with a local --format option** (e.g. 'hf jobs ps' whose '--format' accepts Go templates):
-      the global flags are rewritten in-place to the legacy form ('--json' → '--format json', '--quiet'/'-q' → '--format quiet'
-      when the cmd has no own '--quiet') so click can parse them locally. This preserves backwards compatibility with the previous shorthand behavior.
-
-    * **Modern commands** (no local format/quiet/json options): the flags '--format <value>' / '--json' / '--quiet' / '-q' are stripped from 'args' and applied to the singleton 'out'.
-
-    '--no-truncate' is stripped for all non-pass-through commands; when present, human table cells are not truncated.
-
-    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
-    """
-    if cmd.context_settings.get("ignore_unknown_options"):
-        return
-
-    no_truncate = _consume_no_truncate_flags(args)
-    out.set_no_truncate(no_truncate)
-
-    has_local_format = False
-    has_local_quiet = False
-    has_local_json = False
+    has_format = has_json = has_quiet = False
     for param in cmd.params:
         if not isinstance(param, click.Option):
             continue
         opts = (*param.opts, *param.secondary_opts)
         if "--format" in opts:
-            has_local_format = True
-        if "--quiet" in opts or "-q" in opts:
-            has_local_quiet = True
+            has_format = True
         if "--json" in opts:
-            has_local_json = True
+            has_json = True
+        if "--quiet" in opts or "-q" in opts:
+            has_quiet = True
+    return has_format, has_json, has_quiet
 
-    if has_local_format:
-        _rewrite_legacy_shorthands(args, rewrite_json=not has_local_json, rewrite_quiet=not has_local_quiet)
-        return
 
-    # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
-    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
-    chosen_flag: str | None = None
+def _has_local_formatting_option(cmd: click.Command) -> bool:
+    """Return True if ``cmd`` defines its own --format, --json, or --quiet / -q.
+
+    Used to skip the duplicated "Formatting options" help section for legacy commands
+    like 'hf jobs ps' that have their own format/quiet options.
+    """
+    return any(_local_formatting_options(cmd))
+
+
+@dataclasses.dataclass
+class _GlobalFlags:
+    """Parsed values for the global formatting flags consumed off a leaf command's args."""
+
+    no_truncate: bool = False
+    format_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
+    # The flag spelling that set ``format_mode``, kept for error messages.
+    # ``None`` means no format-family flag was consumed (``format_mode`` is the default).
+    format_flag: str | None = None
+
+
+def _consume_global_flags(
+    args: list[str],
+    *,
+    consume_format: bool = True,
+    consume_json: bool = True,
+    consume_quiet: bool = True,
+) -> _GlobalFlags:
+    """Walk ``args`` once, strip the global formatting flags in place, return the parsed values.
+
+    ``--no-truncate`` is always stripped. ``--format``/``--json``/``-q``/``--quiet`` are stripped
+    only when the corresponding ``consume_*`` is True — pass False for a legacy command whose
+    local option of the same name should remain for click to parse.
+
+    Stops scanning at ``--``. Raises ``click.UsageError`` on mutually exclusive flags, an invalid
+    ``--format`` value, a missing value for ``--format``, or an unexpected ``=value`` after
+    ``--no-truncate``.
+    """
+    flags = _GlobalFlags()
 
     def _check_conflict(new_flag: str) -> None:
-        # Reject any second formatting flag before parsing values, so the user gets
-        # a "mutually exclusive" error rather than e.g. an "invalid value" error
-        # from the second flag's argument.
-        if chosen_flag is not None:
-            raise click.UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
+        # Reject a second format-family flag *before* parsing its value, so the user gets a
+        # "mutually exclusive" error rather than a confusing "invalid value" error.
+        if flags.format_flag is not None:
+            raise click.UsageError(f"'{flags.format_flag}' and '{new_flag}' are mutually exclusive.")
 
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--":
-            break  # everything after '--' is a positional literal
-        if arg == "--format":
-            _check_conflict("--format")
-            if i + 1 >= len(args):
-                raise click.UsageError("Option '--format' requires a value.")
-            chosen_mode = _parse_format_value(args[i + 1])
-            chosen_flag = "--format"
-            del args[i : i + 2]  # --format value => 2 args removed
-            continue
-        if arg.startswith("--format="):
-            _check_conflict("--format")
-            chosen_mode = _parse_format_value(arg[len("--format=") :])
-            chosen_flag = "--format"
-            del args[i : i + 1]
-            continue
-        if arg == "--json":
-            _check_conflict("--json")
-            chosen_mode = OutputFormatWithAuto.json
-            chosen_flag = "--json"
-            del args[i : i + 1]
-            continue
-        if arg in ("-q", "--quiet"):
-            _check_conflict(arg)
-            chosen_mode = OutputFormatWithAuto.quiet
-            chosen_flag = arg
-            del args[i : i + 1]
-            continue
-        i += 1
-
-    out.set_mode(chosen_mode)
-
-
-def _consume_no_truncate_flags(args: list[str]) -> bool:
-    """Strip all global --no-truncate flags from args and return whether any was provided."""
-    no_truncate = False
     i = 0
     while i < len(args):
         arg = args[i]
         if arg == "--":
             break  # everything after '--' is a positional literal
         if arg == "--no-truncate":
-            no_truncate = True
+            flags.no_truncate = True
             del args[i : i + 1]
             continue
         if arg.startswith("--no-truncate="):
             raise click.UsageError("Option '--no-truncate' does not take a value.")
+        if consume_format and arg == "--format":
+            _check_conflict("--format")
+            if i + 1 >= len(args):
+                raise click.UsageError("Option '--format' requires a value.")
+            flags.format_mode = _parse_format_value(args[i + 1])
+            flags.format_flag = "--format"
+            del args[i : i + 2]
+            continue
+        if consume_format and arg.startswith("--format="):
+            _check_conflict("--format")
+            flags.format_mode = _parse_format_value(arg[len("--format=") :])
+            flags.format_flag = "--format"
+            del args[i : i + 1]
+            continue
+        if consume_json and arg == "--json":
+            _check_conflict("--json")
+            flags.format_mode = OutputFormatWithAuto.json
+            flags.format_flag = "--json"
+            del args[i : i + 1]
+            continue
+        if consume_quiet and arg in ("-q", "--quiet"):
+            _check_conflict(arg)
+            flags.format_mode = OutputFormatWithAuto.quiet
+            flags.format_flag = arg
+            del args[i : i + 1]
+            continue
         i += 1
-    return no_truncate
+
+    return flags
 
 
-def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
-    """Rewrite --json / -q / --quiet to --format ... for legacy commands.
+def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
+    """Apply global formatting flags from ``args`` to a leaf command.
 
-    Used for commands like 'hf jobs ps' that still own their '--format' option.
-    The rewrite lets users keep using the global shorthand while click parses
-    '--format <value>' locally.
+    Three modes, depending on the command:
+
+    * **Pass-through commands** (``ignore_unknown_options=True``, e.g. ``hf extensions exec``):
+      args are forwarded verbatim to an external binary; we don't touch them.
+    * **Modern commands** (no local format/quiet/json options): the flags are stripped from
+      ``args`` and applied to the singleton ``out``.
+    * **Legacy commands with a local ``--format`` option** (e.g. ``hf jobs ps``): shorthand flags
+      with no local equivalent are stripped and re-emitted as ``--format <value>`` so click parses
+      them locally; shorthand flags with a local equivalent are left in place.
+
+    ``--no-truncate`` is stripped for all non-pass-through commands.
     """
-    has_format_in_args = any(arg == "--format" or arg.startswith("--format=") for arg in args)
+    if cmd.context_settings.get("ignore_unknown_options"):
+        return
 
-    if rewrite_json and "--json" in args:
-        if has_format_in_args:
-            raise click.UsageError("'--json' and '--format' are mutually exclusive.")
-        idx = args.index("--json")
-        args[idx : idx + 1] = ["--format", "json"]
-        has_format_in_args = True
+    has_local_format, has_local_json, has_local_quiet = _local_formatting_options(cmd)
+    flags = _consume_global_flags(
+        args,
+        consume_format=not has_local_format,
+        consume_json=not has_local_json,
+        consume_quiet=not has_local_quiet,
+    )
+    out.set_no_truncate(flags.no_truncate)
 
-    if rewrite_quiet:
-        flag = "-q" if "-q" in args else ("--quiet" if "--quiet" in args else None)
-        if flag is not None:
-            if has_format_in_args:
-                raise click.UsageError(f"'{flag}' and '--format' are mutually exclusive.")
-            idx = args.index(flag)
-            args[idx : idx + 1] = ["--format", "quiet"]
+    if not has_local_format:
+        # Modern command: apply the parsed mode (defaults to ``auto`` if no flag was supplied).
+        out.set_mode(flags.format_mode)
+        return
+
+    # Legacy command with its own ``--format``: re-emit any consumed shorthand as
+    # ``--format <value>`` so click parses it locally.
+    if flags.format_flag is None:
+        return
+    if any(arg == "--format" or arg.startswith("--format=") for arg in args):
+        raise click.UsageError(f"'{flags.format_flag}' and '--format' are mutually exclusive.")
+    args.extend(["--format", flags.format_mode.value])
 
 
 def _parse_format_value(value: str) -> "OutputFormatWithAuto":
