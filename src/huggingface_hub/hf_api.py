@@ -689,7 +689,7 @@ def _resolve_copy_target_path(
     destination_path: str,
     destination_is_directory: bool,
     destination_exists_as_directory: bool,
-    source_is_contents_only: bool,
+    merge_contents: bool,
 ) -> str:
     basename = src_file_path.rsplit("/", 1)[-1]
     if is_single_file:
@@ -714,7 +714,7 @@ def _resolve_copy_target_path(
     # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
     # Without trailing slash, match `cp -r` behavior: nest source folder inside
     # existing destination directory. Non-existing destination always uses rename semantics.
-    if destination_exists_as_directory and src_root_path is not None and not source_is_contents_only:
+    if destination_exists_as_directory and src_root_path is not None and not merge_contents:
         src_dir_basename = src_root_path.rsplit("/", 1)[-1]
         rel_path = f"{src_dir_basename}/{rel_path}"
 
@@ -13099,22 +13099,20 @@ class HfApi:
 
         # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
         # Check before parsing strips the slash.
-        source_is_contents_only = source.endswith("/")
+        merge_contents = source.endswith("/")
 
         if destination_uri.is_repo:
             if source_uri.is_bucket:
                 raise ValueError("Bucket-to-repo copy is not supported.")
-            self._copy_to_repo(source_uri, destination_uri, source_is_contents_only, source, destination, token=token)
+            self._copy_to_repo(source_uri, destination_uri, merge_contents, source, destination, token=token)
         else:
-            self._copy_to_bucket(
-                source_uri, destination_uri, source_is_contents_only, source, destination, token=token
-            )
+            self._copy_to_bucket(source_uri, destination_uri, merge_contents, source, destination, token=token)
 
     def _copy_to_bucket(
         self,
         source: HfUri,
         destination: HfUri,
-        source_is_contents_only: bool,
+        merge_contents: bool,
         source_str: str,
         destination_str: str,
         *,
@@ -13150,7 +13148,7 @@ class HfApi:
                 destination_path,
                 destination_is_directory,
                 destination_exists_as_directory,
-                source_is_contents_only,
+                merge_contents,
             )
 
         def _build_copy_op(
@@ -13195,7 +13193,7 @@ class HfApi:
                 destination_path,
                 destination_is_directory,
                 destination_exists_as_directory,
-                source_is_contents_only,
+                merge_contents,
                 token=token,
             ):
                 # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
@@ -13239,7 +13237,7 @@ class HfApi:
         destination_path: str,
         destination_is_directory: bool,
         destination_exists_as_directory: bool,
-        source_is_contents_only: bool,
+        merge_contents: bool,
         *,
         token: str | bool | None = None,
     ) -> Iterable[tuple[RepoFile, str]]:
@@ -13263,7 +13261,7 @@ class HfApi:
                 destination_path,
                 destination_is_directory,
                 destination_exists_as_directory,
-                source_is_contents_only,
+                merge_contents,
             )
 
         if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
@@ -13286,7 +13284,7 @@ class HfApi:
         self,
         source: HfUri,
         destination: HfUri,
-        source_is_contents_only: bool,
+        merge_contents: bool,
         source_str: str,
         destination_str: str,
         *,
@@ -13342,7 +13340,7 @@ class HfApi:
                 destination_path,
                 destination_is_directory,
                 destination_exists_as_directory,
-                source_is_contents_only,
+                merge_contents,
                 token=token,
             )
         ]

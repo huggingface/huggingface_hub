@@ -169,7 +169,7 @@ _RESOLVE_DEFAULTS = {
     "destination_path": "",
     "destination_is_directory": False,
     "destination_exists_as_directory": False,
-    "source_is_contents_only": False,
+    "merge_contents": False,
 }
 
 
@@ -209,7 +209,7 @@ _RESOLVE_DEFAULTS = {
                 "is_single_file": False,
                 "destination_path": "target",
                 "destination_exists_as_directory": True,
-                "source_is_contents_only": True,
+                "merge_contents": True,
             },
             "target/a.txt",
         ),
@@ -232,7 +232,7 @@ _RESOLVE_DEFAULTS = {
                 "is_single_file": False,
                 "destination_path": "",
                 "destination_exists_as_directory": True,
-                "source_is_contents_only": True,
+                "merge_contents": True,
             },
             "sub/a.txt",
         ),
