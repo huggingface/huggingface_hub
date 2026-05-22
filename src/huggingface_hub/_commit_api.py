@@ -131,8 +131,6 @@ class CommitOperationCopy:
     _dest_oid: str | None = None
     # set to True once cross-repo LFS files have been duplicated to the destination repo
     _is_duplicated: bool = False
-    # set to True if the LFS duplication failed for this operation
-    _duplication_failed: bool = False
 
     def __post_init__(self):
         self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
@@ -818,9 +816,6 @@ def _fetch_files_to_copy(
     For LFS files, we only need their metadata (file size and sha256) while for regular files
     we need to download the raw content from the Hub.
 
-    Supports both intra-repo copies (default) and cross-repo copies (when `src_repo_id` is set
-    on the operation).
-
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
             Iterable of :class:`CommitOperationCopy` describing the files to
@@ -866,90 +861,56 @@ def _fetch_files_to_copy(
             if not isinstance(file, RepoFolder):
                 oid_info[(file.path, revision)] = file.blob_id
 
-    # Separate intra-repo and cross-repo copies
-    intra_repo_copies = [op for op in copies if op.src_repo_id is None]
-    cross_repo_copies = [op for op in copies if op.src_repo_id is not None]
-
-    # 2. Intra-repo copies: group by source revision and fetch source file info in batches.
-    for src_revision, operations in groupby(intra_repo_copies, key=lambda op: op.src_revision):
-        operations = list(operations)  # type: ignore[assignment]
-        src_paths = [op.src_path_in_repo for op in operations]
-        for paths_batch in chunk_iterable(src_paths, FETCH_LFS_BATCH_SIZE):
-            src_repo_files = hf_api.get_paths_info(
-                repo_id=repo_id,
-                paths=list(paths_batch),
-                revision=src_revision or revision,
-                repo_type=repo_type,
-            )
-
-            for src_repo_file in src_repo_files:
-                if isinstance(src_repo_file, RepoFolder):
-                    raise NotImplementedError("Copying a folder is not implemented.")
-                oid_info[(src_repo_file.path, src_revision)] = src_repo_file.blob_id
-                source = _CopySource(None, None, src_repo_file.path, src_revision)
-                if src_repo_file.lfs:
-                    files_to_copy[source] = src_repo_file
-                else:
-                    url = hf_hub_url(
-                        endpoint=endpoint,
-                        repo_type=repo_type,
-                        repo_id=repo_id,
-                        revision=src_revision or revision,
-                        filename=src_repo_file.path,
-                    )
-                    response = get_session().get(url, headers=headers)
-                    hf_raise_for_status(response)
-                    files_to_copy[source] = response.content
-        for operation in operations:
-            key = _CopySource(None, None, operation.src_path_in_repo, src_revision)
-            if key not in files_to_copy:
-                raise EntryNotFoundError(
-                    f"Cannot copy {operation.src_path_in_repo} at revision "
-                    f"{src_revision or revision}: file is missing on repo."
-                )
-            operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
-            operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
-
-    # 3. Cross-repo copies: group by (src_repo_id, src_repo_type, src_revision).
-    cross_repo_copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
-    for (src_repo_id, src_repo_type, src_revision), operations in groupby(
-        cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
+    # 2. Fetch source file info, grouped by (src_repo_id, src_repo_type, src_revision).
+    copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
+    for (src_repo_id_key, src_repo_type_key, src_revision_key), group in groupby(
+        copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
     ):
-        operations = list(operations)  # type: ignore[assignment]
+        operations = list(group)
+        is_cross_repo = src_repo_id_key is not None
+        eff_repo_id = src_repo_id_key or repo_id
+        eff_repo_type = src_repo_type_key or repo_type
+        eff_revision = src_revision_key or ("main" if is_cross_repo else revision)
+
         src_paths = [op.src_path_in_repo for op in operations]
         for paths_batch in chunk_iterable(src_paths, FETCH_LFS_BATCH_SIZE):
             src_repo_files = hf_api.get_paths_info(
-                repo_id=src_repo_id,
+                repo_id=eff_repo_id,
                 paths=list(paths_batch),
-                revision=src_revision or "main",
-                repo_type=src_repo_type,
+                revision=eff_revision,
+                repo_type=eff_repo_type,
             )
-
             for src_repo_file in src_repo_files:
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
-                source = _CopySource(src_repo_id, src_repo_type, src_repo_file.path, src_revision)
+                source = _CopySource(src_repo_id_key, src_repo_type_key, src_repo_file.path, src_revision_key)
                 if src_repo_file.lfs:
                     files_to_copy[source] = src_repo_file
                 else:
                     url = hf_hub_url(
                         endpoint=endpoint,
-                        repo_type=src_repo_type,
-                        repo_id=src_repo_id,
-                        revision=src_revision or "main",
+                        repo_type=eff_repo_type,
+                        repo_id=eff_repo_id,
+                        revision=eff_revision,
                         filename=src_repo_file.path,
                     )
                     response = get_session().get(url, headers=headers)
                     hf_raise_for_status(response)
                     files_to_copy[source] = response.content
+                if not is_cross_repo:
+                    oid_info[(src_repo_file.path, src_revision_key)] = src_repo_file.blob_id
+
         for operation in operations:
-            key = _CopySource(src_repo_id, src_repo_type, operation.src_path_in_repo, src_revision)
+            key = _CopySource(src_repo_id_key, src_repo_type_key, operation.src_path_in_repo, src_revision_key)
             if key not in files_to_copy:
+                source_desc = f" from {eff_repo_type}s/{eff_repo_id}" if is_cross_repo else ""
                 raise EntryNotFoundError(
                     f"Cannot copy {operation.src_path_in_repo} at revision "
-                    f"{src_revision or 'main'} from {src_repo_type}s/{src_repo_id}: file is missing on repo."
+                    f"{eff_revision}{source_desc}: file is missing on repo."
                 )
             operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
+            if not is_cross_repo:
+                operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
 
     return files_to_copy
 
