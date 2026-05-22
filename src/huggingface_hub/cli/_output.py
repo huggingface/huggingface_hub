@@ -53,8 +53,13 @@ class Output:
         self.no_truncate = False
         self.set_mode()
 
-    def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
-        """Override the output mode (called once at startup and again per '--format' flag)."""
+    def set_mode(self, mode: OutputFormatWithAuto | str = OutputFormatWithAuto.auto) -> None:
+        """Override the output mode (called once at startup and again per '--format' flag).
+
+        Accepts the ``OutputFormatWithAuto`` enum or its string name (e.g. ``'agent'``, ``'json'``).
+        """
+        if isinstance(mode, str):
+            mode = OutputFormatWithAuto(mode)
         if mode == OutputFormatWithAuto.auto:
             mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
         self.mode = mode

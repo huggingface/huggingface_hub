@@ -81,18 +81,14 @@ from huggingface_hub.utils._parsing import format_duration
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
-    OutputFormat,
-    QuietOpt,
     SecretsFileOpt,
     SecretsOpt,
     TokenOpt,
     VolumesOpt,
-    _format_cell,
     api_object_to_dict,
     get_hf_api,
     parse_env_map,
     parse_volumes,
-    print_list_output,
     typer_factory,
 )
 from ._output import out
@@ -387,21 +383,47 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
     return True
 
 
-def _print_output(rows: list[list[str | int]], headers: list[str], aliases: list[str], fmt: str | None) -> None:
-    """Print output according to the chosen format."""
-    if fmt:
-        # Use custom template if provided
-        template = fmt
-        for row in rows:
-            line = template
-            for i, field in enumerate(aliases):
-                placeholder = f"{{{{.{field}}}}}"
-                if placeholder in line:
-                    line = line.replace(placeholder, str(row[i]))
-            print(line)
-    else:
-        # Default tabular format
-        print(_tabulate(rows, headers=headers))
+def _is_template(value: str) -> bool:
+    """A --format value is a Go template iff it contains the ``{{`` placeholder syntax."""
+    return "{{" in value
+
+
+def _render_template(template: str, items: list[dict[str, Any]]) -> None:
+    """Render each item through a Go-style template (e.g. ``'{{.id}} {{.status}}'``) and print it."""
+    for item in items:
+        line = template
+        for key, value in item.items():
+            placeholder = f"{{{{.{key}}}}}"
+            if placeholder in line:
+                line = line.replace(placeholder, "" if value is None else str(value))
+        print(line)
+
+
+def _set_jobs_format(value: str) -> str:
+    """Callback for ``FormatWithTemplateOpt``: set ``out`` mode from a ``--format`` value.
+
+    Accepts standard output modes (``auto|human|agent|json|quiet``) or a Go-template string like
+    ``'{{.id}}'``. Templates render via ``print()`` and bypass ``out``, so the mode is left untouched.
+    """
+    if _is_template(value):
+        return value
+    try:
+        out.set_mode(value)
+    except ValueError as e:
+        raise typer.BadParameter(
+            f"Invalid --format value: '{value}'. Use auto|human|agent|json|quiet, or a Go template."
+        ) from e
+    return value
+
+
+FormatWithTemplateOpt = Annotated[
+    str,
+    typer.Option(
+        "--format",
+        help="Output format: auto|human|agent|json|quiet, or a Go-template string (e.g. '{{.id}}').",
+        callback=_set_jobs_format,
+    ),
+]
 
 
 def _clear_line(n: int) -> None:
@@ -475,17 +497,6 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
-    headers_aliases = [
-        "id",
-        "cpu_usage_pct",
-        "cpu_millicores",
-        "memory_used_bytes_pct",
-        "memory_used_bytes_and_total_bytes",
-        "rx_bps_and_tx_bps",
-        "gpu_utilization",
-        "gpu_memory_used_bytes_pct",
-        "gpu_memory_used_bytes_and_total_bytes",
-    ]
     try:
         with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
             rows_per_job_id: dict[str, list[list[str | int]]] = {}
@@ -495,7 +506,7 @@ def jobs_stats(
                 rows_per_job_id[job_id] = [row]
             last_update_time = time.time()
             total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-            _print_output(total_rows, table_headers, headers_aliases, None)
+            print(_tabulate(total_rows, headers=table_headers))
 
             kwargs_list = [
                 {
@@ -514,7 +525,7 @@ def jobs_stats(
                 if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
                     _clear_line(2 + len(total_rows))
                     total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-                    _print_output(total_rows, table_headers, headers_aliases, None)
+                    print(_tabulate(total_rows, headers=table_headers))
                     last_update_time = now
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
@@ -546,15 +557,10 @@ def jobs_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: Annotated[
-        str | None,
-        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
-    ] = None,
-    quiet: QuietOpt = False,
+    format: FormatWithTemplateOpt = "auto",
 ) -> None:
     """List Jobs."""
     api = get_hf_api(token=token)
-    # Fetch jobs data
     jobs = api.list_jobs(namespace=namespace)
 
     filters: list[tuple[str, str, str]] = []
@@ -564,9 +570,7 @@ def jobs_ps(
             if f.startswith("label!="):
                 label_part = f[len("label!=") :]
                 if "=" in label_part:
-                    print(
-                        f"Warning: Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format."
-                    )
+                    out.warning(f"Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format.")
                     continue
                 label_key, op, label_value = label_part, "!=", "*"
             else:
@@ -575,7 +579,6 @@ def jobs_ps(
                     label_key, label_value = label_part.split("=", 1)
                 else:
                     label_key, label_value = label_part, "*"
-                # Negate predicate in case of key!=value
                 if label_key.endswith("!"):
                     op = "!="
                     label_key = label_key[:-1]
@@ -584,7 +587,6 @@ def jobs_ps(
             labels_filters.append((label_key.lower(), op, label_value.lower()))
         elif "=" in f:
             key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
             if key.endswith("!"):
                 op = "!="
                 key = key[:-1]
@@ -592,7 +594,7 @@ def jobs_ps(
                 op = "="
             filters.append((key.lower(), op, value.lower()))
         else:
-            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
 
     # Filter jobs (operating on JobInfo objects to preserve existing filter behavior)
     filtered_jobs = []
@@ -610,45 +612,28 @@ def jobs_ps(
             continue
         filtered_jobs.append(job)
 
-    if not filtered_jobs:
-        if not quiet and format != "json":
-            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-            print(f"No jobs found{filters_msg}")
-        elif format == "json":
-            print("[]")
-        return
-
-    headers = ["JOB ID", "IMAGE/SPACE", "COMMAND", "CREATED", "STATUS", "RUNTIME"]
-    aliases = ["id", "image", "command", "created", "status", "runtime"]
-    items = [api_object_to_dict(job) for job in filtered_jobs]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        status = item.get("status", {})
+    # Build display items. Augment the raw api dict with curated, table-friendly columns
+    # (image, command, created, status, runtime) — these double as Go-template fields.
+    items: list[dict[str, Any]] = []
+    for job in filtered_jobs:
+        item = api_object_to_dict(job)
         durations = item.get("durations") or {}
         cmd = item.get("command") or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        return [
-            str(item.get("id", "")),
-            _format_cell(item.get("docker_image") or "N/A"),
-            _format_cell(command_str),
-            item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A",
-            str(status.get("stage", "UNKNOWN")),
-            format_duration(durations.get("running_secs")),
-        ]
+        item["image"] = item.get("docker_image") or "N/A"
+        item["command"] = " ".join(cmd) if cmd else "N/A"
+        item["created"] = item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A"
+        item["status"] = (item.get("status") or {}).get("stage", "UNKNOWN")
+        item["runtime"] = format_duration(durations.get("running_secs"))
+        items.append(item)
 
-    # Custom template format
-    if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
-    else:
-        output_format = OutputFormat.json if format == "json" else OutputFormat.table
-        print_list_output(
-            items=items,
-            format=output_format,
-            quiet=quiet,
-            id_key="id",
-            headers=headers,
-            row_fn=row_fn,
-        )
+    if _is_template(format):
+        _render_template(format, items)
+        return
+
+    out.table(items, headers=["id", "image", "command", "created", "status", "runtime"], id_key="id")
+    if not items and filters:
+        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
+        out.hint(f"No jobs matched filters: {filters_msg}")
 
 
 @jobs_cli.command("hardware", examples=["hf jobs hardware"])
@@ -860,11 +845,7 @@ def scheduled_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: Annotated[
-        str | None,
-        typer.Option(help="Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')"),
-    ] = None,
-    quiet: QuietOpt = False,
+    format: FormatWithTemplateOpt = "auto",
 ) -> None:
     """List scheduled Jobs"""
     api = get_hf_api(token=token)
@@ -873,7 +854,6 @@ def scheduled_ps(
     for f in filter or []:
         if "=" in f:
             key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
             if key.endswith("!"):
                 op = "!="
                 key = key[:-1]
@@ -881,7 +861,7 @@ def scheduled_ps(
                 op = "="
             filters.append((key.lower(), op, value.lower()))
         else:
-            print(f"Warning: Ignoring invalid filter format '{f}'. Use key=value format.")
+            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
 
     # Filter scheduled jobs (operating on ScheduledJobInfo objects to preserve existing filter behavior)
     filtered_jobs = []
@@ -897,53 +877,36 @@ def scheduled_ps(
             continue
         filtered_jobs.append(scheduled_job)
 
-    if not filtered_jobs:
-        if not quiet and format != "json":
-            filters_msg = f" matching filters: {', '.join([f'{k}{o}{v}' for k, o, v in filters])}" if filters else ""
-            print(f"No scheduled jobs found{filters_msg}")
-        elif format == "json":
-            print("[]")
+    # Build display items. Augment with curated columns (image, command, last, next) that also
+    # serve as Go-template fields.
+    items: list[dict[str, Any]] = []
+    for sj in filtered_jobs:
+        item = api_object_to_dict(sj)
+        job_spec = item.get("job_spec") or {}
+        status_dict = item.get("status") or {}
+        last_job = status_dict.get("last_job")
+        cmd = job_spec.get("command") or []
+        item["image"] = job_spec.get("docker_image") or "N/A"
+        item["command"] = " ".join(cmd) if cmd else "N/A"
+        item["last"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
+        item["next"] = (
+            status_dict["next_job_run_at"][:19].replace("T", " ") if status_dict.get("next_job_run_at") else "N/A"
+        )
+        item["suspend"] = item.get("suspend") or False
+        items.append(item)
+
+    if _is_template(format):
+        _render_template(format, items)
         return
 
-    headers = ["ID", "SCHEDULE", "IMAGE/SPACE", "COMMAND", "LAST RUN", "NEXT RUN", "SUSPEND"]
-    aliases = ["id", "schedule", "image", "command", "last", "next", "suspend"]
-    items = [api_object_to_dict(sj) for sj in filtered_jobs]
-
-    def row_fn(item: dict[str, Any]) -> list[str]:
-        job_spec = item.get("job_spec", {})
-        status = item.get("status", {})
-        last_job = status.get("last_job")
-        cmd = job_spec.get("command") or []
-        last_job_at = "N/A"
-        if last_job and last_job.get("at"):
-            last_job_at = last_job["at"][:19].replace("T", " ")
-        next_run = "N/A"
-        if status.get("next_job_run_at"):
-            next_run = status["next_job_run_at"][:19].replace("T", " ")
-        command_str = " ".join(cmd) if cmd else "N/A"
-        return [
-            str(item.get("id", "")),
-            str(item.get("schedule") or "N/A"),
-            _format_cell(job_spec.get("docker_image") or "N/A"),
-            _format_cell(command_str),
-            last_job_at,
-            next_run,
-            str(item.get("suspend", False)),
-        ]
-
-    # Custom template format (e.g. --format '{{.id}} {{.schedule}}')
-    if format and format not in ("table", "json"):
-        _print_output([row_fn(item) for item in items], headers, aliases, format)  # type: ignore
-    else:
-        output_format = OutputFormat.json if format == "json" else OutputFormat.table
-        print_list_output(
-            items=items,
-            format=output_format,
-            quiet=quiet,
-            id_key="id",
-            headers=headers,
-            row_fn=row_fn,
-        )
+    out.table(
+        items,
+        headers=["id", "schedule", "image", "command", "last", "next", "suspend"],
+        id_key="id",
+    )
+    if not items and filters:
+        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
+        out.hint(f"No scheduled jobs matched filters: {filters_msg}")
 
 
 @scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
