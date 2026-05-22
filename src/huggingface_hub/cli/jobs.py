@@ -613,13 +613,14 @@ def jobs_ps(
         filtered_jobs.append(job)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns
-    # (image, command, created, status, runtime) — these double as Go-template fields.
+    # — these double as Go-template fields and as table headers (via SCREAMING_SNAKE).
     items: list[dict[str, Any]] = []
     for job in filtered_jobs:
         item = api_object_to_dict(job)
         durations = item.get("durations") or {}
         cmd = item.get("command") or []
-        item["image"] = item.get("docker_image") or "N/A"
+        item["job_id"] = item.get("id", "")
+        item["image/space"] = item.get("docker_image") or "N/A"
         item["command"] = " ".join(cmd) if cmd else "N/A"
         item["created"] = item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A"
         item["status"] = (item.get("status") or {}).get("stage", "UNKNOWN")
@@ -630,7 +631,11 @@ def jobs_ps(
         _render_template(format, items)
         return
 
-    out.table(items, headers=["id", "image", "command", "created", "status", "runtime"], id_key="id")
+    out.table(
+        items,
+        headers=["job_id", "image/space", "command", "created", "status", "runtime"],
+        id_key="job_id",
+    )
     if not items and filters:
         filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
         out.hint(f"No jobs matched filters: {filters_msg}")
@@ -877,8 +882,8 @@ def scheduled_ps(
             continue
         filtered_jobs.append(scheduled_job)
 
-    # Build display items. Augment with curated columns (image, command, last, next) that also
-    # serve as Go-template fields.
+    # Build display items. Augment with curated columns that also serve as Go-template fields
+    # and as table headers (via SCREAMING_SNAKE).
     items: list[dict[str, Any]] = []
     for sj in filtered_jobs:
         item = api_object_to_dict(sj)
@@ -886,10 +891,10 @@ def scheduled_ps(
         status_dict = item.get("status") or {}
         last_job = status_dict.get("last_job")
         cmd = job_spec.get("command") or []
-        item["image"] = job_spec.get("docker_image") or "N/A"
+        item["image/space"] = job_spec.get("docker_image") or "N/A"
         item["command"] = " ".join(cmd) if cmd else "N/A"
-        item["last"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
-        item["next"] = (
+        item["last_run"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
+        item["next_run"] = (
             status_dict["next_job_run_at"][:19].replace("T", " ") if status_dict.get("next_job_run_at") else "N/A"
         )
         item["suspend"] = item.get("suspend") or False
@@ -901,7 +906,7 @@ def scheduled_ps(
 
     out.table(
         items,
-        headers=["id", "schedule", "image", "command", "last", "next", "suspend"],
+        headers=["id", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
     if not items and filters:
