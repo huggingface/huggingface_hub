@@ -1919,7 +1919,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `remove`: Remove an installed extension. [alias: rm]
 * `search`: Search extensions available on GitHub...
 
-### `hf extensions | ext exec`
+### `hf extensions exec`
 
 Execute an installed extension.
 
@@ -1946,7 +1946,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext install`
+### `hf extensions install`
 
 Install an extension from a public GitHub repository.
 
@@ -1978,7 +1978,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext list`
+### `hf extensions list`
 
 List installed extension commands. [alias: ls]
 
@@ -2000,7 +2000,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext remove`
+### `hf extensions remove`
 
 Remove an installed extension. [alias: rm]
 
@@ -2026,7 +2026,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext search`
+### `hf extensions search`
 
 Search extensions available on GitHub (tagged with 'hf-extension' topic).
 
@@ -2945,7 +2945,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
 
-### `hf repos | repo branch`
+### `hf repos branch`
 
 Manage branches for a repo on the Hub.
 
@@ -2964,7 +2964,7 @@ $ hf repos branch [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new branch for a repo on the Hub.
 * `delete`: Delete a branch from a repo on the Hub.
 
-#### `hf repos | repo branch create`
+#### `hf repos branch create`
 
 Create a new branch for a repo on the Hub.
 
@@ -2996,7 +2996,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo branch delete`
+#### `hf repos branch delete`
 
 Delete a branch from a repo on the Hub.
 
@@ -3025,7 +3025,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo create`
+### `hf repos create`
 
 Create a new repo on the Hub.
 
@@ -3072,7 +3072,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo delete`
+### `hf repos delete`
 
 Delete a repo from the Hub. This is an irreversible operation.
 
@@ -3102,7 +3102,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo delete-files`
+### `hf repos delete-files`
 
 Delete files from a repo on the Hub.
 
@@ -3137,7 +3137,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo duplicate`
+### `hf repos duplicate`
 
 Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -3180,7 +3180,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo move`
+### `hf repos move`
 
 Move a repository from a namespace to another namespace.
 
@@ -3209,7 +3209,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo settings`
+### `hf repos settings`
 
 Update the settings of a repository.
 
@@ -3243,7 +3243,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo tag`
+### `hf repos tag`
 
 Manage tags for a repo on the Hub.
 
@@ -3263,7 +3263,7 @@ $ hf repos tag [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a tag for a repo.
 * `list`: List tags for a repo. [alias: ls]
 
-#### `hf repos | repo tag create`
+#### `hf repos tag create`
 
 Create a tag for a repo.
 
@@ -3295,7 +3295,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo tag delete`
+#### `hf repos tag delete`
 
 Delete a tag for a repo.
 
@@ -3325,7 +3325,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo tag list`
+#### `hf repos tag list`
 
 List tags for a repo. [alias: ls]
 
