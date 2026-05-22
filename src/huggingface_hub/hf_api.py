@@ -94,7 +94,7 @@ from .community import (
 from .errors import (
     BadRequestError,
     EntryNotFoundError,
-    FilesDuplicationError,
+    FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -5323,7 +5323,7 @@ class HfApi:
                 failures = data.get("failed", [])
                 if failures:
                     messages = [f"  - {f['sha256']}: {f['error']}" for f in failures]
-                    raise FilesDuplicationError(
+                    raise FileDuplicationError(
                         f"Failed to duplicate files from {src_repo_type}s/{src_repo_id}:\n" + "\n".join(messages)
                     )
 

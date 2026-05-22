@@ -482,7 +482,7 @@ class XetDownloadError(Exception):
 # LFS ERRORS
 
 
-class FilesDuplicationError(Exception):
+class FileDuplicationError(Exception):
     """Raised when duplicating files across repos fails."""
 
 
