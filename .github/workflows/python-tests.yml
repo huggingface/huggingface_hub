@@ -13,6 +13,25 @@ on:
       - "docs/**"
 
 jobs:
+  check-imports:
+    # Catch missing dependencies: install only base requirements and verify all public imports work.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.14"
+      - name: Install base dependencies only
+        run: |
+          pip install --upgrade uv
+          uv venv
+          uv pip install .
+      - name: Check imports
+        run: |
+          source .venv/bin/activate
+          python -c "from huggingface_hub import *"
+
   build-ubuntu:
     runs-on: ubuntu-latest
     env:
