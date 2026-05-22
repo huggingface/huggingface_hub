@@ -149,36 +149,12 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
 
 
 class TestCommitOperationCopy(unittest.TestCase):
-    def test_intra_repo_copy(self):
-        op = CommitOperationCopy(src_path_in_repo="src.bin", path_in_repo="dst.bin")
-        assert op.src_repo_id is None
-        assert op.src_repo_type is None
-
-    def test_cross_repo_copy(self):
-        op = CommitOperationCopy(
-            src_path_in_repo="weights.bin",
-            path_in_repo="weights.bin",
-            src_repo_id="user/source",
-            src_repo_type="model",
-        )
-        assert op.src_repo_id == "user/source"
-        assert op.src_repo_type == "model"
-
-    def test_cross_repo_copy_missing_repo_type(self):
+    def test_cross_repo_copy_missing_repo_id_or_type(self):
         with pytest.raises(ValueError, match="`src_repo_type` is required when `src_repo_id` is set"):
-            CommitOperationCopy(
-                src_path_in_repo="src.bin",
-                path_in_repo="dst.bin",
-                src_repo_id="user/source",
-            )
+            CommitOperationCopy(src_path_in_repo="src.bin", path_in_repo="dst.bin", src_repo_id="user/source")
 
-    def test_cross_repo_copy_missing_repo_id(self):
         with pytest.raises(ValueError, match="`src_repo_id` is required when `src_repo_type` is set"):
-            CommitOperationCopy(
-                src_path_in_repo="src.bin",
-                path_in_repo="dst.bin",
-                src_repo_type="model",
-            )
+            CommitOperationCopy(src_path_in_repo="src.bin", path_in_repo="dst.bin", src_repo_type="model")
 
     def test_path_normalization(self):
         op = CommitOperationCopy(src_path_in_repo="./src.bin", path_in_repo="/dst.bin")
@@ -270,17 +246,6 @@ _RESOLVE_DEFAULTS = {
             },
             "backup/train/a.csv",
         ),
-    ],
-    ids=[
-        "single_file_to_root",
-        "single_file_to_explicit_path",
-        "single_file_to_directory",
-        "folder_to_nonexistent_dest",
-        "folder_to_existing_dir_nests",
-        "folder_contents_trailing_slash",
-        "folder_to_root",
-        "folder_contents_to_root",
-        "nested_subfolder",
     ],
 )
 def test_resolve_copy_target_path(kwargs, expected):

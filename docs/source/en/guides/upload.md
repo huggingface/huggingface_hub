@@ -230,6 +230,43 @@ Future(...)
 Future(...)
 ```
 
+### Copy files between repositories
+
+Use [`copy_files`] to copy files or folders between repositories on the Hub without downloading or re-uploading large data. This is useful when you want to duplicate weights across model variants, copy dataset files between repos, or reorganize files across your repositories. Under the hood, it creates a commit with [`CommitOperationCopy`] operations.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Copy a single file between repos
+>>> api.copy_files(
+...     "hf://username/source-model/weights.safetensors",
+...     "hf://username/target-model/weights.safetensors",
+... )
+
+# Copy an entire folder
+>>> api.copy_files(
+...     "hf://datasets/username/source-dataset/data/",
+...     "hf://datasets/username/target-dataset/data/",
+... )
+```
+
+You can also copy within the same repository:
+
+```py
+# Duplicate a file in the same repo
+>>> api.copy_files(
+...     "hf://username/my-model/config.json",
+...     "hf://username/my-model/backup/config.json",
+... )
+```
+
+> [!TIP]
+> When copying a folder, a trailing `/` on the source uses rsync-style semantics meaning the *contents* of the folder are copied, without nesting the folder itself. Without a trailing `/`, the folder itself is nested at the destination.
+
+> [!TIP]
+> [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
+
 ### Upload a folder by chunks
 
 [`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
