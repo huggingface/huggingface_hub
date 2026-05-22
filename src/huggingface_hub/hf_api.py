@@ -11855,7 +11855,7 @@ class HfApi:
             json={"labels": labels},
         )
         hf_raise_for_status(response)
-        return JobInfo(**response.json())
+        return JobInfo(**response.json(), endpoint=self.endpoint)
 
     @experimental
     def run_uv_job(
