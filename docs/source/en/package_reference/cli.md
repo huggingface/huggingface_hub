@@ -2067,6 +2067,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `cancel`: Cancel a Job
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a Job.
 * `logs`: Fetch the logs of a Job.
 * `ps`: List Jobs.
 * `run`: Run a Job.
@@ -2146,6 +2147,37 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 Examples
   $ hf jobs inspect <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs labels`
+
+Update labels on a Job. Replaces all existing labels.
+
+**Usage**:
+
+```console
+$ hf jobs labels [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs labels <job_id> --label env=prod --label team=ml
+  $ hf jobs labels <job_id> --clear
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2277,6 +2309,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 
 * `delete`: Delete a scheduled Job.
 * `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a scheduled Job.
 * `ps`: List scheduled Jobs
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
@@ -2333,6 +2366,37 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 Examples
   $ hf jobs scheduled inspect <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled labels`
+
+Update labels on a scheduled Job. Replaces all existing labels.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the scheduled job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled labels <id> --label env=prod --label team=ml
+  $ hf jobs scheduled labels <id> --clear
 
 Learn more
   Use `hf <command> --help` for more information about a command.
