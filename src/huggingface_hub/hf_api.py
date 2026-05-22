@@ -4967,8 +4967,6 @@ class HfApi:
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
                 continue
-            if isinstance(operation, CommitOperationCopy) and operation._duplication_failed:
-                continue
             if (
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
@@ -5284,14 +5282,8 @@ class HfApi:
             operations = list(group)
             src_paths = [op.src_path_in_repo for op in operations]
 
-            path_to_ops: dict[str, list[CommitOperationCopy]] = {}
-            for op in operations:
-                path_to_ops.setdefault(op.src_path_in_repo, []).append(op)
-
             lfs_files: list[dict] = []
-            sha256_to_ops: dict[str, list[CommitOperationCopy]] = {}
             seen_oids: set[str] = set()
-            failed_oids: set[str] = set()
 
             for paths_batch in chunk_iterable(src_paths, 500):
                 src_repo_files = self.get_paths_info(
@@ -5306,16 +5298,11 @@ class HfApi:
                     if not src_file.lfs:
                         continue
                     if not src_file.xet_hash:
-                        for op in path_to_ops.get(src_file.path, []):
-                            op._duplication_failed = True
-                            logger.warning(
-                                f"Cannot duplicate LFS file '{src_file.path}' from"
-                                f" {src_repo_type}s/{src_repo_id}: file has no xet hash."
-                            )
-                        continue
+                        raise ValueError(
+                            f"Cannot duplicate LFS file '{src_file.path}' from"
+                            f" {src_repo_type}s/{src_repo_id}: file has no xet hash."
+                        )
                     oid = src_file.lfs.sha256
-                    for op in path_to_ops.get(src_file.path, []):
-                        sha256_to_ops.setdefault(oid, []).append(op)
                     if oid not in seen_oids:
                         seen_oids.add(oid)
                         lfs_files.append(
@@ -5342,17 +5329,11 @@ class HfApi:
                 )
                 hf_raise_for_status(response)
                 data = response.json()
-                for failure in data.get("failed", []):
-                    logger.error(f"Failed to duplicate LFS file (sha256: {failure['sha256']}): {failure['error']}")
-                    failed_oids.add(failure["sha256"])
-
-            # Mark failed operations for this source repo
-            for oid in failed_oids:
-                for op in sha256_to_ops.get(oid, []):
-                    op._duplication_failed = True
-                    logger.warning(
-                        f"Skipping copy of '{op.src_path_in_repo}' -> '{op.path_in_repo}':"
-                        " LFS file duplication failed."
+                failures = data.get("failed", [])
+                if failures:
+                    messages = [f"  - {f['sha256']}: {f['error']}" for f in failures]
+                    raise HfHubHTTPError(
+                        f"Failed to duplicate LFS files from {src_repo_type}s/{src_repo_id}:\n" + "\n".join(messages)
                     )
 
         for op in cross_repo_copies:
