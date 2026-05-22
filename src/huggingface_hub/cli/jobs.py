@@ -658,9 +658,9 @@ def jobs_hardware() -> None:
     hardware_list = api.list_jobs_hardware()
     items = []
     for hw in hardware_list:
-        accelerator = (
-            f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})" if hw.accelerator else None
-        )
+        accelerator_info = ""
+        if hw.accelerator:
+            accelerator_info = f"{hw.accelerator.quantity}x {hw.accelerator.model} ({hw.accelerator.vram})"
         cost_min = f"${hw.unit_cost_usd:.4f}" if hw.unit_cost_usd else "free"
         cost_hour = f"${hw.unit_cost_usd * 60:.2f}" if hw.unit_cost_usd else "free"
         items.append(
@@ -670,7 +670,7 @@ def jobs_hardware() -> None:
                 "cpu": hw.cpu,
                 "ram": hw.ram,
                 "storage": hw.ephemeral_storage,
-                "accelerator": accelerator,
+                "accelerator": accelerator_info,
                 "cost/min": cost_min,
                 "cost/hour": cost_hour,
             }
