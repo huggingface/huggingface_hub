@@ -2,7 +2,7 @@
 
 UomiRouter (https://uomi.ai) is a distributed inference network: each request is
 dispatched across a pool of operator-run GPU nodes and the response carries an
-``Inference-Id`` header for on-chain verifiable attestation. The gateway exposes
+``Inference-Id`` header for verifiable response attestation (off-chain today; on-chain anchoring on UOMI L1 is the next milestone). The gateway exposes
 an OpenAI-compatible surface at ``/v1/chat/completions`` (streaming, tool calling
 and structured output included), so the helper here is intentionally minimal —
 ``BaseConversationalTask`` already covers the request/response shape.
