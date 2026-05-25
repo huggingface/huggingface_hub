@@ -61,6 +61,7 @@ from .together import (
     TogetherTextToSpeechTask,
     TogetherTextToVideoTask,
 )
+from .uomirouter import UomiRouterConversationalTask
 from .wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -96,6 +97,7 @@ PROVIDER_T = Literal[
     "sambanova",
     "scaleway",
     "together",
+    "uomirouter",
     "wavespeed",
     "zai-org",
 ]
@@ -224,6 +226,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-image": TogetherTextToImageTask(),
         "text-to-speech": TogetherTextToSpeechTask(),
         "text-to-video": TogetherTextToVideoTask(),
+    },
+    "uomirouter": {
+        "conversational": UomiRouterConversationalTask(),
     },
     "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),

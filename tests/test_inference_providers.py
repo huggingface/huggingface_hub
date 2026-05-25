@@ -66,6 +66,7 @@ from huggingface_hub.inference._providers.together import (
     TogetherTextToSpeechTask,
     TogetherTextToVideoTask,
 )
+from huggingface_hub.inference._providers.uomirouter import UomiRouterConversationalTask
 from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -1438,6 +1439,30 @@ class TestOpenAIProvider:
     def test_prepare_url(self):
         helper = OpenAIConversationalTask()
         assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
+
+
+class TestUomiRouterProvider:
+    def test_provider_and_base_url(self):
+        helper = UomiRouterConversationalTask()
+        assert helper.provider == "uomirouter"
+        assert helper.task == "conversational"
+        assert helper.base_url == "https://gateway.uomi.ai"
+
+    def test_prepare_url(self):
+        helper = UomiRouterConversationalTask()
+        # Non-HF API keys (e.g. sk-uomi-...) hit the gateway directly.
+        assert (
+            helper._prepare_url("sk-uomi-xxxxxx", "Qwen/Qwen3.6-35B-A3B")
+            == "https://gateway.uomi.ai/v1/chat/completions"
+        )
+
+    def test_prepare_route(self):
+        helper = UomiRouterConversationalTask()
+        assert helper._prepare_route("Qwen/Qwen3.6-35B-A3B", "sk-uomi-xxxxxx") == "/v1/chat/completions"
+
+    def test_registered_in_providers_mapping(self):
+        assert "uomirouter" in PROVIDERS
+        assert isinstance(PROVIDERS["uomirouter"]["conversational"], UomiRouterConversationalTask)
 
 
 class TestNvidiaProvider:
