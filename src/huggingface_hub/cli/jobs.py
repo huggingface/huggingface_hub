@@ -747,7 +747,7 @@ def jobs_labels(
     labels = _parse_labels_map(label) or {}
     api = get_hf_api(token=token)
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
-    out.dict(job)
+    out.result("Labels updated", id=job.id)
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
