@@ -747,7 +747,7 @@ def jobs_labels(
     labels = _parse_labels_map(label) or {}
     api = get_hf_api(token=token)
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
-    print(json.dumps(asdict(job), indent=4, default=str))
+    out.result("Labels updated", id=job.id)
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
@@ -1034,7 +1034,7 @@ def scheduled_labels(
     scheduled_job = api.update_scheduled_job_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
-    print(json.dumps(asdict(scheduled_job), indent=4, default=str))
+    out.result("Labels updated", id=job.id)
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
