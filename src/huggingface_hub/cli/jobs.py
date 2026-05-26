@@ -85,13 +85,12 @@ from ._cli_utils import (
     SecretsOpt,
     TokenOpt,
     VolumesOpt,
-    api_object_to_dict,
     get_hf_api,
     parse_env_map,
     parse_volumes,
     typer_factory,
 )
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 logger = logging.get_logger(__name__)
@@ -441,7 +440,7 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        print("No running jobs found")
+        out.text("No running jobs found")
         return
     table_headers = [
         "JOB ID",
@@ -463,6 +462,8 @@ def jobs_stats(
                 rows_per_job_id[job_id] = [row]
             last_update_time = time.time()
             total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+            # In-place refresh (cursor-up + clear) requires a fixed line count and layout —
+            # `out.table`'s mode-dependent formatting would break it.
             print(_tabulate(total_rows, headers=table_headers))
 
             kwargs_list = [
@@ -573,7 +574,7 @@ def jobs_ps(
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     items: list[dict[str, Any]] = []
     for job in filtered_jobs:
-        item = api_object_to_dict(job)
+        item = _dataclass_to_dict(job)
         durations = item.get("durations") or {}
         cmd = item.get("command") or []
         item["job_id"] = item.get("id", "")
@@ -591,7 +592,7 @@ def jobs_ps(
     )
     if not items and filters:
         filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.hint(f"No jobs matched filters: {filters_msg}")
+        out.text(f"No jobs matched filters: {filters_msg}")
 
 
 @jobs_cli.command("hardware", examples=["hf jobs hardware"])
@@ -650,7 +651,7 @@ def jobs_inspect(
             raise CLIError("Access denied. You may not have permission to view this job.") from e
         else:
             raise CLIError(f"Failed to inspect job: {e}") from e
-    out.dict([api_object_to_dict(job) for job in jobs])
+    out.table([_dataclass_to_dict(job) for job in jobs])
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -866,7 +867,7 @@ def scheduled_ps(
     # Build display items. Augment with curated columns.
     items: list[dict[str, Any]] = []
     for sj in filtered_jobs:
-        item = api_object_to_dict(sj)
+        item = _dataclass_to_dict(sj)
         job_spec = item.get("job_spec") or {}
         status_dict = item.get("status") or {}
         last_job = status_dict.get("last_job")
@@ -887,7 +888,7 @@ def scheduled_ps(
     )
     if not items and filters:
         filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.hint(f"No scheduled jobs matched filters: {filters_msg}")
+        out.text(f"No scheduled jobs matched filters: {filters_msg}")
 
 
 @scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
@@ -912,7 +913,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    out.dict([api_object_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
+    out.table([_dataclass_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
