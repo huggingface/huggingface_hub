@@ -38,7 +38,6 @@ class JobHardware(str, Enum):
     CPU_UPGRADE = "cpu-upgrade"
     CPU_PERFORMANCE = "cpu-performance"
     CPU_XL = "cpu-xl"
-    SPRX8 = "sprx8"
 
     # GPU
     T4_SMALL = "t4-small"
@@ -63,9 +62,6 @@ class JobHardware(str, Enum):
     RTX_PRO_6000X2 = "rtx-pro-6000x2"
     RTX_PRO_6000X4 = "rtx-pro-6000x4"
     RTX_PRO_6000X8 = "rtx-pro-6000x8"
-
-    # Neuron
-    INF2X6 = "inf2x6"
 
 
 class JobStage(str, Enum):
