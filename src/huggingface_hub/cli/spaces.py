@@ -533,7 +533,7 @@ def spaces_settings(
     """Update the settings of a Space."""
     api = get_hf_api(token=token)
     if hardware is not None:
-        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)  # type: ignore[arg-type]
     elif sleep_time is not None:
         runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
     else:
