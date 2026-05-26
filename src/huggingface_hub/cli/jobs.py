@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value] [--format table|json|TEMPLATE] [-q]
+    hf jobs ps [-a] [-f key=value]
 
     # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
@@ -45,7 +45,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value] [--format table|json] [-q]
+    hf jobs scheduled ps [-a] [-f key=value]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -383,49 +383,6 @@ def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, st
     return True
 
 
-def _is_template(value: str) -> bool:
-    """A --format value is a Go template iff it contains the ``{{`` placeholder syntax."""
-    return "{{" in value
-
-
-def _render_template(template: str, items: list[dict[str, Any]]) -> None:
-    """Render each item through a Go-style template (e.g. ``'{{.id}} {{.status}}'``) and print it."""
-    for item in items:
-        line = template
-        for key, value in item.items():
-            placeholder = f"{{{{.{key}}}}}"
-            if placeholder in line:
-                line = line.replace(placeholder, "" if value is None else str(value))
-        print(line)
-
-
-def _set_jobs_format(value: str) -> str:
-    """Callback for ``FormatWithTemplateOpt``: set ``out`` mode from a ``--format`` value.
-
-    Accepts standard output modes (``auto|human|agent|json|quiet``) or a Go-template string like
-    ``'{{.id}}'``. Templates render via ``print()`` and bypass ``out``, so the mode is left untouched.
-    """
-    if _is_template(value):
-        return value
-    try:
-        out.set_mode(value)
-    except ValueError as e:
-        raise typer.BadParameter(
-            f"Invalid --format value: '{value}'. Use auto|human|agent|json|quiet, or a Go template."
-        ) from e
-    return value
-
-
-FormatWithTemplateOpt = Annotated[
-    str,
-    typer.Option(
-        "--format",
-        help="Output format: auto|human|agent|json|quiet, or a Go-template string (e.g. '{{.id}}').",
-        callback=_set_jobs_format,
-    ),
-]
-
-
 def _clear_line(n: int) -> None:
     LINE_UP = "\033[1A"
     LINE_CLEAR = "\x1b[2K"
@@ -557,7 +514,6 @@ def jobs_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: FormatWithTemplateOpt = "auto",
 ) -> None:
     """List Jobs."""
     api = get_hf_api(token=token)
@@ -579,6 +535,7 @@ def jobs_ps(
                     label_key, label_value = label_part.split("=", 1)
                 else:
                     label_key, label_value = label_part, "*"
+                # Negate predicate in case of key!=value
                 if label_key.endswith("!"):
                     op = "!="
                     label_key = label_key[:-1]
@@ -587,6 +544,7 @@ def jobs_ps(
             labels_filters.append((label_key.lower(), op, label_value.lower()))
         elif "=" in f:
             key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
             if key.endswith("!"):
                 op = "!="
                 key = key[:-1]
@@ -612,8 +570,7 @@ def jobs_ps(
             continue
         filtered_jobs.append(job)
 
-    # Build display items. Augment the raw api dict with curated, table-friendly columns
-    # — these double as Go-template fields and as table headers (via SCREAMING_SNAKE).
+    # Build display items. Augment the raw api dict with curated, table-friendly columns.
     items: list[dict[str, Any]] = []
     for job in filtered_jobs:
         item = api_object_to_dict(job)
@@ -626,10 +583,6 @@ def jobs_ps(
         item["status"] = (item.get("status") or {}).get("stage", "UNKNOWN")
         item["runtime"] = format_duration(durations.get("running_secs"))
         items.append(item)
-
-    if _is_template(format):
-        _render_template(format, items)
-        return
 
     out.table(
         items,
@@ -850,7 +803,6 @@ def scheduled_ps(
             help="Filter output based on conditions provided (format: key=value)",
         ),
     ] = None,
-    format: FormatWithTemplateOpt = "auto",
 ) -> None:
     """List scheduled Jobs"""
     api = get_hf_api(token=token)
@@ -859,6 +811,7 @@ def scheduled_ps(
     for f in filter or []:
         if "=" in f:
             key, value = f.split("=", 1)
+            # Negate predicate in case of key!=value
             if key.endswith("!"):
                 op = "!="
                 key = key[:-1]
@@ -882,8 +835,7 @@ def scheduled_ps(
             continue
         filtered_jobs.append(scheduled_job)
 
-    # Build display items. Augment with curated columns that also serve as Go-template fields
-    # and as table headers (via SCREAMING_SNAKE).
+    # Build display items. Augment with curated columns.
     items: list[dict[str, Any]] = []
     for sj in filtered_jobs:
         item = api_object_to_dict(sj)
@@ -899,10 +851,6 @@ def scheduled_ps(
         )
         item["suspend"] = item.get("suspend") or False
         items.append(item)
-
-    if _is_template(format):
-        _render_template(format, items)
-        return
 
     out.table(
         items,

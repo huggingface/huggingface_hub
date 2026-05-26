@@ -2205,7 +2205,6 @@ $ hf jobs ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Output format: auto|human|agent|json|quiet, or a Go-template string (e.g. '{{.id}}').  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
@@ -2354,7 +2353,6 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Output format: auto|human|agent|json|quiet, or a Go-template string (e.g. '{{.id}}').  [default: auto]
 * `--help`: Show this message and exit.
 
 Examples
