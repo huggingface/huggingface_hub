@@ -385,7 +385,7 @@ These variables are useful when you need to create unique identifiers for output
 
 ## Labels
 
-Labels are a key=value pairs that applies metadata to a Job:
+Labels are key=value pairs that attach metadata to a Job:
 
 ```python
 # Pass extra metadata with Labels
@@ -395,6 +395,35 @@ Labels are a key=value pairs that applies metadata to a Job:
 ...     command=["python", "-c", "import os; print(os.environ['MY_SECRET'])"],
 ...     labels={"my-label": "my-value", "foo": "bar"},
 ... )
+```
+
+### Update labels
+
+Use [`update_job_labels`] to replace labels on an existing job. This replaces all existing user-provided labels:
+
+```python
+>>> from huggingface_hub import update_job_labels
+>>> update_job_labels(job_id, labels={"env": "prod", "team": "ml"})
+```
+
+This also works for scheduled jobs with [`update_scheduled_job_labels`]:
+
+```python
+>>> from huggingface_hub import update_scheduled_job_labels
+>>> update_scheduled_job_labels(scheduled_job_id, labels={"env": "staging"})
+```
+
+From the CLI:
+
+```bash
+>>> hf jobs labels <job_id> --label env=prod --label team=ml
+>>> hf jobs scheduled labels <scheduled_job_id> --label env=staging
+```
+
+To remove all labels, pass `--clear`:
+
+```bash
+>>> hf jobs labels <job_id> --clear
 ```
 
 ## UV Scripts (Experimental)
