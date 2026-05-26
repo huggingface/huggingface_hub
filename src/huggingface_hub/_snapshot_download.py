@@ -129,7 +129,7 @@ def snapshot_download(
     """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
-    a repo because you don't know which ones you will need _a priori_. All files are nested in a folder to keep their 
+    a repo because you don't know which ones you will need _a priori_. All files are nested in a folder to keep their
     path and filename relative to that folder. You can also filter which files to download by using `allow_patterns`
     and `ignore_patterns`.
 
