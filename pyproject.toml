@@ -43,6 +43,9 @@ env = [
     "HUGGINGFACE_CO_STAGING=1",
     "HUGGING_FACE_HUB_TOKEN=",
 ]
+markers = [
+    "production: tests that connect to the production hub at huggingface.co",
+]
 
 [tool.ruff]
 exclude = [
