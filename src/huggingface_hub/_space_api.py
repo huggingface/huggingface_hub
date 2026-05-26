@@ -87,6 +87,10 @@ class SpaceHardware(str, Enum):
     H200X2 = "h200x2"
     H200X4 = "h200x4"
     H200X8 = "h200x8"
+    RTX_PRO_6000 = "rtx-pro-6000"
+    RTX_PRO_6000X2 = "rtx-pro-6000x2"
+    RTX_PRO_6000X4 = "rtx-pro-6000x4"
+    RTX_PRO_6000X8 = "rtx-pro-6000x8"
 
     # Neuron
     INF2X6 = "inf2x6"
