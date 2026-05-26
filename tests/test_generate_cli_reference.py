@@ -16,7 +16,7 @@ $ hf repos | repo tag list | ls [OPTIONS] REPO_ID
 
     normalized = _normalize_command_aliases(content)
 
-    assert "#### `hf repos | repo tag list`" in normalized
+    assert "#### `hf repos tag list`" in normalized
     assert "List tags for a repo. [alias: ls]" in normalized
     assert "$ hf repos tag list [OPTIONS] REPO_ID" in normalized
     assert "$ hf repos | repo tag list [OPTIONS] REPO_ID" not in normalized
