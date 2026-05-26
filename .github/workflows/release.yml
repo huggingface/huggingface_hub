@@ -86,11 +86,10 @@ jobs:
 
       - name: Detect version
         id: version
-        env:
-          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           set -euo pipefail
 
+          RELEASE_TYPE="${{ inputs.release_type }}"
           case "$RELEASE_TYPE" in
             minor-prerelease)
               # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
