@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025-present, the HuggingFace Inc. team.
+# Copyright 2026-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ list_jobs_hardware) and compares them to the hardcoded enums. New flavors are
 added; removed flavors are kept for backward compat and marked with ``# legacy``.
 
 Usage:
-    python utils/check_hardware_flavors.py           # check only (CI)
-    python utils/check_hardware_flavors.py --update   # update source files
+    python utils/check_hardware_flavors.py           # check only
+    python utils/check_hardware_flavors.py --update  # update source files
 """
 
 import argparse
@@ -97,12 +97,6 @@ def _parse_enum_entries(source: str, class_name: str) -> list[_EnumEntry]:
         entries.pop(0)
 
     return entries
-
-
-def _parse_enum_members(source: str, class_name: str) -> list[tuple[str, str, bool]]:
-    """Parse enum members from source, returning (name, value, is_legacy) tuples in order."""
-    entries = _parse_enum_entries(source, class_name)
-    return [(e.name, e.value, e.is_legacy) for e in entries if e.kind == "member"]
 
 
 def _build_enum_lines(
