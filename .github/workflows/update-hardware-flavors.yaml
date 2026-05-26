@@ -74,4 +74,6 @@ jobs:
           labels: |
             automated
           reviewers: |
+            christophe-rannou
+            hanouticelina
             Wauplin
