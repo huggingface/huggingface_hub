@@ -748,7 +748,6 @@ def jobs_labels(
     api = get_hf_api(token=token)
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
     out.result("Labels updated", id=job.id)
-    out.hint(f"Use `hf jobs inspect {job.id}` to view the updated job.")
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
