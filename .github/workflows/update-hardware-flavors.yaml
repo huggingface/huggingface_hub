@@ -5,7 +5,8 @@ on:
   schedule:
     - cron: "0 4 * * *" # Every day at 4am
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: update-hardware-flavors
