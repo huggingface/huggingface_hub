@@ -30,6 +30,7 @@ from typing import Annotated
 import typer
 
 from huggingface_hub import SpaceHardware, SpaceStorage
+from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import REPO_REGIONS
 
@@ -91,10 +92,11 @@ ProtectedOpt = Annotated[
     ),
 ]
 SpaceHardwareOpt = Annotated[
-    SpaceHardware | None,
+    str | None,
     typer.Option(
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
+        click_type=SoftChoice(SpaceHardware),
     ),
 ]
 

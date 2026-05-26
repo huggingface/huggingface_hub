@@ -690,6 +690,32 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
     )
 
 
+class SoftChoice(click.Choice):
+    """A click Choice that suggests choices for autocompletion/docs but accepts any string.
+
+    Unlike `click.Choice`, unknown values are passed through as-is instead of raising an error.
+    This makes CLI options future-compatible when new server-side values are added.
+
+    Accepts either a sequence of strings or an Enum class:
+    ```python
+    SoftChoice(SpaceHardware)        # from an enum
+    SoftChoice(["a", "b", "c"])      # from a list
+    ```
+    """
+
+    def __init__(self, choices: Sequence[str] | type[Enum]) -> None:
+        values = (
+            [m.value for m in choices] if isinstance(choices, type) and issubclass(choices, Enum) else list(choices)
+        )
+        super().__init__(values, case_sensitive=True)
+
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+        try:
+            return super().convert(value, param, ctx)
+        except click.exceptions.BadParameter:
+            return str(value)
+
+
 class RepoType(str, Enum):
     model = "model"
     dataset = "dataset"

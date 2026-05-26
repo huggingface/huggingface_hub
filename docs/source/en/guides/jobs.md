@@ -206,13 +206,20 @@ Use this to run a fine-tuning script like [trl/scripts/sft.py](https://github.co
 > [!TIP]
 > For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
 
-Available `flavor` options:
+To see all available `flavor` options and their pricing, run:
 
-- CPU: `cpu-basic`, `cpu-upgrade`
-- GPU: `t4-small`, `t4-medium`, `l4x1`, `l4x4`, `a10g-small`, `a10g-large`, `a10g-largex2`, `a10g-largex4`,`a100-large`
-- TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
+```bash
+>>> hf jobs hardware
+```
 
-(updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+Or using the Python API:
+
+```python
+>>> from huggingface_hub import list_jobs_hardware
+>>> list_jobs_hardware()
+```
+
+See [`JobHardware`] for the list of known hardware flavors.
 
 That's it! You're now running code on Hugging Face's infrastructure.
 

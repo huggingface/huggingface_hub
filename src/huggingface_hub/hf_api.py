@@ -71,7 +71,7 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import (
     SpaceHardware,
     SpaceRuntime,
@@ -7815,11 +7815,11 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
-    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """List available hardware options for Spaces.
 
         Returns:
-            `list[JobHardware]`: A list of available hardware configurations.
+            `list[JobHardwareInfo]`: A list of available hardware configurations.
 
         Example:
 
@@ -7827,7 +7827,7 @@ class HfApi:
         >>> from huggingface_hub import list_spaces_hardware
         >>> hardware_list = list_spaces_hardware()
         >>> hardware_list[0]
-        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
+        JobHardwareInfo(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
         >>> hardware_list[0].name
         'cpu-basic'
         ```
@@ -7836,7 +7836,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/hardware", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
-        return [JobHardware(**hardware) for hardware in response.json()]
+        return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
     @validate_hf_hub_args
     def request_space_hardware(
@@ -11388,7 +11388,7 @@ class HfApi:
         command: list[str],
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11414,7 +11414,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -11706,12 +11706,12 @@ class HfApi:
         response.raise_for_status()
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
-    def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+    def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
         List available hardware options for Jobs on Hugging Face infrastructure.
 
         Returns:
-            `list[JobHardware]`: A list of available hardware configurations.
+            `list[JobHardwareInfo]`: A list of available hardware configurations.
 
         Example:
 
@@ -11720,7 +11720,7 @@ class HfApi:
         >>> api = HfApi()
         >>> hardware_list = api.list_jobs_hardware()
         >>> hardware_list[0]
-        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+        JobHardwareInfo(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
         >>> hardware_list[0].name
         'cpu-basic'
 
@@ -11732,7 +11732,7 @@ class HfApi:
         """
         response = get_session().get(f"{self.endpoint}/api/jobs/hardware", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(response)
-        return [JobHardware(**hardware) for hardware in response.json()]
+        return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
     def inspect_job(
         self,
@@ -11825,7 +11825,7 @@ class HfApi:
         image: str | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11858,7 +11858,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -11962,7 +11962,7 @@ class HfApi:
         concurrency: bool | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11998,7 +11998,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -12250,7 +12250,7 @@ class HfApi:
         image: str | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -12293,7 +12293,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
