@@ -131,7 +131,6 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
     return parsed_job_id, extracted_namespace
 
 
-SUGGESTED_FLAVORS = JobHardware
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
 # Common job-related options
@@ -153,7 +152,7 @@ FlavorOpt = Annotated[
     str | None,
     typer.Option(
         help="Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
-        click_type=SoftChoice(SUGGESTED_FLAVORS),
+        click_type=SoftChoice(JobHardware),
     ),
 ]
 
