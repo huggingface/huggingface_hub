@@ -351,7 +351,7 @@ jobs:
       - name: Install build frontend
         run: pip install build
       - name: Build hf CLI package
-        run: cd utils/hf && python -m build
+        run: cd utils/hf && python -m build --wheel
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
         with:
