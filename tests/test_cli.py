@@ -12,7 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormatWithAuto, out
@@ -3359,6 +3359,38 @@ class TestBucketTransport:
         # Volume is scoped to the shared subfolder via Volume.path
         assert len(extra_volumes) == 1
         assert extra_volumes[0].path == upload_prefixes.pop()
+
+    def test_update_job_labels(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={"env": "prod", "team": "ml"},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--label", "env=prod", "--label", "team=ml"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(
+            job_id="my-job-id", labels={"env": "prod", "team": "ml"}, namespace=None
+        )
+
+    def test_update_job_labels_clear(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--clear"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(job_id="my-job-id", labels={}, namespace=None)
+
+    def test_update_job_labels_no_args_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
+        assert result.exit_code == 1  # at least one label or clear
 
 
 class TestParseNamespaceFromJobId:

@@ -742,6 +742,34 @@ def jobs_cancel(
             raise CLIError(f"Failed to cancel job: {e}") from e
 
 
+@jobs_cli.command(
+    "labels",
+    examples=[
+        "hf jobs labels <job_id> --label env=prod --label team=ml",
+        "hf jobs labels <job_id> --clear",
+    ],
+)
+def jobs_labels(
+    job_id: JobIdArg,
+    label: LabelsOpt = None,
+    clear: Annotated[bool, typer.Option("--clear", help="Remove all labels from the job.")] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Update labels on a Job. Replaces all existing labels."""
+    if not label and not clear:
+        raise CLIError("Please set at least one label with --label. To remove all labels, pass --clear.")
+    if label and clear:
+        raise CLIError(
+            "Cannot set labels and clear them at the same time. Please use either --label or --clear, not both."
+        )
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    labels = _parse_labels_map(label) or {}
+    api = get_hf_api(token=token)
+    job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
+    print(json.dumps(asdict(job), indent=4, default=str))
+
+
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
 jobs_cli.add_typer(uv_app, name="uv")
 
@@ -1016,6 +1044,36 @@ def scheduled_resume(
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+
+
+@scheduled_app.command(
+    "labels",
+    examples=[
+        "hf jobs scheduled labels <id> --label env=prod --label team=ml",
+        "hf jobs scheduled labels <id> --clear",
+    ],
+)
+def scheduled_labels(
+    scheduled_job_id: ScheduledJobIdArg,
+    label: LabelsOpt = None,
+    clear: Annotated[bool, typer.Option("--clear", help="Remove all labels from the scheduled job.")] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Update labels on a scheduled Job. Replaces all existing labels."""
+    if not label and not clear:
+        raise CLIError("Please set at least one label with --label. To remove all labels, pass --clear.")
+    if label and clear:
+        raise CLIError(
+            "Cannot set labels and clear them at the same time. Please use either --label or --clear, not both."
+        )
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    labels = _parse_labels_map(label) or {}
+    api = get_hf_api(token=token)
+    scheduled_job = api.update_scheduled_job_labels(
+        scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
+    )
+    print(json.dumps(asdict(scheduled_job), indent=4, default=str))
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
