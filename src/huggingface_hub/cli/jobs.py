@@ -1035,7 +1035,6 @@ def scheduled_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
     out.result("Labels updated", id=scheduled_job.id)
-    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view the updated scheduled job.")
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
