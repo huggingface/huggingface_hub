@@ -22,8 +22,8 @@ import typer
 from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 
-from ._cli_utils import api_object_to_dict, get_hf_api
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import get_hf_api
+from ._output import OutputFormatWithAuto, _dataclass_to_dict, out
 
 
 BucketItem = BucketFile | BucketFolder
@@ -204,7 +204,7 @@ def print_file_listing(
         for line in build_tree(items, human_readable=human_readable, quiet=quiet):
             print(line)
     elif out.mode == OutputFormatWithAuto.json:
-        print(json.dumps([api_object_to_dict(item) for item in items], indent=2))
+        print(json.dumps([_dataclass_to_dict(item) for item in items], indent=2))
     elif out.mode == OutputFormatWithAuto.quiet:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):

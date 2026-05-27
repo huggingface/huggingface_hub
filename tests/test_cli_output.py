@@ -19,8 +19,7 @@ import sys
 
 import pytest
 
-from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
-from huggingface_hub.cli._output import Output, _to_header
+from huggingface_hub.cli._output import Output, OutputFormatWithAuto, _to_header
 from huggingface_hub.errors import ConfirmationError
 
 

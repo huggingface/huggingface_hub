@@ -40,8 +40,8 @@ import typer
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import LimitOpt, TokenOpt, api_object_to_dict, get_hf_api, typer_factory
-from ._output import out
+from ._cli_utils import LimitOpt, TokenOpt, get_hf_api, typer_factory
+from ._output import _dataclass_to_dict, out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -85,7 +85,7 @@ def collections_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(collection)
+        _dataclass_to_dict(collection)
         for collection in api.list_collections(
             owner=owner,
             item=item,
