@@ -148,7 +148,7 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
         _warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
 
 
-class TestCommitOperationCopy(unittest.TestCase):
+class TestCommitOperationCopy:
     def test_cross_repo_copy_missing_repo_id_or_type(self):
         with pytest.raises(ValueError, match="`src_repo_type` is required when `src_repo_id` is set"):
             CommitOperationCopy(src_path_in_repo="src.bin", path_in_repo="dst.bin", src_repo_id="user/source")
