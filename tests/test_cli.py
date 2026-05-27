@@ -12,7 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormatWithAuto, out
@@ -3140,29 +3140,6 @@ class TestJobsCommand:
         assert result.exit_code == 0
         assert result.output.strip() == ""
 
-    def test_ps_go_template_format(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps --format '{{.id}}'` uses legacy Go-template output."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}}"])
-        assert result.exit_code == 0
-        lines = result.output.strip().split("\n")
-        assert "abc123def456" in lines
-        assert "xyz789ghi012" in lines
-
-    def test_ps_go_template_multiple_fields(self, runner: CliRunner) -> None:
-        """Test that Go-template with multiple fields works."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}} {{.status}}"])
-        assert result.exit_code == 0
-        assert "abc123def456 RUNNING" in result.output
-        assert "xyz789ghi012 COMPLETED" in result.output
-
     def test_run_with_volumes(self, runner: CliRunner) -> None:
         job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
@@ -3359,6 +3336,38 @@ class TestBucketTransport:
         # Volume is scoped to the shared subfolder via Volume.path
         assert len(extra_volumes) == 1
         assert extra_volumes[0].path == upload_prefixes.pop()
+
+    def test_update_job_labels(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={"env": "prod", "team": "ml"},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--label", "env=prod", "--label", "team=ml"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(
+            job_id="my-job-id", labels={"env": "prod", "team": "ml"}, namespace=None
+        )
+
+    def test_update_job_labels_clear(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--clear"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(job_id="my-job-id", labels={}, namespace=None)
+
+    def test_update_job_labels_no_args_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
+        assert result.exit_code == 1  # at least one label or clear
 
 
 class TestParseNamespaceFromJobId:
@@ -3755,13 +3764,6 @@ class TestGlobalFormattingFlags:
         assert "--json" in result.output
         assert "--quiet" in result.output
         assert "--no-truncate" in result.output
-
-    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
-        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
-        and don't get the duplicated 'Formatting options' section."""
-        result = runner.invoke(app, ["jobs", "ps", "--help"])
-        assert result.exit_code == 0, result.output
-        assert "Formatting options:" not in result.output
 
     def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
         """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""

@@ -129,16 +129,16 @@ def snapshot_download(
     """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
-    a repo, because you don't know which ones you will need a priori. All files are nested inside a folder in order
-    to keep their actual filename relative to that folder. You can also filter which files to download using
-    `allow_patterns` and `ignore_patterns`.
+    a repo because you don't know which ones you will need _a priori_. All files are nested in a folder to keep their
+    path and filename relative to that folder. You can also filter which files to download by using `allow_patterns`
+    and `ignore_patterns`.
 
     If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
-    option, the `cache_dir` will not be used and a `.cache/huggingface/` folder will be created at the root of `local_dir`
+    option, the `cache_dir` will not be used, and a `.cache/huggingface/` folder will be created at the root of `local_dir`
     to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
-    cache-system, it's optimized for regularly pulling the latest version of a repository.
+    cache system, it's optimized for regularly pulling the latest version of a repository.
 
-    An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
+    An alternative would be to clone the repo, but this requires git and git-lfs to be installed and properly
     configured. It is also not possible to filter which files to download when cloning a repository using git.
 
     Args:
@@ -148,7 +148,7 @@ def snapshot_download(
             Set to `"dataset"`, `"space"` or `"kernel"` if downloading from a dataset, space or kernel repo,
             `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
-            An optional Git revision id which can be a branch name, a tag, or a
+            An optional Git revision id, which can be a branch name, a tag, or a
             commit hash.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
@@ -162,7 +162,7 @@ def snapshot_download(
             The user-agent info in the form of a dictionary or a string.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx.request`.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -173,8 +173,7 @@ def snapshot_download(
         headers (`dict`, *optional*):
             Additional headers to include in the request. Those headers take precedence over the others.
         local_files_only (`bool`, *optional*, defaults to `False`):
-            If `True`, avoid downloading the file and return the path to the
-            local cached file if it exists.
+            If `True`, do not download any files even if they are not in `cache_dir` or `local_dir`.
         allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are downloaded.
         ignore_patterns (`list[str]` or `str`, *optional*):
@@ -199,7 +198,7 @@ def snapshot_download(
 
     Raises:
         [`~utils.RepositoryNotFoundError`]
-            If the repository to download from cannot be found. This may be because it doesn't exist,
+            If the repository to download from cannot be found. This may be because it doesn't exist
             or because it is set to `private` and you do not have access.
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
@@ -208,7 +207,7 @@ def snapshot_download(
         [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
             ETag cannot be determined.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid.
+            If some parameter value is invalid.
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
@@ -327,7 +326,7 @@ def snapshot_download(
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
             raise LocalEntryNotFoundError(
                 f"Got: {api_call_error.__class__.__name__}: {api_call_error}"
-                "\nAn error happened while trying to locate the files on the Hub and we cannot find the appropriate"
+                "\nAn error happened while trying to locate the files on the Hub, and we cannot find the appropriate"
                 " snapshot folder for the specified revision on the local disk. Please check your internet connection"
                 " and try again."
             ) from api_call_error
@@ -402,7 +401,7 @@ def snapshot_download(
     class _AggregatedTqdm:
         """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
 
-        In practice the `_AggregatedTqdm` object won't be displayed, it's just used to update
+        In practice, the `_AggregatedTqdm` object won't be displayed; it's just used to update
         the `bytes_progress` bar from each thread/file download.
         """
 

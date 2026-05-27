@@ -4900,7 +4900,7 @@ class HfApi:
                     )
 
         logger.debug(
-            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
+            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copy(ies) and"
             f" {nb_deletions} deletion(s)."
         )
 
@@ -8268,7 +8268,7 @@ class HfApi:
             ```
         """
         # - Spaces /logs/{run|build} is SSE with `data: {"data": "...", "timestamp": "..."}` events.
-        # - Keep-alives are sent as empty `data:` messages (skipped by the `data: {` filter).
+        # - Keep-alive messages are sent as empty `data:` events (skipped by the `data: {` filter).
         # - In no-follow mode we use a short read timeout to drain the buffer and return.
         timeout = 120 if follow else 5
         for event in self._fetch_space_logs_sse(
@@ -11814,6 +11814,49 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         ).raise_for_status()
 
+    def update_job_labels(
+        self,
+        *,
+        job_id: str,
+        labels: dict[str, str],
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Update labels of an existing Job.
+
+        Replaces all existing user-provided labels with the new labels.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            labels (`dict[str, str]`):
+                New labels to set on the job. Replaces all existing labels.
+                Both keys and values must be max 100 characters and contain only
+                alphanumeric characters, dots, dashes, and underscores.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: The updated Job info.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/labels",
+            headers=self._build_hf_headers(token=token),
+            json={"labels": labels},
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     @experimental
     def run_uv_job(
         self,
@@ -12235,6 +12278,49 @@ class HfApi:
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/resume",
             headers=self._build_hf_headers(token=token),
         ).raise_for_status()
+
+    def update_scheduled_job_labels(
+        self,
+        *,
+        scheduled_job_id: str,
+        labels: dict[str, str],
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> ScheduledJobInfo:
+        """
+        Update labels of an existing scheduled Job.
+
+        Replaces all existing user-provided labels with the new labels.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            labels (`dict[str, str]`):
+                New labels to set on the scheduled job. Replaces all existing labels.
+                Both keys and values must be max 100 characters and contain only
+                alphanumeric characters, dots, dashes, and underscores.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`ScheduledJobInfo`]: The updated scheduled Job info.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/labels",
+            headers=self._build_hf_headers(token=token),
+            json={"labels": labels},
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
 
     @experimental
     def create_scheduled_uv_job(
@@ -14079,6 +14165,7 @@ list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
+update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job
 create_scheduled_job = api.create_scheduled_job
 list_scheduled_jobs = api.list_scheduled_jobs
@@ -14086,6 +14173,7 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
+update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 
 # Buckets API
