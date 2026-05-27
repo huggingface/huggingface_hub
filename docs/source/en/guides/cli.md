@@ -135,9 +135,11 @@ Most `hf` commands accept the same set of global formatting flags. They are docu
 | `--format <value>` | — | Pick the output format explicitly. Accepted values: `auto` (default), `human`, `agent`, `json`, `quiet`. |
 | `--json` | `--format json` | Print structured JSON. Useful for piping into `jq` or other scripts. |
 | `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
-| `--no-truncate` | — | Show full scalar values in human tables instead of shortening long values with `...`. List- and dict-valued columns (e.g. `tags`) stay shortened; use `--format json` to see them in full. |
+| `--no-truncate` | — | Show full values in human tables instead of shortening long values with `...`. The table may overflow the terminal width. Use `--format json` for structured output of list/dict columns. |
 
-`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Use `--no-truncate` with human tables when you need full scalar values (for example long cache IDs); for full list or dict columns, use `--format json`. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+
+Human tables auto-fit your terminal width: the widest columns are shortened only when the natural widths overflow the screen (so on a wide terminal you usually see full values without `...`). Pass `--no-truncate` to force full values regardless of width; use `--format json` for structured output of list/dict columns.
 
 ```bash
 # JSON output for scripting
