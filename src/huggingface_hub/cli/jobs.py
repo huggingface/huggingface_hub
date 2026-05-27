@@ -72,7 +72,7 @@ from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import SpaceHardware
+from huggingface_hub import JobHardware
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -83,6 +83,7 @@ from ._cli_utils import (
     EnvOpt,
     SecretsFileOpt,
     SecretsOpt,
+    SoftChoice,
     TokenOpt,
     VolumesOpt,
     get_hf_api,
@@ -124,7 +125,6 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
     return parsed_job_id, extracted_namespace
 
 
-SUGGESTED_FLAVORS = [item.value for item in SpaceHardware if item.value != "zero-a10g"]
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
 # Common job-related options
@@ -143,9 +143,10 @@ ImageOpt = Annotated[
 ]
 
 FlavorOpt = Annotated[
-    SpaceHardware | None,
+    str | None,
     typer.Option(
-        help="Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
+        help="Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
+        click_type=SoftChoice(JobHardware),
     ),
 ]
 
@@ -751,7 +752,7 @@ def jobs_uv_run(
         secrets=secrets_map,
         labels=_parse_labels_map(label),
         volumes=parse_volumes(volume),
-        flavor=flavor,  # type: ignore[arg-type,misc]
+        flavor=flavor,
         timeout=timeout,
         namespace=namespace,
     )
@@ -1036,7 +1037,7 @@ def scheduled_uv_run(
         secrets=secrets_map,
         labels=_parse_labels_map(label),
         volumes=parse_volumes(volume),
-        flavor=flavor,  # type: ignore[arg-type,misc]
+        flavor=flavor,
         timeout=timeout,
         namespace=namespace,
     )

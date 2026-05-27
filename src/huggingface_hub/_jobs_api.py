@@ -17,8 +17,51 @@ from enum import Enum
 from typing import Any
 
 from huggingface_hub import constants
-from huggingface_hub._space_api import SpaceHardware, Volume
+from huggingface_hub._space_api import Volume
 from huggingface_hub.utils._datetime import parse_datetime
+
+
+class JobHardware(str, Enum):
+    """
+    Enumeration of hardware flavors available to run Jobs on the Hub.
+
+    Value can be compared to a string:
+    ```py
+    assert JobHardware.CPU_BASIC == "cpu-basic"
+    ```
+
+    Both enums are kept in sync with the Hub API by `utils/check_hardware_flavors.py`.
+    """
+
+    # CPU
+    CPU_BASIC = "cpu-basic"
+    CPU_UPGRADE = "cpu-upgrade"
+    CPU_PERFORMANCE = "cpu-performance"
+    CPU_XL = "cpu-xl"
+
+    # GPU
+    T4_SMALL = "t4-small"
+    T4_MEDIUM = "t4-medium"
+    L4X1 = "l4x1"
+    L4X4 = "l4x4"
+    L40SX1 = "l40sx1"
+    L40SX4 = "l40sx4"
+    L40SX8 = "l40sx8"
+    A10G_SMALL = "a10g-small"
+    A10G_LARGE = "a10g-large"
+    A10G_LARGEX2 = "a10g-largex2"
+    A10G_LARGEX4 = "a10g-largex4"
+    A100_LARGE = "a100-large"
+    A100X4 = "a100x4"
+    A100X8 = "a100x8"
+    H200 = "h200"
+    H200X2 = "h200x2"
+    H200X4 = "h200x4"
+    H200X8 = "h200x8"
+    RTX_PRO_6000 = "rtx-pro-6000"
+    RTX_PRO_6000X2 = "rtx-pro-6000x2"
+    RTX_PRO_6000X4 = "rtx-pro-6000x4"
+    RTX_PRO_6000X8 = "rtx-pro-6000x8"
 
 
 class JobStage(str, Enum):
@@ -127,7 +170,7 @@ class JobInfo:
         secrets (`dict[str]` or `None`):
             Secret environment variables of the Job (encrypted).
         flavor (`str` or `None`):
-            Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+            Flavor for the hardware. See [`JobHardware`] for possible values.
             E.g. `"cpu-basic"`.
         labels (`dict[str, str]` or `None`):
             Labels to attach to the job (key-value pairs).
@@ -172,7 +215,7 @@ class JobInfo:
     arguments: list[str] | None
     environment: dict[str, Any] | None
     secrets: dict[str, Any] | None
-    flavor: SpaceHardware | None
+    flavor: JobHardware | None
     labels: dict[str, str] | None
     volumes: list[Volume] | None
     status: JobStatus
@@ -226,7 +269,7 @@ class JobSpec:
     arguments: list[str] | None
     environment: dict[str, Any] | None
     secrets: dict[str, Any] | None
-    flavor: SpaceHardware | None
+    flavor: JobHardware | None
     timeout: int | None
     tags: list[str] | None
     arch: str | None
@@ -372,7 +415,7 @@ class JobAccelerator:
 
 
 @dataclass
-class JobHardware:
+class JobHardwareInfo:
     """
     Contains information about available Job hardware.
 
@@ -402,7 +445,7 @@ class JobHardware:
     >>> from huggingface_hub import list_jobs_hardware
     >>> hardware_list = list_jobs_hardware()
     >>> hardware_list[0]
-    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+    JobHardwareInfo(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
     >>> hardware_list[0].name
     'cpu-basic'
     ```
@@ -437,7 +480,7 @@ def _create_job_spec(
     command: list[str],
     env: dict[str, Any] | None,
     secrets: dict[str, Any] | None,
-    flavor: SpaceHardware | None,
+    flavor: JobHardware | str | None,
     timeout: int | float | str | None,
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
@@ -447,7 +490,7 @@ def _create_job_spec(
         "command": command,
         "arguments": [],
         "environment": env or {},
-        "flavor": flavor or SpaceHardware.CPU_BASIC,
+        "flavor": flavor or JobHardware.CPU_BASIC,
     }
     # secrets are optional
     if secrets:

@@ -45,6 +45,7 @@ from typing_extensions import assert_never
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceHardware, SpaceStage
+from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceInfo, SpaceSort_T
@@ -520,10 +521,11 @@ def spaces_settings(
         ),
     ] = None,
     hardware: Annotated[
-        SpaceHardware | None,
+        str | None,
         typer.Option(
             "--hardware",
             help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.",
+            click_type=SoftChoice(SpaceHardware),
         ),
     ] = None,
     token: TokenOpt = None,
@@ -531,7 +533,7 @@ def spaces_settings(
     """Update the settings of a Space."""
     api = get_hf_api(token=token)
     if hardware is not None:
-        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)  # type: ignore[arg-type]
     elif sleep_time is not None:
         runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
     else:
