@@ -37,11 +37,13 @@ from huggingface_hub.hf_api import REPO_REGIONS
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
+    LimitOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     RevisionOpt,
+    SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
     TokenOpt,
@@ -52,6 +54,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._file_listing import format_size
 from ._output import out
 
 
@@ -64,10 +67,11 @@ def _repos_callback(ctx: typer.Context) -> None:
         out.warning("`hf repo` is deprecated in favor of `hf repos`.")
 
 
-tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
-branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-repos_cli.add_typer(tag_cli, name="tag")
-repos_cli.add_typer(branch_cli, name="branch")
+class RepoTypeAll(str, enum.Enum):
+    model = "model"
+    dataset = "dataset"
+    space = "space"
+    bucket = "bucket"
 
 
 class GatedChoices(str, enum.Enum):
@@ -115,6 +119,66 @@ SpaceSleepTimeOpt = Annotated[
         help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
     ),
 ]
+
+
+tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
+branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
+repos_cli.add_typer(tag_cli, name="tag")
+repos_cli.add_typer(branch_cli, name="branch")
+
+
+@repos_cli.command(
+    "list | ls",
+    examples=[
+        "hf repos ls",
+        "hf repos ls --type model",
+        "hf repos ls --namespace my-org --search bert",
+    ],
+)
+def repo_list(
+    namespace: Annotated[
+        str | None,
+        typer.Option(
+            help="Organization name. If not provided, lists repos for the authenticated user.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        RepoTypeAll | None,
+        typer.Option(
+            "--type",
+            "--repo-type",
+            help="Filter by repository type (model, dataset, space, or bucket).",
+        ),
+    ] = None,
+    search: SearchOpt = None,
+    limit: LimitOpt = 25,
+    token: TokenOpt = None,
+) -> None:
+    """List all repos (models, datasets, spaces, buckets) with storage info."""
+    api = get_hf_api(token=token)
+    repos = list(api.list_user_repos(namespace=namespace, token=token))
+    if repo_type is not None:
+        repos = [r for r in repos if r.type == repo_type.value]
+    if search is not None:
+        search_lower = search.lower()
+        repos = [r for r in repos if search_lower in r.id.lower()]
+    total = len(repos)
+    if limit > 0:
+        repos = repos[:limit]
+    items = [
+        {
+            "repository": r.id,
+            "type": r.type,
+            "updated": r.updated_at.strftime("%Y-%m-%d"),
+            "visibility": r.visibility,
+            "storage": format_size(r.storage, human_readable=True),
+            "%_of_total": f"{r.storage_percent:.1f}%",
+        }
+        for r in repos
+    ]
+    out.table(items, id_key="repository", alignments={"storage": "right", "%_of_total": "right"})
+    if limit > 0 and total > limit:
+        out.hint(f"Showing {limit} of {total} repos. Use `--limit 0` to list all.")
 
 
 @repos_cli.command(

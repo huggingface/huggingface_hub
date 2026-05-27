@@ -26,6 +26,33 @@ repositories on the Hub, especially:
 If you want to create and manage a repository on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
+## List your repositories
+
+You can list all repositories (models, datasets, spaces, and buckets) for your account or an organization using [`list_user_repos`]. Results include storage information and are sorted by storage usage.
+
+```py
+>>> from huggingface_hub import list_user_repos
+
+# List repos for the authenticated user
+>>> repos = list(list_user_repos())
+>>> for repo in repos[:3]:
+...     print(f"{repo.id} ({repo.type}) - {repo.storage} bytes")
+username/my-model (model) - 4828692480 bytes
+username/my-dataset (dataset) - 598427559 bytes
+username/my-space (space) - 120620146 bytes
+
+# List repos from an organization
+>>> repos = list(list_user_repos(namespace="my-org"))
+```
+
+Or via CLI (shows 25 repos by default, use `--limit 0` to list all):
+
+```bash
+>>> hf repos ls
+>>> hf repos ls --namespace my-org --type model
+>>> hf repos ls --limit 0 --format json | jq '.[].id'
+```
+
 ## Repo creation and deletion
 
 The first step is to know how to create and delete repositories. You can only manage repositories that you own (under

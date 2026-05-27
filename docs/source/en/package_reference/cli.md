@@ -3001,6 +3001,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
 * `duplicate`: Duplicate a repo on the Hub (model,...
+* `list`: List all repos (models, datasets, spaces,... [alias: ls]
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
@@ -3234,6 +3235,35 @@ Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
   $ hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos list`
+
+List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf repos list [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: Organization name. If not provided, lists repos for the authenticated user.
+* `--type, --repo-type [model|dataset|space|bucket]`: Filter by repository type (model, dataset, space, or bucket).
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of results.  [default: 25]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos ls
+  $ hf repos ls --type model
+  $ hf repos ls --namespace my-org --search bert
 
 Learn more
   Use `hf <command> --help` for more information about a command.

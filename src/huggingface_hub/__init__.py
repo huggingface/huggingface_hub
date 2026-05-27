@@ -191,6 +191,7 @@ _SUBMOD_ATTRS = {
         "Organization",
         "RepoFile",
         "RepoFolder",
+        "RepoStorageInfo",
         "RepoUrl",
         "SpaceInfo",
         "SpaceSearchResult",
@@ -302,6 +303,7 @@ _SUBMOD_ATTRS = {
         "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
+        "list_user_repos",
         "list_webhooks",
         "merge_pull_request",
         "model_info",
@@ -803,6 +805,7 @@ __all__ = [
     "RepoCard",
     "RepoFile",
     "RepoFolder",
+    "RepoStorageInfo",
     "RepoUrl",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
@@ -1036,6 +1039,7 @@ __all__ = [
     "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
+    "list_user_repos",
     "list_webhooks",
     "load_state_dict_from_file",
     "load_torch_model",
@@ -1347,6 +1351,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
         RepoFolder,  # noqa: F401
+        RepoStorageInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
@@ -1458,6 +1463,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
+        list_user_repos,  # noqa: F401
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
