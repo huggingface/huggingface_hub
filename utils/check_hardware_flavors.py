@@ -41,24 +41,13 @@ def _make_enum_name(value: str) -> str:
     return value.upper().replace("-", "_")
 
 
+@dataclass(slots=True)
 class _EnumEntry:
-    """An entry in an enum body: either a member or a comment/blank line."""
-
-    __slots__ = ("kind", "name", "value", "is_legacy", "text")
-
-    def __init__(
-        self,
-        kind: str,
-        name: str = "",
-        value: str = "",
-        is_legacy: bool = False,
-        text: str = "",
-    ):
-        self.kind = kind  # "member" or "line"
-        self.name = name
-        self.value = value
-        self.is_legacy = is_legacy
-        self.text = text  # raw line text for comments/blanks
+    kind: Literal["member", "line"]
+    name: str = ""
+    value: str = ""
+    is_legacy: bool = False
+    text: str = ""
 
 
 def _parse_enum_entries(source: str, class_name: str) -> list[_EnumEntry]:
