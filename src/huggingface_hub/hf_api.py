@@ -5235,15 +5235,6 @@ class HfApi:
         before [`create_commit`] to ensure that LFS files from the source repositories are available in the destination
         repository before the commit is created.
 
-        > [!WARNING]
-        > This is a power-user method. You shouldn't need to call it directly to make a normal commit.
-        > Use [`create_commit`] directly instead.
-
-        > [!WARNING]
-        > Commit operations will be mutated during the process. In particular, the `_is_duplicated` attribute will be
-        > set to `True` on each operation after the duplication is complete. Do not reuse the same objects except to
-        > pass them to [`create_commit`].
-
         Args:
             repo_id (`str`):
                 The destination repository in which you will commit the files, for example:
