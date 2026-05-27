@@ -19,7 +19,7 @@ jobs:
            repository: huggingface/huggingface_hub
            path: ./huggingface_hub
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: "3.10"
       - name: Setup uv
@@ -34,7 +34,7 @@ jobs:
         with:
             repository: huggingface/huggingface.js
             path: huggingface.js
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: "20"
       - name: Install pnpm
@@ -68,7 +68,7 @@ jobs:
 
       # Create or update Pull Request
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
           path: ./huggingface_hub
           token: ${{ secrets.TOKEN_INFERENCE_SYNC_BOT }}
