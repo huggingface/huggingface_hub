@@ -26,8 +26,9 @@ Usage:
 import argparse
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NoReturn
+from typing import Literal, NoReturn
 
 from huggingface_hub.hf_api import HfApi
 
