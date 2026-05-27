@@ -63,6 +63,7 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
+    _CopySource,
     _fetch_files_to_copy,
     _fetch_upload_modes,
     _prepare_commit_payload,
@@ -4955,7 +4956,9 @@ class HfApi:
             endpoint=self.endpoint,
         )
 
-        self._duplicate_lfs_files(repo_id=repo_id, copies=copies, token=token, repo_type=repo_type)
+        self._duplicate_lfs_files(
+            repo_id=repo_id, copies=copies, files_to_copy=files_to_copy, token=token, repo_type=repo_type
+        )
 
         # Remove no-op operations (files that have not changed)
         operations_without_no_op = []
@@ -5222,6 +5225,7 @@ class HfApi:
         repo_id: str,
         copies: Iterable[CommitOperationCopy],
         *,
+        files_to_copy: dict,
         token: str | bool | None = None,
         repo_type: str | None = None,
     ) -> None:
@@ -5251,6 +5255,11 @@ class HfApi:
                 mutated to include information relative to the duplication. Do not reuse the same objects for multiple
                 commits.
 
+            files_to_copy (`dict`):
+                Pre-fetched file info from [`_fetch_files_to_copy`]. LFS metadata is extracted from this dict instead
+                of making additional API calls. Keys are `_CopySource` tuples, values are `RepoFile` (for LFS files)
+                or `bytes` (for regular files).
+
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -5272,40 +5281,32 @@ class HfApi:
             logger.debug("No cross-repo LFS files to duplicate.")
             return
 
-        # Fetch source file info, grouped by source repo.
         # The /lfs-files/duplicate endpoint lives on the *source* repo and takes the destination as `target`.
-        # We build a sha256 -> operations mapping to trace failures back to specific copy operations.
         cross_repo_copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
 
         for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
             cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
         ):
             operations = list(group)
-            src_paths = [op.src_path_in_repo for op in operations]
 
             lfs_files: list[dict] = []
             seen_oids: set[str] = set()
 
-            for paths_batch in chunk_iterable(src_paths, 500):
-                src_repo_files = self.get_paths_info(
-                    repo_id=src_repo_id,
-                    paths=list(paths_batch),
-                    revision=src_revision or "main",
-                    repo_type=src_repo_type,
-                )
-                for src_file in src_repo_files:
-                    if isinstance(src_file, RepoFolder):
-                        continue
-                    if not src_file.lfs:
-                        continue
-                    if not src_file.xet_hash:
-                        raise ValueError(
-                            f"Cannot duplicate LFS file '{src_file.path}' from {src_repo_type}s/{src_repo_id}: file has no xet hash."
-                        )
-                    oid = src_file.lfs.sha256
-                    if oid not in seen_oids:
-                        seen_oids.add(oid)
-                        lfs_files.append({"xetHash": src_file.xet_hash, "sha256": oid, "filename": src_file.path})
+            for op in operations:
+                key = _CopySource(op.src_repo_id, op.src_repo_type, op.src_path_in_repo, op.src_revision)
+                src_file = files_to_copy.get(key)
+                if src_file is None or isinstance(src_file, bytes):
+                    continue
+                if not src_file.lfs:
+                    continue
+                if not src_file.xet_hash:
+                    raise ValueError(
+                        f"Cannot duplicate LFS file '{src_file.path}' from {src_repo_type}s/{src_repo_id}: file has no xet hash."
+                    )
+                oid = src_file.lfs.sha256
+                if oid not in seen_oids:
+                    seen_oids.add(oid)
+                    lfs_files.append({"xetHash": src_file.xet_hash, "sha256": oid, "filename": src_file.path})
 
             if not lfs_files:
                 continue
