@@ -4900,7 +4900,7 @@ class HfApi:
                     )
 
         logger.debug(
-            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
+            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copy(ies) and"
             f" {nb_deletions} deletion(s)."
         )
 
@@ -8268,7 +8268,7 @@ class HfApi:
             ```
         """
         # - Spaces /logs/{run|build} is SSE with `data: {"data": "...", "timestamp": "..."}` events.
-        # - Keep-alives are sent as empty `data:` messages (skipped by the `data: {` filter).
+        # - Keep-alive messages are sent as empty `data:` events (skipped by the `data: {` filter).
         # - In no-follow mode we use a short read timeout to drain the buffer and return.
         timeout = 120 if follow else 5
         for event in self._fetch_space_logs_sse(
