@@ -40,7 +40,10 @@ def _normalize(text: str) -> list[str]:
 
 
 @pytest.fixture
-def check(capsys):
+def check(capsys, monkeypatch):
+    # Deterministic terminal width: human-mode table tests are width-sensitive.
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((80, 24)))
+
     def _check(call, *, human, agent, json, quiet, stderr=False):
         failures = []
         for mode, expected in [(HUMAN, human), (AGENT, agent), (JSON, json), (QUIET, quiet)]:

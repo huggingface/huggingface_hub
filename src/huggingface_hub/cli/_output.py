@@ -119,11 +119,8 @@ class Output:
             case OutputFormatWithAuto.human:  # padded table, adaptive truncation, SCREAMING_SNAKE headers
                 screaming_headers = [_to_header(h) for h in headers]
                 formatted_rows: list[list[str]] = [[_format_table_value_human(v) for v in row] for row in rows]
-                container_flags = [[isinstance(v, (dict, list, set, tuple)) for v in row] for row in rows]
 
-                scalar_truncated, container_truncated = _truncate_columns(
-                    screaming_headers, formatted_rows, container_flags, no_truncate=self.no_truncate
-                )
+                is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
 
                 screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
                 print(
@@ -133,10 +130,8 @@ class Output:
                         alignments=screaming_alignments,
                     )
                 )
-                if scalar_truncated:
-                    self.hint("Use `--no-truncate` to display full values.")
-                elif container_truncated:
-                    self.hint("Use `--format json` to display full lists/dicts.")
+                if is_truncated:
+                    self.hint("Use `--no-truncate` or `--format json` to display full values.")
             case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
@@ -279,18 +274,17 @@ def _format_table_value_human(value: Any) -> str:
 def _truncate_columns(
     headers: list[str],
     rows: list[list[str]],
-    container_flags: list[list[bool]],
     *,
     no_truncate: bool,
-) -> tuple[bool, bool]:
+) -> bool:
     """Truncate cells in-place to fit the current terminal width.
 
-    Returns `(scalar_truncated, container_truncated)` so the caller can emit the
-    right hint. `shutil.get_terminal_size` is cross-platform: it honors `$COLUMNS`,
-    then queries the OS-native API, then falls back to `(80, 24)`.
+    Returns `True` if any cell was truncated, so the caller can emit a hint.
+    `shutil.get_terminal_size` is cross-platform: it honors `$COLUMNS`, then
+    queries the OS-native API, then falls back to `(80, 24)`.
     """
     if no_truncate or not rows:
-        return False, False
+        return False
 
     n = len(headers)
     # Per-column natural width: longest of header label and cell values.
@@ -299,11 +293,11 @@ def _truncate_columns(
     # `max(0, n - 1)` accounts for the single-space separator between columns.
     budget = shutil.get_terminal_size().columns - max(0, n - 1)
     if sum(natural) <= budget:
-        return False, False
+        return False
 
     # Shrink the widest column 1 char at a time. Floors keep the header label
-    # visible; the `4` is the minimum cap that still produces a useful "x..."
-    # truncation (3 chars for the ellipsis + 1 content char).
+    # visible; the `4` is the smallest cap that still shows "x..." (one content
+    # char plus the "..." marker).
     caps = natural.copy()
     min_widths = [max(len(h), 4) for h in headers]
     while sum(caps) > budget:
@@ -316,17 +310,13 @@ def _truncate_columns(
             break  # everything at floor — table wraps slightly
         caps[widest] -= 1
 
-    scalar_truncated = False
-    container_truncated = False
-    for r, row in enumerate(rows):
+    truncated = False
+    for row in rows:
         for c, cell in enumerate(row):
             if len(cell) > caps[c]:
-                if container_flags[r][c]:
-                    container_truncated = True
-                else:
-                    scalar_truncated = True
+                truncated = True
                 row[c] = cell[: caps[c] - 3] + "..."
-    return scalar_truncated, container_truncated
+    return truncated
 
 
 def _format_table_cell_agent(value: Any) -> str:
