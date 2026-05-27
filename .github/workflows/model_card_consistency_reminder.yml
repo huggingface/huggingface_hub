@@ -15,7 +15,7 @@ jobs:
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0  # v3.0.4
         with:
           header: model-card-consistency
-          GITHUB_TOKEN: ${{ secrets.comment_bot_token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
             It looks like you've updated code related to model or dataset cards in this PR.
 
