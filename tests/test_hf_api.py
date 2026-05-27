@@ -4260,7 +4260,7 @@ class CollectionAPITest(HfApiCommonTest):
         # Create some repos
         model_id = self._api.create_repo(repo_name()).repo_id
         dataset_id = self._api.create_repo(repo_name(), repo_type="dataset").repo_id
-        collection_id = self._api.create_collection("nested collection", exists_ok=True).slug
+        collection_id = self._api.create_collection(f"nested collection {repo_name()}").slug
 
         # Create collection + add items to it
         collection = self._api.create_collection(self.title)
