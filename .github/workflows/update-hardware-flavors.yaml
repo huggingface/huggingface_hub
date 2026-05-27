@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: "3.10"
 
@@ -45,14 +45,14 @@ jobs:
       - name: Create GitHub App token
         if: steps.check_changes.outputs.changed == 'true'
         id: app_token
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349  # v2.2.2
         with:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8.1.0
         with:
           token: ${{ steps.app_token.outputs.token }}
           commit-message: "Update hardware flavor enums (automated commit)"
