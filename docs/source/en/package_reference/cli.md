@@ -3256,7 +3256,7 @@ $ hf repos list [OPTIONS]
 * `--namespace TEXT`: Organization name. If not provided, lists repos for the authenticated user.
 * `--type, --repo-type [model|dataset|space|bucket]`: Filter by repository type (model, dataset, space, or bucket).
 * `--search TEXT`: Search query.
-* `--limit INTEGER`: Limit the number of results.  [default: 25]
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

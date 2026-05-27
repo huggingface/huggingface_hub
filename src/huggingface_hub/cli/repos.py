@@ -35,6 +35,7 @@ from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundE
 from huggingface_hub.hf_api import REPO_REGIONS
 
 from ._cli_utils import (
+    REPO_LIST_DEFAULT_LIMIT,
     EnvFileOpt,
     EnvOpt,
     LimitOpt,
@@ -151,7 +152,7 @@ def repo_list(
         ),
     ] = None,
     search: SearchOpt = None,
-    limit: LimitOpt = 25,
+    limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     token: TokenOpt = None,
 ) -> None:
     """List all repos (models, datasets, spaces, buckets) with storage info."""

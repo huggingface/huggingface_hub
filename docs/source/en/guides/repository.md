@@ -45,7 +45,7 @@ username/my-space (space) - 120620146 bytes
 >>> repos = list(list_user_repos(namespace="my-org"))
 ```
 
-Or via CLI (shows 25 repos by default, use `--limit 0` to list all):
+Or via CLI (shows 30 repos by default, use `--limit 0` to list all):
 
 ```bash
 >>> hf repos ls
