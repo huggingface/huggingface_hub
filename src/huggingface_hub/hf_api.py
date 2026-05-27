@@ -5316,7 +5316,8 @@ class HfApi:
                 if failures:
                     messages = [f"  - {f['sha256']}: {f['error']}" for f in failures]
                     raise FileDuplicationError(
-                        f"Failed to duplicate files from {src_repo_type}s/{src_repo_id}:\n" + "\n".join(messages)
+                        f"Failed to duplicate files from {src_repo_type}s/{src_repo_id} "
+                        f"to {repo_type}s/{repo_id}:\n" + "\n".join(messages)
                     )
 
         for op in cross_repo_copies:
