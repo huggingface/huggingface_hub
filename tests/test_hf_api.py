@@ -4260,13 +4260,13 @@ class CollectionAPITest(HfApiCommonTest):
         # Create some repos
         model_id = self._api.create_repo(repo_name()).repo_id
         dataset_id = self._api.create_repo(repo_name(), repo_type="dataset").repo_id
-        collection_id = self._api.create_collection(f"nested collection {repo_name()}").slug
+        nested_collection_slug = self._api.create_collection(f"nested collection {repo_name()}").slug
 
         # Create collection + add items to it
         collection = self._api.create_collection(self.title)
         self._api.add_collection_item(collection.slug, model_id, "model", note="This is my model")
         self._api.add_collection_item(collection.slug, dataset_id, "dataset")  # note is optional
-        self._api.add_collection_item(collection.slug, collection_id, "collection")
+        self._api.add_collection_item(collection.slug, nested_collection_slug, "collection")
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
@@ -4279,7 +4279,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(collection.items[1].item_type, "dataset")
         self.assertIsNone(collection.items[1].note)
 
-        self.assertEqual(collection.items[2].item_id, collection_id)
+        self.assertEqual(collection.items[2].item_id, nested_collection_slug)
         self.assertEqual(collection.items[2].item_type, "collection")
 
         # Add existing item fails (except if ignore error)
@@ -4315,6 +4315,7 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(model_id)
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
+        self._api.delete_collection(nested_collection_slug)
 
     @with_production_testing
     def test_collection_items_with_collections(self) -> None:
