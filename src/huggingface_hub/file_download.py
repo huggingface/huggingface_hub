@@ -1693,13 +1693,14 @@ def _get_metadata_or_catch_error(
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
                     if commit_hash is not None:
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
-                        try:
-                            no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
-                            no_exist_file_path.touch()
-                        except OSError as e:
-                            logger.error(
-                                f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}"
-                            )
+                        if not no_exist_file_path.exists():
+                            try:
+                                no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                                no_exist_file_path.touch()
+                            except OSError as e:
+                                logger.error(
+                                    f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}"
+                                )
                         _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
                 raise
 
