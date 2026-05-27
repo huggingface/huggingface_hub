@@ -17,7 +17,8 @@ jobs:
         with:
           app-id: ${{ secrets.COMMENT_BOT_APP_ID }}
           private-key: ${{ secrets.COMMENT_BOT_SECRET_PEM }}
-
+      owner: ${{ github.repository_owner }}
+      repositories: ${{ github.event.repository.name }}
       - name: maintain-comment
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0  # v3.0.4
         with:
