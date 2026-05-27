@@ -11,10 +11,20 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-      - name: maintain-comment
-        uses: actions-cool/maintain-one-comment@4b2dbf086015f892dcb5e8c1106f5fccd6c1476b  # v3
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
         with:
-          body: |
+          app-id: ${{ secrets.COMMENT_BOT_APP_ID }}
+          private-key: ${{ secrets.COMMENT_BOT_SECRET_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+      - name: maintain-comment
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0  # v3.0.4
+        with:
+          header: model-card-consistency
+          GITHUB_TOKEN: ${{ steps.app_token.outputs.token }}
+          message: |
             It looks like you've updated code related to model or dataset cards in this PR.
 
             Some content is duplicated among the following files. Please make sure that everything stays consistent.
@@ -26,5 +36,3 @@ jobs:
               - [docs/hub/model-card-annotated.md](https://github.com/huggingface/hub-docs/blob/main/docs/hub/model-card-annotated.md) (`hub-docs` repo)
               - [datasetcard.md](https://github.com/huggingface/hub-docs/blob/main/datasetcard.md) (`hub-docs` repo)
               - [docs/hub/datasets-cards.md](https://github.com/huggingface/hub-docs/blob/main/docs/hub/datasets-cards.md) (`hub-docs` repo)
-          token: ${{ secrets.comment_bot_token }}
-          body-include: '<!-- Created by actions-cool/maintain-one-comment -->'
