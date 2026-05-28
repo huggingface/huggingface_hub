@@ -3257,7 +3257,6 @@ $ hf repos list [OPTIONS]
 * `--type, --repo-type [model|dataset|space|bucket]`: Filter by repository type (model, dataset, space, or bucket).
 * `--search TEXT`: Search query.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--city`: Display a 3D isometric city view of storage usage.
 * `--explore`: Explore your repos as an interactive 3D city.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.

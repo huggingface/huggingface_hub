@@ -34,6 +34,7 @@ from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import REPO_REGIONS
 
+from ._city_game import run_city_game
 from ._cli_utils import (
     REPO_LIST_DEFAULT_LIMIT,
     EnvFileOpt,
@@ -153,10 +154,6 @@ def repo_list(
     ] = None,
     search: SearchOpt = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
-    city: Annotated[
-        bool,
-        typer.Option("--city", help="Display a 3D isometric city view of storage usage."),
-    ] = False,
     explore: Annotated[
         bool,
         typer.Option("--explore", help="Explore your repos as an interactive 3D city."),
@@ -173,17 +170,11 @@ def repo_list(
         repos = [r for r in repos if search_lower in r.id.lower()]
     total = len(repos)
 
-    if explore and out.mode == OutputFormat.human:
-        from ._city_game import run_city_game
-
-        run_city_game(repos)
-        return
-
-    if city and out.mode == OutputFormat.human:
-        from ._city_view import render_city_view
-
-        print(render_city_view(repos))
-        return
+    if explore:
+        if out.mode == OutputFormat.human:
+            run_city_game(repos)
+            return
+        raise CLIError("Repository exploration is only available in terminal.")
 
     if limit > 0:
         repos = repos[:limit]
