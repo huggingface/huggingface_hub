@@ -1,7 +1,5 @@
 """Interactive isometric city explorer — easter egg for `hf repos ls --explore`."""
 
-from __future__ import annotations
-
 import dataclasses
 import math
 import os
@@ -496,9 +494,7 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
         cur_row, cur_col = nr, nc
 
 
-def _tile_top_center(
-    city: CityData, row: int, col: int, tile_map: dict[tuple[int, int], TileInfo]
-) -> tuple[int, int]:
+def _tile_top_center(city: CityData, row: int, col: int, tile_map: dict[tuple[int, int], TileInfo]) -> tuple[int, int]:
     tile = tile_map.get((row, col))
     h = tile.height if tile else 1
     cx = city.x_off + (col - row) * _DX
