@@ -1649,7 +1649,7 @@ class TestRepoListCommand:
 
         output = json.loads(result.stdout)
         assert len(output) == 1
-        assert output[0]["repository"] == model_id
+        assert output[0]["id"] == model_id
         assert output[0]["type"] == "model"
 
         api.delete_repo(model_id)
