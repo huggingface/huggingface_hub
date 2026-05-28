@@ -264,7 +264,7 @@ def _visible_len(s: str) -> int:
     return len(_strip_ansi(s))
 
 
-def _pixels_to_lines(buf: list[list[Color | None]], no_color: bool) -> list[str]:
+def _pixels_to_lines(buf: list[list[Color | None]]) -> list[str]:
     height = len(buf)
     width = len(buf[0]) if buf else 0
     lines: list[str] = []
@@ -287,10 +287,6 @@ def _pixels_to_lines(buf: list[list[Color | None]], no_color: bool) -> list[str]
         for col in range(last + 1):
             top = buf[row][col]
             bot = buf[row + 1][col] if row + 1 < height else None
-
-            if no_color:
-                parts.append("█" if top and bot else "▀" if top else "▄" if bot else " ")
-                continue
 
             if not top and not bot:
                 if cfg is not None or cbg is not None:
@@ -350,9 +346,7 @@ def _render_base_buffer(city: CityData) -> list[list[Color | None]]:
 # ---------------------------------------------------------------------------
 
 
-def _colored_square(color: Color, no_color: bool) -> str:
-    if no_color:
-        return "■"
+def _colored_square(color: Color) -> str:
     return f"\033[38;2;{color[0]};{color[1]};{color[2]}m■\033[0m"
 
 
@@ -360,7 +354,6 @@ def _build_summary(
     repos: list[RepoStorageInfo],
     total_storage: int,
     extra_count: int,
-    no_color: bool,
 ) -> list[str]:
     lines: list[str] = [""]
     lines.append("  Storage Overview")
@@ -375,13 +368,13 @@ def _build_summary(
         if not group:
             continue
         storage = sum(r.storage for r in group)
-        sq = _colored_square(_TYPE_COLORS[rtype][0], no_color)
+        sq = _colored_square(_TYPE_COLORS[rtype][0])
         lines.append(f"  {sq} {labels[rtype]}")
         lines.append(f"    {len(group)} repos · {format_size(storage, human_readable=True)}")
         lines.append("")
 
     if extra_count > 0:
-        sq = _colored_square(_EXTRA_COLORS[0], no_color)
+        sq = _colored_square(_EXTRA_COLORS[0])
         lines.append(f"  {sq} +{extra_count} more repos")
 
     return lines
@@ -455,7 +448,7 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
     city = dataclasses.replace(city, buf_h=city.buf_h + _CURSOR_PAD, y_off=city.y_off + _CURSOR_PAD)
     base_buf = _render_base_buffer(city)
 
-    summary = _build_summary(city.all_repos, city.total_storage, city.extra_count, no_color=False)
+    summary = _build_summary(city.all_repos, city.total_storage, city.extra_count)
 
     # Intro: cursor drops onto starting tile
     tx, ty = _tile_top_center(city, cur_row, cur_col, tile_map)
@@ -465,7 +458,7 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
         drop_y = ty - 16 * (1 - t)
         frame = _copy_buf(base_buf)
         _highlight_tile(frame, city, tile_map[(cur_row, cur_col)])
-        _draw_cursor(frame, round(tx), round(drop_y))
+        _draw_cursor(frame, tx, round(drop_y))
         _present(city, frame, tile_map.get((cur_row, cur_col)), summary)
         time.sleep(_MOVE_DELAY)
 
@@ -473,7 +466,7 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
         cx, cy = _tile_top_center(city, cur_row, cur_col, tile_map)
         frame = _copy_buf(base_buf)
         _highlight_tile(frame, city, tile_map[(cur_row, cur_col)])
-        _draw_cursor(frame, round(cx), round(cy))
+        _draw_cursor(frame, cx, cy)
         _present(city, frame, tile_map.get((cur_row, cur_col)), summary)
 
         key = _read_key()
@@ -488,13 +481,12 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
         if (nr, nc) not in tile_map:
             continue
 
-        sx, sy = cx, cy
         ex, ey = _tile_top_center(city, nr, nc, tile_map)
         for i in range(1, _MOVE_FRAMES + 1):
             t = i / _MOVE_FRAMES
             t = t * t * (3 - 2 * t)
-            bx = sx + (ex - sx) * t
-            by = sy + (ey - sy) * t
+            bx = cx + (ex - cx) * t
+            by = cy + (ey - cy) * t
             frame = _copy_buf(base_buf)
             _highlight_tile(frame, city, tile_map[(nr, nc)])
             _draw_cursor(frame, round(bx), round(by))
@@ -506,12 +498,12 @@ def _game_loop(city: CityData, cur_row: int, cur_col: int) -> None:
 
 def _tile_top_center(
     city: CityData, row: int, col: int, tile_map: dict[tuple[int, int], TileInfo]
-) -> tuple[float, float]:
+) -> tuple[int, int]:
     tile = tile_map.get((row, col))
     h = tile.height if tile else 1
     cx = city.x_off + (col - row) * _DX
     cy = city.y_off + (col + row) * _DY
-    return float(cx), float(cy + _DY - h)
+    return cx, cy + _DY - h
 
 
 def _key_to_direction(key: str) -> tuple[int, int]:
@@ -558,7 +550,7 @@ def _present(
     tile: TileInfo | None,
     summary: list[str],
 ) -> None:
-    city_lines = _pixels_to_lines(buf, no_color=False)
+    city_lines = _pixels_to_lines(buf)
     while city_lines and not _strip_ansi(city_lines[0]).strip():
         city_lines.pop(0)
     while city_lines and not _strip_ansi(city_lines[-1]).strip():
