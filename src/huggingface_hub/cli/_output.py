@@ -121,8 +121,7 @@ class Output:
 
                 is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
 
-                inferred = _infer_alignments(headers, rows)
-                inferred.update(alignments or {})
+                inferred = {**_infer_alignments(headers, rows), **(alignments or {})}
                 screaming_alignments = {_to_header(k): v for k, v in inferred.items()}
                 print(
                     tabulate(
