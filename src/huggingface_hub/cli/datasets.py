@@ -182,7 +182,6 @@ def datasets_leaderboard(
         results,
         headers=["rank", "model_id", "value", "source"],
         id_key="model_id",
-        alignments={"rank": "right", "value": "right"},
     )
     out.hint("Use 'hf datasets ls --filter benchmark:official' to list available leaderboards.")
     if leaderboard:
