@@ -229,7 +229,7 @@ def _list_buckets(
         }
         for bucket in api.list_buckets(namespace=namespace, search=search)
     ]
-    out.table(items, alignments={"size": "right", "total_files": "right"})
+    out.table(items, alignments={"size": "right"})
 
 
 def _list_files(

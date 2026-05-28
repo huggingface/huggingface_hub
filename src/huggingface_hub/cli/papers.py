@@ -133,7 +133,6 @@ def papers_ls(
     out.table(
         results,
         headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by_name"],
-        alignments={"upvotes": "right", "comments": "right"},
     )
 
 
@@ -153,7 +152,7 @@ def papers_search(
     """Search papers on the Hub."""
     api = get_hf_api(token=token)
     results = [_dataclass_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
-    out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"], alignments={"upvotes": "right"})
+    out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"])
 
 
 @papers_cli.command(

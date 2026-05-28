@@ -131,8 +131,8 @@ def test_table(check):
         human="""
         ID                                  DOWNLOADS LIKES PIPELINE_TAG
         ----------------------------------- --------- ----- ----------------------------
-        openai/gpt-oss-120b                 4133088   4631  text-generation
-        CohereLabs/cohere-transcribe-03-... 58683     670   automatic-speech-recognition
+        openai/gpt-oss-120b                   4133088  4631 text-generation
+        CohereLabs/cohere-transcribe-03-...     58683   670 automatic-speech-recognition
         """,
         agent="""
         id\tdownloads\tlikes\tpipeline_tag
@@ -179,7 +179,7 @@ def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
         == """
 ID                                 LIKES
 ---------------------------------- -----
-some-org/some-very-long-model-n... 9
+some-org/some-very-long-model-n...     9
 """.strip()
     )
 

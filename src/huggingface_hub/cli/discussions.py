@@ -147,7 +147,6 @@ def discussion_list(
         items,
         headers=["num", "title", "is_pull_request", "status", "author", "created_at"],
         id_key="num",
-        alignments={"num": "right"},
     )
 
 

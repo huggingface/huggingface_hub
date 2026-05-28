@@ -207,7 +207,7 @@ def extension_search() -> None:
             }
         )
 
-    out.table(rows, id_key="repo", alignments={"stars": "right"})
+    out.table(rows, id_key="repo")
 
 
 @extensions_cli.command("remove | rm", examples=["hf extensions remove claude"])

@@ -121,7 +121,8 @@ class Output:
 
                 is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
 
-                screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+                inferred = {**_infer_alignments(headers, rows), **(alignments or {})}
+                screaming_alignments = {_to_header(k): v for k, v in inferred.items()}
                 print(
                     tabulate(
                         cast("list[list[str | int]]", formatted_rows),
@@ -247,6 +248,15 @@ def _to_header(name: str) -> str:
     """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
     s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
     return s.upper()
+
+
+def _infer_alignments(headers: list[str], rows: list[list[Any]]) -> dict[str, str]:
+    """Return ``{"col": "right"}`` for columns where every non-None value is numeric."""
+    result: dict[str, str] = {}
+    for c, h in enumerate(headers):
+        if all(row[c] is None or (isinstance(row[c], (int, float)) and not isinstance(row[c], bool)) for row in rows):
+            result[h] = "right"
+    return result
 
 
 def _format_table_value_human(value: Any) -> str:
