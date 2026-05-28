@@ -157,7 +157,7 @@ def repo_list(
 ) -> None:
     """List all repos (models, datasets, spaces, buckets) with storage info."""
     api = get_hf_api(token=token)
-    repos = list(api.list_user_repos(namespace=namespace, token=token))
+    repos = list(api.list_user_repos(namespace=namespace))
     if repo_type is not None:
         repos = [r for r in repos if r.type == repo_type.value]
     if search is not None:
