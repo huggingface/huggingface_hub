@@ -718,6 +718,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         Args:
             path (`str`):
                 Path pattern to match.
+            maxdepth (`int`, *optional*):
+                Maximum depth to descend into directories. By default, no limit.
 
         Returns:
             `list[str]`: List of paths matching the pattern.

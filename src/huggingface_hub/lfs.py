@@ -113,6 +113,9 @@ def post_lfs_batch_info(
         upload_infos (`Iterable` of `UploadInfo`):
             `UploadInfo` for the files that are being uploaded, typically obtained
             from `CommitOperationAdd.upload_info`
+        token (`str` or `None`):
+            An authentication token (see https://huggingface.co/settings/token).
+            Pass `None` to fall back to the local cached token (or no token if unauthenticated).
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
@@ -120,6 +123,8 @@ def post_lfs_batch_info(
             by a `/`.
         revision (`str`, *optional*):
             The git revision to upload to.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
         headers (`dict`, *optional*):
             Additional headers to include in the request
         transfers (`list`, *optional*):
@@ -210,8 +215,14 @@ def lfs_upload(
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object. See [`~utils.lfs.post_lfs_batch_info`] for
             more details.
+        token (`str`, *optional*):
+            An authentication token (see https://huggingface.co/settings/token). Used to call the
+            optional LFS verify step at the end of the upload. If `None`, falls back to the local
+            cached token.
         headers (`dict`, *optional*):
             Headers to include in the request, including authentication and user agent headers.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
