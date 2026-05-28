@@ -37,7 +37,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import format_size, print_file_listing
-from ._output import OutputFormatWithAuto, out
+from ._output import OutputFormat, out
 
 
 logger = logging.get_logger(__name__)
@@ -240,7 +240,7 @@ def _list_files(
     token: str | None,
 ) -> None:
     """List files in a bucket."""
-    if as_tree and out.mode == OutputFormatWithAuto.json:
+    if as_tree and out.mode == OutputFormat.json:
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)

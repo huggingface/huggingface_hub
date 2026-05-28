@@ -479,6 +479,13 @@ class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
 
 
+# LFS ERRORS
+
+
+class FileDuplicationError(Exception):
+    """Raised when duplicating files across repos fails."""
+
+
 # CLI ERRORS
 
 

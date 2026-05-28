@@ -549,6 +549,7 @@ Notes:
 - Bucket-to-repo copy is not yet supported.
 - Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.
+- [`copy_files`] can also be used for repo-to-repo copies
 
 ## Sync directories
 

@@ -367,7 +367,7 @@ def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, 
 def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
     repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
     api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
-    with pytest.raises(ValueError, match="Destination must be a bucket"):
+    with pytest.raises(ValueError, match="Bucket-to-repo copy is not supported"):
         api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")
 
 

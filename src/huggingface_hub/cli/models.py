@@ -41,13 +41,12 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
@@ -152,7 +151,7 @@ def models_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(model_info)
+        _dataclass_to_dict(model_info)
         for model_info in api.list_models(
             filter=filter,
             author=author,
