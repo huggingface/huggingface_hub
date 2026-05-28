@@ -319,7 +319,7 @@ def _pixels_to_lines(buf: list[list[Color | None]], no_color: bool) -> list[str]
             elif top:
                 nfg, nbg, ch = top, None, "▀"
             else:
-                nfg, nbg, ch = bot, None, "▄"
+                nfg, nbg, ch = bot, None, "▄"  # type: ignore[assignment]
 
             esc = ""
             if nfg != cfg:
