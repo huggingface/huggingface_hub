@@ -56,7 +56,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import format_size
-from ._output import OutputFormatWithAuto, out
+from ._output import OutputFormat, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -132,9 +132,7 @@ repos_cli.add_typer(branch_cli, name="branch")
     "list | ls",
     examples=[
         "hf repos ls",
-        "hf repos ls --city",
         "hf repos ls --explore",
-        "hf repos ls --type model",
         "hf repos ls --namespace my-org --search bert",
     ],
 )
@@ -175,13 +173,13 @@ def repo_list(
         repos = [r for r in repos if search_lower in r.id.lower()]
     total = len(repos)
 
-    if explore and out.mode == OutputFormatWithAuto.human:
+    if explore and out.mode == OutputFormat.human:
         from ._city_game import run_city_game
 
         run_city_game(repos)
         return
 
-    if city and out.mode == OutputFormatWithAuto.human:
+    if city and out.mode == OutputFormat.human:
         from ._city_view import render_city_view
 
         print(render_city_view(repos))

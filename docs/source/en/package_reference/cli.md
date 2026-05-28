@@ -3264,9 +3264,7 @@ $ hf repos list [OPTIONS]
 
 Examples
   $ hf repos ls
-  $ hf repos ls --city
   $ hf repos ls --explore
-  $ hf repos ls --type model
   $ hf repos ls --namespace my-org --search bert
 
 Learn more
