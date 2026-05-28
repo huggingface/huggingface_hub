@@ -230,6 +230,43 @@ Future(...)
 Future(...)
 ```
 
+### Copy files between repositories
+
+Use [`copy_files`] to copy files or folders between repositories on the Hub without downloading or re-uploading large data. This is useful when you want to duplicate weights across model variants, copy dataset files between repos, or reorganize files across your repositories. Under the hood, it creates a commit with [`CommitOperationCopy`] operations.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Copy a single file between repos
+>>> api.copy_files(
+...     "hf://username/source-model/weights.safetensors",
+...     "hf://username/target-model/weights.safetensors",
+... )
+
+# Copy an entire folder
+>>> api.copy_files(
+...     "hf://datasets/username/source-dataset/data/",
+...     "hf://datasets/username/target-dataset/data/",
+... )
+```
+
+You can also copy within the same repository:
+
+```py
+# Duplicate a file in the same repo
+>>> api.copy_files(
+...     "hf://username/my-model/config.json",
+...     "hf://username/my-model/backup/config.json",
+... )
+```
+
+> [!TIP]
+> When copying a folder, a trailing `/` on the source uses rsync-style semantics meaning the *contents* of the folder are copied, without nesting the folder itself. Without a trailing `/`, the folder itself is nested at the destination.
+
+> [!TIP]
+> [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
+
 ### Upload a folder by chunks
 
 [`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
@@ -371,11 +408,13 @@ There are three types of operations supported by [`create_commit`]:
 
 - [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
-- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+- [`CommitOperationCopy`] copies a file within a repository or across repositories. This operation accepts the following arguments:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if you want to copy a file from a different branch/revision.
+  - `src_repo_id`: optional - the source repository to copy from (e.g. `"username/source-model"`). Defaults to the destination repository.
+  - `src_repo_type`: optional - the type of the source repository (`"model"`, `"dataset"` or `"space"`). Required when `src_repo_id` is set.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 
