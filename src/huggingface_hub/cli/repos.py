@@ -167,7 +167,7 @@ def repo_list(
 ) -> None:
     """List all repos (models, datasets, spaces, buckets) with storage info."""
     api = get_hf_api(token=token)
-    repos = list(api.list_user_repos(namespace=namespace, token=token))
+    repos = list(api.list_user_repos(namespace=namespace))
     if repo_type is not None:
         repos = [r for r in repos if r.type == repo_type.value]
     if search is not None:
@@ -191,7 +191,7 @@ def repo_list(
         repos = repos[:limit]
     items = [
         {
-            "repository": r.id,
+            "id": r.id,
             "type": r.type,
             "updated": r.updated_at.strftime("%Y-%m-%d"),
             "visibility": r.visibility,
@@ -200,7 +200,7 @@ def repo_list(
         }
         for r in repos
     ]
-    out.table(items, id_key="repository", alignments={"storage": "right", "%_of_total": "right"})
+    out.table(items, id_key="id", alignments={"storage": "right", "%_of_total": "right"})
     if limit > 0 and total > limit:
         out.hint(f"Showing {limit} of {total} repos. Use `--limit 0` to list all.")
 

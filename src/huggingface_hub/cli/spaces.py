@@ -65,7 +65,6 @@ from ._cli_utils import (
     SecretsOpt,
     TokenOpt,
     VolumesOpt,
-    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
     parse_env_map,
@@ -73,7 +72,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -179,7 +178,7 @@ def spaces_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(space_info)
+        _dataclass_to_dict(space_info)
         for space_info in api.list_spaces(
             filter=filter,
             author=author,
@@ -878,7 +877,7 @@ def volumes_ls(
     if info.runtime is None:
         raise CLIError(f"Runtime not available for Space '{space_id}'.")
     volumes = info.runtime.volumes or []
-    items = [api_object_to_dict(v) for v in volumes]
+    items = [_dataclass_to_dict(v) for v in volumes]
     out.table(items)
     out.hint(
         f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
@@ -947,7 +946,7 @@ def secrets_ls(
     """List secrets for a Space. Secret values are write-only and not returned."""
     api = get_hf_api(token=token)
     secrets = api.get_space_secrets(space_id)
-    items = [api_object_to_dict(s) for s in secrets.values()]
+    items = [_dataclass_to_dict(s) for s in secrets.values()]
     out.table(items)
     out.hint(f"Use `hf spaces secrets add {space_id} -s KEY=VALUE` to add secrets to a Space.")
 
@@ -1019,7 +1018,7 @@ def variables_ls(
     """List environment variables for a Space."""
     api = get_hf_api(token=token)
     variables = api.get_space_variables(space_id)
-    items = [api_object_to_dict(v) for v in variables.values()]
+    items = [_dataclass_to_dict(v) for v in variables.values()]
     out.table(items)
     out.hint(f"Use `hf spaces variables add {space_id} -e KEY=VALUE` to add variables to a Space.")
 

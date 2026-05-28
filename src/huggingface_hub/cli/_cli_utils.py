@@ -13,11 +13,8 @@
 # limitations under the License.
 """Contains CLI utilities (styling, helpers)."""
 
-import dataclasses
-import datetime
 import difflib
 import importlib.metadata
-import json
 import os
 import re
 import subprocess
@@ -26,7 +23,7 @@ import time
 from collections.abc import Callable, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
 import click
 import typer
@@ -40,18 +37,14 @@ from huggingface_hub.utils import (
     installation_method,
     logging,
     parse_hf_mount,
-    tabulate,
 )
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._help_formatter import StyledContext
-from ._output import OutputFormatWithAuto, out
+from ._output import OutputFormat, out
 
 
 logger = logging.get_logger()
-
-# Arbitrary maximum length of a cell in a table output
-_MAX_CELL_LENGTH = 35
 
 # Arbitrary default limit for models/datasets/spaces list commands.
 REPO_LIST_DEFAULT_LIMIT = 30
@@ -439,7 +432,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         return
 
     # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
-    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
+    chosen_mode: OutputFormat = OutputFormat.auto
     chosen_flag: str | None = None
 
     def _check_conflict(new_flag: str) -> None:
@@ -470,13 +463,13 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
             continue
         if arg == "--json":
             _check_conflict("--json")
-            chosen_mode = OutputFormatWithAuto.json
+            chosen_mode = OutputFormat.json
             chosen_flag = "--json"
             del args[i : i + 1]
             continue
         if arg in ("-q", "--quiet"):
             _check_conflict(arg)
-            chosen_mode = OutputFormatWithAuto.quiet
+            chosen_mode = OutputFormat.quiet
             chosen_flag = arg
             del args[i : i + 1]
             continue
@@ -528,11 +521,11 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
             args[idx : idx + 1] = ["--format", "quiet"]
 
 
-def _parse_format_value(value: str) -> "OutputFormatWithAuto":
+def _parse_format_value(value: str) -> "OutputFormat":
     try:
-        return OutputFormatWithAuto(value)
+        return OutputFormat(value)
     except ValueError:
-        valid = ", ".join(m.value for m in OutputFormatWithAuto)
+        valid = ", ".join(m.value for m in OutputFormat)
         raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
 
 
@@ -906,158 +899,6 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
             )
         )
     return result
-
-
-class OutputFormat(str, Enum):
-    """Output format for CLI list commands."""
-
-    table = "table"
-    json = "json"
-
-
-FormatOpt = Annotated[
-    OutputFormat,
-    typer.Option(
-        help="Output format (table or json).",
-    ),
-]
-
-
-def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
-    """Callback for the legacy FormatWithAutoOpt option type.
-
-    Most commands now rely on the global --format / --json / -q flags consumed by _consume_format_flags_for_leaf instead
-    of declaring FormatWithAutoOpt themselves.  This callback is kept for the rare cases where a command still wires
-    FormatWithAutoOpt explicitly.
-    """
-    out.set_mode(value)
-    return value
-
-
-FormatWithAutoOpt = Annotated[
-    OutputFormatWithAuto,
-    typer.Option(help="Output format.", callback=_set_output_mode),
-]
-
-QuietOpt = Annotated[
-    bool,
-    typer.Option("-q", "--quiet", help="Print only IDs (one per line)."),
-]
-
-
-def _to_header(name: str) -> str:
-    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE to be used as table header."""
-    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
-    return s.upper()
-
-
-def _format_value(value: Any) -> str:
-    """Convert a value to string for terminal display."""
-    if not value:
-        return ""
-    if isinstance(value, bool):
-        return "✔" if value else ""
-    if isinstance(value, datetime.datetime):
-        return value.strftime("%Y-%m-%d")
-    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
-        return value[:10]
-    if isinstance(value, list):
-        return ", ".join(_format_value(v) for v in value)
-    elif isinstance(value, dict):
-        if "name" in value:  # Likely to be a user or org => print name
-            return str(value["name"])
-        # TODO: extend if needed
-        return json.dumps(value)
-    return str(value)
-
-
-def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value + truncate it for table display."""
-    cell = _format_value(value)
-    if len(cell) > max_len:
-        cell = cell[: max_len - 3] + "..."
-    return cell
-
-
-def print_as_table(
-    items: Sequence[dict[str, Any]],
-    headers: list[str],
-    row_fn: Callable[[dict[str, Any]], list[str]],
-    alignments: dict[str, str] | None = None,
-) -> None:
-    """Print items as a formatted table.
-
-    Args:
-        items: Sequence of dictionaries representing the items to display.
-        headers: List of column headers.
-        row_fn: Function that takes an item dict and returns a list of string values for each column.
-        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
-    """
-    if not items:
-        print("No results found.")
-        return
-    rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    screaming_headers = [_to_header(h) for h in headers]
-    # Remap alignments keys to screaming case to match tabulate headers
-    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
-
-
-def print_list_output(
-    items: Sequence[dict[str, Any]],
-    format: OutputFormat,
-    quiet: bool,
-    id_key: str = "id",
-    headers: list[str] | None = None,
-    row_fn: Callable[[dict[str, Any]], list[str]] | None = None,
-    alignments: dict[str, str] | None = None,
-) -> None:
-    """Print list command output in the specified format.
-
-    Args:
-        items: Sequence of dictionaries representing the items to display.
-        format: Output format.
-        quiet: If True, print only IDs (one per line).
-        id_key: Key to use for extracting IDs in quiet mode.
-        headers: Optional list of column names for headers. If not provided, auto-detected from keys.
-        row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
-        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
-    """
-    if quiet:
-        for item in items:
-            print(item[id_key])
-        return
-
-    if format == OutputFormat.json:
-        print(json.dumps(list(items), indent=2, default=str))
-        return
-
-    if headers is None:
-        all_columns = list(items[0].keys()) if items else [id_key]
-        headers = [col for col in all_columns if any(_format_cell(item.get(col)) for item in items)]
-
-    if row_fn is None:
-
-        def row_fn(item: dict[str, Any]) -> list[str]:
-            return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
-
-    print_as_table(items, headers=headers, row_fn=row_fn, alignments=alignments)
-
-
-def _serialize_value(v: object) -> object:
-    """Recursively serialize a value to be JSON-compatible."""
-    if isinstance(v, datetime.datetime):
-        return v.isoformat()
-    elif isinstance(v, dict):
-        return {key: _serialize_value(val) for key, val in v.items() if val is not None}
-    elif isinstance(v, list):
-        return [_serialize_value(item) for item in v]
-    return v
-
-
-def api_object_to_dict(info: Any) -> dict[str, Any]:
-    """Convert repo info dataclasses to json-serializable dicts."""
-    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
 def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):

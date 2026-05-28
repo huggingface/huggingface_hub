@@ -1305,7 +1305,7 @@ REPOSITORY                TYPE     UPDATED      VISIBILITY   STORAGE  % OF TOTAL
 username/bucket-raw       bucket   2026-04-29   public        1.7 TB       72.3%
 username/my-model         model    2026-05-06   public        4.8 GB       18.1%
 username/my-dataset       dataset  2024-09-14   private     598.4 MB        5.2%
-ℹ Showing 30 of 42 repos. Use `--limit 0` to list all.
+Hint: Showing 30 of 42 repos. Use `--limit 0` to list all.
 ```
 
 Filter by repository type, search by name, or adjust the limit:
