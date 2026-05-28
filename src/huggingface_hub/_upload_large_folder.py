@@ -29,7 +29,7 @@ from urllib.parse import quote
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
-from .utils import DEFAULT_IGNORE_PATTERNS, _format_size, filter_repo_objects, tqdm
+from .utils import DEFAULT_IGNORE_PATTERNS, _format_size, filter_repo_objects, get_token, tqdm
 from .utils._runtime import is_xet_available
 from .utils.sha import sha_fileobj
 
@@ -193,9 +193,16 @@ def upload_large_folder_internal(
         num_workers = max(nb_cores // 2, 1)  # Use at most half of cpu cores
 
     # 2. Create repo if missing
-    repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
-    logger.info(f"Repo created: {repo_url}")
-    repo_id = repo_url.repo_id
+    # Skip `create_repo` when authenticated with a short-lived JWT (`hf_jwt_...`):
+    # those tokens are scoped to a specific repo and don't have permission to create
+    # repos, so calling `create_repo` would fail. The repo is assumed to already exist.
+    effective_token = api.token if isinstance(api.token, str) else get_token()
+    if isinstance(effective_token, str) and effective_token.startswith("hf_jwt_"):
+        logger.info("Skipping `create_repo` (JWT token detected): assuming repo already exists.")
+    else:
+        repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
+        logger.info(f"Repo created: {repo_url}")
+        repo_id = repo_url.repo_id
 
     # Warn on too many commits
     try:

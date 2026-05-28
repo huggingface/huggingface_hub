@@ -55,6 +55,7 @@ import typer
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.utils import get_token
 
 from ._cli_utils import (
     PrivateOpt,
@@ -209,15 +210,23 @@ def upload(
         # Otherwise, create repo and proceed with the upload
         if not os.path.isfile(resolved_local_path) and not os.path.isdir(resolved_local_path):
             raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
-        created = api.create_repo(
-            repo_id=repo_id,
-            repo_type=repo_type_str,
-            exist_ok=True,
-            private=private,
-            space_sdk="gradio" if repo_type_str == "space" else None,
-            # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
-        ).repo_id
+
+        # Skip `create_repo` when authenticated with a short-lived JWT (`hf_jwt_...`):
+        # those tokens are scoped to a specific repo and don't have permission to create
+        # repos, so calling `create_repo` would fail. The repo is assumed to already exist.
+        effective_token = token if isinstance(token, str) else api.token if isinstance(api.token, str) else get_token()
+        if isinstance(effective_token, str) and effective_token.startswith("hf_jwt_"):
+            created = repo_id
+        else:
+            created = api.create_repo(
+                repo_id=repo_id,
+                repo_type=repo_type_str,
+                exist_ok=True,
+                private=private,
+                space_sdk="gradio" if repo_type_str == "space" else None,
+                # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
+                # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
+            ).repo_id
 
         # Check if branch already exists and if not, create it
         if revision is not None and not create_pr:
