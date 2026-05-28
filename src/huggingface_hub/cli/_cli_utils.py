@@ -41,7 +41,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._dotenv import load_dotenv
 
 from ._help_formatter import StyledContext
-from ._output import OutputFormatWithAuto, out
+from ._output import OutputFormat, out
 
 
 logger = logging.get_logger()
@@ -432,7 +432,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         return
 
     # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
-    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
+    chosen_mode: OutputFormat = OutputFormat.auto
     chosen_flag: str | None = None
 
     def _check_conflict(new_flag: str) -> None:
@@ -463,13 +463,13 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
             continue
         if arg == "--json":
             _check_conflict("--json")
-            chosen_mode = OutputFormatWithAuto.json
+            chosen_mode = OutputFormat.json
             chosen_flag = "--json"
             del args[i : i + 1]
             continue
         if arg in ("-q", "--quiet"):
             _check_conflict(arg)
-            chosen_mode = OutputFormatWithAuto.quiet
+            chosen_mode = OutputFormat.quiet
             chosen_flag = arg
             del args[i : i + 1]
             continue
@@ -521,11 +521,11 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
             args[idx : idx + 1] = ["--format", "quiet"]
 
 
-def _parse_format_value(value: str) -> "OutputFormatWithAuto":
+def _parse_format_value(value: str) -> "OutputFormat":
     try:
-        return OutputFormatWithAuto(value)
+        return OutputFormat(value)
     except ValueError:
-        valid = ", ".join(m.value for m in OutputFormatWithAuto)
+        valid = ", ".join(m.value for m in OutputFormat)
         raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
 
 

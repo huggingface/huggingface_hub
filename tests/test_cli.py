@@ -15,7 +15,7 @@ from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
-from huggingface_hub.cli._output import OutputFormatWithAuto, out
+from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -699,7 +699,7 @@ class TestResolveUploadPaths:
 class TestUploadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     def test_upload_folder_mock(self, *_: object) -> None:
         api = Mock()
@@ -953,7 +953,7 @@ class TestDownloadCommand:
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
