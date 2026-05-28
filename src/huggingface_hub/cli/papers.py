@@ -54,11 +54,10 @@ from huggingface_hub.hf_api import DailyPapersSort_T
 from ._cli_utils import (
     LimitOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
     typer_factory,
 )
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 _SORT_OPTIONS = get_args(DailyPapersSort_T)
@@ -127,14 +126,13 @@ def papers_ls(
         sort=sort_key,
         limit=limit,
     ):
-        item = api_object_to_dict(paper_info)
+        item = _dataclass_to_dict(paper_info)
         submitted_by = item.get("submitted_by") or {}
         item["submitted_by_name"] = submitted_by.get("fullname") or submitted_by.get("username") or ""
         results.append(item)
     out.table(
         results,
         headers=["id", "title", "upvotes", "comments", "published_at", "submitted_by_name"],
-        alignments={"upvotes": "right", "comments": "right"},
     )
 
 
@@ -153,8 +151,8 @@ def papers_search(
 ) -> None:
     """Search papers on the Hub."""
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
-    out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"], alignments={"upvotes": "right"})
+    results = [_dataclass_to_dict(paper_info) for paper_info in api.list_papers(query=query, limit=limit)]
+    out.table(results, headers=["id", "title", "summary", "upvotes", "published_at"])
 
 
 @papers_cli.command(

@@ -42,13 +42,12 @@ from ._cli_utils import (
     RevisionOpt,
     SearchOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
     make_expand_properties_parser,
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 _EXPAND_PROPERTIES = sorted(get_args(ExpandDatasetProperty_T))
@@ -149,7 +148,7 @@ def datasets_ls(
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(dataset_info)
+        _dataclass_to_dict(dataset_info)
         for dataset_info in api.list_datasets(
             filter=filter,
             author=author,
@@ -178,12 +177,11 @@ def datasets_leaderboard(
     """List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores. Use 'hf datasets ls --filter benchmark:official' to list available leaderboards."""
     api = get_hf_api(token=token)
     leaderboard = api.get_dataset_leaderboard(repo_id=dataset_id)
-    results = [api_object_to_dict(entry) for entry in leaderboard[:limit]]
+    results = [_dataclass_to_dict(entry) for entry in leaderboard[:limit]]
     out.table(
         results,
         headers=["rank", "model_id", "value", "source"],
         id_key="model_id",
-        alignments={"rank": "right", "value": "right"},
     )
     out.hint("Use 'hf datasets ls --filter benchmark:official' to list available leaderboards.")
     if leaderboard:

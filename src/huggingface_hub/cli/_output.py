@@ -29,8 +29,7 @@ from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
 
 
-# TODO: remove OutputFormat in _cli_utils.py once all commands are migrated to OutputFormatWithAuto.
-class OutputFormatWithAuto(str, Enum):
+class OutputFormat(str, Enum):
     """Output format for CLI commands with auto detection of agent/human mode."""
 
     agent = "agent"
@@ -47,19 +46,19 @@ class Output:
     and can be overridden per-command via `set_mode()`.
     """
 
-    mode: OutputFormatWithAuto
+    mode: OutputFormat
     no_truncate: bool
 
     def __init__(self) -> None:
         self.no_truncate = False
         self.set_mode()
 
-    def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
+    def set_mode(self, mode: OutputFormat = OutputFormat.auto) -> None:
         """Override the output mode (called once at startup and again per '--format' flag)."""
-        if mode == OutputFormatWithAuto.auto:
-            mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
+        if mode == OutputFormat.auto:
+            mode = OutputFormat.agent if is_agent() else OutputFormat.human
         self.mode = mode
-        if mode != OutputFormatWithAuto.human:
+        if mode != OutputFormat.human:
             disable_progress_bars()
 
     def set_no_truncate(self, no_truncate: bool) -> None:
@@ -67,7 +66,7 @@ class Output:
         self.no_truncate = no_truncate
 
     def is_quiet(self) -> bool:
-        return self.mode == OutputFormatWithAuto.quiet
+        return self.mode == OutputFormat.quiet
 
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
@@ -78,10 +77,10 @@ class Output:
             agent = _strip_ansi(msg)
 
         match self.mode:
-            case OutputFormatWithAuto.human:
+            case OutputFormat.human:
                 if human is not None:
                     print(human)
-            case OutputFormatWithAuto.agent:
+            case OutputFormat.agent:
                 if agent is not None:
                     print(agent)
             # json/quiet: no-op
@@ -104,9 +103,9 @@ class Output:
         """
         if not items:
             match self.mode:
-                case OutputFormatWithAuto.agent | OutputFormatWithAuto.human:
+                case OutputFormat.agent | OutputFormat.human:
                     print("No results found.")
-                case OutputFormatWithAuto.json:
+                case OutputFormat.json:
                     print("[]")
             return
 
@@ -116,13 +115,14 @@ class Output:
         rows = [[item.get(h) for h in headers] for item in items]
 
         match self.mode:
-            case OutputFormatWithAuto.human:  # padded table, adaptive truncation, SCREAMING_SNAKE headers
+            case OutputFormat.human:  # padded table, adaptive truncation, SCREAMING_SNAKE headers
                 screaming_headers = [_to_header(h) for h in headers]
                 formatted_rows: list[list[str]] = [[_format_table_value_human(v) for v in row] for row in rows]
 
                 is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
 
-                screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
+                inferred = {**_infer_alignments(headers, rows), **(alignments or {})}
+                screaming_alignments = {_to_header(k): v for k, v in inferred.items()}
                 print(
                     tabulate(
                         cast("list[list[str | int]]", formatted_rows),
@@ -132,13 +132,13 @@ class Output:
                 )
                 if is_truncated:
                     self.hint("Use `--no-truncate` or `--format json` to display full values.")
-            case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
+            case OutputFormat.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
-            case OutputFormatWithAuto.json:  # compact JSON array
+            case OutputFormat.json:  # compact JSON array
                 print(json.dumps(list(items), default=str))
-            case OutputFormatWithAuto.quiet:  # id_key column (or first column), one per line
+            case OutputFormat.quiet:  # id_key column (or first column), one per line
                 quiet_key = id_key or headers[0]
                 for item in items:
                     print(item.get(quiet_key, ""))
@@ -150,27 +150,27 @@ class Output:
         """
         if dataclasses.is_dataclass(data) and not isinstance(data, type):
             data = _dataclass_to_dict(data)
-        if self.mode == OutputFormatWithAuto.quiet and id_key is not None:
+        if self.mode == OutputFormat.quiet and id_key is not None:
             print(data.get(id_key, ""))
             return
-        indent = 2 if self.mode == OutputFormatWithAuto.human else None
+        indent = 2 if self.mode == OutputFormat.human else None
         print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
         match self.mode:
-            case OutputFormatWithAuto.human:  # ✓ message + key: value lines
+            case OutputFormat.human:  # ✓ message + key: value lines
                 parts = [ANSI.green(f"✓ {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
                 print("\n".join(parts))
-            case OutputFormatWithAuto.agent:  # key=val pairs, space-separated
+            case OutputFormat.agent:  # key=val pairs, space-separated
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
                 print(" ".join(parts) if parts else message)
-            case OutputFormatWithAuto.json:  # json.dumps(data), message ignored
+            case OutputFormat.json:  # json.dumps(data), message ignored
                 print(json.dumps(data, default=str) if data else "")
-            case OutputFormatWithAuto.quiet:  # first value only
+            case OutputFormat.quiet:  # first value only
                 values = list(data.values())
                 if values:
                     print(values[0])
@@ -181,34 +181,34 @@ class Output:
         """
         if yes:
             return
-        if self.mode != OutputFormatWithAuto.human:
+        if self.mode != OutputFormat.human:
             raise ConfirmationError(f"{message} Use {confirm_param} to skip confirmation.")
         typer.confirm(message, default=default, abort=True)
 
     def status(self, message: str | None = None) -> StatusLine:
         """Return a status line that emits only in human mode (no-op otherwise)."""
-        status = StatusLine(enabled=self.mode == OutputFormatWithAuto.human)
+        status = StatusLine(enabled=self.mode == OutputFormat.human)
         if message is not None:
             status.update(message)
         return status
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr (all modes)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.red(f"Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)
@@ -248,6 +248,15 @@ def _to_header(name: str) -> str:
     """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
     s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
     return s.upper()
+
+
+def _infer_alignments(headers: list[str], rows: list[list[Any]]) -> dict[str, str]:
+    """Return ``{"col": "right"}`` for columns where every non-None value is numeric."""
+    result: dict[str, str] = {}
+    for c, h in enumerate(headers):
+        if all(row[c] is None or (isinstance(row[c], (int, float)) and not isinstance(row[c], bool)) for row in rows):
+            result[h] = "right"
+    return result
 
 
 def _format_table_value_human(value: Any) -> str:
