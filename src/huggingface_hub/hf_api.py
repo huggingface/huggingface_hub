@@ -1627,6 +1627,44 @@ class UserLikes:
 
 
 @dataclass
+class RepoStorageInfo:
+    """
+    Contains storage information about a repository on the Hub.
+
+    Returned by [`list_user_repos`].
+
+    Attributes:
+        id (`str`):
+            ID of the repo (e.g. `username/repo-name`).
+        type (`str`):
+            Type of the repo (`model`, `dataset`, `space`, or `bucket`).
+        updated_at (`datetime`):
+            Last update time of the repo.
+        visibility (`str`):
+            Visibility of the repo (`public` or `private`).
+        storage (`int`):
+            Storage used by the repo in bytes.
+        storage_percent (`float`):
+            Percentage of the namespace's total storage used by this repo.
+    """
+
+    id: str
+    type: str
+    updated_at: datetime
+    visibility: str
+    storage: int
+    storage_percent: float
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.id = kwargs["id"]
+        self.type = kwargs["type"]
+        self.updated_at = parse_datetime(kwargs["updatedAt"])
+        self.visibility = kwargs["visibility"]
+        self.storage = kwargs["storage"]
+        self.storage_percent = kwargs.get("storagePercent") or 0
+
+
+@dataclass
 class Organization:
     """
     Contains information about an organization on the Hub.
@@ -3103,6 +3141,46 @@ class HfApi:
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
         )
+
+    def list_user_repos(
+        self,
+        namespace: str | None = None,
+        *,
+        token: bool | str | None = None,
+    ) -> Iterable[RepoStorageInfo]:
+        """List all repositories (models, datasets, spaces, buckets) for a user or organization with storage info.
+
+        Uses the `/api/settings/repositories` endpoint for the authenticated user or
+        `/api/organizations/{namespace}/settings/repositories` for an organization.
+
+        Args:
+            namespace (`str`, *optional*):
+                Organization name. If not provided, lists repos for the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token.
+
+        Returns:
+            `Iterable[RepoStorageInfo]`: An iterable of [`RepoStorageInfo`] objects.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_user_repos
+
+        >>> repos = list(list_user_repos())
+        >>> repos[0]
+        RepoStorageInfo(id='username/my-model', type='model', ...)
+
+        >>> # List repos from an organization
+        >>> repos = list(list_user_repos(namespace="my-org"))
+        ```
+        """
+        if namespace is not None:
+            path = f"{self.endpoint}/api/organizations/{namespace}/settings/repositories"
+        else:
+            path = f"{self.endpoint}/api/settings/repositories"
+        headers = self._build_hf_headers(token=token)
+        for item in paginate(path, params={}, headers=headers):
+            yield RepoStorageInfo(**item)
 
     @validate_hf_hub_args
     def list_repo_likers(
@@ -14278,6 +14356,7 @@ run_as_future = api.run_as_future
 # Activity API
 list_liked_repos = api.list_liked_repos
 list_repo_likers = api.list_repo_likers
+list_user_repos = api.list_user_repos
 unlike = api.unlike
 
 # Community API

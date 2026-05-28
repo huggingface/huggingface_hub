@@ -1291,7 +1291,48 @@ To view the diff of a pull request directly in your terminal, use `hf discussion
 
 ## hf repos
 
-`hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you list, create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+
+### List repos
+
+Use `hf repos ls` to list all your repositories (models, datasets, spaces, and buckets) with storage information, sorted by storage usage. By default, only the first 30 repos are shown:
+
+```bash
+# List all your repos (first 30)
+>>> hf repos ls
+REPOSITORY                TYPE     UPDATED      VISIBILITY   STORAGE  % OF TOTAL
+------------------------  -------  ----------   ----------  --------  ----------
+username/bucket-raw       bucket   2026-04-29   public        1.7 TB       72.3%
+username/my-model         model    2026-05-06   public        4.8 GB       18.1%
+username/my-dataset       dataset  2024-09-14   private     598.4 MB        5.2%
+Hint: Showing 30 of 42 repos. Use `--limit 0` to list all.
+```
+
+Filter by repository type, search by name, or adjust the limit:
+
+```bash
+# List only models
+>>> hf repos ls --type model
+
+# Search by name
+>>> hf repos ls --search "bert"
+
+# List repos from an organization
+>>> hf repos ls --namespace my-org
+
+# Combine filters
+>>> hf repos ls --namespace my-org --type dataset --search "train"
+
+# List all repos (no limit)
+>>> hf repos ls --limit 0
+```
+
+Use `--format json` for scripting or `-q` for IDs only. When piping, use `--limit 0` to export all repos:
+
+```bash
+>>> hf repos ls --limit 0 --format json | jq '.[].id'
+>>> hf repos ls -q
+```
 
 ### Create a repo
 

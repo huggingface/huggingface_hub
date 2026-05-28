@@ -11,6 +11,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
@@ -33,7 +34,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
 
 
 @pytest.fixture
@@ -1628,6 +1629,32 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
+
+
+class TestRepoListCommand:
+    def test_repo_list(self, runner: CliRunner) -> None:
+        """Integration test: create repos, check `hf repos ls` with search + type filter."""
+        api = HfApi(token=TOKEN)
+        suffix = repo_name("repos-ls")
+        model_id = api.create_repo(suffix, repo_type="model").repo_id
+        dataset_id = api.create_repo(suffix, repo_type="dataset").repo_id
+        space_id = api.create_repo(suffix, repo_type="space", space_sdk="static").repo_id
+
+        api.upload_file(repo_id=model_id, path_in_repo="data.bin", path_or_fileobj=b"x" * 1024)
+
+        with patch("huggingface_hub.cli.repos.get_hf_api", return_value=api):
+            result = runner.invoke(
+                app, ["repos", "ls", "--type", "model", "--search", suffix, "--limit", "0", "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+        assert len(output) == 1
+        assert output[0]["id"] == model_id
+        assert output[0]["type"] == "model"
+
+        api.delete_repo(model_id)
+        api.delete_repo(dataset_id, repo_type="dataset")
+        api.delete_repo(space_id, repo_type="space")
 
 
 class TestRepoDeleteCommand:
