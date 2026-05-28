@@ -22,8 +22,8 @@ import typer
 from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 
-from ._cli_utils import api_object_to_dict, get_hf_api
-from ._output import OutputFormatWithAuto, out
+from ._cli_utils import get_hf_api
+from ._output import OutputFormat, _dataclass_to_dict, out
 
 
 BucketItem = BucketFile | BucketFolder
@@ -173,7 +173,7 @@ def list_repo_files_cmd(
     token: str | None,
 ) -> None:
     """List files in a repo on the Hub. Used by models/datasets/spaces ls commands."""
-    if as_tree and out.mode == OutputFormatWithAuto.json:
+    if as_tree and out.mode == OutputFormat.json:
         raise typer.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
@@ -200,12 +200,12 @@ def print_file_listing(
     has_directories = any(isinstance(item, BucketFolder | RepoFolder) for item in items)
 
     if as_tree:
-        quiet = out.mode == OutputFormatWithAuto.quiet
+        quiet = out.mode == OutputFormat.quiet
         for line in build_tree(items, human_readable=human_readable, quiet=quiet):
             print(line)
-    elif out.mode == OutputFormatWithAuto.json:
-        print(json.dumps([api_object_to_dict(item) for item in items], indent=2))
-    elif out.mode == OutputFormatWithAuto.quiet:
+    elif out.mode == OutputFormat.json:
+        print(json.dumps([_dataclass_to_dict(item) for item in items], indent=2))
+    elif out.mode == OutputFormat.quiet:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):
                 print(f"{item.path}/")

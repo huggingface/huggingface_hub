@@ -19,15 +19,14 @@ import sys
 
 import pytest
 
-from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
-from huggingface_hub.cli._output import Output, _to_header
+from huggingface_hub.cli._output import Output, OutputFormat, _to_header
 from huggingface_hub.errors import ConfirmationError
 
 
-HUMAN = OutputFormatWithAuto.human
-AGENT = OutputFormatWithAuto.agent
-JSON = OutputFormatWithAuto.json
-QUIET = OutputFormatWithAuto.quiet
+HUMAN = OutputFormat.human
+AGENT = OutputFormat.agent
+JSON = OutputFormat.json
+QUIET = OutputFormat.quiet
 
 
 def _normalize(text: str) -> list[str]:
@@ -78,7 +77,7 @@ def test_auto_resolves_to_agent(monkeypatch):
 def test_auto_resets_after_explicit():
     o = Output()
     o.set_mode(QUIET)
-    o.set_mode(OutputFormatWithAuto.auto)
+    o.set_mode(OutputFormat.auto)
     assert o.mode == HUMAN
 
 
