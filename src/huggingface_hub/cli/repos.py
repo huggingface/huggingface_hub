@@ -56,7 +56,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import format_size
-from ._output import out
+from ._output import OutputFormatWithAuto, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -132,6 +132,8 @@ repos_cli.add_typer(branch_cli, name="branch")
     "list | ls",
     examples=[
         "hf repos ls",
+        "hf repos ls --city",
+        "hf repos ls --explore",
         "hf repos ls --type model",
         "hf repos ls --namespace my-org --search bert",
     ],
@@ -153,6 +155,14 @@ def repo_list(
     ] = None,
     search: SearchOpt = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
+    city: Annotated[
+        bool,
+        typer.Option("--city", help="Display a 3D isometric city view of storage usage."),
+    ] = False,
+    explore: Annotated[
+        bool,
+        typer.Option("--explore", help="Explore your repos as an interactive 3D city."),
+    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """List all repos (models, datasets, spaces, buckets) with storage info."""
@@ -164,6 +174,19 @@ def repo_list(
         search_lower = search.lower()
         repos = [r for r in repos if search_lower in r.id.lower()]
     total = len(repos)
+
+    if explore and out.mode == OutputFormatWithAuto.human:
+        from ._city_game import run_city_game
+
+        run_city_game(repos)
+        return
+
+    if city and out.mode == OutputFormatWithAuto.human:
+        from ._city_view import render_city_view
+
+        print(render_city_view(repos))
+        return
+
     if limit > 0:
         repos = repos[:limit]
     items = [
