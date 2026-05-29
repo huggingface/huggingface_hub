@@ -14,6 +14,8 @@ A *HF mount* wraps a HF URI with a local mount path and an optional `:ro` / `:rw
 
 This page documents the canonical syntax of HF URIs and HF mounts. The same parser is used everywhere in the library, so a URI that is valid in one context (e.g. [`HfFileSystem`]) is parsed identically in another.
 
+[`parse_hf_uri`] also accepts Hugging Face **web URLs** (e.g. `https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv`) so you can copy-paste a link from the website. See [Web URLs](#web-urls) below.
+
 ## HF URI syntax
 
 ```text
@@ -82,7 +84,7 @@ The parser is strict on purpose. The following are **rejected**:
 
 | Invalid URI                                       | Reason                                                                  |
 | ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `my-org/my-model`, `huggingface.co/org/m`         | Missing `hf://` protocol prefix.                                        |
+| `my-org/my-model`, `./local/path`                 | Missing `hf://` prefix and not a recognized Hugging Face URL.           |
 | `hf://dataset/org/m`, `hf://model/org/m`          | Singular type forms are forbidden, use the plural (`datasets/`, ...).   |
 | `hf://datasets`, `hf://buckets/`                  | A type prefix alone is not a valid URI, an `<ID>` is required.          |
 | `hf://gpt2`, `hf://datasets/squad`                | Canonical repos (without a namespace) are not supported.                |
@@ -91,6 +93,60 @@ The parser is strict on purpose. The following are **rejected**:
 | `hf://org/m@`, `hf://datasets/foo/bar@/x`         | Empty revision after `@`.                                               |
 | `hf://a/b/c@v1`                                   | A repo id must be `namespace/name`, extra segments are paths.           |
 | `hf://org/m:/`                                    | Mount path must be a non-empty absolute path.                           |
+
+## Web URLs
+
+For convenience, [`parse_hf_uri`] **also accepts Hugging Face web URLs** — the ones you copy-paste from your browser. They are normalized to the canonical `hf://` form, so you can paste a URL straight into the CLI or the library and "it just works":
+
+```python
+>>> from huggingface_hub import parse_hf_uri
+>>> parse_hf_uri("https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv")
+HfUri(type='dataset', id='my-org/my-dataset', revision='main', path_in_repo='train.csv')
+```
+
+URLs from `huggingface.co` (and its `hf.co` short domain, the staging host, and the host of a custom `HF_ENDPOINT`) are recognized, with or without the `https://` scheme. Query strings (`?download=true`) and fragments (`#L10`) are ignored.
+
+### Supported URL formats
+
+| URL                                                          | Parsed as                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------- |
+| `https://huggingface.co/<ns>/<name>`                         | Model repository                                               |
+| `https://huggingface.co/datasets/<ns>/<name>`                | Dataset repository (same for `spaces/`, `kernels/`, `models/`) |
+| `https://huggingface.co/<ns>/<name>/tree/<rev>[/<path>]`     | Folder inside a repo, pinned at `<rev>`                         |
+| `https://huggingface.co/<ns>/<name>/blob/<rev>/<path>`       | File inside a repo (file viewer route)                         |
+| `https://huggingface.co/<ns>/<name>/resolve/<rev>/<path>`    | File inside a repo (download route)                            |
+| `https://huggingface.co/<ns>/<name>/raw/<rev>/<path>`        | File inside a repo (raw route)                                 |
+| `https://huggingface.co/<ns>/<name>/blame/<rev>/<path>`      | File inside a repo (blame route)                               |
+| `https://huggingface.co/buckets/<ns>/<name>`                 | Bucket                                                         |
+| `https://huggingface.co/buckets/<ns>/<name>/resolve/<path>`  | File inside a bucket (buckets are not versioned)               |
+| `https://huggingface.co/buckets/<ns>/<name>/tree/<path>`     | Folder inside a bucket                                         |
+
+The revision is taken from the single segment right after `blob`/`resolve`/`raw`/`tree`/`blame`. Special refs (`refs/pr/N`, `refs/convert/...`) are matched eagerly even though they contain `/`; any other branch/tag name containing `/` must be URL-encoded (`feature%2Ffoo`).
+
+### URLs that are **not** parsed
+
+When a URL is ambiguous or does not point at a concrete Hub location, it is **rejected** (it is never guessed):
+
+| URL                                                  | Reason                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `https://huggingface.co/<username>`                  | Single-segment URL: user/org page, listing page, or canonical repo — ambiguous. |
+| `https://huggingface.co/datasets`                    | Listing page, no `<ns>/<name>`.                                                  |
+| `https://huggingface.co/gpt2`                        | Canonical repos (without a namespace) are not supported.                         |
+| `https://huggingface.co/<ns>/<name>/commit/<rev>`    | Not a file/folder location (same for `commits`, `discussions`, `settings`, …).   |
+| `https://huggingface.co/collections/<ns>/<slug>`     | Collections are not repositories.                                                |
+| `https://example.com/<ns>/<name>`                    | Host is not a recognized Hugging Face host.                                      |
+
+## Rendering a web URL
+
+[`HfUri.to_url`] is the inverse of parsing a URL: it renders the browsable web URL for a HF URI.
+
+```python
+>>> uri = parse_hf_uri("hf://datasets/my-org/my-dataset@v1/train.csv")
+>>> uri.to_url()
+'https://huggingface.co/datasets/my-org/my-dataset/blob/v1/train.csv'
+```
+
+It points at the repository / bucket landing page when no path or revision is set, at the folder viewer (`/tree/<rev>`) when only a revision is set, at the file viewer (`/blob/<rev>/<path>`, revision defaulting to `main`) for repository files, and at the download route (`/resolve/<path>`) for bucket files. Pass `endpoint=...` to target a custom host.
 
 ## Parsing in Python
 
