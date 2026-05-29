@@ -955,14 +955,15 @@ def hf_hub_download(
         # Respect environment variable above user value
         etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
 
-    if cache_dir is None:
-        cache_dir = constants.HF_HUB_CACHE
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    if isinstance(cache_dir, Path):
-        cache_dir = str(cache_dir)
-    if isinstance(local_dir, Path):
-        local_dir = str(local_dir)
+
+    if cache_dir is None:
+        cache_dir = constants.HF_HUB_CACHE
+    cache_dir = str(Path(cache_dir).expanduser().resolve())
+
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
 
     if subfolder == "":
         subfolder = None
