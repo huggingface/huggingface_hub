@@ -96,7 +96,7 @@ The parser is strict on purpose. The following are **rejected**:
 
 ## Web URLs
 
-For convenience, [`parse_hf_uri`] **also accepts Hugging Face web URLs** — the ones you copy-paste from your browser. They are normalized to the canonical `hf://` form, so you can paste a URL straight into the CLI or the library and "it just works":
+For convenience, [`parse_hf_uri`] also accepts Hugging Face web URLs that you copy-paste from your browser. They are normalized to the canonical `hf://` form, so you can paste a URL straight into the CLI or the library and "it just works":
 
 ```python
 >>> from huggingface_hub import parse_hf_uri
