@@ -66,22 +66,6 @@ _SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
 _VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.values())
 
 
-def _recognized_hosts() -> frozenset[str]:
-    """Hosts whose URLs may be parsed into a HF URI.
-
-    Includes the public 'huggingface.co' (and its 'hf.co' short domain / staging
-    host) plus the host of the currently configured 'constants.ENDPOINT', so that
-    self-hosted / staging endpoints work too.
-    """
-    hosts = {"huggingface.co", "hf.co", "hub-ci.huggingface.co"}
-    endpoint_host = urlsplit(constants.ENDPOINT).hostname
-    if endpoint_host:
-        hosts.add(endpoint_host.lower())
-    return frozenset(hosts)
-
-
-_RECOGNIZED_HOSTS: frozenset[str] = _recognized_hosts()
-
 # Web-viewer routes that point at a file or folder and that map cleanly onto a
 # '<revision>/<path>' pair. Other routes (commit, commits, discussions, settings,
 # edit, ...) do not identify a Hub location and are rejected by the URL parser.
@@ -332,7 +316,7 @@ def _looks_like_hf_url(uri: str) -> bool:
     if lowered.startswith(("http://", "https://")):
         return True
     # Scheme-less host (e.g. 'huggingface.co/org/model').
-    return any(lowered == host or lowered.startswith(host + "/") for host in _RECOGNIZED_HOSTS)
+    return any(lowered == host or lowered.startswith(host + "/") for host in constants.HF_URL_HOSTS)
 
 
 def _url_to_uri_body(url: str, *, raw: str) -> str:
@@ -345,7 +329,7 @@ def _url_to_uri_body(url: str, *, raw: str) -> str:
     # Prefix '//' for scheme-less inputs so 'urlsplit' populates 'netloc' instead of 'path'.
     parsed = urlsplit(url if "://" in url else "//" + url)
     host = (parsed.hostname or "").lower()
-    if host not in _RECOGNIZED_HOSTS:
+    if host not in constants.HF_URL_HOSTS:
         raise HfUriError(
             uri=raw,
             msg=f"Unrecognized host '{host or url}'. Expected a Hugging Face URL (e.g. 'https://huggingface.co/...').",
