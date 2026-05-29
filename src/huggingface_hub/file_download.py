@@ -919,6 +919,8 @@ def hf_hub_download(
             local cached file if it exists.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
         tqdm_class (`tqdm`, *optional*):
             If provided, overwrites the default behavior for the progress bar. Passed
             argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
