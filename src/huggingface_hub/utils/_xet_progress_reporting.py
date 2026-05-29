@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Any
 
 from . import is_google_colab, is_notebook
 from .tqdm import tqdm
@@ -45,7 +46,7 @@ class XetProgressReporter:
         self._prev_transfer_bytes_completed: int = 0
 
         # Item bars (scrolling view)
-        self.item_state: OrderedDict[str, object] = OrderedDict()
+        self.item_state: OrderedDict[str, Any] = OrderedDict()
         self.current_bars: list = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:

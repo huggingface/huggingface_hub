@@ -13702,25 +13702,20 @@ class HfApi:
             session = get_xet_session()
 
             try:
-                path_handles = []
-                bytes_handles = []
                 with session.new_upload_commit(
                     token_refresh_url=refresh_url,
                     token_refresh_headers=headers,
                     custom_headers=xet_headers,
                     progress_callback=progress_callback,
                 ) as commit:
-                    path_handles = [
-                        (commit.start_upload_file(str(op.source), sha256=SKIP_SHA256), op)
-                        for op in add_path_operations
-                        if op.xet_hash is None
-                    ]
-                    bytes_handles = [
-                        (commit.start_upload_bytes(op.source, sha256=SKIP_SHA256), op)
-                        for op in add_bytes_operations
-                        if op.xet_hash is None
-                    ]
-                for handle, op in path_handles + bytes_handles:
+                    handles = []
+                    for op in add_path_operations:
+                        if op.xet_hash is None:
+                            handles.append((commit.start_upload_file(str(op.source), sha256=SKIP_SHA256), op))
+                    for op in add_bytes_operations:
+                        if op.xet_hash is None:
+                            handles.append((commit.start_upload_bytes(op.source, sha256=SKIP_SHA256), op))
+                for handle, op in handles:
                     result = handle.result()
                     op.xet_hash = result.xet_info.hash
                     op.size = result.xet_info.file_size
@@ -13731,7 +13726,6 @@ class HfApi:
                 if owns_progress and progress is not None:
                     progress.close()
 
-        # 3. /batch call
         def _payload_as_ndjson() -> Iterable[bytes]:
             for op in operations:
                 if isinstance(op, _BucketAddFile):
@@ -13938,7 +13932,7 @@ class HfApi:
         progress_cm = _get_progress_bar_context(
             desc="Downloading bucket files",
             log_level=logger.getEffectiveLevel(),
-            total=sum(xet_info.file_size or 0 for xet_info, _ in non_zero_download_items),
+            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
             initial=0,
             name="huggingface_hub.download_bucket_files",
         )

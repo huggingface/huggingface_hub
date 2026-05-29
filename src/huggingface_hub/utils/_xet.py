@@ -359,9 +359,7 @@ def xet_headers_without_auth(headers: dict[str, str]) -> dict[str, str]:
     Xet storage requests use a short-lived xet access token for auth, so the
     Hub authorization header must not be forwarded to xet storage endpoints.
     """
-    xet_headers = headers.copy()
-    xet_headers.pop("authorization", None)
-    return xet_headers
+    return {key: value for key, value in headers.items() if key.lower() != "authorization"}
 
 
 def abort_xet_session():
