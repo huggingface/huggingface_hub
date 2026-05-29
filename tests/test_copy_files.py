@@ -29,10 +29,14 @@ from huggingface_hub._commit_api import CommitOperationCopy
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import EntryNotFoundError
 from huggingface_hub.hf_api import _resolve_copy_target_path
-from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory, is_package_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
+
+
+# Skip the entire module when 'hf_xet' is not installed.
+pytestmark = pytest.mark.skipif(not is_package_available("hf_xet"), reason="Test requires 'hf_xet'")
 
 
 @pytest.fixture(scope="module")

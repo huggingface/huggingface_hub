@@ -140,7 +140,7 @@ jobs:
             ;;
 
             "Xet only")
-              PYTEST="$PYTEST ../tests -k 'test_xet or test_buckets' -n 4"
+              PYTEST="$PYTEST ../tests -k 'test_xet or test_buckets or test_copy_files' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
