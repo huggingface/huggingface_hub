@@ -5370,6 +5370,7 @@ class HfApi:
                 if not src_file.xet_hash:
                     raise ValueError(
                         f"Cannot duplicate LFS file '{src_file.path}' from {src_repo_type}s/{src_repo_id}: file has no xet hash."
+                        f" (file: {src_file})"
                     )
                 oid = src_file.lfs.sha256
                 if oid not in seen_oids:
