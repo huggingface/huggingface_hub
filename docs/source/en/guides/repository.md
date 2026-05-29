@@ -175,6 +175,41 @@ Now that you have created your repository, you are interested in pushing changes
 These 2 topics deserve their own guides. Please refer to the [upload](./upload) and the [download](./download) guides
 to learn how to use your repository.
 
+## Copy files
+
+Use [`copy_files`] to copy files that are already hosted on the Hub from one repository to another (or even within the same repository) without downloading and re-uploading them. Both individual files and entire folders are supported, and files tracked with Xet or LFS are copied server-side by hash.
+
+```py
+>>> from huggingface_hub import copy_files
+
+# Copy a single file from one repo to another
+>>> copy_files(
+...     "hf://username/source-model/config.json",
+...     "hf://username/dest-model/config.json",
+... )
+
+# Copy an entire folder (a trailing "/" copies the folder *contents*, rsync-style)
+>>> copy_files(
+...     "hf://datasets/username/my-dataset/data/",
+...     "hf://datasets/username/my-dataset-copy/data/",
+... )
+```
+
+Or via CLI, with the unified `hf cp` command (also available as `hf repos cp`):
+
+```bash
+# Copy a single file between repositories
+>>> hf cp hf://username/source-model/config.json hf://username/dest-model/config.json
+
+# Copy a file from a repo to your local machine
+>>> hf repos cp hf://username/my-model/config.json ./config.json
+
+# Upload a local file to a repository
+>>> hf repos cp ./model.safetensors hf://username/my-model/model.safetensors
+```
+
+> [!TIP]
+> `copy_files` (and `hf cp`) can also copy files from a repository to a [Bucket](./buckets). Copying *from* a bucket *to* a repository is not supported. See the [Buckets](./buckets) guide for more details.
 
 ## Branches and tags
 

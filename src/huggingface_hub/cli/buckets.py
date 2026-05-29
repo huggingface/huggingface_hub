@@ -13,8 +13,6 @@
 # limitations under the License.
 """Contains commands to interact with buckets via the CLI."""
 
-import os
-import sys
 from typing import Annotated
 
 import typer
@@ -24,10 +22,8 @@ from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
     FilterMatcher,
-    _is_bucket_path,
     _parse_bucket_uri,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, disable_progress_bars, is_hf_uri
 
 from ..hf_api import REPO_REGIONS
 from ._cli_utils import (
@@ -36,6 +32,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
+from ._cp import cp
 from ._file_listing import format_size, print_file_listing
 from ._output import OutputFormat, out
 
@@ -662,130 +659,20 @@ def sync(
 # =============================================================================
 
 
-@buckets_cli.command(
+# `hf buckets cp` is an alias for the top-level `hf cp` command (see `cli/_cp.py`).
+buckets_cli.command(
     name="cp",
     examples=[
-        "hf buckets cp hf://buckets/user/my-bucket/config.json",
-        "hf buckets cp hf://buckets/user/my-bucket/config.json ./data/",
-        "hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json",
-        "hf buckets cp hf://buckets/user/my-bucket/config.json -",
-        "hf buckets cp my-config.json hf://buckets/user/my-bucket",
-        "hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/",
-        "hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json",
-        "hf buckets cp - hf://buckets/user/my-bucket/config.json",
-        "hf buckets cp hf://buckets/user/my-bucket/logs hf://buckets/user/archive-bucket/  # nests logs/ dir",
-        "hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/  # copies contents only",
-        "hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/",
+        # Download (repo or bucket -> local / stdout)
+        "hf buckets cp hf://buckets/username/my-bucket/config.json config.json",
+        "hf buckets cp hf://buckets/username/my-bucket/data.csv data/",
+        "hf buckets cp hf://buckets/username/my-bucket/config.json -",
+        # Upload (local / stdin -> bucket)
+        "hf buckets cp model.safetensors hf://buckets/username/my-bucket/model.safetensors",
+        "hf buckets cp config.json hf://buckets/username/my-bucket/logs/",
+        "hf buckets cp - hf://buckets/username/my-bucket/config.json",
+        # Remote to remote (repo or bucket -> bucket)
+        "hf buckets cp hf://buckets/username/my-bucket/data.csv hf://buckets/username/dest-bucket/",
+        "hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/dest-bucket/logs/",
     ],
-)
-def cp(
-    src: Annotated[
-        str, typer.Argument(help="Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin")
-    ],
-    dst: Annotated[
-        str | None, typer.Argument(help="Destination: local path, bucket hf://... URI, or - for stdout")
-    ] = None,
-    token: TokenOpt = None,
-) -> None:
-    """Copy files to or from buckets."""
-    api = get_hf_api(token=token)
-
-    src_is_hf = is_hf_uri(src)
-    dst_is_hf = dst is not None and is_hf_uri(dst)
-    src_is_bucket = _is_bucket_path(src)
-    dst_is_bucket = dst is not None and _is_bucket_path(dst)
-    src_is_stdin = src == "-"
-    dst_is_stdout = dst == "-"
-
-    # Remote to remote copy
-    if src_is_hf and dst_is_hf:
-        try:
-            api.copy_files(src, dst)  # type: ignore
-        except ValueError as e:
-            raise typer.BadParameter(str(e))
-
-        out.result("Copied", src=src, dst=dst)
-        return
-
-    # Local to remote copy
-    # --- Validation ---
-    if not src_is_bucket and not dst_is_bucket and not src_is_stdin:
-        if dst is None:
-            raise typer.BadParameter("Missing destination. Provide a bucket path as DST.")
-        raise typer.BadParameter("One of SRC or DST must be a bucket path (hf://buckets/...).")
-
-    if src_is_stdin and not dst_is_bucket:
-        raise typer.BadParameter("Stdin upload requires a bucket destination.")
-
-    if src_is_stdin and dst_is_bucket:
-        parsed = _parse_bucket_uri(dst)  # type: ignore
-        if parsed.path_in_repo == "" or dst.endswith("/"):  # type: ignore
-            raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
-
-    if dst_is_stdout and not src_is_bucket:
-        raise typer.BadParameter("Cannot pipe to stdout for uploads.")
-
-    if not src_is_bucket and not src_is_stdin and os.path.isdir(src):
-        raise typer.BadParameter("Source must be a file, not a directory. Use `hf buckets sync` for directories.")
-
-    # --- Determine direction and execute ---
-    if src_is_bucket:
-        # Download: remote -> local or stdout
-        parsed = _parse_bucket_uri(src)
-        bucket_id, prefix = parsed.id, parsed.path_in_repo
-        if prefix == "" or src.endswith("/"):
-            raise typer.BadParameter("Source path must include a file name, not just a bucket or directory path.")
-        filename = prefix.rsplit("/", 1)[-1]
-
-        if dst_is_stdout:
-            # Download to stdout: always suppress progress bars to avoid polluting output
-            # Only re-enable if they weren't already disabled by the caller
-            with disable_progress_bars():
-                with SoftTemporaryDirectory() as tmp_dir:
-                    tmp_path = os.path.join(tmp_dir, filename)
-                    api.download_bucket_files(bucket_id, [(prefix, tmp_path)])
-                    with open(tmp_path, "rb") as f:
-                        while chunk := f.read(32_000_000):  # 32MB chunks
-                            sys.stdout.buffer.write(chunk)
-        else:
-            # Download to file
-            if dst is None:
-                local_path = filename
-            elif os.path.isdir(dst) or dst.endswith(os.sep) or dst.endswith("/"):
-                local_path = os.path.join(dst, filename)
-            else:
-                local_path = dst
-
-            # Ensure parent directory exists
-            parent_dir = os.path.dirname(local_path)
-            if parent_dir:
-                os.makedirs(parent_dir, exist_ok=True)
-
-            api.download_bucket_files(bucket_id, [(prefix, local_path)])
-            out.result("Downloaded", src=src, dst=local_path)
-
-    elif src_is_stdin:
-        # Upload from stdin
-        parsed = _parse_bucket_uri(dst)  # type: ignore
-        data = sys.stdin.buffer.read()
-
-        api.batch_bucket_files(parsed.id, add=[(data, parsed.path_in_repo)])
-        out.result("Uploaded", src="stdin", dst=dst)
-
-    else:
-        # Upload from file
-        if not os.path.isfile(src):
-            raise typer.BadParameter(f"Source file not found: {src}")
-
-        parsed = _parse_bucket_uri(dst)  # type: ignore
-        bucket_id, prefix = parsed.id, parsed.path_in_repo
-
-        if prefix == "":
-            remote_path = os.path.basename(src)
-        elif dst.endswith("/"):  # type: ignore
-            remote_path = prefix + "/" + os.path.basename(src)
-        else:
-            remote_path = prefix
-
-        api.batch_bucket_files(bucket_id, add=[(src, remote_path)])
-        out.result("Uploaded", src=src, dst=f"{BUCKET_PREFIX}{bucket_id}/{remote_path}")
+)(cp)

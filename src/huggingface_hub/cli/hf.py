@@ -20,6 +20,7 @@ import typer
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
+from huggingface_hub.cli._cp import CP_EXAMPLES, cp
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
@@ -74,6 +75,7 @@ def app_callback(
 
 
 # top level single commands (defined in their respective files)
+app.command(examples=CP_EXAMPLES)(cp)
 app.command()(sync)
 app.command(examples=DOWNLOAD_EXAMPLES)(download)
 app.command(examples=UPLOAD_EXAMPLES)(upload)
