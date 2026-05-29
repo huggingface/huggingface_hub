@@ -135,8 +135,11 @@ Most `hf` commands accept the same set of global formatting flags. They are docu
 | `--format <value>` | — | Pick the output format explicitly. Accepted values: `auto` (default), `human`, `agent`, `json`, `quiet`. |
 | `--json` | `--format json` | Print structured JSON. Useful for piping into `jq` or other scripts. |
 | `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
+| `--no-truncate` | — | Show full values in human tables instead of shortening long values with `...`. The table may overflow the terminal width. Use `--format json` for structured output of list/dict columns. |
 
-`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two of these flags (e.g. `--json` together with `--format table`) raises a usage error.
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+
+Human tables auto-fit your terminal width: the widest columns are shortened only when the natural widths overflow the screen (so on a wide terminal you usually see full values without `...`). Pass `--no-truncate` to force full values regardless of width; use `--format json` for structured output of list/dict columns.
 
 ```bash
 # JSON output for scripting
@@ -1103,6 +1106,26 @@ Use `hf spaces variables` to manage non-secret environment variables on a Space.
 >>> hf spaces variables delete username/my-space MAX_TOKENS --yes
 ```
 
+### SSH into a Space (Dev Mode)
+
+Use `hf spaces ssh` to open an SSH session into a Space's Dev Mode container. If Dev Mode is not enabled, the CLI will prompt you to enable it (or use `--auto` to skip the prompt).
+
+Your SSH public key must be registered [in your settings](https://huggingface.co/settings/keys). See the [Dev Mode documentation](https://huggingface.co/docs/hub/spaces-dev-mode) for more details.
+
+```bash
+# SSH into a Space
+>>> hf spaces ssh username/my-space
+
+# Print the SSH command without running it
+>>> hf spaces ssh username/my-space --dry-run
+
+# Auto-enable Dev Mode if disabled
+>>> hf spaces ssh username/my-space --auto
+
+# Use a specific SSH key
+>>> hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+```
+
 ## hf papers
 
 Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
@@ -1268,7 +1291,48 @@ To view the diff of a pull request directly in your terminal, use `hf discussion
 
 ## hf repos
 
-`hf repos` lets you create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you list, create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+
+### List repos
+
+Use `hf repos ls` to list all your repositories (models, datasets, spaces, and buckets) with storage information, sorted by storage usage. By default, only the first 30 repos are shown:
+
+```bash
+# List all your repos (first 30)
+>>> hf repos ls
+REPOSITORY                TYPE     UPDATED      VISIBILITY   STORAGE  % OF TOTAL
+------------------------  -------  ----------   ----------  --------  ----------
+username/bucket-raw       bucket   2026-04-29   public        1.7 TB       72.3%
+username/my-model         model    2026-05-06   public        4.8 GB       18.1%
+username/my-dataset       dataset  2024-09-14   private     598.4 MB        5.2%
+Hint: Showing 30 of 42 repos. Use `--limit 0` to list all.
+```
+
+Filter by repository type, search by name, or adjust the limit:
+
+```bash
+# List only models
+>>> hf repos ls --type model
+
+# Search by name
+>>> hf repos ls --search "bert"
+
+# List repos from an organization
+>>> hf repos ls --namespace my-org
+
+# Combine filters
+>>> hf repos ls --namespace my-org --type dataset --search "train"
+
+# List all repos (no limit)
+>>> hf repos ls --limit 0
+```
+
+Use `--format json` for scripting or `-q` for IDs only. When piping, use `--limit 0` to export all repos:
+
+```bash
+>>> hf repos ls --limit 0 --format json | jq '.[].id'
+>>> hf repos ls -q
+```
 
 ### Create a repo
 
@@ -1442,7 +1506,7 @@ Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 
 ### hf cache rm
 
-`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`) or revision hashes:
+`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`), repo-level `hf://` URIs, or revision hashes:
 
 ```bash
 >>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
@@ -1452,6 +1516,15 @@ Proceed with deletion? [y/N]: y
 Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
 Cache deletion done. Saved 3.2G.
 Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+Repo-level `hf://` URIs are also supported:
+
+```bash
+>>> hf cache rm hf://models/openai-community/gpt2 --dry-run
+About to delete 1 repo(s) totalling 1.1G.
+  - model/openai-community/gpt2 (entire repo)
+Dry run: no files were deleted.
 ```
 
 Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
@@ -1645,6 +1718,8 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 `hf jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
 
+**For a general overview of Jobs and pricing, see the [Hub Jobs documentation](https://huggingface.co/docs/hub/jobs).** For Python API usage alongside the CLI, see the [Run and manage Jobs guide](./jobs).
+
 ```bash
 # Directly run Python code
 >>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
@@ -1663,17 +1738,8 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 >>> hf jobs uv run my_script.py
 ```
 
-### ✨ Key Features
-
-- 🐳 **Docker-like CLI**: Familiar commands (`run`, `ps`, `logs`, `inspect`) to run and manage jobs
-- 🔥 **Any Hardware**: From CPUs to A100 GPUs and TPU pods - switch with a simple flag
-- 📦 **Run Anything**: Use Docker images, HF Spaces, or your custom containers
-- 🔐 **Simple Auth**: Just use your HF token
-- 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
-- 💰 **Pay-as-you-go**: Only pay for the seconds you use
-
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with [pre-paid credits](https://huggingface.co/settings/billing).
 
 ### Quick Start
 

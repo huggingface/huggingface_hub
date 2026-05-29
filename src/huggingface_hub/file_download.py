@@ -382,9 +382,20 @@ def http_get(
         if resume_size > 0 and response.status_code == 200:
             temp_file.seek(0)
             temp_file.truncate()
+            if _tqdm_bar is not None:
+                # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
+                # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
+                # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
+                _tqdm_bar.update(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
+        if total is None:
+            # Hub serves compressible text files (e.g. vocab.json) with `Content-Encoding: gzip` and
+            # `Transfer-Encoding: chunked`, so the response carries no `Content-Length`. Fall back to the caller's
+            # `expected_size` (always known from the metadata HEAD on the hf_hub path) so the progress bar, and any
+            # aggregating wrapper such as snapshot_download's `_AggregatedTqdm` — still sees the file size.
+            total = expected_size
 
         if displayed_filename is None:
             displayed_filename = url
@@ -427,7 +438,7 @@ def http_get(
             except (httpx.ConnectError, httpx.TimeoutException) as e:
                 # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
                 # a transient error (network outage?). We log a warning message and try to resume the download a few times
-                # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+                # before giving up. The retry mechanism is basic but should be enough in most cases.
                 if _nb_retries <= 0:
                     logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
                     raise
@@ -441,7 +452,9 @@ def http_get(
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
                     _nb_retries=_nb_retries - 1,
-                    _tqdm_bar=_tqdm_bar,
+                    # Reuse the existing progress bar across retries so a custom `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
+                    # which mutates a shared parent bar in `__init__`) is not re-instantiated and does not double-count `total`/`initial`.
+                    _tqdm_bar=progress,
                 )
 
     if expected_size is not None and expected_size != temp_file.tell():
@@ -1676,13 +1689,14 @@ def _get_metadata_or_catch_error(
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
                     if commit_hash is not None:
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
-                        try:
-                            no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
-                            no_exist_file_path.touch()
-                        except OSError as e:
-                            logger.error(
-                                f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}"
-                            )
+                        if not no_exist_file_path.exists():
+                            try:
+                                no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                                no_exist_file_path.touch()
+                            except OSError as e:
+                                logger.error(
+                                    f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}"
+                                )
                         _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
                 raise
 

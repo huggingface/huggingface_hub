@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from huggingface_hub.utils import parse_datetime
+from huggingface_hub.utils import HfMount, HfUri, parse_datetime
 
 
 class SpaceStage(str, Enum):
@@ -61,9 +61,6 @@ class SpaceHardware(str, Enum):
     # CPU
     CPU_BASIC = "cpu-basic"
     CPU_UPGRADE = "cpu-upgrade"
-    CPU_PERFORMANCE = "cpu-performance"
-    CPU_XL = "cpu-xl"
-    SPRX8 = "sprx8"
 
     # ZeroGPU
     ZERO_A10G = "zero-a10g"
@@ -83,13 +80,6 @@ class SpaceHardware(str, Enum):
     A100_LARGE = "a100-large"
     A100X4 = "a100x4"
     A100X8 = "a100x8"
-    H200 = "h200"
-    H200X2 = "h200x2"
-    H200X4 = "h200x4"
-    H200X8 = "h200x8"
-
-    # Neuron
-    INF2X6 = "inf2x6"
 
 
 class SpaceStorage(str, Enum):
@@ -161,12 +151,13 @@ class Volume:
             data["path"] = self.path
         return data
 
-    def to_hf_handle(self) -> str:
-        """Return the volume as an HF handle in the format expected by the CLI."""
-        path = f"/{self.path}" if self.path else ""
-        revision = f"@{self.revision}" if self.revision else ""
-        ro = {True: ":ro", False: ":rw", None: ""}.get(self.read_only, "")
-        return f"hf://{self.type}s/{self.source}{revision}{path}:{self.mount_path}{ro}"
+    def to_uri(self) -> str:
+        """Return the volume as an HF mount URI in the format expected by the CLI."""
+        return HfMount(
+            source=HfUri(type=self.type, id=self.source, revision=self.revision, path_in_repo=self.path or ""),
+            mount_path=self.mount_path,
+            read_only=self.read_only,
+        ).to_uri()
 
 
 @dataclass
@@ -213,6 +204,7 @@ class SpaceRuntime:
     requested_hardware: SpaceHardware | None
     sleep_time: int | None
     storage: SpaceStorage | None
+    dev_mode: bool
     hot_reloading: SpaceHotReloading | None
     volumes: list[Volume] | None
     raw: dict
@@ -223,6 +215,7 @@ class SpaceRuntime:
         self.requested_hardware = data.get("hardware", {}).get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
+        self.dev_mode = data.get("devMode", False)
         self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
         raw_volumes = data.get("volumes")
         self.volumes = [Volume(**v) for v in raw_volumes] if raw_volumes is not None else None

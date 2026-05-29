@@ -29,7 +29,7 @@ def env() -> None:
 
 def version() -> None:
     """Print information about the hf version."""
-    print(__version__)
+    out.result("hf version", version=__version__)
 
 
 def update() -> None:
@@ -45,6 +45,6 @@ def update() -> None:
     if returncode != 0:
         raise typer.Exit(code=returncode)
     out.hint(
-        "You may also want to run `hf skills upgrade` to refresh any installed skills "
+        "You may also want to run `hf skills update` to refresh any installed skills "
         "so your AI agent sees the latest command surface."
     )

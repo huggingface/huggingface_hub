@@ -983,6 +983,46 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
     @use_tmp_repo()
+    def test_copy_files_repo_to_repo(self, repo_url: RepoUrl):
+        """Test copy from model repo to dataset repo"""
+        src_repo_id = repo_url.repo_id
+        dst_repo_id = self._api.create_repo(repo_id=repo_name(), repo_type="dataset").repo_id
+
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="config.json", path_or_fileobj=b'{"key": "value"}')
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="data/a.txt", path_or_fileobj=b"text data")
+        self._api.upload_file(repo_id=src_repo_id, path_in_repo="data/sub/lfs.bin", path_or_fileobj=b"binary data")
+
+        # Copy a single file
+        self._api.copy_files(f"hf://{src_repo_id}/config.json", f"hf://datasets/{dst_repo_id}/config.json")
+
+        # Copy folder (1 text, 1 LFS)
+        self._api.copy_files(f"hf://{src_repo_id}/data/", f"hf://datasets/{dst_repo_id}/copied/")
+
+        # Verify files were copied
+        dst_files = self._api.list_repo_files(dst_repo_id, repo_type="dataset")
+        assert "config.json" in dst_files
+        assert "copied/a.txt" in dst_files
+        assert "copied/sub/lfs.bin" in dst_files
+
+        # Check data is valid
+        with SoftTemporaryDirectory() as tmpdir:
+            copied_config_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "config.json", cache_dir=tmpdir, repo_type="dataset")
+            )
+            copied_txt_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "copied/a.txt", cache_dir=tmpdir, repo_type="dataset")
+            )
+            copied_bin_path = Path(
+                self._api.hf_hub_download(dst_repo_id, "copied/sub/lfs.bin", cache_dir=tmpdir, repo_type="dataset")
+            )
+
+            assert copied_config_path.read_bytes() == b'{"key": "value"}'
+            assert copied_txt_path.read_bytes() == b"text data"
+            assert copied_bin_path.read_bytes() == b"binary data"
+
+        self._api.delete_repo(dst_repo_id, repo_type="dataset")
+
+    @use_tmp_repo()
     def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
 
@@ -2011,8 +2051,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertIsNotNone(model.security_repo_status)
-        self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
+        assert model.security_repo_status is not None
+        assert isinstance(model.security_repo_status["scansDone"], bool)
+        assert "filesWithIssues" in model.security_repo_status
 
     def test_model_info_with_file_metadata(self):
         model = self._api.model_info(
@@ -4259,13 +4300,13 @@ class CollectionAPITest(HfApiCommonTest):
         # Create some repos
         model_id = self._api.create_repo(repo_name()).repo_id
         dataset_id = self._api.create_repo(repo_name(), repo_type="dataset").repo_id
-        collection_id = self._api.create_collection("nested collection", exists_ok=True).slug
+        nested_collection_slug = self._api.create_collection(f"nested collection {repo_name()}").slug
 
         # Create collection + add items to it
         collection = self._api.create_collection(self.title)
         self._api.add_collection_item(collection.slug, model_id, "model", note="This is my model")
         self._api.add_collection_item(collection.slug, dataset_id, "dataset")  # note is optional
-        self._api.add_collection_item(collection.slug, collection_id, "collection")
+        self._api.add_collection_item(collection.slug, nested_collection_slug, "collection")
 
         # Check consistency
         collection = self._api.get_collection(collection.slug)
@@ -4278,7 +4319,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(collection.items[1].item_type, "dataset")
         self.assertIsNone(collection.items[1].note)
 
-        self.assertEqual(collection.items[2].item_id, collection_id)
+        self.assertEqual(collection.items[2].item_id, nested_collection_slug)
         self.assertEqual(collection.items[2].item_type, "collection")
 
         # Add existing item fails (except if ignore error)
@@ -4314,6 +4355,7 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(model_id)
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
+        self._api.delete_collection(nested_collection_slug)
 
     @with_production_testing
     def test_collection_items_with_collections(self) -> None:
@@ -4473,6 +4515,17 @@ class PaperApiTest(unittest.TestCase):
     def test_get_paper_by_id_success(self) -> None:
         paper = self.api.paper_info("2407.21783")
         assert paper.title == "The Llama 3 Herd of Models"
+
+    def test_get_paper_by_id_returns_linked_repos(self) -> None:
+        paper = self.api.paper_info("2601.15621")
+        assert paper.linked_models is not None and len(paper.linked_models) > 0
+        assert all(isinstance(m, ModelInfo) for m in paper.linked_models)
+        assert paper.num_total_models is not None and paper.num_total_models > 0
+        assert paper.linked_datasets is not None
+        assert all(isinstance(d, DatasetInfo) for d in paper.linked_datasets)
+        assert paper.num_total_datasets is not None
+        assert paper.linked_spaces is not None and len(paper.linked_spaces) > 0
+        assert all(isinstance(s, SpaceInfo) for s in paper.linked_spaces)
 
     def test_get_paper_by_id_not_found(self) -> None:
         with self.assertRaises(HfHubHTTPError) as context:

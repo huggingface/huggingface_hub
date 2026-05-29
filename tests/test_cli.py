@@ -11,17 +11,18 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
-from huggingface_hub.cli._output import OutputFormatWithAuto, out
+from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -33,7 +34,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
 
 
 @pytest.fixture
@@ -188,6 +189,59 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
         print_mock.assert_called_once()
+
+    def test_rm_hf_uri_executes_strategy(self, runner: CliRunner) -> None:
+        revision = _make_revision("c" * 40)
+        repo = _make_repo("openai-community/gpt2", revisions=[revision])
+
+        repo_lookup = {"model/openai-community/gpt2": repo}
+        revision_lookup = {}
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_revisions.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=(repo_lookup, revision_lookup)),
+            patch("huggingface_hub.cli.cache.print_cache_selected_revisions"),
+        ):
+            result = runner.invoke(app, ["cache", "rm", "hf://models/openai-community/gpt2", "--yes"])
+
+        assert result.exit_code == 0
+        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        strategy.execute.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "hf://models/openai-community/gpt2@main",
+            "hf://models/openai-community/gpt2/config.json",
+        ],
+    )
+    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", target])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+
+    def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir"),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", "hf://buckets/openai-community/gpt2"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Only repository hf:// URIs are supported" in str(result.exception)
 
     def test_rm_dry_run_skips_execute(self, runner: CliRunner) -> None:
         revision = _make_revision("d" * 40)
@@ -646,7 +700,7 @@ class TestResolveUploadPaths:
 class TestUploadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     def test_upload_folder_mock(self, *_: object) -> None:
         api = Mock()
@@ -850,8 +904,6 @@ class TestDownloadCommand:
                     "my-token",
                     "--format",
                     "quiet",
-                    "--local-dir",
-                    ".",
                     "--max-workers",
                     "4",
                 ],
@@ -867,7 +919,6 @@ class TestDownloadCommand:
         assert kwargs["ignore_patterns"] == ["*.log", "*.txt"]
         assert kwargs["force_download"] is True
         assert kwargs["cache_dir"] == "/tmp"
-        assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
@@ -903,7 +954,7 @@ class TestDownloadCommand:
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
@@ -1307,7 +1358,7 @@ class TestRepoCreateCommand:
                     "--secrets",
                     "HF_TOKEN=secret_val",
                     "--volume",
-                    "hf://gpt2:/model",
+                    "hf://org/gpt2:/model",
                     "-e",
                     "THEME=dark",
                     "-e",
@@ -1330,7 +1381,7 @@ class TestRepoCreateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
-            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
+            space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
@@ -1436,7 +1487,7 @@ class TestRepoDuplicateCommand:
                     "--storage",
                     "small",
                     "--volume",
-                    "hf://gpt2:/model",
+                    "hf://org/gpt2:/model",
                     "--sleep-time",
                     "3600",
                     "--secrets",
@@ -1459,7 +1510,7 @@ class TestRepoDuplicateCommand:
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
             space_variables=[{"key": "THEME", "value": "dark"}],
-            space_volumes=[Volume(type="model", source="gpt2", mount_path="/model", read_only=None, path=None)],
+            space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
         )
 
     def test_repo_duplicate_secret_from_env(self, runner: CliRunner) -> None:
@@ -1578,6 +1629,32 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
+
+
+class TestRepoListCommand:
+    def test_repo_list(self, runner: CliRunner) -> None:
+        """Integration test: create repos, check `hf repos ls` with search + type filter."""
+        api = HfApi(token=TOKEN)
+        suffix = repo_name("repos-ls")
+        model_id = api.create_repo(suffix, repo_type="model").repo_id
+        dataset_id = api.create_repo(suffix, repo_type="dataset").repo_id
+        space_id = api.create_repo(suffix, repo_type="space", space_sdk="static").repo_id
+
+        api.upload_file(repo_id=model_id, path_in_repo="data.bin", path_or_fileobj=b"x" * 1024)
+
+        with patch("huggingface_hub.cli.repos.get_hf_api", return_value=api):
+            result = runner.invoke(
+                app, ["repos", "ls", "--type", "model", "--search", suffix, "--limit", "0", "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+        assert len(output) == 1
+        assert output[0]["id"] == model_id
+        assert output[0]["type"] == "model"
+
+        api.delete_repo(model_id)
+        api.delete_repo(dataset_id, repo_type="dataset")
+        api.delete_repo(space_id, repo_type="space")
 
 
 class TestRepoDeleteCommand:
@@ -2804,7 +2881,7 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["line 1", "line 2"])
             result = runner.invoke(app, ["jobs", "logs", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=None)
         assert "line 1" in result.output
         assert "line 2" in result.output
 
@@ -2815,7 +2892,7 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["streaming line"])
             result = runner.invoke(app, ["jobs", "logs", "-f", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=None)
         assert "streaming line" in result.output
 
     def test_logs_follow_long_flag(self, runner: CliRunner) -> None:
@@ -2825,36 +2902,38 @@ class TestJobsCommand:
             api.fetch_job_logs.return_value = iter(["streaming line"])
             result = runner.invoke(app, ["jobs", "logs", "--follow", "my-job-id"])
         assert result.exit_code == 0
-        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True)
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=None)
 
     def test_logs_tail(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs --tail 2 <id>` shows only the last 2 lines."""
+        """Test that `hf jobs logs --tail 2 <id>` forwards tail to the API."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3", "line 4"])
+            api.fetch_job_logs.return_value = iter(["line 3", "line 4"])
             result = runner.invoke(app, ["jobs", "logs", "--tail", "2", "my-job-id"])
         assert result.exit_code == 0
-        assert "line 1" not in result.output
-        assert "line 2" not in result.output
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=2)
         assert "line 3" in result.output
         assert "line 4" in result.output
 
     def test_logs_tail_short_flag(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs -n 1 <id>` shows only the last line."""
+        """Test that `hf jobs logs -n 1 <id>` forwards tail=1 to the API."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.fetch_job_logs.return_value = iter(["line 1", "line 2", "line 3"])
+            api.fetch_job_logs.return_value = iter(["line 3"])
             result = runner.invoke(app, ["jobs", "logs", "-n", "1", "my-job-id"])
         assert result.exit_code == 0
-        assert "line 1" not in result.output
-        assert "line 2" not in result.output
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=False, tail=1)
         assert "line 3" in result.output
 
-    def test_logs_follow_and_tail_error(self, runner: CliRunner) -> None:
-        """Test that `hf jobs logs -f --tail 5 <id>` raises an error."""
-        result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "5", "my-job-id"])
-        assert result.exit_code != 0
-        assert "Cannot use --follow and --tail together" in str(result.exception)
+    def test_logs_follow_and_tail_combined(self, runner: CliRunner) -> None:
+        """Test that `hf jobs logs -f --tail 100 <id>` is allowed and forwards both."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_job_logs.return_value = iter(["streaming line"])
+            result = runner.invoke(app, ["jobs", "logs", "-f", "--tail", "100", "my-job-id"])
+        assert result.exit_code == 0
+        api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=100)
+        assert "streaming line" in result.output
 
     def _make_mock_jobs(self):
         """Create mock JobInfo objects for testing ps output."""
@@ -2888,6 +2967,130 @@ class TestJobsCommand:
                 owner={"id": "user-id", "name": "testuser", "type": "user"},
             ),
         ]
+
+    def test_job_info_parses_runtime_fields(self) -> None:
+        """`JobInfo` parses startedAt, finishedAt, and durations sub-dict from a completed-job response."""
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            startedAt="2026-05-08T08:41:06.000Z",
+            finishedAt="2026-05-08T08:43:21.000Z",
+            durations={"schedulingSecs": 12, "runningSecs": 187, "totalSecs": 199},
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "COMPLETED"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.started_at is not None
+        assert job.finished_at is not None
+        assert job.durations is not None
+        assert job.durations.scheduling_secs == 12
+        assert job.durations.running_secs == 187
+        assert job.durations.total_secs == 199
+
+    def test_job_info_runtime_fields_default_none(self) -> None:
+        """`JobInfo` parses cleanly when `startedAt`, `finishedAt`, and `durations`
+        are all absent — the shape returned for some terminal jobs that hit the
+        server's legacy null-durations guard (terminal stage without `finishedAt`).
+        """
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "CANCELED"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.started_at is None
+        assert job.finished_at is None
+        assert job.durations is None
+
+    def test_job_info_durations_with_only_total_secs(self) -> None:
+        """`JobInfo` parses a partial `durations` payload that contains only `totalSecs`.
+
+        This is the shape the server emits for SCHEDULING jobs (totalSecs only;
+        scheduling_secs and running_secs are absent until the job starts running)
+        and for jobs that errored before reaching the running stage.
+        """
+        from huggingface_hub._jobs_api import JobInfo
+
+        job = JobInfo(
+            id="abc",
+            createdAt="2026-05-08T08:40:00.000Z",
+            durations={"totalSecs": 9861},
+            dockerImage="python:3.12",
+            command=["python", "-c", "print('x')"],
+            arguments=[],
+            environment={},
+            secrets={},
+            flavor="cpu-basic",
+            labels={},
+            status={"stage": "SCHEDULING"},
+            owner={"id": "u", "name": "test", "type": "user"},
+        )
+        assert job.durations is not None
+        assert job.durations.scheduling_secs is None
+        assert job.durations.running_secs is None
+        assert job.durations.total_secs == 9861
+
+    def test_ps_table_shows_runtime_column(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ps -a` table includes a RUNTIME column with formatted values and `--` placeholders."""
+        from huggingface_hub._jobs_api import JobInfo
+
+        jobs = [
+            JobInfo(
+                id="completed-id",
+                createdAt="2026-05-08T08:40:00.000Z",
+                startedAt="2026-05-08T08:41:06.000Z",
+                finishedAt="2026-05-08T08:43:21.000Z",
+                durations={"schedulingSecs": 12, "runningSecs": 187, "totalSecs": 199},
+                dockerImage="python:3.12",
+                command=["echo", "done"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+            JobInfo(
+                id="scheduling-id",
+                createdAt="2026-05-08T08:40:00.000Z",
+                durations={"totalSecs": 30},
+                dockerImage="python:3.12",
+                command=["echo", "wait"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "SCHEDULING"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+        ]
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ps", "-a"])
+        assert result.exit_code == 0
+        assert "RUNTIME" in result.output
+        assert "3m 7s" in result.output  # 187s running_secs formatted
+        assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
@@ -2963,29 +3166,6 @@ class TestJobsCommand:
             result = runner.invoke(app, ["jobs", "ps", "-q"])
         assert result.exit_code == 0
         assert result.output.strip() == ""
-
-    def test_ps_go_template_format(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps --format '{{.id}}'` uses legacy Go-template output."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}}"])
-        assert result.exit_code == 0
-        lines = result.output.strip().split("\n")
-        assert "abc123def456" in lines
-        assert "xyz789ghi012" in lines
-
-    def test_ps_go_template_multiple_fields(self, runner: CliRunner) -> None:
-        """Test that Go-template with multiple fields works."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}} {{.status}}"])
-        assert result.exit_code == 0
-        assert "abc123def456 RUNNING" in result.output
-        assert "xyz789ghi012 COMPLETED" in result.output
 
     def test_run_with_volumes(self, runner: CliRunner) -> None:
         job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
@@ -3184,6 +3364,38 @@ class TestBucketTransport:
         assert len(extra_volumes) == 1
         assert extra_volumes[0].path == upload_prefixes.pop()
 
+    def test_update_job_labels(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={"env": "prod", "team": "ml"},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--label", "env=prod", "--label", "team=ml"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(
+            job_id="my-job-id", labels={"env": "prod", "team": "ml"}, namespace=None
+        )
+
+    def test_update_job_labels_clear(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--clear"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(job_id="my-job-id", labels={}, namespace=None)
+
+    def test_update_job_labels_no_args_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
+        assert result.exit_code == 1  # at least one label or clear
+
 
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""
@@ -3235,10 +3447,8 @@ class TestParseVolumes:
         "spec, expected_type, expected_source, expected_mount, expected_path",
         [
             # Implicit model type (no type prefix)
-            ("hf://gpt2:/data", "model", "gpt2", "/data", None),
             ("hf://my-org/my-model:/mnt", "model", "my-org/my-model", "/mnt", None),
             # Explicit type prefixes (plural form)
-            ("hf://models/gpt2:/data", "model", "gpt2", "/data", None),
             ("hf://models/my-org/my-model:/data", "model", "my-org/my-model", "/data", None),
             ("hf://datasets/org/ds:/input", "dataset", "org/ds", "/input", None),
             ("hf://buckets/org/my-bucket:/output", "bucket", "org/my-bucket", "/output", None),
@@ -3266,14 +3476,14 @@ class TestParseVolumes:
         assert vols[0].mount_path == expected_mount
         assert vols[0].path == expected_path
 
-    @pytest.mark.parametrize("spec", ["hf://gpt2", "hf://gpt2:data"])
-    def test_invalid_mount_path(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="Invalid volume format"):
+    @pytest.mark.parametrize("spec", ["hf://org/model", "hf://org/model:data", "hf://gpt2:/data"])
+    def test_invalid_volume_spec(self, spec: str) -> None:
+        with pytest.raises(HfUriError, match="Invalid HF URI"):
             parse_volumes([spec])
 
     @pytest.mark.parametrize("spec", ["gpt2:/data", "dataset/org/ds:/data"])
     def test_missing_hf_prefix(self, spec: str) -> None:
-        with pytest.raises(CLIError, match="must start with 'hf://'"):
+        with pytest.raises(HfUriError, match="(?i)must start with 'hf://'"):
             parse_volumes([spec])
 
     def test_read_only_suffix(self) -> None:
@@ -3285,10 +3495,12 @@ class TestParseVolumes:
         assert vols[0].read_only is False
 
     def test_multiple_volumes(self) -> None:
-        vols = parse_volumes(["hf://gpt2:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"])
+        vols = parse_volumes(
+            ["hf://org/my-model:/model", "hf://datasets/org/ds:/data:ro", "hf://buckets/org/b:/output"]
+        )
 
         assert vols == [
-            Volume(type="model", source="gpt2", mount_path="/model", revision=None, read_only=None, path=None),
+            Volume(type="model", source="org/my-model", mount_path="/model", revision=None, read_only=None, path=None),
             Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
             Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
         ]
@@ -3298,9 +3510,9 @@ class TestVolume:
     """Unit tests for Volume dataclass and serialization."""
 
     def test_from_api_response_camel_case(self) -> None:
-        vol = Volume(type="model", source="gpt2", mountPath="/data", readOnly=True)
+        vol = Volume(type="model", source="org/gpt2", mountPath="/data", readOnly=True)
         assert vol.type == "model"
-        assert vol.source == "gpt2"
+        assert vol.source == "org/gpt2"
         assert vol.mount_path == "/data"
         assert vol.read_only is True
 
@@ -3315,10 +3527,10 @@ class TestVolume:
 
     def test_missing_mount_path_raises(self) -> None:
         with pytest.raises(KeyError):
-            Volume(type="model", source="gpt2")
+            Volume(type="model", source="org/gpt2")
 
     def test_optional_fields(self) -> None:
-        vol = Volume(type="model", source="gpt2", mountPath="/data", revision="v1.0", path="subdir")
+        vol = Volume(type="model", source="org/gpt2", mountPath="/data", revision="v1.0", path="subdir")
         assert vol.revision == "v1.0"
         assert vol.path == "subdir"
 
@@ -3337,7 +3549,7 @@ class TestVolume:
         assert "volumes" not in spec
 
     def test_serialize_optional_fields(self) -> None:
-        vols = [Volume(type="model", source="gpt2", mount_path="/m", revision="main", path="subdir")]
+        vols = [Volume(type="model", source="org/gpt2", mount_path="/m", revision="main", path="subdir")]
         spec = _create_job_spec(
             image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=None, volumes=vols
         )
@@ -3578,13 +3790,7 @@ class TestGlobalFormattingFlags:
         assert "--format" in result.output
         assert "--json" in result.output
         assert "--quiet" in result.output
-
-    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
-        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
-        and don't get the duplicated 'Formatting options' section."""
-        result = runner.invoke(app, ["jobs", "ps", "--help"])
-        assert result.exit_code == 0, result.output
-        assert "Formatting options:" not in result.output
+        assert "--no-truncate" in result.output
 
     def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
         """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""

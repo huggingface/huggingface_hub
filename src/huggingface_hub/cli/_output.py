@@ -17,10 +17,11 @@ import dataclasses
 import datetime
 import json
 import re
+import shutil
 import sys
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import typer
 
@@ -28,8 +29,7 @@ from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
 
 
-# TODO: remove OutputFormat in _cli_utils.py once all commands are migrated to OutputFormatWithAuto.
-class OutputFormatWithAuto(str, Enum):
+class OutputFormat(str, Enum):
     """Output format for CLI commands with auto detection of agent/human mode."""
 
     agent = "agent"
@@ -46,21 +46,27 @@ class Output:
     and can be overridden per-command via `set_mode()`.
     """
 
-    mode: OutputFormatWithAuto
+    mode: OutputFormat
+    no_truncate: bool
 
     def __init__(self) -> None:
+        self.no_truncate = False
         self.set_mode()
 
-    def set_mode(self, mode: OutputFormatWithAuto = OutputFormatWithAuto.auto) -> None:
+    def set_mode(self, mode: OutputFormat = OutputFormat.auto) -> None:
         """Override the output mode (called once at startup and again per '--format' flag)."""
-        if mode == OutputFormatWithAuto.auto:
-            mode = OutputFormatWithAuto.agent if is_agent() else OutputFormatWithAuto.human
+        if mode == OutputFormat.auto:
+            mode = OutputFormat.agent if is_agent() else OutputFormat.human
         self.mode = mode
-        if mode != OutputFormatWithAuto.human:
+        if mode != OutputFormat.human:
             disable_progress_bars()
 
+    def set_no_truncate(self, no_truncate: bool) -> None:
+        """Toggle off cell truncation for human table output."""
+        self.no_truncate = no_truncate
+
     def is_quiet(self) -> bool:
-        return self.mode == OutputFormatWithAuto.quiet
+        return self.mode == OutputFormat.quiet
 
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
         """Print a free-form text message to stdout."""
@@ -71,10 +77,10 @@ class Output:
             agent = _strip_ansi(msg)
 
         match self.mode:
-            case OutputFormatWithAuto.human:
+            case OutputFormat.human:
                 if human is not None:
                     print(human)
-            case OutputFormatWithAuto.agent:
+            case OutputFormat.agent:
                 if agent is not None:
                     print(agent)
             # json/quiet: no-op
@@ -97,9 +103,9 @@ class Output:
         """
         if not items:
             match self.mode:
-                case OutputFormatWithAuto.agent | OutputFormatWithAuto.human:
+                case OutputFormat.agent | OutputFormat.human:
                     print("No results found.")
-                case OutputFormatWithAuto.json:
+                case OutputFormat.json:
                     print("[]")
             return
 
@@ -109,18 +115,30 @@ class Output:
         rows = [[item.get(h) for h in headers] for item in items]
 
         match self.mode:
-            case OutputFormatWithAuto.human:  # padded table, truncated cells, SCREAMING_SNAKE headers
-                formatted_rows: list[list[str | int]] = [[_format_table_cell_human(v) for v in row] for row in rows]
+            case OutputFormat.human:  # padded table, adaptive truncation, SCREAMING_SNAKE headers
                 screaming_headers = [_to_header(h) for h in headers]
-                screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-                print(tabulate(formatted_rows, headers=screaming_headers, alignments=screaming_alignments))
-            case OutputFormatWithAuto.agent:  # TSV, no truncation, full timestamps
+                formatted_rows: list[list[str]] = [[_format_table_value_human(v) for v in row] for row in rows]
+
+                is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
+
+                inferred = {**_infer_alignments(headers, rows), **(alignments or {})}
+                screaming_alignments = {_to_header(k): v for k, v in inferred.items()}
+                print(
+                    tabulate(
+                        cast("list[list[str | int]]", formatted_rows),
+                        headers=screaming_headers,
+                        alignments=screaming_alignments,
+                    )
+                )
+                if is_truncated:
+                    self.hint("Use `--no-truncate` or `--format json` to display full values.")
+            case OutputFormat.agent:  # TSV, no truncation, full timestamps
                 print("\t".join(headers))
                 for row in rows:
                     print("\t".join(_format_table_cell_agent(v) for v in row))
-            case OutputFormatWithAuto.json:  # compact JSON array
+            case OutputFormat.json:  # compact JSON array
                 print(json.dumps(list(items), default=str))
-            case OutputFormatWithAuto.quiet:  # id_key column (or first column), one per line
+            case OutputFormat.quiet:  # id_key column (or first column), one per line
                 quiet_key = id_key or headers[0]
                 for item in items:
                     print(item.get(quiet_key, ""))
@@ -132,65 +150,65 @@ class Output:
         """
         if dataclasses.is_dataclass(data) and not isinstance(data, type):
             data = _dataclass_to_dict(data)
-        if self.mode == OutputFormatWithAuto.quiet and id_key is not None:
+        if self.mode == OutputFormat.quiet and id_key is not None:
             print(data.get(id_key, ""))
             return
-        indent = 2 if self.mode == OutputFormatWithAuto.human else None
+        indent = 2 if self.mode == OutputFormat.human else None
         print(json.dumps(data, indent=indent, default=str))
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
         match self.mode:
-            case OutputFormatWithAuto.human:  # ✓ message + key: value lines
+            case OutputFormat.human:  # ✓ message + key: value lines
                 parts = [ANSI.green(f"✓ {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
                 print("\n".join(parts))
-            case OutputFormatWithAuto.agent:  # key=val pairs, space-separated
+            case OutputFormat.agent:  # key=val pairs, space-separated
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
                 print(" ".join(parts) if parts else message)
-            case OutputFormatWithAuto.json:  # json.dumps(data), message ignored
+            case OutputFormat.json:  # json.dumps(data), message ignored
                 print(json.dumps(data, default=str) if data else "")
-            case OutputFormatWithAuto.quiet:  # first value only
+            case OutputFormat.quiet:  # first value only
                 values = list(data.values())
                 if values:
                     print(values[0])
 
-    def confirm(self, message: str, *, default: bool = False, yes: bool = False) -> None:
+    def confirm(self, message: str, *, default: bool = False, yes: bool = False, confirm_param: str = "--yes") -> None:
         """
         Ask for confirmation. Raises `ConfirmationError` in non-human modes.
         """
         if yes:
             return
-        if self.mode != OutputFormatWithAuto.human:
-            raise ConfirmationError(f"{message} Use --yes to skip confirmation.")
+        if self.mode != OutputFormat.human:
+            raise ConfirmationError(f"{message} Use {confirm_param} to skip confirmation.")
         typer.confirm(message, default=default, abort=True)
 
     def status(self, message: str | None = None) -> StatusLine:
         """Return a status line that emits only in human mode (no-op otherwise)."""
-        status = StatusLine(enabled=self.mode == OutputFormatWithAuto.human)
+        status = StatusLine(enabled=self.mode == OutputFormat.human)
         if message is not None:
             status.update(message)
         return status
 
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr)
         else:
             print(f"Warning: {message}", file=sys.stderr)
 
     def error(self, message: str) -> None:
         """Print an error to stderr (all modes)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.red(f"Error: {message}"), file=sys.stderr)
         else:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
-        if self.mode == OutputFormatWithAuto.human:
+        if self.mode == OutputFormat.human:
             print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
         else:
             print(f"Hint: {message}", file=sys.stderr)
@@ -216,7 +234,6 @@ def _dataclass_to_dict(info: Any) -> dict[str, Any]:
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
-_MAX_CELL_LENGTH = 35
 
 
 def _strip_ansi(text: str) -> str:
@@ -231,6 +248,15 @@ def _to_header(name: str) -> str:
     """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE."""
     s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
     return s.upper()
+
+
+def _infer_alignments(headers: list[str], rows: list[list[Any]]) -> dict[str, str]:
+    """Return ``{"col": "right"}`` for columns where every non-None value is numeric."""
+    result: dict[str, str] = {}
+    for c, h in enumerate(headers):
+        if all(row[c] is None or (isinstance(row[c], (int, float)) and not isinstance(row[c], bool)) for row in rows):
+            result[h] = "right"
+    return result
 
 
 def _format_table_value_human(value: Any) -> str:
@@ -254,12 +280,52 @@ def _format_table_value_human(value: Any) -> str:
     return _single_line(str(value))
 
 
-def _format_table_cell_human(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value + truncate it for table display."""
-    cell = _format_table_value_human(value)
-    if len(cell) > max_len:
-        cell = cell[: max_len - 3] + "..."
-    return cell
+def _truncate_columns(
+    headers: list[str],
+    rows: list[list[str]],
+    *,
+    no_truncate: bool,
+) -> bool:
+    """Truncate cells in-place to fit the current terminal width.
+
+    Returns `True` if any cell was truncated, so the caller can emit a hint.
+    `shutil.get_terminal_size` is cross-platform: it honors `$COLUMNS`, then
+    queries the OS-native API, then falls back to `(80, 24)`.
+    """
+    if no_truncate or not rows:
+        return False
+
+    n = len(headers)
+    # Per-column natural width: longest of header label and cell values.
+    natural = [max(len(headers[c]), *(len(rows[r][c]) for r in range(len(rows)))) for c in range(n)]
+
+    # `max(0, n - 1)` accounts for the single-space separator between columns.
+    budget = shutil.get_terminal_size().columns - max(0, n - 1)
+    if sum(natural) <= budget:
+        return False
+
+    # Shrink the widest column 1 char at a time. Floors keep the header label
+    # visible; the `4` is the smallest cap that still shows "x..." (one content
+    # char plus the "..." marker).
+    caps = natural.copy()
+    min_widths = [max(len(h), 4) for h in headers]
+    while sum(caps) > budget:
+        widest = max(
+            (i for i, w in enumerate(caps) if w > min_widths[i]),
+            key=lambda i: caps[i],
+            default=-1,
+        )
+        if widest < 0:
+            break  # everything at floor — table wraps slightly
+        caps[widest] -= 1
+
+    truncated = False
+    for row in rows:
+        for c, cell in enumerate(row):
+            if len(cell) > caps[c]:
+                truncated = True
+                row[c] = cell[: caps[c] - 3] + "..."
+    return truncated
 
 
 def _format_table_cell_agent(value: Any) -> str:

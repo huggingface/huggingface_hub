@@ -96,6 +96,9 @@ check if a local folder or file has the same name as the `repo_id`. If that's th
 Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
 set, files are uploaded at the root of the repo.
 
+> [!TIP]
+> For maximum upload throughput on large files, set the [`HF_XET_HIGH_PERFORMANCE=1`](../package_reference/environment_variables.md#hf_xet_high_performance) environment variable. This enables `hf_xet`'s high-performance mode, which saturates available bandwidth and CPU cores. Note: the legacy `HF_HUB_ENABLE_HF_TRANSFER=1` flag is no longer used since `hf_transfer` was removed in favor of `hf_xet` — set `HF_XET_HIGH_PERFORMANCE=1` instead.
+
 For more details about the CLI upload command, please refer to the [CLI guide](./cli#hf-upload).
 
 ## Upload a large folder
@@ -226,6 +229,43 @@ Future(...)
 ... )
 Future(...)
 ```
+
+### Copy files between repositories
+
+Use [`copy_files`] to copy files or folders between repositories on the Hub without downloading or re-uploading large data. This is useful when you want to duplicate weights across model variants, copy dataset files between repos, or reorganize files across your repositories. Under the hood, it creates a commit with [`CommitOperationCopy`] operations.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Copy a single file between repos
+>>> api.copy_files(
+...     "hf://username/source-model/weights.safetensors",
+...     "hf://username/target-model/weights.safetensors",
+... )
+
+# Copy an entire folder
+>>> api.copy_files(
+...     "hf://datasets/username/source-dataset/data/",
+...     "hf://datasets/username/target-dataset/data/",
+... )
+```
+
+You can also copy within the same repository:
+
+```py
+# Duplicate a file in the same repo
+>>> api.copy_files(
+...     "hf://username/my-model/config.json",
+...     "hf://username/my-model/backup/config.json",
+... )
+```
+
+> [!TIP]
+> When copying a folder, a trailing `/` on the source uses rsync-style semantics meaning the *contents* of the folder are copied, without nesting the folder itself. Without a trailing `/`, the folder itself is nested at the destination.
+
+> [!TIP]
+> [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
 
 ### Upload a folder by chunks
 
@@ -368,11 +408,13 @@ There are three types of operations supported by [`create_commit`]:
 
 - [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
-- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+- [`CommitOperationCopy`] copies a file within a repository or across repositories. This operation accepts the following arguments:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if you want to copy a file from a different branch/revision.
+  - `src_repo_id`: optional - the source repository to copy from (e.g. `"username/source-model"`). Defaults to the destination repository.
+  - `src_repo_type`: optional - the type of the source repository (`"model"`, `"dataset"` or `"space"`). Required when `src_repo_id` is set.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 

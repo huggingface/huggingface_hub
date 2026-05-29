@@ -30,7 +30,7 @@ from itertools import islice
 from pathlib import Path
 from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 import httpcore
 import httpx
@@ -52,14 +52,16 @@ from ._buckets import (
     _BucketAddFile,
     _BucketCopyFile,
     _BucketDeleteFile,
-    _split_bucket_id_and_prefix,
+    _parse_bucket_uri,
     sync_bucket_internal,
 )
 from ._commit_api import (
+    DUPLICATE_LFS_BATCH_SIZE,
     CommitOperation,
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
+    _CopySource,
     _fetch_files_to_copy,
     _fetch_upload_modes,
     _prepare_commit_payload,
@@ -69,7 +71,7 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
 from ._space_api import (
     SpaceHardware,
     SpaceRuntime,
@@ -91,6 +93,7 @@ from .community import (
 from .errors import (
     BadRequestError,
     EntryNotFoundError,
+    FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -102,6 +105,7 @@ from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata,
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
+    HfUri,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -120,6 +124,7 @@ from .utils import (
     logging,
     paginate,
     parse_datetime,
+    parse_hf_uri,
     parse_xet_file_data_from_response,
     silent_tqdm,
     validate_hf_hub_args,
@@ -412,63 +417,6 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     return repo_type, namespace, repo_id
 
 
-def _parse_hf_copy_handle(hf_handle: str) -> _BucketCopyHandle | _RepoCopyHandle:
-    # TODO: Harmonize hf:// parsing. See https://github.com/huggingface/huggingface_hub/issues/3971
-    if not hf_handle.startswith("hf://"):
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'. Expected a path starting with 'hf://'.")
-
-    path = hf_handle.removeprefix("hf://")
-    if path.startswith("buckets/"):
-        bucket_id, bucket_path = _split_bucket_id_and_prefix(path.removeprefix("buckets/"))
-        return _BucketCopyHandle(
-            bucket_id=bucket_id,
-            path=bucket_path.strip("/"),
-        )
-
-    path = path.strip("/")
-    if path == "":
-        raise ValueError(f"Invalid HF handle: '{hf_handle}'.")
-
-    parts = path.split("/")
-    repo_type: str = constants.REPO_TYPE_MODEL
-    if parts[0] in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[parts[0]]
-        parts = parts[1:]
-
-    if len(parts) < 2:
-        raise ValueError(
-            f"Invalid repo HF handle: '{hf_handle}'. Expected format 'hf://<namespace>/<repo_id>/path' or with explicit repo type prefix."
-        )
-
-    namespace, repo_name_with_revision = parts[0], parts[1]
-    remaining_parts = parts[2:]
-    revision: str | None = None
-    if "@" in repo_name_with_revision:
-        repo_name, revision = repo_name_with_revision.split("@", 1)
-    else:
-        repo_name = repo_name_with_revision
-
-    if revision is None:
-        revision = constants.DEFAULT_REVISION
-    else:
-        revision = unquote(revision)
-        if remaining_parts:
-            maybe_special_ref = f"{revision}/{remaining_parts[0]}"
-            match = SPECIAL_REFS_REVISION_REGEX.match(maybe_special_ref)
-            if match is not None:
-                revision = match.group()
-                suffix = maybe_special_ref.removeprefix(revision).lstrip("/")
-                remaining_parts = ([suffix] if suffix else []) + remaining_parts[1:]
-
-    repo_path = "/".join(remaining_parts).strip("/")
-    return _RepoCopyHandle(
-        repo_type=repo_type,  # type: ignore
-        repo_id=f"{namespace}/{repo_name}",
-        revision=revision,
-        path=repo_path,
-    )
-
-
 @dataclass
 class LastCommitInfo(dict):
     oid: str
@@ -731,18 +679,45 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-@dataclass(frozen=True)
-class _BucketCopyHandle:
-    bucket_id: str
-    path: str
+def _resolve_copy_target_path(
+    src_file_path: str,
+    src_root_path: str | None,
+    is_single_file: bool,
+    destination_path: str,
+    destination_is_directory: bool,
+    destination_exists_as_directory: bool,
+    merge_contents: bool,
+) -> str:
+    basename = src_file_path.rsplit("/", 1)[-1]
+    if is_single_file:
+        if destination_path == "":
+            return basename
+        if destination_is_directory:
+            return f"{destination_path.rstrip('/')}/{basename}"
+        return destination_path
 
+    if src_root_path is None:
+        rel_path = src_file_path
+    elif src_file_path.startswith(src_root_path + "/"):
+        rel_path = src_file_path[len(src_root_path) + 1 :]
+    elif src_file_path == src_root_path:
+        rel_path = src_file_path.rsplit("/", 1)[-1]
+    else:
+        raise ValueError(f"Unexpected source path while copying folder: '{src_file_path}'.")
 
-@dataclass(frozen=True)
-class _RepoCopyHandle:
-    repo_type: Literal["model", "dataset", "space"]
-    repo_id: str
-    revision: str
-    path: str
+    if rel_path == "":
+        raise ValueError("Cannot copy an empty relative path.")
+
+    # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
+    # Without trailing slash, match `cp -r` behavior: nest source folder inside
+    # existing destination directory. Non-existing destination always uses rename semantics.
+    if destination_exists_as_directory and src_root_path is not None and not merge_contents:
+        src_dir_basename = src_root_path.rsplit("/", 1)[-1]
+        rel_path = f"{src_dir_basename}/{rel_path}"
+
+    if destination_path == "":
+        return rel_path
+    return f"{destination_path.rstrip('/')}/{rel_path}"
 
 
 @dataclass
@@ -1647,6 +1622,44 @@ class UserLikes:
 
 
 @dataclass
+class RepoStorageInfo:
+    """
+    Contains storage information about a repository on the Hub.
+
+    Returned by [`list_user_repos`].
+
+    Attributes:
+        id (`str`):
+            ID of the repo (e.g. `username/repo-name`).
+        type (`str`):
+            Type of the repo (`model`, `dataset`, `space`, or `bucket`).
+        updated_at (`datetime`):
+            Last update time of the repo.
+        visibility (`str`):
+            Visibility of the repo (`public` or `private`).
+        storage (`int`):
+            Storage used by the repo in bytes.
+        storage_percent (`float`):
+            Percentage of the namespace's total storage used by this repo.
+    """
+
+    id: str
+    type: str
+    updated_at: datetime
+    visibility: str
+    storage: int
+    storage_percent: float
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.id = kwargs["id"]
+        self.type = kwargs["type"]
+        self.updated_at = parse_datetime(kwargs["updatedAt"])
+        self.visibility = kwargs["visibility"]
+        self.storage = kwargs["storage"]
+        self.storage_percent = kwargs.get("storagePercent") or 0
+
+
+@dataclass
 class Organization:
     """
     Contains information about an organization on the Hub.
@@ -1870,6 +1883,16 @@ class PaperInfo:
             URL of the GitHub repository for the paper.
         github_stars (`int`, *optional*):
             Number of stars of the GitHub repository for the paper.
+        linked_models (`list[ModelInfo]`, *optional*):
+            Models linked to the paper. Only returned by [`paper_info`].
+        num_total_models (`int`, *optional*):
+            Total number of models linked to the paper. Only returned by [`paper_info`].
+        linked_datasets (`list[DatasetInfo]`, *optional*):
+            Datasets linked to the paper. Only returned by [`paper_info`].
+        num_total_datasets (`int`, *optional*):
+            Total number of datasets linked to the paper. Only returned by [`paper_info`].
+        linked_spaces (`list[SpaceInfo]`, *optional*):
+            Spaces linked to the paper. Only returned by [`paper_info`].
     """
 
     id: str
@@ -1889,6 +1912,11 @@ class PaperInfo:
     project_page: str | None
     github_repo: str | None
     github_stars: int | None
+    linked_models: list[ModelInfo] | None
+    num_total_models: int | None
+    linked_datasets: list[DatasetInfo] | None
+    num_total_datasets: int | None
+    linked_spaces: list[SpaceInfo] | None
 
     def __init__(self, **kwargs) -> None:
         paper = kwargs.pop("paper", {})
@@ -1914,6 +1942,14 @@ class PaperInfo:
         self.project_page = kwargs.pop("projectPage", None)
         self.github_repo = kwargs.pop("githubRepo", None)
         self.github_stars = kwargs.pop("githubStars", None)
+        linked_models = kwargs.pop("linkedModels", None)
+        self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
+        self.num_total_models = kwargs.pop("numTotalModels", None)
+        linked_datasets = kwargs.pop("linkedDatasets", None)
+        self.linked_datasets = [DatasetInfo(**d) for d in linked_datasets] if linked_datasets is not None else None
+        self.num_total_datasets = kwargs.pop("numTotalDatasets", None)
+        linked_spaces = kwargs.pop("linkedSpaces", None)
+        self.linked_spaces = [SpaceInfo(**s) for s in linked_spaces] if linked_spaces is not None else None
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -3100,6 +3136,46 @@ class HfApi:
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
         )
+
+    def list_user_repos(
+        self,
+        namespace: str | None = None,
+        *,
+        token: bool | str | None = None,
+    ) -> Iterable[RepoStorageInfo]:
+        """List all repositories (models, datasets, spaces, buckets) for a user or organization with storage info.
+
+        Uses the `/api/settings/repositories` endpoint for the authenticated user or
+        `/api/organizations/{namespace}/settings/repositories` for an organization.
+
+        Args:
+            namespace (`str`, *optional*):
+                Organization name. If not provided, lists repos for the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token.
+
+        Returns:
+            `Iterable[RepoStorageInfo]`: An iterable of [`RepoStorageInfo`] objects.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_user_repos
+
+        >>> repos = list(list_user_repos())
+        >>> repos[0]
+        RepoStorageInfo(id='username/my-model', type='model', ...)
+
+        >>> # List repos from an organization
+        >>> repos = list(list_user_repos(namespace="my-org"))
+        ```
+        """
+        if namespace is not None:
+            path = f"{self.endpoint}/api/organizations/{namespace}/settings/repositories"
+        else:
+            path = f"{self.endpoint}/api/settings/repositories"
+        headers = self._build_hf_headers(token=token)
+        for item in paginate(path, params={}, headers=headers):
+            yield RepoStorageInfo(**item)
 
     @validate_hf_hub_args
     def list_repo_likers(
@@ -4916,7 +4992,7 @@ class HfApi:
                     )
 
         logger.debug(
-            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
+            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copy(ies) and"
             f" {nb_deletions} deletion(s)."
         )
 
@@ -4952,6 +5028,11 @@ class HfApi:
             revision=unquoted_revision,
             endpoint=self.endpoint,
         )
+
+        self._duplicate_lfs_files(
+            repo_id=repo_id, copies=copies, files_to_copy=files_to_copy, token=token, repo_type=repo_type
+        )
+
         # Remove no-op operations (files that have not changed)
         operations_without_no_op = []
         for operation in operations:
@@ -5003,7 +5084,7 @@ class HfApi:
             )
 
         commit_payload = _prepare_commit_payload(
-            operations=operations,
+            operations=operations_without_no_op,
             files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
@@ -5214,6 +5295,110 @@ class HfApi:
             addition._is_uploaded = True
             if free_memory:
                 addition.path_or_fileobj = b""
+
+    @validate_hf_hub_args
+    def _duplicate_lfs_files(
+        self,
+        repo_id: str,
+        copies: Iterable[CommitOperationCopy],
+        *,
+        files_to_copy: dict,
+        token: str | bool | None = None,
+        repo_type: str | None = None,
+    ) -> None:
+        """Duplicate LFS files from source repositories to the destination repository.
+
+        This method is the equivalent of [`preupload_lfs_files`] for cross-repo copy operations. It must be called
+        before [`create_commit`] to ensure that LFS files from the source repositories are available in the destination
+        repository before the commit is created.
+
+        Args:
+            repo_id (`str`):
+                The destination repository in which you will commit the files, for example:
+                `"username/custom_transformers"`.
+
+            copies (`Iterable` of [`CommitOperationCopy`]):
+                The list of copy operations describing which files to duplicate. Only cross-repo copies (where
+                `src_repo_id` is set) with LFS files will be processed. Warning: the objects in this list will be
+                mutated to include information relative to the duplication. Do not reuse the same objects for multiple
+                commits.
+
+            files_to_copy (`dict`):
+                Pre-fetched file info from [`_fetch_files_to_copy`]. LFS metadata is extracted from this dict instead
+                of making additional API calls. Keys are `_CopySource` tuples, values are `RepoFile` (for LFS files)
+                or `bytes` (for regular files).
+
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+            repo_type (`str`, *optional*):
+                The type of the destination repository (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+        """
+        repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        headers = self._build_hf_headers(token=token)
+
+        copies = list(copies)
+        # Filter to cross-repo copies that haven't been duplicated yet
+        cross_repo_copies = [op for op in copies if op.src_repo_id is not None and not op._is_duplicated]
+        if not cross_repo_copies:
+            logger.debug("No cross-repo LFS files to duplicate.")
+            return
+
+        # The /lfs-files/duplicate endpoint lives on the *source* repo and takes the destination as `target`.
+        cross_repo_copies.sort(key=lambda op: (op.src_repo_id or "", op.src_repo_type or "", op.src_revision or ""))
+
+        for (src_repo_id, src_repo_type, src_revision), group in itertools.groupby(
+            cross_repo_copies, key=lambda op: (op.src_repo_id, op.src_repo_type, op.src_revision)
+        ):
+            operations = list(group)
+
+            lfs_files: list[dict] = []
+            seen_oids: set[str] = set()
+
+            for op in operations:
+                key = _CopySource(op.src_repo_id, op.src_repo_type, op.src_path_in_repo, op.src_revision)
+                src_file = files_to_copy.get(key)
+                if src_file is None or isinstance(src_file, bytes):
+                    continue
+                if not src_file.lfs:
+                    continue
+                if not src_file.xet_hash:
+                    raise ValueError(
+                        f"Cannot duplicate LFS file '{src_file.path}' from {src_repo_type}s/{src_repo_id}: file has no xet hash."
+                    )
+                oid = src_file.lfs.sha256
+                if oid not in seen_oids:
+                    seen_oids.add(oid)
+                    lfs_files.append({"xetHash": src_file.xet_hash, "sha256": oid, "filename": src_file.path})
+
+            if not lfs_files:
+                continue
+
+            # Call the duplicate endpoint on the *source* repo, in batches
+            duplicate_url = f"{self.endpoint}/api/{src_repo_type}s/{src_repo_id}/lfs-files/duplicate"
+            for batch in chunk_iterable(lfs_files, DUPLICATE_LFS_BATCH_SIZE):
+                response = get_session().post(
+                    duplicate_url,
+                    headers=headers,
+                    json={"target": {"type": repo_type, "name": repo_id}, "files": list(batch)},
+                )
+                hf_raise_for_status(response)
+                data = response.json()
+                failures = data.get("failed", [])
+                if failures:
+                    messages = [f"  - {f['sha256']}: {f['error']}" for f in failures]
+                    raise FileDuplicationError(
+                        f"Failed to duplicate files from {src_repo_type}s/{src_repo_id} "
+                        f"to {repo_type}s/{repo_id}:\n" + "\n".join(messages)
+                    )
+
+        for op in cross_repo_copies:
+            op._is_duplicated = True
 
     @overload
     def upload_file(  # type: ignore
@@ -7835,11 +8020,11 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
-    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+    def list_spaces_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """List available hardware options for Spaces.
 
         Returns:
-            `list[JobHardware]`: A list of available hardware configurations.
+            `list[JobHardwareInfo]`: A list of available hardware configurations.
 
         Example:
 
@@ -7847,7 +8032,7 @@ class HfApi:
         >>> from huggingface_hub import list_spaces_hardware
         >>> hardware_list = list_spaces_hardware()
         >>> hardware_list[0]
-        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
+        JobHardwareInfo(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ...)
         >>> hardware_list[0].name
         'cpu-basic'
         ```
@@ -7856,7 +8041,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/hardware", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
-        return [JobHardware(**hardware) for hardware in response.json()]
+        return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
     @validate_hf_hub_args
     def request_space_hardware(
@@ -8134,6 +8319,7 @@ class HfApi:
         tolerated_status_codes: tuple[int, ...] = (),
         tolerated_exception_types: tuple[type[Exception], ...] = (),
         on_iteration_end: Callable[[], bool] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterable[dict[str, Any]]:
         # Shared SSE streaming loop with retry/backoff and event-index dedup.
         # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
@@ -8160,6 +8346,7 @@ class HfApi:
                     url,
                     headers=self._build_hf_headers(token=token),
                     timeout=timeout,
+                    params=params,
                 ) as response:
                     if response.status_code == 200:
                         event_idx = -1
@@ -8208,6 +8395,9 @@ class HfApi:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
                     error_to_retry = err
+            # Drop params after the first attempt: the start_event_idx dedup
+            # requires a stable replay prefix, which `tail` would break.
+            params = None
             if on_iteration_end is not None and on_iteration_end():
                 break
 
@@ -8283,7 +8473,7 @@ class HfApi:
             ```
         """
         # - Spaces /logs/{run|build} is SSE with `data: {"data": "...", "timestamp": "..."}` events.
-        # - Keep-alives are sent as empty `data:` messages (skipped by the `data: {` filter).
+        # - Keep-alive messages are sent as empty `data:` events (skipped by the `data: {` filter).
         # - In no-follow mode we use a short read timeout to drain the buffer and return.
         timeout = 120 if follow else 5
         for event in self._fetch_space_logs_sse(
@@ -11403,7 +11593,7 @@ class HfApi:
         command: list[str],
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11429,7 +11619,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -11514,6 +11704,7 @@ class HfApi:
         follow: bool = True,
         namespace: str | None = None,
         token: bool | str | None = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterable[dict[str, Any]]:
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
@@ -11539,6 +11730,7 @@ class HfApi:
             tolerated_status_codes=tolerated_status_codes,
             tolerated_exception_types=tolerated_exception_types,
             on_iteration_end=has_job_finished,
+            params=params,
         )
 
     def fetch_job_logs(
@@ -11547,6 +11739,7 @@ class HfApi:
         job_id: str,
         namespace: str | None = None,
         follow: bool = False,
+        tail: int | None = None,
         token: bool | str | None = None,
     ) -> Iterable[str]:
         """
@@ -11562,6 +11755,11 @@ class HfApi:
             follow (`bool`, *optional*):
                 If `True`, stream logs in real-time until the job completes (blocking).
                 If `False` (default), fetch only the currently available logs and return immediately (non-blocking).
+
+            tail (`int`, *optional*):
+                Maximum number of lines to return from the logs. When combined with `follow=True`,
+                starts from the last N lines and continues streaming new logs. When `follow=False`,
+                returns only the last N lines from currently available logs.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -11580,6 +11778,10 @@ class HfApi:
             >>> # Non-blocking: fetch only currently available logs
             >>> for log in fetch_job_logs(job_id=job.id, follow=False):
             ...     print(log)
+
+            >>> # Stream logs starting from the last 100 lines
+            >>> for log in fetch_job_logs(job_id=job.id, follow=True, tail=100):
+            ...     print(log)
             ```
         """
         # - We need to retry because sometimes the /logs doesn't return logs when the job just started.
@@ -11595,6 +11797,7 @@ class HfApi:
         # quickly, then pauses waiting for new events (~30s keep-alive). 5 seconds is
         # enough to receive all buffered logs.
         timeout = 4 * seconds_between_keep_alive if follow else 5
+        params = {"tail": tail} if tail is not None else None
         for event in self._fetch_running_job_sse(
             job_id=job_id,
             route="logs",
@@ -11603,6 +11806,7 @@ class HfApi:
             follow=follow,
             namespace=namespace,
             token=token,
+            params=params,
         ):
             # timestamp = event["timestamp"]
             if not event["data"].startswith("===== Job started"):
@@ -11707,12 +11911,12 @@ class HfApi:
         response.raise_for_status()
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
-    def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardware]:
+    def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
         List available hardware options for Jobs on Hugging Face infrastructure.
 
         Returns:
-            `list[JobHardware]`: A list of available hardware configurations.
+            `list[JobHardwareInfo]`: A list of available hardware configurations.
 
         Example:
 
@@ -11721,7 +11925,7 @@ class HfApi:
         >>> api = HfApi()
         >>> hardware_list = api.list_jobs_hardware()
         >>> hardware_list[0]
-        JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+        JobHardwareInfo(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', ephemeral_storage='20 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
         >>> hardware_list[0].name
         'cpu-basic'
 
@@ -11733,7 +11937,7 @@ class HfApi:
         """
         response = get_session().get(f"{self.endpoint}/api/jobs/hardware", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(response)
-        return [JobHardware(**hardware) for hardware in response.json()]
+        return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
     def inspect_job(
         self,
@@ -11815,6 +12019,49 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         ).raise_for_status()
 
+    def update_job_labels(
+        self,
+        *,
+        job_id: str,
+        labels: dict[str, str],
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Update labels of an existing Job.
+
+        Replaces all existing user-provided labels with the new labels.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            labels (`dict[str, str]`):
+                New labels to set on the job. Replaces all existing labels.
+                Both keys and values must be max 100 characters and contain only
+                alphanumeric characters, dots, dashes, and underscores.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: The updated Job info.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/labels",
+            headers=self._build_hf_headers(token=token),
+            json={"labels": labels},
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     @experimental
     def run_uv_job(
         self,
@@ -11826,7 +12073,7 @@ class HfApi:
         image: str | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11859,7 +12106,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -11963,7 +12210,7 @@ class HfApi:
         concurrency: bool | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11999,7 +12246,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -12237,6 +12484,49 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         ).raise_for_status()
 
+    def update_scheduled_job_labels(
+        self,
+        *,
+        scheduled_job_id: str,
+        labels: dict[str, str],
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> ScheduledJobInfo:
+        """
+        Update labels of an existing scheduled Job.
+
+        Replaces all existing user-provided labels with the new labels.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            labels (`dict[str, str]`):
+                New labels to set on the scheduled job. Replaces all existing labels.
+                Both keys and values must be max 100 characters and contain only
+                alphanumeric characters, dots, dashes, and underscores.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`ScheduledJobInfo`]: The updated scheduled Job info.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/labels",
+            headers=self._build_hf_headers(token=token),
+            json={"labels": labels},
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
     @experimental
     def create_scheduled_uv_job(
         self,
@@ -12251,7 +12541,7 @@ class HfApi:
         image: str | None = None,
         env: dict[str, Any] | None = None,
         secrets: dict[str, Any] | None = None,
-        flavor: SpaceHardware | None = None,
+        flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -12294,7 +12584,7 @@ class HfApi:
                 Defines the secret environment variables for the Job.
 
             flavor (`str`, *optional*):
-                Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
+                Flavor for the hardware. See [`JobHardware`] for possible values.
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
@@ -12553,7 +12843,7 @@ class HfApi:
             'user/my-bucket'
             >>> url.url
             'https://huggingface.co/buckets/user/my-bucket'
-            >>> url.handle
+            >>> url.uri.to_uri()
             'hf://buckets/user/my-bucket'
 
             >>> create_bucket(bucket_id="my-bucket", private=True, exist_ok=True)
@@ -12574,10 +12864,10 @@ class HfApi:
         if "/" not in bucket_id:
             namespace, name = "me", bucket_id  # "me" namespace refers to the current user
         else:
-            bucket_id_parsed, prefix = _split_bucket_id_and_prefix(bucket_id)
-            if prefix:
+            parsed = _parse_bucket_uri(bucket_id)
+            if parsed.path_in_repo:
                 raise ValueError(f"Invalid bucket ID: {bucket_id}")
-            namespace, name = bucket_id_parsed.split("/")
+            namespace, name = parsed.id.split("/")
 
         response = get_session().post(
             f"{self.endpoint}/api/buckets/{namespace}/{name}",
@@ -12905,25 +13195,26 @@ class HfApi:
     def copy_files(self, source: str, destination: str, *, token: str | bool | None = None) -> None:
         """Copy files between locations on the Hub.
 
-        Copy files from a bucket or repository (model, dataset, space) to a bucket. Both individual files and
-        entire folders are supported.
-
-        Currently, only bucket destinations are supported. Copying to a repository is not supported.
+        Copy files from a bucket or repository (model, dataset, space) to a bucket or another repository.
+        Both individual files and entire folders are supported.
 
         When copying folders, a trailing `/` on the source path uses rsync-style semantics: copy the *contents*
         of the folder into the destination, without nesting the source folder itself. Without a trailing `/`,
         the source folder is nested inside the destination (like `cp -r`).
 
-        When copying from a repository, `.gitattributes` files are automatically excluded since they are
-        git-specific metadata and not relevant in a bucket context.
+        When copying from a repository to a bucket, `.gitattributes` files are automatically excluded since they
+        are git-specific metadata and not relevant in a bucket context.
+
+        Repo-to-repo copies use [`CommitOperationCopy`] under the hood and create a commit on the destination
+        repository. Bucket-to-repo copies are not supported.
 
         Args:
             source (`str`):
-                Source location as an `hf://` handle. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
+                Source location as an `hf://` URI. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
                 or a repo path (e.g. `"hf://username/my-model/weights.bin"`, `"hf://datasets/username/my-dataset/data/"`).
             destination (`str`):
-                Destination location as an `hf://` handle pointing to a bucket
-                (e.g. `"hf://buckets/my-bucket/target/path"`).
+                Destination location as an `hf://` URI pointing to a bucket (e.g. `"hf://buckets/my-bucket/target/path"`)
+                or a repository (e.g. `"hf://username/my-model/target/path"`).
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12932,7 +13223,7 @@ class HfApi:
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-                If the destination is not a bucket or if the source/destination handles are invalid.
+                If source/destination URIs are invalid or if copying from a bucket to a repo.
 
         Example:
             ```python
@@ -12952,75 +13243,70 @@ class HfApi:
 
             # Copy an entire dataset to a bucket
             >>> copy_files("hf://datasets/username/my-dataset/", "hf://buckets/my-bucket/datasets/")
+
+            # Copy files between repositories
+            >>> copy_files("hf://username/source-model/", "hf://username/dest-model/")
+
+            # Copy a file from one repo to another
+            >>> copy_files("hf://username/source-model/config.json", "hf://username/dest-model/config.json")
             ```
         """
+        source_uri = parse_hf_uri(source)
+        destination_uri = parse_hf_uri(destination)
+
         # Rsync-style trailing slash on source: "copy contents of" instead of "copy directory into".
         # Check before parsing strips the slash.
-        source_is_contents_only = source.endswith("/")
+        merge_contents = source.endswith("/")
 
-        source_handle = _parse_hf_copy_handle(source)
-        destination_handle = _parse_hf_copy_handle(destination)
+        if destination_uri.is_repo:
+            if source_uri.is_bucket:
+                raise ValueError("Bucket-to-repo copy is not supported.")
+            self._copy_to_repo(source_uri, destination_uri, merge_contents, source, destination, token=token)
+        else:
+            self._copy_to_bucket(source_uri, destination_uri, merge_contents, source, destination, token=token)
 
-        if isinstance(destination_handle, _RepoCopyHandle):
-            raise ValueError("Bucket-to-repo and repo-to-repo copy are not supported. Destination must be a bucket.")
-
-        destination_bucket_id = destination_handle.bucket_id
-        destination_path = destination_handle.path
+    def _copy_to_bucket(
+        self,
+        source: HfUri,
+        destination: HfUri,
+        merge_contents: bool,
+        source_str: str,
+        destination_str: str,
+        *,
+        token: str | bool | None = None,
+    ) -> None:
+        destination_bucket_id = destination.id
+        destination_path = destination.path_in_repo
         destination_is_directory = False
         destination_exists_as_directory = False
 
         if destination_path == "":
-            # Bucket root always exists as a directory
             destination_is_directory = True
             destination_exists_as_directory = True
         else:
-            # Check if destination matches an existing file
             dest_path_info = list(self.get_bucket_paths_info(destination_bucket_id, [destination_path], token=token))
             if dest_path_info:
                 destination_is_directory = False
             else:
-                # Check if destination is an existing "directory" (prefix with children)
                 destination_exists_as_directory = any(
                     self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
                 )
-                # Treat as directory if it exists as one, or if the user signaled with trailing slash
-                destination_is_directory = destination_exists_as_directory or destination.endswith("/")
+                destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
 
         all_adds: list[tuple[str, str]] = []
         all_copies: list[_BucketCopyFile] = []
-        pending_downloads: list[tuple[str, str]] = []  # (file_path, target_path) for non-xet files to download
+        pending_downloads: list[tuple[str, str]] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
-            basename = src_file_path.rsplit("/", 1)[-1]
-            if is_single_file:
-                if destination_path == "":
-                    return basename
-                if destination_is_directory:
-                    return f"{destination_path.rstrip('/')}/{basename}"
-                return destination_path
-
-            if src_root_path is None:
-                rel_path = src_file_path
-            elif src_file_path.startswith(src_root_path + "/"):
-                rel_path = src_file_path[len(src_root_path) + 1 :]
-            elif src_file_path == src_root_path:
-                rel_path = src_file_path.rsplit("/", 1)[-1]
-            else:
-                raise ValueError(f"Unexpected source path while copying folder: '{src_file_path}'.")
-
-            if rel_path == "":
-                raise ValueError("Cannot copy an empty relative path.")
-
-            # Rsync-style trailing slash on source means "copy contents of" — skip nesting.
-            # Without trailing slash, match `cp -r` behavior: nest source folder inside
-            # existing destination directory. Non-existing destination always uses rename semantics.
-            if destination_exists_as_directory and src_root_path is not None and not source_is_contents_only:
-                src_dir_basename = src_root_path.rsplit("/", 1)[-1]
-                rel_path = f"{src_dir_basename}/{rel_path}"
-
-            if destination_path == "":
-                return rel_path
-            return f"{destination_path.rstrip('/')}/{rel_path}"
+            return _resolve_copy_target_path(
+                src_file_path,
+                src_root_path,
+                is_single_file,
+                destination_path,
+                destination_is_directory,
+                destination_exists_as_directory,
+                merge_contents,
+            )
 
         def _build_copy_op(
             target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
@@ -13035,104 +13321,58 @@ class HfApi:
             )
 
         def _add_repo_file(file: RepoFile, target_path: str) -> None:
-            """Queue a repo file: copy-by-hash if xet-backed, otherwise download first."""
             if file.xet_hash is not None:
-                all_copies.append(
-                    _build_copy_op(
-                        target_path,
-                        file.xet_hash,
-                        file.size,
-                        source_handle.repo_type,  # type: ignore
-                        source_handle.repo_id,  # type: ignore
-                    )
-                )
+                all_copies.append(_build_copy_op(target_path, file.xet_hash, file.size, source.type, source.id))
             else:
                 pending_downloads.append((file.path, target_path))
 
-        # === Source is a bucket: always hash-based copy (no download needed) ===
-        if isinstance(source_handle, _BucketCopyHandle):
-            source_path = source_handle.path
-            source_path_info = list(self.get_bucket_paths_info(source_handle.bucket_id, [source_path], token=token))
+        if source.is_bucket:
+            source_path = source.path_in_repo
+            source_path_info = list(self.get_bucket_paths_info(source.id, [source_path], token=token))
 
             if source_path_info:
-                # Source path matched a single file
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
                 all_copies.append(
-                    _build_copy_op(
-                        target_path, source_file.xet_hash, source_file.size, "bucket", source_handle.bucket_id
-                    )
+                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source.id)
                 )
             else:
-                # Source path is a folder (or prefix) — list and copy all matching files
-                for item in self.list_bucket_tree(
-                    source_handle.bucket_id, prefix=source_path or None, recursive=True, token=token
-                ):
+                for item in self.list_bucket_tree(source.id, prefix=source_path or None, recursive=True, token=token):
                     if not isinstance(item, BucketFile):
                         continue
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    all_copies.append(
-                        _build_copy_op(target_path, item.xet_hash, item.size, "bucket", source_handle.bucket_id)
-                    )
-
-        # === Source is a repo: copy-by-hash if xet-backed, download otherwise ===
+                    all_copies.append(_build_copy_op(target_path, item.xet_hash, item.size, "bucket", source.id))
         else:
-            source_path = source_handle.path
-            source_repo_path_info: list[RepoFile | RepoFolder] = []
-            if source_path != "":
-                source_repo_path_info = self.get_paths_info(
-                    repo_id=source_handle.repo_id,
-                    paths=[source_path],
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
-                    token=token,
-                )
+            for file, target_path in self._iter_repo_files_for_copy(
+                source,
+                destination_path,
+                destination_is_directory,
+                destination_exists_as_directory,
+                merge_contents,
+                token=token,
+            ):
+                # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
+                if file.path.rsplit("/", 1)[-1] == ".gitattributes":
+                    continue
+                _add_repo_file(file, target_path)
 
-            if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
-                # Source path matched a single file — skip .gitattributes (git-specific metadata)
-                if source_repo_path_info[0].path.rsplit("/", 1)[-1] == ".gitattributes":
-                    return
-                target_path = _resolve_target_path(source_repo_path_info[0].path, None, is_single_file=True)
-                _add_repo_file(source_repo_path_info[0], target_path)
-            else:
-                # Source path is a folder — list and copy all files recursively
-                for repo_item in self.list_repo_tree(
-                    repo_id=source_handle.repo_id,
-                    path_in_repo=source_path,
-                    recursive=True,
-                    repo_type=source_handle.repo_type,
-                    revision=source_handle.revision,
-                    token=token,
-                ):
-                    if not isinstance(repo_item, RepoFile):
-                        continue
-                    # Skip .gitattributes files (git-specific metadata, not relevant in a bucket)
-                    if repo_item.path.rsplit("/", 1)[-1] == ".gitattributes":
-                        continue
-                    target_path = _resolve_target_path(repo_item.path, source_path or None, is_single_file=False)
-                    _add_repo_file(repo_item, target_path)
-
-        # Raise if no source files were found
         if not all_copies and not all_adds and not pending_downloads:
-            if isinstance(source_handle, _BucketCopyHandle):
-                raise EntryNotFoundError(f"No files found at '{source}' in bucket '{source_handle.bucket_id}'.")
+            if source.is_bucket:
+                raise EntryNotFoundError(f"No files found at '{source_str}' in bucket '{source.id}'.")
             else:
-                raise EntryNotFoundError(
-                    f"No files found at '{source}' in {source_handle.repo_type} '{source_handle.repo_id}'."
-                )
+                raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
 
-        # Download non-xet files in parallel
         if pending_downloads:
 
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
                 local_path = self.hf_hub_download(
-                    repo_id=source_handle.repo_id,  # type: ignore
-                    repo_type=source_handle.repo_type,  # type: ignore
+                    repo_id=source.id,
+                    repo_type=source.type,
                     filename=file_path,
-                    revision=source_handle.revision,  # type: ignore
+                    revision=source.revision,
                     token=token,
                     tqdm_class=silent_tqdm,  # type: ignore
                 )
@@ -13147,6 +13387,132 @@ class HfApi:
         if all_adds:
             for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
                 self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
+
+    def _iter_repo_files_for_copy(
+        self,
+        source: HfUri,
+        destination_path: str,
+        destination_is_directory: bool,
+        destination_exists_as_directory: bool,
+        merge_contents: bool,
+        *,
+        token: str | bool | None = None,
+    ) -> Iterable[tuple[RepoFile, str]]:
+        """Yield (file, target_path) pairs from a repo source, with target paths resolved."""
+        source_path = source.path_in_repo
+        source_repo_path_info: list[RepoFile | RepoFolder] = []
+        if source_path != "":
+            source_repo_path_info = self.get_paths_info(
+                repo_id=source.id,
+                paths=[source_path],
+                repo_type=source.type,
+                revision=source.revision,
+                token=token,
+            )
+
+        def _resolve(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
+            return _resolve_copy_target_path(
+                src_file_path,
+                src_root_path,
+                is_single_file,
+                destination_path,
+                destination_is_directory,
+                destination_exists_as_directory,
+                merge_contents,
+            )
+
+        if len(source_repo_path_info) == 1 and isinstance(source_repo_path_info[0], RepoFile):
+            file = source_repo_path_info[0]
+            yield file, _resolve(file.path, None, is_single_file=True)
+        else:
+            for repo_item in self.list_repo_tree(
+                repo_id=source.id,
+                path_in_repo=source_path,
+                recursive=True,
+                repo_type=source.type,
+                revision=source.revision,
+                token=token,
+            ):
+                if not isinstance(repo_item, RepoFile):
+                    continue
+                yield repo_item, _resolve(repo_item.path, source_path or None, is_single_file=False)
+
+    def _copy_to_repo(
+        self,
+        source: HfUri,
+        destination: HfUri,
+        merge_contents: bool,
+        source_str: str,
+        destination_str: str,
+        *,
+        token: str | bool | None = None,
+    ) -> None:
+        destination_path = destination.path_in_repo
+        destination_is_directory = False
+        destination_exists_as_directory = False
+
+        if destination_path == "":
+            destination_is_directory = True
+            destination_exists_as_directory = True
+        else:
+            dest_path_info = self.get_paths_info(
+                repo_id=destination.id,
+                paths=[destination_path],
+                repo_type=destination.type,
+                revision=destination.revision,
+                token=token,
+            )
+            if len(dest_path_info) == 1 and isinstance(dest_path_info[0], RepoFile):
+                destination_is_directory = False
+            elif len(dest_path_info) == 1 and isinstance(dest_path_info[0], RepoFolder):
+                destination_is_directory = True
+                destination_exists_as_directory = True
+            else:
+                try:
+                    destination_exists_as_directory = any(
+                        self.list_repo_tree(
+                            repo_id=destination.id,
+                            path_in_repo=destination_path,
+                            repo_type=destination.type,
+                            revision=destination.revision,
+                            token=token,
+                        )
+                    )
+                except RemoteEntryNotFoundError:
+                    destination_exists_as_directory = False
+                destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
+
+        is_same_repo = source.id == destination.id and source.type == destination.type
+
+        commit_ops: list[CommitOperationCopy] = [
+            CommitOperationCopy(
+                src_path_in_repo=file.path,
+                path_in_repo=target,
+                src_revision=source.revision,
+                src_repo_id=None if is_same_repo else source.id,
+                src_repo_type=None if is_same_repo else source.type,
+            )
+            for file, target in self._iter_repo_files_for_copy(
+                source,
+                destination_path,
+                destination_is_directory,
+                destination_exists_as_directory,
+                merge_contents,
+                token=token,
+            )
+        ]
+
+        if not commit_ops:
+            raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
+
+        self.create_commit(
+            repo_id=destination.id,
+            repo_type=destination.type,
+            revision=destination.revision,
+            operations=commit_ops,
+            commit_message=f"Copy files from {source.type}s/{source.id}",
+            token=token,
+        )
 
     @validate_hf_hub_args
     def batch_bucket_files(
@@ -13953,6 +14319,7 @@ run_as_future = api.run_as_future
 # Activity API
 list_liked_repos = api.list_liked_repos
 list_repo_likers = api.list_repo_likers
+list_user_repos = api.list_user_repos
 unlike = api.unlike
 
 # Community API
@@ -14047,6 +14414,7 @@ list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 cancel_job = api.cancel_job
+update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job
 create_scheduled_job = api.create_scheduled_job
 list_scheduled_jobs = api.list_scheduled_jobs
@@ -14054,6 +14422,7 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
+update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 
 # Buckets API

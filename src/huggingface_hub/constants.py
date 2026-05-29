@@ -50,7 +50,7 @@ SAFETENSORS_SINGLE_FILE = "model.safetensors"
 SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
 SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 
-# Timeout of aquiring file lock and logging the attempt
+# Timeout of acquiring file lock and logging the attempt
 FILELOCK_LOG_EVERY_SECONDS = 10
 
 # Git-related constants
@@ -268,7 +268,9 @@ HF_XET_HIGH_PERFORMANCE: bool = _is_true(os.environ.get("HF_XET_HIGH_PERFORMANCE
 HF_JOBS_ARTIFACTS_BUCKET_NAME: str = "jobs-artifacts"
 HF_JOBS_ARTIFACTS_MOUNT_PATH: str = "/data"
 
-# hf_transfer is not used anymore. Let's warn user is case they set the env variable
+# hf_transfer is not used anymore. Let's warn user is case they set the env variable.
+# Note: we use FutureWarning (shown by default) instead of DeprecationWarning (silenced
+# by default for end users) so users running standard `python` actually see the message.
 if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PERFORMANCE:
     import warnings
 
@@ -276,7 +278,7 @@ if _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER")) and not HF_XET_HIGH_PER
         "The `HF_HUB_ENABLE_HF_TRANSFER` environment variable is deprecated as 'hf_transfer' is not used anymore. "
         "Please use `HF_XET_HIGH_PERFORMANCE` instead to enable high performance transfer with Xet. "
         "Visit https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfxethighperformance for more details.",
-        DeprecationWarning,
+        FutureWarning,
     )
 
 # Used to override the etag timeout on a system level

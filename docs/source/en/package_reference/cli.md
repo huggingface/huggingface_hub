@@ -253,8 +253,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, any hf:// handle (model, dataset, bucket), or - for stdin  [required]
-* `[DST]`: Destination: local path, bucket hf://... handle, or - for stdout
+* `SRC`: Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin  [required]
+* `[DST]`: Destination: local path, bucket hf://... URI, or - for stdout
 
 **Options**:
 
@@ -623,7 +623,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
 
 **Options**:
 
@@ -634,6 +634,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 Examples
   $ hf cache rm model/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2
   $ hf cache rm <revision_hash>
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes
@@ -1918,7 +1919,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `remove`: Remove an installed extension. [alias: rm]
 * `search`: Search extensions available on GitHub...
 
-### `hf extensions | ext exec`
+### `hf extensions exec`
 
 Execute an installed extension.
 
@@ -1945,7 +1946,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext install`
+### `hf extensions install`
 
 Install an extension from a public GitHub repository.
 
@@ -1977,7 +1978,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext list`
+### `hf extensions list`
 
 List installed extension commands. [alias: ls]
 
@@ -1999,7 +2000,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext remove`
+### `hf extensions remove`
 
 Remove an installed extension. [alias: rm]
 
@@ -2025,7 +2026,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf extensions | ext search`
+### `hf extensions search`
 
 Search extensions available on GitHub (tagged with 'hf-extension' topic).
 
@@ -2066,6 +2067,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `cancel`: Cancel a Job
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a Job.
 * `logs`: Fetch the logs of a Job.
 * `ps`: List Jobs.
 * `run`: Run a Job.
@@ -2151,12 +2153,44 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs labels`
+
+Update labels on a Job. Replaces all existing labels.
+
+**Usage**:
+
+```console
+$ hf jobs labels [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs labels <job_id> --label env=prod --label team=ml
+  $ hf jobs labels <job_id> --clear
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs logs`
 
 Fetch the logs of a Job.
 
 By default, prints currently available logs and exits (non-blocking).
 Use --follow/-f to stream logs in real-time until the job completes.
+Use --tail/-n to limit the number of lines returned (server-side when supported).
 
 **Usage**:
 
@@ -2171,7 +2205,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 **Options**:
 
 * `-f, --follow`: Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.
-* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2180,6 +2214,7 @@ Examples
   $ hf jobs logs <job_id>
   $ hf jobs logs -f <job_id>
   $ hf jobs logs --tail 20 <job_id>
+  $ hf jobs logs -f --tail 100 <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2202,8 +2237,6 @@ $ hf jobs ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
-* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -2238,7 +2271,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2249,7 +2282,7 @@ Examples
   $ hf jobs run python:3.12 python -c 'print("Hello!")'
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
-  $ hf jobs run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
+  $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2274,6 +2307,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 
 * `delete`: Delete a scheduled Job.
 * `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a scheduled Job.
 * `ps`: List scheduled Jobs
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
@@ -2336,6 +2370,37 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+#### `hf jobs scheduled labels`
+
+Update labels on a scheduled Job. Replaces all existing labels.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the scheduled job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled labels <id> --label env=prod --label team=ml
+  $ hf jobs scheduled labels <id> --clear
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 #### `hf jobs scheduled ps`
 
 List scheduled Jobs
@@ -2352,8 +2417,6 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--format TEXT`: Output format: 'table' (default), 'json', or a Go template (e.g. '{{.id}}')
-* `-q, --quiet`: Print only IDs (one per line).
 * `--help`: Show this message and exit.
 
 Examples
@@ -2418,7 +2481,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2499,7 +2562,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
@@ -2586,7 +2649,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 **Options**:
 
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Flavor for the hardware, as in HF Spaces. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
@@ -2605,7 +2668,7 @@ Examples
   $ hf jobs uv run my_script.py
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
-  $ hf jobs uv run -v hf://gpt2:/data -v hf://buckets/org/b:/mnt script.py
+  $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2938,11 +3001,12 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
 * `duplicate`: Duplicate a repo on the Hub (model,...
+* `list`: List all repos (models, datasets, spaces,... [alias: ls]
 * `move`: Move a repository from a namespace to...
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
 
-### `hf repos | repo branch`
+### `hf repos branch`
 
 Manage branches for a repo on the Hub.
 
@@ -2961,7 +3025,7 @@ $ hf repos branch [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a new branch for a repo on the Hub.
 * `delete`: Delete a branch from a repo on the Hub.
 
-#### `hf repos | repo branch create`
+#### `hf repos branch create`
 
 Create a new branch for a repo on the Hub.
 
@@ -2993,7 +3057,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo branch delete`
+#### `hf repos branch delete`
 
 Delete a branch from a repo on the Hub.
 
@@ -3022,7 +3086,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo create`
+### `hf repos create`
 
 Create a new repo on the Hub.
 
@@ -3047,7 +3111,7 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
 * `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -3061,7 +3125,7 @@ Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
-  $ hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data
+  $ hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
   $ hf repos create my-model --region us
 
 Learn more
@@ -3069,7 +3133,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo delete`
+### `hf repos delete`
 
 Delete a repo from the Hub. This is an irreversible operation.
 
@@ -3099,7 +3163,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo delete-files`
+### `hf repos delete-files`
 
 Delete files from a repo on the Hub.
 
@@ -3134,7 +3198,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo duplicate`
+### `hf repos duplicate`
 
 Duplicate a repo on the Hub (model, dataset, or Space).
 
@@ -3157,7 +3221,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
-* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -3170,14 +3234,44 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
-  $ hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data
+  $ hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data
 
 Learn more
   Use `hf <command> --help` for more information about a command.
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo move`
+### `hf repos list`
+
+List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf repos list [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: Organization name. If not provided, lists repos for the authenticated user.
+* `--type, --repo-type [model|dataset|space|bucket]`: Filter by repository type (model, dataset, space, or bucket).
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--explore`: Explore your repos as an interactive 3D city.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos ls
+  $ hf repos ls --explore
+  $ hf repos ls --namespace my-org --search bert
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos move`
 
 Move a repository from a namespace to another namespace.
 
@@ -3206,7 +3300,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo settings`
+### `hf repos settings`
 
 Update the settings of a repository.
 
@@ -3240,7 +3334,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf repos | repo tag`
+### `hf repos tag`
 
 Manage tags for a repo on the Hub.
 
@@ -3260,7 +3354,7 @@ $ hf repos tag [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a tag for a repo.
 * `list`: List tags for a repo. [alias: ls]
 
-#### `hf repos | repo tag create`
+#### `hf repos tag create`
 
 Create a tag for a repo.
 
@@ -3292,7 +3386,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo tag delete`
+#### `hf repos tag delete`
 
 Delete a tag for a repo.
 
@@ -3322,7 +3416,7 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf repos | repo tag list`
+#### `hf repos tag list`
 
 List tags for a repo. [alias: ls]
 
@@ -3367,6 +3461,7 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `add`: Download a Hugging Face skill and install...
+* `list`: List available skills from the Hugging... [alias: ls]
 * `preview`: Print the generated `hf-cli` SKILL.md to...
 * `update`: Update installed Hugging Face marketplace...
 
@@ -3401,6 +3496,30 @@ Examples
   $ hf skills add --global
   $ hf skills add --claude
   $ hf skills add huggingface-gradio --claude --global
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf skills list`
+
+List available skills from the Hugging Face marketplace. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf skills list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills list
+  $ hf skills list --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3481,6 +3600,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `search`: Search spaces on the Hub using semantic...
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
+* `ssh`: SSH into a Space's Dev Mode container.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
 
@@ -3946,13 +4066,50 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 **Options**:
 
 * `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
-* `--hardware [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|sprx8|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|inf2x6]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
+* `--hardware [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf spaces settings username/my-space --sleep-time 300
   $ hf spaces settings username/my-space --hardware t4-medium
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces ssh`
+
+SSH into a Space's Dev Mode container.
+
+Requires Dev Mode to be running on the Space and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+See: https://huggingface.co/docs/hub/spaces-dev-mode
+
+**Usage**:
+
+```console
+$ hf spaces ssh [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--auto`: Enable Dev Mode without prompting if not already enabled.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces ssh username/my-space
+  $ hf spaces ssh username/my-space --dry-run
+  $ hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+  $ hf spaces ssh username/my-space --auto
 
 Learn more
   Use `hf <command> --help` for more information about a command.

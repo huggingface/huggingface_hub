@@ -13,6 +13,25 @@ on:
       - "docs/**"
 
 jobs:
+  check-imports:
+    # Catch missing dependencies: install only base requirements and verify all public imports work.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.14"
+      - name: Install base dependencies only
+        run: |
+          pip install --upgrade uv
+          uv venv
+          uv pip install .
+      - name: Check imports
+        run: |
+          source .venv/bin/activate
+          python -c "from huggingface_hub import *"
+
   build-ubuntu:
     runs-on: ubuntu-latest
     env:
@@ -35,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -90,7 +109,7 @@ jobs:
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -130,7 +149,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe  # v5
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354  # v6.0.1
         with:
           files: ./coverage.xml
           verbose: true
@@ -152,7 +171,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -199,7 +218,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe  # v5
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354  # v6.0.1
         with:
           files: ./coverage.xml
           verbose: true

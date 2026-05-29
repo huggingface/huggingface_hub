@@ -13,19 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import shutil
 import sys
 
 import pytest
 
-from huggingface_hub.cli._cli_utils import OutputFormatWithAuto
-from huggingface_hub.cli._output import Output, _format_table_cell_human, _to_header
+from huggingface_hub.cli._output import Output, OutputFormat, _to_header
 from huggingface_hub.errors import ConfirmationError
 
 
-HUMAN = OutputFormatWithAuto.human
-AGENT = OutputFormatWithAuto.agent
-JSON = OutputFormatWithAuto.json
-QUIET = OutputFormatWithAuto.quiet
+HUMAN = OutputFormat.human
+AGENT = OutputFormat.agent
+JSON = OutputFormat.json
+QUIET = OutputFormat.quiet
 
 
 def _normalize(text: str) -> list[str]:
@@ -38,7 +39,10 @@ def _normalize(text: str) -> list[str]:
 
 
 @pytest.fixture
-def check(capsys):
+def check(capsys, monkeypatch):
+    # Deterministic terminal width: human-mode table tests are width-sensitive.
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((80, 24)))
+
     def _check(call, *, human, agent, json, quiet, stderr=False):
         failures = []
         for mode, expected in [(HUMAN, human), (AGENT, agent), (JSON, json), (QUIET, quiet)]:
@@ -73,7 +77,7 @@ def test_auto_resolves_to_agent(monkeypatch):
 def test_auto_resets_after_explicit():
     o = Output()
     o.set_mode(QUIET)
-    o.set_mode(OutputFormatWithAuto.auto)
+    o.set_mode(OutputFormat.auto)
     assert o.mode == HUMAN
 
 
@@ -127,8 +131,8 @@ def test_table(check):
         human="""
         ID                                  DOWNLOADS LIKES PIPELINE_TAG
         ----------------------------------- --------- ----- ----------------------------
-        openai/gpt-oss-120b                 4133088   4631  text-generation
-        CohereLabs/cohere-transcribe-03-... 58683     670   automatic-speech-recognition
+        openai/gpt-oss-120b                   4133088  4631 text-generation
+        CohereLabs/cohere-transcribe-03-...     58683   670 automatic-speech-recognition
         """,
         agent="""
         id\tdownloads\tlikes\tpipeline_tag
@@ -159,6 +163,40 @@ def test_table_empty(check):
         """,
         quiet="",
     )
+
+
+def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
+    """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table([{"id": "some-org/some-very-long-model-name-here", "likes": 9}], headers=["id", "likes"])
+
+    captured = capsys.readouterr()
+    assert (
+        captured.out.strip()
+        == """
+ID                                 LIKES
+---------------------------------- -----
+some-org/some-very-long-model-n...     9
+""".strip()
+    )
+
+
+def test_table_no_truncate(monkeypatch, capsys):
+    """--no-truncate bypasses adaptive truncation even when the table overflows the terminal."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
+    long_id = "some-org/some-very-long-model-name-here"
+    o = Output()
+    o.set_mode(HUMAN)
+    o.set_no_truncate(True)
+    o.table([{"id": long_id, "likes": 9}], headers=["id", "likes"])
+
+    captured = capsys.readouterr()
+    assert long_id in captured.out
+    assert "..." not in captured.out
 
 
 # =============================================================================
@@ -361,17 +399,3 @@ def test_status_only_enabled_for_humans(check, monkeypatch):
 )
 def test_to_header(input, expected):
     assert _to_header(input) == expected
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        ("short", "short"),  # short string unchanged
-        ("x" * 50, "x" * 32 + "..."),  # long string truncated at 35 chars
-        (True, "✔"),  # bool True → checkmark
-        (False, ""),  # bool False → empty
-        (["a", "b"], "a, b"),  # list → comma-separated
-    ],
-)
-def test_format_table_cell_human(value, expected):
-    assert _format_table_cell_human(value) == expected

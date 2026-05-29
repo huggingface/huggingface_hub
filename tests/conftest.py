@@ -28,16 +28,21 @@ def patch_constants(mocker):
 
 @pytest.fixture(autouse=True)
 def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deterministic baseline: no agent env vars, no ANSI colors, reset output mode."""
+    """Deterministic baseline: no agent env vars, no ANSI colors, reset output mode, fixed terminal width."""
     all_vars = list(_STANDARD_AGENT_VARS)
     for env_vars, _ in _TOOL_AGENTS:
         all_vars.extend(env_vars)
     for var in all_vars:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("NO_COLOR", "1")
+    # Pin terminal width so adaptive truncation produces deterministic output
+    # regardless of the runner's actual terminal size. `shutil.get_terminal_size`
+    # honors `$COLUMNS` first.
+    monkeypatch.setenv("COLUMNS", "200")
     from huggingface_hub.cli._output import out
 
     out.set_mode()
+    out.set_no_truncate(False)
 
 
 logger = logging.get_logger(__name__)
