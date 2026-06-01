@@ -181,7 +181,7 @@ def _download_single(api: HfApi, uri: HfUri, local_path: str) -> None:
     Used by `_download_file_to_local` and `_download_file_to_stdout`.
     """
     if uri.is_bucket:
-        api.download_bucket_files(uri.id, [(uri.path_in_repo, local_path)])
+        api.download_bucket_files(uri.id, [(uri.path_in_repo, local_path)], raise_on_missing_files=True)
     else:
         # Download into a temporary folder next to the destination (rather than the shared cache)
         # so the final move stays on the same filesystem and is instant. The temp folder is
