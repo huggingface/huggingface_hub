@@ -318,11 +318,14 @@ Instead of passing the repo type, revision and file path as separate arguments a
 # Download a single file from a specific revision
 >>> hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
 
+# Download a subfolder (note the trailing slash)
+>>> hf download hf://datasets/HuggingFaceM4/FineVision/art/
+
 # A bare id still works and defaults to a model repo
 >>> hf download hf://openai-community/gpt2/config.json
 ```
 
-When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
 
 ### Download to a local folder
 

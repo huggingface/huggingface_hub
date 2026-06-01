@@ -162,6 +162,9 @@ You can also point at the repo (and optionally a revision and file) using a sing
 # Download a single file from a dataset at a given revision
 >>> hf download hf://datasets/google/fleurs@refs/pr/1/fleurs.py
 
+# Download a subfolder (note the trailing slash)
+>>> hf download hf://datasets/google/fleurs/data/
+
 # Download an entire repo
 >>> hf download hf://datasets/google/fleurs
 ```

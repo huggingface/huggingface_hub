@@ -55,10 +55,10 @@ from typing import Annotated
 
 import typer
 
-from huggingface_hub import logging
+from huggingface_hub import constants, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.errors import CLIError, RevisionNotFoundError
-from huggingface_hub.utils import is_hf_uri, parse_hf_uri
+from huggingface_hub.utils import parse_hf_uri
 
 from ._cli_utils import (
     PrivateOpt,
@@ -153,7 +153,10 @@ def upload(
     # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
     # When a URI is provided, it is authoritative for the repo type, revision and (optionally) path in repo,
     # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
-    if is_hf_uri(repo_id):
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
         if repo_type is not None:
             raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
         if revision is not None:

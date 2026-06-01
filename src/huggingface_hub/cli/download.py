@@ -46,10 +46,11 @@ from typing import Annotated
 
 import typer
 
+from huggingface_hub import constants
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
-from huggingface_hub.utils import _format_size, is_hf_uri, parse_hf_uri
+from huggingface_hub.utils import _format_size, parse_hf_uri
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
 from ._output import out
@@ -130,7 +131,10 @@ def download(
     # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
     # When a URI is provided, it is authoritative for the repo type, revision and (optionally) file path,
     # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
-    if is_hf_uri(repo_id):
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
         if repo_type is not None:
             raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
         if revision is not None:
@@ -138,13 +142,19 @@ def download(
         uri = parse_hf_uri(repo_id)
         if uri.is_bucket:
             raise CLIError("Buckets are not supported by `hf download`. Use `hf sync` instead.")
+        # The URI parser strips trailing slashes, but `hf download` uses a trailing '/' to denote a subfolder
+        # download (e.g. `data/` -> `data/**`). Re-append it when the URI explicitly ended with '/' so a folder
+        # URI keeps routing through the subfolder code path below.
+        path_in_repo = uri.path_in_repo
+        if path_in_repo and repo_id.endswith("/"):
+            path_in_repo += "/"
         repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
-        if uri.path_in_repo:
+        if path_in_repo:
             if filenames:
                 raise CLIError(
-                    f"Cannot combine a file path in the hf:// URI ('{uri.path_in_repo}') with positional filenames {filenames}."
+                    f"Cannot combine a file path in the hf:// URI ('{path_in_repo}') with positional filenames {filenames}."
                 )
-            filenames = [uri.path_in_repo]
+            filenames = [path_in_repo]
     else:
         repo_type_str = (repo_type or RepoType.model).value
 

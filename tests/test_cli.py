@@ -642,6 +642,11 @@ class TestUploadCommand:
         with pytest.raises(CLIError, match="Buckets are not supported"):
             upload(repo_id="hf://buckets/foo/bar")
 
+    def test_upload_hf_uri_malformed_raises(self) -> None:
+        """A string with the 'hf://' prefix that fails to parse surfaces the precise HfUriError."""
+        with pytest.raises(HfUriError):
+            upload(repo_id="hf://datasets/missing-name")
+
     def test_upload_hf_uri_conflicting_path_raises(self) -> None:
         with pytest.raises(CLIError, match="Cannot combine a path"):
             upload(repo_id="hf://datasets/foo/bar/data/train.csv", local_path="./train.csv", path_in_repo="other.csv")
@@ -1257,6 +1262,21 @@ class TestDownloadImpl:
         assert mock_snapshot.call_args.kwargs["repo_id"] == "author/space"
         assert mock_snapshot.call_args.kwargs["repo_type"] == "space"
         assert mock_snapshot.call_args.kwargs["revision"] is None
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_hf_uri_subfolder(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """A trailing '/' in the URI path denotes a subfolder and resolves to a snapshot download."""
+        mock_snapshot.return_value = "folder-path"
+        download(repo_id="hf://datasets/author/dataset/data/")
+        mock_download.assert_not_called()
+        assert mock_snapshot.call_args.kwargs["repo_id"] == "author/dataset"
+        assert mock_snapshot.call_args.kwargs["allow_patterns"] == ["data/**"]
+
+    def test_download_hf_uri_malformed_raises(self) -> None:
+        """A string with the 'hf://' prefix that fails to parse surfaces the precise HfUriError."""
+        with pytest.raises(HfUriError):
+            download(repo_id="hf://datasets/missing-name")
 
     def test_download_hf_uri_with_revision_raises(self) -> None:
         with pytest.raises(CLIError, match="'--revision' cannot be used with an 'hf://' URI"):
