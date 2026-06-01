@@ -225,6 +225,8 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
 
     Example:
 

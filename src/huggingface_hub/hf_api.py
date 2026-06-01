@@ -5177,7 +5177,7 @@ class HfApi:
             repo_id (`str`):
                 The repository in which you will commit the files, for example: `"username/custom_transformers"`.
 
-            operations (`Iterable` of [`CommitOperationAdd`]):
+            additions (`Iterable` of [`CommitOperationAdd`]):
                 The list of files to upload. Warning: the objects in this list will be mutated to include information
                 relative to the upload. Do not reuse the same objects for multiple commits.
 
@@ -5199,6 +5199,11 @@ class HfApi:
             num_threads (`int`, *optional*):
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+            free_memory (`bool`, *optional*, defaults to `True`):
+                If `True`, the `path_or_fileobj` attribute of each `CommitOperationAdd` is replaced by an empty
+                `bytes` object after upload to save memory. Set to `False` if you need to reuse the operation
+                objects outside of a subsequent [`create_commit`] call.
 
             gitignore_content (`str`, *optional*):
                 The content of the `.gitignore` file to know which files should be ignored. The order of priority
