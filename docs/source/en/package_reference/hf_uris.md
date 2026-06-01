@@ -146,7 +146,7 @@ When a URL is ambiguous or does not point at a concrete Hub location, it is **re
 'https://huggingface.co/datasets/my-org/my-dataset/blob/v1/train.csv'
 ```
 
-It points at the repository / bucket landing page when no path or revision is set, at the folder viewer (`/tree/<rev>`) when only a revision is set, at the file viewer (`/blob/<rev>/<path>`, revision defaulting to `main`) for repository files, and at the download route (`/resolve/<path>`) for bucket files. Pass `endpoint=...` to target a custom host.
+It points at the repository / bucket landing page when no path or revision is set, at the folder viewer (`/tree/<rev>`) when only a revision is set, at the file viewer (`/blob/<rev>/<path>`, revision defaulting to `main`) for repository files, and at the tree route (`/tree/<path>`) for bucket files. Special characters in the path (spaces, `#`, ...) are percent-encoded. Pass `endpoint=...` to target a custom host.
 
 ## Parsing in Python
 

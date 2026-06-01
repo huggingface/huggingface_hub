@@ -278,7 +278,7 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
     ("https://huggingface.co/models/my-org/my-model", HfUri(type="model", id="my-org/my-model")),
     # Trailing slash is tolerated.
     ("https://huggingface.co/my-org/my-model/", HfUri(type="model", id="my-org/my-model")),
-    # --- File viewer routes (blob / resolve / raw / blame / media) -------------
+    # --- File viewer routes (blob / resolve / raw / blame) ---------------------
     (
         "https://huggingface.co/my-org/my-model/blob/main/config.json",
         HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="config.json"),
@@ -324,6 +324,15 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
         "https://huggingface.co/my-org/my-model/blob/feature%2Ffoo/config.json",
         HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
     ),
+    # --- Percent-encoded path (browsers encode spaces, '#', ... in file names) --
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/my%20file.txt",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="my file.txt"),
+    ),
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/dir/a%23b.txt",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/a#b.txt"),
+    ),
     # --- Buckets (no revision; '/resolve/' and '/tree/' are followed by the path) ---
     ("https://huggingface.co/buckets/my-org/my-bucket", HfUri(type="bucket", id="my-org/my-bucket")),
     (
@@ -333,6 +342,11 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
     (
         "https://huggingface.co/buckets/my-org/my-bucket/tree/sub/dir",
         HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/dir"),
+    ),
+    # Percent-encoded bucket path.
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket/resolve/sub/my%20data.bin",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/my data.bin"),
     ),
     # --- Query string and fragment are dropped --------------------------------
     (
@@ -366,6 +380,8 @@ URL_FAILURE_CASES: list[tuple[str, str]] = [
     ("https://huggingface.co/my-org/my-model/commits/main", "unsupported"),
     ("https://huggingface.co/my-org/my-model/discussions", "unsupported"),
     ("https://huggingface.co/my-org/my-model/settings", "unsupported"),
+    # '/media/' is not a route we map to a Hub location.
+    ("https://huggingface.co/my-org/my-model/media/main/image.png", "unsupported"),
     # Collections, blog, docs, ... are not repositories
     ("https://huggingface.co/collections/my-org/my-collection-abc123", "unsupported"),
     # Canonical repo (no namespace): 'squad/blob' is read as the id, so the next segment is
@@ -413,11 +429,16 @@ TO_URL_CASES: list[tuple[HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
         "/my-org/my-model/blob/feature%2Ffoo/config.json",
     ),
-    # Buckets: landing page and file download route (no revision)
+    # Path with special characters is percent-encoded ('/' kept as the separator)
+    (
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/my file#1.txt"),
+        "/my-org/my-model/blob/main/dir/my%20file%231.txt",
+    ),
+    # Buckets: landing page and tree route (no revision)
     (HfUri(type="bucket", id="my-org/my-bucket"), "/buckets/my-org/my-bucket"),
     (
         HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data.bin"),
-        "/buckets/my-org/my-bucket/resolve/sub/data.bin",
+        "/buckets/my-org/my-bucket/tree/sub/data.bin",
     ),
 ]
 

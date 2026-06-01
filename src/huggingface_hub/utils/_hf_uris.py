@@ -43,7 +43,7 @@ See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examp
 import functools
 import re
 from dataclasses import dataclass, field
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from huggingface_hub import constants
 from huggingface_hub.errors import HfUriError, HFValidationError
@@ -69,7 +69,7 @@ _VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.valu
 # Web-viewer routes that point at a file or folder and that map cleanly onto a
 # '<revision>/<path>' pair. Other routes (commit, commits, discussions, settings,
 # edit, ...) do not identify a Hub location and are rejected by the URL parser.
-_URL_REPO_LOCATION_ACTIONS: frozenset[str] = frozenset({"blob", "resolve", "raw", "blame", "media", "tree"})
+_URL_REPO_LOCATION_ACTIONS: frozenset[str] = frozenset({"blob", "resolve", "raw", "blame", "tree"})
 # Bucket web routes that point at a file or folder. Buckets are not versioned, so
 # these are followed directly by '<path>' (no revision segment).
 _URL_BUCKET_LOCATION_ACTIONS: frozenset[str] = frozenset({"resolve", "tree"})
@@ -160,7 +160,7 @@ class HfUri:
         - the repository / bucket landing page when no path or revision is set;
         - the folder viewer ('/tree/<revision>') when only a revision is set;
         - the file viewer ('/blob/<revision>/<path>') for repository files (revision defaults to 'main');
-        - the file download route ('/resolve/<path>') for bucket files (buckets are not versioned).
+        - the tree route ('/tree/<path>') for bucket files (buckets are not versioned).
 
         Args:
             endpoint (`str`, *optional*):
@@ -177,11 +177,14 @@ class HfUri:
             ```
         """
         base = (endpoint or constants.ENDPOINT).rstrip("/")
+        # Percent-encode characters that would otherwise break the URL (spaces, '#', '?', ...),
+        # keeping '/' as the path separator. This is the inverse of the decoding done when parsing.
+        path = quote(self.path_in_repo, safe="/")
 
         if self.type == "bucket":
             url = f"{base}/buckets/{self.id}"
-            if self.path_in_repo:
-                url += f"/resolve/{self.path_in_repo}"
+            if path:
+                url += f"/tree/{path}"
             return url
 
         # Models live at the root ('hf.co/<id>'); other repos are namespaced by their plural prefix.
@@ -191,8 +194,8 @@ class HfUri:
         # ('refs/pr/N', 'refs/convert/<name>') are used verbatim by the Hub web routes.
         if revision is not None and "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
             revision = revision.replace("/", "%2F")
-        if self.path_in_repo:
-            url += f"/blob/{revision or constants.DEFAULT_REVISION}/{self.path_in_repo}"
+        if path:
+            url += f"/blob/{revision or constants.DEFAULT_REVISION}/{path}"
         elif revision is not None:
             url += f"/tree/{revision}"
         return url
@@ -319,6 +322,16 @@ def _looks_like_hf_url(uri: str) -> bool:
     return any(lowered == host or lowered.startswith(host + "/") for host in constants.HF_URL_HOSTS)
 
 
+def _decode_url_path_segment(segment: str) -> str:
+    """Percent-decode a single URL path segment (e.g. 'file%20name.txt' -> 'file name.txt').
+
+    A decoded '/' is re-encoded as '%2F' so the segment stays atomic when the normalized body is
+    re-split by the shared parser. This decodes ordinary path characters (spaces, '#', ...) that
+    browsers encode, while keeping '%2F'-encoded revisions (e.g. 'feature%2Ffoo') intact.
+    """
+    return unquote(segment).replace("/", "%2F")
+
+
 def _url_to_uri_body(url: str, *, raw: str) -> str:
     """Normalize a Hugging Face web URL into the body of a 'hf://' URI (everything after 'hf://').
 
@@ -365,7 +378,7 @@ def _url_to_uri_body(url: str, *, raw: str) -> str:
         action, *tail = rest
         if action not in _URL_BUCKET_LOCATION_ACTIONS:
             raise HfUriError(uri=raw, msg=f"Cannot parse bucket URL '{url}': unsupported '/{action}/' route.")
-        path = "/".join(tail)
+        path = "/".join(_decode_url_path_segment(segment) for segment in tail)
         return f"buckets/{repo_id}/{path}" if path else f"buckets/{repo_id}"
 
     prefix = f"{type_prefix}/" if type_prefix else ""
@@ -384,8 +397,11 @@ def _url_to_uri_body(url: str, *, raw: str) -> str:
         # e.g. '.../tree' with nothing after -> repository root.
         return f"{prefix}{repo_id}"
     # 'tail' is '<revision>/<path>'; reuse the canonical '@<revision>/<path>' splitting logic
-    # (special refs, URL-encoded slashes, ...) by handing it back to the URI parser.
-    return f"{prefix}{repo_id}@{'/'.join(tail)}"
+    # (special refs, URL-encoded slashes, ...) by handing it back to the URI parser. Each segment
+    # is percent-decoded first so file names with spaces, '#', ... resolve correctly; the revision
+    # segment's '%2F' survives (re-encoded by '_decode_url_path_segment') and is decoded downstream.
+    decoded = "/".join(_decode_url_path_segment(segment) for segment in tail)
+    return f"{prefix}{repo_id}@{decoded}"
 
 
 def parse_hf_mount(mount_str: str) -> HfMount:
