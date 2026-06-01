@@ -172,6 +172,8 @@ def snapshot_download(
                 - If a string, it's used as the authentication token.
         headers (`dict`, *optional*):
             Additional headers to include in the request. Those headers take precedence over the others.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, do not download any files even if they are not in `cache_dir` or `local_dir`.
         allow_patterns (`list[str]` or `str`, *optional*):
