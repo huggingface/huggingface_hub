@@ -137,8 +137,7 @@ skills_cli = typer_factory(help="Manage skills for AI assistants.")
 def _type_hint(param) -> str:
     """Value hint for an option: enum choices inline as ``[a|b|c]``, otherwise the TYPE name.
 
-    e.g. `--sort [downloads|likes|trending_score]` instead of `--sort CHOICE`, so agents pick a
-    valid value first try instead of guessing.
+    e.g. `--sort [downloads|likes|trending_score]` instead of `--sort CHOICE`.
     """
     choices = getattr(param.type, "choices", None)
     if choices:
