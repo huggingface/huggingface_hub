@@ -56,6 +56,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._cp import make_cp
 from ._file_listing import format_size
 from ._output import OutputFormat, out
 
@@ -452,6 +453,26 @@ def repo_delete_files(
         create_pr=create_pr,
     )
     out.result("Files deleted", repo_id=repo_id, commit_url=url)
+
+
+# `hf repos cp` is an alias for the top-level `hf cp` command (see `cli/_cp.py`).
+repos_cli.command(
+    name="cp",
+    examples=[
+        # Download (repo or bucket -> local / stdout)
+        "hf repos cp hf://username/my-model/config.json config.json",
+        "hf repos cp hf://datasets/username/my-dataset/data.csv data/",
+        "hf repos cp hf://username/my-model/config.json -",
+        # Upload (local / stdin -> repo)
+        "hf repos cp model.safetensors hf://username/my-model/model.safetensors",
+        "hf repos cp config.json hf://username/my-model/logs/",
+        "hf repos cp - hf://username/my-model/config.json",
+        # Remote to remote (repo -> repo)
+        "hf repos cp hf://username/source-model/config.json hf://username/dest-model/config.json",
+        "hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/",
+        "hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/",
+    ],
+)(make_cp("repos"))
 
 
 @branch_cli.command(
