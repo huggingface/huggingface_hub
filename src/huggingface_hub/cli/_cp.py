@@ -23,11 +23,12 @@ of local file, repo/bucket ``hf://`` URI, and ``-`` (stdin/stdout), with two exc
 import os
 import sys
 from dataclasses import replace
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
 from huggingface_hub import HfApi
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import HfUri, SoftTemporaryDirectory, disable_progress_bars, is_hf_uri, parse_hf_uri
 
 from ._cli_utils import TokenOpt, get_hf_api
@@ -51,24 +52,62 @@ CP_EXAMPLES = [
 ]
 
 
-def cp(
-    src: Annotated[
-        str,
-        typer.Argument(help="Source: local file, hf:// URI (repo or bucket), or - for stdin."),
-    ],
-    dst: Annotated[
-        str | None,
-        typer.Argument(help="Destination: local path, hf:// URI (repo or bucket), or - for stdout."),
-    ] = None,
-    token: TokenOpt = None,
-) -> None:
-    """Copy files between local paths, repositories, and buckets.
+# Which alias registered the command, used to restrict the remote endpoint type (see `_enforce_context`).
+CpContext = Literal["repos", "buckets"]
 
-    Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
-    remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
-    copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
-    `hf buckets sync` (buckets).
+
+def make_cp(context: CpContext | None = None):
+    """Build the ``cp`` command function for a given alias.
+
+    The three entry points (`hf cp`, `hf repos cp`, `hf buckets cp`) share the exact same logic;
+    'context' only adds a guardrail on the remote endpoint type (see `_enforce_context`).
     """
+
+    def cp(
+        src: Annotated[
+            str,
+            typer.Argument(help="Source: local file, hf:// URI (repo or bucket), or - for stdin."),
+        ],
+        dst: Annotated[
+            str | None,
+            typer.Argument(help="Destination: local path, hf:// URI (repo or bucket), or - for stdout."),
+        ] = None,
+        token: TokenOpt = None,
+    ) -> None:
+        """Copy files between local paths, repositories, and buckets.
+
+        Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+        remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+        copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+        `hf buckets sync` (buckets).
+        """
+        _enforce_context(context, src, dst)
+        _run_cp(src, dst, token)
+
+    return cp
+
+
+def _enforce_context(context: CpContext | None, src: str, dst: str | None) -> None:
+    """Guardrail for the `hf repos cp` / `hf buckets cp` aliases.
+
+    These aliases are exact duplicates of `hf cp`, so a bare `hf repos cp` could otherwise touch a
+    bucket (and vice versa). We validate the type of the remote side: the destination for uploads and
+    remote-to-remote copies, or the source when downloading to a local path / stdout. The top-level
+    `hf cp` (i.e. 'context' is None) accepts any combination.
+    """
+    if context is None:
+        return
+    # The remote endpoint is the destination when it is an hf:// URI, otherwise the source (download).
+    remote = dst if (dst is not None and is_hf_uri(dst)) else src
+    if not is_hf_uri(remote):
+        return
+    if context == "repos" and parse_hf_uri(remote).is_bucket:
+        raise CLIError("`hf repos cp` only works with repositories. Use `hf cp` or `hf buckets cp` for buckets.")
+    if context == "buckets" and not parse_hf_uri(remote).is_bucket:
+        raise CLIError("`hf buckets cp` only works with buckets. Use `hf cp` or `hf repos cp` for repositories.")
+
+
+def _run_cp(src: str, dst: str | None, token: str | None) -> None:
     api = get_hf_api(token=token)
 
     src_is_stdin = src == "-"

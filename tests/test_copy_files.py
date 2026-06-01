@@ -592,6 +592,36 @@ def test_cp_error_missing_destination(tmp_path: Path):
     assert "Missing destination" in result.output
 
 
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Cannot copy to a bucket
+        f"hf repos cp hf://{USER}/some-model/c.json hf://buckets/{USER}/some-bucket/c.json",
+        # Cannot download from a bucket
+        f"hf repos cp hf://buckets/{USER}/some-bucket/c.json ./c.json",
+    ],
+)
+def test_cp_error_repos_alias_rejects_bucket_remote(cmd: str):
+    result = cli(cmd)
+    assert result.exit_code != 0
+    assert "`hf repos cp` only works with repositories" in str(result.exception)
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        # Cannot copy to a repo
+        f"hf buckets cp hf://buckets/{USER}/some-bucket/c.json hf://{USER}/some-model/c.json",
+        # Cannot download from a repo
+        f"hf buckets cp hf://{USER}/some-model/c.json -",
+    ],
+)
+def test_cp_error_buckets_alias_rejects_repo_remote(cmd: str):
+    result = cli(cmd)
+    assert result.exit_code != 0
+    assert "`hf buckets cp` only works with buckets" in str(result.exception)
+
+
 def test_cp_error_stdin_to_local():
     """Stdin upload to a local path is not allowed (must target a repo or bucket)."""
     result = cli("hf cp - /tmp/local.txt", input="data")

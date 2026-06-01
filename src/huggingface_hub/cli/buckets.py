@@ -32,7 +32,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
-from ._cp import cp
+from ._cp import make_cp
 from ._file_listing import format_size, print_file_listing
 from ._output import OutputFormat, out
 
@@ -675,4 +675,4 @@ buckets_cli.command(
         "hf buckets cp hf://buckets/username/my-bucket/data.csv hf://buckets/username/dest-bucket/",
         "hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/dest-bucket/logs/",
     ],
-)(cp)
+)(make_cp("buckets"))

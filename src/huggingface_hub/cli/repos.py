@@ -56,7 +56,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._cp import cp
+from ._cp import make_cp
 from ._file_listing import format_size
 from ._output import OutputFormat, out
 
@@ -472,7 +472,7 @@ repos_cli.command(
         "hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/",
         "hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/",
     ],
-)(cp)
+)(make_cp("repos"))
 
 
 @branch_cli.command(
