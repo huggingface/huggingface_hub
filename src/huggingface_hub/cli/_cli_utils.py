@@ -724,12 +724,12 @@ RepoIdArg = Annotated[
 
 
 RepoTypeOpt = Annotated[
-    RepoType,
+    RepoType | None,
     typer.Option(
         "--type",
         "--repo-type",
         help="The type of repository (model, dataset, or space).",
-        show_default="model",
+        show_default=RepoType.model,
     ),
 ]
 

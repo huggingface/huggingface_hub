@@ -672,7 +672,7 @@ def prune(
 )
 def verify(
     repo_id: RepoIdArg,
-    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    repo_type: RepoTypeOpt = None,
     revision: RevisionOpt = None,
     cache_dir: Annotated[
         str | None,
