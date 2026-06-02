@@ -672,7 +672,7 @@ def prune(
 )
 def verify(
     repo_id: RepoIdArg,
-    repo_type: RepoTypeOpt = None,
+    repo_type: RepoTypeOpt = RepoTypeOpt.model,
     revision: RevisionOpt = None,
     cache_dir: Annotated[
         str | None,
@@ -719,9 +719,7 @@ def verify(
 
     result = api.verify_repo_checksums(
         repo_id=repo_id,
-        repo_type=(repo_type.value if hasattr(repo_type, "value") else str(repo_type))
-        if repo_type is not None
-        else None,
+        repo_type=repo_type.value if hasattr(repo_type, "value") else str(repo_type),
         revision=revision,
         local_dir=local_dir,
         cache_dir=cache_dir,

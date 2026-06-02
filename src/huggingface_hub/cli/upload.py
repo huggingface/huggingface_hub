@@ -64,7 +64,7 @@ from ._cli_utils import (
     PrivateOpt,
     RepoIdArg,
     RepoType,
-    RepoTypeOpt,
+    RepoTypeOptionalOpt,
     RevisionOpt,
     TokenOpt,
     get_hf_api,
@@ -98,7 +98,7 @@ def upload(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = None,
+    repo_type: RepoTypeOptionalOpt = None,
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
