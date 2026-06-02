@@ -52,7 +52,7 @@ from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, parse_hf_uri
 
-from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt
 from ._output import out
 
 
@@ -74,7 +74,7 @@ def download(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
-    repo_type: RepoTypeOptionalOpt = None,
+    repo_type: RepoTypeOpt = None,
     revision: RevisionOpt = None,
     include: Annotated[
         list[str] | None,
