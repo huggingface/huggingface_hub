@@ -108,18 +108,20 @@ URLs from `huggingface.co` (and its `hf.co` short domain, the staging host, and 
 
 ### Supported URL formats
 
-| URL                                                          | Parsed as                                                       |
-| ------------------------------------------------------------ | -------------------------------------------------------------- |
-| `https://huggingface.co/<ns>/<name>`                         | Model repository                                               |
-| `https://huggingface.co/datasets/<ns>/<name>`                | Dataset repository (same for `spaces/`, `kernels/`, `models/`) |
-| `https://huggingface.co/<ns>/<name>/tree/<rev>[/<path>]`     | Folder inside a repo, pinned at `<rev>`                         |
-| `https://huggingface.co/<ns>/<name>/blob/<rev>/<path>`       | File inside a repo (file viewer route)                         |
-| `https://huggingface.co/<ns>/<name>/resolve/<rev>/<path>`    | File inside a repo (download route)                            |
-| `https://huggingface.co/<ns>/<name>/raw/<rev>/<path>`        | File inside a repo (raw route)                                 |
-| `https://huggingface.co/<ns>/<name>/blame/<rev>/<path>`      | File inside a repo (blame route)                               |
-| `https://huggingface.co/buckets/<ns>/<name>`                 | Bucket                                                         |
-| `https://huggingface.co/buckets/<ns>/<name>/resolve/<path>`  | File inside a bucket (buckets are not versioned)               |
-| `https://huggingface.co/buckets/<ns>/<name>/tree/<path>`     | Folder inside a bucket                                         |
+The table below lists the supported routes. For brevity, only the **URL path** is shown (the part after the host, e.g. `huggingface.co`); the recognized host is implied.
+
+| Points at                                                      | URL path                                       |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| Model repository                                               | `/<ns>/<name>`                                 |
+| Dataset repository (same for `spaces/`, `kernels/`, `models/`) | `/datasets/<ns>/<name>`                        |
+| Folder inside a repo, pinned at `<rev>`                        | `/<ns>/<name>/tree/<rev>[/<path>]`             |
+| File inside a repo (file viewer route)                         | `/<ns>/<name>/blob/<rev>/<path>`               |
+| File inside a repo (download route)                            | `/<ns>/<name>/resolve/<rev>/<path>`            |
+| File inside a repo (raw route)                                 | `/<ns>/<name>/raw/<rev>/<path>`                |
+| File inside a repo (blame route)                               | `/<ns>/<name>/blame/<rev>/<path>`              |
+| Bucket                                                         | `/buckets/<ns>/<name>`                         |
+| File inside a bucket (buckets are not versioned)               | `/buckets/<ns>/<name>/resolve/<path>`          |
+| Folder inside a bucket                                         | `/buckets/<ns>/<name>/tree/<path>`             |
 
 The revision is taken from the single segment right after `blob`/`resolve`/`raw`/`tree`/`blame`. Special refs (`refs/pr/N`, `refs/convert/...`) are matched eagerly even though they contain `/`; any other branch/tag name containing `/` must be URL-encoded (`feature%2Ffoo`).
 
@@ -127,14 +129,16 @@ The revision is taken from the single segment right after `blob`/`resolve`/`raw`
 
 When a URL is ambiguous or does not point at a concrete Hub location, it is **rejected** (it is never guessed):
 
-| URL                                                  | Reason                                                                           |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `https://huggingface.co/<username>`                  | Single-segment URL: user/org page, listing page, or canonical repo — ambiguous. |
-| `https://huggingface.co/datasets`                    | Listing page, no `<ns>/<name>`.                                                  |
-| `https://huggingface.co/gpt2`                        | Canonical repos (without a namespace) are not supported.                         |
-| `https://huggingface.co/<ns>/<name>/commit/<rev>`    | Not a file/folder location (same for `commits`, `discussions`, `settings`, …).   |
-| `https://huggingface.co/collections/<ns>/<slug>`     | Collections are not repositories.                                                |
-| `https://example.com/<ns>/<name>`                    | Host is not a recognized Hugging Face host.                                      |
+Paths below are again shown without the host, except for the last row where the host itself is the reason for rejection.
+
+| Reason                                                                           | URL path                                |
+| -------------------------------------------------------------------------------- | --------------------------------------- |
+| Single-segment URL: user/org page, listing page, or canonical repo — ambiguous. | `/<username>`                           |
+| Listing page, no `<ns>/<name>`.                                                  | `/datasets`                             |
+| Canonical repos (without a namespace) are not supported.                         | `/gpt2`                                 |
+| Not a file/folder location (same for `commits`, `discussions`, `settings`, …).   | `/<ns>/<name>/commit/<rev>`             |
+| Collections are not repositories.                                                | `/collections/<ns>/<slug>`              |
+| Host is not a recognized Hugging Face host.                                      | `https://example.com/<ns>/<name>`       |
 
 ## Rendering a web URL
 

@@ -69,7 +69,7 @@ _VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.valu
 # Web-viewer routes that point at a file or folder and that map cleanly onto a
 # '<revision>/<path>' pair. Other routes (commit, commits, discussions, settings,
 # edit, ...) do not identify a Hub location and are rejected by the URL parser.
-_URL_REPO_LOCATION_ACTIONS: frozenset[str] = frozenset({"blob", "resolve", "raw", "blame", "tree"})
+_URL_REPO_LOCATION_ACTIONS: frozenset[str] = frozenset({"blame", "blob", "raw", "resolve", "tree"})
 # Bucket web routes that point at a file or folder. Buckets are not versioned, so
 # these are followed directly by '<path>' (no revision segment).
 _URL_BUCKET_LOCATION_ACTIONS: frozenset[str] = frozenset({"resolve", "tree"})
