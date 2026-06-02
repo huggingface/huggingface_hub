@@ -733,7 +733,6 @@ RepoTypeOpt = Annotated[
     ),
 ]
 
-
 TokenOpt = Annotated[
     str | None,
     typer.Option(
