@@ -4598,8 +4598,10 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code == 403:
-                # No write permission on the namespace but repo might already exist
+            elif exist_ok and err.response.status_code in (401, 403):
+                # 401 -> if JWT token without create repo scope
+                # 403 -> if no write permission on the namespace
+                # In both cases, repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
@@ -5175,7 +5177,7 @@ class HfApi:
             repo_id (`str`):
                 The repository in which you will commit the files, for example: `"username/custom_transformers"`.
 
-            operations (`Iterable` of [`CommitOperationAdd`]):
+            additions (`Iterable` of [`CommitOperationAdd`]):
                 The list of files to upload. Warning: the objects in this list will be mutated to include information
                 relative to the upload. Do not reuse the same objects for multiple commits.
 
@@ -5197,6 +5199,11 @@ class HfApi:
             num_threads (`int`, *optional*):
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+            free_memory (`bool`, *optional*, defaults to `True`):
+                If `True`, the `path_or_fileobj` attribute of each `CommitOperationAdd` is replaced by an empty
+                `bytes` object after upload to save memory. Set to `False` if you need to reuse the operation
+                objects outside of a subsequent [`create_commit`] call.
 
             gitignore_content (`str`, *optional*):
                 The content of the `.gitignore` file to know which files should be ignored. The order of priority
@@ -12880,10 +12887,12 @@ class HfApi:
             hf_raise_for_status(response)
         except HfHubHTTPError as err:
             if exist_ok and err.response.status_code == 409:
-                # Repo already exists and `exist_ok=True`
+                # Bucket already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code == 403:
-                # No write permission on the namespace but repo might already exist
+            elif exist_ok and err.response.status_code in (401, 403):
+                # 401 -> if JWT token without create bucket scope
+                # 403 -> if no write permission on the namespace
+                # In both cases, bucket might already exist
                 try:
                     self.bucket_info(bucket_id=bucket_id, token=token)
                     return BucketUrl(f"{self.endpoint}/buckets/{bucket_id}", endpoint=self.endpoint)

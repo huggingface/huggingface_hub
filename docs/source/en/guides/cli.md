@@ -716,59 +716,69 @@ To filter by prefix, append the prefix to the bucket path:
 
 ### Copy files
 
-Use `hf buckets cp` to copy local files to and from a bucket, or to copy any files hosted on the Hub to a Bucket.
+Use `hf cp` to copy a single file between your local machine, repositories, and buckets. The source and destination can each be a local path, an `hf://` URI (repo or bucket), or `-` (stdin/stdout).
 
-To upload a file:
+> [!TIP]
+> `hf cp` is also exposed as `hf repos cp` and `hf buckets cp` — all three are the exact same command. Use whichever reads best for your workflow.
+
+To upload a file (local → repo or bucket):
 
 ```bash
->>> hf buckets cp ./config.json hf://buckets/username/my-bucket
+# To a repository
+>>> hf cp ./model.safetensors hf://username/my-model/model.safetensors
+
+# To a bucket (uses the local filename when the destination ends with /)
+>>> hf cp ./data.csv hf://buckets/username/my-bucket/logs/
 ```
 
-You can upload to a specific subdirectory:
+To download a file (repo or bucket → local):
 
 ```bash
->>> hf buckets cp ./data.csv hf://buckets/username/my-bucket/logs/
-```
+# From a repository
+>>> hf cp hf://datasets/username/my-dataset@refs/pr/1/data.csv ./data.csv
 
-To download a file:
-
-```bash
->>> hf buckets cp hf://buckets/username/my-bucket/config.json ./config.json
+# From a bucket, to the current directory (destination omitted)
+>>> hf cp hf://buckets/username/my-bucket/config.json
 ```
 
 You can also stream to stdout or from stdin using `-`:
 
 ```bash
 # Download to stdout
->>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
+>>> hf cp hf://buckets/username/my-bucket/config.json - | jq .
 
 # Upload from stdin
->>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
+>>> echo "hello" | hf cp - hf://username/my-model/hello.txt
 ```
 
-To copy from a repo or a bucket on the Hub:
+To copy between two locations on the Hub (repo/bucket → repo/bucket):
 
 ```bash
-# Bucket to bucket
->>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+# Repo to repo
+>>> hf cp hf://username/source-model/config.json hf://username/dest-model/config.json
 
 # Repo to bucket
->>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+>>> hf cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+
+# Bucket to bucket
+>>> hf cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
 ```
 
-When copying folders, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+When copying folders between two Hub locations, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
 
 ```bash
 # Without trailing slash: "logs" dir is nested => archive/logs/...
->>> hf buckets cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+>>> hf cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
 
 # With trailing slash: only contents of "logs" are copied => archive/...
->>> hf buckets cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+>>> hf cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
 ```
 
 Notes:
 
+- `hf cp` copies a single file when a local path is involved. To copy whole directories to/from local, use `hf upload`/`hf download` (repos) or `hf buckets sync` (buckets).
 - Bucket-to-repo copy is not yet supported.
+- Local-to-local copy is not supported (use your shell's `cp`).
 
 ### Sync directories
 
