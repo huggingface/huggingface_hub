@@ -211,6 +211,9 @@ Or via CLI, with the unified `hf cp` command (also available as `hf repos cp`):
 > [!TIP]
 > `copy_files` (and `hf cp`) can also copy files from a repository to a [Bucket](./buckets). Copying *from* a bucket *to* a repository is not supported. See the [Buckets](./buckets) guide for more details.
 
+> [!WARNING]
+> Server-side copies only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
+
 ## Branches and tags
 
 Git repositories often make use of branches to store different versions of a same repository.

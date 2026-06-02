@@ -13219,6 +13219,9 @@ class HfApi:
         Repo-to-repo copies use [`CommitOperationCopy`] under the hood and create a commit on the destination
         repository. Bucket-to-repo copies are not supported.
 
+        > [!WARNING]
+        > Server-side copies only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
+
         Args:
             source (`str`):
                 Source location as an `hf://` URI. Can be a bucket path (e.g. `"hf://buckets/my-bucket/path/to/file"`)
