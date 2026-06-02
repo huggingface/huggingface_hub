@@ -270,14 +270,32 @@ URI_DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
 # ---------------------------------------------------------------------------
 URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
     # --- Repository landing pages ---------------------------------------------
-    ("https://huggingface.co/my-org/my-model", HfUri(type="model", id="my-org/my-model")),
-    ("https://huggingface.co/datasets/my-org/my-dataset", HfUri(type="dataset", id="my-org/my-dataset")),
-    ("https://huggingface.co/spaces/user/my-space", HfUri(type="space", id="user/my-space")),
-    ("https://huggingface.co/kernels/my-org/my-kernel", HfUri(type="kernel", id="my-org/my-kernel")),
+    (
+        "https://huggingface.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "https://huggingface.co/datasets/my-org/my-dataset",
+        HfUri(type="dataset", id="my-org/my-dataset"),
+    ),
+    (
+        "https://huggingface.co/spaces/user/my-space",
+        HfUri(type="space", id="user/my-space"),
+    ),
+    (
+        "https://huggingface.co/kernels/my-org/my-kernel",
+        HfUri(type="kernel", id="my-org/my-kernel"),
+    ),
     # Explicit 'models/' prefix is accepted too.
-    ("https://huggingface.co/models/my-org/my-model", HfUri(type="model", id="my-org/my-model")),
+    (
+        "https://huggingface.co/models/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
     # Trailing slash is tolerated.
-    ("https://huggingface.co/my-org/my-model/", HfUri(type="model", id="my-org/my-model")),
+    (
+        "https://huggingface.co/my-org/my-model/",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
     # --- File viewer routes (blob / resolve / raw / blame) ---------------------
     (
         "https://huggingface.co/my-org/my-model/blob/main/config.json",
@@ -334,7 +352,10 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
         HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/a#b.txt"),
     ),
     # --- Buckets (no revision; '/resolve/' and '/tree/' are followed by the path) ---
-    ("https://huggingface.co/buckets/my-org/my-bucket", HfUri(type="bucket", id="my-org/my-bucket")),
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket",
+        HfUri(type="bucket", id="my-org/my-bucket"),
+    ),
     (
         "https://huggingface.co/buckets/my-org/my-bucket/resolve/sub/data.bin",
         HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data.bin"),
@@ -358,9 +379,18 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
         HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="config.json"),
     ),
     # --- Alternative hosts / scheme-less --------------------------------------
-    ("https://hf.co/my-org/my-model", HfUri(type="model", id="my-org/my-model")),
-    ("http://huggingface.co/my-org/my-model", HfUri(type="model", id="my-org/my-model")),
-    ("huggingface.co/datasets/my-org/my-dataset", HfUri(type="dataset", id="my-org/my-dataset")),
+    (
+        "https://hf.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "http://huggingface.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "huggingface.co/datasets/my-org/my-dataset",
+        HfUri(type="dataset", id="my-org/my-dataset"),
+    ),
 ]
 
 
@@ -403,12 +433,27 @@ URL_FAILURE_CASES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 TO_URL_CASES: list[tuple[HfUri, str]] = [
     # Repository landing pages
-    (HfUri(type="model", id="my-org/my-model"), "/my-org/my-model"),
-    (HfUri(type="dataset", id="my-org/my-dataset"), "/datasets/my-org/my-dataset"),
-    (HfUri(type="space", id="user/my-space"), "/spaces/user/my-space"),
-    (HfUri(type="kernel", id="my-org/my-kernel"), "/kernels/my-org/my-kernel"),
+    (
+        HfUri(type="model", id="my-org/my-model"),
+        "/my-org/my-model",
+    ),
+    (
+        HfUri(type="dataset", id="my-org/my-dataset"),
+        "/datasets/my-org/my-dataset",
+    ),
+    (
+        HfUri(type="space", id="user/my-space"),
+        "/spaces/user/my-space",
+    ),
+    (
+        HfUri(type="kernel", id="my-org/my-kernel"),
+        "/kernels/my-org/my-kernel",
+    ),
     # Revision only -> folder viewer at that revision
-    (HfUri(type="model", id="my-org/my-model", revision="v1.0"), "/my-org/my-model/tree/v1.0"),
+    (
+        HfUri(type="model", id="my-org/my-model", revision="v1.0"),
+        "/my-org/my-model/tree/v1.0",
+    ),
     # File with explicit revision -> blob
     (
         HfUri(type="dataset", id="my-org/my-dataset", revision="v1", path_in_repo="train.csv"),
@@ -435,7 +480,10 @@ TO_URL_CASES: list[tuple[HfUri, str]] = [
         "/my-org/my-model/blob/main/dir/my%20file%231.txt",
     ),
     # Buckets: landing page and tree route (no revision)
-    (HfUri(type="bucket", id="my-org/my-bucket"), "/buckets/my-org/my-bucket"),
+    (
+        HfUri(type="bucket", id="my-org/my-bucket"),
+        "/buckets/my-org/my-bucket",
+    ),
     (
         HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data.bin"),
         "/buckets/my-org/my-bucket/tree/sub/data.bin",
