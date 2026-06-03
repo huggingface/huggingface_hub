@@ -249,7 +249,8 @@ Copy files between local paths, repositories, and buckets.
 Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
 remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
 copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
-`hf buckets sync` (buckets).
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
 
 **Usage**:
 
@@ -957,7 +958,8 @@ Copy files between local paths, repositories, and buckets.
 Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
 remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
 copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
-`hf buckets sync` (buckets).
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
 
 **Usage**:
 
@@ -3144,7 +3146,8 @@ Copy files between local paths, repositories, and buckets.
 Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
 remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
 copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
-`hf buckets sync` (buckets).
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
 
 **Usage**:
 

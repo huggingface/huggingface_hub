@@ -550,6 +550,7 @@ When copying folders, a trailing `/` on the source uses rsync-style semantics â€
 Notes:
 
 - Bucket-to-repo copy is not yet supported.
+- Server-side copies only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
 - Files tracked with Xet (in buckets or repos) are copied server-side by hash â€” no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.
 - [`copy_files`] can also be used for repo-to-repo copies. See the [repository guide](./repository#copy-files) for more details.
