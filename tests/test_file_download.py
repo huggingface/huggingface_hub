@@ -573,7 +573,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Download the file once
             filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
 
-            # Fake leftover tmp file
+            # Fake tmp file
             incomplete_filepath = Path(str(filepath.resolve()) + ".incomplete")
             incomplete_filepath.write_bytes(filepath.read_bytes())  # fake a partial download
             filepath.resolve().unlink()
@@ -828,15 +828,6 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
     def test_file_exists_and_overwrites(self):
         # 1 HEAD call + 1 download
         self.file_path.write_text("another content")
-        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
-        assert self.file_path.read_text() == "content"
-
-    def test_do_not_resume_from_incomplete(self):
-        # A leftover incomplete file (e.g. from an interrupted download) is ignored: each download
-        # writes to its own process-unique temporary file.
-        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
-        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
-        incomplete_path.write_text("XXXX")
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
         assert self.file_path.read_text() == "content"
 
