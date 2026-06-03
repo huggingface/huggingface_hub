@@ -311,7 +311,8 @@ def jobs_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if detach:
-        out.hint(f"Use `hf jobs logs -f {job.id}` to stream logs, or `hf jobs inspect {job.id}` to check status.")
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
@@ -364,8 +365,9 @@ def jobs_logs(
         for log in logs:
             out.text(log)
         if follow:
+            job_ref = f"{namespace}/{job_id}" if namespace else job_id
             out.hint(
-                f"Stream ended. Run `hf jobs inspect {job_id}` to check the final status (e.g. COMPLETED or ERROR)."
+                f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR)."
             )
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
@@ -771,7 +773,8 @@ def jobs_uv_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if detach:
-        out.hint(f"Use `hf jobs logs -f {job.id}` to stream logs, or `hf jobs inspect {job.id}` to check status.")
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
