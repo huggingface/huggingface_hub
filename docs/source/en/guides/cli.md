@@ -779,6 +779,7 @@ Notes:
 - `hf cp` copies a single file when a local path is involved. To copy whole directories to/from local, use `hf upload`/`hf download` (repos) or `hf buckets sync` (buckets).
 - Bucket-to-repo copy is not yet supported.
 - Local-to-local copy is not supported (use your shell's `cp`).
+- Copies between two Hub locations only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
 
 ### Sync directories
 
