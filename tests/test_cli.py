@@ -3997,7 +3997,8 @@ class TestSkillGeneration:
         assert "--local-dir TEXT" in download_line
         # Common flags appear inline, except --token (kept in common-options glossary)
         assert "--token" not in download_line
-        assert "--format CHOICE" in download_line
+        # Enum options render their choices inline rather than a generic CHOICE/VALUE hint
+        assert "--format [auto|human|agent|json|quiet]" in download_line
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""
