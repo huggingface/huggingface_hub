@@ -566,16 +566,14 @@ class CachedDownloadTests(unittest.TestCase):
 
         See https://github.com/huggingface/huggingface_hub/issues/2511.
 
-        When downloading a file, we first download to a temporary file and then move it to the final location.
-        If the temporary file is already partially downloaded, we resume from where we left off.
-        However, if the temporary file is already fully downloaded, we should try to make a GET call with an empty range.
-        This was causing a "416 Range Not Satisfiable" error.
+        A leftover `<blob>.incomplete` file (e.g. from an interrupted download with a previous version
+        of `huggingface_hub`) must not break the download.
         """
         with SoftTemporaryDirectory() as tmpdir:
             # Download the file once
             filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
 
-            # Fake tmp file
+            # Fake leftover tmp file
             incomplete_filepath = Path(str(filepath.resolve()) + ".incomplete")
             incomplete_filepath.write_bytes(filepath.read_bytes())  # fake a partial download
             filepath.resolve().unlink()
@@ -585,6 +583,12 @@ class CachedDownloadTests(unittest.TestCase):
 
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
+
+    def test_no_incomplete_file_left_after_download(self):
+        """Temporary `*.incomplete` files are cleaned up after a successful download."""
+        with SoftTemporaryDirectory() as tmpdir:
+            hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
+            assert not list(Path(tmpdir).rglob("*.incomplete"))
 
     def test_keep_lock_file(self):
         """Downloading should acquire locks under `.locks`."""
@@ -827,21 +831,14 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
         assert self.file_path.read_text() == "content"
 
-    def test_resume_from_incomplete(self):
-        # An incomplete file already exists => use it
-        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
-        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
-        incomplete_path.write_text("XXXX")  # Here we put fake data to test the resume
-        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
-        self.file_path.read_text() == "XXXXent"
-
-    def test_do_not_resume_on_force_download(self):
-        # An incomplete file already exists but force_download=True
+    def test_do_not_resume_from_incomplete(self):
+        # A leftover incomplete file (e.g. from an interrupted download) is ignored: each download
+        # writes to its own process-unique temporary file.
         incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
         incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_path.write_text("XXXX")
-        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
-        self.file_path.read_text() == "content"
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        assert self.file_path.read_text() == "content"
 
     @patch("huggingface_hub.file_download.build_hf_headers")
     def test_passing_token_false_is_respected(self, mock: Mock):
