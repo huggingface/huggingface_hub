@@ -603,7 +603,7 @@ def jobs_ps(
         if filters:
             filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
             out.text(f"No jobs matched filters: {filters_msg}")
-        elif not all:
+        elif not all and not labels_filters:
             out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")
 
 
