@@ -728,7 +728,7 @@ jobs_cli.add_typer(uv_app, name="uv")
     context_settings={"ignore_unknown_options": True},
     examples=[
         "hf jobs uv run my_script.py",
-        "hf jobs uv run -d my_script.py",
+        "hf jobs uv run --detach my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
