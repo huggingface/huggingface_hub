@@ -272,7 +272,7 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
     context_settings={"ignore_unknown_options": True},
     examples=[
         "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
-        "hf jobs run -d python:3.12 python script.py",
+        "hf jobs run --detach python:3.12 python script.py",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
         "hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
