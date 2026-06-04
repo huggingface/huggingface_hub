@@ -207,7 +207,12 @@ class Output:
             print(f"Error: {message}", file=sys.stderr)
 
     def hint(self, message: str) -> None:
-        """Print a helpful hint to stderr (human: gray, agent/json: plain text)."""
+        """Print a helpful hint to stderr (human: gray, agent: plain text).
+
+        Suppressed in json and quiet modes so machine-readable output stays clean.
+        """
+        if self.mode in (OutputFormat.json, OutputFormat.quiet):
+            return
         if self.mode == OutputFormat.human:
             print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
         else:

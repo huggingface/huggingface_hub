@@ -329,12 +329,8 @@ def test_hint(check):
         agent="""
         Hint: Set HF_DEBUG=1 for full traceback.
         """,
-        json="""
-        Hint: Set HF_DEBUG=1 for full traceback.
-        """,
-        quiet="""
-        Hint: Set HF_DEBUG=1 for full traceback.
-        """,
+        json="",
+        quiet="",
     )
 
 
