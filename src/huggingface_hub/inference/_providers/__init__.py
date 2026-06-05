@@ -51,6 +51,7 @@ from .replicate import (
 )
 from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from .telnyx import TelnyxConversationalTask
 from .together import (
     TogetherConversationalTask,
     TogetherFeatureExtractionTask,
@@ -95,6 +96,7 @@ PROVIDER_T = Literal[
     "replicate",
     "sambanova",
     "scaleway",
+    "telnyx",
     "together",
     "wavespeed",
     "zai-org",
@@ -214,6 +216,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
         "feature-extraction": ScalewayFeatureExtractionTask(),
+    },
+    "telnyx": {
+        "conversational": TelnyxConversationalTask(),
     },
     "together": {
         "conversational": TogetherConversationalTask(),

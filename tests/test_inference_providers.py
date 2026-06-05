@@ -57,6 +57,7 @@ from huggingface_hub.inference._providers.replicate import (
 )
 from huggingface_hub.inference._providers.sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from huggingface_hub.inference._providers.telnyx import TelnyxConversationalTask
 from huggingface_hub.inference._providers.together import (
     TogetherConversationalTask,
     TogetherFeatureExtractionTask,
@@ -1735,6 +1736,17 @@ class TestSambanovaProvider:
             helper._prepare_url("hf_token", "username/repo_name")
             == "https://router.huggingface.co/sambanova/v1/embeddings"
         )
+
+
+class TestTelnyxProvider:
+    def test_conversational_properties(self):
+        helper = TelnyxConversationalTask()
+        assert helper.base_url == "https://api.telnyx.com/v2/ai/openai"
+        assert helper.provider == "telnyx"
+
+    def test_prepare_route(self):
+        helper = TelnyxConversationalTask()
+        assert helper._prepare_route("some/model", "hf_token") == "/chat/completions"
 
 
 class TestTogetherProvider:
