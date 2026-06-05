@@ -30,6 +30,7 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .my_cloud_infra import MyCloudInfraTextGenerationTask
 from .nebius import (
     NebiusConversationalTask,
     NebiusFeatureExtractionTask,
@@ -85,6 +86,7 @@ PROVIDER_T = Literal[
     "groq",
     "hf-inference",
     "hyperbolic",
+    "my-cloud-infra",
     "nebius",
     "novita",
     "nscale",
@@ -173,6 +175,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": HyperbolicTextGenerationTask("conversational"),
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
     },
+    "my-cloud-infra":{
+            "text-generation": MyCloudInfraTextGenerationTask()
+            },
     "nebius": {
         "text-to-image": NebiusTextToImageTask(),
         "conversational": NebiusConversationalTask(),
