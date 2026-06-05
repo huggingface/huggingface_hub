@@ -2322,7 +2322,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
-* `--expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose / --no-expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2532,7 +2532,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-* `--expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose / --no-expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2620,7 +2620,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
-* `--expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose / --no-expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
@@ -2709,7 +2709,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
-* `--expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose / --no-expose`: Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed

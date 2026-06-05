@@ -183,9 +183,9 @@ NamespaceOpt = Annotated[
 ]
 
 ExposeOpt = Annotated[
-    bool,
+    bool | None,
     typer.Option(
-        "--expose",
+        "--expose/--no-expose",
         help="Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
     ),
 ]
@@ -297,7 +297,7 @@ def jobs_run(
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
-    expose: ExposeOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -742,7 +742,7 @@ def jobs_uv_run(
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
-    expose: ExposeOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -799,7 +799,7 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
-    expose: ExposeOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -1028,7 +1028,7 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
-    expose: ExposeOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,

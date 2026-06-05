@@ -11606,7 +11606,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool = False,
+        expose: bool | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12093,7 +12093,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool = False,
+        expose: bool | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12237,7 +12237,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool = False,
+        expose: bool | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12575,7 +12575,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool = False,
+        expose: bool | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
