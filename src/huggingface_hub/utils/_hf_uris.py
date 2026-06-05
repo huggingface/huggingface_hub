@@ -298,7 +298,7 @@ def parse_hf_uri(uri: str) -> HfUri:
         if not body:
             raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
     elif _looks_like_hf_url(uri):
-        body = _url_to_uri_body(uri, raw=raw)
+        body = _url_to_uri_body(uri)
     else:
         raise HfUriError(
             uri,
@@ -332,13 +332,14 @@ def _decode_url_path_segment(segment: str) -> str:
     return unquote(segment).replace("/", "%2F")
 
 
-def _url_to_uri_body(url: str, *, raw: str) -> str:
+def _url_to_uri_body(url: str) -> str:
     """Normalize a Hugging Face web URL into the body of a 'hf://' URI (everything after 'hf://').
 
     The returned string is fed back into the regular URI parsing logic, so all validation
     (repo id, revision, empty path segments, ...) is shared with the canonical 'hf://' path.
     Only unambiguous URLs are accepted: any unrecognized route raises [`HfUriError`].
     """
+    raw = url
     # Prefix '//' for scheme-less inputs so 'urlsplit' populates 'netloc' instead of 'path'.
     parsed = urlsplit(url if "://" in url else "//" + url)
     host = (parsed.hostname or "").lower()
