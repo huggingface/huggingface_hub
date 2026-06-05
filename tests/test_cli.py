@@ -2805,6 +2805,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2830,6 +2831,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2859,6 +2861,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
 
@@ -2884,6 +2887,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2912,6 +2916,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2938,6 +2943,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
 
@@ -2965,6 +2971,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3670,6 +3677,18 @@ class TestVolume:
         )
         assert spec["volumes"][0]["revision"] == "main"
         assert spec["volumes"][0]["path"] == "subdir"
+
+    def test_serialize_expose_disabled_by_default(self) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None
+        )
+        assert "expose" not in spec
+
+    def test_serialize_expose_enabled(self) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=True
+        )
+        assert spec["expose"] == {"enabled": True}
 
 
 class TestWebhooksCommand:

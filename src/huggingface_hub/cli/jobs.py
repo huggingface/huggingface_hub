@@ -182,6 +182,14 @@ NamespaceOpt = Annotated[
     ),
 ]
 
+ExposeOpt = Annotated[
+    bool,
+    typer.Option(
+        "--expose",
+        help="Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     typer.Option(
@@ -289,6 +297,7 @@ def jobs_run(
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
+    expose: ExposeOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -306,6 +315,7 @@ def jobs_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
@@ -732,6 +742,7 @@ def jobs_uv_run(
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
+    expose: ExposeOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -754,6 +765,7 @@ def jobs_uv_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
@@ -787,6 +799,7 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    expose: ExposeOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -807,6 +820,7 @@ def scheduled_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=scheduled_job.id)
@@ -1014,6 +1028,7 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    expose: ExposeOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1039,6 +1054,7 @@ def scheduled_uv_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=job.id)

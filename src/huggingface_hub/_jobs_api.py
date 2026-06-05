@@ -484,6 +484,7 @@ def _create_job_spec(
     timeout: int | float | str | None,
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
+    expose: bool = False,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -508,6 +509,9 @@ def _create_job_spec(
     # volumes are optional
     if volumes:
         job_spec["volumes"] = [vol.to_dict() for vol in volumes]
+    # expose ports through the jobs proxy
+    if expose:
+        job_spec["expose"] = {"enabled": True}
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

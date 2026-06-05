@@ -11606,6 +11606,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
+        expose: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11642,6 +11643,11 @@ class HfApi:
                 Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
+            expose (`bool`, *optional*, defaults to `False`):
+                If True, expose every port the job's container listens on through the jobs proxy.
+                Each exposed port is then reachable on the public jobs domain. Access always
+                requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11691,6 +11697,7 @@ class HfApi:
             timeout=timeout,
             labels=labels,
             volumes=volumes,
+            expose=expose,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -12086,6 +12093,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
+        expose: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12129,6 +12137,11 @@ class HfApi:
                 Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
+            expose (`bool`, *optional*, defaults to `False`):
+                If True, expose every port the job's container listens on through the jobs proxy.
+                Each exposed port is then reachable on the public jobs domain. Access always
+                requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12205,6 +12218,7 @@ class HfApi:
             timeout=timeout,
             labels=labels,
             volumes=volumes,
+            expose=expose,
             namespace=namespace,
             token=token,
         )
@@ -12223,6 +12237,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
+        expose: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12270,6 +12285,11 @@ class HfApi:
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
+            expose (`bool`, *optional*, defaults to `False`):
+                If True, expose every port the job's container listens on through the jobs proxy.
+                Each exposed port is then reachable on the public jobs domain. Access always
+                requires an HF token with read access to the job's namespace.
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -12316,6 +12336,7 @@ class HfApi:
             timeout=timeout,
             labels=labels,
             volumes=volumes,
+            expose=expose,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -12554,6 +12575,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
+        expose: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12607,6 +12629,11 @@ class HfApi:
                 Hugging Face Buckets or Repos to mount as volumes in the job container.
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
+
+            expose (`bool`, *optional*, defaults to `False`):
+                If True, expose every port the job's container listens on through the jobs proxy.
+                Each exposed port is then reachable on the public jobs domain. Access always
+                requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12673,6 +12700,7 @@ class HfApi:
             timeout=timeout,
             labels=labels,
             volumes=volumes,
+            expose=expose,
             namespace=namespace,
             token=token,
         )
