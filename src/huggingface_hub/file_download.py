@@ -713,7 +713,11 @@ def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str,
             # Update ref only if has been updated. Could cause useless error in case
             # repo is already cached and user doesn't have write access to cache folder.
             # See https://github.com/huggingface/huggingface_hub/issues/1216.
-            ref_path.write_text(commit_hash)
+            # Write atomically (tmp file + rename) so that concurrent readers never see
+            # a partially written ref.
+            tmp_path = ref_path.with_name(f"{ref_path.name}.{uuid.uuid4().hex[:8]}.tmp")
+            tmp_path.write_text(commit_hash)
+            os.replace(tmp_path, ref_path)
 
 
 @validate_hf_hub_args
@@ -1196,7 +1200,10 @@ def _hf_hub_download_to_cache_dir(
     _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     # Prevent parallel downloads of the same file with a lock.
-    # etag could be duplicated across repos,
+    # etag could be duplicated across repos.
+    # Note: the lock is best-effort to avoid downloading the same file twice. Cache correctness
+    # does not depend on it: each download writes to a process-unique temporary file that is
+    # atomically renamed into place (see `_download_to_tmp_and_move`).
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
     # Some Windows versions do not allow for paths longer than 255 characters.
@@ -1824,10 +1831,8 @@ def _download_to_tmp_and_move(
 
     Internal logic:
     - return early if file is already downloaded
-    - resume download if possible (from incomplete file)
-    - do not resume download if `force_download=True`
     - check disk space before downloading
-    - download content to a temporary file
+    - download content to a process-unique temporary file
     - set correct permissions on temporary file
     - move the temporary file to the destination path
 
@@ -1837,54 +1842,55 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
-    if incomplete_path.exists() and force_download:
-        # By default, we will try to resume the download if possible.
-        # However, if the user has set `force_download=True`, then we should
-        # not resume the download => delete the incomplete file.
-        logger.debug(f"Removing incomplete file '{incomplete_path}' (force_download=True)")
-        incomplete_path.unlink(missing_ok=True)
+    # Download to a process-unique temporary file before moving it in place. A shared
+    # `<etag>.incomplete` file corrupts the cache whenever the surrounding lock is not honored:
+    # on some filesystems (Lustre, GPFS, some NFS mounts) `flock(2)` silently succeeds for every
+    # caller and concurrent processes end up appending to the same file. With a unique file per
+    # process, a broken lock costs only duplicated bandwidth: each process downloads the full
+    # file and atomically renames it to the final destination.
+    # See https://github.com/huggingface/huggingface_hub/pull/4228.
+    tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+    try:
+        with tmp_path.open("wb") as f:
+            logger.debug(f"Downloading '{filename}' to '{tmp_path}'")
 
-    with incomplete_path.open("ab") as f:
-        resume_size = f.tell()
-        message = f"Downloading '{filename}' to '{incomplete_path}'"
-        if resume_size > 0 and expected_size is not None:
-            message += f" (resume from {resume_size}/{expected_size})"
-        logger.debug(message)
+            if expected_size is not None:  # might be None if HTTP header not set correctly
+                # Check disk space in both tmp and destination path
+                _check_disk_space(expected_size, tmp_path.parent)
+                _check_disk_space(expected_size, destination_path.parent)
 
-        if expected_size is not None:  # might be None if HTTP header not set correctly
-            # Check disk space in both tmp and destination path
-            _check_disk_space(expected_size, incomplete_path.parent)
-            _check_disk_space(expected_size, destination_path.parent)
+            if xet_file_data is not None and is_xet_available():
+                logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
+                xet_get(
+                    incomplete_path=tmp_path,
+                    xet_file_data=xet_file_data,
+                    headers=headers,
+                    expected_size=expected_size,
+                    displayed_filename=filename,
+                    tqdm_class=tqdm_class,
+                )
+            else:
+                if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
+                    logger.warning(
+                        "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
+                        "Falling back to regular HTTP download. "
+                        "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
+                    )
 
-        if xet_file_data is not None and is_xet_available():
-            logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
-            xet_get(
-                incomplete_path=incomplete_path,
-                xet_file_data=xet_file_data,
-                headers=headers,
-                expected_size=expected_size,
-                displayed_filename=filename,
-                tqdm_class=tqdm_class,
-            )
-        else:
-            if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
-                logger.warning(
-                    "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
-                    "Falling back to regular HTTP download. "
-                    "For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`"
+                http_get(
+                    url_to_download,
+                    f,
+                    headers=headers,
+                    expected_size=expected_size,
+                    tqdm_class=tqdm_class,
                 )
 
-            http_get(
-                url_to_download,
-                f,
-                resume_size=resume_size,
-                headers=headers,
-                expected_size=expected_size,
-                tqdm_class=tqdm_class,
-            )
-
-    logger.debug(f"Download complete. Moving file to {destination_path}")
-    _chmod_and_move(incomplete_path, destination_path)
+        logger.debug(f"Download complete. Moving file to {destination_path}")
+        _chmod_and_move(tmp_path, destination_path)
+    finally:
+        # No-op on success (file has been moved). On failure, do not keep a partial file around:
+        # it could not be reused anyway since the temporary name is unique to this download.
+        tmp_path.unlink(missing_ok=True)
 
 
 def _int_or_none(value: str | None) -> int | None:
