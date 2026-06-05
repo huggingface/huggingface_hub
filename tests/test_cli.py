@@ -3678,17 +3678,15 @@ class TestVolume:
         assert spec["volumes"][0]["revision"] == "main"
         assert spec["volumes"][0]["path"] == "subdir"
 
-    def test_serialize_expose_disabled_by_default(self) -> None:
+    @pytest.mark.parametrize(
+        "expose, expected",
+        [(None, None), (True, {"enabled": True}), (False, {"enabled": False})],
+    )
+    def test_serialize_expose(self, expose: bool | None, expected: dict | None) -> None:
         spec = _create_job_spec(
-            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
         )
-        assert "expose" not in spec
-
-    def test_serialize_expose_enabled(self) -> None:
-        spec = _create_job_spec(
-            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=True
-        )
-        assert spec["expose"] == {"enabled": True}
+        assert spec.get("expose") == expected
 
 
 class TestWebhooksCommand:
