@@ -2074,6 +2074,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `stats`: Fetch the resource usage statistics and...
 * `uv`: Run UV scripts (Python with inline...
+* `wait`: Wait for one or more Jobs to reach a...
 
 ### `hf jobs cancel`
 
@@ -2669,6 +2670,42 @@ Examples
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs wait`
+
+Wait for one or more Jobs to reach a terminal state.
+
+Blocks until each Job finishes and prints its final status. Exits with a non-zero status code if
+any Job did not complete successfully, so it can gate shell pipelines
+(e.g. `hf jobs wait "$JOB_ID" && hf jobs uv run eval.py`).
+
+**Usage**:
+
+```console
+$ hf jobs wait [OPTIONS] JOB_IDS...
+```
+
+**Arguments**:
+
+* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `--timeout FLOAT`: Maximum time to wait, in seconds. Waits indefinitely if not set.
+* `--poll-interval INTEGER`: Time between two polls of the Job status, in seconds.  [default: 5]
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs wait <job_id>
+  $ hf jobs wait <job_id> --timeout 600
+  $ hf jobs wait <job_id1> <job_id2>
 
 Learn more
   Use `hf <command> --help` for more information about a command.

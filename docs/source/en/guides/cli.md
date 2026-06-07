@@ -1773,6 +1773,11 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
+
+# Wait for a job to finish (exits non-zero if it did not complete successfully)
+>>> hf jobs wait <job_id>
+# Chain jobs together: only run the second job if the first one succeeds
+>>> JOB_ID=$(hf jobs run -d python:3.12 python train.py) && hf jobs wait "$JOB_ID" && hf jobs uv run eval.py
 ```
 
 #### 3. Run on GPU

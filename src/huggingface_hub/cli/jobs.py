@@ -35,6 +35,9 @@ Usage:
     # Cancel a running job
     hf jobs cancel <job-id>
 
+    # Wait for a job to finish (exits non-zero if it did not complete successfully)
+    hf jobs wait <job-id>
+
     # List available hardware options
     hf jobs hardware
 
@@ -72,8 +75,8 @@ from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import JobHardware
-from huggingface_hub.errors import CLIError, HfHubHTTPError
+from huggingface_hub import JobHardware, JobStage
+from huggingface_hub.errors import CLIError, HfHubHTTPError, JobTimeoutError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._parsing import format_duration
@@ -675,6 +678,74 @@ def jobs_cancel(
         else:
             raise CLIError(f"Failed to cancel job: {e}") from e
     out.result("Job cancelled", id=job_id)
+
+
+@jobs_cli.command(
+    "wait",
+    examples=[
+        "hf jobs wait <job_id>",
+        "hf jobs wait <job_id> --timeout 600",
+        "hf jobs wait <job_id1> <job_id2>",
+    ],
+)
+def jobs_wait(
+    job_ids: Annotated[
+        list[str],
+        typer.Argument(
+            help="Job IDs to wait for (or 'namespace/job_id')",
+        ),
+    ],
+    timeout: Annotated[
+        float | None,
+        typer.Option(
+            help="Maximum time to wait, in seconds. Waits indefinitely if not set.",
+        ),
+    ] = None,
+    poll_interval: Annotated[
+        int,
+        typer.Option(
+            "--poll-interval",
+            help="Time between two polls of the Job status, in seconds.",
+        ),
+    ] = 5,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Wait for one or more Jobs to reach a terminal state.
+
+    Blocks until each Job finishes and prints its final status. Exits with a non-zero status code if
+    any Job did not complete successfully, so it can gate shell pipelines
+    (e.g. `hf jobs wait "$JOB_ID" && hf jobs uv run eval.py`).
+    """
+    api = get_hf_api(token=token)
+    finished = []
+    for job_id in job_ids:
+        parsed_id, parsed_namespace = _parse_namespace_from_job_id(job_id, namespace)
+        try:
+            finished.append(
+                api.wait_for_job(
+                    job_id=parsed_id,
+                    namespace=parsed_namespace,
+                    timeout=timeout,
+                    refresh_every=poll_interval,
+                )
+            )
+        except JobTimeoutError as e:
+            raise CLIError(str(e)) from e
+        except HfHubHTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            if status == 404:
+                raise CLIError("Job not found. Please check the job ID.") from e
+            elif status == 403:
+                raise CLIError("Access denied. You may not have permission to view this job.") from e
+            else:
+                raise CLIError(f"Failed to wait for job: {e}") from e
+
+    out.table([_dataclass_to_dict(job) for job in finished])
+    failed = [job for job in finished if (job.status.stage if job.status else None) != JobStage.COMPLETED]
+    if failed:
+        out.hint(f"Run 'hf jobs logs {failed[0].id}' to inspect the failure.")
+        raise CLIError("Job(s) did not complete successfully: " + ", ".join(job.id for job in failed))
 
 
 @jobs_cli.command(

@@ -12,6 +12,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 - Inspect Job: [`inspect_job`]
 - List Jobs: [`list_jobs`]
 - Cancel Job: [`cancel_job`]
+- Wait for a Job: [`wait_for_job`]
 - Run a UV Job: [`run_uv_job`]
 
 ## Data structures

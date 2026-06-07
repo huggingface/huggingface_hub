@@ -260,6 +260,49 @@ class JobInfo:
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
         self.url = f"{self.endpoint}/jobs/{self.owner.name}/{self.id}"
 
+    def wait(
+        self,
+        *,
+        timeout: float | None = None,
+        refresh_every: int = 5,
+        token: bool | str | None = None,
+    ) -> "JobInfo":
+        """
+        Wait for the Job to reach a terminal state and return the updated [`JobInfo`].
+
+        Convenience wrapper around [`HfApi.wait_for_job`]. Since [`JobInfo`] does not store the token
+        used to create it, the locally saved token is used unless `token` is provided.
+
+        Args:
+            timeout (`float`, *optional*):
+                The maximum time to wait, in seconds. If `None` (default), waits indefinitely.
+            refresh_every (`int`, *optional*):
+                The time to wait between two polls of the Job status, in seconds. Defaults to 5s.
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. Defaults to the locally saved token.
+
+        Returns:
+            [`JobInfo`]: the Job information once it reached a terminal state.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello!')"]).wait()
+            >>> job.status.stage
+            'COMPLETED'
+            ```
+        """
+        from .hf_api import HfApi
+
+        return HfApi(endpoint=self.endpoint).wait_for_job(
+            job_id=self.id,
+            namespace=self.owner.name,
+            timeout=timeout,
+            refresh_every=refresh_every,
+            token=token,
+        )
+
 
 @dataclass
 class JobSpec:

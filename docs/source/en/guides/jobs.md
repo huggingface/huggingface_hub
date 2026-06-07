@@ -149,16 +149,29 @@ Hello from the cloud!
 >>> cancel_job(job_id=job_id)
 ```
 
-Check the status of multiple jobs to know when they're all finished using a loop and [`inspect_job`]:
+## Wait for a Job
+
+Use [`wait_for_job`] to block until a Job reaches a terminal state (`COMPLETED`, `ERROR`, `CANCELED` or `DELETED`). It returns the final [`JobInfo`], so you can inspect `status.stage` to tell success from failure:
 
 ```python
-# Run multiple jobs in parallel and wait for their completions
->>> import time
->>> from huggingface_hub import inspect_job, run_job
+>>> from huggingface_hub import run_job, wait_for_job
+>>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello!')"])
+>>> job = wait_for_job(job_id=job.id, timeout=600)
+>>> job.status.stage
+'COMPLETED'
+```
+
+[`JobInfo.wait`] is a convenience shortcut for the same thing:
+
+```python
+>>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello!')"]).wait()
+```
+
+To run multiple jobs in parallel and wait for them all to finish:
+
+```python
 >>> jobs = [run_job(image=image, command=command) for command in commands]
->>> for job in jobs:
-...     while inspect_job(job_id=job.id).status.stage not in ("COMPLETED", "ERROR"):
-...         time.sleep(10)
+>>> jobs = [wait_for_job(job_id=job.id) for job in jobs]
 ```
 
 ## Select the hardware

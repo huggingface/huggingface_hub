@@ -2935,6 +2935,37 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace=None, follow=True, tail=100)
         assert "streaming line" in result.output
 
+    def test_wait_success(self, runner: CliRunner) -> None:
+        """`hf jobs wait <id>` forwards options and exits 0 when the job completes."""
+        job = JobInfo(id="my-job-id", status={"stage": "COMPLETED"}, owner={"id": "i", "name": "me", "type": "user"})
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = job
+            result = runner.invoke(app, ["jobs", "wait", "my-job-id", "--timeout", "600", "--poll-interval", "2"])
+        assert result.exit_code == 0
+        api.wait_for_job.assert_called_once_with(job_id="my-job-id", namespace=None, timeout=600.0, refresh_every=2)
+        assert "my-job-id" in result.output
+
+    def test_wait_failure_exits_non_zero(self, runner: CliRunner) -> None:
+        """A job ending in a non-COMPLETED terminal stage makes `hf jobs wait` exit non-zero."""
+        job = JobInfo(id="my-job-id", status={"stage": "ERROR"}, owner={"id": "i", "name": "me", "type": "user"})
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = job
+            result = runner.invoke(app, ["jobs", "wait", "my-job-id"])
+        assert result.exit_code != 0
+        api.wait_for_job.assert_called_once_with(job_id="my-job-id", namespace=None, timeout=None, refresh_every=5)
+
+    def test_wait_timeout_exits_non_zero(self, runner: CliRunner) -> None:
+        """A `JobTimeoutError` from the API surfaces as a non-zero exit code."""
+        from huggingface_hub.errors import JobTimeoutError
+
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.side_effect = JobTimeoutError("Job my-job-id did not reach a terminal state within 1.0s.")
+            result = runner.invoke(app, ["jobs", "wait", "my-job-id", "--timeout", "1"])
+        assert result.exit_code != 0
+
     def _make_mock_jobs(self):
         """Create mock JobInfo objects for testing ps output."""
         from huggingface_hub._jobs_api import JobInfo

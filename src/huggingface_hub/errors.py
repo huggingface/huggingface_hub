@@ -116,6 +116,13 @@ class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
     """Exception for timeouts while waiting for Inference Endpoint."""
 
 
+# JOB ERRORS
+
+
+class JobTimeoutError(TimeoutError):
+    """Raised when a Job does not reach a terminal state within the given timeout."""
+
+
 # SAFETENSORS ERRORS
 
 

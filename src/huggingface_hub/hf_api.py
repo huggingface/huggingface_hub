@@ -73,7 +73,7 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, JobStage, ScheduledJobInfo, _create_job_spec
 from ._space_api import (
     SpaceHardware,
     SpaceRuntime,
@@ -98,6 +98,7 @@ from .errors import (
     FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
+    JobTimeoutError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
@@ -11994,6 +11995,79 @@ class HfApi:
         response.raise_for_status()
         return JobInfo(**response.json(), endpoint=self.endpoint)
 
+    def wait_for_job(
+        self,
+        *,
+        job_id: str,
+        namespace: str | None = None,
+        timeout: float | None = None,
+        refresh_every: int = 5,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Wait for a compute Job to reach a terminal state.
+
+        Polls [`HfApi.inspect_job`] every `refresh_every` seconds until the Job reaches a terminal
+        stage (`COMPLETED`, `ERROR`, `CANCELED` or `DELETED`) and returns the corresponding
+        [`JobInfo`]. The Job's final outcome is not raised as an error: inspect the returned
+        `status.stage` to tell success (`COMPLETED`) from failure.
+
+        Args:
+            job_id (`str`):
+                ID of the Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job is running. Defaults to the current user's namespace.
+
+            timeout (`float`, *optional*):
+                The maximum time to wait, in seconds. If `None` (default), waits indefinitely.
+
+            refresh_every (`int`, *optional*):
+                The time to wait between two polls of the Job status, in seconds. Defaults to 5s.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: the Job information once it reached a terminal state.
+
+        Raises:
+            [`~errors.JobTimeoutError`]:
+                If the Job did not reach a terminal state within `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_job, wait_for_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello from HF compute!')"])
+            >>> job = wait_for_job(job_id=job.id)
+            >>> job.status.stage
+            'COMPLETED'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if refresh_every <= 0:
+            raise ValueError("`refresh_every` must be positive.")
+        if namespace is None:
+            # Resolve the namespace once to avoid an extra `whoami` call on every poll.
+            namespace = self.whoami(token=token)["name"]
+
+        terminal_stages = {JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED}
+        start = time.time()
+        while True:
+            job = self.inspect_job(job_id=job_id, namespace=namespace, token=token)
+            stage = job.status.stage if job.status else None
+            if stage in terminal_stages:
+                return job
+            if timeout is not None and time.time() - start > timeout:
+                raise JobTimeoutError(
+                    f"Job {job_id} did not reach a terminal state within {timeout}s (last stage: {stage})."
+                )
+            time.sleep(refresh_every)
+
     def cancel_job(
         self,
         *,
@@ -14455,6 +14529,7 @@ fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
+wait_for_job = api.wait_for_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job
