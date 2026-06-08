@@ -14,12 +14,12 @@
 """Detect whether the process is being invoked by an AI coding agent.
 
 Detection is based on environment variables that AI agents set in their shell
-sessions. ``AI_AGENT`` and ``AGENT`` are treated as a universal standard (any
+sessions. `AI_AGENT` and `AGENT` are treated as a universal standard (any
 tool can set its harness id there); the remaining checks are tool-specific and
 ordered by priority (first match wins).
 
 The list of known harnesses is maintained on the Hub and exposed at
-``{ENDPOINT}/api/agent-harnesses``. We fetch it at most once a day and cache it
+`{ENDPOINT}/api/agent-harnesses`. We fetch it at most once a day and cache it
 locally so the list can be updated without requiring a new client release.
 
 Detection is entirely best-effort: there is no hardcoded list of harnesses. When
@@ -50,13 +50,13 @@ _REGISTRY_FETCH_TIMEOUT = 3
 
 
 class HarnessInfo(TypedDict, total=False):
-    """A single harness entry. ``envVars`` maps an env var name to a match pattern (see ``_env_vars_match``)."""
+    """A single harness entry. `envVars` maps an env var name to a match pattern (see `_env_vars_match`)."""
 
     envVars: dict[str, str]
 
 
 class Registry(TypedDict):
-    """The agent harness registry, as served by ``{ENDPOINT}/api/agent-harnesses``."""
+    """The agent harness registry, as served by `{ENDPOINT}/api/agent-harnesses`."""
 
     standardEnvVars: list[str]
     harnesses: dict[str, HarnessInfo]
@@ -71,15 +71,14 @@ _registry: Optional[Registry] = None
 
 
 def detect_agent() -> Optional[str]:
-    """Return the id of the detected AI agent harness or ``None``.
+    """Return the id of the detected AI agent harness or `None`.
 
     Harnesses are checked in registry order; for each one we match its env var
-    pattern(s) and, failing that, the standard ``AI_AGENT`` / ``AGENT`` vars
+    pattern(s) and, failing that, the standard `AI_AGENT` / `AGENT` vars
     against the harness id. The first match wins. When a standard var is set to
-    an unrecognized value, ``"unknown"`` is returned.
+    an unrecognized value, `"unknown"` is returned.
     """
     registry = _get_registry()
-    # `... or [...]` (not `.get(default)`) so explicit `null` values in the registry degrade gracefully.
     standard_vars = registry.get("standardEnvVars") or []
     harnesses = registry.get("harnesses") or {}
 
@@ -88,31 +87,30 @@ def detect_agent() -> Optional[str]:
         if env_vars and _env_vars_match(env_vars):
             return harness_id
         for var in standard_vars:
-            if os.environ.get(var, "").strip().lower() == harness_id:
+            if os.environ.get(var, "").strip() == harness_id:
                 return harness_id
 
     # No harness matched but a standard var is set => unrecognized agent.
     for var in standard_vars:
-        if os.environ.get(var, "").strip():
+        if value := os.environ.get(var, "").strip():
+            if value in harnesses.keys():
+                return value
             return "unknown"
 
     return None
 
 
 def is_agent() -> bool:
-    """Return ``True`` if the process is being invoked by an AI coding agent."""
+    """Return `True` if the process is being invoked by an AI coding agent."""
     return detect_agent() is not None
 
 
 def _env_vars_match(env_vars: dict[str, str]) -> bool:
-    """Return ``True`` if any ``(var, pattern)`` from the harness matches the environment.
+    """Return `True` if any `(var, pattern)` from the harness matches the environment.
 
     Supported patterns:
-      - ``"*"``: the variable is set to any non-empty value
-      - ``"<value>"``: the variable equals this exact value
-
-    NOTE: the ``"<prefix>*"`` (fuzzy prefix) pattern is not implemented yet; such
-    entries are simply ignored.
+      - `"*"`: the variable is set to any non-empty value
+      - `"<value>"`: the variable equals this exact value
     """
     for var, pattern in env_vars.items():
         value = os.environ.get(var)
@@ -120,8 +118,6 @@ def _env_vars_match(env_vars: dict[str, str]) -> bool:
             continue
         if pattern == "*":
             return True
-        if pattern.endswith("*"):
-            continue  # prefix matching not implemented yet
         if value == pattern:
             return True
     return False
@@ -167,7 +163,7 @@ def _load_registry() -> Registry:
 
 
 def _read_cached_registry(path: str, max_age: Optional[int]) -> Optional[Registry]:
-    """Return the cached registry, or ``None`` if missing/stale/unreadable."""
+    """Return the cached registry, or `None` if missing/stale/unreadable."""
     try:
         if not os.path.exists(path):
             return None
@@ -190,7 +186,7 @@ def _write_cached_registry(path: str, registry: Registry) -> None:
 
 
 def _fetch_registry() -> Optional[Registry]:
-    """Fetch the registry from the Hub. Returns ``None`` when offline or on any error."""
+    """Fetch the registry from the Hub. Returns `None` when offline or on any error."""
     if constants.HF_HUB_OFFLINE:
         return None
     try:
