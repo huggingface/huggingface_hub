@@ -26,13 +26,15 @@ Detection is entirely best-effort: there is no hardcoded list of harnesses. When
 the registry cannot be fetched (and no cached copy is available), detection simply
 reports "no agent". Any error while fetching/reading the registry is swallowed —
 detection must never make a process fail.
+
+More details: https://huggingface.co/docs/hub/agents-overview#register-your-agent-harness
 """
 
 import json
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypedDict
 
 from .. import constants
 from . import logging
@@ -47,12 +49,25 @@ _REGISTRY_TTL_SECONDS = 24 * 3600
 _REGISTRY_FETCH_TIMEOUT = 3
 
 
+class HarnessInfo(TypedDict, total=False):
+    """A single harness entry. ``envVars`` maps an env var name to a match pattern (see ``_env_vars_match``)."""
+
+    envVars: dict[str, str]
+
+
+class Registry(TypedDict):
+    """The agent harness registry, as served by ``{ENDPOINT}/api/agent-harnesses``."""
+
+    standardEnvVars: list[str]
+    harnesses: dict[str, HarnessInfo]
+
+
 # Empty registry: detection is disabled (no agent ever detected). Used when the
-# Hub is unreachable and no cached copy is available — there is no hardcoded list.
-_EMPTY_REGISTRY: dict = {"standardEnvVars": [], "harnesses": {}}
+# Hub is unreachable and no cached copy is available.
+_EMPTY_REGISTRY: Registry = {"standardEnvVars": [], "harnesses": {}}
 
 # In-process cache of the resolved registry. Populated lazily on first detection.
-_registry: Optional[dict] = None
+_registry: Optional[Registry] = None
 
 
 def detect_agent() -> Optional[str]:
@@ -65,8 +80,8 @@ def detect_agent() -> Optional[str]:
     """
     registry = _get_registry()
     # `... or [...]` (not `.get(default)`) so explicit `null` values in the registry degrade gracefully.
-    standard_vars: list[str] = registry.get("standardEnvVars") or []
-    harnesses: dict[str, dict] = registry.get("harnesses") or {}
+    standard_vars = registry.get("standardEnvVars") or []
+    harnesses = registry.get("harnesses") or {}
 
     for harness_id, info in harnesses.items():
         env_vars = (info or {}).get("envVars")
@@ -112,7 +127,7 @@ def _env_vars_match(env_vars: dict[str, str]) -> bool:
     return False
 
 
-def _get_registry() -> dict:
+def _get_registry() -> Registry:
     """Return the harness registry, loading (and caching in-process) on first call.
 
     Best-effort: any unexpected error degrades to an empty registry so detection
@@ -128,7 +143,7 @@ def _get_registry() -> dict:
     return _registry
 
 
-def _load_registry() -> dict:
+def _load_registry() -> Registry:
     """Resolve the registry from the local cache or the Hub.
 
     No hardcoded list: if the Hub is unreachable and no cached copy exists, an
@@ -151,7 +166,7 @@ def _load_registry() -> dict:
     return _EMPTY_REGISTRY
 
 
-def _read_cached_registry(path: str, max_age: Optional[int]) -> Optional[dict]:
+def _read_cached_registry(path: str, max_age: Optional[int]) -> Optional[Registry]:
     """Return the cached registry, or ``None`` if missing/stale/unreadable."""
     try:
         if not os.path.exists(path):
@@ -165,7 +180,7 @@ def _read_cached_registry(path: str, max_age: Optional[int]) -> Optional[dict]:
         return None
 
 
-def _write_cached_registry(path: str, registry: dict) -> None:
+def _write_cached_registry(path: str, registry: Registry) -> None:
     try:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -174,7 +189,7 @@ def _write_cached_registry(path: str, registry: dict) -> None:
         logger.debug("Could not cache agent harnesses registry.", exc_info=True)
 
 
-def _fetch_registry() -> Optional[dict]:
+def _fetch_registry() -> Optional[Registry]:
     """Fetch the registry from the Hub. Returns ``None`` when offline or on any error."""
     if constants.HF_HUB_OFFLINE:
         return None
