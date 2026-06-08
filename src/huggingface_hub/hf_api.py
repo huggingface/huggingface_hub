@@ -98,6 +98,7 @@ from .errors import (
     FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
+    HfUriError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
@@ -8636,15 +8637,21 @@ class HfApi:
             constants.REPO_TYPE_SPACE: "spaces",
         }[repo_type]
 
-        # Infer target namespace + name. When 'to_id' is provided, split it as
-        # '<namespace>/<name>' (a bare '<name>' has no namespace); otherwise reuse the source
-        # name. A missing namespace defaults to the caller's account.
+        # Infer target namespace + name. 'from_id'/'to_id' are bare '<namespace>/<name>' ids, so
+        # we parse them as 'hf://' URIs. When 'to_id' is provided we take the name from it; otherwise
+        # we reuse the source name. If 'to_id' has no namespace (or is not provided), the namespace
+        # defaults to the caller's account.
+        to_namespace: str | None = None
         if to_id is not None:
-            namespace_and_name = to_id.rsplit("/", 1)
-            to_namespace = namespace_and_name[0] if len(namespace_and_name) == 2 else None
-            to_repo_name = namespace_and_name[-1]
+            try:
+                to_uri = parse_hf_uri(f"{constants.HF_PROTOCOL}{to_id}")
+            except HfUriError:
+                # 'to_id' is a bare '<name>' (no namespace): keep it as the name, guess the namespace.
+                to_repo_name = to_id
+            else:
+                to_namespace, to_repo_name = to_uri.id.split("/")
         else:
-            to_namespace, to_repo_name = None, from_id.rsplit("/", 1)[-1]
+            to_repo_name = parse_hf_uri(f"{constants.HF_PROTOCOL}{from_id}").id.split("/")[1]
         if to_namespace is None:
             to_namespace = self.whoami(token)["name"]
 
