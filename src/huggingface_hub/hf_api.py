@@ -293,6 +293,15 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
 
+    <Tip warning={true}>
+
+    Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into
+    a structured [`HfUri`]. `parse_hf_uri` is stricter (it does not accept canonical single-segment
+    repos or bare `<namespace>/<name>` ids without a scheme), so this function is kept for backward
+    compatibility but is no longer used internally by `huggingface_hub`.
+
+    </Tip>
+
     Args:
         hf_id (`str`):
             An URL or ID of a repository on the HF hub. Accepted values are:
@@ -627,9 +636,9 @@ class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
     `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
-    compatibility. At initialization, the URL is parsed to populate properties:
+    compatibility. At initialization, the URL is parsed (via [`parse_hf_uri`]) to populate properties:
     - endpoint (`str`)
-    - namespace (`Optional[str]`)
+    - namespace (`str`)
     - repo_name (`str`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
@@ -643,8 +652,8 @@ class RepoUrl(str):
 
     Example:
     ```py
-    >>> RepoUrl('https://huggingface.co/gpt2')
-    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+    >>> RepoUrl('https://huggingface.co/gpt2')  # doctest: +SKIP
+    RepoUrl('https://huggingface.co/openai-community/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='openai-community/gpt2')
 
     >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
     RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
@@ -656,11 +665,14 @@ class RepoUrl(str):
     RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
     ```
 
+    > [!WARNING]
+    > Canonical single-segment repos (e.g. 'gpt2', without a namespace) are not supported. They are
+    > archived/read-only on the Hub and all have a namespaced alias (e.g. 'openai-community/gpt2').
+
     Raises:
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If URL cannot be parsed.
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `repo_type` is unknown.
+        [`~errors.HfUriError`]:
+            If the URL cannot be parsed (e.g. canonical single-segment repo, or unknown `repo_type`).
+            `HfUriError` is a subclass of `ValueError`.
     """
 
     def __new__(cls, url: Any, endpoint: str | None = None):
@@ -669,15 +681,26 @@ class RepoUrl(str):
 
     def __init__(self, url: Any, endpoint: str | None = None) -> None:
         super().__init__()
-        # Parse URL
         self.endpoint = endpoint or constants.ENDPOINT
-        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
-        # Populate fields
-        self.namespace = namespace
-        self.repo_name = repo_name
-        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
-        self.repo_type = repo_type or constants.REPO_TYPE_MODEL
+        # Normalize the input into a canonical 'hf://' URI and parse it with the shared
+        # 'parse_hf_uri' parser. The endpoint prefix is stripped (falling back to a generic
+        # scheme + host strip) so that web URLs from any host (custom / self-hosted endpoints,
+        # 'hf.co', staging, ...) and bare '<namespace>/<name>' ids all reach the same parser.
+        raw = str(self)
+        if raw.startswith(constants.HF_PROTOCOL):
+            uri_str = raw
+        else:
+            path = raw.removeprefix(self.endpoint)
+            if "://" in path:  # endpoint prefix didn't match -> strip scheme + host generically
+                path = path.split("://", 1)[1].partition("/")[2]
+            uri_str = constants.HF_PROTOCOL + path.lstrip("/")
+        parsed = parse_hf_uri(uri_str)
+
+        # Populate fields ('parsed.id' is always '<namespace>/<name>').
+        self.namespace, self.repo_name = parsed.id.split("/")
+        self.repo_id = parsed.id
+        self.repo_type = parsed.type
         self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
@@ -8613,16 +8636,17 @@ class HfApi:
             constants.REPO_TYPE_SPACE: "spaces",
         }[repo_type]
 
-        # Parse to_id if provided
-        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
-
-        # Infer target repo_id
-        to_namespace = (
-            parsed_to_id.namespace
-            if parsed_to_id is not None and parsed_to_id.namespace is not None
-            else self.whoami(token)["name"]
-        )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+        # Infer target namespace + name. When 'to_id' is provided, split it as
+        # '<namespace>/<name>' (a bare '<name>' has no namespace); otherwise reuse the source
+        # name. A missing namespace defaults to the caller's account.
+        if to_id is not None:
+            namespace_and_name = to_id.rsplit("/", 1)
+            to_namespace = namespace_and_name[0] if len(namespace_and_name) == 2 else None
+            to_repo_name = namespace_and_name[-1]
+        else:
+            to_namespace, to_repo_name = None, from_id.rsplit("/", 1)[-1]
+        if to_namespace is None:
+            to_namespace = self.whoami(token)["name"]
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
