@@ -674,15 +674,16 @@ class RepoUrl(str):
         super().__init__()
         self.endpoint = endpoint or constants.ENDPOINT
 
-        # Parse with the shared 'parse_hf_uri' parser, which handles both 'hf://' URIs and Hugging
-        # Face web URLs. If that fails, the input is either a bare '<namespace>/<name>' id or a URL
-        # on a custom endpoint that 'parse_hf_uri' doesn't recognize: strip the endpoint prefix and
-        # reparse it as an 'hf://' URI.
+        # Parse with the shared 'parse_hf_uri' parser, which handles 'hf://' URIs as well as Hugging
+        # Face web URLs (including ones on this custom 'endpoint'). If that fails, the input is a bare
+        # '<namespace>/<name>' id, which we reparse as an 'hf://' URI.
         raw = str(self)
         try:
-            parsed = parse_hf_uri(raw)
+            parsed = parse_hf_uri(raw, endpoint=self.endpoint)
         except HfUriError:
-            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{raw.removeprefix(self.endpoint).lstrip('/')}")
+            if "://" in raw:
+                raise  # it was a URL: the original error is authoritative, don't retry as a bare id
+            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{raw}")
 
         # Populate fields ('parsed.id' is always '<namespace>/<name>').
         self.namespace, self.repo_name = parsed.id.split("/")
