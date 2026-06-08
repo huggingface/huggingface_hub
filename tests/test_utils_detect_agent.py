@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 import time
 
 import pytest
@@ -137,8 +138,6 @@ class TestRegistryLoading:
             json.dump({"standardEnvVars": [], "harnesses": {}}, f)
         # Make the file older than the TTL.
         old = time.time() - _detect_agent._REGISTRY_TTL_SECONDS - 10
-        import os
-
         os.utime(path, (old, old))
         monkeypatch.setattr(constants, "AGENT_HARNESSES_PATH", path)
         monkeypatch.setattr(_detect_agent, "_fetch_registry", lambda: FAKE_REGISTRY)
@@ -150,8 +149,6 @@ class TestRegistryLoading:
         with open(path, "w") as f:
             json.dump(FAKE_REGISTRY, f)
         old = time.time() - _detect_agent._REGISTRY_TTL_SECONDS - 10
-        import os
-
         os.utime(path, (old, old))
         monkeypatch.setattr(constants, "AGENT_HARNESSES_PATH", path)
         monkeypatch.setattr(_detect_agent, "_fetch_registry", lambda: None)
