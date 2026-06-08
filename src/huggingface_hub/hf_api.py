@@ -294,14 +294,9 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
 
-    <Tip warning={true}>
-
-    Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into
-    a structured [`HfUri`]. `parse_hf_uri` is stricter (it does not accept canonical single-segment
-    repos or bare `<namespace>/<name>` ids without a scheme), so this function is kept for backward
-    compatibility but is no longer used internally by `huggingface_hub`.
-
-    </Tip>
+    > [!WARNING]
+    > Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into a structured [`HfUri`].
+    > See https://huggingface.co/docs/huggingface_hub/package_reference/hf_uris for more details.
 
     Args:
         hf_id (`str`):
@@ -637,7 +632,7 @@ class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
     `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
-    compatibility. At initialization, the URL is parsed (via [`parse_hf_uri`]) to populate properties:
+    compatibility. At initialization, the URL is parsed to populate properties:
     - endpoint (`str`)
     - namespace (`str`)
     - repo_name (`str`)
@@ -653,7 +648,7 @@ class RepoUrl(str):
 
     Example:
     ```py
-    >>> RepoUrl('https://huggingface.co/gpt2')  # doctest: +SKIP
+    >>> RepoUrl('https://huggingface.co/openai-community/gpt2')
     RepoUrl('https://huggingface.co/openai-community/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='openai-community/gpt2')
 
     >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
@@ -666,14 +661,9 @@ class RepoUrl(str):
     RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
     ```
 
-    > [!WARNING]
-    > Canonical single-segment repos (e.g. 'gpt2', without a namespace) are not supported. They are
-    > archived/read-only on the Hub and all have a namespaced alias (e.g. 'openai-community/gpt2').
-
     Raises:
         [`~errors.HfUriError`]:
             If the URL cannot be parsed (e.g. canonical single-segment repo, or unknown `repo_type`).
-            `HfUriError` is a subclass of `ValueError`.
     """
 
     def __new__(cls, url: Any, endpoint: str | None = None):
