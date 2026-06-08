@@ -93,6 +93,13 @@ class TestDetectAgent:
         monkeypatch.setenv("AGENT", "some-unregistered-tool")
         assert _detect_agent.detect_agent() == "unknown"
 
+    def test_malformed_registry_with_null_values(self, monkeypatch):
+        # A registry with explicit `null` values (e.g. from a malformed cache/response)
+        # must not crash detection.
+        monkeypatch.setattr(_detect_agent, "_registry", {"standardEnvVars": None, "harnesses": None})
+        assert _detect_agent.detect_agent() is None
+        assert _detect_agent.is_agent() is False
+
 
 class TestRegistryLoading:
     @pytest.fixture(autouse=True)

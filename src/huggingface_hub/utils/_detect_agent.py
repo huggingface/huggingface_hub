@@ -64,8 +64,9 @@ def detect_agent() -> Optional[str]:
     an unrecognized value, ``"unknown"`` is returned.
     """
     registry = _get_registry()
-    standard_vars: list[str] = registry.get("standardEnvVars", [])
-    harnesses: dict[str, dict] = registry.get("harnesses", {})
+    # `... or [...]` (not `.get(default)`) so explicit `null` values in the registry degrade gracefully.
+    standard_vars: list[str] = registry.get("standardEnvVars") or []
+    harnesses: dict[str, dict] = registry.get("harnesses") or {}
 
     for harness_id, info in harnesses.items():
         env_vars = (info or {}).get("envVars")
