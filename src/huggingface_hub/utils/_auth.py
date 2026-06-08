@@ -17,6 +17,7 @@ import configparser
 import io
 import logging
 import os
+import time
 import warnings
 from pathlib import Path
 from threading import Lock
@@ -58,13 +59,19 @@ def get_token() -> str | None:
           if you want to retrieve the token for other purposes than sending an HTTP request.
 
     Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
-    in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
-    `hf auth login`.
+    in the Hugging Face home folder. As a last resort, if running in a CI provider with a Trusted Publisher configured
+    (`HF_OIDC_RESOURCE` is set), a short-lived token is obtained via OIDC token exchange. Returns None if user is not
+    logged in. To log in, use [`login`] or `hf auth login`.
 
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.
     """
-    return _get_token_from_google_colab() or _get_token_from_environment() or _get_token_from_file()
+    return (
+        _get_token_from_google_colab()
+        or _get_token_from_environment()
+        or _get_token_from_file()
+        or _get_token_from_oidc()
+    )
 
 
 def _get_token_from_google_colab() -> str | None:
@@ -141,6 +148,61 @@ def _get_token_from_file() -> str | None:
         return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
     except FileNotFoundError:
         return None
+
+
+# Cache for the OIDC-exchanged token: re-exchanging on every `get_token()` call would be wasteful,
+# and re-exchanging shortly before expiry transparently keeps long-running jobs authenticated.
+_OIDC_TOKEN_LOCK = Lock()
+_OIDC_TOKEN_CACHE: dict | None = None  # {"resource": str, "token": str, "expires_at": float}
+_OIDC_REFRESH_MARGIN = 300  # re-exchange this many seconds before the token actually expires
+
+
+def _get_token_from_oidc() -> str | None:
+    """Obtain a short-lived token via OIDC token exchange when running in CI (Trusted Publishers).
+
+    Only active when the user opted in by setting `HF_OIDC_RESOURCE` (the repo or username to scope
+    the token to) *and* a supported CI provider is detected. Best-effort: any failure is surfaced as
+    a warning and returns `None`, so resolution degrades to "not logged in" exactly as before.
+
+    See `huggingface_hub._oidc` and https://huggingface.co/docs/hub/trusted-publishers.
+    """
+    resource = os.environ.get("HF_OIDC_RESOURCE")
+    if not resource:
+        return None
+
+    # Lazy import: keeps `get_token()` cheap for everyone not using OIDC and avoids import cycles.
+    from .._oidc import detect_provider, oidc_login
+
+    if detect_provider() is None:
+        return None
+
+    global _OIDC_TOKEN_CACHE
+    with _OIDC_TOKEN_LOCK:
+        now = time.monotonic()
+        if (
+            _OIDC_TOKEN_CACHE is not None
+            and _OIDC_TOKEN_CACHE["resource"] == resource
+            and now < _OIDC_TOKEN_CACHE["expires_at"]
+        ):
+            return _OIDC_TOKEN_CACHE["token"]
+
+        try:
+            result = oidc_login(resource=resource)
+        except Exception as e:
+            warnings.warn(
+                f"Could not authenticate to the Hugging Face Hub via OIDC token exchange "
+                f"(HF_OIDC_RESOURCE={resource!r}): {e}"
+            )
+            return None
+
+        token = result["access_token"]
+        expires_in = int(result.get("expires_in", 3600))
+        _OIDC_TOKEN_CACHE = {
+            "resource": resource,
+            "token": token,
+            "expires_at": now + max(expires_in - _OIDC_REFRESH_MARGIN, 0),
+        }
+        return token
 
 
 def get_stored_tokens() -> dict[str, str]:
