@@ -91,9 +91,10 @@ def detect_agent() -> Optional[str]:
                 return harness_id
 
     # No harness matched but a standard var is set => unrecognized agent.
+    lowercased_harnesses = {k.lower() for k in harnesses.keys()}
     for var in standard_vars:
-        if value := os.environ.get(var, "").strip():
-            if value in harnesses.keys():
+        if value := os.environ.get(var, "").strip().lower():
+            if value in lowercased_harnesses:
                 return value
             return "unknown"
 
