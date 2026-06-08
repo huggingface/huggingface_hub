@@ -43,6 +43,9 @@ Usage:
 
     # Schedule commits every 30 minutes
     hf upload Wauplin/my-cool-model --every=30
+
+    # Upload using an hf:// URI (repo type, revision and path in repo are read from the URI)
+    hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
 """
 
 import os
@@ -52,15 +55,16 @@ from typing import Annotated
 
 import typer
 
-from huggingface_hub import logging
+from huggingface_hub import constants, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
-from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.utils import parse_hf_uri
 
 from ._cli_utils import (
     PrivateOpt,
     RepoIdArg,
     RepoType,
-    RepoTypeOpt,
+    RepoTypeOptionalOpt,
     RevisionOpt,
     TokenOpt,
     get_hf_api,
@@ -94,7 +98,7 @@ def upload(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOptionalOpt = None,
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
@@ -146,7 +150,29 @@ def upload(
     if every is not None and every <= 0:
         raise typer.BadParameter("--every must be a positive value", param_hint="every")
 
-    repo_type_str = repo_type.value
+    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
+    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) path in repo,
+    # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
+        if repo_type is not None:
+            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+        if revision is not None:
+            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+        uri = parse_hf_uri(repo_id)
+        if uri.is_bucket:
+            raise CLIError("Buckets are not supported by `hf upload`. Use `hf sync` instead.")
+        repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
+        if uri.path_in_repo:
+            if path_in_repo is not None:
+                raise CLIError(
+                    f"Cannot combine a path in the hf:// URI ('{uri.path_in_repo}') with the `path_in_repo` argument ('{path_in_repo}')."
+                )
+            path_in_repo = uri.path_in_repo
+    else:
+        repo_type_str = (repo_type or RepoType.model).value
 
     api = get_hf_api(token=token)
 

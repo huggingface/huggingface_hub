@@ -307,6 +307,26 @@ The examples above show how to download from the latest commit on the main branc
 ...
 ```
 
+### Use an hf:// URI
+
+Instead of passing the repo type, revision and file path as separate arguments and options, you can provide a single `hf://` URI. The URI encodes everything at once, following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax):
+
+```bash
+# Equivalent to: hf download bigcode/the-stack --repo-type dataset --revision v1.1
+>>> hf download hf://datasets/bigcode/the-stack@v1.1
+
+# Download a single file from a specific revision
+>>> hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
+
+# Download a subfolder (note the trailing slash)
+>>> hf download hf://datasets/HuggingFaceM4/FineVision/art/
+
+# A bare id still works and defaults to a model repo
+>>> hf download hf://openai-community/gpt2/config.json
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
+
 ### Download to a local folder
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
@@ -501,6 +521,20 @@ By default, files are uploaded to the `main` branch. If you want to upload files
 ```
 
 **Note:** if `revision` does not exist and `--create-pr` is not set, a branch will be created automatically from the `main` branch.
+
+### Use an hf:// URI
+
+As with `hf download`, the destination can be expressed as a single `hf://` URI following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax). The repo type, revision and `path_in_repo` are all read from the URI:
+
+```bash
+# Equivalent to: hf upload Wauplin/my-cool-dataset ./train.csv data/train.csv --repo-type dataset --revision my-branch
+>>> hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
+
+# Upload a whole folder to the root of a model repo
+>>> hf upload hf://Wauplin/my-cool-model ./models
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a path embedded in the URI cannot be combined with the `path_in_repo` argument.
 
 ### Upload and create a PR
 
