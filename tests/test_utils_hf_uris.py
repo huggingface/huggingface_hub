@@ -15,6 +15,7 @@
 
 import pytest
 
+from huggingface_hub import constants
 from huggingface_hub.errors import HfUriError
 from huggingface_hub.utils import HfMount, HfUri, parse_hf_mount, parse_hf_uri
 
@@ -202,10 +203,10 @@ URI_SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
 # HfUri failure cases: (uri, error_substring)
 # ---------------------------------------------------------------------------
 URI_FAILURE_CASES: list[tuple[str, str]] = [
-    # Missing protocol
+    # Missing protocol (and not a recognized URL either)
     ("gpt2", "Must start with 'hf://'"),
-    ("https://huggingface.co/gpt2", "Must start with 'hf://'"),
     ("hf:/gpt2", "Must start with 'hf://'"),
+    ("/local/path/file.txt", "Must start with 'hf://'"),
     # Empty body after protocol
     ("hf://", "Empty body"),
     # Empty repo id (just a type prefix)
@@ -258,6 +259,235 @@ URI_DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
     ({"type": "model", "id": "org/repo", "revision": ""}, "empty string"),
     ({"type": "bucket", "id": "org/bucket", "revision": "main"}, "do not support a revision"),
     ({"type": "model", "id": "org/repo", "path_in_repo": "a//b"}, "empty segments"),
+]
+
+
+# ---------------------------------------------------------------------------
+# URL parsing success cases: (url, expected_HfUri)
+#
+# These are Hugging Face *web URLs* (copy-pasted from the browser) that
+# 'parse_hf_uri' normalizes to the canonical 'hf://' form.
+# ---------------------------------------------------------------------------
+URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
+    # --- Repository landing pages ---------------------------------------------
+    (
+        "https://huggingface.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "https://huggingface.co/datasets/my-org/my-dataset",
+        HfUri(type="dataset", id="my-org/my-dataset"),
+    ),
+    (
+        "https://huggingface.co/spaces/user/my-space",
+        HfUri(type="space", id="user/my-space"),
+    ),
+    (
+        "https://huggingface.co/kernels/my-org/my-kernel",
+        HfUri(type="kernel", id="my-org/my-kernel"),
+    ),
+    # Explicit 'models/' prefix is accepted too.
+    (
+        "https://huggingface.co/models/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    # Trailing slash is tolerated.
+    (
+        "https://huggingface.co/my-org/my-model/",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    # --- File viewer routes (blob / resolve / raw / blame) ---------------------
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/config.json",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="config.json"),
+    ),
+    (
+        "https://huggingface.co/datasets/my-org/my-dataset/resolve/v1/data/train.csv",
+        HfUri(type="dataset", id="my-org/my-dataset", revision="v1", path_in_repo="data/train.csv"),
+    ),
+    (
+        "https://huggingface.co/my-org/my-model/raw/main/README.md",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="README.md"),
+    ),
+    (
+        "https://huggingface.co/spaces/user/my-space/blame/main/app.py",
+        HfUri(type="space", id="user/my-space", revision="main", path_in_repo="app.py"),
+    ),
+    # --- Folder viewer route (tree) -------------------------------------------
+    (
+        "https://huggingface.co/my-org/my-model/tree/main/subdir",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="subdir"),
+    ),
+    # '/tree/<rev>' with no path -> repo root pinned at a revision.
+    (
+        "https://huggingface.co/my-org/my-model/tree/v2.0",
+        HfUri(type="model", id="my-org/my-model", revision="v2.0"),
+    ),
+    # --- Special revisions -----------------------------------------------------
+    (
+        "https://huggingface.co/datasets/foo/bar/blob/refs/pr/10/file.csv",
+        HfUri(type="dataset", id="foo/bar", revision="refs/pr/10", path_in_repo="file.csv"),
+    ),
+    (
+        "https://huggingface.co/datasets/foo/bar/resolve/refs/convert/parquet/data.parquet",
+        HfUri(type="dataset", id="foo/bar", revision="refs/convert/parquet", path_in_repo="data.parquet"),
+    ),
+    # URL-encoded special revision.
+    (
+        "https://huggingface.co/datasets/foo/bar/blob/refs%2Fpr%2F10/file.csv",
+        HfUri(type="dataset", id="foo/bar", revision="refs/pr/10", path_in_repo="file.csv"),
+    ),
+    # URL-encoded branch name containing '/'.
+    (
+        "https://huggingface.co/my-org/my-model/blob/feature%2Ffoo/config.json",
+        HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
+    ),
+    # --- Percent-encoded path (browsers encode spaces, '#', ... in file names) --
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/my%20file.txt",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="my file.txt"),
+    ),
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/dir/a%23b.txt",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/a#b.txt"),
+    ),
+    # --- Buckets (no revision; '/resolve/' and '/tree/' are followed by the path) ---
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket",
+        HfUri(type="bucket", id="my-org/my-bucket"),
+    ),
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket/resolve/sub/data.bin",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data.bin"),
+    ),
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket/tree/sub/dir",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/dir"),
+    ),
+    # Percent-encoded bucket path.
+    (
+        "https://huggingface.co/buckets/my-org/my-bucket/resolve/sub/my%20data.bin",
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/my data.bin"),
+    ),
+    # --- Query string and fragment are dropped --------------------------------
+    (
+        "https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv?download=true",
+        HfUri(type="dataset", id="my-org/my-dataset", revision="main", path_in_repo="train.csv"),
+    ),
+    (
+        "https://huggingface.co/my-org/my-model/blob/main/config.json#L10",
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="config.json"),
+    ),
+    # --- Alternative hosts / scheme-less --------------------------------------
+    (
+        "https://hf.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "http://huggingface.co/my-org/my-model",
+        HfUri(type="model", id="my-org/my-model"),
+    ),
+    (
+        "huggingface.co/datasets/my-org/my-dataset",
+        HfUri(type="dataset", id="my-org/my-dataset"),
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# URL parsing failure cases: (url, error_substring)
+# ---------------------------------------------------------------------------
+URL_FAILURE_CASES: list[tuple[str, str]] = [
+    # Unrecognized host
+    ("https://example.com/my-org/my-model", "Unrecognized host"),
+    ("https://huggingface.co.evil.com/my-org/my-model", "Unrecognized host"),
+    # Single-segment URLs (user/org profile, canonical repo, listing pages) are ambiguous
+    ("https://huggingface.co/gpt2", "namespace"),
+    ("https://huggingface.co/datasets", "namespace"),
+    ("https://huggingface.co/settings", "namespace"),
+    # Unsupported repo routes (not a file/folder location)
+    ("https://huggingface.co/my-org/my-model/commit/abc123", "unsupported"),
+    ("https://huggingface.co/my-org/my-model/commits/main", "unsupported"),
+    ("https://huggingface.co/my-org/my-model/discussions", "unsupported"),
+    ("https://huggingface.co/my-org/my-model/settings", "unsupported"),
+    # '/media/' is not a route we map to a Hub location.
+    ("https://huggingface.co/my-org/my-model/media/main/image.png", "unsupported"),
+    # Collections, blog, docs, ... are not repositories
+    ("https://huggingface.co/collections/my-org/my-collection-abc123", "unsupported"),
+    # Canonical repo (no namespace): 'squad/blob' is read as the id, so the next segment is
+    # an unrecognized route -> rejected (canonical repos are not supported anyway).
+    ("https://huggingface.co/datasets/squad/blob/main/file.json", "unsupported"),
+    # Unsupported bucket route
+    ("https://huggingface.co/buckets/my-org/my-bucket/settings", "unsupported"),
+    # Empty body
+    ("https://huggingface.co/", "Missing repository or bucket identifier"),
+    ("https://huggingface.co", "Missing repository or bucket identifier"),
+]
+
+
+# ---------------------------------------------------------------------------
+# 'HfUri.to_url' cases: (HfUri, expected_url_path)
+#
+# 'expected_url_path' is everything after the endpoint; the endpoint is prepended
+# at test time so the cases stay independent of staging vs production.
+# ---------------------------------------------------------------------------
+TO_URL_CASES: list[tuple[HfUri, str]] = [
+    # Repository landing pages
+    (
+        HfUri(type="model", id="my-org/my-model"),
+        "/my-org/my-model",
+    ),
+    (
+        HfUri(type="dataset", id="my-org/my-dataset"),
+        "/datasets/my-org/my-dataset",
+    ),
+    (
+        HfUri(type="space", id="user/my-space"),
+        "/spaces/user/my-space",
+    ),
+    (
+        HfUri(type="kernel", id="my-org/my-kernel"),
+        "/kernels/my-org/my-kernel",
+    ),
+    # Revision only -> folder viewer at that revision
+    (
+        HfUri(type="model", id="my-org/my-model", revision="v1.0"),
+        "/my-org/my-model/tree/v1.0",
+    ),
+    # File with explicit revision -> blob
+    (
+        HfUri(type="dataset", id="my-org/my-dataset", revision="v1", path_in_repo="train.csv"),
+        "/datasets/my-org/my-dataset/blob/v1/train.csv",
+    ),
+    # File without revision -> blob at 'main'
+    (
+        HfUri(type="model", id="my-org/my-model", path_in_repo="config.json"),
+        "/my-org/my-model/blob/main/config.json",
+    ),
+    # Special ref is kept verbatim
+    (
+        HfUri(type="dataset", id="foo/bar", revision="refs/pr/10", path_in_repo="file.csv"),
+        "/datasets/foo/bar/blob/refs/pr/10/file.csv",
+    ),
+    # Branch name with '/' is URL-encoded so it stays a single segment
+    (
+        HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
+        "/my-org/my-model/blob/feature%2Ffoo/config.json",
+    ),
+    # Path with special characters is percent-encoded ('/' kept as the separator)
+    (
+        HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/my file#1.txt"),
+        "/my-org/my-model/blob/main/dir/my%20file%231.txt",
+    ),
+    # Buckets: landing page and tree route (no revision)
+    (
+        HfUri(type="bucket", id="my-org/my-bucket"),
+        "/buckets/my-org/my-bucket",
+    ),
+    (
+        HfUri(type="bucket", id="my-org/my-bucket", path_in_repo="sub/data.bin"),
+        "/buckets/my-org/my-bucket/tree/sub/data.bin",
+    ),
 ]
 
 
@@ -386,6 +616,39 @@ def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
 def test_hf_uri_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring):
         HfUri(**kwargs)
+
+
+@pytest.mark.parametrize(("url", "expected"), URL_SUCCESS_CASES)
+def test_parse_hf_uri_from_url_success(url: str, expected: HfUri) -> None:
+    assert parse_hf_uri(url) == expected
+
+
+@pytest.mark.parametrize(("url", "error_substring"), URL_FAILURE_CASES)
+def test_parse_hf_uri_from_url_failure(url: str, error_substring: str) -> None:
+    with pytest.raises(HfUriError, match=error_substring) as exc_info:
+        parse_hf_uri(url)
+    assert exc_info.value.uri == url
+
+
+@pytest.mark.parametrize(("uri", "expected_path"), TO_URL_CASES)
+def test_hf_uri_to_url(uri: HfUri, expected_path: str) -> None:
+    expected = constants.ENDPOINT + expected_path
+    assert uri.to_url() == expected
+    # The rendered URL must parse back to a URI pointing at the same resource.
+    reparsed = parse_hf_uri(expected)
+    assert reparsed.type == uri.type
+    assert reparsed.id == uri.id
+    assert reparsed.path_in_repo == uri.path_in_repo
+    # Revision round-trips exactly, except that a file URL without a revision defaults to 'main'.
+    if uri.revision is not None:
+        assert reparsed.revision == uri.revision
+
+
+def test_hf_uri_to_url_custom_endpoint() -> None:
+    uri = HfUri(type="dataset", id="my-org/my-dataset", revision="v1", path_in_repo="train.csv")
+    assert uri.to_url(endpoint="https://hub-ci.huggingface.co") == (
+        "https://hub-ci.huggingface.co/datasets/my-org/my-dataset/blob/v1/train.csv"
+    )
 
 
 @pytest.mark.parametrize(("mount_str", "expected", "expected_roundtrip"), MOUNT_SUCCESS_CASES)

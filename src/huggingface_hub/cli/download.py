@@ -36,6 +36,9 @@ Usage:
 
     # Download a subfolder
     hf download HuggingFaceM4/FineVision art/ --repo-type=dataset
+
+    # Download using an hf:// URI (repo type, revision and file path are read from the URI)
+    hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
 """
 
 import warnings
@@ -43,12 +46,13 @@ from typing import Annotated
 
 import typer
 
+from huggingface_hub import constants
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
-from huggingface_hub.utils import _format_size
+from huggingface_hub.utils import _format_size, parse_hf_uri
 
-from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
 from ._output import out
 
 
@@ -58,6 +62,7 @@ DOWNLOAD_EXAMPLES = [
     'hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"',
     "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
     "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
+    "hf download hf://datasets/HuggingFaceH4/ultrachat_200k",
 ]
 
 
@@ -69,7 +74,7 @@ def download(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoTypeOpt.model,
+    repo_type: RepoTypeOptionalOpt = None,
     revision: RevisionOpt = None,
     include: Annotated[
         list[str] | None,
@@ -123,6 +128,36 @@ def download(
             "or `--local-dir` for a one-off download to a specific directory."
         )
 
+    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
+    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) file path,
+    # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
+        if repo_type is not None:
+            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+        if revision is not None:
+            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+        uri = parse_hf_uri(repo_id)
+        if uri.is_bucket:
+            raise CLIError("Buckets are not supported by `hf download`. Use `hf sync` instead.")
+        # The URI parser strips trailing slashes, but `hf download` uses a trailing '/' to denote a subfolder
+        # download (e.g. `data/` -> `data/**`). Re-append it when the URI explicitly ended with '/' so a folder
+        # URI keeps routing through the subfolder code path below.
+        path_in_repo = uri.path_in_repo
+        if path_in_repo and repo_id.endswith("/"):
+            path_in_repo += "/"
+        repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
+        if path_in_repo:
+            if filenames:
+                raise CLIError(
+                    f"Cannot combine a file path in the hf:// URI ('{path_in_repo}') with positional filenames {filenames}."
+                )
+            filenames = [path_in_repo]
+    else:
+        repo_type_str = (repo_type or RepoType.model).value
+
     def run_download() -> str | DryRunFileInfo | list[DryRunFileInfo]:
         filenames_list = filenames if filenames is not None else []
 
@@ -157,7 +192,7 @@ def download(
         if len(regular_filenames) == 1 and len(subfolder_patterns) == 0:
             return hf_hub_download(
                 repo_id=repo_id,
-                repo_type=repo_type.value,
+                repo_type=repo_type_str,
                 revision=revision,
                 filename=regular_filenames[0],
                 cache_dir=cache_dir,
@@ -180,7 +215,7 @@ def download(
 
         return snapshot_download(
             repo_id=repo_id,
-            repo_type=repo_type.value,
+            repo_type=repo_type_str,
             revision=revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
