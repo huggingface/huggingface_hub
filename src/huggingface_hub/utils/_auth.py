@@ -64,7 +64,7 @@ def get_token() -> str | None:
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.
     """
-    return _get_token_from_google_colab() or _get_token_from_environment() or _get_token_from_file()
+    return _get_token_from_environment() or _get_token_from_file() or _get_token_from_google_colab()
 
 
 def _get_token_from_google_colab() -> str | None:
