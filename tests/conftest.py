@@ -7,8 +7,7 @@ from _pytest.fixtures import SubRequest
 
 import huggingface_hub
 from huggingface_hub import constants
-from huggingface_hub.utils import SoftTemporaryDirectory, logging
-from huggingface_hub.utils._detect_agent import _STANDARD_AGENT_VARS, _TOOL_AGENTS
+from huggingface_hub.utils import SoftTemporaryDirectory, _detect_agent, logging
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -28,12 +27,10 @@ def patch_constants(mocker):
 
 @pytest.fixture(autouse=True)
 def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deterministic baseline: no agent env vars, no ANSI colors, reset output mode, fixed terminal width."""
-    all_vars = list(_STANDARD_AGENT_VARS)
-    for env_vars, _ in _TOOL_AGENTS:
-        all_vars.extend(env_vars)
-    for var in all_vars:
-        monkeypatch.delenv(var, raising=False)
+    """Deterministic baseline: agent detection disabled, no ANSI colors, reset output mode, fixed terminal width."""
+    # Pin an empty agent registry so detection never hits the network and always reports "no agent",
+    # regardless of any agent env var that may be set on the host running the tests.
+    monkeypatch.setattr(_detect_agent, "_registry", _detect_agent._EMPTY_REGISTRY)
     monkeypatch.setenv("NO_COLOR", "1")
     # Pin terminal width so adaptive truncation produces deterministic output
     # regardless of the runner's actual terminal size. `shutil.get_terminal_size`
