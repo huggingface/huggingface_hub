@@ -51,6 +51,30 @@ Run compute Jobs defined with a command and a Docker Image on Hugging Face infra
 You can only manage Jobs that you own (under your username namespace) or from organizations in which you have write permissions.
 This feature is pay-as-you-go: you only pay for the seconds you use.
 
+### Resource Groups
+
+If your organization has [Resource Groups](https://huggingface.co/docs/hub/en/organizations-manage) set up,
+you can bill jobs to a specific resource group. To do so:
+
+1. Your user token must belong to the resource group.
+2. Pass the resource group's ID to `run_job` via the `namespace` parameter.
+
+```python
+>>> from huggingface_hub import run_job
+>>> # Bill to resource group 'my-resource-group-id'
+>>> run_job(
+...     image="python:3.12",
+...     command=["python", "-c", "print('Hello!')"],
+...     namespace="my-resource-group-id",  # resource group ID
+... )
+```
+
+On the CLI, use `--namespace`:
+
+```bash
+>>> hf jobs run --namespace my-resource-group-id python:3.12 -c "print('Hello!')"
+```
+
 [`run_job`] lets you run any command on Hugging Face's infrastructure:
 
 ```python

@@ -11638,6 +11638,8 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
+                If the user belongs to an organization [Resource Group](https://huggingface.co/docs/hub/en/organizations-manage),
+                set this to the resource group's ID to bill the job to that resource group.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -12125,6 +12127,8 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
+                If the user belongs to an organization [Resource Group](https://huggingface.co/docs/hub/en/organizations-manage),
+                set this to the resource group's ID to bill the job to that resource group.
 
             token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
