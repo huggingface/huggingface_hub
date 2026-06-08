@@ -674,19 +674,15 @@ class RepoUrl(str):
         super().__init__()
         self.endpoint = endpoint or constants.ENDPOINT
 
-        # Normalize the input into a canonical 'hf://' URI and parse it with the shared
-        # 'parse_hf_uri' parser. The endpoint prefix is stripped (falling back to a generic
-        # scheme + host strip) so that web URLs from any host (custom / self-hosted endpoints,
-        # 'hf.co', staging, ...) and bare '<namespace>/<name>' ids all reach the same parser.
+        # Parse with the shared 'parse_hf_uri' parser, which handles both 'hf://' URIs and Hugging
+        # Face web URLs. If that fails, the input is either a bare '<namespace>/<name>' id or a URL
+        # on a custom endpoint that 'parse_hf_uri' doesn't recognize: strip the endpoint prefix and
+        # reparse it as an 'hf://' URI.
         raw = str(self)
-        if raw.startswith(constants.HF_PROTOCOL):
-            uri_str = raw
-        else:
-            path = raw.removeprefix(self.endpoint)
-            if "://" in path:  # endpoint prefix didn't match -> strip scheme + host generically
-                path = path.split("://", 1)[1].partition("/")[2]
-            uri_str = constants.HF_PROTOCOL + path.lstrip("/")
-        parsed = parse_hf_uri(uri_str)
+        try:
+            parsed = parse_hf_uri(raw)
+        except HfUriError:
+            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{raw.removeprefix(self.endpoint).lstrip('/')}")
 
         # Populate fields ('parsed.id' is always '<namespace>/<name>').
         self.namespace, self.repo_name = parsed.id.split("/")
@@ -8627,21 +8623,23 @@ class HfApi:
             constants.REPO_TYPE_SPACE: "spaces",
         }[repo_type]
 
-        # Infer target namespace + name. 'from_id'/'to_id' are bare '<namespace>/<name>' ids, so
-        # we parse them as 'hf://' URIs. When 'to_id' is provided we take the name from it; otherwise
-        # we reuse the source name. If 'to_id' has no namespace (or is not provided), the namespace
-        # defaults to the caller's account.
+        # Resolve the target namespace + name. When 'to_id' is provided we take the name from it,
+        # otherwise we reuse the source name. Both may be a URL, an 'hf://' URI, or a bare id, so we
+        # try 'parse_hf_uri' first and fall back to a plain split ('<namespace>/<name>', or just
+        # '<name>' for 'to_id'). A missing namespace defaults to the caller's account.
         to_namespace: str | None = None
         if to_id is not None:
             try:
-                to_uri = parse_hf_uri(f"{constants.HF_PROTOCOL}{to_id}")
+                to_namespace, to_repo_name = parse_hf_uri(to_id).id.split("/")
             except HfUriError:
-                # 'to_id' is a bare '<name>' (no namespace): keep it as the name, guess the namespace.
-                to_repo_name = to_id
-            else:
-                to_namespace, to_repo_name = to_uri.id.split("/")
+                namespace_and_name = to_id.rsplit("/", 1)
+                to_namespace = namespace_and_name[0] if len(namespace_and_name) == 2 else None
+                to_repo_name = namespace_and_name[-1]
         else:
-            to_repo_name = parse_hf_uri(f"{constants.HF_PROTOCOL}{from_id}").id.split("/")[1]
+            try:
+                to_repo_name = parse_hf_uri(from_id).id.split("/")[1]
+            except HfUriError:
+                to_repo_name = from_id.rsplit("/", 1)[-1]
         if to_namespace is None:
             to_namespace = self.whoami(token)["name"]
 
