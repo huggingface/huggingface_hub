@@ -183,10 +183,10 @@ NamespaceOpt = Annotated[
 ]
 
 ExposeOpt = Annotated[
-    bool | None,
+    list[int] | None,
     typer.Option(
-        "--expose/--no-expose",
-        help="Expose every port the Job's container listens on through the jobs proxy. Each port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
+        "--expose",
+        help="Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
     ),
 ]
 

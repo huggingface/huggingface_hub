@@ -3680,9 +3680,14 @@ class TestVolume:
 
     @pytest.mark.parametrize(
         "expose, expected",
-        [(None, None), (True, {"enabled": True}), (False, {"enabled": False})],
+        [
+            (None, None),
+            ([], None),
+            ([8000], {"ports": [8000]}),
+            ([8000, 8001], {"ports": [8000, 8001]}),
+        ],
     )
-    def test_serialize_expose(self, expose: bool | None, expected: dict | None) -> None:
+    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
         spec = _create_job_spec(
             image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
         )

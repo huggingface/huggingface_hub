@@ -11606,7 +11606,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool | None = None,
+        expose: list[int] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11644,9 +11644,9 @@ class HfApi:
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
-            expose (`bool`, *optional*, defaults to `False`):
-                If True, expose every port the job's container listens on through the jobs proxy.
-                Each exposed port is then reachable on the public jobs domain. Access always
+            expose (`list[int]`, *optional*):
+                Container ports to expose through the jobs proxy. Each listed port is reachable
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
@@ -12093,7 +12093,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool | None = None,
+        expose: list[int] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12138,9 +12138,9 @@ class HfApi:
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
-            expose (`bool`, *optional*, defaults to `False`):
-                If True, expose every port the job's container listens on through the jobs proxy.
-                Each exposed port is then reachable on the public jobs domain. Access always
+            expose (`list[int]`, *optional*):
+                Container ports to expose through the jobs proxy. Each listed port is reachable
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
@@ -12237,7 +12237,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool | None = None,
+        expose: list[int] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12285,9 +12285,9 @@ class HfApi:
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
-            expose (`bool`, *optional*, defaults to `False`):
-                If True, expose every port the job's container listens on through the jobs proxy.
-                Each exposed port is then reachable on the public jobs domain. Access always
+            expose (`list[int]`, *optional*):
+                Container ports to expose through the jobs proxy. Each listed port is reachable
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
@@ -12575,7 +12575,7 @@ class HfApi:
         timeout: int | float | str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
-        expose: bool | None = None,
+        expose: list[int] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12630,9 +12630,9 @@ class HfApi:
                 Each volume is a [`Volume`] with `type` (`"bucket"`, `"model"`, `"dataset"`, or `"space"`),
                 `source` (e.g. `"username/my-bucket"`), and `mount_path` (e.g. `"/data"`).
 
-            expose (`bool`, *optional*, defaults to `False`):
-                If True, expose every port the job's container listens on through the jobs proxy.
-                Each exposed port is then reachable on the public jobs domain. Access always
+            expose (`list[int]`, *optional*):
+                Container ports to expose through the jobs proxy. Each listed port is reachable
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
 
             namespace (`str`, *optional*):
