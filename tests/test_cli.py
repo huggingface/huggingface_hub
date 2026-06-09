@@ -2805,6 +2805,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2830,6 +2831,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2859,6 +2861,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
 
@@ -2884,6 +2887,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2912,6 +2916,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2938,6 +2943,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
 
@@ -2965,6 +2971,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3672,6 +3679,21 @@ class TestVolume:
         )
         assert spec["volumes"][0]["revision"] == "main"
         assert spec["volumes"][0]["path"] == "subdir"
+
+    @pytest.mark.parametrize(
+        "expose, expected",
+        [
+            (None, None),
+            ([], None),
+            ([8000], {"ports": [8000]}),
+            ([8000, 8001], {"ports": [8000, 8001]}),
+        ],
+    )
+    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
+        )
+        assert spec.get("expose") == expected
 
 
 class TestWebhooksCommand:

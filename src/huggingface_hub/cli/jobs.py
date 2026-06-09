@@ -182,6 +182,14 @@ NamespaceOpt = Annotated[
     ),
 ]
 
+ExposeOpt = Annotated[
+    list[int] | None,
+    typer.Option(
+        "--expose",
+        help="Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     typer.Option(
@@ -290,6 +298,7 @@ def jobs_run(
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -307,9 +316,13 @@ def jobs_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -746,6 +759,7 @@ def jobs_uv_run(
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -768,9 +782,13 @@ def jobs_uv_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -802,6 +820,7 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -822,6 +841,7 @@ def scheduled_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=scheduled_job.id)
@@ -1029,6 +1049,7 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1054,6 +1075,7 @@ def scheduled_uv_run(
         volumes=parse_volumes(volume),
         flavor=flavor,
         timeout=timeout,
+        expose=expose,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=job.id)
