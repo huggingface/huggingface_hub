@@ -732,6 +732,19 @@ RepoTypeOpt = Annotated[
     ),
 ]
 
+# Same as `RepoTypeOpt` but optional (defaults to `None` rather than `model`). Used by commands that
+# accept an `hf://` URI as repo id: a `None` default lets us tell apart "user did not pass --repo-type"
+# from "user explicitly passed --repo-type model", which is required to detect conflicts with the URI.
+RepoTypeOptionalOpt = Annotated[
+    RepoType | None,
+    typer.Option(
+        "--type",
+        "--repo-type",
+        help="The type of repository (model, dataset, or space).",
+        show_default="model",
+    ),
+]
+
 TokenOpt = Annotated[
     str | None,
     typer.Option(
