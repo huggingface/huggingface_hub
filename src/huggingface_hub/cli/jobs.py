@@ -272,6 +272,7 @@ jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
     context_settings={"ignore_unknown_options": True},
     examples=[
         "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
+        "hf jobs run --detach python:3.12 python script.py",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
         "hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
@@ -310,7 +311,8 @@ def jobs_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if detach:
-        out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
@@ -351,6 +353,9 @@ def jobs_logs(
     By default, prints currently available logs and exits (non-blocking).
     Use --follow/-f to stream logs in real-time until the job completes.
     Use --tail/-n to limit the number of lines returned (server-side when supported).
+
+    Note: following exits when the log stream ends, regardless of whether the Job
+    succeeded or failed. Run `hf jobs inspect <job_id>` to check the final status.
     """
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
 
@@ -359,6 +364,11 @@ def jobs_logs(
         logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
         for log in logs:
             out.text(log)
+        if follow:
+            job_ref = f"{namespace}/{job_id}" if namespace else job_id
+            out.hint(
+                f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR)."
+            )
     except HfHubHTTPError as e:
         status = e.response.status_code if e.response is not None else None
         if status == 404:
@@ -591,9 +601,12 @@ def jobs_ps(
         headers=["job_id", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
-    if not items and filters:
-        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.text(f"No jobs matched filters: {filters_msg}")
+    if not items:
+        if filters:
+            filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
+            out.text(f"No jobs matched filters: {filters_msg}")
+        elif not all and not labels_filters:
+            out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")
 
 
 @jobs_cli.command("hardware", examples=["hf jobs hardware"])
@@ -714,6 +727,7 @@ jobs_cli.add_typer(uv_app, name="uv")
     context_settings={"ignore_unknown_options": True},
     examples=[
         "hf jobs uv run my_script.py",
+        "hf jobs uv run --detach my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
@@ -758,7 +772,8 @@ def jobs_uv_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if detach:
-        out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
