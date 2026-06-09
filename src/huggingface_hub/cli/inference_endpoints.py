@@ -211,8 +211,8 @@ def deploy(
         str | None,
         typer.Option(
             "--type",
-            click_type=SoftChoice(["public", "authenticated", "protected", "private"]),
-            help="Endpoint access type. Defaults to 'protected'.",
+            click_type=SoftChoice(["public", "authenticated", "private"]),
+            help="Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).",
         ),
     ] = None,
 ) -> None:
@@ -255,7 +255,7 @@ def deploy(
         container_args=shlex.split(container_args) if container_args else None,
         env=env_map or None,
         secrets=secrets_map or None,
-        type=endpoint_type or "protected",
+        type=endpoint_type or "authenticated",
     )
     out.dict(endpoint.raw)
     out.hint(f"Use 'hf endpoints describe {name}' to check the deployment status.")

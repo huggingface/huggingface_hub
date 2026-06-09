@@ -2471,7 +2471,7 @@ class TestInferenceEndpointsCommands:
             container_args=None,
             env=None,
             secrets=None,
-            type="protected",
+            type="authenticated",
         )
         assert '"name": "hub"' in result.stdout
 

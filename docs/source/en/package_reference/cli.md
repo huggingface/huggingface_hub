@@ -1736,7 +1736,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--env-file TEXT`: Read in a file of environment variables.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
-* `--type [public|authenticated|protected|private]`: Endpoint access type. Defaults to 'protected'.
+* `--type [public|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
 Examples
