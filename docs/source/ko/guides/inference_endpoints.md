@@ -60,7 +60,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 ...     instance_size="x1",
 ...     instance_type="nvidia-a10g",
 ...     custom_image={
-...         "health_route": "/health",
+...         "healthRoute": "/health",
 ...         "env": {
 ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
 ...             "MAX_INPUT_LENGTH": "1024",

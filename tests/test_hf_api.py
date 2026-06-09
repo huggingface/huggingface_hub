@@ -4877,6 +4877,50 @@ def test_create_inference_endpoint_custom_image_payload(
     assert payload["model"]["image"] == expected_image_payload
 
 
+@patch("huggingface_hub.hf_api.get_session")
+def test_create_inference_endpoint_container_command_and_args_payload(mock_post: Mock):
+    mock_session = mock_post.return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "sglang-endpoint",
+        "model": {"repository": "nex-agi/Nex-N2-Pro", "framework": "custom", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.post.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    api.create_inference_endpoint(
+        name="sglang-endpoint",
+        repository="nex-agi/Nex-N2-Pro",
+        framework="custom",
+        accelerator="gpu",
+        instance_size="x8",
+        instance_type="nvidia-h200",
+        region="us-east-1",
+        vendor="aws",
+        type="authenticated",
+        namespace="Wauplin",
+        custom_image={"url": "nexagi/sglang:v0.5.12", "healthRoute": "/health", "port": 30000},
+        container_command=["python", "-m", "sglang.launch_server"],
+        container_args=["--tp", "8", "--reasoning-parser", "qwen3"],
+    )
+
+    _, call_kwargs = mock_session.post.call_args
+    payload = call_kwargs.get("json", {})
+    assert payload["model"]["command"] == ["python", "-m", "sglang.launch_server"]
+    assert payload["model"]["args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+    assert payload["model"]["image"] == {
+        "custom": {"url": "nexagi/sglang:v0.5.12", "healthRoute": "/health", "port": 30000}
+    }
+
+
 class HfApiVerifyChecksumsTest(HfApiCommonTest):
     def test_verify_repo_checksums_with_local_cache(self) -> None:
         repo_id = self._api.create_repo(repo_name()).repo_id

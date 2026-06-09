@@ -2465,8 +2465,96 @@ class TestInferenceEndpointsCommands:
             scaling_metric=None,
             scaling_threshold=None,
             scale_to_zero_timeout=None,
+            revision=None,
+            custom_image=None,
+            container_command=None,
+            container_args=None,
+            env=None,
+            secrets=None,
+            type="protected",
         )
         assert '"name": "hub"' in result.stdout
+
+    def test_deploy_custom_image(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "custom"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "nex-agi/Nex-N2-Pro",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--custom-image",
+                    "nexagi/sglang:v0.5.12",
+                    "--health-route",
+                    "/health",
+                    "--port",
+                    "30000",
+                    "--container-args",
+                    "--tp 8 --reasoning-parser qwen3",
+                    "--env",
+                    "MODEL_ID=/repository",
+                    "--type",
+                    "authenticated",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["custom_image"] == {
+            "url": "nexagi/sglang:v0.5.12",
+            "healthRoute": "/health",
+            "port": 30000,
+        }
+        assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+        assert kwargs["container_command"] is None
+        assert kwargs["env"] == {"MODEL_ID": "/repository"}
+        assert kwargs["type"] == "authenticated"
+
+    def test_deploy_custom_args_require_image(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--container-args",
+                    "--tp 8",
+                ],
+            )
+        assert result.exit_code != 0
+        api_cls.return_value.create_inference_endpoint.assert_not_called()
+        assert "require --custom-image" in (result.stdout + str(result.exception))
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
