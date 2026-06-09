@@ -319,6 +319,9 @@ def jobs_run(
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
+    if job.expose_urls:
+        urls = "\n".join(f"  {url}" for url in job.expose_urls)
+        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if detach:
         out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
         return
@@ -769,6 +772,9 @@ def jobs_uv_run(
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
+    if job.expose_urls:
+        urls = "\n".join(f"  {url}" for url in job.expose_urls)
+        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if detach:
         out.hint(f"Use `hf jobs logs {job.id}` to fetch the logs.")
         return
