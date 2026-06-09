@@ -23,6 +23,13 @@ Canonical syntax:
 hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]
 ```
 
+For convenience, [`parse_hf_uri`] also accepts Hugging Face **web URLs** (the
+ones you copy-paste from your browser), e.g.
+'https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv'. They are
+normalized to the canonical 'hf://' form before parsing. Only unambiguous URLs
+(repository / bucket pages and file/folder viewer routes) are accepted; any other
+route is rejected rather than guessed.
+
 A HF mount wraps a HF URI with a local mount path and an optional ':ro'/':rw'
 flag (used by Spaces and Jobs volumes):
 
@@ -36,7 +43,7 @@ See 'docs/source/en/package_reference/hf_uris.md' for the full grammar and examp
 import functools
 import re
 from dataclasses import dataclass, field
-from urllib.parse import unquote
+from urllib.parse import quote, unquote, urlsplit
 
 from huggingface_hub import constants
 from huggingface_hub.errors import HfUriError, HFValidationError
@@ -57,6 +64,15 @@ _SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
 
 # Same as constants.HfUriType, but as a set of strings for easy lookup.)
 _VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.values())
+
+
+# Web-viewer routes that point at a file or folder and that map cleanly onto a
+# '<revision>/<path>' pair. Other routes (commit, commits, discussions, settings,
+# edit, ...) do not identify a Hub location and are rejected by the URL parser.
+_URL_REPO_LOCATION_ACTIONS: frozenset[str] = frozenset({"blame", "blob", "raw", "resolve", "tree"})
+# Bucket web routes that point at a file or folder. Buckets are not versioned, so
+# these are followed directly by '<path>' (no revision segment).
+_URL_BUCKET_LOCATION_ACTIONS: frozenset[str] = frozenset({"resolve", "tree"})
 
 
 @dataclass(frozen=True)
@@ -136,6 +152,54 @@ class HfUri:
             parts.append(f"/{self.path_in_repo}")
         return "".join(parts)
 
+    def to_url(self, endpoint: str | None = None) -> str:
+        """Render the URI as a Hugging Face **web URL** (the kind you open in a browser).
+
+        This is the inverse of parsing a URL with [`parse_hf_uri`]. The returned URL points at:
+
+        - the repository / bucket landing page when no path or revision is set;
+        - the folder viewer ('/tree/<revision>') when only a revision is set;
+        - the file viewer ('/blob/<revision>/<path>') for repository files (revision defaults to 'main');
+        - the tree route ('/tree/<path>') for bucket files (buckets are not versioned).
+
+        Args:
+            endpoint (`str`, *optional*):
+                Base endpoint to use. Defaults to 'constants.ENDPOINT' (i.e. 'https://huggingface.co').
+
+        Returns:
+            `str`: the web URL.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import parse_hf_uri
+            >>> parse_hf_uri("hf://datasets/my-org/my-dataset@v1/train.csv").to_url()
+            'https://huggingface.co/datasets/my-org/my-dataset/blob/v1/train.csv'
+            ```
+        """
+        base = (endpoint or constants.ENDPOINT).rstrip("/")
+        # Percent-encode characters that would otherwise break the URL (spaces, '#', '?', ...),
+        # keeping '/' as the path separator. This is the inverse of the decoding done when parsing.
+        path = quote(self.path_in_repo, safe="/")
+
+        if self.type == "bucket":
+            url = f"{base}/buckets/{self.id}"
+            if path:
+                url += f"/tree/{path}"
+            return url
+
+        # Models live at the root ('hf.co/<id>'); other repos are namespaced by their plural prefix.
+        url = f"{base}/{self.id}" if self.type == "model" else f"{base}/{_TYPE_TO_PREFIX[self.type]}/{self.id}"
+        revision = self.revision
+        # Encode '/' in branch/tag names so the revision stays a single URL segment. Special refs
+        # ('refs/pr/N', 'refs/convert/<name>') are used verbatim by the Hub web routes.
+        if revision is not None and "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
+            revision = revision.replace("/", "%2F")
+        if path:
+            url += f"/blob/{revision or constants.DEFAULT_REVISION}/{path}"
+        elif revision is not None:
+            url += f"/tree/{revision}"
+        return url
+
 
 @dataclass(frozen=True)
 class HfMount:
@@ -181,7 +245,7 @@ class HfMount:
 
 
 def is_hf_uri(uri: str) -> bool:
-    """Check if a string is a valid hf:// URI."""
+    """Check if a string is a valid HF URI ('hf://...') or a recognized Hugging Face web URL."""
     try:
         parse_hf_uri(uri)
         return True
@@ -191,7 +255,7 @@ def is_hf_uri(uri: str) -> bool:
 
 @functools.lru_cache
 def parse_hf_uri(uri: str) -> HfUri:
-    """Parse a Hugging Face Hub URI ('hf://...').
+    """Parse a Hugging Face Hub URI ('hf://...') or a Hugging Face web URL.
 
     A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is:
 
@@ -199,18 +263,23 @@ def parse_hf_uri(uri: str) -> HfUri:
     hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]
     ```
 
+    For convenience, Hugging Face **web URLs** (the ones you copy-paste from the website) are also
+    accepted and normalized to the canonical 'hf://' form, e.g.
+    'https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv'. Only unambiguous URLs
+    (repository / bucket pages and file/folder viewer routes) are accepted; any other route is rejected.
+
     See 'docs/source/en/package_reference/hf_uris.md' for the full specification.
 
     Args:
         uri (`str`):
-            The URI to parse. Must start with 'hf://'.
+            The URI to parse. Must start with 'hf://', or be a Hugging Face URL (e.g. 'https://huggingface.co/...').
 
     Returns:
         [`HfUri`]: the parsed URI.
 
     Raises:
         [`HfUriError`]:
-            If the URI is malformed (missing prefix, invalid type, missing id, etc.).
+            If the URI is malformed (missing prefix, invalid type, missing id, unsupported URL route, etc.).
 
     Examples:
         ```py
@@ -219,25 +288,121 @@ def parse_hf_uri(uri: str) -> HfUri:
         HfUri(type='model', id='my-org/my-model', revision=None, path_in_repo='')
         >>> parse_hf_uri("hf://datasets/my-org/my-dataset@refs/pr/3/train.json")
         HfUri(type='dataset', id='my-org/my-dataset', revision='refs/pr/3', path_in_repo='train.json')
+        >>> parse_hf_uri("https://huggingface.co/datasets/my-org/my-dataset/blob/main/train.csv")
+        HfUri(type='dataset', id='my-org/my-dataset', revision='main', path_in_repo='train.csv')
         ```
     """
-    if not uri.startswith(constants.HF_PROTOCOL):
+    raw = uri
+    if uri.startswith(constants.HF_PROTOCOL):
+        body = uri[len(constants.HF_PROTOCOL) :]
+        if not body:
+            raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
+    elif _looks_like_hf_url(uri):
+        body = _url_to_uri_body(uri)
+    else:
         raise HfUriError(
             uri,
-            f"Must start with '{constants.HF_PROTOCOL}'. "
+            f"Must start with '{constants.HF_PROTOCOL}' or be a Hugging Face URL (e.g. 'https://huggingface.co/...'). "
             f"Expected format: {constants.HF_PROTOCOL}[<TYPE>/]<ID>[@<REVISION>][/<PATH>]",
         )
-
-    raw = uri
-    body = uri[len(constants.HF_PROTOCOL) :]
-    if not body:
-        raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
 
     type_, location = _split_type(body, raw=raw)
 
     if type_ == "bucket":
         return _parse_bucket_body(location, type_, raw=raw)
     return _parse_repo_body(location, type_, raw=raw)
+
+
+def _looks_like_hf_url(uri: str) -> bool:
+    """Return True if 'uri' looks like a (possibly scheme-less) Hugging Face web URL."""
+    lowered = uri.lower()
+    if lowered.startswith(("http://", "https://")):
+        return True
+    # Scheme-less host (e.g. 'huggingface.co/org/model').
+    return any(lowered == host or lowered.startswith(host + "/") for host in constants.HF_URL_HOSTS)
+
+
+def _decode_url_path_segment(segment: str) -> str:
+    """Percent-decode a single URL path segment (e.g. 'file%20name.txt' -> 'file name.txt').
+
+    A decoded '/' is re-encoded as '%2F' so the segment stays atomic when the normalized body is
+    re-split by the shared parser. This decodes ordinary path characters (spaces, '#', ...) that
+    browsers encode, while keeping '%2F'-encoded revisions (e.g. 'feature%2Ffoo') intact.
+    """
+    return unquote(segment).replace("/", "%2F")
+
+
+def _url_to_uri_body(url: str) -> str:
+    """Normalize a Hugging Face web URL into the body of a 'hf://' URI (everything after 'hf://').
+
+    The returned string is fed back into the regular URI parsing logic, so all validation
+    (repo id, revision, empty path segments, ...) is shared with the canonical 'hf://' path.
+    Only unambiguous URLs are accepted: any unrecognized route raises [`HfUriError`].
+    """
+    raw = url
+    # Prefix '//' for scheme-less inputs so 'urlsplit' populates 'netloc' instead of 'path'.
+    parsed = urlsplit(url if "://" in url else "//" + url)
+    host = (parsed.hostname or "").lower()
+    if host not in constants.HF_URL_HOSTS:
+        raise HfUriError(
+            uri=raw,
+            msg=f"Unrecognized host '{host or url}'. Expected a Hugging Face URL (e.g. 'https://huggingface.co/...').",
+        )
+
+    # Query string and fragment are intentionally dropped (e.g. '?download=true').
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    if not segments:
+        raise HfUriError(uri=raw, msg=f"Missing repository or bucket identifier in URL '{url}'.")
+
+    # Optional type prefix ('datasets', 'spaces', 'kernels', 'buckets', 'models').
+    type_prefix: str | None = None
+    if segments[0] in constants.HF_URI_TYPE_PREFIXES:
+        type_prefix = segments[0]
+        segments = segments[1:]
+
+    # Everything in the web UI is namespaced ('<namespace>/<name>'); a single segment is a user or
+    # organization page (or a listing page), which we cannot map to a repository -> reject.
+    if len(segments) < 2:
+        raise HfUriError(
+            uri=raw,
+            msg=(
+                f"Cannot parse URL '{url}': expected a '<namespace>/<name>' repository or bucket. "
+                "User/organization pages and single-segment URLs are not supported."
+            ),
+        )
+    repo_id = f"{segments[0]}/{segments[1]}"
+    rest = segments[2:]
+
+    if type_prefix == "buckets":
+        if not rest:
+            return f"buckets/{repo_id}"
+        action, *tail = rest
+        if action not in _URL_BUCKET_LOCATION_ACTIONS:
+            raise HfUriError(uri=raw, msg=f"Cannot parse bucket URL '{url}': unsupported '/{action}/' route.")
+        path = "/".join(_decode_url_path_segment(segment) for segment in tail)
+        return f"buckets/{repo_id}/{path}" if path else f"buckets/{repo_id}"
+
+    prefix = f"{type_prefix}/" if type_prefix else ""
+    if not rest:
+        return f"{prefix}{repo_id}"
+    action, *tail = rest
+    if action not in _URL_REPO_LOCATION_ACTIONS:
+        raise HfUriError(
+            uri=raw,
+            msg=(
+                f"Cannot parse URL '{url}': unsupported '/{action}/' route. "
+                "Only repository pages and file/folder viewer routes (blob, resolve, raw, tree, ...) can be parsed."
+            ),
+        )
+    if not tail:
+        # e.g. '.../tree' with nothing after -> repository root.
+        return f"{prefix}{repo_id}"
+    # 'tail' is '<revision>/<path>'; reuse the canonical '@<revision>/<path>' splitting logic
+    # (special refs, URL-encoded slashes, ...) by handing it back to the URI parser. Each segment
+    # is percent-decoded first so file names with spaces, '#', ... resolve correctly; the revision
+    # segment's '%2F' survives (re-encoded by '_decode_url_path_segment') and is decoded downstream.
+    decoded = "/".join(_decode_url_path_segment(segment) for segment in tail)
+    return f"{prefix}{repo_id}@{decoded}"
 
 
 def parse_hf_mount(mount_str: str) -> HfMount:

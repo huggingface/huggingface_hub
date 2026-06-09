@@ -2,6 +2,7 @@ import os
 import re
 import typing
 from typing import Literal
+from urllib.parse import urlsplit
 
 
 # Possible values for env variables
@@ -70,6 +71,22 @@ HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filenam
 if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+# Hosts whose web URLs can be parsed into a ``hf://`` URI (see ``huggingface_hub/utils/_hf_uris.py``).
+# Includes the public Hub host and its ``hf.co`` short domain, the staging host, and the host of the
+# currently configured ``ENDPOINT`` so that self-hosted / staging endpoints work too.
+HF_URL_HOSTS: frozenset[str] = frozenset(
+    {"hf.co"}
+    | {
+        host.lower()
+        for host in (
+            urlsplit(_HF_DEFAULT_ENDPOINT).hostname,
+            urlsplit(_HF_DEFAULT_STAGING_ENDPOINT).hostname,
+            urlsplit(ENDPOINT).hostname,
+        )
+        if host
+    }
+)
 
 DATASETS_SERVER_ENDPOINT = "https://datasets-server.huggingface.co"
 

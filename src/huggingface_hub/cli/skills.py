@@ -125,13 +125,24 @@ _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
 # accept them. They aren't real click params on the command (they're consumed
 # globally — see ``_consume_format_flags_for_leaf`` in ``_cli_utils.py``) so we
 # add them synthetically here.
-_GLOBAL_FORMAT_INLINE_FLAGS = ["--format CHOICE"]
+_GLOBAL_FORMAT_INLINE_FLAGS = ["--format [auto|human|agent|json|quiet]"]
 _GLOBAL_COMMON_FLAGS: dict[str, tuple[str, str]] = {
     "--format": ("--format", "Output format."),
     "--quiet": ("-q / --quiet", "Quiet output (one ID per line)."),
 }
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
+
+
+def _type_hint(param) -> str:
+    """Value hint for an option: enum choices inline as ``[a|b|c]``, otherwise the TYPE name.
+
+    e.g. `--sort [downloads|likes|trending_score]` instead of `--sort CHOICE`.
+    """
+    choices = getattr(param.type, "choices", None)
+    if choices:
+        return "[" + "|".join(str(c) for c in choices) + "]"
+    return getattr(param.type, "name", "").upper() or "VALUE"
 
 
 def _format_params(cmd: Command) -> str:
@@ -144,7 +155,7 @@ def _format_params(cmd: Command) -> str:
             continue
         long_name = next((o for o in getattr(p, "opts", []) if o.startswith("--")), None)
         if long_name is not None:
-            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            type_name = _type_hint(p)
             parts.append(f"{long_name} {type_name}")
         elif p.name:
             parts.append(p.human_readable_name)
@@ -205,7 +216,7 @@ def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[st
         if getattr(p, "is_flag", False):
             flags.append(long_name)
         else:
-            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            type_name = _type_hint(p)
             flags.append(f"{long_name} {type_name}")
     if _accepts_global_format_flags(cmd):
         flags.extend(flag for flag in _GLOBAL_FORMAT_INLINE_FLAGS if not (exclude and flag.split()[0] in exclude))

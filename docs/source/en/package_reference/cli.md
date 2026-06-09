@@ -27,6 +27,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
+* `cp`: Copy files between local paths,...
 * `datasets`: Interact with datasets on the Hub.
 * `discussions`: Manage discussions and pull requests on...
 * `download`: Download files from the Hub.
@@ -232,7 +233,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `cp`: Copy files to or from buckets.
+* `cp`: Copy files between local paths,...
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
@@ -243,7 +244,13 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 ### `hf buckets cp`
 
-Copy files to or from buckets.
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
 
 **Usage**:
 
@@ -253,8 +260,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, any hf:// URI (model, dataset, bucket), or - for stdin  [required]
-* `[DST]`: Destination: local path, bucket hf://... URI, or - for stdout
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
 
 **Options**:
 
@@ -262,17 +269,14 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf buckets cp hf://buckets/user/my-bucket/config.json
-  $ hf buckets cp hf://buckets/user/my-bucket/config.json ./data/
-  $ hf buckets cp hf://buckets/user/my-bucket/config.json my-config.json
-  $ hf buckets cp hf://buckets/user/my-bucket/config.json -
-  $ hf buckets cp my-config.json hf://buckets/user/my-bucket
-  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/logs/
-  $ hf buckets cp my-config.json hf://buckets/user/my-bucket/remote-config.json
-  $ hf buckets cp - hf://buckets/user/my-bucket/config.json
-  $ hf buckets cp hf://buckets/user/my-bucket/logs hf://buckets/user/archive-bucket/  # nests logs/ dir
-  $ hf buckets cp hf://buckets/user/my-bucket/logs/ hf://buckets/user/archive-bucket/  # copies contents only
-  $ hf buckets cp hf://datasets/user/my-dataset/processed/ hf://buckets/user/my-bucket/dataset/processed/
+  $ hf buckets cp hf://buckets/username/my-bucket/config.json config.json
+  $ hf buckets cp hf://buckets/username/my-bucket/data.csv data/
+  $ hf buckets cp hf://buckets/username/my-bucket/config.json -
+  $ hf buckets cp model.safetensors hf://buckets/username/my-bucket/model.safetensors
+  $ hf buckets cp config.json hf://buckets/username/my-bucket/logs/
+  $ hf buckets cp - hf://buckets/username/my-bucket/config.json
+  $ hf buckets cp hf://buckets/username/my-bucket/data.csv hf://buckets/username/dest-bucket/
+  $ hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/dest-bucket/logs/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -947,6 +951,49 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+## `hf cp`
+
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
+
+**Usage**:
+
+```console
+$ hf cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cp hf://username/my-model/config.json
+  $ hf cp hf://username/my-model/config.json ./config.json
+  $ hf cp hf://datasets/username/my-dataset/data.csv ./data/
+  $ hf cp hf://buckets/username/my-bucket/config.json -
+  $ hf cp ./model.safetensors hf://username/my-model/model.safetensors
+  $ hf cp ./config.json hf://buckets/username/my-bucket/logs/
+  $ hf cp - hf://buckets/username/my-bucket/config.json
+  $ hf cp hf://username/source-model/ hf://username/dest-model/
+  $ hf cp hf://datasets/username/my-dataset/processed/ hf://buckets/username/my-bucket/processed/
+  $ hf cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/  # copies contents only
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ## `hf datasets`
 
 Interact with datasets on the Hub.
@@ -1498,7 +1545,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -1516,6 +1563,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
   $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
+  $ hf download hf://datasets/HuggingFaceH4/ultrachat_200k
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2997,6 +3045,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `branch`: Manage branches for a repo on the Hub.
+* `cp`: Copy files between local paths,...
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
@@ -3080,6 +3129,48 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 
 Examples
   $ hf repos branch delete my-model dev
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos cp`
+
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
+
+**Usage**:
+
+```console
+$ hf repos cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos cp hf://username/my-model/config.json config.json
+  $ hf repos cp hf://datasets/username/my-dataset/data.csv data/
+  $ hf repos cp hf://username/my-model/config.json -
+  $ hf repos cp model.safetensors hf://username/my-model/model.safetensors
+  $ hf repos cp config.json hf://username/my-model/logs/
+  $ hf repos cp - hf://username/my-model/config.json
+  $ hf repos cp hf://username/source-model/config.json hf://username/dest-model/config.json
+  $ hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/
+  $ hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4393,7 +4484,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.

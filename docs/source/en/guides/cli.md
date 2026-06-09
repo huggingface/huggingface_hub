@@ -307,6 +307,26 @@ The examples above show how to download from the latest commit on the main branc
 ...
 ```
 
+### Use an hf:// URI
+
+Instead of passing the repo type, revision and file path as separate arguments and options, you can provide a single `hf://` URI. The URI encodes everything at once, following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax):
+
+```bash
+# Equivalent to: hf download bigcode/the-stack --repo-type dataset --revision v1.1
+>>> hf download hf://datasets/bigcode/the-stack@v1.1
+
+# Download a single file from a specific revision
+>>> hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
+
+# Download a subfolder (note the trailing slash)
+>>> hf download hf://datasets/HuggingFaceM4/FineVision/art/
+
+# A bare id still works and defaults to a model repo
+>>> hf download hf://openai-community/gpt2/config.json
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
+
 ### Download to a local folder
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
@@ -501,6 +521,20 @@ By default, files are uploaded to the `main` branch. If you want to upload files
 ```
 
 **Note:** if `revision` does not exist and `--create-pr` is not set, a branch will be created automatically from the `main` branch.
+
+### Use an hf:// URI
+
+As with `hf download`, the destination can be expressed as a single `hf://` URI following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax). The repo type, revision and `path_in_repo` are all read from the URI:
+
+```bash
+# Equivalent to: hf upload Wauplin/my-cool-dataset ./train.csv data/train.csv --repo-type dataset --revision my-branch
+>>> hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
+
+# Upload a whole folder to the root of a model repo
+>>> hf upload hf://Wauplin/my-cool-model ./models
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a path embedded in the URI cannot be combined with the `path_in_repo` argument.
 
 ### Upload and create a PR
 
@@ -716,59 +750,70 @@ To filter by prefix, append the prefix to the bucket path:
 
 ### Copy files
 
-Use `hf buckets cp` to copy local files to and from a bucket, or to copy any files hosted on the Hub to a Bucket.
+Use `hf cp` to copy a single file between your local machine, repositories, and buckets. The source and destination can each be a local path, an `hf://` URI (repo or bucket), or `-` (stdin/stdout).
 
-To upload a file:
+> [!TIP]
+> `hf cp` is also exposed as `hf repos cp` and `hf buckets cp` — all three are the exact same command. Use whichever reads best for your workflow.
+
+To upload a file (local → repo or bucket):
 
 ```bash
->>> hf buckets cp ./config.json hf://buckets/username/my-bucket
+# To a repository
+>>> hf cp ./model.safetensors hf://username/my-model/model.safetensors
+
+# To a bucket (uses the local filename when the destination ends with /)
+>>> hf cp ./data.csv hf://buckets/username/my-bucket/logs/
 ```
 
-You can upload to a specific subdirectory:
+To download a file (repo or bucket → local):
 
 ```bash
->>> hf buckets cp ./data.csv hf://buckets/username/my-bucket/logs/
-```
+# From a repository
+>>> hf cp hf://datasets/username/my-dataset@refs/pr/1/data.csv ./data.csv
 
-To download a file:
-
-```bash
->>> hf buckets cp hf://buckets/username/my-bucket/config.json ./config.json
+# From a bucket, to the current directory (destination omitted)
+>>> hf cp hf://buckets/username/my-bucket/config.json
 ```
 
 You can also stream to stdout or from stdin using `-`:
 
 ```bash
 # Download to stdout
->>> hf buckets cp hf://buckets/username/my-bucket/config.json - | jq .
+>>> hf cp hf://buckets/username/my-bucket/config.json - | jq .
 
 # Upload from stdin
->>> echo "hello" | hf buckets cp - hf://buckets/username/my-bucket/hello.txt
+>>> echo "hello" | hf cp - hf://username/my-model/hello.txt
 ```
 
-To copy from a repo or a bucket on the Hub:
+To copy between two locations on the Hub (repo/bucket → repo/bucket):
 
 ```bash
-# Bucket to bucket
->>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+# Repo to repo
+>>> hf cp hf://username/source-model/config.json hf://username/dest-model/config.json
 
 # Repo to bucket
->>> hf buckets cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+>>> hf cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+
+# Bucket to bucket
+>>> hf cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
 ```
 
-When copying folders, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+When copying folders between two Hub locations, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
 
 ```bash
 # Without trailing slash: "logs" dir is nested => archive/logs/...
->>> hf buckets cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+>>> hf cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
 
 # With trailing slash: only contents of "logs" are copied => archive/...
->>> hf buckets cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+>>> hf cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
 ```
 
 Notes:
 
+- `hf cp` copies a single file when a local path is involved. To copy whole directories to/from local, use `hf upload`/`hf download` (repos) or `hf buckets sync` (buckets).
 - Bucket-to-repo copy is not yet supported.
+- Local-to-local copy is not supported (use your shell's `cp`).
+- Copies between two Hub locations only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
 
 ### Sync directories
 

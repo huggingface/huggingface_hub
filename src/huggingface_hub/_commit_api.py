@@ -96,7 +96,8 @@ class CommitOperationCopy:
 
     Cross-repository copies are supported by setting `src_repo_id` and `src_repo_type`. For cross-repo LFS copies,
     the LFS objects are duplicated to the destination repository before the commit is created. This is handled
-    automatically by [`create_commit`].
+    automatically by [`create_commit`]. Note that cross-repository copies only work within the same
+    [storage region](https://huggingface.co/docs/hub/storage-regions); copying across regions is not supported.
 
     Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
 
