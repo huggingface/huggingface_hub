@@ -2331,7 +2331,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 
 Examples
   $ hf jobs run python:3.12 python -c 'print("Hello!")'
-  $ hf jobs run -d python:3.12 python script.py
+  $ hf jobs run --detach python:3.12 python script.py
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
   $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
@@ -2718,7 +2718,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 
 Examples
   $ hf jobs uv run my_script.py
-  $ hf jobs uv run -d my_script.py
+  $ hf jobs uv run --detach my_script.py
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py

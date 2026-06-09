@@ -91,7 +91,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._output import OutputFormat, _dataclass_to_dict, out
+from ._output import _dataclass_to_dict, out
 
 
 logger = logging.get_logger(__name__)
@@ -605,8 +605,7 @@ def jobs_ps(
         if filters:
             filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
             out.text(f"No jobs matched filters: {filters_msg}")
-        elif not all and not labels_filters and out.mode not in (OutputFormat.json, OutputFormat.quiet):
-            # Hint is human/agent guidance; keep json/quiet output clean for machine consumers.
+        elif not all and not labels_filters:
             out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")
 
 
