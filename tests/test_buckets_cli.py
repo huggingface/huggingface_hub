@@ -649,6 +649,19 @@ def test_list_files_with_hf_prefix_and_subprefix(tree_bucket: str):
     )
 
 
+def test_list_files_with_web_url(tree_bucket: str):
+    """A Hugging Face web URL (https://huggingface.co/buckets/...) lists files like the hf:// prefix."""
+    _check_list_output(
+        f"hf buckets list https://huggingface.co/buckets/{tree_bucket} -R",
+        [
+            f"        2048  {MTIME_FIX}  big.bin",
+            f"           5  {MTIME_FIX}  file.txt",
+            f"           4  {MTIME_FIX}  sub/deep/file.txt",
+            f"          14  {MTIME_FIX}  sub/nested.txt",
+        ],
+    )
+
+
 def test_list_files_empty_bucket(api: HfApi):
     """Empty bucket prints '(empty)'."""
     bucket_url = api.create_bucket(bucket_name())
