@@ -89,6 +89,7 @@ class JobStage(str, Enum):
 class JobStatus:
     stage: JobStage
     message: str | None
+    expose_urls: list[str] | None
 
 
 @dataclass
@@ -226,7 +227,6 @@ class JobInfo:
     durations: JobDurations | None
     owner: JobOwner
     initiator: JobInitiator | None
-    expose_urls: list[str] | None
 
     # Inferred fields
     endpoint: str
@@ -253,8 +253,9 @@ class JobInfo:
         volumes = kwargs.get("volumes")
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
-        self.status = JobStatus(stage=status["stage"], message=status.get("message"))
-        self.expose_urls = status.get("exposeUrls")
+        self.status = JobStatus(
+            stage=status["stage"], message=status.get("message"), expose_urls=status.get("exposeUrls")
+        )
         durations = kwargs.get("durations")
         self.durations = JobDurations(**durations) if durations else None
         initiator = kwargs.get("initiator")
