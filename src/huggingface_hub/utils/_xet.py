@@ -318,7 +318,6 @@ class XetSessionHolder:
                 # call discard_runtime() (std::mem::forget) rather than the normal
                 # shutdown path, so this returns immediately without blocking.
                 self._session = None
-                self._session_pid = None
 
             if self._session is None:
                 from hf_xet import XetSession
