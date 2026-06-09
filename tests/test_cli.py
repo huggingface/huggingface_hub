@@ -3358,7 +3358,9 @@ class TestJobsCommand:
             api.list_jobs.return_value = []
             result = runner.invoke(app, ["jobs", "ps", "--format", "json"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        # Parse stdout only: the empty-state hint goes to stderr (like agent mode), so it
+        # never pollutes the JSON on stdout. Mirrors the other `json.loads(result.stdout)` tests.
+        data = json.loads(result.stdout)
         assert data == []
 
     def test_ps_empty_quiet(self, runner: CliRunner) -> None:
