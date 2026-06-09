@@ -2240,6 +2240,9 @@ By default, prints currently available logs and exits (non-blocking).
 Use --follow/-f to stream logs in real-time until the job completes.
 Use --tail/-n to limit the number of lines returned (server-side when supported).
 
+Note: following exits when the log stream ends, regardless of whether the Job
+succeeded or failed. Run `hf jobs inspect <job_id>` to check the final status.
+
 **Usage**:
 
 ```console
@@ -2328,6 +2331,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 
 Examples
   $ hf jobs run python:3.12 python -c 'print("Hello!")'
+  $ hf jobs run --detach python:3.12 python script.py
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
   $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
@@ -2714,6 +2718,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 
 Examples
   $ hf jobs uv run my_script.py
+  $ hf jobs uv run --detach my_script.py
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
