@@ -14,7 +14,7 @@
 # limitations under the License.
 """Streamed, multi-commit upload of a folder on top of the Xet upload protocol.
 
-How it works (see `upload-pipeline-redesign.md` for the full design rationale):
+How it works:
 
 - The **coordinator** (caller's thread) walks the list of files and asks the Hub, 256 files at a
   time, what each file is (regular git blob, xet file, ignored). Regular files are accumulated
