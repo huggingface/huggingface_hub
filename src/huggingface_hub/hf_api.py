@@ -82,6 +82,7 @@ from ._space_api import (
     Volume,
 )
 from ._upload_large_folder import upload_large_folder_internal
+from ._upload_pipeline import pipelined_upload
 from .community import (
     Discussion,
     DiscussionComment,
@@ -5706,8 +5707,7 @@ class HfApi:
                 Whether or not to create a Pull Request with that commit. Defaults to `False`. The PR is always
                 opened against the default branch: setting both `create_pr=True` and `revision` raises a
                 `ValueError`. Note that each call with `create_pr=True` opens a new pull request: to resume an
-                interrupted upload into the existing PR, re-run with `revision="refs/pr/N"` instead (a warning
-                with the exact instruction is emitted on interruption).
+                interrupted upload into the existing PR, re-run with `revision="refs/pr/N"` instead.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -5746,10 +5746,6 @@ class HfApi:
         > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
         > sure you are authenticated, that your token has the required permissions, and that `repo_id` and `repo_type`
         > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
-
-        > [!TIP]
-        > Uploads are resumable: if the process is interrupted, re-run the same call to resume where it left off.
-        > For very large repos (hundreds of thousands of files), [`~hf_api.upload_large_folder`] is an alternative.
 
         Example:
 
@@ -5836,8 +5832,6 @@ class HfApi:
         if is_xet_available():
             # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
             # committed in adaptive batches, interrupted uploads resume by re-running.
-            from ._upload_pipeline import pipelined_upload
-
             return pipelined_upload(
                 self,
                 repo_id=repo_id,
