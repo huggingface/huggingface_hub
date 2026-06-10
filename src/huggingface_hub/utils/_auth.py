@@ -203,10 +203,14 @@ def _get_token_from_oidc() -> str | None:
         result = oidc_login(resource=resource, subject_token=subject_token)
         token = result["access_token"]
         expires_in = int(result.get("expires_in", 3600))
+        # A pre-supplied HF_OIDC_ID_TOKEN can't be re-minted, so refreshing early is pointless (the id
+        # token is likely already expired by then): cache for the full lifetime. Only the auto-minted
+        # path can refresh, so only it gets the safety margin.
+        margin = 0 if subject_token is not None else _OIDC_REFRESH_MARGIN
         _OIDC_TOKEN_CACHE = {
             "resource": resource,
             "token": token,
-            "expires_at": now + max(expires_in - _OIDC_REFRESH_MARGIN, 0),
+            "expires_at": now + max(expires_in - margin, 0),
         }
         return token
 
