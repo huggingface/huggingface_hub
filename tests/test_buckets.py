@@ -21,7 +21,10 @@ from huggingface_hub._buckets import BucketInfo
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
-from .testing_utils import repo_name, requires
+from .testing_utils import repo_name
+
+
+pytestmark = pytest.mark.xet
 
 
 def bucket_name() -> str:
@@ -264,7 +267,6 @@ def test_list_bucket_tree_on_private_bucket(api: HfApi, api_other: HfApi, api_un
     assert exc_info.value.response.status_code == 401
 
 
-@requires("hf_xet")
 def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read: str, tmp_path):
     """Test that download_bucket_files works when the first file in the list is missing.
 
@@ -295,7 +297,6 @@ def test_download_bucket_files_skips_missing_first_file(api: HfApi, bucket_read:
     assert not (tmp_path / "non_existent.txt").exists()
 
 
-@requires("hf_xet")
 def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, bucket_read: str, tmp_path):
     """Test that download_bucket_files raises when raise_on_missing_files=True."""
     files = [
@@ -309,7 +310,6 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
     assert "non_existent_file.txt" in str(exc_info.value)
 
 
-@requires("hf_xet")
 def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
 
@@ -323,7 +323,6 @@ def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tm
     assert output_path.read_bytes() == b"bucket-content"
 
 
-@requires("hf_xet")
 def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
 
@@ -345,7 +344,6 @@ def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: 
     assert b_path.read_bytes() == b"b"
 
 
-@requires("hf_xet")
 def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, tmp_path):
     repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files")).repo_id
     branch = "copy-files-branch"
@@ -363,7 +361,6 @@ def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, 
     assert output_path.read_bytes() == b"branch"
 
 
-@requires("hf_xet")
 def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
     repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
     api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
@@ -371,7 +368,6 @@ def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
         api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")
 
 
-@requires("hf_xet")
 def test_copy_files_folder_to_nonexistent_dest(api: HfApi, bucket_write: str, bucket_write_2: str):
     """source=folder, dest doesn't exist => files copied under dest path."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
@@ -386,7 +382,6 @@ def test_copy_files_folder_to_nonexistent_dest(api: HfApi, bucket_write: str, bu
     assert "target-folder/sub/b.txt" in destination_files
 
 
-@requires("hf_xet")
 def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str, bucket_write_2: str):
     """source=folder, dest is an existing folder => source folder nested under dest (like `cp -r`)."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "folder/a.txt"), (b"b", "folder/sub/b.txt")])
@@ -404,7 +399,6 @@ def test_copy_files_folder_to_existing_folder_dest(api: HfApi, bucket_write: str
     assert "target-folder/folder/sub/b.txt" in destination_files
 
 
-@requires("hf_xet")
 def test_copy_files_folder_contents_to_existing_folder_with_trailing_slash(
     api: HfApi, bucket_write: str, bucket_write_2: str
 ):
@@ -425,7 +419,6 @@ def test_copy_files_folder_contents_to_existing_folder_with_trailing_slash(
     assert "target-folder/folder/a.txt" not in destination_files
 
 
-@requires("hf_xet")
 def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     """source=file, dest is an existing file => must work (overwrite)."""
     api.batch_bucket_files(bucket_write, add=[(b"new-content", "source.txt")])
@@ -441,7 +434,6 @@ def test_copy_files_file_to_existing_file_dest(api: HfApi, bucket_write: str, bu
     assert output_path.read_bytes() == b"new-content"
 
 
-@requires("hf_xet")
 def test_copy_files_file_to_nonexistent_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     """source=file, dest doesn't exist => must work (creates file)."""
     api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
@@ -456,7 +448,6 @@ def test_copy_files_file_to_nonexistent_dest(api: HfApi, bucket_write: str, buck
     assert output_path.read_bytes() == b"content"
 
 
-@requires("hf_xet")
 def test_copy_files_file_to_folder_dest(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     """source=file, dest is a folder (trailing '/') => file added to folder."""
     api.batch_bucket_files(bucket_write, add=[(b"content", "source.txt")])
@@ -471,7 +462,6 @@ def test_copy_files_file_to_folder_dest(api: HfApi, bucket_write: str, bucket_wr
     assert output_path.read_bytes() == b"content"
 
 
-@requires("hf_xet")
 def test_copy_files_folder_to_existing_folder_with_trailing_slash(api: HfApi, bucket_write: str, bucket_write_2: str):
     """source=folder, dest is existing folder with trailing '/' => source folder nested (like `cp -r`)."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt")])
@@ -489,7 +479,6 @@ def test_copy_files_folder_to_existing_folder_with_trailing_slash(api: HfApi, bu
     assert "backup/logs/sub/b.txt" in destination_files
 
 
-@requires("hf_xet")
 def test_copy_files_folder_to_nonexistent_dest_with_trailing_slash(api: HfApi, bucket_write: str, bucket_write_2: str):
     """source=folder, dest doesn't exist but has trailing '/' => rename semantics (no nesting)."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt")])
@@ -506,7 +495,6 @@ def test_copy_files_folder_to_nonexistent_dest_with_trailing_slash(api: HfApi, b
     assert "new-backup/sub/b.txt" in destination_files
 
 
-@requires("hf_xet")
 def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_write_2: str):
     """source=folder, dest is bucket root => source folder nested at root (like `cp -r models /`)."""
     api.batch_bucket_files(bucket_write, add=[(b"a", "models/a.txt"), (b"b", "models/sub/b.txt")])
@@ -555,7 +543,6 @@ def test_bucket_add_file_content_type(source, destination, expected_content_type
     assert entry.content_type == expected_content_type
 
 
-@requires("hf_xet")
 def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: str, tmp_path):
     """Regression test for  https://github.com/huggingface/huggingface_hub/issues/3995.
 

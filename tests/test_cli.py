@@ -34,7 +34,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, with_production_testing
 
 
 @pytest.fixture
@@ -4174,7 +4174,7 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
-@requires("hf_xet")
+@pytest.mark.xet
 class TestSkillsMarketplaceCLI:
     @with_production_testing
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:

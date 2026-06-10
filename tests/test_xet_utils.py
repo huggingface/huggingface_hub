@@ -23,6 +23,9 @@ from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
 
 
+pytestmark = pytest.mark.xet
+
+
 def test_parse_valid_headers_file_info() -> None:
     mock_response = MagicMock()
     mock_response.headers = {

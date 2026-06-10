@@ -30,7 +30,10 @@ from huggingface_hub.file_download import (
 from huggingface_hub.utils import build_hf_headers, refresh_xet_connection_info
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name, requires
+from .testing_utils import repo_name
+
+
+pytestmark = pytest.mark.xet
 
 
 @contextmanager
@@ -96,7 +99,6 @@ def xet_setup(request, tmp_path):
     yield
 
 
-@requires("hf_xet")
 @pytest.mark.usefixtures("xet_setup")
 class TestXetUpload:
     def test_upload_file(self, api, tmp_path, repo_url):
@@ -339,7 +341,6 @@ class TestXetUpload:
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
 
-@requires("hf_xet")
 class TestBucketXetUploadSkipSha256:
     """Test that bucket uploads pass skip_sha256=True to hf_xet."""
 
@@ -366,7 +367,6 @@ class TestBucketXetUploadSkipSha256:
         api.delete_bucket(bucket_id)
 
 
-@requires("hf_xet")
 class TestXetLargeUpload:
     def test_upload_large_folder(self, api, tmp_path, repo_url: RepoUrl) -> None:
         N_FILES_PER_FOLDER = 4
@@ -449,7 +449,6 @@ class TestXetLargeUpload:
         assert any(n > 1 for n in num_files_per_call)
 
 
-@requires("hf_xet")
 @pytest.mark.usefixtures("xet_setup")
 class TestXetE2E:
     def test_hf_xet_download_with_new_session_api(self, api, tmp_path, repo_url):
