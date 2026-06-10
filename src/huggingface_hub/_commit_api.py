@@ -447,7 +447,7 @@ def _upload_files(
         )
 
 
-def _compute_missing_sha256s(additions: list[CommitOperationAdd], num_threads: int = 5) -> None:
+def _compute_missing_sha256s(additions: list[CommitOperationAdd], num_threads: int) -> None:
     """Compute the sha256 of the operations that don't have one yet, in parallel."""
     not_hashed = [op for op in additions if not op.upload_info.is_hashed]
     if len(not_hashed) == 0:
