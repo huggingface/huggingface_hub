@@ -328,6 +328,14 @@ class TestUploadPipeline:
                 run_pipeline(fake_api, ops, commit_endpoint=endpoint, create_pr=True)
         assert 'revision="refs/pr/7"' in caplog.text
 
+    def test_create_pr_with_revision_raises(self, tmp_path):
+        """PRs are always opened against the default branch (the discussions API has no base-revision
+        support), so `create_pr=True` + `revision` is rejected upfront."""
+        from huggingface_hub import HfApi
+
+        with pytest.raises(ValueError, match="create_pr"):
+            HfApi().upload_folder(repo_id="user/repo", folder_path=tmp_path, create_pr=True, revision="my-branch")
+
     def test_persistent_commit_failure_raises(self, fake_api, tmp_path):
         ops = make_ops(tmp_path, [("f.bin", b"x" * 100)])
         endpoint = FakeCommitEndpoint(fail_on_nth_call=set(range(100)))

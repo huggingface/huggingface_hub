@@ -5703,12 +5703,11 @@ class HfApi:
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
-                set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
-                against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server. Note that each call with `create_pr=True` opens a
-                new pull request: to resume an interrupted upload into the existing PR, re-run with
-                `revision="refs/pr/N"` instead (a warning with the exact instruction is emitted on interruption).
+                Whether or not to create a Pull Request with that commit. Defaults to `False`. The PR is always
+                opened against the default branch: setting both `create_pr=True` and `revision` raises a
+                `ValueError`. Note that each call with `create_pr=True` opens a new pull request: to resume an
+                interrupted upload into the existing PR, re-run with `revision="refs/pr/N"` instead (a warning
+                with the exact instruction is emitted on interruption).
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -5789,6 +5788,12 @@ class HfApi:
         """
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if create_pr and revision is not None and revision != constants.DEFAULT_REVISION:
+            raise ValueError(
+                f"Cannot use `create_pr=True` with `revision='{revision}'`: pull requests created by"
+                " `upload_folder` are always opened against the default branch. Don't set `revision` when"
+                " `create_pr=True`."
+            )
 
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:

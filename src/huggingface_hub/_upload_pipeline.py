@@ -403,7 +403,7 @@ class _UploadPipeline:
             self.display.close()
             if self.abort_event.is_set() and self.pr_revision is not None:
                 logger.warning(
-                    f"Upload to pull request {self.pr_url} was interrupted before completion. To resume into the"
+                    f"Upload to pull request {self.pr_url} did not complete. To resume into the"
                     f' same PR, re-run with `revision="{self.pr_revision}"` (without `create_pr=True`). Re-running'
                     " with `create_pr=True` would open a new pull request."
                 )
@@ -562,6 +562,8 @@ class _UploadPipeline:
             # Create the (draft) pull request explicitly and push every commit to its ref. Committing
             # with `?create_pr=1` instead would risk opening a second PR if the commit POST is retried
             # after a lost response. Created lazily so that a fully-unchanged upload opens no PR.
+            # Note: PRs created this way are always opened against the default branch, hence the
+            # `create_pr` + `revision` combination being rejected in `upload_folder`.
             pr = self.api.create_pull_request(
                 repo_id=self.repo_id,
                 title=self.commit_message,
