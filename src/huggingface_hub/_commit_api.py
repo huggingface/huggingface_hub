@@ -4,6 +4,7 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
+import json
 import os
 import warnings
 from collections import defaultdict
@@ -38,7 +39,7 @@ from .utils._runtime import is_xet_available
 
 
 if TYPE_CHECKING:
-    from .hf_api import RepoFile
+    from .hf_api import CommitInfo, RepoFile
 
 
 logger = logging.get_logger(__name__)
@@ -1002,3 +1003,73 @@ def _prepare_commit_payload(
 
     if nb_ignored_files > 0:
         logger.info(f"Skipped {nb_ignored_files} file(s) in commit (ignored by gitignore file).")
+
+
+def _send_commit(
+    *,
+    operations: Iterable[CommitOperation],
+    files_to_copy: dict[_CopySource, Union["RepoFile", bytes]],
+    commit_message: str,
+    commit_description: str,
+    repo_type: str,
+    repo_id: str,
+    headers: dict[str, str],
+    revision: str,
+    endpoint: str | None = None,
+    parent_commit: str | None = None,
+    create_pr: bool = False,
+    hot_reload: bool = False,
+    retry_on_error: bool = False,
+) -> "CommitInfo":
+    """
+    Build the ndjson payload for `operations` and POST it to the `/commit` endpoint of the Hub.
+
+    `revision` must already be URL-quoted. Operations must be ready to commit: upload modes fetched
+    and LFS/Xet content uploaded.
+
+    If `retry_on_error` is `True`, the POST is retried with exponential backoff on transient errors.
+    Caution: if a commit succeeds but its response is lost, the retry will create a duplicate commit
+    (and a duplicate pull request if `create_pr` is set) — only enable it when this is acceptable.
+
+    Returns a [`CommitInfo`] built from the server response.
+
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    payload = _prepare_commit_payload(
+        operations=operations,
+        files_to_copy=files_to_copy,
+        commit_message=commit_message,
+        commit_description=commit_description,
+        parent_commit=parent_commit,
+    )
+    data = b"".join(json.dumps(item).encode() + b"\n" for item in payload)
+    # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+    headers = {"Content-Type": "application/x-ndjson", **headers}
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
+
+    params: dict[str, str] = {}
+    if create_pr:
+        params["create_pr"] = "1"
+    if hot_reload:
+        params["hot_reload"] = "1"
+
+    if retry_on_error:
+        response = http_backoff("POST", url, headers=headers, content=data, params=params)
+    else:
+        response = get_session().post(url, headers=headers, content=data, params=params)
+    hf_raise_for_status(response, endpoint_name="commit")
+
+    commit_data = response.json()
+    from .hf_api import CommitInfo
+
+    return CommitInfo(
+        commit_url=commit_data["commitUrl"],
+        commit_message=commit_message,
+        commit_description=commit_description,
+        oid=commit_data["commitOid"],
+        pr_url=commit_data["pullRequestUrl"] if create_pr else None,
+        _endpoint=endpoint,
+    )

@@ -64,7 +64,7 @@ from ._commit_api import (
     _CopySource,
     _fetch_files_to_copy,
     _fetch_upload_modes,
-    _prepare_commit_payload,
+    _send_commit,
     _upload_files,
     _warn_on_overwriting_operations,
 )
@@ -5087,36 +5087,21 @@ class HfApi:
                 _endpoint=self.endpoint,
             )
 
-        commit_payload = _prepare_commit_payload(
-            operations=operations_without_no_op,
-            files_to_copy=files_to_copy,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            parent_commit=parent_commit,
-        )
-        commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
-
-        def _payload_as_ndjson() -> Iterable[bytes]:
-            for item in commit_payload:
-                yield json.dumps(item).encode()
-                yield b"\n"
-
-        headers = {
-            # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
-            "Content-Type": "application/x-ndjson",
-            **headers,
-        }
-        data = b"".join(_payload_as_ndjson())
-
-        params: dict[str, Any] = {}
-        if create_pr:
-            params["create_pr"] = "1"
-        if _hot_reload:
-            params["hot_reload"] = "1"
-
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
-            hf_raise_for_status(commit_resp, endpoint_name="commit")
+            commit_info = _send_commit(
+                operations=operations_without_no_op,
+                files_to_copy=files_to_copy,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                revision=revision,
+                endpoint=self.endpoint,
+                parent_commit=parent_commit,
+                create_pr=create_pr,
+                hot_reload=_hot_reload,
+            )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
@@ -5132,15 +5117,7 @@ class HfApi:
         for addition in additions:
             addition._is_committed = True
 
-        commit_data = commit_resp.json()
-        return CommitInfo(
-            commit_url=commit_data["commitUrl"],
-            commit_message=commit_message,
-            commit_description=commit_description,
-            oid=commit_data["commitOid"],
-            pr_url=commit_data["pullRequestUrl"] if create_pr else None,
-            _endpoint=self.endpoint,
-        )
+        return commit_info
 
     def preupload_lfs_files(
         self,

@@ -30,7 +30,6 @@ How it works:
   deduplicated by the xet storage backend, transferring ~0 bytes.
 """
 
-import json
 import queue
 import shutil
 import sys
@@ -44,11 +43,11 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationDelete,
     _fetch_upload_modes,
-    _prepare_commit_payload,
+    _send_commit,
     _warn_on_overwriting_operations,
 )
 from .errors import RepositoryNotFoundError
-from .utils import are_progress_bars_disabled, hf_raise_for_status, http_backoff, logging
+from .utils import are_progress_bars_disabled, logging
 from .utils._xet import (
     XetTokenType,
     abort_xet_session,
@@ -585,43 +584,30 @@ class _UploadPipeline:
         commit_message = (
             self.commit_message if self.nb_commits == 0 else f"{self.commit_message} (part {self.nb_commits + 1})"
         )
-        payload = _prepare_commit_payload(
+        t0 = time.monotonic()
+        # Retried with backoff on transient errors: safe because the commit targets an explicit
+        # ref (`?create_pr=1` is never used, see above).
+        self.last_commit_info = _send_commit(
             operations=operations,
             files_to_copy={},
             commit_message=commit_message,
             commit_description=self.commit_description or "",
+            repo_type=self.repo_type,
+            repo_id=self.repo_id,
+            headers=self.headers,
+            revision=self.commit_revision_quoted,
+            endpoint=self.api.endpoint,
             parent_commit=self.parent_commit if self.nb_commits == 0 else None,
+            retry_on_error=True,
         )
-        data = b"".join(json.dumps(item).encode() + b"\n" for item in payload)
-
-        commit_url = f"{self.api.endpoint}/api/{self.repo_type}s/{self.repo_id}/commit/{self.commit_revision_quoted}"
-        t0 = time.monotonic()
-        resp = http_backoff(
-            "POST",
-            commit_url,
-            headers={"Content-Type": "application/x-ndjson", **self.headers},
-            content=data,
-        )
-        hf_raise_for_status(resp, endpoint_name="commit")
         duration = time.monotonic() - t0
         self.pacer.record_success(duration, len(ops))
-
-        commit_data = resp.json()
-        from .hf_api import CommitInfo
-
-        self.last_commit_info = CommitInfo(
-            commit_url=commit_data["commitUrl"],
-            commit_message=commit_message,
-            commit_description=self.commit_description or "",
-            oid=commit_data["commitOid"],
-            _endpoint=self.api.endpoint,
-        )
         self.nb_commits += 1
 
         for op in ops:
             op._is_committed = True
         self.display.notify_commit(len(ops))
-        logger.debug(f"Committed {len(ops)} file(s) in {duration:.1f}s: {commit_data['commitUrl']}")
+        logger.debug(f"Committed {len(ops)} file(s) in {duration:.1f}s: {self.last_commit_info.commit_url}")
 
     # ---------------------------------------------------------------- result
 

@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+import huggingface_hub._commit_api as commit_api
 import huggingface_hub._upload_pipeline as upload_pipeline
 from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete, _compute_missing_sha256s
 from huggingface_hub._upload_pipeline import _CommitPacer, _LiveDisplay, _UploadPipeline
@@ -139,8 +140,8 @@ def run_pipeline(api, add_operations, commit_endpoint=None, modes=None, **kwargs
     with (
         patch.object(upload_pipeline, "_fetch_upload_modes", fetcher),
         patch.object(upload_pipeline, "get_xet_session", lambda: session),
-        patch.object(upload_pipeline, "http_backoff", commit_endpoint),
-        patch.object(upload_pipeline, "hf_raise_for_status", lambda *a, **k: None),
+        patch.object(commit_api, "http_backoff", commit_endpoint),
+        patch.object(commit_api, "hf_raise_for_status", lambda *a, **k: None),
         patch.object(upload_pipeline, "are_progress_bars_disabled", lambda: True),
     ):
         pipeline = _UploadPipeline(
@@ -292,7 +293,7 @@ class TestUploadPipeline:
         assert fake_api.pr_calls[0]["title"] == "msg"
         # ...and ALL commits push to the (url-quoted) PR ref
         assert all(call["url"].endswith("/commit/refs%2Fpr%2F7") for call in endpoint.calls)
-        assert all(call["params"] is None for call in endpoint.calls)
+        assert all(not call["params"] for call in endpoint.calls)
         assert info.pr_url == "https://huggingface.co/fake/repo/discussions/7"
         assert info.pr_revision == "refs/pr/7"
         # preupload always targets the base revision with create_pr=True, even after the PR exists
