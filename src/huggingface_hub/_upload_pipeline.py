@@ -337,6 +337,7 @@ class _UploadPipeline:
         self.revision_quoted = quote(self.revision, safe="")
         self.create_pr_pending = create_pr  # `create_pr=1` is sent with the first commit only
         self.pr_url: str | None = None
+        self.pr_revision: str | None = None
         self.nb_commits = 0
         self.last_commit_info: "CommitInfo | None" = None
         self.pacer = _CommitPacer()
@@ -385,9 +386,21 @@ class _UploadPipeline:
             abort_xet_session()
             raise
         finally:
-            self.batch_queue.put(_SENTINEL)
-            committer.join()
+            if self.abort_event.is_set():
+                # The committer exits on its own once the queue is drained (see `_committer_loop`).
+                # Bound the wait so a xet call blocked on the (aborted) session can never hang the
+                # shutdown — the committer is a daemon thread.
+                committer.join(timeout=10)
+            else:
+                self.batch_queue.put(_SENTINEL)
+                committer.join()
             self.display.close()
+            if self.abort_event.is_set() and self.pr_revision is not None:
+                logger.warning(
+                    f"Upload to pull request {self.pr_url} was interrupted before completion. To resume into the"
+                    f' same PR, re-run with `revision="{self.pr_revision}"` (without `create_pr=True`). Re-running'
+                    " with `create_pr=True` would open a new pull request."
+                )
         if self.errors:
             raise self.errors[0]
         return self._final_commit_info()
@@ -471,7 +484,12 @@ class _UploadPipeline:
 
     def _committer_loop(self) -> None:
         while True:
-            batch = self.batch_queue.get()
+            try:
+                batch = self.batch_queue.get(timeout=0.5)
+            except queue.Empty:
+                if self.abort_event.is_set():
+                    return  # aborted: exit once the queue is drained, no sentinel needed
+                continue
             if batch is _SENTINEL:
                 return
             try:
@@ -577,6 +595,7 @@ class _UploadPipeline:
                 raise ValueError("Server did not return a pull request reference after a `create_pr` commit.")
             # Subsequent commits are pushed to the PR ref (don't create a new PR per commit!).
             self.pr_url = self.last_commit_info.pr_url
+            self.pr_revision = pr_revision
             self.revision_quoted = quote(pr_revision, safe="")
             self.create_pr_pending = False
 

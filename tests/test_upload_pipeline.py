@@ -299,6 +299,19 @@ class TestUploadPipeline:
         committed = endpoint.committed_paths(1) + endpoint.committed_paths(2)
         assert sorted(committed) == [f"f{i}.bin" for i in range(4)]
 
+    def test_create_pr_interrupted_warns_with_resume_instructions(self, fake_api, tmp_path, caplog):
+        """If the upload fails after the PR was created, tell the user how to resume into the SAME PR
+        (re-running with create_pr=True would open a second one)."""
+        ops = make_ops(tmp_path, [(f"f{i}.bin", f"{i}".encode() * 100) for i in range(2)])
+        endpoint = FakeCommitEndpoint(fail_on_nth_call=set(range(1, 100)))  # PR created, then everything fails
+        with (
+            patch.object(upload_pipeline, "COMMIT_SIZE_SCALE", [1, 1]),
+            patch.object(upload_pipeline, "INITIAL_COMMIT_SIZE_INDEX", 0),
+        ):
+            with pytest.raises(RuntimeError, match="injected commit failure"):
+                run_pipeline(fake_api, ops, commit_endpoint=endpoint, create_pr=True)
+        assert 'revision="refs/pr/7"' in caplog.text
+
     def test_persistent_commit_failure_raises(self, fake_api, tmp_path):
         ops = make_ops(tmp_path, [("f.bin", b"x" * 100)])
         endpoint = FakeCommitEndpoint(fail_on_nth_call=set(range(100)))

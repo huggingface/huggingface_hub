@@ -5706,7 +5706,9 @@ class HfApi:
                 Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
                 set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
                 against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server.
+                `RevisionNotFoundError` is returned by the server. Note that each call with `create_pr=True` opens a
+                new pull request: to resume an interrupted upload into the existing PR, re-run with
+                `revision="refs/pr/N"` instead (a warning with the exact instruction is emitted on interruption).
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.

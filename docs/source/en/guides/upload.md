@@ -81,7 +81,7 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 When `hf_xet` is installed (which is the case by default), [`upload_folder`] uploads files through a streamed pipeline: files are checked against the Hub, uploaded to the Xet storage backend (which chunks, deduplicates and retries transfers internally), and committed in adaptive batches — all in parallel. In practice this means:
 
 - **Folders of any size**: small folders are uploaded in a single commit (as before), while folders with many files are automatically split into several commits to stay below server limits. When this happens, follow-up commits get a ` (part 2)`, ` (part 3)`, ... suffix on the commit message.
-- **Resumable**: if the upload is interrupted for any reason, simply re-run the same call. Files already committed are detected and skipped, and chunks already uploaded are deduplicated — re-uploading them transfers (almost) no data. No local state is involved: you can even resume from a different machine.
+- **Resumable**: if the upload is interrupted for any reason, simply re-run the same call. Files already committed are detected and skipped, and chunks already uploaded are deduplicated — re-uploading them transfers (almost) no data. No local state is involved: you can even resume from a different machine. One exception: with `create_pr=True`, re-running opens a *new* pull request — to resume into the existing PR, re-run with `revision="refs/pr/N"` instead (the exact instruction is printed when an upload to a PR is interrupted).
 - **No double read**: files are hashed *while* being chunked for upload, in a single read pass — there is no separate "hashing" phase before the upload starts.
 
 A live progress display keeps track of the three stages:
