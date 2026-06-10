@@ -31,9 +31,6 @@ from .errors import OIDCError
 from .utils import get_session, hf_raise_for_status
 
 
-# The `aud` claim the Hub validates on the incoming id token. Overridable for staging/tests.
-OIDC_AUDIENCE = "https://huggingface.co"
-
 # RFC 8693 token-exchange grant + id-token subject type (see trusted-publishers docs).
 _TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange"
 _ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
@@ -73,18 +70,20 @@ def _get_github_oidc_token(audience: str) -> str:
     return response.json()["value"]
 
 
-def get_oidc_token(*, provider: str | None = None, audience: str = OIDC_AUDIENCE) -> str:
+def get_oidc_token(*, provider: str | None = None, audience: str | None = None) -> str:
     """Mint a raw OIDC id token (JWT) from the current CI provider.
 
     Args:
         provider (`str`, *optional*):
             CI provider to use. Auto-detected from the environment when omitted.
         audience (`str`, *optional*):
-            The `aud` claim to request. Defaults to the Hub URL ([`OIDC_AUDIENCE`]).
+            The `aud` claim to request. Defaults to `constants.ENDPOINT` so it matches the endpoint
+            that validates it (respects `HF_ENDPOINT`/staging).
 
     Returns:
         `str`: The raw id token (JWT) to pass to [`exchange_oidc_token`].
     """
+    audience = audience or constants.ENDPOINT
     provider = provider or detect_provider()
     if provider is None:
         raise OIDCError(
@@ -133,7 +132,7 @@ def oidc_login(
     resource: str,
     subject_token: str | None = None,
     provider: str | None = None,
-    audience: str = OIDC_AUDIENCE,
+    audience: str | None = None,
     endpoint: str | None = None,
 ) -> dict:
     """Mint a CI OIDC id token and exchange it for a Hugging Face token.
@@ -151,13 +150,15 @@ def oidc_login(
         provider (`str`, *optional*):
             CI provider. Auto-detected when omitted. Ignored when `subject_token` is provided.
         audience (`str`, *optional*):
-            The `aud` claim to request. Defaults to [`OIDC_AUDIENCE`].
+            The `aud` claim to request. Defaults to the resolved `endpoint`, so it matches the
+            endpoint that validates it.
         endpoint (`str`, *optional*):
             Hub endpoint. Defaults to `constants.ENDPOINT`.
 
     Returns:
         `dict`: The token-exchange response (`access_token`, `token_type`, `expires_in`, ...).
     """
+    endpoint = endpoint or constants.ENDPOINT
     if subject_token is None:
-        subject_token = get_oidc_token(provider=provider, audience=audience)
+        subject_token = get_oidc_token(provider=provider, audience=audience or endpoint)
     return exchange_oidc_token(subject_token=subject_token, resource=resource, endpoint=endpoint)
