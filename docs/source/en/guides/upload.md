@@ -294,13 +294,6 @@ You can also copy within the same repository:
 > [!TIP]
 > [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
 
-### Upload a folder by chunks
-
-[`upload_folder`] makes it easy to upload an entire folder to the Hub, and automatically splits large folders into
-multiple commits (see [How files are uploaded](#how-files-are-uploaded)). For very large repos, you can also consider
-[`upload_large_folder`] — see the [Upload a large folder](#upload-a-large-folder) section for the trade-offs.
-
-
 ### Scheduled uploads
 
 The Hugging Face Hub makes it easy to save and version data. However, there are some limitations when updating the same file thousands of times. For instance, you might want to save logs of a training process or user
