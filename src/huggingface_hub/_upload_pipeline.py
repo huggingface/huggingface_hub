@@ -67,8 +67,8 @@ logger = logging.get_logger(__name__)
 PREUPLOAD_BATCH_SIZE = 256
 
 # Files per git commit: adaptive, scaled up after fast commits and down after failures.
-COMMIT_SIZE_SCALE = [64, 128, 256, 512, 1024]
-INITIAL_COMMIT_SIZE_INDEX = 2  # start at 256 files per commit
+COMMIT_SIZE_SCALE = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
+INITIAL_COMMIT_SIZE_INDEX = 6  # start at 256 files per commit
 TARGET_COMMIT_DURATION = 40.0  # seconds; scale up batch size if commits are faster than this
 MAX_COMMIT_INTERVAL = 5 * 60.0  # seconds; force a commit if the current batch is older than this
 
