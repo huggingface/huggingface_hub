@@ -79,12 +79,10 @@ class FakeCommitEndpoint:
             self.calls.append({"url": url, "params": params, "payload": payload})
             if n in self.fail_on:
                 raise RuntimeError(f"injected commit failure (call {n})")
-            pr_url = "https://huggingface.co/fake/repo/discussions/7" if (params or {}).get("create_pr") else None
             return SimpleNamespace(
                 json=lambda: {
                     "commitUrl": f"https://hub.fake/commit/{n}",
                     "commitOid": f"oid{n}",
-                    "pullRequestUrl": pr_url,
                 }
             )
 
@@ -113,7 +111,14 @@ def fake_api(tmp_path):
         endpoint="https://hub.fake",
         _build_hf_headers=lambda token=None: {"user-agent": "test"},
         repo_info=lambda **kwargs: SimpleNamespace(sha="latestsha"),
+        pr_calls=[],
     )
+
+    def create_pull_request(**kwargs):
+        api.pr_calls.append(kwargs)
+        return SimpleNamespace(url="https://huggingface.co/fake/repo/discussions/7", git_reference="refs/pr/7")
+
+    api.create_pull_request = create_pull_request
     return api
 
 
@@ -282,12 +287,12 @@ class TestUploadPipeline:
             info, endpoint, _ = run_pipeline(fake_api, ops, create_pr=True)
 
         assert len(endpoint.calls) == 2
-        # first commit creates the PR...
-        assert endpoint.calls[0]["params"] == {"create_pr": "1"}
-        assert endpoint.calls[0]["url"].endswith("/commit/main")
-        # ...subsequent commits push to the (url-quoted) PR ref without creating a new PR
-        assert endpoint.calls[1]["params"] is None
-        assert endpoint.calls[1]["url"].endswith("/commit/refs%2Fpr%2F7")
+        # a single PR is created upfront (via the discussions API, not `?create_pr=1`)...
+        assert len(fake_api.pr_calls) == 1
+        assert fake_api.pr_calls[0]["title"] == "msg"
+        # ...and ALL commits push to the (url-quoted) PR ref
+        assert all(call["url"].endswith("/commit/refs%2Fpr%2F7") for call in endpoint.calls)
+        assert all(call["params"] is None for call in endpoint.calls)
         assert info.pr_url == "https://huggingface.co/fake/repo/discussions/7"
         assert info.pr_revision == "refs/pr/7"
         # preupload always targets the base revision with create_pr=True, even after the PR exists
@@ -314,7 +319,7 @@ class TestUploadPipeline:
         """If the upload fails after the PR was created, tell the user how to resume into the SAME PR
         (re-running with create_pr=True would open a second one)."""
         ops = make_ops(tmp_path, [(f"f{i}.bin", f"{i}".encode() * 100) for i in range(2)])
-        endpoint = FakeCommitEndpoint(fail_on_nth_call=set(range(1, 100)))  # PR created, then everything fails
+        endpoint = FakeCommitEndpoint(fail_on_nth_call=set(range(100)))  # PR created, then every commit fails
         with (
             patch.object(upload_pipeline, "COMMIT_SIZE_SCALE", [1, 1]),
             patch.object(upload_pipeline, "INITIAL_COMMIT_SIZE_INDEX", 0),

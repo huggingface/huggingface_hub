@@ -65,7 +65,7 @@ This can prove useful if you want to clean a remote folder before pushing files 
 already exists.
 
 The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
-but before that, all previous logs on the repo on deleted. All of this in a single commit.
+but before that, all previous logs on the repo are deleted. All of this in a single commit.
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder/logs",

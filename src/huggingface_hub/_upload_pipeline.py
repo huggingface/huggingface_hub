@@ -47,6 +47,7 @@ from ._commit_api import (
     _prepare_commit_payload,
     _warn_on_overwriting_operations,
 )
+from .errors import RepositoryNotFoundError
 from .utils import are_progress_bars_disabled, hf_raise_for_status, http_backoff, logging
 from .utils._xet import (
     XetTokenType,
@@ -328,6 +329,7 @@ class _UploadPipeline:
         self.delete_operations = delete_operations
         self.commit_message = commit_message
         self.commit_description = commit_description
+        self.token = token
         self.headers = api._build_hf_headers(token=token)
         self.revision = revision or constants.DEFAULT_REVISION
         self.create_pr = create_pr
@@ -338,9 +340,8 @@ class _UploadPipeline:
         # changes during the run, even after a PR has been created.
         self.base_revision_quoted = quote(self.revision, safe="")
 
-        # Committer state (mutated by the committer thread only, after each successful commit)
+        # Committer state (mutated by the committer thread only)
         self.commit_revision_quoted = self.base_revision_quoted  # switched to the PR ref once created
-        self.create_pr_pending = create_pr  # `create_pr=1` is sent with the first commit only
         self.pr_url: str | None = None
         self.pr_revision: str | None = None
         self.nb_commits = 0
@@ -421,16 +422,22 @@ class _UploadPipeline:
                 self._abort_batch(batch)
                 return
             chunk = self.add_operations[start : start + PREUPLOAD_BATCH_SIZE]
-            _fetch_upload_modes(
-                additions=chunk,
-                repo_type=self.repo_type,
-                repo_id=self.repo_id,
-                headers=self.headers,
-                revision=self.base_revision_quoted,
-                endpoint=self.api.endpoint,
-                create_pr=self.create_pr,
-                gitignore_content=self.gitignore_content,
-            )
+            try:
+                _fetch_upload_modes(
+                    additions=chunk,
+                    repo_type=self.repo_type,
+                    repo_id=self.repo_id,
+                    headers=self.headers,
+                    revision=self.base_revision_quoted,
+                    endpoint=self.api.endpoint,
+                    create_pr=self.create_pr,
+                    gitignore_content=self.gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                from .hf_api import _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE
+
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
             self.display.notify_prepared(len(chunk))
             for op in chunk:
                 if op._should_ignore:
@@ -551,6 +558,23 @@ class _UploadPipeline:
                 self._commit_with_split(ops[start : start + target])
 
     def _do_commit(self, ops: list[CommitOperationAdd]) -> None:
+        if self.create_pr and self.pr_revision is None:
+            # Create the (draft) pull request explicitly and push every commit to its ref. Committing
+            # with `?create_pr=1` instead would risk opening a second PR if the commit POST is retried
+            # after a lost response. Created lazily so that a fully-unchanged upload opens no PR.
+            pr = self.api.create_pull_request(
+                repo_id=self.repo_id,
+                title=self.commit_message,
+                token=self.token,
+                description=self.commit_description,
+                repo_type=self.repo_type,
+            )
+            if pr.git_reference is None:
+                raise ValueError("Server did not return a git reference for the created pull request.")
+            self.pr_url = pr.url
+            self.pr_revision = pr.git_reference
+            self.commit_revision_quoted = quote(pr.git_reference, safe="")
+
         operations: list[Any] = list(ops)
         if self.nb_commits == 0:
             # Deletions and `parent_commit` ride the first commit.
@@ -569,14 +593,12 @@ class _UploadPipeline:
         data = b"".join(json.dumps(item).encode() + b"\n" for item in payload)
 
         commit_url = f"{self.api.endpoint}/api/{self.repo_type}s/{self.repo_id}/commit/{self.commit_revision_quoted}"
-        params = {"create_pr": "1"} if self.create_pr_pending else None
         t0 = time.monotonic()
         resp = http_backoff(
             "POST",
             commit_url,
             headers={"Content-Type": "application/x-ndjson", **self.headers},
             content=data,
-            params=params,
         )
         hf_raise_for_status(resp, endpoint_name="commit")
         duration = time.monotonic() - t0
@@ -590,19 +612,9 @@ class _UploadPipeline:
             commit_message=commit_message,
             commit_description=self.commit_description or "",
             oid=commit_data["commitOid"],
-            pr_url=commit_data["pullRequestUrl"] if self.create_pr_pending else None,
             _endpoint=self.api.endpoint,
         )
         self.nb_commits += 1
-        if self.create_pr_pending:
-            pr_revision = self.last_commit_info.pr_revision
-            if pr_revision is None:
-                raise ValueError("Server did not return a pull request reference after a `create_pr` commit.")
-            # Subsequent commits are pushed to the PR ref (don't create a new PR per commit!).
-            self.pr_url = self.last_commit_info.pr_url
-            self.pr_revision = pr_revision
-            self.commit_revision_quoted = quote(pr_revision, safe="")
-            self.create_pr_pending = False
 
         for op in ops:
             op._is_committed = True
@@ -631,8 +643,8 @@ class _UploadPipeline:
             )
         if self.nb_commits > 1:
             logger.info(f"Upload completed in {self.nb_commits} commits.")
-        if self.pr_url is not None and self.last_commit_info.pr_url is None:
-            # Multi-commit PR upload: re-attach the PR info (only the first commit response has it).
+        if self.pr_url is not None:
+            # PR upload: attach the PR info (commit responses don't carry it; the PR is created separately).
             return CommitInfo(
                 commit_url=self.last_commit_info.commit_url,
                 commit_message=self.last_commit_info.commit_message,
