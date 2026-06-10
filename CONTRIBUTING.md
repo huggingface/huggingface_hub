@@ -237,7 +237,7 @@ Whether a test depends on Xet is declared explicitly with markers, enforced by t
   behavior). It is skipped when `hf_xet` is installed.
 - unmarked — the test must work **regardless of Xet**. Nothing is forced: it runs with
   whatever your environment provides. In CI, unmarked tests run twice: once with
-  `hf_xet` installed ("Xet only" job) and once without (other jobs). If an unmarked
+  `hf_xet` installed ("with hf_xet" job) and once without (other jobs). If an unmarked
   test only passes in one mode, mark it `xet` or `no_xet` accordingly.
 
 ```bash

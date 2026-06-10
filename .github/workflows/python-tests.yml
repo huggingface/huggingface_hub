@@ -42,7 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.14"]
-        test_name: ["Everything else", "Inference only", "Xet only"]
+        test_name: ["no hf_xet", "Inference only", "with hf_xet"]
         include:
           - python-version: "3.14" # LFS not ran on 3.10
             test_name: "lfs"
@@ -73,7 +73,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Everything else" | "Inference only")
+            "no hf_xet" | "Inference only")
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
@@ -100,10 +100,10 @@ jobs:
           esac
 
           # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "Xet only" job: hf_xet installed. Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
+          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
           # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
           # Unmarked tests therefore run both with and without Xet and must work regardless.
-          if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
+          if [[ "${{ matrix.test_name }}" != "with hf_xet" ]]; then
             uv pip uninstall hf_xet
           fi
 
@@ -123,7 +123,7 @@ jobs:
               eval $PYTEST
             ;;
 
-            "Everything else")
+            "no hf_xet")
               PYTEST="$PYTEST ../tests -m 'not xet' -k 'not test_inference' -n 4"
               echo $PYTEST
               eval $PYTEST
@@ -142,7 +142,7 @@ jobs:
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
-            "Xet only")
+            "with hf_xet")
               # `xet` tests + unmarked tests, all with hf_xet installed.
               # Inference tests are excluded: they have their own job and don't depend on Xet.
               PYTEST="$PYTEST ../tests -m 'not no_xet' -k 'not test_inference' -n 4"
@@ -171,7 +171,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.14"]
-        test_name: ["Everything else", "Xet only"]
+        test_name: ["no hf_xet", "with hf_xet"]
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -191,8 +191,13 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install "huggingface_hub[testing] @ ."
-          if ("${{ matrix.test_name }}" -eq "Xet only") {
-            uv pip install hf_xet
+
+          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
+          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
+          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
+          # Unmarked tests therefore run both with and without Xet and must work regardless.
+          if ("${{ matrix.test_name }}" -ne "with hf_xet") {
+            uv pip uninstall hf_xet
           }
 
       # Run tests
@@ -213,12 +218,12 @@ jobs:
           )
 
           switch ("${{ matrix.test_name }}") {
-            "Xet only" {
+            "with hf_xet" {
               # `xet` tests + unmarked tests, all with hf_xet installed.
-              # Inference tests already run in "Everything else" and don't depend on Xet.
+              # Inference tests already run in "no hf_xet" and don't depend on Xet.
               python $PYTEST_ARGS -m "not no_xet" -k "not test_inference"
             }
-            "Everything else" {
+            "no hf_xet" {
               python $PYTEST_ARGS -m "not xet"
             }
           }
