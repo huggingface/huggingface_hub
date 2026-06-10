@@ -74,7 +74,7 @@ jobs:
       bump_type: ${{ steps.version.outputs.bump_type }}
       message_ts: ${{ steps.slack.outputs.message_ts }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: main
           fetch-depth: 0
@@ -287,7 +287,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
@@ -342,7 +342,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
@@ -397,7 +397,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -548,7 +548,7 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -683,7 +683,7 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -830,7 +830,7 @@ jobs:
           exit 1
 
       - name: Checkout target repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -932,7 +932,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: main
           token: ${{ steps.app_token.outputs.token }}
@@ -1010,7 +1010,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout huggingface_hub
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -1036,7 +1036,7 @@ jobs:
           repositories: skills
 
       - name: Checkout skills repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           repository: huggingface/skills
           token: ${{ steps.app_token.outputs.token }}
@@ -1111,7 +1111,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
