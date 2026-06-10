@@ -33,7 +33,8 @@ jobs:
           python -c "from huggingface_hub import *"
 
   build-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: aws-general-8-plus
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
