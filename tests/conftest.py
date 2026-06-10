@@ -34,8 +34,8 @@ def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     Three modes:
     - `@pytest.mark.xet`: test requires `hf_xet` => skipped when it is not installed,
       Xet force-enabled otherwise.
-    - `@pytest.mark.no_xet`: test must run without Xet (e.g. legacy LFS behavior) =>
-      Xet force-disabled, even if `hf_xet` is installed.
+    - `@pytest.mark.no_xet`: test must run without `hf_xet` (e.g. legacy LFS behavior)
+      => skipped when it is installed.
     - unmarked: test must work regardless of Xet => nothing is forced; the test runs
       with whatever the environment provides. CI runs unmarked tests both with and
       without `hf_xet` installed.
@@ -50,8 +50,8 @@ def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", False)
         monkeypatch.delenv("HF_HUB_DISABLE_XET", raising=False)
     elif no_xet:
-        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
-        monkeypatch.setenv("HF_HUB_DISABLE_XET", "1")
+        if is_package_available("hf_xet"):
+            pytest.skip("Test must run without `hf_xet` installed (marked with `pytest.mark.no_xet`)")
 
 
 @pytest.fixture(autouse=True)
