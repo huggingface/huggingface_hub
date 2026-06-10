@@ -2168,7 +2168,7 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 #### Deploy a custom container
 
-To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated`, `protected` or `private`):
+To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--container-command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated`, `protected` or `private`):
 
 ```bash
 >>> hf endpoints deploy nex-n2-pro \

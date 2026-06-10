@@ -1730,7 +1730,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
 * `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
-* `--command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Requires --custom-image.
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Requires --custom-image.
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.

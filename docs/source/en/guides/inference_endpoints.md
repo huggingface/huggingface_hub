@@ -100,7 +100,7 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
 
-For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. The same is available from the CLI via `hf endpoints deploy --custom-image ... --command "..." --container-args "..."`.
+For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. The same is available from the CLI via `hf endpoints deploy --custom-image ... --container-command "..." --container-args "..."`.
 
 ### Get or list existing Inference Endpoints
 

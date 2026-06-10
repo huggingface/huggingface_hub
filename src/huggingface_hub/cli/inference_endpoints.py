@@ -184,9 +184,10 @@ def deploy(
             help="Port the custom container listens on (e.g. 30000). Requires --custom-image.",
         ),
     ] = None,
-    command: Annotated[
+    container_command: Annotated[
         str | None,
         typer.Option(
+            "--container-command",
             help=(
                 "Override the container entrypoint, as a quoted string split into tokens "
                 '(e.g. "python -m sglang.launch_server"). Requires --custom-image.'
@@ -218,8 +219,8 @@ def deploy(
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
     # Custom-container knobs only make sense alongside a custom image.
-    if custom_image is None and (health_route is not None or port is not None or command or container_args):
-        raise CLIError("--health-route, --port, --command and --container-args require --custom-image.")
+    if custom_image is None and (health_route is not None or port is not None or container_command or container_args):
+        raise CLIError("--health-route, --port, --container-command and --container-args require --custom-image.")
     custom_image_dict: dict | None = None
     if custom_image is not None:
         custom_image_dict = {"url": custom_image}
@@ -251,7 +252,7 @@ def deploy(
         scale_to_zero_timeout=scale_to_zero_timeout,
         revision=revision,
         custom_image=custom_image_dict,
-        container_command=shlex.split(command) if command else None,
+        container_command=shlex.split(container_command) if container_command else None,
         container_args=shlex.split(container_args) if container_args else None,
         env=env_map or None,
         secrets=secrets_map or None,
