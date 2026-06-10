@@ -25,9 +25,20 @@ jobs:
           TAG : ${{ inputs.tag }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Validate tag format: vX.Y.ZrcN
+            if [[ ! "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+              echo "Error: Invalid tag format. Expected format: vX.Y.ZrcN or X.Y.ZrcN"
+              exit 1
+            fi
             echo "VERSION=$TAG" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
+            # Validate tag format from git ref
+            if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+              echo "Error: Invalid tag format. Expected format: vX.Y.ZrcN or X.Y.ZrcN"
+              exit 1
+            fi
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout target repo
@@ -46,9 +57,16 @@ jobs:
       - name: Wait for prerelease to be out on PyPI
         run: |
           VERSION=${{ steps.get-version.outputs.VERSION }}
-          echo "Waiting for huggingface-hub==${VERSION} to be available on PyPI"
-          while ! pip install huggingface-hub==${VERSION}; do
-            echo "huggingface-hub==${VERSION} not available yet, retrying in 15s"
+          # Validate VERSION format before using with pip
+          if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+            echo "Error: Invalid version format: $VERSION"
+            exit 1
+          fi
+          # Remove 'v' prefix if present for pip
+          VERSION_CLEAN="${VERSION#v}"
+          echo "Waiting for huggingface-hub==${VERSION_CLEAN} to be available on PyPI"
+          while ! pip install "huggingface-hub==${VERSION_CLEAN}"; do
+            echo "huggingface-hub==${VERSION_CLEAN} not available yet, retrying in 15s"
             sleep 15
           done
 
@@ -87,8 +105,12 @@ jobs:
           fi
 
           # Any line with `uv pip install --prerelease=allow` in the `.github/` folder must be updated with `--prerelease=allow` flag
-          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
-          git add .github/workflows/
+          # WARNING: This modifies CI behavior to allow prerelease packages. Manual review recommended.
+          # Only modify workflow files that already reference huggingface-hub to minimize scope
+          if grep -r "huggingface-hub" .github/workflows/ >/dev/null 2>&1; then
+            find .github/workflows/ -type f -exec grep -l "huggingface-hub" {} \; | xargs sed -i 's/uv pip install /uv pip install --prerelease=allow /g'
+            git add .github/workflows/
+          fi
 
           # Commit and push changes
           git --no-pager diff --staged
