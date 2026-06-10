@@ -96,12 +96,14 @@ def fake_fetch_upload_modes(upload_modes_config=None):
     """Returns a `_fetch_upload_modes` replacement. `.bin` files -> xet ("lfs" mode), others -> regular."""
 
     def _fake(additions, **kwargs):
+        _fake.calls.append(kwargs)
         for op in additions:
             config = (upload_modes_config or {}).get(op.path_in_repo, {})
             op._upload_mode = config.get("mode", "lfs" if op.path_in_repo.endswith(".bin") else "regular")
             op._should_ignore = config.get("ignore", False)
             op._remote_oid = config.get("remote_oid")
 
+    _fake.calls = []
     return _fake
 
 
@@ -127,8 +129,10 @@ def make_ops(tmp_path, names_and_content):
 def run_pipeline(api, add_operations, commit_endpoint=None, modes=None, **kwargs):
     commit_endpoint = commit_endpoint or FakeCommitEndpoint()
     session = FakeXetSession()
+    fetcher = fake_fetch_upload_modes(modes)
+    commit_endpoint.preupload_calls = fetcher.calls  # exposed for assertions
     with (
-        patch.object(upload_pipeline, "_fetch_upload_modes", fake_fetch_upload_modes(modes)),
+        patch.object(upload_pipeline, "_fetch_upload_modes", fetcher),
         patch.object(upload_pipeline, "get_xet_session", lambda: session),
         patch.object(upload_pipeline, "http_backoff", commit_endpoint),
         patch.object(upload_pipeline, "hf_raise_for_status", lambda *a, **k: None),
@@ -189,7 +193,10 @@ class TestLiveDisplayCounters:
     def test_xet_callback_sums_increments_across_concurrent_commits(self):
         display = _LiveDisplay(total_files=10, enabled=True)
         cb1, cb2 = display.new_xet_callback(), display.new_xet_callback()
-        report = lambda n: SimpleNamespace(total_transfer_bytes_completed=n)
+
+        def report(n):
+            return SimpleNamespace(total_transfer_bytes_completed=n)
+
         cb1(report(100), {})
         cb2(report(50), {})  # concurrent commit with its own cumulative counter
         cb1(report(300), {})
@@ -270,6 +277,7 @@ class TestUploadPipeline:
         with (
             patch.object(upload_pipeline, "COMMIT_SIZE_SCALE", [2, 2]),
             patch.object(upload_pipeline, "INITIAL_COMMIT_SIZE_INDEX", 0),
+            patch.object(upload_pipeline, "PREUPLOAD_BATCH_SIZE", 2),  # several preupload calls
         ):
             info, endpoint, _ = run_pipeline(fake_api, ops, create_pr=True)
 
@@ -282,6 +290,9 @@ class TestUploadPipeline:
         assert endpoint.calls[1]["url"].endswith("/commit/refs%2Fpr%2F7")
         assert info.pr_url == "https://huggingface.co/fake/repo/discussions/7"
         assert info.pr_revision == "refs/pr/7"
+        # preupload always targets the base revision with create_pr=True, even after the PR exists
+        # (mirrors `create_commit` semantics; the PR ref is only used for the commit calls)
+        assert all(call["revision"] == "main" and call["create_pr"] is True for call in endpoint.preupload_calls)
 
     def test_commit_failure_splits_batch(self, fake_api, tmp_path):
         ops = make_ops(tmp_path, [(f"f{i}.bin", f"{i}".encode() * 100) for i in range(4)])

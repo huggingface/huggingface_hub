@@ -333,8 +333,13 @@ class _UploadPipeline:
         self.create_pr = create_pr
         self.parent_commit = parent_commit
 
+        # The base revision is used by the coordinator for ALL preupload calls and the xet token
+        # refresh URL, with the `create_pr` flag — exactly like `create_commit` does. It never
+        # changes during the run, even after a PR has been created.
+        self.base_revision_quoted = quote(self.revision, safe="")
+
         # Committer state (mutated by the committer thread only, after each successful commit)
-        self.revision_quoted = quote(self.revision, safe="")
+        self.commit_revision_quoted = self.base_revision_quoted  # switched to the PR ref once created
         self.create_pr_pending = create_pr  # `create_pr=1` is sent with the first commit only
         self.pr_url: str | None = None
         self.pr_revision: str | None = None
@@ -354,7 +359,7 @@ class _UploadPipeline:
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
             repo_type=repo_type,
-            revision=self.revision_quoted,
+            revision=self.base_revision_quoted,
             endpoint=api.endpoint,
         )
         if create_pr:
@@ -421,7 +426,7 @@ class _UploadPipeline:
                 repo_type=self.repo_type,
                 repo_id=self.repo_id,
                 headers=self.headers,
-                revision=self.revision_quoted,
+                revision=self.base_revision_quoted,
                 endpoint=self.api.endpoint,
                 create_pr=self.create_pr,
                 gitignore_content=self.gitignore_content,
@@ -563,7 +568,7 @@ class _UploadPipeline:
         )
         data = b"".join(json.dumps(item).encode() + b"\n" for item in payload)
 
-        commit_url = f"{self.api.endpoint}/api/{self.repo_type}s/{self.repo_id}/commit/{self.revision_quoted}"
+        commit_url = f"{self.api.endpoint}/api/{self.repo_type}s/{self.repo_id}/commit/{self.commit_revision_quoted}"
         params = {"create_pr": "1"} if self.create_pr_pending else None
         t0 = time.monotonic()
         resp = http_backoff(
@@ -596,7 +601,7 @@ class _UploadPipeline:
             # Subsequent commits are pushed to the PR ref (don't create a new PR per commit!).
             self.pr_url = self.last_commit_info.pr_url
             self.pr_revision = pr_revision
-            self.revision_quoted = quote(pr_revision, safe="")
+            self.commit_revision_quoted = quote(pr_revision, safe="")
             self.create_pr_pending = False
 
         for op in ops:
