@@ -1111,7 +1111,11 @@ class TestDownloadImpl:
                 force_download=True,
             )
         print_mock.assert_called_once_with("folder-path")
-        assert any("Ignoring" in str(w.message) for w in caught)
+        warning_messages = [str(w.message) for w in caught]
+        assert warning_messages == [
+            "Ignoring `--include` since filenames have been explicitly set.",
+            "Ignoring `--exclude` since filenames have been explicitly set.",
+        ]
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
