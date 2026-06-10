@@ -23,6 +23,7 @@ from pathlib import Path
 from threading import Lock
 
 from .. import constants
+from ..errors import OIDCError
 from ._runtime import is_colab_enterprise, is_google_colab
 
 
@@ -59,9 +60,12 @@ def get_token() -> str | None:
           if you want to retrieve the token for other purposes than sending an HTTP request.
 
     Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
-    in the Hugging Face home folder. As a last resort, if running in a CI provider with a Trusted Publisher configured
-    (`HF_OIDC_RESOURCE` is set), a short-lived token is obtained via OIDC token exchange. Returns None if user is not
-    logged in. To log in, use [`login`] or `hf auth login`.
+    in the Hugging Face home folder. As a last resort, if `HF_OIDC_RESOURCE` is set (Trusted Publishers, typically in
+    CI), a short-lived token is obtained via OIDC token exchange. Returns None if user is not logged in. To log in, use
+    [`login`] or `hf auth login`.
+
+    Note: if `HF_OIDC_RESOURCE` is set but the OIDC token exchange fails, this raises instead of returning `None`,
+    opting into OIDC is explicit, so a failure surfaces as a clear error rather than a silent fallback.
 
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.
@@ -158,11 +162,16 @@ _OIDC_REFRESH_MARGIN = 300  # re-exchange this many seconds before the token act
 
 
 def _get_token_from_oidc() -> str | None:
-    """Obtain a short-lived token via OIDC token exchange when running in CI (Trusted Publishers).
+    """Obtain a short-lived token via OIDC token exchange in CI (Trusted Publishers).
 
-    Only active when the user opted in by setting `HF_OIDC_RESOURCE` (the repo or username to scope
-    the token to) *and* a supported CI provider is detected. Best-effort: any failure is surfaced as
-    a warning and returns `None`, so resolution degrades to "not logged in" exactly as before.
+    Opt-in: only engages when `HF_OIDC_RESOURCE` is set (the repo or username to scope the token to).
+    The id token to exchange is taken from `HF_OIDC_ID_TOKEN` when set (so any CI provider works by
+    minting it itself), otherwise it is minted from a natively-supported provider (GitHub Actions).
+
+    Returns `None` only when `HF_OIDC_RESOURCE` is unset, so normal token resolution is untouched for
+    everyone else. Once opted in, any failure *raises* rather than silently falling back: setting
+    `HF_OIDC_RESOURCE` is an explicit "authenticate via OIDC", so a failure should be a clear error,
+    not a confusing "not logged in" further down the call stack.
 
     See `huggingface_hub._oidc` and https://huggingface.co/docs/hub/trusted-publishers.
     """
@@ -170,11 +179,7 @@ def _get_token_from_oidc() -> str | None:
     if not resource:
         return None
 
-    # Lazy import: keeps `get_token()` cheap for everyone not using OIDC and avoids import cycles.
     from .._oidc import detect_provider, oidc_login
-
-    if detect_provider() is None:
-        return None
 
     global _OIDC_TOKEN_CACHE
     with _OIDC_TOKEN_LOCK:
@@ -186,15 +191,16 @@ def _get_token_from_oidc() -> str | None:
         ):
             return _OIDC_TOKEN_CACHE["token"]
 
-        try:
-            result = oidc_login(resource=resource)
-        except Exception as e:
-            warnings.warn(
-                f"Could not authenticate to the Hugging Face Hub via OIDC token exchange "
-                f"(HF_OIDC_RESOURCE={resource!r}): {e}"
+        # An explicit id token (any provider) takes precedence; otherwise mint from a detected one.
+        subject_token = os.environ.get("HF_OIDC_ID_TOKEN") or None
+        if subject_token is None and detect_provider() is None:
+            raise OIDCError(
+                "HF_OIDC_RESOURCE is set but no OIDC id token is available: not running in a supported "
+                "CI provider (github) and HF_OIDC_ID_TOKEN is not set. Set HF_OIDC_ID_TOKEN to the id "
+                "token minted by your CI provider, or unset HF_OIDC_RESOURCE."
             )
-            return None
 
+        result = oidc_login(resource=resource, subject_token=subject_token)
         token = result["access_token"]
         expires_in = int(result.get("expires_in", 3600))
         _OIDC_TOKEN_CACHE = {

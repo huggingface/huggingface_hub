@@ -28,6 +28,7 @@ import logging
 import os
 
 from . import constants
+from .errors import OIDCError
 from .utils import get_session, hf_raise_for_status
 
 
@@ -61,7 +62,7 @@ def _get_github_oidc_token(audience: str) -> str:
     request_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL")
     request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
     if not request_url or not request_token:
-        raise OSError(
+        raise OIDCError(
             "Cannot request an OIDC id token from GitHub Actions. Make sure the workflow job sets "
             "`permissions: id-token: write`. See "
             "https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect"
@@ -89,7 +90,7 @@ def get_oidc_token(*, provider: str | None = None, audience: str = OIDC_AUDIENCE
     """
     provider = provider or detect_provider()
     if provider is None:
-        raise OSError(
+        raise OIDCError(
             "No supported CI OIDC provider detected. Trusted Publishers currently supports: "
             f"{', '.join(SUPPORTED_PROVIDERS)}."
         )
@@ -133,6 +134,7 @@ def exchange_oidc_token(*, subject_token: str, resource: str, endpoint: str | No
 def oidc_login(
     *,
     resource: str,
+    subject_token: str | None = None,
     provider: str | None = None,
     audience: str = OIDC_AUDIENCE,
     endpoint: str | None = None,
@@ -145,8 +147,12 @@ def oidc_login(
     Args:
         resource (`str`):
             Repo or username to scope the token to. See [`exchange_oidc_token`].
+        subject_token (`str`, *optional*):
+            A pre-minted OIDC id token to exchange directly. Use this for CI providers not yet
+            supported natively (e.g. GitLab): mint the id token in your job and pass it here. When
+            omitted, the token is minted from the detected `provider`.
         provider (`str`, *optional*):
-            CI provider. Auto-detected when omitted.
+            CI provider. Auto-detected when omitted. Ignored when `subject_token` is provided.
         audience (`str`, *optional*):
             The `aud` claim to request. Defaults to [`OIDC_AUDIENCE`].
         endpoint (`str`, *optional*):
@@ -155,5 +161,6 @@ def oidc_login(
     Returns:
         `dict`: The token-exchange response (`access_token`, `token_type`, `expires_in`, ...).
     """
-    subject_token = get_oidc_token(provider=provider, audience=audience)
+    if subject_token is None:
+        subject_token = get_oidc_token(provider=provider, audience=audience)
     return exchange_oidc_token(subject_token=subject_token, resource=resource, endpoint=endpoint)
