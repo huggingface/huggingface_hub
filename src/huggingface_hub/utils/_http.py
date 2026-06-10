@@ -1005,6 +1005,17 @@ def _format(
     return err
 
 
+# Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret")
+
+
+def _redact_sensitive_body(body: str) -> str:
+    """Redact OAuth credential values from a JSON request body string."""
+    for key in _SENSITIVE_BODY_KEYS:
+        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)
+    return body
+
+
 def _curlify(request: httpx.Request) -> str:
     """Convert a `httpx.Request` into a curl command (str).
 
@@ -1029,6 +1040,7 @@ def _curlify(request: httpx.Request) -> str:
             body = request.content.decode("utf-8", errors="ignore")
             if len(body) > 1000:
                 body = f"{body[:1000]} ... [truncated]"
+            body = _redact_sensitive_body(body)
     except httpx.RequestNotRead:
         body = "<streaming body>"
     if body is not None:

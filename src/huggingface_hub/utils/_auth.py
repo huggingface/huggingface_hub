@@ -17,11 +17,14 @@ import configparser
 import io
 import logging
 import os
+import time
 import warnings
 from pathlib import Path
 from threading import Lock
+from typing import TypedDict
 
 from .. import constants
+from ..errors import OIDCError
 from ._runtime import is_colab_enterprise, is_google_colab
 
 
@@ -57,14 +60,23 @@ def get_token() -> str | None:
     Note: in most cases, you should use [`huggingface_hub.utils.build_hf_headers`] instead. This method is only useful
           if you want to retrieve the token for other purposes than sending an HTTP request.
 
-    Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
-    in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
+    If `HF_OIDC_RESOURCE` is set (Trusted Publishers, typically in CI), a short-lived token obtained via OIDC token
+    exchange takes precedence. Otherwise the token is retrieved from the `HF_TOKEN` environment variable, then from the
+    token file in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
     `hf auth login`.
+
+    Note: if `HF_OIDC_RESOURCE` is set but the OIDC token exchange fails, this raises instead of returning `None`,
+    opting into OIDC is explicit, so a failure surfaces as a clear error rather than a silent fallback.
 
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.
     """
-    return _get_token_from_environment() or _get_token_from_file() or _get_token_from_google_colab()
+    return (
+        _get_token_from_oidc()
+        or _get_token_from_environment()
+        or _get_token_from_file()
+        or _get_token_from_google_colab()
+    )
 
 
 def _get_token_from_google_colab() -> str | None:
@@ -141,6 +153,70 @@ def _get_token_from_file() -> str | None:
         return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
     except FileNotFoundError:
         return None
+
+
+class _OidcTokenCache(TypedDict):
+    resource: str
+    token: str
+    expires_at: float  # monotonic clock value after which the cached token must be re-exchanged
+
+
+# Cache for the OIDC-exchanged token: re-exchanging on every `get_token()` call would be wasteful,
+# and re-exchanging shortly before expiry transparently keeps long-running jobs authenticated.
+_OIDC_TOKEN_LOCK = Lock()
+_OIDC_TOKEN_CACHE: _OidcTokenCache | None = None
+_OIDC_REFRESH_MARGIN = 300  # re-exchange this many seconds before the token actually expires
+
+
+def _get_token_from_oidc() -> str | None:
+    """Get a short-lived OIDC token in CI (Trusted Publishers).
+
+    Enabled by setting `HF_OIDC_RESOURCE`, which scopes the token to a repo or user.
+    The ID token is read from `HF_OIDC_ID_TOKEN` if available, or minted from a supported CI provider (e.g. GitHub Actions).
+
+    Returns `None` when OIDC is not enabled.
+    If enabled, any failure is raised explicitly rather than falling back silently.
+
+    See `huggingface_hub._oidc` and https://huggingface.co/docs/hub/trusted-publishers.
+    """
+    resource = os.environ.get("HF_OIDC_RESOURCE")
+    if not resource:
+        return None
+
+    from .._oidc import detect_provider, oidc_login
+
+    global _OIDC_TOKEN_CACHE
+    with _OIDC_TOKEN_LOCK:
+        now = time.monotonic()
+        if (
+            _OIDC_TOKEN_CACHE is not None
+            and _OIDC_TOKEN_CACHE["resource"] == resource
+            and now < _OIDC_TOKEN_CACHE["expires_at"]
+        ):
+            return _OIDC_TOKEN_CACHE["token"]
+
+        # An explicit id token (any provider) takes precedence; otherwise mint from a detected one.
+        subject_token = os.environ.get("HF_OIDC_ID_TOKEN") or None
+        if subject_token is None and detect_provider() is None:
+            raise OIDCError(
+                "HF_OIDC_RESOURCE is set but no OIDC id token is available: not running in a supported "
+                "CI provider (github) and HF_OIDC_ID_TOKEN is not set. Set HF_OIDC_ID_TOKEN to the id "
+                "token minted by your CI provider, or unset HF_OIDC_RESOURCE."
+            )
+
+        result = oidc_login(resource=resource, subject_token=subject_token)
+        token = result["access_token"]
+        expires_in = int(result.get("expires_in", 3600))
+        # A pre-supplied HF_OIDC_ID_TOKEN can't be re-minted, so refreshing early is pointless (the id
+        # token is likely already expired by then): cache for the full lifetime. Only the auto-minted
+        # path can refresh, so only it gets the safety margin.
+        margin = 0 if subject_token is not None else _OIDC_REFRESH_MARGIN
+        _OIDC_TOKEN_CACHE = {
+            "resource": resource,
+            "token": token,
+            "expires_at": now + max(expires_in - margin, 0),
+        }
+        return token
 
 
 def get_stored_tokens() -> dict[str, str]:
