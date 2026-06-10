@@ -24,15 +24,12 @@ resolution in ``utils/_auth.py`` (see ``_get_token_from_oidc``).
 Docs: https://huggingface.co/docs/hub/trusted-publishers
 """
 
-import logging
 import os
 
 from . import constants
 from .errors import OIDCError
 from .utils import get_session, hf_raise_for_status
 
-
-logger = logging.getLogger(__name__)
 
 # The `aud` claim the Hub validates on the incoming id token. Overridable for staging/tests.
 OIDC_AUDIENCE = "https://huggingface.co"
