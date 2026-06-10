@@ -21,6 +21,7 @@ import time
 import warnings
 from pathlib import Path
 from threading import Lock
+from typing import TypedDict
 
 from .. import constants
 from ..errors import OIDCError
@@ -59,10 +60,10 @@ def get_token() -> str | None:
     Note: in most cases, you should use [`huggingface_hub.utils.build_hf_headers`] instead. This method is only useful
           if you want to retrieve the token for other purposes than sending an HTTP request.
 
-    Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
-    in the Hugging Face home folder. As a last resort, if `HF_OIDC_RESOURCE` is set (Trusted Publishers, typically in
-    CI), a short-lived token is obtained via OIDC token exchange. Returns None if user is not logged in. To log in, use
-    [`login`] or `hf auth login`.
+    If `HF_OIDC_RESOURCE` is set (Trusted Publishers, typically in CI), a short-lived token obtained via OIDC token
+    exchange takes precedence. Otherwise the token is retrieved from the `HF_TOKEN` environment variable, then from the
+    token file in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
+    `hf auth login`.
 
     Note: if `HF_OIDC_RESOURCE` is set but the OIDC token exchange fails, this raises instead of returning `None`,
     opting into OIDC is explicit, so a failure surfaces as a clear error rather than a silent fallback.
@@ -71,10 +72,10 @@ def get_token() -> str | None:
         `str` or `None`: The token, `None` if it doesn't exist.
     """
     return (
-        _get_token_from_environment()
+        _get_token_from_oidc()
+        or _get_token_from_environment()
         or _get_token_from_file()
         or _get_token_from_google_colab()
-        or _get_token_from_oidc()
     )
 
 
@@ -154,24 +155,27 @@ def _get_token_from_file() -> str | None:
         return None
 
 
+class _OidcTokenCache(TypedDict):
+    resource: str
+    token: str
+    expires_at: float  # monotonic clock value after which the cached token must be re-exchanged
+
+
 # Cache for the OIDC-exchanged token: re-exchanging on every `get_token()` call would be wasteful,
 # and re-exchanging shortly before expiry transparently keeps long-running jobs authenticated.
 _OIDC_TOKEN_LOCK = Lock()
-_OIDC_TOKEN_CACHE: dict | None = None  # {"resource": str, "token": str, "expires_at": float}
+_OIDC_TOKEN_CACHE: _OidcTokenCache | None = None
 _OIDC_REFRESH_MARGIN = 300  # re-exchange this many seconds before the token actually expires
 
 
 def _get_token_from_oidc() -> str | None:
-    """Obtain a short-lived token via OIDC token exchange in CI (Trusted Publishers).
+    """Get a short-lived OIDC token in CI (Trusted Publishers).
 
-    Opt-in: only engages when `HF_OIDC_RESOURCE` is set (the repo or username to scope the token to).
-    The id token to exchange is taken from `HF_OIDC_ID_TOKEN` when set (so any CI provider works by
-    minting it itself), otherwise it is minted from a natively-supported provider (GitHub Actions).
+    Enabled by setting `HF_OIDC_RESOURCE`, which scopes the token to a repo or user.
+    The ID token is read from `HF_OIDC_ID_TOKEN` if available, or minted from a supported CI provider (e.g. GitHub Actions).
 
-    Returns `None` only when `HF_OIDC_RESOURCE` is unset, so normal token resolution is untouched for
-    everyone else. Once opted in, any failure *raises* rather than silently falling back: setting
-    `HF_OIDC_RESOURCE` is an explicit "authenticate via OIDC", so a failure should be a clear error,
-    not a confusing "not logged in" further down the call stack.
+    Returns `None` when OIDC is not enabled.
+    If enabled, any failure is raised explicitly rather than falling back silently.
 
     See `huggingface_hub._oidc` and https://huggingface.co/docs/hub/trusted-publishers.
     """

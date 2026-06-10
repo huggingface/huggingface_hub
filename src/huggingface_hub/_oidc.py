@@ -25,6 +25,7 @@ Docs: https://huggingface.co/docs/hub/trusted-publishers
 """
 
 import os
+from enum import Enum
 
 from . import constants
 from .errors import OIDCError
@@ -35,15 +36,17 @@ from .utils import get_session, hf_raise_for_status
 _TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange"
 _ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
 
-# Supported CI providers. GitHub Actions only.
-GITHUB = "github"
-SUPPORTED_PROVIDERS = (GITHUB,)
+
+class Provider(str, Enum):
+    """CI providers that can mint an OIDC id token natively. GitHub Actions only for now."""
+
+    GITHUB = "github"
 
 
-def detect_provider() -> str | None:
+def detect_provider() -> Provider | None:
     """Detect the CI provider able to mint an OIDC id token, or `None` if not in a supported CI."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        return GITHUB
+        return Provider.GITHUB
     return None
 
 
@@ -70,7 +73,7 @@ def _get_github_oidc_token(audience: str) -> str:
     return response.json()["value"]
 
 
-def get_oidc_token(*, provider: str | None = None, audience: str | None = None) -> str:
+def get_oidc_token(*, provider: Provider | str | None = None, audience: str | None = None) -> str:
     """Mint a raw OIDC id token (JWT) from the current CI provider.
 
     Args:
@@ -85,16 +88,12 @@ def get_oidc_token(*, provider: str | None = None, audience: str | None = None) 
     """
     audience = audience or constants.ENDPOINT
     provider = provider or detect_provider()
+    supported = ", ".join(p.value for p in Provider)
     if provider is None:
-        raise OIDCError(
-            "No supported CI OIDC provider detected. Trusted Publishers currently supports: "
-            f"{', '.join(SUPPORTED_PROVIDERS)}."
-        )
-    if provider == GITHUB:
+        raise OIDCError(f"No supported CI OIDC provider detected. Trusted Publishers currently supports: {supported}.")
+    if provider == Provider.GITHUB:
         return _get_github_oidc_token(audience)
-    raise NotImplementedError(
-        f"OIDC provider '{provider}' is not supported yet. Supported: {', '.join(SUPPORTED_PROVIDERS)}."
-    )
+    raise NotImplementedError(f"OIDC provider '{provider}' is not supported yet. Supported: {supported}.")
 
 
 def exchange_oidc_token(*, subject_token: str, resource: str, endpoint: str | None = None) -> dict:
@@ -131,7 +130,7 @@ def oidc_login(
     *,
     resource: str,
     subject_token: str | None = None,
-    provider: str | None = None,
+    provider: Provider | str | None = None,
     audience: str | None = None,
     endpoint: str | None = None,
 ) -> dict:
