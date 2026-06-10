@@ -99,8 +99,10 @@ jobs:
 
           esac
 
-          # If not "Xet only", we want to test upload/download with regular LFS workflow
-          # => uninstall hf_xet to make sure we are not using it.
+          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
+          # - "Xet only" job: hf_xet installed. Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
+          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
+          # Unmarked tests therefore run both with and without Xet and must work regardless.
           if [[ "${{ matrix.test_name }}" != "Xet only" ]]; then
             uv pip uninstall hf_xet
           fi
@@ -122,7 +124,7 @@ jobs:
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not test_inference and not test_xet and not test_buckets and not test_copy_files' -n 4"
+              PYTEST="$PYTEST ../tests -m 'not xet' -k 'not test_inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -141,7 +143,9 @@ jobs:
             ;;
 
             "Xet only")
-              PYTEST="$PYTEST ../tests -k 'test_xet or test_buckets or test_copy_files' -n 4"
+              # `xet` tests + unmarked tests, all with hf_xet installed.
+              # Inference tests are excluded: they have their own job and don't depend on Xet.
+              PYTEST="$PYTEST ../tests -m 'not no_xet' -k 'not test_inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -210,10 +214,12 @@ jobs:
 
           switch ("${{ matrix.test_name }}") {
             "Xet only" {
-              python $PYTEST_ARGS -k "test_xet"
+              # `xet` tests + unmarked tests, all with hf_xet installed.
+              # Inference tests already run in "Everything else" and don't depend on Xet.
+              python $PYTEST_ARGS -m "not no_xet" -k "not test_inference"
             }
             "Everything else" {
-              python $PYTEST_ARGS -k "not test_xet"
+              python $PYTEST_ARGS -m "not xet"
             }
           }
 

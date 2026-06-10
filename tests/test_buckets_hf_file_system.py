@@ -1,13 +1,17 @@
 import unittest
 
+import pytest
+
 from huggingface_hub.hf_file_system import HfFileSystem
 
 from .test_hf_file_system import _HfFileSystemBaseROTests, _HfFileSystemBaseRWTests, _HfFileSystemBucketChecks
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name, requires
+from .testing_utils import repo_name
 
 
-@requires("hf_xet")
+pytestmark = pytest.mark.xet
+
+
 class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
@@ -44,7 +48,6 @@ class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTe
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
 
-@requires("hf_xet")
 class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 

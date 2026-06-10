@@ -28,6 +28,9 @@ from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
 
 
+pytestmark = pytest.mark.xet
+
+
 def bucket_name() -> str:
     return repo_name(prefix="buckets")
 

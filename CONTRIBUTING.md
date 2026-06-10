@@ -224,3 +224,25 @@ $ pytest tests/                          # run all tests (slow, many require net
 $ pytest tests/test_repository.py        # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
+
+#### Xet vs non-Xet tests
+
+Whether a test depends on Xet is declared explicitly with markers, enforced by the
+`xet_mode` fixture in `tests/conftest.py`:
+
+- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download).
+  It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise.
+  Mark a whole module with `pytestmark = pytest.mark.xet`.
+- `@pytest.mark.no_xet` — the test **must run without** Xet (e.g. legacy LFS behavior).
+  Xet is force-disabled for it, even if `hf_xet` is installed.
+- unmarked — the test must work **regardless of Xet**. Nothing is forced: it runs with
+  whatever your environment provides. In CI, unmarked tests run twice: once with
+  `hf_xet` installed ("Xet only" job) and once without (other jobs). If an unmarked
+  test only passes in one mode, mark it `xet` or `no_xet` accordingly.
+
+```bash
+$ pytest tests -m xet                    # only Xet-required tests (needs hf_xet)
+$ pytest tests -m no_xet                 # only legacy (Xet force-disabled) tests
+$ pytest tests -m "not xet"              # what CI runs without hf_xet installed
+$ pytest tests -m "not no_xet"           # what CI runs with hf_xet installed
+```

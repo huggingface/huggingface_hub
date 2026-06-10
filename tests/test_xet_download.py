@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import DEFAULT, MagicMock, Mock, patch
 
+import pytest
+
 from huggingface_hub import snapshot_download
 from huggingface_hub.file_download import (
     HfFileMetadata,
@@ -20,12 +22,13 @@ from huggingface_hub.utils import (
 from .testing_utils import (
     DUMMY_XET_FILE,
     DUMMY_XET_MODEL_ID,
-    requires,
     with_production_testing,
 )
 
 
-@requires("hf_xet")
+pytestmark = pytest.mark.xet
+
+
 @with_production_testing
 class TestXetFileDownload:
     @contextmanager
@@ -265,7 +268,6 @@ class TestXetFileDownload:
         assert "authorization" in kwargs["token_refresh_headers"]
 
 
-@requires("hf_xet")
 @with_production_testing
 class TestXetSnapshotDownload:
     def test_download_model(self, tmp_path):

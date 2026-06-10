@@ -9,6 +9,7 @@ import huggingface_hub
 from huggingface_hub import constants
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._detect_agent import _STANDARD_AGENT_VARS, _TOOL_AGENTS
+from huggingface_hub.utils._runtime import is_package_available
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -24,6 +25,33 @@ def patch_constants(mocker):
         mocker.patch.object(constants, "HF_TOKEN_PATH", os.path.join(cache_dir, "token"))
         mocker.patch.object(constants, "HF_STORED_TOKENS_PATH", os.path.join(cache_dir, "stored_tokens"))
         yield
+
+
+@pytest.fixture(autouse=True)
+def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make Xet usage explicit and deterministic, locally and in CI.
+
+    Three modes:
+    - `@pytest.mark.xet`: test requires `hf_xet` => skipped when it is not installed,
+      Xet force-enabled otherwise.
+    - `@pytest.mark.no_xet`: test must run without Xet (e.g. legacy LFS behavior) =>
+      Xet force-disabled, even if `hf_xet` is installed.
+    - unmarked: test must work regardless of Xet => nothing is forced; the test runs
+      with whatever the environment provides. CI runs unmarked tests both with and
+      without `hf_xet` installed.
+    """
+    xet = request.node.get_closest_marker("xet") is not None
+    no_xet = request.node.get_closest_marker("no_xet") is not None
+    if xet and no_xet:
+        pytest.fail("A test cannot be marked with both `xet` and `no_xet`.")
+    if xet:
+        if not is_package_available("hf_xet"):
+            pytest.skip("Test requires `hf_xet` (marked with `pytest.mark.xet`)")
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", False)
+        monkeypatch.delenv("HF_HUB_DISABLE_XET", raising=False)
+    elif no_xet:
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
+        monkeypatch.setenv("HF_HUB_DISABLE_XET", "1")
 
 
 @pytest.fixture(autouse=True)
