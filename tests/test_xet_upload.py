@@ -166,20 +166,11 @@ class TestXetUpload:
                     repo_id=repo_id,
                 )
 
-    def test_transfers_to_xet_when_server_returns_xet(self):
+    def test_routes_to_xet_directly_when_available(self):
+        """When hf_xet is available, files are uploaded through xet without calling the LFS batch endpoint."""
         addition = CommitOperationAdd(path_in_repo="xet.bin", path_or_fileobj=self.bin_file)
 
-        def fake_batch(
-            upload_infos, token, repo_type, repo_id, revision=None, endpoint=None, headers=None, transfers=None
-        ):
-            action = {
-                "oid": upload_infos[0].sha256.hex(),
-                "size": upload_infos[0].size,
-                "actions": {"upload": {"href": "https://example.invalid", "header": {}}},
-            }
-            return ([action], [], "xet")
-
-        with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
+        with patch("huggingface_hub._commit_api.post_lfs_batch_info") as mock_batch:
             with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
                 with patch("huggingface_hub._commit_api._upload_xet_files") as mock_xet:
                     _upload_files(
@@ -191,22 +182,24 @@ class TestXetUpload:
                         revision="main",
                         create_pr=False,
                     )
-            assert mock_batch.call_count == 1
+            mock_batch.assert_not_called()
             mock_xet.assert_called_once()
             mock_lfs.assert_not_called()
 
-    def test_transfers_bytesio_renegotiates_to_lfs_when_server_returns_xet(self):
+    def test_transfers_bytesio_falls_back_to_lfs(self):
+        """Buffered readers are not supported by xet => negotiate with the LFS batch endpoint and upload over HTTP."""
         addition = CommitOperationAdd(path_in_repo="bytesio.bin", path_or_fileobj=BytesIO(self.bin_content))
 
         def fake_batch(
             upload_infos, token, repo_type, repo_id, revision=None, endpoint=None, headers=None, transfers=None
         ):
+            assert "xet" not in (transfers or [])
             action = {
                 "oid": upload_infos[0].sha256.hex(),
                 "size": upload_infos[0].size,
                 "actions": {"upload": {"href": "https://example.invalid", "header": {}}},
             }
-            return ([action], [], "xet")
+            return ([action], [], "basic")
 
         with patch("huggingface_hub._commit_api.post_lfs_batch_info", side_effect=fake_batch) as mock_batch:
             with patch("huggingface_hub._commit_api._upload_lfs_files") as mock_lfs:
@@ -221,7 +214,6 @@ class TestXetUpload:
                         create_pr=False,
                     )
 
-            # Ensure we retried negotiation and routed to LFS, not XET
             assert mock_batch.call_count == 1
             mock_xet.assert_not_called()
             mock_lfs.assert_called_once()
@@ -237,6 +229,7 @@ class TestXetUpload:
         test_file = tmp_path / "test_file.bin"
         test_file.write_bytes(b"test content")
         addition = CommitOperationAdd(path_in_repo="test_file.bin", path_or_fileobj=test_file)
+        _ = addition.upload_info.sha256  # trigger hashing so no sha256 backfill is needed from the mock
 
         mock_commit = MagicMock()
         mock_session = MagicMock()

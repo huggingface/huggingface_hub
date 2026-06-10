@@ -76,6 +76,25 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
+### How files are uploaded
+
+When `hf_xet` is installed (which is the case by default), [`upload_folder`] uploads files through a streamed pipeline: files are checked against the Hub, uploaded to the Xet storage backend (which chunks, deduplicates and retries transfers internally), and committed in adaptive batches — all in parallel. In practice this means:
+
+- **Folders of any size**: small folders are uploaded in a single commit (as before), while folders with many files are automatically split into several commits to stay below server limits. When this happens, follow-up commits get a ` (part 2)`, ` (part 3)`, ... suffix on the commit message.
+- **Resumable**: if the upload is interrupted for any reason, simply re-run the same call. Files already committed are detected and skipped, and chunks already uploaded are deduplicated — re-uploading them transfers (almost) no data. No local state is involved: you can even resume from a different machine.
+- **No double read**: files are hashed *while* being chunked for upload, in a single read pass — there is no separate "hashing" phase before the upload starts.
+
+A live progress display keeps track of the three stages:
+
+```
+Found 5,000 files to upload
+  Preparing   ████████████████████  5,000 / 5,000 ✓
+  Uploading   ██████████████░░░░░░  423 / 603 files  3.8GB · 19.7MB/s
+  Committing  ██████████████████░░  4,580 / 5,000  6 commits
+```
+
+If `hf_xet` is not installed, [`upload_folder`] falls back to the legacy behavior: hash everything first, upload over HTTP, then create a single commit.
+
 ## Upload from the CLI
 
 You can use the `hf upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
@@ -111,7 +130,7 @@ For more details about the CLI upload command, please refer to the [CLI guide](.
 
 ## Upload a large folder
 
-In most cases, the [`upload_folder`] method and `hf upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`upload_large_folder`] method has been implemented in that spirit:
+In most cases, the [`upload_folder`] method and `hf upload` command should be the go-to solutions to upload files to the Hub, including for large folders: uploads are streamed, committed in adaptive batches and resumable by simply re-running the same command (see [How files are uploaded](#how-files-are-uploaded) above). For very large repos (hundreds of thousands of files, terabytes of data), the [`upload_large_folder`] method is an alternative with a different trade-off:
 - it is resumable: the upload process is split into many small tasks (hashing files, pre-uploading them, and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
 - it is multi-threaded: hashing large files and pre-uploading them benefits a lot from multithreading if your machine allows it.
 - it is resilient to errors: a high-level retry-mechanism has been added to retry each independent task indefinitely until it passes (no matter if it's a OSError, ConnectionError, PermissionError, etc.). This mechanism is double-edged. If transient errors happen, the process will continue and retry. If permanent errors happen (e.g. permission denied), it will retry indefinitely without solving the root cause.
@@ -277,8 +296,9 @@ You can also copy within the same repository:
 
 ### Upload a folder by chunks
 
-[`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
-hundreds of GB), we recommend using [`upload_large_folder`], which splits the upload into multiple commits. See the [Upload a large folder](#upload-a-large-folder) section for more details.
+[`upload_folder`] makes it easy to upload an entire folder to the Hub, and automatically splits large folders into
+multiple commits (see [How files are uploaded](#how-files-are-uploaded)). For very large repos, you can also consider
+[`upload_large_folder`] — see the [Upload a large folder](#upload-a-large-folder) section for the trade-offs.
 
 
 ### Scheduled uploads

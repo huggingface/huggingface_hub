@@ -133,6 +133,7 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -5669,7 +5670,12 @@ class HfApi:
         Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
         file is not taken into account.
 
-        Uses `HfApi.create_commit` under the hood.
+        When `hf_xet` is installed (the default), files are uploaded through a streamed pipeline: uploads start while
+        the folder is still being checked against the Hub, files are hashed while being chunked for upload (single
+        read pass), and large folders are automatically committed in several batches to stay below server limits
+        (follow-up commits get a ` (part N)` suffix on the commit message). If the upload is interrupted, re-running
+        the same call resumes it: already-committed files are skipped and already-uploaded data is deduplicated. When
+        `hf_xet` is not installed, falls back to a single commit created with [`create_commit`].
 
         Args:
             repo_id (`str`):
@@ -5706,7 +5712,8 @@ class HfApi:
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                especially useful if the repo is updated / committed to concurrently. If the upload is split into
+                several commits (large folders), `parent_commit` only applies to the first one.
             allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`list[str]` or `str`, *optional*):
@@ -5740,7 +5747,8 @@ class HfApi:
         > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
 
         > [!TIP]
-        > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
+        > Uploads are resumable: if the process is interrupted, re-run the same call to resume where it left off.
+        > For very large repos (hundreds of thousands of files), [`~hf_api.upload_large_folder`] is an alternative.
 
         Example:
 
@@ -5818,6 +5826,33 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
+        if is_xet_available():
+            # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
+            # committed in adaptive batches, interrupted uploads resume by re-running.
+            from ._upload_pipeline import pipelined_upload
+
+            return pipelined_upload(
+                self,
+                repo_id=repo_id,
+                repo_type=repo_type or constants.REPO_TYPE_MODEL,
+                add_operations=add_operations,
+                delete_operations=delete_operations,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                revision=revision,
+                create_pr=create_pr or False,
+                parent_commit=parent_commit,
+            )
+
+        # Legacy single-commit path (hf_xet not installed).
+        if len(add_operations) > 30:
+            log = logger.warning if len(add_operations) > 200 else logger.info
+            log(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. Installing `hf_xet` (`pip install hf_xet`) enables a more robust, resumable "
+                "upload that handles large folders in multiple commits."
+            )
         return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
@@ -11131,25 +11166,13 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
-        if len(filtered_repo_objects) > 30:
-            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
-            log(
-                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
-                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
-                "`HfApi().upload_large_folder(...)`/`hf upload-large-folder` instead. For more details, "
-                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
-            )
-
-        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
-        operations = [
+        return [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
-        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
-        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: str | None = None, token: bool | str | None = None):
         """
