@@ -10,6 +10,18 @@ permissions:
 
 jobs:
   style:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check authorization
+        run: |
+          AUTHOR_ASSOC="${{ github.event.comment.author_association }}"
+          if [[ "$AUTHOR_ASSOC" != "MEMBER" && "$AUTHOR_ASSOC" != "OWNER" && "$AUTHOR_ASSOC" != "COLLABORATOR" ]]; then
+            echo "Unauthorized: only org members can trigger this workflow"
+            exit 1
+          fi
+
+  style-action:
+    needs: style
     uses: ./.github/workflows/style-bot-action.yml
     with:
       python_quality_dependencies: "[quality]"
