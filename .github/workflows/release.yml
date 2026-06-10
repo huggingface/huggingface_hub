@@ -187,14 +187,14 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          BRANCH="${{ steps.version.outputs.branch }}"
-          RELEASE_TYPE="${{ inputs.release_type }}"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          case "$RELEASE_TYPE" in
+          case "${RELEASE_TYPE}" in
             minor-prerelease) TYPE_EMOJI="🏗️" TYPE_LABEL="Pre-release" ;;
             minor-release)    TYPE_EMOJI="🚢" TYPE_LABEL="Release" ;;
             patch-release)    TYPE_EMOJI="🐛" TYPE_LABEL="Patch" ;;
