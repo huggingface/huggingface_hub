@@ -75,7 +75,7 @@ MAX_COMMIT_INTERVAL = 5 * 60.0  # seconds; force a commit if the current batch i
 # Budget of regular-file content per commit (regular files are base64-encoded in the payload).
 REGULAR_CONTENT_BYTES_BUDGET = 100 * 1024 * 1024
 
-_SENTINEL = object()
+_SENTINEL = object()  # Sentinel value for the batch queue to indicate the end of the upload
 
 # Live display tuning
 _BAR_WIDTH = 20
