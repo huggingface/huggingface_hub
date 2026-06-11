@@ -955,6 +955,55 @@ def hf_hub_download(
             If some parameter value is invalid.
 
     """
+    return _hf_hub_download(
+        repo_id,
+        filename,
+        subfolder=subfolder,
+        repo_type=repo_type,
+        revision=revision,
+        library_name=library_name,
+        library_version=library_version,
+        cache_dir=cache_dir,
+        local_dir=local_dir,
+        user_agent=user_agent,
+        force_download=force_download,
+        etag_timeout=etag_timeout,
+        token=token,
+        local_files_only=local_files_only,
+        headers=headers,
+        endpoint=endpoint,
+        tqdm_class=tqdm_class,
+        dry_run=dry_run,
+    )
+
+
+def _hf_hub_download(
+    repo_id: str,
+    filename: str,
+    *,
+    subfolder: str | None = None,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    user_agent: dict | str | None = None,
+    force_download: bool = False,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
+    token: bool | str | None = None,
+    local_files_only: bool = False,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
+    tqdm_class: type[base_tqdm] | None = None,
+    dry_run: bool = False,
+    file_metadata: HfFileMetadata | None = None,
+) -> str | DryRunFileInfo:
+    """Internal implementation of `hf_hub_download`.
+
+    Same as the public function, with an extra `file_metadata` argument for metadata that has already been
+    fetched by the caller (e.g. by `snapshot_download` from the tree listing), sparing the per-file HEAD call.
+    """
     if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
         etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
@@ -1010,6 +1059,7 @@ def hf_hub_download(
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            file_metadata=file_metadata,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -1030,6 +1080,7 @@ def hf_hub_download(
             force_download=force_download,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            file_metadata=file_metadata,
         )
 
 
@@ -1052,6 +1103,7 @@ def _hf_hub_download_to_cache_dir(
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    file_metadata: HfFileMetadata | None = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
@@ -1099,6 +1151,7 @@ def _hf_hub_download_to_cache_dir(
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
+        file_metadata=file_metadata,
     )
 
     # etag can be None for several reasons:
@@ -1272,6 +1325,7 @@ def _hf_hub_download_to_local_dir(
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    file_metadata: HfFileMetadata | None = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
@@ -1316,6 +1370,7 @@ def _hf_hub_download_to_local_dir(
         headers=headers,
         token=token,
         local_files_only=local_files_only,
+        file_metadata=file_metadata,
     )
 
     if head_call_error is not None:
@@ -1645,6 +1700,7 @@ def _get_metadata_or_catch_error(
     relative_filename: str | None = None,  # only used to store `.no_exists` in cache
     storage_folder: str | None = None,  # only used to store `.no_exists` in cache
     retry_on_errors: bool = False,
+    file_metadata: HfFileMetadata | None = None,  # pre-fetched metadata, spares the HEAD call
 ) -> (
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception]
@@ -1673,6 +1729,18 @@ def _get_metadata_or_catch_error(
                 f"Cannot access file since 'local_files_only=True' as been set. (repo_id: {repo_id}, repo_type: {repo_type}, revision: {revision}, filename: {filename})"
             ),
         )
+
+    if file_metadata is not None:
+        # Metadata has been pre-fetched by the caller (e.g. by `snapshot_download` from the tree listing)
+        # => skip the HEAD call entirely.
+        return (
+            file_metadata.location,
+            file_metadata.etag,
+            file_metadata.commit_hash,
+            file_metadata.size,
+            file_metadata.xet_file_data,
+            None,
+        )  # type: ignore
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
