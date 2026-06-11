@@ -117,7 +117,7 @@ jobs:
           case "${{ matrix.test_name }}" in
 
             "Inference only")
-              # Run inference tests concurrently (marked with `pytest.mark.inference`).
+              # Run inference tests concurrently
               PYTEST="$PYTEST ../tests -m 'inference' -n 4"
               echo $PYTEST
               eval $PYTEST
@@ -224,7 +224,6 @@ jobs:
               python $PYTEST_ARGS -m "not no_xet and not inference"
             }
             "no hf_xet" {
-              # Includes inference tests (no dedicated "Inference only" job on Windows).
               python $PYTEST_ARGS -m "not xet"
             }
           }

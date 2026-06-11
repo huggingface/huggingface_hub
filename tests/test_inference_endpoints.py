@@ -14,10 +14,6 @@ from huggingface_hub import (
 )
 
 
-# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
-pytestmark = pytest.mark.inference
-
-
 MOCK_INITIALIZING = {
     "name": "my-endpoint-name",
     "type": "protected",

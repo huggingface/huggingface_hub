@@ -9,7 +9,6 @@ from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitio
 from huggingface_hub.inference._generated.types.base import BaseInferenceType, dataclass_with_extra
 
 
-# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
 pytestmark = pytest.mark.inference
 
 

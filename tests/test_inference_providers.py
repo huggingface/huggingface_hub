@@ -78,7 +78,6 @@ from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, 
 from .testing_utils import assert_in_logs
 
 
-# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
 pytestmark = pytest.mark.inference
 
 

@@ -43,7 +43,7 @@ addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0 --stric
 markers = [
     "xet: test requires the `hf_xet` package; Xet is force-enabled (skipped if `hf_xet` is not installed)",
     "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
-    "inference: inference test (client, providers, types, endpoints); runs in the dedicated 'Inference only' CI job",
+    "inference: inference test (client, providers, types); runs in the dedicated 'Inference only' CI job",
 ]
 # The defined variables will be added to the environment before any tests are
 # run, part of pytest-env plugin

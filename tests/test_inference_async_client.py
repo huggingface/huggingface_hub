@@ -49,7 +49,6 @@ from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_
 from .testing_utils import with_production_testing
 
 
-# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
 pytestmark = pytest.mark.inference
 
 

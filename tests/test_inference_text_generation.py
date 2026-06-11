@@ -22,7 +22,6 @@ from huggingface_hub.inference._common import ValidationError as TextGenerationV
 from .testing_utils import with_production_testing
 
 
-# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
 pytestmark = pytest.mark.inference
 
 
