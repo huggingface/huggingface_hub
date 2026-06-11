@@ -12016,8 +12016,8 @@ class HfApi:
     @overload
     def wait_for_job(
         self,
-        *,
         job_id: str,
+        *,
         timeout: float | None = None,
         poll_interval: float = 5.0,
         namespace: str | None = None,
@@ -12027,8 +12027,8 @@ class HfApi:
     @overload
     def wait_for_job(
         self,
-        *,
         job_id: list[str],
+        *,
         timeout: float | None = None,
         poll_interval: float = 5.0,
         namespace: str | None = None,
@@ -12037,8 +12037,8 @@ class HfApi:
 
     def wait_for_job(
         self,
-        *,
         job_id: str | list[str],
+        *,
         timeout: float | None = None,
         poll_interval: float = 5.0,
         namespace: str | None = None,
