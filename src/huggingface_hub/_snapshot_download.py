@@ -16,9 +16,17 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    HfFileMetadata,
+    _hf_hub_download,
+    hf_hub_url,
+    repo_folder_name,
+)
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
-from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils import OfflineModeIsEnabled, XetFileData, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._xet import XetTokenType, xet_connection_info_refresh_url
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
@@ -343,15 +351,29 @@ def snapshot_download(
     siblings = getattr(repo_info, "siblings", None)
     repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
     unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
+    # When the tree listing is used, file metadata (etag, size, xet hash) is collected along the way so that
+    # `hf_hub_download` can skip its per-file HEAD call. This drastically reduces the number of requests sent
+    # to the Hub for repos with many files.
+    file_metadata_by_path: dict[str, HfFileMetadata] = {}
     if unreliable_nb_files:
         logger.info(
             "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
         )
-        repo_files = (
-            f.rfilename
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        )
+        # List the tree at the resolved commit hash: files are downloaded at this exact commit, so the
+        # listing and the collected metadata are guaranteed to be consistent with it.
+        tree_files: list[str] = []
+        for repo_file in api.list_repo_tree(
+            repo_id=repo_id, recursive=True, revision=repo_info.sha, repo_type=repo_type
+        ):
+            if not isinstance(repo_file, RepoFile):
+                continue
+            tree_files.append(repo_file.rfilename)
+            file_metadata = _file_metadata_from_repo_file(
+                repo_file, repo_id=repo_id, repo_type=repo_type, commit_hash=repo_info.sha, endpoint=endpoint
+            )
+            if file_metadata is not None:
+                file_metadata_by_path[repo_file.rfilename] = file_metadata
+        repo_files = tree_files
 
     filtered_repo_files: Iterable[str] = filter_repo_objects(
         items=repo_files,
@@ -433,7 +455,7 @@ def snapshot_download(
     # have the file locally.
     def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
-            hf_hub_download(  # type: ignore
+            _hf_hub_download(
                 repo_id,
                 filename=repo_file,
                 repo_type=repo_type,
@@ -450,6 +472,7 @@ def snapshot_download(
                 headers=headers,
                 tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
+                file_metadata=file_metadata_by_path.get(repo_file),
             )
         )
 
@@ -470,3 +493,40 @@ def snapshot_download(
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
+
+
+def _file_metadata_from_repo_file(
+    repo_file: RepoFile, *, repo_id: str, repo_type: str, commit_hash: str, endpoint: str | None
+) -> HfFileMetadata | None:
+    """Build the metadata of a file from its tree listing entry, sparing a per-file HEAD call.
+
+    Returns `None` if the entry does not contain enough information, in which case `hf_hub_download` falls back to
+    fetching metadata with a HEAD call.
+    """
+    # For an LFS file, etag is its sha256 and size is the size of the actual file (not the pointer).
+    # For a regular file, etag is its git blob id. Same logic as the `/resolve` HEAD endpoint server-side.
+    etag = repo_file.lfs.sha256 if repo_file.lfs is not None else repo_file.blob_id
+    size = repo_file.lfs.size if repo_file.lfs is not None else repo_file.size
+    if etag is None or size is None:
+        return None
+    xet_file_data = None
+    if repo_file.xet_hash is not None:
+        xet_file_data = XetFileData(
+            file_hash=repo_file.xet_hash,
+            refresh_route=xet_connection_info_refresh_url(
+                token_type=XetTokenType.READ,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=commit_hash,
+                endpoint=endpoint,
+            ),
+        )
+    return HfFileMetadata(
+        commit_hash=commit_hash,
+        etag=etag,
+        location=hf_hub_url(
+            repo_id, repo_file.rfilename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint
+        ),
+        size=size,
+        xet_file_data=xet_file_data,
+    )
