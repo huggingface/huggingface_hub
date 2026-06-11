@@ -169,6 +169,21 @@ class TestHfHubHTTPError(unittest.TestCase):
         assert str(error) == "this is a message\n\nThis is a message returned by the server"
         assert error.server_message == "This is a message returned by the server"
 
+    def test_hf_hub_http_error_init_with_error_description(self) -> None:
+        """Test OAuth-style `error_description` is appended alongside the `error` field."""
+        self.response = Response(status_code=400, request=Request(method="POST", url="https://huggingface.co/fake"))
+        self.response._content = b'{"error": "invalid_grant", "error_description": "something helpful"}'
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message\n\ninvalid_grant: something helpful"
+        assert error.server_message == "invalid_grant: something helpful"
+
+    def test_hf_hub_http_error_init_with_error_description_only(self) -> None:
+        """Test `error_description` is used even when the `error` field is absent."""
+        self.response._content = b'{"error_description": "something helpful"}'
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message\n\nsomething helpful"
+        assert error.server_message == "something helpful"
+
     def test_hf_hub_http_error_init_with_server_error_and_multiline_message(
         self,
     ) -> None:
