@@ -1252,12 +1252,10 @@ def test_sync_ignore_sizes_skip_reason_shows_dest_newer(api: HfApi, bucket_write
     result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
     assert result.exit_code == 0
 
-    # Wait a bit to ensure remote mtime is set
-    time.sleep(1.5)
-
-    # Set local file mtime to be significantly older than remote (more than 1s window)
+    # Set local file mtime far in the past. The remote mtime is influenced by the server clock,
+    # so the margin must be much larger than any realistic client/server clock skew.
     local_file = data_dir / "file.txt"
-    old_mtime = time.time() - 10  # 10 seconds in the past
+    old_mtime = time.time() - 3600  # 1 hour in the past
     os.utime(local_file, (old_mtime, old_mtime))
 
     # Sync with --ignore-sizes --dry-run (upload direction)
@@ -1289,17 +1287,15 @@ def test_sync_ignore_sizes_download_skip_reason_shows_dest_newer(api: HfApi, buc
     result = cli(f"hf buckets sync {data_dir} hf://buckets/{bucket_write} --quiet")
     assert result.exit_code == 0
 
-    # Wait for remote to be stable
-    time.sleep(1.5)
-
     # Create download directory with a file that has a newer mtime
     download_dir = tmp_path / "download"
     download_dir.mkdir()
     local_file = download_dir / "file.txt"
     local_file.write_text("content")
 
-    # Set local file mtime to be significantly newer than remote (more than 1s window)
-    new_mtime = time.time() + 10  # 10 seconds in the future
+    # Set local file mtime far in the future. The remote mtime is influenced by the server clock,
+    # so the margin must be much larger than any realistic client/server clock skew.
+    new_mtime = time.time() + 3600  # 1 hour in the future
     os.utime(local_file, (new_mtime, new_mtime))
 
     # Sync with --ignore-sizes --dry-run (download direction)
