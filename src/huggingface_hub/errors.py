@@ -29,6 +29,19 @@ class LocalTokenNotFoundError(EnvironmentError):
     """Raised if local token is required but not found."""
 
 
+# OIDC ERRORS
+
+
+class OIDCError(Exception):
+    """Raised when keyless CI/CD auth via OIDC token exchange ("Trusted Publishers") cannot proceed.
+
+    Typically because `HF_OIDC_RESOURCE` is set but no id token is available: not running in a
+    supported CI provider and `HF_OIDC_ID_TOKEN` is unset.
+
+    See https://huggingface.co/docs/hub/trusted-publishers.
+    """
+
+
 # HTTP ERRORS
 
 
@@ -461,18 +474,6 @@ class StrictDataclassClassValidationError(StrictDataclassError):
 
 
 # XET ERRORS
-
-
-class XetError(Exception):
-    """Base exception for errors related to Xet Storage."""
-
-
-class XetAuthorizationError(XetError):
-    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
-
-
-class XetRefreshTokenError(XetError):
-    """Exception thrown when the refresh token is invalid."""
 
 
 class XetDownloadError(Exception):

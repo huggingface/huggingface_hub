@@ -89,6 +89,7 @@ class JobStage(str, Enum):
 class JobStatus:
     stage: JobStage
     message: str | None
+    expose_urls: list[str] | None
 
 
 @dataclass
@@ -185,6 +186,10 @@ class JobInfo:
             Owner of the Job, e.g. `JobOwner(id="5e9ecfc04957053f60648a3e", name="lhoestq", type="user")`
         initiator (`JobInitiator` or `None`):
             What triggered the Job, e.g. `JobInitiator(type="scheduled-job", id="...")` for a cron-triggered run.
+        expose_urls (`list[str]` or `None`):
+            Public URLs through which the Job's exposed ports are reachable (one per port exposed via `expose=`),
+            e.g. `["https://687fb701029421ae5549d998--8000.hf.jobs"]`. `None` when no port is exposed.
+            Accessing a URL requires an HF token with read access to the Job's namespace.
 
     Example:
 
@@ -248,7 +253,9 @@ class JobInfo:
         volumes = kwargs.get("volumes")
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
-        self.status = JobStatus(stage=status["stage"], message=status.get("message"))
+        self.status = JobStatus(
+            stage=status["stage"], message=status.get("message"), expose_urls=status.get("exposeUrls")
+        )
         durations = kwargs.get("durations")
         self.durations = JobDurations(**durations) if durations else None
         initiator = kwargs.get("initiator")
@@ -484,6 +491,7 @@ def _create_job_spec(
     timeout: int | float | str | None,
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
+    expose: list[int] | None = None,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -508,6 +516,9 @@ def _create_job_spec(
     # volumes are optional
     if volumes:
         job_spec["volumes"] = [vol.to_dict() for vol in volumes]
+    # expose ports through the jobs proxy
+    if expose:
+        job_spec["expose"] = {"ports": expose}
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

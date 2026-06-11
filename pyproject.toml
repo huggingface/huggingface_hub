@@ -34,7 +34,16 @@ exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully suppor
 [tool.pytest.ini_options]
 # Add the specified `OPTS` to the set of command line arguments as if they had
 # been specified by the user.
-addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0"
+addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0 --strict-markers"
+# Custom markers. Xet policy (enforced by the `xet_mode` fixture in tests/conftest.py):
+# tests marked `xet` require `hf_xet` (skipped if not installed, Xet force-enabled);
+# tests marked `no_xet` must run without `hf_xet` (skipped if installed);
+# unmarked tests must work regardless of Xet and run in both CI jobs (with and
+# without `hf_xet` installed).
+markers = [
+    "xet: test requires the `hf_xet` package; Xet is force-enabled (skipped if `hf_xet` is not installed)",
+    "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
+]
 # The defined variables will be added to the environment before any tests are
 # run, part of pytest-env plugin
 env = [
