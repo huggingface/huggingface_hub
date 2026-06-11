@@ -21,6 +21,32 @@ class CacheNotFound(Exception):
 class CorruptedCacheException(Exception):
     """Exception for any unexpected structure in the Huggingface cache-system."""
 
+    category: str | None
+    path: Path | None
+    suggestion: str | None
+    repair_path: Path | None
+    repair_action: str | None
+    repair_type: str | None
+
+    def __init__(
+        self,
+        msg: str,
+        *args: object,
+        category: str | None = None,
+        path: str | Path | None = None,
+        suggestion: str | None = None,
+        repair_path: str | Path | None = None,
+        repair_action: str | None = None,
+        repair_type: str | None = None,
+    ) -> None:
+        super().__init__(msg, *args)
+        self.category = category
+        self.path = Path(path) if path is not None else None
+        self.suggestion = suggestion
+        self.repair_path = Path(repair_path) if repair_path is not None else None
+        self.repair_action = repair_action
+        self.repair_type = repair_type
+
 
 # HEADERS ERRORS
 

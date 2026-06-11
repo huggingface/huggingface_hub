@@ -494,6 +494,45 @@ HFCacheInfo(
 )
 ```
 
+### Diagnose your cache
+
+Use `hf cache doctor` to check whether the local cache layout is healthy. The command
+builds on [`scan_cache_dir`] and reports corrupted cache entries such as invalid repo
+folders, missing `snapshots` directories, broken `refs`, unexpected files in snapshot
+folders, and broken snapshot links.
+
+```bash
+>>> hf cache doctor
+```
+
+When issues are detected, the command prints the category, affected path, explanation,
+and suggested action. It exits with code `1` so it can be used in scripts or CI jobs.
+Use JSON output when you need to inspect the diagnostics programmatically:
+
+```bash
+>>> hf cache doctor --format json
+```
+
+Some cache issues have a safe automatic repair target, for example an unexpected file
+inside the cache root or an incomplete cached repo with no `snapshots` directory. Preview
+those actions first with `--dry-run`:
+
+```bash
+>>> hf cache doctor --repair --dry-run
+```
+
+If the proposed actions look correct, run the repair with confirmation:
+
+```bash
+>>> hf cache doctor --repair
+```
+
+For non-interactive usage, pass `--yes`:
+
+```bash
+>>> hf cache doctor --repair --yes
+```
+
 ### Verify your cache
 
 `huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` CLI to validate file consistency for a specific revision of a specific repository:

@@ -677,10 +677,23 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     Any unexpected behavior will raise a [`~CorruptedCacheException`].
     """
     if not repo_path.is_dir():
-        raise CorruptedCacheException(f"Repo path is not a directory: {repo_path}")
+        raise CorruptedCacheException(
+            f"Repo path is not a directory: {repo_path}",
+            category="invalid-cache-entry",
+            path=repo_path,
+            suggestion="Remove this unexpected file from the cache directory.",
+            repair_path=repo_path,
+            repair_action="delete unexpected file",
+            repair_type="file",
+        )
 
     if "--" not in repo_path.name:
-        raise CorruptedCacheException(f"Repo path is not a valid HuggingFace cache directory: {repo_path}")
+        raise CorruptedCacheException(
+            f"Repo path is not a valid HuggingFace cache directory: {repo_path}",
+            category="invalid-cache-entry",
+            path=repo_path,
+            suggestion="Inspect this directory. If it is not used by another tool, move it out of the Hub cache.",
+        )
 
     repo_type, repo_id = repo_path.name.split("--", maxsplit=1)
     repo_type = repo_type[:-1]  # "models" -> "model"
@@ -688,7 +701,10 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
     if repo_type not in {"dataset", "model", "space"}:
         raise CorruptedCacheException(
-            f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}` ({repo_path})."
+            f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}` ({repo_path}).",
+            category="invalid-repo-type",
+            path=repo_path,
+            suggestion="Remove or move this invalid repo cache directory.",
         )
 
     blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
@@ -697,7 +713,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     refs_path = repo_path / "refs"
 
     if not snapshots_path.exists() or not snapshots_path.is_dir():
-        raise CorruptedCacheException(f"Snapshots dir doesn't exist in cached repo: {snapshots_path}")
+        raise CorruptedCacheException(
+            f"Snapshots dir doesn't exist in cached repo: {snapshots_path}",
+            category="missing-snapshots",
+            path=snapshots_path,
+            suggestion="Delete the incomplete cached repo. It will be downloaded again when needed.",
+            repair_path=repo_path,
+            repair_action="delete incomplete cached repo",
+            repair_type="repo",
+        )
 
     # Scan over `refs` directory
 
@@ -711,7 +735,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         #         └── pr
         #             └── 1
         if refs_path.is_file():
-            raise CorruptedCacheException(f"Refs directory cannot be a file: {refs_path}")
+            raise CorruptedCacheException(
+                f"Refs directory cannot be a file: {refs_path}",
+                category="invalid-refs",
+                path=refs_path,
+                suggestion="Delete this file so the refs directory can be recreated on the next download.",
+                repair_path=refs_path,
+                repair_action="delete invalid refs file",
+                repair_type="file",
+            )
 
         for ref_path in refs_path.glob("**/*"):
             # glob("**/*") iterates over all files and directories -> skip directories
@@ -731,7 +763,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         if revision_path.name in FILES_TO_IGNORE:
             continue
         if revision_path.is_file():
-            raise CorruptedCacheException(f"Snapshots folder corrupted. Found a file: {revision_path}")
+            raise CorruptedCacheException(
+                f"Snapshots folder corrupted. Found a file: {revision_path}",
+                category="invalid-snapshot-entry",
+                path=revision_path,
+                suggestion="Delete this unexpected file from the snapshots directory.",
+                repair_path=revision_path,
+                repair_action="delete unexpected snapshot file",
+                repair_type="file",
+            )
 
         cached_files = set()
         for file_path in revision_path.glob("**/*"):
@@ -741,7 +781,12 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             blob_path = Path(file_path).resolve()
             if not blob_path.exists():
-                raise CorruptedCacheException(f"Blob missing (broken symlink): {blob_path}")
+                raise CorruptedCacheException(
+                    f"Blob missing (broken symlink): {blob_path}",
+                    category="missing-blob",
+                    path=file_path,
+                    suggestion="Delete the affected cached repo or force-download the revision again.",
+                )
 
             if blob_path not in blob_stats:
                 blob_stats[blob_path] = blob_path.stat()
@@ -780,7 +825,10 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     # Check that all refs referred to an existing revision
     if len(refs_by_hash) > 0:
         raise CorruptedCacheException(
-            f"Reference(s) refer to missing commit hashes: {dict(refs_by_hash)} ({repo_path})."
+            f"Reference(s) refer to missing commit hashes: {dict(refs_by_hash)} ({repo_path}).",
+            category="dangling-ref",
+            path=refs_path,
+            suggestion="Delete the dangling ref files or force-download the referenced revisions again.",
         )
 
     # Last modified is either the last modified blob file or the repo folder itself if

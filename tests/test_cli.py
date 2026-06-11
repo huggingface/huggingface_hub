@@ -22,7 +22,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, CorruptedCacheException, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -158,6 +158,104 @@ class TestCacheCommand:
 
         # Check limit of 2 entries
         assert "model1" not in stdout
+
+    def test_doctor_healthy_cache(self, runner: CliRunner) -> None:
+        repo = _make_repo("user/model", revisions=[_make_revision("a" * 40)])
+        hf_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset({repo}), warnings=[])
+
+        with patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info):
+            result = runner.invoke(app, ["cache", "doctor"])
+
+        assert result.exit_code == 0
+        assert "Cache healthy" in result.stdout
+        assert "repos: 1" in result.stdout
+
+    def test_doctor_reports_cache_warnings(self, runner: CliRunner) -> None:
+        warning = CorruptedCacheException(
+            "Snapshots dir doesn't exist in cached repo: /tmp/models--user--model/snapshots",
+            category="missing-snapshots",
+            path=Path("/tmp/models--user--model/snapshots"),
+            suggestion="Delete the incomplete cached repo.",
+            repair_path=Path("/tmp/models--user--model"),
+            repair_action="delete incomplete cached repo",
+            repair_type="repo",
+        )
+        hf_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset(), warnings=[warning])
+
+        with patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info):
+            result = runner.invoke(app, ["cache", "doctor"])
+
+        assert result.exit_code == 1
+        assert "missing-snapshots" in result.stdout
+        assert "Delete the incomplete cached repo." in result.stdout
+
+    def test_doctor_json_output(self, runner: CliRunner) -> None:
+        warning = CorruptedCacheException(
+            "Repo path is not a directory: /tmp/bad-file",
+            category="invalid-cache-entry",
+            path=Path("/tmp/bad-file"),
+            suggestion="Remove this unexpected file from the cache directory.",
+            repair_path=Path("/tmp/bad-file"),
+            repair_action="delete unexpected file",
+            repair_type="file",
+        )
+        hf_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset(), warnings=[warning])
+
+        with patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info):
+            result = runner.invoke(app, ["cache", "doctor", "--format", "json"])
+
+        assert result.exit_code == 1
+        payload = json.loads(result.stdout)
+        assert payload["healthy"] is False
+        assert payload["warning_count"] == 1
+        assert payload["issues"][0]["category"] == "invalid-cache-entry"
+        assert payload["issues"][0]["repairable"] is True
+
+    def test_doctor_repair_dry_run(self, runner: CliRunner) -> None:
+        warning = CorruptedCacheException(
+            "Repo path is not a directory: /tmp/bad-file",
+            category="invalid-cache-entry",
+            path=Path("/tmp/bad-file"),
+            suggestion="Remove this unexpected file from the cache directory.",
+            repair_path=Path("/tmp/bad-file"),
+            repair_action="delete unexpected file",
+            repair_type="file",
+        )
+        hf_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset(), warnings=[warning])
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache._try_delete_path") as delete_mock,
+        ):
+            result = runner.invoke(app, ["cache", "doctor", "--repair", "--dry-run"])
+
+        assert result.exit_code == 1
+        assert "Dry run: no files were deleted." in result.stdout
+        delete_mock.assert_not_called()
+
+    def test_doctor_repair_executes_safe_targets(self, runner: CliRunner) -> None:
+        repair_path = Path("/tmp/bad-file")
+        warning = CorruptedCacheException(
+            f"Repo path is not a directory: {repair_path}",
+            category="invalid-cache-entry",
+            path=repair_path,
+            suggestion="Remove this unexpected file from the cache directory.",
+            repair_path=repair_path,
+            repair_action="delete unexpected file",
+            repair_type="file",
+        )
+        unhealthy_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset(), warnings=[warning])
+        healthy_cache_info = HFCacheInfo(size_on_disk=0, repos=frozenset(), warnings=[])
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", side_effect=[unhealthy_cache_info, healthy_cache_info]),
+            patch("huggingface_hub.cli.cache._try_delete_path") as delete_mock,
+        ):
+            result = runner.invoke(app, ["cache", "doctor", "--repair", "--yes"])
+
+        assert result.exit_code == 0
+        assert "Cache repaired" in result.stdout
+        delete_mock.assert_called_once_with(repair_path, path_type="file")
 
     def test_rm_revision_executes_strategy(self, runner: CliRunner) -> None:
         revision = _make_revision("c" * 40)

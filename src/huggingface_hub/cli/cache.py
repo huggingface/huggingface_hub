@@ -19,6 +19,7 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
@@ -35,9 +36,10 @@ from ..utils import (
     parse_hf_uri,
     scan_cache_dir,
 )
+from ..utils._cache_manager import _try_delete_path
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-from ._output import out
+from ._output import OutputFormat, out
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -88,6 +90,54 @@ class CacheDeletionCounts:
 
 CacheEntry = tuple[CachedRepoInfo, CachedRevisionInfo | None]
 RepoRefsMap = dict[CachedRepoInfo, frozenset[str]]
+
+
+def build_cache_diagnostics(hf_cache_info: HFCacheInfo) -> list[dict[str, Any]]:
+    """Convert cache scan warnings into stable CLI rows."""
+    diagnostics: list[dict[str, Any]] = []
+    for warning in hf_cache_info.warnings:
+        repair_path = warning.repair_path
+        diagnostics.append(
+            {
+                "category": warning.category or "corrupted-cache",
+                "path": str(warning.path or ""),
+                "message": str(warning),
+                "suggestion": warning.suggestion or "Inspect this cache entry and remove it if it is corrupted.",
+                "repair": warning.repair_action,
+                "repair_path": str(repair_path) if repair_path is not None else None,
+                "repair_type": warning.repair_type,
+                "repairable": repair_path is not None,
+            }
+        )
+    return diagnostics
+
+
+def _repairable_cache_diagnostics(diagnostics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return diagnostics with a safe repair target."""
+    return [item for item in diagnostics if item["repairable"] and item["repair_path"]]
+
+
+def _delete_cache_diagnostics(diagnostics: list[dict[str, Any]]) -> None:
+    """Delete safe repair targets from cache diagnostics."""
+    for item in diagnostics:
+        _try_delete_path(Path(item["repair_path"]), path_type=item["repair_type"] or "cache entry")
+
+
+def _cache_doctor_payload(
+    hf_cache_info: HFCacheInfo,
+    diagnostics: list[dict[str, Any]],
+    *,
+    repair: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a structured payload for `hf cache doctor --format json`."""
+    return {
+        "healthy": len(diagnostics) == 0,
+        "repo_count": len(hf_cache_info.repos),
+        "size": hf_cache_info.size_on_disk_str,
+        "warning_count": len(diagnostics),
+        "issues": diagnostics,
+        "repair": repair,
+    }
 
 
 def summarize_deletions(
@@ -360,6 +410,141 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 
 
 #### Cache CLI commands
+
+
+@cache_cli.command(
+    examples=[
+        "hf cache doctor",
+        "hf cache doctor --format json",
+        "hf cache doctor --repair --dry-run",
+        "hf cache doctor --repair --yes",
+    ],
+)
+def doctor(
+    cache_dir: Annotated[
+        str | None,
+        typer.Option(
+            help="Cache directory to scan (defaults to Hugging Face cache).",
+        ),
+    ] = None,
+    repair: Annotated[
+        bool,
+        typer.Option(
+            help="Delete scanner-approved repair targets after confirmation.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            help="Preview repair actions without deleting anything.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "-y",
+            "--yes",
+            help="Skip confirmation prompt when using --repair.",
+        ),
+    ] = False,
+) -> None:
+    """Diagnose corrupted local cache entries and optionally repair safe cases."""
+    try:
+        hf_cache_info = scan_cache_dir(cache_dir)
+    except CacheNotFound as exc:
+        raise CLIError(f"Cache directory not found: {exc.cache_dir}") from exc
+
+    diagnostics = build_cache_diagnostics(hf_cache_info)
+    repair_info: dict[str, Any] | None = None
+
+    if repair:
+        repairable = _repairable_cache_diagnostics(diagnostics)
+        repair_info = {
+            "dry_run": dry_run,
+            "repairable_count": len(repairable),
+            "targets": [
+                {
+                    "category": item["category"],
+                    "path": item["repair_path"],
+                    "action": item["repair"],
+                }
+                for item in repairable
+            ],
+        }
+
+        if out.mode == OutputFormat.json:
+            if not dry_run and not yes:
+                raise CLIError("Use --yes with --repair when running `hf cache doctor --format json`.")
+            if repairable and not dry_run:
+                _delete_cache_diagnostics(repairable)
+                hf_cache_info = scan_cache_dir(cache_dir)
+                diagnostics = build_cache_diagnostics(hf_cache_info)
+                repair_info["remaining_warning_count"] = len(diagnostics)
+            out.dict(_cache_doctor_payload(hf_cache_info, diagnostics, repair=repair_info))
+            if diagnostics:
+                raise typer.Exit(code=1)
+            return
+
+        if not diagnostics:
+            out.result("Cache healthy", repos=len(hf_cache_info.repos), size=hf_cache_info.size_on_disk_str)
+            return
+
+        out.table(
+            diagnostics,
+            headers=["category", "path", "message", "suggestion", "repairable"],
+            id_key="path",
+        )
+
+        if not repairable:
+            out.warning("No safe automatic repair is available for the detected cache issue(s).")
+            raise typer.Exit(code=1)
+
+        out.text(f"\nAbout to repair {len(repairable)} cache issue(s).")
+        out.table(
+            repairable,
+            headers=["category", "repair_path", "repair"],
+            id_key="repair_path",
+        )
+
+        if dry_run:
+            out.result(
+                "Dry run: no files were deleted.",
+                issues=len(diagnostics),
+                repairable=len(repairable),
+            )
+            raise typer.Exit(code=1)
+
+        out.confirm("Proceed with cache repair?", yes=yes)
+
+        _delete_cache_diagnostics(repairable)
+        repaired_cache_info = scan_cache_dir(cache_dir)
+        remaining_diagnostics = build_cache_diagnostics(repaired_cache_info)
+        if remaining_diagnostics:
+            out.table(
+                remaining_diagnostics,
+                headers=["category", "path", "message", "suggestion", "repairable"],
+                id_key="path",
+            )
+            out.warning(f"{len(remaining_diagnostics)} cache issue(s) remain after repair.")
+            raise typer.Exit(code=1)
+
+        out.result("Cache repaired", repaired=len(repairable), warnings=0)
+        return
+
+    if out.mode == OutputFormat.json:
+        out.dict(_cache_doctor_payload(hf_cache_info, diagnostics))
+    elif diagnostics:
+        out.table(
+            diagnostics,
+            headers=["category", "path", "message", "suggestion", "repairable"],
+            id_key="path",
+        )
+        out.hint("Run `hf cache doctor --repair --dry-run` to preview safe automatic repairs.")
+    else:
+        out.result("Cache healthy", repos=len(hf_cache_info.repos), size=hf_cache_info.size_on_disk_str, warnings=0)
+
+    if diagnostics:
+        raise typer.Exit(code=1)
 
 
 @cache_cli.command(

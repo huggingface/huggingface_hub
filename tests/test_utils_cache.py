@@ -45,6 +45,27 @@ class TestMissingCacheUtils(unittest.TestCase):
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
+class TestCacheWarningMetadata(unittest.TestCase):
+    cache_dir: Path
+
+    def test_invalid_cache_file_warning_has_repair_metadata(self) -> None:
+        """Cache warnings include structured metadata for CLI diagnostics."""
+        unexpected_file = self.cache_dir / "unexpected-file"
+        unexpected_file.touch()
+
+        report = scan_cache_dir(self.cache_dir)
+
+        self.assertEqual(len(report.warnings), 1)
+        warning = report.warnings[0]
+        self.assertEqual(str(warning), f"Repo path is not a directory: {unexpected_file}")
+        self.assertEqual(warning.category, "invalid-cache-entry")
+        self.assertEqual(warning.path, unexpected_file)
+        self.assertEqual(warning.repair_path, unexpected_file)
+        self.assertEqual(warning.repair_action, "delete unexpected file")
+        self.assertEqual(warning.repair_type, "file")
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
 class TestValidCacheUtils(unittest.TestCase):
     cache_dir: Path
 
