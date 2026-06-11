@@ -197,7 +197,8 @@ class TestCommitPacer:
 
 class TestLiveDisplayCounters:
     def test_xet_callback_sums_increments_across_concurrent_commits(self):
-        display = _LiveDisplay(total_files=10, enabled=True)
+        with patch.object(upload_pipeline.logger, "isEnabledFor", return_value=True):
+            display = _LiveDisplay(total_files=10, enabled=True)
         cb1, cb2 = display.new_xet_callback(), display.new_xet_callback()
 
         def report(n):
@@ -208,9 +209,16 @@ class TestLiveDisplayCounters:
         cb1(report(300), {})
         assert display._xet_bytes == 350
 
-    def test_disabled_display_returns_no_callback(self):
-        display = _LiveDisplay(total_files=10, enabled=False)
+    def test_disabled_display_returns_no_callback_when_logging_off(self):
+        with patch.object(upload_pipeline.logger, "isEnabledFor", return_value=False):
+            display = _LiveDisplay(total_files=10, enabled=False)
         assert display.new_xet_callback() is None
+
+    def test_disabled_display_keeps_callback_for_log_summaries(self):
+        # Disabling progress bars (e.g. agent mode) must not kill the periodic log summaries.
+        with patch.object(upload_pipeline.logger, "isEnabledFor", return_value=True):
+            display = _LiveDisplay(total_files=10, enabled=False)
+        assert display.new_xet_callback() is not None
 
 
 class TestUploadPipeline:

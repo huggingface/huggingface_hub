@@ -111,14 +111,18 @@ class _LiveDisplay:
     A small renderer thread redraws the three lines in-place every ~0.5 s on a TTY
     (worker threads only update counters under a lock). When stderr is not a TTY,
     it falls back to a periodic ``logger.info`` summary instead.
+
+    Disabling progress bars (e.g. agent output mode) only turns off the TTY renderer:
+    the non-TTY log summaries are gated by the logger verbosity alone, so consumers
+    tailing stderr during a long upload still see periodic progress.
     """
 
     _N_LINES = 3
 
     def __init__(self, total_files: int, enabled: bool = True) -> None:
-        self.enabled = enabled
         self._total = total_files
         self._tty = enabled and sys.stderr.isatty()
+        self._active = self._tty or logger.isEnabledFor(logging.INFO)
         self._lock = threading.Lock()
         self._drawn = False
         self._stop_event = threading.Event()
@@ -141,7 +145,7 @@ class _LiveDisplay:
     # -- lifecycle (main thread) ------------------------------------------------
 
     def start(self) -> None:
-        if not self.enabled:
+        if not self._active:
             return
         if self._tty:
             sys.stderr.write(f"Found {self._total:,} files to upload\n")
@@ -193,7 +197,7 @@ class _LiveDisplay:
         upload-commits can be in flight at once (one finalizing, one filling), so each commit
         gets its own closure tracking its own previous value; increments are summed globally.
         """
-        if not self.enabled:
+        if not self._active:
             return None
         prev = 0
 
