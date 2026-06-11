@@ -753,20 +753,12 @@ def jobs_wait(
     timeout_secs = parse_duration(timeout) if timeout is not None else None
 
     api = get_hf_api(token=token)
-    if namespace is None:
-        namespace = api.whoami()["name"]
-
-    status = out.status()
-    deadline = None if timeout_secs is None else time.monotonic() + timeout_secs
-    jobs: list[JobInfo] = []
-    for index, job_id in enumerate(parsed_ids):
-        status.update(f"Waiting for Job {job_id} ({index + 1}/{len(parsed_ids)})...")
-        remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
-        try:
-            jobs.append(api.wait_for_job(job_id=job_id, timeout=remaining, namespace=namespace))
-        except TimeoutError:
-            status.done(f"Timed out while waiting for Job {job_id}.")
-            raise CLIError(f"Timed out after {timeout} waiting for Job(s) to finish.") from None
+    status = out.status(f"Waiting for {len(parsed_ids)} Job(s) to finish...")
+    try:
+        jobs = api.wait_for_job(parsed_ids, timeout=timeout_secs, namespace=namespace)
+    except TimeoutError:
+        status.done("Timed out.")
+        raise CLIError(f"Timed out after {timeout} waiting for Job(s) to finish.") from None
     status.done(f"{len(jobs)} Job(s) finished.")
 
     out.table([{"id": job.id, "stage": str(job.status.stage), "message": job.status.message} for job in jobs])

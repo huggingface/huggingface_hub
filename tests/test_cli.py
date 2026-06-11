@@ -3356,18 +3356,15 @@ class TestJobsWaitCommand:
     def test_wait_all_completed(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.whoami.return_value = {"name": "user"}
-            api.wait_for_job.side_effect = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
             result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
         assert result.exit_code == 0
-        api.wait_for_job.assert_any_call(job_id="job-a", timeout=None, namespace="user")
-        api.wait_for_job.assert_any_call(job_id="job-b", timeout=None, namespace="user")
+        api.wait_for_job.assert_called_once_with(["job-a", "job-b"], timeout=None, namespace=None)
 
     def test_wait_fails_if_any_job_not_completed(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.whoami.return_value = {"name": "user"}
-            api.wait_for_job.side_effect = [self._job("job-a", "COMPLETED"), self._job("job-b", "CANCELED")]
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "CANCELED")]
             result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
@@ -3376,12 +3373,12 @@ class TestJobsWaitCommand:
     def test_wait_timeout(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.whoami.return_value = {"name": "user"}
             api.wait_for_job.side_effect = TimeoutError
             result = runner.invoke(app, ["jobs", "wait", "job-a", "--timeout", "5s"])
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
         assert "Timed out after 5s" in str(result.exception)
+        api.wait_for_job.assert_called_once_with(["job-a"], timeout=5, namespace=None)
 
 
 class TestBucketTransport:
