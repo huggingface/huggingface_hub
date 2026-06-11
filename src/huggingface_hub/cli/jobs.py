@@ -287,7 +287,7 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     if final.status.stage != JobStage.COMPLETED:
         message = f": {final.status.message}" if final.status.message else ""
         raise CLIError(f"Job {final.id} finished with stage '{final.status.stage}'{message}")
-    out.text(human=ANSI.green(f"✓ Job {final.id} completed"))
+    out.text(f"Job {final.id} completed")
 
 
 @jobs_cli.command(
