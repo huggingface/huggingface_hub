@@ -935,13 +935,20 @@ def _format(
                 data = {}
 
         error = data.get("error")
+        error_description = data.get("error_description")
         if error is not None:
             if isinstance(error, list):
                 # Case {'error': ['my error 1', 'my error 2']}
                 server_errors.extend(error)
+            elif error_description is not None:
+                # OAuth-style case {'error': 'invalid_grant', 'error_description': 'my description'}
+                server_errors.append(f"{error}: {error_description}")
             else:
                 # Case {'error': 'my error'}
                 server_errors.append(error)
+        elif error_description is not None:
+            # Case {'error_description': 'my description'} (no 'error' field)
+            server_errors.append(error_description)
 
         errors = data.get("errors")
         if errors is not None:
