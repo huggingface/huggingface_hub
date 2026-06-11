@@ -64,7 +64,7 @@ from ._commit_api import (
     _CopySource,
     _fetch_files_to_copy,
     _fetch_upload_modes,
-    _prepare_commit_payload,
+    _send_commit,
     _upload_files,
     _warn_on_overwriting_operations,
 )
@@ -82,6 +82,7 @@ from ._space_api import (
     Volume,
 )
 from ._upload_large_folder import upload_large_folder_internal
+from ._upload_pipeline import pipelined_upload
 from .community import (
     Discussion,
     DiscussionComment,
@@ -133,6 +134,7 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -5085,36 +5087,21 @@ class HfApi:
                 _endpoint=self.endpoint,
             )
 
-        commit_payload = _prepare_commit_payload(
-            operations=operations_without_no_op,
-            files_to_copy=files_to_copy,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            parent_commit=parent_commit,
-        )
-        commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
-
-        def _payload_as_ndjson() -> Iterable[bytes]:
-            for item in commit_payload:
-                yield json.dumps(item).encode()
-                yield b"\n"
-
-        headers = {
-            # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
-            "Content-Type": "application/x-ndjson",
-            **headers,
-        }
-        data = b"".join(_payload_as_ndjson())
-
-        params: dict[str, Any] = {}
-        if create_pr:
-            params["create_pr"] = "1"
-        if _hot_reload:
-            params["hot_reload"] = "1"
-
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
-            hf_raise_for_status(commit_resp, endpoint_name="commit")
+            commit_info = _send_commit(
+                operations=operations_without_no_op,
+                files_to_copy=files_to_copy,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                revision=revision,
+                endpoint=self.endpoint,
+                parent_commit=parent_commit,
+                create_pr=create_pr,
+                hot_reload=_hot_reload,
+            )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
@@ -5130,15 +5117,7 @@ class HfApi:
         for addition in additions:
             addition._is_committed = True
 
-        commit_data = commit_resp.json()
-        return CommitInfo(
-            commit_url=commit_data["commitUrl"],
-            commit_message=commit_message,
-            commit_description=commit_description,
-            oid=commit_data["commitOid"],
-            pr_url=commit_data["pullRequestUrl"] if create_pr else None,
-            _endpoint=self.endpoint,
-        )
+        return commit_info
 
     def preupload_lfs_files(
         self,
@@ -5669,7 +5648,12 @@ class HfApi:
         Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
         file is not taken into account.
 
-        Uses `HfApi.create_commit` under the hood.
+        When `hf_xet` is installed (the default), files are uploaded through a streamed pipeline: uploads start while
+        the folder is still being checked against the Hub, files are hashed while being chunked for upload (single
+        read pass), and large folders are automatically committed in several batches to stay below server limits
+        (follow-up commits get a ` (part N)` suffix on the commit message). If the upload is interrupted, re-running
+        the same call resumes it: already-committed files are skipped and already-uploaded data is deduplicated. When
+        `hf_xet` is not installed, falls back to a single commit created with [`create_commit`].
 
         Args:
             repo_id (`str`):
@@ -5697,16 +5681,17 @@ class HfApi:
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
-                set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
-                against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`. The PR is always
+                opened against the default branch: setting both `create_pr=True` and `revision` raises a
+                `ValueError`. Note that each call with `create_pr=True` opens a new pull request: to resume an
+                interrupted upload into the existing PR, re-run with `revision="refs/pr/N"` instead.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                especially useful if the repo is updated / committed to concurrently. If the upload is split into
+                several commits (large folders), `parent_commit` only applies to the first one.
             allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`list[str]` or `str`, *optional*):
@@ -5738,9 +5723,6 @@ class HfApi:
         > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
         > sure you are authenticated, that your token has the required permissions, and that `repo_id` and `repo_type`
         > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
-
-        > [!TIP]
-        > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
 
         Example:
 
@@ -5779,6 +5761,12 @@ class HfApi:
         """
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if create_pr and revision is not None and revision != constants.DEFAULT_REVISION:
+            raise ValueError(
+                f"Cannot use `create_pr=True` with `revision='{revision}'`: pull requests created by"
+                " `upload_folder` are always opened against the default branch. Don't set `revision` when"
+                " `create_pr=True`."
+            )
 
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
@@ -5818,6 +5806,31 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
+        if is_xet_available():
+            # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
+            # committed in adaptive batches, interrupted uploads resume by re-running.
+            return pipelined_upload(
+                self,
+                repo_id=repo_id,
+                repo_type=repo_type or constants.REPO_TYPE_MODEL,
+                add_operations=add_operations,
+                delete_operations=delete_operations,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                revision=revision,
+                create_pr=create_pr or False,
+                parent_commit=parent_commit,
+            )
+
+        # Legacy single-commit path (hf_xet not installed).
+        if len(add_operations) > 30:
+            log = logger.warning if len(add_operations) > 200 else logger.info
+            log(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. Installing `hf_xet` (`pip install hf_xet`) enables a more robust, resumable "
+                "upload that handles large folders in multiple commits."
+            )
         return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
@@ -11131,25 +11144,13 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
-        if len(filtered_repo_objects) > 30:
-            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
-            log(
-                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
-                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
-                "`HfApi().upload_large_folder(...)`/`hf upload-large-folder` instead. For more details, "
-                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
-            )
-
-        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
-        operations = [
+        return [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
-        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
-        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: str | None = None, token: bool | str | None = None):
         """
