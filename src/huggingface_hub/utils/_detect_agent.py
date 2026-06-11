@@ -67,7 +67,7 @@ class Registry(TypedDict):
 _EMPTY_REGISTRY: Registry = {"standardEnvVars": [], "harnesses": {}}
 
 # In-process cache of the resolved registry. Populated lazily on first detection.
-_registry: Optional[Registry] = None
+_registry: Registry | None = None
 
 
 def detect_agent() -> Optional[str]:
@@ -163,7 +163,7 @@ def _load_registry() -> Registry:
     return _EMPTY_REGISTRY
 
 
-def _read_cached_registry(path: str, max_age: Optional[int]) -> Optional[Registry]:
+def _read_cached_registry(path: str, max_age: int | None) -> Registry | None:
     """Return the cached registry, or `None` if missing/stale/unreadable."""
     try:
         if not os.path.exists(path):
@@ -186,7 +186,7 @@ def _write_cached_registry(path: str, registry: Registry) -> None:
         logger.debug("Could not cache agent harnesses registry.", exc_info=True)
 
 
-def _fetch_registry() -> Optional[Registry]:
+def _fetch_registry() -> Registry | None:
     """Fetch the registry from the Hub. Returns `None` when offline or on any error."""
     if constants.HF_HUB_OFFLINE:
         return None
