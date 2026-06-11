@@ -30,7 +30,7 @@ class CorruptedCacheException(Exception):
 
     def __init__(
         self,
-        msg: str,
+        msg: str = "",
         *args: object,
         category: str | None = None,
         path: str | Path | None = None,

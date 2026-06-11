@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
+from huggingface_hub.errors import CorruptedCacheException
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
 
@@ -42,6 +43,15 @@ class TestMissingCacheUtils(unittest.TestCase):
         file_path = self.cache_dir / "file.txt"
         file_path.touch()
         self.assertRaises(ValueError, scan_cache_dir, file_path)
+
+
+class TestCorruptedCacheException(unittest.TestCase):
+    def test_backward_compatible_empty_message(self) -> None:
+        warning = CorruptedCacheException()
+
+        self.assertEqual(str(warning), "")
+        self.assertIsNone(warning.category)
+        self.assertIsNone(warning.path)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
