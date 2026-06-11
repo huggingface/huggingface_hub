@@ -13,14 +13,14 @@ from typer.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+from huggingface_hub.cli.jobs import _parse_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -3628,6 +3628,93 @@ class TestParseVolumes:
             Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
             Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
         ]
+
+
+class TestParseJobVolumes:
+    """Unit tests for _parse_job_volumes (local directory sources in `-v` for jobs commands)."""
+
+    def test_none_and_empty(self) -> None:
+        api = Mock()
+        assert _parse_job_volumes(None, api=api, namespace=None) is None
+        assert _parse_job_volumes([], api=api, namespace=None) is None
+
+    def test_hf_uri_passthrough(self) -> None:
+        api = Mock()
+        vols = _parse_job_volumes(["hf://datasets/org/ds:/data:ro"], api=api, namespace=None)
+        assert vols == [Volume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
+        api.sync_job_volume.assert_not_called()
+
+    def test_local_dir_is_synced(self, tmp_path: Path) -> None:
+        api = Mock()
+        api.sync_job_volume.return_value = Volume(
+            type="bucket", source="user/jobs-artifacts", mount_path="/inputs", path="data-12345678", read_only=True
+        )
+        vols = _parse_job_volumes([f"{tmp_path}:/inputs"], api=api, namespace=None)
+        api.sync_job_volume.assert_called_once_with(str(tmp_path), "/inputs", read_only=True, namespace=None)
+        assert vols == [api.sync_job_volume.return_value]
+
+    def test_local_dir_read_write_suffix(self, tmp_path: Path) -> None:
+        api = Mock()
+        api.sync_job_volume.return_value = Volume(
+            type="bucket", source="user/jobs-artifacts", mount_path="/out", path="out-12345678", read_only=False
+        )
+        _parse_job_volumes([f"{tmp_path}:/out:rw"], api=api, namespace="my-org")
+        api.sync_job_volume.assert_called_once_with(str(tmp_path), "/out", read_only=False, namespace="my-org")
+
+    def test_local_and_hf_uri_mixed(self, tmp_path: Path) -> None:
+        api = Mock()
+        api.sync_job_volume.return_value = Volume(
+            type="bucket", source="user/jobs-artifacts", mount_path="/inputs", path="data-12345678", read_only=True
+        )
+        vols = _parse_job_volumes([f"{tmp_path}:/inputs", "hf://org/my-model:/model"], api=api, namespace=None)
+        assert vols == [
+            api.sync_job_volume.return_value,
+            Volume(type="model", source="org/my-model", mount_path="/model"),
+        ]
+
+    def test_nonexistent_local_path(self) -> None:
+        with pytest.raises(CLIError, match="not an existing local directory"):
+            _parse_job_volumes(["./nonexistent:/data"], api=Mock(), namespace=None)
+
+    def test_local_file_not_a_dir(self, tmp_path: Path) -> None:
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("content")
+        with pytest.raises(CLIError, match="not an existing local directory"):
+            _parse_job_volumes([f"{file_path}:/data"], api=Mock(), namespace=None)
+
+    def test_missing_mount_path(self, tmp_path: Path) -> None:
+        with pytest.raises(CLIError, match="Missing mount path"):
+            _parse_job_volumes([str(tmp_path)], api=Mock(), namespace=None)
+
+
+class TestDeriveJobVolumeName:
+    """Unit tests for _derive_job_volume_name."""
+
+    def test_stable_across_calls(self, tmp_path: Path) -> None:
+        assert _derive_job_volume_name(tmp_path) == _derive_job_volume_name(tmp_path)
+
+    def test_relative_and_absolute_paths_match(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "data").mkdir()
+        assert _derive_job_volume_name("./data") == _derive_job_volume_name(tmp_path / "data")
+
+    def test_different_paths_differ(self, tmp_path: Path) -> None:
+        # Same dirname, different parents
+        (tmp_path / "a" / "data").mkdir(parents=True)
+        (tmp_path / "b" / "data").mkdir(parents=True)
+        name_a = _derive_job_volume_name(tmp_path / "a" / "data")
+        name_b = _derive_job_volume_name(tmp_path / "b" / "data")
+        assert name_a != name_b
+        assert name_a.startswith("data-") and name_b.startswith("data-")
+
+    def test_format(self, tmp_path: Path) -> None:
+        path = tmp_path / "my data"
+        path.mkdir()
+        name = _derive_job_volume_name(path)
+        prefix, _, digest = name.rpartition("-")
+        assert prefix == "my_data"  # spaces sanitized
+        assert len(digest) == 8
+        int(digest, 16)  # hex digest
 
 
 class TestVolume:
