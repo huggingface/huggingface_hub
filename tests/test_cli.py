@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
@@ -2981,8 +2981,6 @@ class TestJobsCommand:
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/3736.
         """
-        from huggingface_hub._jobs_api import JobOwner
-
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
@@ -2999,8 +2997,6 @@ class TestJobsCommand:
 
     def test_run_fails_when_job_does_not_complete(self, runner: CliRunner) -> None:
         """A non-detached `hf jobs run` exits with a non-zero code if the Job did not complete successfully."""
-        from huggingface_hub._jobs_api import JobOwner
-
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         final = Mock(id="my-job-id")
