@@ -77,7 +77,7 @@ import typer
 
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage
 from huggingface_hub.errors import CLIError, HfHubHTTPError
-from huggingface_hub.utils import ANSI, logging
+from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._parsing import format_duration, parse_duration
 
@@ -729,7 +729,7 @@ def jobs_wait(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="Job IDs to wait for (or 'namespace/job_id')",
+            help="Job IDs to wait for.",
         ),
     ],
     timeout: Annotated[

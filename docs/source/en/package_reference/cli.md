@@ -2748,7 +2748,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id')  [required]
+* `JOB_IDS...`: Job IDs to wait for.  [required]
 
 **Options**:
 
