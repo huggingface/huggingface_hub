@@ -117,14 +117,14 @@ jobs:
           case "${{ matrix.test_name }}" in
 
             "Inference only")
-              # Run inference tests concurrently
-              PYTEST="$PYTEST ../tests -k 'test_inference' -n 4"
+              # Run inference tests concurrently (marked with `pytest.mark.inference`).
+              PYTEST="$PYTEST ../tests -m 'inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
 
             "no hf_xet")
-              PYTEST="$PYTEST ../tests -m 'not xet' -k 'not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -m 'not xet and not inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -145,7 +145,7 @@ jobs:
             "with hf_xet")
               # `xet` tests + unmarked tests, all with hf_xet installed.
               # Inference tests are excluded: they have their own job and don't depend on Xet.
-              PYTEST="$PYTEST ../tests -m 'not no_xet' -k 'not test_inference' -n 4"
+              PYTEST="$PYTEST ../tests -m 'not no_xet and not inference' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -221,9 +221,10 @@ jobs:
             "with hf_xet" {
               # `xet` tests + unmarked tests, all with hf_xet installed.
               # Inference tests already run in "no hf_xet" and don't depend on Xet.
-              python $PYTEST_ARGS -m "not no_xet" -k "not test_inference"
+              python $PYTEST_ARGS -m "not no_xet and not inference"
             }
             "no hf_xet" {
+              # Includes inference tests (no dedicated "Inference only" job on Windows).
               python $PYTEST_ARGS -m "not xet"
             }
           }

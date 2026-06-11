@@ -58,6 +58,10 @@ from huggingface_hub.inference._providers.hf_inference import _build_chat_comple
 from .testing_utils import with_production_testing
 
 
+# Whole module runs in the dedicated "Inference only" CI job (see pyproject.toml markers).
+pytestmark = pytest.mark.inference
+
+
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
     "black-forest-labs": {
