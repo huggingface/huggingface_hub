@@ -22,6 +22,9 @@ from huggingface_hub.inference._common import ValidationError as TextGenerationV
 from .testing_utils import with_production_testing
 
 
+pytestmark = pytest.mark.inference
+
+
 class TestTextGenerationErrors(unittest.TestCase):
     def test_generation_error(self):
         error = _mocked_error({"error_type": "generation", "error": "test"})

@@ -49,6 +49,9 @@ from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_
 from .testing_utils import with_production_testing
 
 
+pytestmark = pytest.mark.inference
+
+
 @pytest.fixture(autouse=True)
 def patch_non_tgi_server(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(huggingface_hub.inference._common, "_UNSUPPORTED_TEXT_GENERATION_KWARGS", {})

@@ -246,3 +246,18 @@ $ pytest tests -m no_xet                 # only legacy tests (skipped if hf_xet 
 $ pytest tests -m "not xet"              # what CI runs without hf_xet installed
 $ pytest tests -m "not no_xet"           # what CI runs with hf_xet installed
 ```
+
+#### Inference tests
+
+Inference tests (client, providers, types, endpoints) are declared with the `inference`
+marker and run in their own CI job, separate from the Xet jobs above:
+
+- `@pytest.mark.inference` — the test belongs to the Inference suite. Mark a whole module
+  with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files
+  are tagged).
+- unmarked — everything else.
+
+```bash
+$ pytest tests -m inference              # only inference tests (the dedicated CI job)
+$ pytest tests -m "not inference"        # everything except inference tests
+```
