@@ -71,7 +71,15 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import (
+    JobHardware,
+    JobHardwareInfo,
+    JobInfo,
+    JobSpec,
+    ScheduledJobInfo,
+    _create_job_spec,
+    _derive_job_volume_name,
+)
 from ._space_api import (
     SpaceHardware,
     SpaceRuntime,
@@ -12829,6 +12837,92 @@ class HfApi:
         )
         return [volume]
 
+    def sync_job_volume(
+        self,
+        source: str | Path,
+        mount_path: str,
+        *,
+        remote_name: str | None = None,
+        read_only: bool = True,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> Volume:
+        """Sync a local directory to a bucket and return a [`Volume`] ready to mount in a Job.
+
+        Files are uploaded to a subfolder of the `{namespace}/jobs-artifacts` bucket (auto-created,
+        private) using the same sync logic as [`sync_bucket`]: re-syncing the same directory only
+        uploads new or modified files. By default the subfolder name is derived from the directory
+        path and the machine's hostname, so repeated calls from the same directory reuse the same
+        remote folder. Pass `remote_name` to use a fixed name instead.
+
+        Note that the data is *copied* to the bucket, not mounted live: changes made locally after
+        the sync are not visible to the Job (re-run `sync_job_volume` to update), and the volume is
+        mounted read-only by default. To retrieve data written by a Job to a read-write volume, sync
+        the bucket folder back with [`sync_bucket`]. If the source directory is empty (e.g. an output
+        directory), a placeholder `.keep` file is uploaded so the volume can still be mounted.
+
+        Args:
+            source (`str` or `Path`):
+                Path to a local directory to sync.
+            mount_path (`str`):
+                Mount path inside the Job container, e.g. `"/inputs"`. Must start with `/`.
+            remote_name (`str`, *optional*):
+                Name of the bucket subfolder to sync to. Defaults to a `{dirname}-{hash}` name derived
+                from the source path and the machine's hostname.
+            read_only (`bool`, *optional*, defaults to `True`):
+                Mount the volume read-only in the Job. Pass `False` to let the Job write back to the
+                bucket folder (e.g. to retrieve outputs with [`sync_bucket`] afterwards).
+            namespace (`str`, *optional*):
+                The namespace owning the `jobs-artifacts` bucket. Defaults to the current user's
+                namespace. Use the same namespace as the Job that will mount the volume.
+            token (`Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`Volume`]: A bucket volume scoped to the synced subfolder, to pass in the `volumes` list
+            of [`run_job`], [`run_uv_job`], [`create_scheduled_job`] or [`create_scheduled_uv_job`].
+
+        Example:
+            ```python
+            >>> from huggingface_hub import run_uv_job, sync_job_volume
+
+            # Upload ./training-data once, then run multiple jobs against it
+            >>> volume = sync_job_volume("./training-data", "/data")
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+
+            # Read-write volume to retrieve outputs after the job completes
+            >>> volume = sync_job_volume("./outputs", "/outputs", read_only=False)
+            >>> job = run_uv_job("process.py", volumes=[volume])
+            ```
+        """
+        if not mount_path.startswith("/"):
+            raise ValueError(
+                f"Mount path must be an absolute path inside the container (e.g. '/data'), got {mount_path!r}."
+            )
+        source_path = Path(source).expanduser()
+        if not source_path.is_dir():
+            raise ValueError(f"Source must be an existing local directory: '{source}'.")
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        folder = remote_name or _derive_job_volume_name(source_path)
+
+        # The jobs-artifacts bucket holds user scripts and data: always created private.
+        self.create_bucket(bucket_id=bucket_id, exist_ok=True, private=True, token=token)
+        self.sync_bucket(str(source_path), f"hf://buckets/{bucket_id}/{folder}", token=token)
+        if not any(path.is_file() for path in source_path.rglob("*")):
+            # A folder cannot be empty in a bucket, and mounting a non-existent folder fails the Job.
+            # Upload a placeholder file so an empty directory (e.g. an output dir) can still be mounted.
+            self.batch_bucket_files(bucket_id, add=[(b"", f"{folder}/.keep")], token=token)
+        uri = HfUri(type="bucket", id=bucket_id, path_in_repo=folder)
+        print(f"Local data from '{source}' is available at: {uri.to_url(self.endpoint)}")
+
+        return Volume(type="bucket", source=bucket_id, mount_path=mount_path, path=folder, read_only=read_only)
+
     @validate_hf_hub_args
     def create_bucket(
         self,
@@ -14026,7 +14120,8 @@ class HfApi:
         """Sync files between a local directory and a bucket.
 
         This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
-        (``hf://buckets/...``) and the other must be a local directory path.
+        (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket is
+        created automatically if it doesn't exist yet.
 
         Args:
             source (`str`, *optional*):
@@ -14460,6 +14555,7 @@ suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
+sync_job_volume = api.sync_job_volume
 
 # Buckets API
 create_bucket = api.create_bucket
