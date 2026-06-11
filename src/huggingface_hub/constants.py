@@ -225,6 +225,10 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# File caching the AI agent harnesses registry fetched from `{ENDPOINT}/api/agent-harnesses`.
+# Refreshed once per 24 hours at most (see `utils/_detect_agent.py`).
+AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
+
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
 

@@ -70,6 +70,10 @@ def test_auto_resolves_to_human():
 
 
 def test_auto_resolves_to_agent(monkeypatch):
+    # conftest pins an empty registry by default; override it so `AI_AGENT` is recognized.
+    from huggingface_hub.utils import _detect_agent
+
+    monkeypatch.setattr(_detect_agent, "_registry", {"standardEnvVars": ["AI_AGENT"], "harnesses": {}})
     monkeypatch.setenv("AI_AGENT", "test")
     assert Output().mode == AGENT
 
