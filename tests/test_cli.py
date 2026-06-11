@@ -2992,9 +2992,33 @@ class TestJobsCommand:
             api = api_cls.return_value
             api.run_job.return_value = job
             api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value.status.stage = "COMPLETED"
             result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
         assert result.exit_code == 0
         api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=True)
+
+    def test_run_fails_when_job_does_not_complete(self, runner: CliRunner) -> None:
+        """A non-detached `hf jobs run` exits with a non-zero code if the Job did not complete successfully."""
+        from huggingface_hub._jobs_api import JobOwner
+
+        job_owner = JobOwner(id="user-id", name="my-username", type="user")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
+        final = Mock(id="my-job-id")
+        final.status.stage = "ERROR"
+        final.status.message = "Job failed with exit code: 1"
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value = final
+            result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "finished with stage 'ERROR'" in str(result.exception)
+        assert "Job failed with exit code: 1" in str(result.exception)
 
     def test_logs_default_no_follow(self, runner: CliRunner) -> None:
         """Test that `hf jobs logs <id>` defaults to follow=False (non-blocking, like `docker logs`)."""
@@ -3324,6 +3348,44 @@ class TestJobsCommand:
         assert volume_2.source == "org/b"
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
+
+
+class TestJobsWaitCommand:
+    def _job(self, job_id: str, stage: str) -> Mock:
+        job = Mock(id=job_id)
+        job.status.stage = stage
+        job.status.message = None
+        return job
+
+    def test_wait_all_completed(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "user"}
+            api.wait_for_job.side_effect = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
+        assert result.exit_code == 0
+        api.wait_for_job.assert_any_call(job_id="job-a", timeout=None, namespace="user")
+        api.wait_for_job.assert_any_call(job_id="job-b", timeout=None, namespace="user")
+
+    def test_wait_fails_if_any_job_not_completed(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "user"}
+            api.wait_for_job.side_effect = [self._job("job-a", "COMPLETED"), self._job("job-b", "CANCELED")]
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "job-b (CANCELED)" in str(result.exception)
+
+    def test_wait_timeout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.whoami.return_value = {"name": "user"}
+            api.wait_for_job.side_effect = TimeoutError
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "--timeout", "5s"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Timed out after 5s" in str(result.exception)
 
 
 class TestBucketTransport:

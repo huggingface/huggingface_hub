@@ -1818,6 +1818,18 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
+
+# Wait until one or more jobs finish (exit code 0 only if all jobs completed successfully)
+>>> hf jobs wait <job_id> [<job_id>...]
+
+# Wait for all currently running jobs
+>>> hf jobs ps -q | xargs hf jobs wait
+```
+
+Non-detached `hf jobs run` and `hf jobs wait` exit with a non-zero code if a Job fails, so you can chain commands with `&&`:
+
+```bash
+>>> hf jobs run python:3.12 python train.py && echo "training succeeded"
 ```
 
 #### 3. Run on GPU

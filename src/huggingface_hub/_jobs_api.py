@@ -85,6 +85,10 @@ class JobStage(str, Enum):
     RUNNING = "RUNNING"
 
 
+# Stages indicating the Job has reached a terminal state and will not run further.
+TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
+
+
 @dataclass
 class JobStatus:
     stage: JobStage

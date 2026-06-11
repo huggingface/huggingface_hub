@@ -35,6 +35,9 @@ Usage:
     # Cancel a running job
     hf jobs cancel <job-id>
 
+    # Wait until one or more jobs finish
+    hf jobs wait <job-id> [<job-id>...]
+
     # List available hardware options
     hf jobs hardware
 
@@ -72,11 +75,11 @@ from typing import Annotated, Any, TypeVar
 
 import typer
 
-from huggingface_hub import JobHardware
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage
 from huggingface_hub.errors import CLIError, HfHubHTTPError
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import ANSI, logging
 from huggingface_hub.utils._cache_manager import _format_size
-from huggingface_hub.utils._parsing import format_duration
+from huggingface_hub.utils._parsing import format_duration, parse_duration
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -275,6 +278,18 @@ ScheduledJobIdArg = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
+def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
+    """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
+        out.text(log)
+    # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
+    final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    if final.status.stage != JobStage.COMPLETED:
+        message = f": {final.status.message}" if final.status.message else ""
+        raise CLIError(f"Job {final.id} finished with stage '{final.status.stage}'{message}")
+    out.text(human=ANSI.green(f"✓ Job {final.id} completed"))
+
+
 @jobs_cli.command(
     "run",
     context_settings={"ignore_unknown_options": True},
@@ -327,8 +342,7 @@ def jobs_run(
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
+    _stream_logs_and_check_status(api, job)
 
 
 @jobs_cli.command(
@@ -704,6 +718,67 @@ def jobs_cancel(
 
 
 @jobs_cli.command(
+    "wait",
+    examples=[
+        "hf jobs wait <job_id>",
+        "hf jobs wait <job_id_1> <job_id_2>",
+        "hf jobs ps -q | xargs hf jobs wait",
+    ],
+)
+def jobs_wait(
+    job_ids: Annotated[
+        list[str],
+        typer.Argument(
+            help="Job IDs to wait for (or 'namespace/job_id')",
+        ),
+    ],
+    timeout: Annotated[
+        str | None,
+        typer.Option(
+            help="Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+        ),
+    ] = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Wait for one or more Jobs to reach a terminal state.
+
+    Blocks until every Job has finished, then exits with code 0 if all Jobs completed
+    successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
+    """
+    parsed_ids = []
+    for job_id in job_ids:
+        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(job_id)
+    timeout_secs = parse_duration(timeout) if timeout is not None else None
+
+    api = get_hf_api(token=token)
+    if namespace is None:
+        namespace = api.whoami()["name"]
+
+    status = out.status()
+    deadline = None if timeout_secs is None else time.monotonic() + timeout_secs
+    jobs: list[JobInfo] = []
+    for index, job_id in enumerate(parsed_ids):
+        status.update(f"Waiting for Job {job_id} ({index + 1}/{len(parsed_ids)})...")
+        remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+        try:
+            jobs.append(api.wait_for_job(job_id=job_id, timeout=remaining, namespace=namespace))
+        except TimeoutError:
+            status.done(f"Timed out while waiting for Job {job_id}.")
+            raise CLIError(f"Timed out after {timeout} waiting for Job(s) to finish.") from None
+    status.done(f"{len(jobs)} Job(s) finished.")
+
+    out.table([{"id": job.id, "stage": str(job.status.stage), "message": job.status.message} for job in jobs])
+    failed = [job for job in jobs if job.status.stage != JobStage.COMPLETED]
+    if failed:
+        raise CLIError(
+            f"{len(failed)} of {len(jobs)} Job(s) did not complete successfully: "
+            + ", ".join(f"{job.id} ({job.status.stage})" for job in failed)
+        )
+
+
+@jobs_cli.command(
     "labels",
     examples=[
         "hf jobs labels <job_id> --label env=prod --label team=ml",
@@ -793,8 +868,7 @@ def jobs_uv_run(
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
+    _stream_logs_and_check_status(api, job)
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
