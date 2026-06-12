@@ -846,6 +846,7 @@ def hf_hub_download(
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     dry_run: bool = False,
+    file_metadata: HfFileMetadata | None = None,
 ) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
 
@@ -1010,6 +1011,7 @@ def hf_hub_download(
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            file_metadata=file_metadata,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -1030,6 +1032,7 @@ def hf_hub_download(
             force_download=force_download,
             tqdm_class=tqdm_class,
             dry_run=dry_run,
+            file_metadata=file_metadata,
         )
 
 
@@ -1052,6 +1055,7 @@ def _hf_hub_download_to_cache_dir(
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    file_metadata: HfFileMetadata | None = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
@@ -1099,6 +1103,7 @@ def _hf_hub_download_to_cache_dir(
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
+        file_metadata=file_metadata,
     )
 
     # etag can be None for several reasons:
@@ -1272,6 +1277,7 @@ def _hf_hub_download_to_local_dir(
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
+    file_metadata: HfFileMetadata | None = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
@@ -1316,6 +1322,7 @@ def _hf_hub_download_to_local_dir(
         headers=headers,
         token=token,
         local_files_only=local_files_only,
+        file_metadata=file_metadata,
     )
 
     if head_call_error is not None:
@@ -1645,6 +1652,7 @@ def _get_metadata_or_catch_error(
     relative_filename: str | None = None,  # only used to store `.no_exists` in cache
     storage_folder: str | None = None,  # only used to store `.no_exists` in cache
     retry_on_errors: bool = False,
+    file_metadata: HfFileMetadata | None = None,  # pre-fetched metadata (e.g. from a cached tree listing)
 ) -> (
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception]
@@ -1662,6 +1670,24 @@ def _get_metadata_or_catch_error(
           if the file is a LFS blob and the domain of the url is different from the
           domain of the location (typically an S3 bucket).
     """
+    if file_metadata is not None and not local_files_only:
+        # Metadata has been pre-fetched by the caller (e.g. by `snapshot_download` from a cached tree
+        # listing) => skip the per-file HEAD call entirely.
+        if (
+            file_metadata.location is not None
+            and file_metadata.etag is not None
+            and file_metadata.commit_hash is not None
+            and file_metadata.size is not None
+        ):
+            return (
+                file_metadata.location,
+                file_metadata.etag,
+                file_metadata.commit_hash,
+                file_metadata.size,
+                file_metadata.xet_file_data,
+                None,
+            )
+
     if local_files_only:
         return (
             None,

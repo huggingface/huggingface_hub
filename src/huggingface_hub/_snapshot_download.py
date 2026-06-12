@@ -16,9 +16,18 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
+from ._tree_cache import TreeCacheEntry, read_tree_cache, write_tree_cache
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    HfFileMetadata,
+    hf_hub_download,
+    hf_hub_url,
+    repo_folder_name,
+)
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._xet import XetFileData, XetTokenType, xet_connection_info_refresh_url
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
@@ -337,37 +346,62 @@ def snapshot_download(
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
 
-    # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
-    # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
-    siblings = getattr(repo_info, "siblings", None)
-    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
-    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
-    if unreliable_nb_files:
-        logger.info(
-            "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
-        )
-        repo_files = (
-            f.rfilename
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        )
+    commit_hash = repo_info.sha
 
-    filtered_repo_files: Iterable[str] = filter_repo_objects(
-        items=repo_files,
-        allow_patterns=allow_patterns,
-        ignore_patterns=ignore_patterns,
+    # Always work from the full tree listing of the resolved commit. The tree of a commit is immutable,
+    # so the listing is cached on disk (under `<storage_folder>/trees/<commit_hash>.json`) and fetched at
+    # most once per commit. The listing provides each file's metadata (size, etag, xet hash), which lets
+    # `hf_hub_download` skip its per-file HEAD call.
+    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    if tree_entries is None:
+        tree_entries = {
+            f.path: TreeCacheEntry(
+                path=f.path,
+                size=f.size,
+                blob_id=f.blob_id,
+                lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
+                lfs_size=f.lfs.size if f.lfs is not None else None,
+                xet_hash=f.xet_hash,
+            )
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
+            if isinstance(f, RepoFile)
+        }
+        write_tree_cache(storage_folder, commit_hash, repo_id, repo_type, tree_entries)
+
+    filtered_repo_files = list(
+        filter_repo_objects(
+            items=tree_entries.keys(),
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
     )
 
-    if not unreliable_nb_files:
-        filtered_repo_files = list(filtered_repo_files)
-        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
-    else:
-        tqdm_desc = "Fetching ... files"
+    tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc
 
-    commit_hash = repo_info.sha
+    def _file_metadata(repo_file: str) -> HfFileMetadata:
+        """Build the same metadata the `/resolve` HEAD endpoint would return, from the tree listing entry."""
+        entry = tree_entries[repo_file]
+        xet_file_data = None
+        if entry.xet_hash is not None:
+            xet_file_data = XetFileData(
+                file_hash=entry.xet_hash,
+                refresh_route=xet_connection_info_refresh_url(
+                    token_type=XetTokenType.READ,
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    revision=commit_hash,
+                    endpoint=endpoint,
+                ),
+            )
+        return HfFileMetadata(
+            commit_hash=commit_hash,
+            etag=entry.etag,
+            location=hf_hub_url(repo_id, repo_file, repo_type=repo_type, revision=commit_hash, endpoint=endpoint),
+            size=entry.file_size,
+            xet_file_data=xet_file_data,
+        )
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
@@ -450,6 +484,7 @@ def snapshot_download(
                 headers=headers,
                 tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
+                file_metadata=_file_metadata(repo_file),
             )
         )
 
