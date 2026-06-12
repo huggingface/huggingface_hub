@@ -506,7 +506,16 @@ class CLIExtensionInstallError(CLIError):
 
 
 class SandboxError(Exception):
-    """Base exception for sandbox operations (see `huggingface_hub.Sandbox`)."""
+    """Base exception for sandbox operations (see `huggingface_hub.Sandbox`).
+
+    Attributes:
+        status_code: The HTTP status returned by the in-sandbox server, if the error
+            originated from an API response (e.g. `404` for a missing file). `None` otherwise.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class SandboxCommandError(SandboxError):

@@ -33,7 +33,8 @@ Usage:
 
 import sys
 import time
-from typing import Annotated
+from contextlib import contextmanager
+from typing import Annotated, Iterator
 
 import typer
 
@@ -58,6 +59,20 @@ from .jobs import ExposeOpt, FlavorOpt, NamespaceOpt, TimeoutOpt
 sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
 
 SandboxIdArg = Annotated[str, typer.Argument(help="The sandbox id (as printed by `hf sandbox create`).")]
+
+
+@contextmanager
+def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> Iterator[Sandbox]:
+    """Reattach to a sandbox and close the HTTP client when the command is done.
+
+    Closing matters for one-shot CLI commands: without it the httpx client (and its
+    connection pool) would leak until interpreter shutdown.
+    """
+    sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
+    try:
+        yield sandbox
+    finally:
+        sandbox.close()
 
 
 @sandbox_cli.command(
@@ -159,16 +174,16 @@ def sandbox_exec(
         sys.stderr.write(data)
         sys.stderr.flush()
 
-    sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
-    result = sandbox.run(
-        list(command),
-        env=parse_env_map(env, env_file),
-        cwd=workdir,
-        timeout=exec_timeout,
-        on_stdout=write_stdout,
-        on_stderr=write_stderr,
-        check=False,
-    )
+    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
+        result = sandbox.run(
+            list(command),
+            env=parse_env_map(env, env_file),
+            cwd=workdir,
+            timeout=exec_timeout,
+            on_stdout=write_stdout,
+            on_stderr=write_stderr,
+            check=False,
+        )
     if result.timed_out:
         out.error(f"Command timed out after {exec_timeout}s.")
         raise typer.Exit(code=result.exit_code or 124)  # 124: conventional timeout exit code
@@ -183,16 +198,16 @@ def sandbox_ps(
     token: TokenOpt = None,
 ) -> None:
     """List background processes running in a sandbox."""
-    sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
-    rows = [
-        {
-            "pid": proc.pid,
-            "tag": proc.tag or "",
-            "status": "running" if proc.running else f"exited ({proc.exit_code})",
-            "command": proc.cmd if len(proc.cmd) <= 60 else proc.cmd[:57] + "...",
-        }
-        for proc in sandbox.processes()
-    ]
+    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
+        rows = [
+            {
+                "pid": proc.pid,
+                "tag": proc.tag or "",
+                "status": "running" if proc.running else f"exited ({proc.exit_code})",
+                "command": proc.cmd if len(proc.cmd) <= 60 else proc.cmd[:57] + "...",
+            }
+            for proc in sandbox.processes()
+        ]
     out.table(rows, id_key="pid")
 
 
@@ -212,9 +227,13 @@ def sandbox_cp(
     """Copy a file between the local machine and a sandbox (docker-style)."""
 
     def parse(ref: str) -> tuple[str | None, str]:
+        # Only treat as a sandbox ref when the part before ':' looks like a sandbox id
+        # (more than one char): this leaves local paths and Windows drive letters like
+        # 'C:\data\file.csv' or 'C:/data/file.csv' (single-letter prefix) untouched.
         if ":" in ref and not ref.startswith((".", "/", "~")):
             sandbox_id, path = ref.split(":", 1)
-            return sandbox_id, path
+            if len(sandbox_id) > 1:
+                return sandbox_id, path
         return None, ref
 
     src_sandbox, src_path = parse(src)
@@ -222,12 +241,12 @@ def sandbox_cp(
     if (src_sandbox is None) == (dst_sandbox is None):
         raise CLIError("Exactly one of SRC and DST must be a sandbox path (<sandbox_id>:<path>).")
     if src_sandbox is not None:
-        sandbox = Sandbox.connect(src_sandbox, namespace=namespace, token=token)
-        sandbox.files.download(src_path, dst_path)
+        with _connect(src_sandbox, namespace=namespace, token=token) as sandbox:
+            sandbox.files.download(src_path, dst_path)
     else:
         assert dst_sandbox is not None
-        sandbox = Sandbox.connect(dst_sandbox, namespace=namespace, token=token)
-        sandbox.files.upload(src_path, dst_path)
+        with _connect(dst_sandbox, namespace=namespace, token=token) as sandbox:
+            sandbox.files.upload(src_path, dst_path)
     out.result("Copied", src=src, dst=dst)
 
 
@@ -239,8 +258,9 @@ def sandbox_url(
     token: TokenOpt = None,
 ) -> None:
     """Print the public URL of an exposed sandbox port."""
-    sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
-    out.text(sandbox.url(port))
+    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
+        url = sandbox.url(port)
+    out.text(url)
     out.hint("Requests must include an HF token: `curl -H 'Authorization: Bearer ...' <url>`.")
 
 
@@ -252,8 +272,8 @@ def sandbox_kill(
 ) -> None:
     """Terminate a sandbox."""
     try:
-        sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
+        with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
+            sandbox.kill()
     except SandboxError as e:
         raise CLIError(str(e)) from e
-    sandbox.kill()
     out.result("Sandbox terminated", id=sandbox_id)

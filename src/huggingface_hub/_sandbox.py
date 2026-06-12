@@ -320,8 +320,10 @@ class SandboxFiles:
         try:
             self.stat(path)
             return True
-        except SandboxError:
-            return False
+        except SandboxError as e:
+            if e.status_code == 404:
+                return False
+            raise  # network/auth/server errors must not be silently reported as "missing"
 
     def delete(self, path: str, recursive: bool = False) -> None:
         """Delete a file or directory in the sandbox."""
@@ -352,7 +354,7 @@ def _raise_for_status(response: httpx.Response) -> None:
         message = response.json()["error"]
     except Exception:
         message = response.text[:500]
-    raise SandboxError(f"Sandbox API error ({response.status_code}): {message}")
+    raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
 class Sandbox:
@@ -427,8 +429,10 @@ class Sandbox:
         nonce = token_hex(16)
         sandbox_token = _derive_sandbox_token(hf_token, nonce)
 
-        job_env: dict[str, Any] = {"SBX_PORT": str(SANDBOX_SERVER_PORT), **(env or {})}
-        job_secrets: dict[str, Any] = {"SBX_TOKEN": sandbox_token, **(secrets or {})}
+        # Reserved SBX_* keys go last so user-provided env/secrets can't override them
+        # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
+        job_env: dict[str, Any] = {**(env or {}), "SBX_PORT": str(SANDBOX_SERVER_PORT)}
+        job_secrets: dict[str, Any] = {**(secrets or {}), "SBX_TOKEN": sandbox_token}
         job_volumes = list(volumes or [])
         if idle_timeout is not None:
             job_env["SBX_IDLE_TIMEOUT"] = str(_duration_to_secs(idle_timeout))
@@ -523,6 +527,14 @@ class Sandbox:
             logger.warning(f"Failed to cancel sandbox job {self.id}: {e}")
             return
         self._killed = True
+        self.close()
+
+    def close(self) -> None:
+        """Release the HTTP client without terminating the sandbox. Idempotent.
+
+        Use this to free connections when you reattached with [`Sandbox.connect`] but
+        want to leave the sandbox running. [`Sandbox.kill`] also closes the client.
+        """
         self._client.close()
 
     def __enter__(self) -> "Sandbox":
@@ -689,7 +701,7 @@ class Sandbox:
                 last_job_check = time.time()
                 namespace = self._job.owner.name
                 job = self._api.inspect_job(job_id=self.id, namespace=namespace)
-                if job.status.stage in ("COMPLETED", "ERROR", "DELETED"):
+                if job.status.stage in ("COMPLETED", "ERROR", "DELETED", "CANCELED"):
                     logs = _tail_job_logs(self._api, self.id, namespace=namespace)
                     raise SandboxError(
                         f"Sandbox job {self.id} terminated during startup "
