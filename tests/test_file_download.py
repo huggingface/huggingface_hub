@@ -1105,6 +1105,33 @@ class TestHttpGet:
         # Note: The range headers are now handled internally by http_get's retry mechanism
         # The test verifies that the download completed successfully after retries
 
+    def test_http_get_retries_on_remote_protocol_error(self, caplog):
+        """A RemoteProtocolError (peer closed the connection before sending the full body) must be retried/resumed.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4349.
+        """
+
+        def _fail_after(data: bytes):
+            yield data
+            raise httpx.RemoteProtocolError(
+                "peer closed connection without sending complete message body (received 30 bytes, expected 100)"
+            )
+
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_fail_after(b"A" * 30)),
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "70", "Content-Range": "bytes 30-99/100"},
+                    iter_bytes=iter([b"B" * 70]),
+                ),
+            ],
+            expected_size=100,
+        )
+
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 70
+        assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
     @pytest.mark.parametrize(
         "initial_range,expected_ranges",
         [
