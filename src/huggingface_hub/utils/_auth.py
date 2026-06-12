@@ -24,7 +24,8 @@ from threading import Lock
 from typing import TypedDict
 
 from .. import constants
-from ..errors import OIDCError
+from ..errors import DeviceCodeError, OIDCError
+from ._fixes import WeakFileLock
 from ._runtime import is_colab_enterprise, is_google_colab
 
 
@@ -65,6 +66,9 @@ def get_token() -> str | None:
     token file in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
     `hf auth login`.
 
+    OAuth tokens obtained with the browser-based login come with a refresh token: when such a token is close to
+    expiry, it is transparently refreshed and persisted before being returned.
+
     Note: if `HF_OIDC_RESOURCE` is set but the OIDC token exchange fails, this raises instead of returning `None`,
     opting into OIDC is explicit, so a failure surfaces as a clear error rather than a silent fallback.
 
@@ -74,7 +78,7 @@ def get_token() -> str | None:
     return (
         _get_token_from_oidc()
         or _get_token_from_environment()
-        or _get_token_from_file()
+        or _get_token_from_file_refreshed()
         or _get_token_from_google_colab()
     )
 
@@ -120,13 +124,12 @@ def _get_token_from_google_colab() -> str | None:
             )
             _GOOGLE_COLAB_SECRET = None
         except userdata.SecretNotFoundError:
-            # Means the user did not define a `HF_TOKEN` secret => warn
-            warnings.warn(
-                "\nThe secret `HF_TOKEN` does not exist in your Colab secrets."
-                "\nTo authenticate with the Hugging Face Hub, create a token in your settings tab "
-                "(https://huggingface.co/settings/tokens), set it as secret in your Google Colab and restart your session."
-                "\nYou will be able to reuse this secret in all of your notebooks."
-                "\nPlease note that authentication is recommended but still optional to access public models or datasets."
+            # No `HF_TOKEN` secret defined: simply not logged in via the Colab vault. Not worth a
+            # warning now that `login()` is the primary flow (it would even fire during `login()`
+            # itself, telling the user to set up a secret while they are busy authenticating).
+            logger.info(
+                "The secret `HF_TOKEN` does not exist in your Colab secrets. Run `huggingface_hub.login()` to"
+                " authenticate (recommended but still optional to access public models or datasets)."
             )
             _GOOGLE_COLAB_SECRET = None
         except ColabError as e:
@@ -219,6 +222,145 @@ def _get_token_from_oidc() -> str | None:
         return token
 
 
+class _OAuthRefreshCache(TypedDict):
+    file_token: str  # token as read from HF_TOKEN_PATH (cache key)
+    resolved_token: str  # token to return (refreshed, or identical if no refresh was needed)
+    recheck_at: float  # wall-clock timestamp after which the expiry must be re-evaluated
+
+
+# Cache the refresh decision in-process: `get_token()` is called on every HTTP request and must not
+# re-read the stored tokens file (let alone hit the network) each time.
+_OAUTH_REFRESH_LOCK = Lock()
+_OAUTH_REFRESH_CACHE: _OAuthRefreshCache | None = None
+_OAUTH_REFRESH_MARGIN = 24 * 3600  # refresh when less than 1 day of validity remains
+_OAUTH_RECHECK_INTERVAL = 300  # re-check interval when there is no metadata or the refresh failed
+_OAUTH_REFRESH_WARNED = False  # warn at most once per process on refresh failure
+
+
+def _get_token_from_file_refreshed() -> str | None:
+    """Get the token from `HF_TOKEN_PATH`, transparently refreshing it if close to expiry."""
+    token = _get_token_from_file()
+    if token is None:
+        return None
+    return _refresh_oauth_token_if_needed(token)
+
+
+def _refresh_oauth_token_if_needed(token: str) -> str:
+    """Refresh an OAuth access token if it is close to expiry. Best-effort: never raises.
+
+    OAuth tokens obtained with the browser-based login are stored with a `refresh_token` and an
+    `expires_at` timestamp (see `_save_token`). When the active token is one of them and about to
+    expire, exchange the refresh token for a new access token and persist it. Any other token is
+    returned unchanged.
+    """
+    global _OAUTH_REFRESH_CACHE
+    with _OAUTH_REFRESH_LOCK:
+        now = time.time()
+        cache = _OAUTH_REFRESH_CACHE
+        if cache is not None and cache["file_token"] == token and now < cache["recheck_at"]:
+            return cache["resolved_token"]
+
+        token_name, fields = next(
+            ((name, fields) for name, fields in _read_stored_tokens_full().items() if fields.get("hf_token") == token),
+            (None, {}),
+        )
+        refresh_token = fields.get("refresh_token")
+        expires_at = _parse_expires_at(fields)
+        if token_name is None or refresh_token is None or expires_at is None:
+            # `token` may have just been replaced by a concurrent refresh (in which case it no
+            # longer appears in the stored tokens): serve the fresh file token without caching.
+            current_file_token = _get_token_from_file()
+            if current_file_token is not None and current_file_token != token:
+                return current_file_token
+            # Not a refreshable OAuth token (or its metadata was lost): nothing to do.
+            _OAUTH_REFRESH_CACHE = {
+                "file_token": token,
+                "resolved_token": token,
+                "recheck_at": now + _OAUTH_RECHECK_INTERVAL,
+            }
+            return token
+
+        if expires_at - _OAUTH_REFRESH_MARGIN > now:
+            _OAUTH_REFRESH_CACHE = {
+                "file_token": token,
+                "resolved_token": token,
+                "recheck_at": expires_at - _OAUTH_REFRESH_MARGIN,
+            }
+            return token
+
+        from .._oauth_device import refresh_access_token
+
+        try:
+            # Cross-process file lock: if the server rotates refresh tokens, two processes
+            # refreshing concurrently would invalidate each other's refresh token.
+            with WeakFileLock(constants.HF_STORED_TOKENS_PATH + ".lock", timeout=30):
+                # Re-read under the lock: another process may have refreshed in the meantime.
+                fields = _read_stored_tokens_full().get(token_name, {})
+                if fields.get("hf_token") != token:
+                    # Another process already refreshed this token: adopt its result.
+                    new_token = fields.get("hf_token") or token
+                    new_expires_at = _parse_expires_at(fields)
+                else:
+                    response = refresh_access_token(refresh_token)
+                    new_token = response["access_token"]
+                    new_expires_at = int(now) + int(response["expires_in"]) if "expires_in" in response else None
+                    _save_token(
+                        token=new_token,
+                        token_name=token_name,
+                        # The server may rotate the refresh token; keep the old one if it doesn't.
+                        refresh_token=response.get("refresh_token") or refresh_token,
+                        expires_at=new_expires_at,
+                    )
+                    # Update the active token file, unless another process switched to a different token meanwhile.
+                    if _get_token_from_file() == token:
+                        _write_secret(Path(constants.HF_TOKEN_PATH), new_token)
+                    logger.info(f"Access token `{token_name}` has been refreshed.")
+        except Exception as e:
+            if isinstance(e, DeviceCodeError) and e.error_code == "invalid_grant":
+                # Refresh token expired or revoked: retrying is pointless, a re-login is required.
+                # Warned unconditionally (the inf recheck guarantees it fires at most once): an
+                # earlier transient warning must not suppress this actionable message.
+                logger.warning(
+                    "Your Hugging Face access token has expired and could not be refreshed "
+                    f"(session expired or revoked). Run `hf auth login` to re-authenticate. ({e})"
+                )
+                recheck_at = float("inf")
+            else:
+                # Transient failure (offline, server error, ...): retry later.
+                _warn_refresh_failure_once(f"Could not refresh your Hugging Face access token: {e}. Will retry later.")
+                recheck_at = now + _OAUTH_RECHECK_INTERVAL
+            # Return the existing token: if it's truly expired, the API will reject it with a clear error.
+            _OAUTH_REFRESH_CACHE = {"file_token": token, "resolved_token": token, "recheck_at": recheck_at}
+            return token
+
+        _OAUTH_REFRESH_CACHE = {
+            "file_token": new_token,
+            "resolved_token": new_token,
+            # The floor guards against a token lifetime shorter than the refresh margin, which
+            # would otherwise put `recheck_at` in the past and trigger a refresh on every call.
+            "recheck_at": max(
+                now + _OAUTH_RECHECK_INTERVAL,
+                new_expires_at - _OAUTH_REFRESH_MARGIN if new_expires_at else 0,
+            ),
+        }
+        return new_token
+
+
+def _warn_refresh_failure_once(message: str) -> None:
+    global _OAUTH_REFRESH_WARNED
+    if not _OAUTH_REFRESH_WARNED:
+        logger.warning(message)
+        _OAUTH_REFRESH_WARNED = True
+
+
+def _parse_expires_at(fields: dict[str, str]) -> int | None:
+    """Parse the `expires_at` field of a stored-tokens section, `None` if missing or corrupt."""
+    try:
+        return int(fields["expires_at"])
+    except (KeyError, ValueError):
+        return None
+
+
 def get_stored_tokens() -> dict[str, str]:
     """
     Returns the parsed INI file containing the access tokens.
@@ -228,38 +370,39 @@ def get_stored_tokens() -> dict[str, str]:
     Returns: `dict[str, str]`
         Key is the token name and value is the token.
     """
+    return {token_name: fields.get("hf_token", "") for token_name, fields in _read_stored_tokens_full().items()}
+
+
+def _read_stored_tokens_full() -> dict[str, dict[str, str]]:
+    """Read all sections of the stored tokens INI file, with all their fields.
+
+    Beside `hf_token`, sections for OAuth tokens also carry `refresh_token` and `expires_at`
+    (unix timestamp), used by [`get_token`] to transparently refresh them.
+    """
     tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
     if not tokens_path.exists():
-        stored_tokens = {}
-    config = configparser.ConfigParser()
+        return {}
+    # interpolation=None: token values are opaque strings, a `%` must not be interpreted.
+    config = configparser.ConfigParser(interpolation=None)
     try:
         config.read(tokens_path)
-        stored_tokens = {token_name: config.get(token_name, "hf_token") for token_name in config.sections()}
+        return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
     except configparser.Error as e:
         logger.error(f"Error parsing stored tokens file: {e}")
-        stored_tokens = {}
-    return stored_tokens
+        return {}
 
 
-def _save_stored_tokens(stored_tokens: dict[str, str]) -> None:
-    """
-    Saves the given configuration to the stored tokens file.
-
-    Args:
-        stored_tokens (`dict[str, str]`):
-            The stored tokens to save. Key is the token name and value is the token.
-    """
-    stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
-
-    # Write the stored tokens into an INI file
-    config = configparser.ConfigParser()
+def _save_stored_tokens_full(stored_tokens: dict[str, dict[str, str]]) -> None:
+    """Write all sections and their fields to the stored tokens INI file."""
+    config = configparser.ConfigParser(interpolation=None)
     for token_name in sorted(stored_tokens.keys()):
         config.add_section(token_name)
-        config.set(token_name, "hf_token", stored_tokens[token_name])
+        for key, value in stored_tokens[token_name].items():
+            config.set(token_name, key, value)
 
     buf = io.StringIO()
     config.write(buf)
-    _write_secret(stored_tokens_path, buf.getvalue())
+    _write_secret(Path(constants.HF_STORED_TOKENS_PATH), buf.getvalue())
 
 
 def _get_token_by_name(token_name: str) -> str | None:
@@ -280,7 +423,9 @@ def _get_token_by_name(token_name: str) -> str | None:
     return _clean_token(stored_tokens[token_name])
 
 
-def _save_token(token: str, token_name: str) -> None:
+def _save_token(
+    token: str, token_name: str, *, refresh_token: str | None = None, expires_at: int | None = None
+) -> None:
     """
     Save the given token.
 
@@ -290,12 +435,21 @@ def _save_token(token: str, token_name: str) -> None:
             The token to save.
         token_name (`str`):
             The name of the token.
+        refresh_token (`str`, *optional*):
+            OAuth refresh token used to renew the access token when it expires.
+        expires_at (`int`, *optional*):
+            Unix timestamp at which the access token expires.
     """
-    tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
-    stored_tokens = get_stored_tokens()
-    stored_tokens[token_name] = token
-    _save_stored_tokens(stored_tokens)
-    logger.info(f"The token `{token_name}` has been saved to {tokens_path}")
+    stored_tokens = _read_stored_tokens_full()
+    fields = {"hf_token": token}
+    if refresh_token is not None:
+        fields["refresh_token"] = refresh_token
+    if expires_at is not None:
+        fields["expires_at"] = str(expires_at)
+    # Replace the whole section: re-logging in under the same name must drop stale metadata.
+    stored_tokens[token_name] = fields
+    _save_stored_tokens_full(stored_tokens)
+    logger.info(f"The token `{token_name}` has been saved to {constants.HF_STORED_TOKENS_PATH}")
 
 
 def _clean_token(token: str | None) -> str | None:

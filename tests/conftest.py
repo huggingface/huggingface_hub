@@ -27,6 +27,16 @@ def patch_constants(mocker):
 
 
 @pytest.fixture(autouse=True)
+def reset_oauth_refresh_state():
+    """`get_token()` caches its OAuth refresh decision in process-global state: reset between tests."""
+    from huggingface_hub.utils import _auth
+
+    _auth._OAUTH_REFRESH_CACHE = None
+    _auth._OAUTH_REFRESH_WARNED = False
+    yield
+
+
+@pytest.fixture(autouse=True)
 def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Make Xet usage explicit and deterministic, locally and in CI.
 

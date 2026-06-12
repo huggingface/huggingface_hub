@@ -42,6 +42,26 @@ class OIDCError(Exception):
     """
 
 
+# DEVICE CODE OAUTH ERRORS
+
+
+class DeviceCodeError(Exception):
+    """Raised when the Device Code OAuth login flow (RFC 8628) or an OAuth token refresh fails.
+
+    Covers failures at any step: requesting the device code, polling for the token,
+    authorization denied/expired, or unexpected server responses.
+
+    Attributes:
+        error_code (`str`, *optional*):
+            The OAuth `error` code returned by the server (e.g. `"access_denied"`,
+            `"expired_token"`, `"invalid_grant"`), if any.
+    """
+
+    def __init__(self, message: str, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code
+
+
 # HTTP ERRORS
 
 

@@ -22,7 +22,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -1809,6 +1809,79 @@ class TestRepoDeleteCommand:
             repo_type="dataset",
             missing_ok=True,
         )
+
+
+class TestAuthLoginCommand:
+    DEVICE_INFO = {
+        "device_code": "device-xxx",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": "https://huggingface.co/oauth/device",
+        "verification_uri_complete": "https://huggingface.co/oauth/device?user_code=ABCD-EFGH",
+        "interval": 5,
+        "expires_in": 900,
+    }
+    TOKEN_RESPONSE = {"access_token": "hf_oauth_123", "refresh_token": "rt_123", "expires_in": 2592000}
+
+    @contextmanager
+    def _patched_device_flow(self):
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", return_value=self.TOKEN_RESPONSE) as mock_poll,
+            patch("huggingface_hub.cli.auth._save_oauth_token", return_value=("oauth-testuser", "testuser")),
+        ):
+            yield mock_poll
+
+    def test_login_json_event_stream(self, runner: CliRunner) -> None:
+        with self._patched_device_flow():
+            result = runner.invoke(app, ["auth", "login", "--format", "json"])
+        assert result.exit_code == 0
+        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        assert [e["event"] for e in events] == ["device_code", "auth_success"]
+        assert events[0]["user_code"] == "ABCD-EFGH"
+        assert events[0]["verification_uri"] == "https://huggingface.co/oauth/device"
+        assert events[1]["user"] == "testuser"
+        assert events[1]["token_name"] == "oauth-testuser"
+
+    def test_login_agent_event_stream(self, runner: CliRunner) -> None:
+        with self._patched_device_flow():
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        lines = [line for line in result.stdout.splitlines() if line.startswith("event=")]
+        assert lines[0].startswith("event=device_code ")
+        assert "user_code=ABCD-EFGH" in lines[0]
+        assert lines[1].startswith("event=auth_success ")
+
+    def test_login_json_auth_error_event(self, runner: CliRunner) -> None:
+        """A failed device flow must emit a terminal event on stdout, not just stderr text."""
+        error = DeviceCodeError("Authorization was denied. Please try again.", error_code="access_denied")
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", side_effect=error),
+        ):
+            result = runner.invoke(app, ["auth", "login", "--format", "json"])
+        assert result.exit_code != 0
+        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        assert [e["event"] for e in events] == ["device_code", "auth_error"]
+        assert events[1]["error_code"] == "access_denied"
+
+    def test_login_json_already_logged_in_event(self, runner: CliRunner) -> None:
+        """Already logged in: still exactly one terminal event on stdout."""
+        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_existing"):
+            result = runner.invoke(app, ["auth", "login", "--format", "json"])
+        assert result.exit_code == 0
+        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        assert events == [{"event": "auth_success", "already_logged_in": True}]
+
+
+class TestAuthSwitchCommand:
+    def test_switch_requires_token_name_in_non_interactive_mode(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_stored_tokens", return_value={"a": "hf_a", "b": "hf_b"}):
+            result = runner.invoke(app, ["auth", "switch", "--format", "json"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token-name" in str(result.exception)
 
 
 class TestAuthWhoamiCommand:

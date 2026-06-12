@@ -156,9 +156,7 @@ nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
 
 ## hf auth login
 
-In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
-
-Once you have your token, run the following command in your terminal:
+In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, run the following command in your terminal:
 
 ```bash
 >>> hf auth login
@@ -170,25 +168,26 @@ If you are already logged in, this command will skip the prompt and display a me
 >>> hf auth login --force
 ```
 
-If you are not logged in, the command will prompt you for a token. Copy-paste yours and press _Enter_. Then, you'll be asked if the token should also be saved as a git credential. Press _Enter_ again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+By default, the command logs you in with your browser: it prints a URL and a short code. Open the URL, enter the code, approve the request, and the CLI retrieves and saves an access token on your machine. The token expires after a while but is refreshed automatically as long as you keep using it.
 
 ```
-_|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-_|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-_|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-_|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-_|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+? How would you like to log in?  [Use arrows, Enter to confirm]
+> Log in with your browser
+  Paste an access token
 
-To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Enter your token (input will not be visible):
-Add token as git credential? (Y/n)
-Token is valid (permission: write).
-Your token has been saved in your configured git credential helpers (store).
+    Open this URL in your browser:
+        https://huggingface.co/oauth/device
+
+    And enter the code: ABCD-EFGH
+
+    Waiting for authorization...
+Token is valid.
+The token `oauth-wauplin` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
 Your token has been saved to /home/wauplin/.cache/huggingface/token
-Login successful
+Login successful.
 ```
 
-Alternatively, if you want to log-in without being prompted, you can pass the token directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
+You can also choose to paste a [User Access Token](https://huggingface.co/docs/hub/security-tokens) generated from your [Settings page](https://huggingface.co/settings/tokens), either interactively (select *Paste an access token*) or directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
 
 ```bash
 # Or using an environment variable
@@ -200,6 +199,16 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 The current active token is: `token_name`
 ```
+
+In non-interactive environments (CI, scripts, AI agents), the command never prompts: with `--format json` it runs the browser flow and streams one JSON event per line, so the calling program can surface the URL and code to a user and wait for completion:
+
+```bash
+>>> hf auth login --format json
+{"event": "device_code", "verification_uri": "https://huggingface.co/oauth/device", "user_code": "ABCD-EFGH", "verification_uri_complete": "https://huggingface.co/oauth/device", "expires_in": 900, "interval": 5}
+{"event": "auth_success", "user": "wauplin", "token_name": "oauth-wauplin"}
+```
+
+The command always ends with a terminal event: `auth_success` on success (with `"already_logged_in": true` if there was nothing to do — use `--force` to re-login), or `auth_error` with a non-zero exit code on failure. Events are only emitted for the browser flow: `--token` logins print nothing on success.
 
 For more details about authentication, check out [this section](../quick-start#authentication).
 

@@ -175,6 +175,28 @@ class Output:
                 if values:
                     print(values[0])
 
+    def event(self, name: str, **data: Any) -> None:
+        """Emit one machine-readable event line to stdout, flushed immediately.
+
+        For flows that block on user action (e.g. the device-code login) and must stream their
+        progress to a watching program. JSON mode prints one JSON object per line; agent and
+        quiet modes print a line of `key=value` pairs (quiet is not silenced: the event payload,
+        e.g. the login URL + code, is the command's output). No-op in human mode, where the flow
+        prints its own UX.
+        """
+        match self.mode:
+            case OutputFormat.json:
+                print(json.dumps({"event": name, **data}), flush=True)
+            case OutputFormat.agent | OutputFormat.quiet:
+                parts = [f"event={name}"]
+                for k, v in data.items():
+                    if v is None:
+                        continue
+                    value = str(v)
+                    parts.append(f'{k}="{value}"' if " " in value else f"{k}={value}")
+                print(" ".join(parts), flush=True)
+            # human: no-op
+
     def confirm(self, message: str, *, default: bool = False, yes: bool = False, confirm_param: str = "--yes") -> None:
         """
         Ask for confirmation. Raises `ConfirmationError` in non-human modes.
