@@ -370,13 +370,18 @@ class Sandbox:
     ```
     """
 
-    def __init__(self, *, job_id: str, base_url: str, sandbox_token: str, job: JobInfo, api: HfApi) -> None:
+    def __init__(
+        self, *, job_id: str, base_url: str, sandbox_token: str, job: JobInfo, api: HfApi, owns_job: bool
+    ) -> None:
         """Use [`Sandbox.create`] or [`Sandbox.connect`] instead of calling this directly."""
         self.id = job_id
         self._base_url = base_url
         self._job = job
         self._api = api
         self._killed = False
+        # True when this instance created the job (so `with` kills it on exit); False when it
+        # merely reattached via `connect` (so `with` only releases the local client, job keeps running).
+        self._owns_job = owns_job
         self.files = SandboxFiles(self)
 
         self._sandbox_token = sandbox_token
@@ -468,9 +473,12 @@ class Sandbox:
             expose=[SANDBOX_SERVER_PORT, *(expose or [])],
             namespace=namespace,
         )
+        sandbox: "Sandbox | None" = None
         try:
             base_url = _find_server_url(job)
-            sandbox = cls(job_id=job.id, base_url=base_url, sandbox_token=sandbox_token, job=job, api=api)
+            sandbox = cls(
+                job_id=job.id, base_url=base_url, sandbox_token=sandbox_token, job=job, api=api, owns_job=True
+            )
             sandbox._wait_ready(start_timeout)
         except Exception:
             # run_job already started a billable job; cancel it before re-raising so it
@@ -479,6 +487,8 @@ class Sandbox:
                 api.cancel_job(job_id=job.id, namespace=job.owner.name)
             except Exception as e:
                 logger.warning(f"Failed to cancel sandbox job {job.id} after startup failure: {e}")
+            if sandbox is not None:
+                sandbox.close()  # release the HTTP client opened in __init__
             raise
         return sandbox
 
@@ -504,6 +514,7 @@ class Sandbox:
             sandbox_token=sandbox_token,
             job=job,
             api=api,
+            owns_job=False,
         )
 
     @classmethod
@@ -541,7 +552,12 @@ class Sandbox:
         return self
 
     def __exit__(self, *exc_info) -> None:
-        self.kill()
+        # Created sandboxes are killed on exit; reattached ones (via `connect`) keep running
+        # and only release the local HTTP client.
+        if self._owns_job:
+            self.kill()
+        else:
+            self.close()
 
     # ------------------------------------------------------------------ exec
 

@@ -56,7 +56,7 @@ def _make_sandbox(base_url: str) -> Sandbox:
     job.status.expose_urls = [base_url]
     api = MagicMock()
     api.token = "hf_test"
-    return Sandbox(job_id="job123", base_url=base_url, sandbox_token="secret", job=job, api=api)
+    return Sandbox(job_id="job123", base_url=base_url, sandbox_token="secret", job=job, api=api, owns_job=True)
 
 
 class _FakeServer(BaseHTTPRequestHandler):
@@ -165,3 +165,13 @@ class TestSandboxClient:
         with _make_sandbox(fake_server) as sandbox:
             pass
         sandbox._api.cancel_job.assert_called_once()
+
+    def test_context_manager_closes_when_reattached(self, fake_server: str) -> None:
+        # A sandbox reattached via `connect` (owns_job=False) keeps running on exit: the local
+        # HTTP client is released but the job is not cancelled.
+        sandbox = _make_sandbox(fake_server)
+        sandbox._owns_job = False
+        with sandbox:
+            pass
+        sandbox._api.cancel_job.assert_not_called()
+        assert sandbox._client.is_closed

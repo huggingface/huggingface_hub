@@ -119,6 +119,9 @@ def sandbox_create(
         forward_hf_token=forward_hf_token,
         token=token,
     )
+    # Release the HTTP client (the sandbox keeps running); this one-shot command reports the id
+    # and exits, later commands reattach with their own connection.
+    sandbox.close()
     out.result("Sandbox ready", id=sandbox.id, image=image, elapsed=f"{time.time() - start:.1f}s")
     out.hint(f"Run a command with `hf sandbox exec {sandbox.id} -- echo hello`.")
     out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
