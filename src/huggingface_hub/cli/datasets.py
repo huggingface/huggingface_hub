@@ -20,6 +20,9 @@ Usage:
     # list datasets with a search query
     hf datasets ls --search "code"
 
+    # list benchmark datasets
+    hf datasets ls --benchmark official
+
     # get info about a dataset
     hf datasets info HuggingFaceFW/fineweb
 """
@@ -65,6 +68,16 @@ ExpandOpt = Annotated[
 ]
 
 
+BenchmarkOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help=(
+            "Filter datasets by benchmark tag. Use 'official' to list official benchmark datasets "
+            "(equivalent to the Python API's benchmark=True alias)."
+        ),
+    ),
+]
+
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
@@ -74,12 +87,14 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
+        "hf datasets ls --benchmark official",
     ],
 )
 def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    benchmark: BenchmarkOpt = None,
     sort: Annotated[
         Optional[DatasetSortEnum],
         typer.Option(help="Sort results."),
@@ -96,7 +111,13 @@ def datasets_ls(
     results = [
         api_object_to_dict(dataset_info)
         for dataset_info in api.list_datasets(
-            filter=filter, author=author, search=search, sort=sort_key, limit=limit, expand=expand
+            filter=filter,
+            author=author,
+            search=search,
+            benchmark=benchmark,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,
         )
     ]
     print_list_output(results, format=format, quiet=quiet)
