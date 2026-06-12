@@ -11606,6 +11606,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11647,6 +11648,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11697,6 +11704,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -12093,6 +12101,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12141,6 +12150,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12218,6 +12233,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
             namespace=namespace,
             token=token,
         )

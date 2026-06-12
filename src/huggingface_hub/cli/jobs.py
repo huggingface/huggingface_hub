@@ -63,12 +63,16 @@ Usage:
 
 import multiprocessing
 import multiprocessing.pool
+import shlex
 import shutil
+import subprocess
 import time
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
+from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
+from urllib.parse import urlsplit
 
 import typer
 
@@ -190,6 +194,14 @@ ExposeOpt = Annotated[
     ),
 ]
 
+SshEnabledOpt = Annotated[
+    bool,
+    typer.Option(
+        "--ssh",
+        help="Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     typer.Option(
@@ -299,6 +311,7 @@ def jobs_run(
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
+    ssh: SshEnabledOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -317,12 +330,15 @@ def jobs_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        ssh=ssh,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -731,6 +747,60 @@ def jobs_labels(
     out.result("Labels updated", id=job.id)
 
 
+@jobs_cli.command(
+    "ssh",
+    examples=[
+        "hf jobs ssh <job_id>",
+        "hf jobs ssh <job_id> --dry-run",
+        "hf jobs ssh <job_id> -i ~/.ssh/id_ed25519",
+    ],
+)
+def jobs_ssh(
+    job_id: JobIdArg,
+    identity_file: Annotated[
+        Path | None,
+        typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print the SSH command instead of running it."),
+    ] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """SSH into a running Job.
+
+    Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`) and your SSH
+    public key to be registered at https://huggingface.co/settings/keys.
+    """
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.inspect_job(job_id=job_id, namespace=namespace)
+    if job.status.ssh_url is None:
+        raise CLIError("SSH is not enabled on this job. Start a job with SSH support using `hf jobs run --ssh ...`.")
+    if job.status.stage == "SCHEDULING":
+        status = out.status("Waiting for the job to start...")
+        while job.status.stage == "SCHEDULING":
+            time.sleep(1)
+            job = api.inspect_job(job_id=job_id, namespace=namespace)
+        status.done(f"Job is {job.status.stage}")
+    if job.status.stage != "RUNNING":
+        raise CLIError(f"Cannot SSH into job '{job.id}': job is not running (stage: '{job.status.stage}').")
+    ssh_url = urlsplit(job.status.ssh_url)
+    cmd = ["ssh"]
+    if identity_file is not None:
+        cmd += ["-i", str(identity_file)]
+    if ssh_url.port is not None:
+        cmd += ["-p", str(ssh_url.port)]
+    cmd.append(f"{ssh_url.username}@{ssh_url.hostname}")
+    if dry_run:
+        out.text(shlex.join(cmd))
+        return
+    out.text(f"Running `{shlex.join(cmd)}`")
+    result = subprocess.run(cmd)
+    raise typer.Exit(code=result.returncode)
+
+
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
 jobs_cli.add_typer(uv_app, name="uv")
 
@@ -760,6 +830,7 @@ def jobs_uv_run(
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
+    ssh: SshEnabledOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -783,12 +854,15 @@ def jobs_uv_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        ssh=ssh,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
