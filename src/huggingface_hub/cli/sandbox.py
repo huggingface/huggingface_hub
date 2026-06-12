@@ -171,6 +171,7 @@ def sandbox_exec(
     )
     if result.timed_out:
         out.error(f"Command timed out after {exec_timeout}s.")
+        raise typer.Exit(code=result.exit_code or 124)  # 124: conventional timeout exit code
     if result.exit_code != 0:
         raise typer.Exit(code=result.exit_code if result.exit_code is not None else 1)
 

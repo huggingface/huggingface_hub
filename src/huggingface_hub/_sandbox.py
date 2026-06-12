@@ -270,31 +270,56 @@ class SandboxFiles:
         chunk = self.PARALLEL_CHUNK_SIZE
         return [(offset, min(chunk, size - offset)) for offset in range(0, size, chunk)]
 
-    def _read_ranges(self, path: str, size: int) -> List[bytes]:
-        from concurrent.futures import ThreadPoolExecutor
+    def _parallel(self, items: List[Any], fn: Callable[[requests.Session, Any], Any]) -> List[Any]:
+        """Run `fn(session, item)` over items concurrently.
 
-        def fetch(rng: tuple[int, int]) -> bytes:
+        Each worker thread gets a dedicated session (requests.Session is not thread-safe),
+        drawn from a small pool that is reused across items and closed at the end.
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        from queue import SimpleQueue
+
+        workers = min(self.PARALLEL_MAX_WORKERS, len(items))
+        sessions = [self._sandbox._new_session() for _ in range(workers)]
+        pool: SimpleQueue = SimpleQueue()
+        for session in sessions:
+            pool.put(session)
+
+        def run(item: Any) -> Any:
+            session = pool.get()
+            try:
+                return fn(session, item)
+            finally:
+                pool.put(session)
+
+        try:
+            with ThreadPoolExecutor(workers) as executor:
+                return list(executor.map(run, items))
+        finally:
+            for session in sessions:
+                session.close()
+
+    def _read_ranges(self, path: str, size: int) -> List[bytes]:
+        def fetch(session: requests.Session, rng: tuple[int, int]) -> bytes:
             offset, length = rng
             response = self._sandbox._request(
-                "GET", "/v1/files/read", params={"path": path, "offset": offset, "length": length}
+                "GET", "/v1/files/read", params={"path": path, "offset": offset, "length": length}, session=session
             )
             return response.content
 
-        with ThreadPoolExecutor(self.PARALLEL_MAX_WORKERS) as pool:
-            return list(pool.map(fetch, self._ranges(size)))
+        return self._parallel(self._ranges(size), fetch)
 
     def _write_ranges(self, path: str, data: bytes, mode: str | None) -> None:
-        from concurrent.futures import ThreadPoolExecutor
-
-        def push(rng: tuple[int, int]) -> None:
+        def push(session: requests.Session, rng: tuple[int, int]) -> None:
             offset, length = rng
             params: dict[str, Any] = {"path": path, "offset": offset}
             if mode is not None:
                 params["mode"] = mode
-            self._sandbox._request("PUT", "/v1/files/write", params=params, data=data[offset : offset + length])
+            self._sandbox._request(
+                "PUT", "/v1/files/write", params=params, data=data[offset : offset + length], session=session
+            )
 
-        with ThreadPoolExecutor(self.PARALLEL_MAX_WORKERS) as pool:
-            list(pool.map(push, self._ranges(len(data))))
+        self._parallel(self._ranges(len(data)), push)
 
     def list(self, path: str) -> List[FileEntry]:
         """List a directory in the sandbox."""
@@ -358,14 +383,11 @@ class Sandbox:
         self._killed = False
         self.files = SandboxFiles(self)
 
-        self._session = requests.Session()
-        # Parallel file transfers and concurrent run() calls share this session;
-        # size the pool so they get keep-alive connections instead of new TLS handshakes.
-        adapter = requests.adapters.HTTPAdapter(pool_maxsize=SandboxFiles.PARALLEL_MAX_WORKERS + 2)
-        self._session.mount("https://", adapter)
-        self._session.mount("http://", adapter)
-        self._session.headers["Authorization"] = f"Bearer {_effective_token(api)}"
-        self._session.headers["X-Sandbox-Token"] = sandbox_token
+        self._sandbox_token = sandbox_token
+        self._auth_token = _effective_token(api)
+        # requests.Session is not thread-safe, so parallel file transfers give each worker
+        # its own session built here; the main session serves all sequential requests.
+        self._session = self._new_session()
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -568,7 +590,7 @@ class Sandbox:
                     )
         if result is None:
             raise SandboxError("connection lost while running command")
-        if check and result.exit_code != 0:
+        if check and (result.exit_code != 0 or result.timed_out):
             raise SandboxCommandError(cmd=cmd, result=result)
         return result
 
@@ -621,10 +643,26 @@ class Sandbox:
 
     # ------------------------------------------------------------------ internals
 
-    def _request(self, method: str, path: str, *, stream: bool = False, **kwargs) -> requests.Response:
-        """Request to the in-sandbox server. Raises SandboxError on API errors."""
+    def _new_session(self) -> requests.Session:
+        """Build a session configured with the sandbox auth headers and connection pool."""
+        session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_maxsize=SandboxFiles.PARALLEL_MAX_WORKERS + 2)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        session.headers["Authorization"] = f"Bearer {self._auth_token}"
+        session.headers["X-Sandbox-Token"] = self._sandbox_token
+        return session
+
+    def _request(
+        self, method: str, path: str, *, stream: bool = False, session: requests.Session | None = None, **kwargs
+    ) -> requests.Response:
+        """Request to the in-sandbox server. Raises SandboxError on API errors.
+
+        Pass `session` to use a dedicated session (parallel transfers must not share one).
+        """
+        session = session or self._session
         timeout = (10, 70) if stream else (10, 60)  # server pings every 15s on streams
-        response = self._session.request(method, self._base_url + path, stream=stream, timeout=timeout, **kwargs)
+        response = session.request(method, self._base_url + path, stream=stream, timeout=timeout, **kwargs)
         if response.status_code >= 400:
             try:
                 message = response.json()["error"]
@@ -647,9 +685,10 @@ class Sandbox:
                 pass
             if time.time() - last_job_check > 2.0:
                 last_job_check = time.time()
-                job = self._api.inspect_job(job_id=self.id)
+                namespace = self._job.owner.name
+                job = self._api.inspect_job(job_id=self.id, namespace=namespace)
                 if job.status.stage in ("COMPLETED", "ERROR", "DELETED"):
-                    logs = _tail_job_logs(self._api, self.id)
+                    logs = _tail_job_logs(self._api, self.id, namespace=namespace)
                     raise SandboxError(
                         f"Sandbox job {self.id} terminated during startup "
                         f"(status: {job.status.stage}, message: {job.status.message}).{logs}"
@@ -672,9 +711,9 @@ def _find_server_url(job: JobInfo) -> str:
     raise SandboxError(f"Job {job.id} does not expose the sandbox server port {SANDBOX_SERVER_PORT}.")
 
 
-def _tail_job_logs(api: HfApi, job_id: str, limit: int = 20) -> str:
+def _tail_job_logs(api: HfApi, job_id: str, *, namespace: str | None = None, limit: int = 20) -> str:
     try:
-        lines = list(api.fetch_job_logs(job_id=job_id))[-limit:]
+        lines = list(api.fetch_job_logs(job_id=job_id, namespace=namespace))[-limit:]
     except Exception:
         return ""
     return " Last logs:\n" + "\n".join(f"  {line}" for line in lines) if lines else ""
