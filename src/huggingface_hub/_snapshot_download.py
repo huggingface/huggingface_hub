@@ -2,6 +2,7 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal, overload
+from urllib.parse import quote, urlparse
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -380,6 +381,24 @@ def snapshot_download(
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc
 
+    # On public repos, `GET /resolve/...` always answers with a 307 redirect to the resolve-cache
+    # endpoint, costing 2 requests per file. The redirect target is deterministic (commit hash, path
+    # and etag — all known from the tree listing), so build it directly and save the redirect hop.
+    is_public = getattr(repo_info, "private", None) is False
+
+    def _download_location(repo_file: str, entry: TreeCacheEntry) -> str:
+        resolve_url = hf_hub_url(repo_id, repo_file, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
+        if not is_public or entry.lfs_sha256 is not None:
+            # Private repos serve content directly from /resolve (no redirect). LFS files redirect
+            # to the CDN with a signed URL we cannot build ourselves.
+            return resolve_url
+        base = endpoint if endpoint is not None else constants.ENDPOINT
+        resolve_path = urlparse(resolve_url).path
+        return (
+            f"{base.rstrip('/')}/api/resolve-cache/{repo_type}s/{repo_id}/{commit_hash}/{repo_file}"
+            f"?{quote(resolve_path, safe='')}=&etag=%22{entry.etag}%22"
+        )
+
     def _file_metadata(repo_file: str) -> HfFileMetadata:
         """Build the same metadata the `/resolve` HEAD endpoint would return, from the tree listing entry."""
         entry = tree_entries[repo_file]
@@ -398,7 +417,7 @@ def snapshot_download(
         return HfFileMetadata(
             commit_hash=commit_hash,
             etag=entry.etag,
-            location=hf_hub_url(repo_id, repo_file, repo_type=repo_type, revision=commit_hash, endpoint=endpoint),
+            location=_download_location(repo_file, entry),
             size=entry.file_size,
             xet_file_data=xet_file_data,
         )
@@ -414,6 +433,27 @@ def snapshot_download(
                 f.write(commit_hash)
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
+
+    # Download all missing xet files in a single xet download group, so the xet access token is
+    # fetched once for the whole snapshot instead of once per file (hf_xet requests one token per
+    # download group). Blobs land directly in the cache; the per-file loop below then only creates
+    # symlinks for them (no HTTP call). Best-effort: falls back to per-file downloads on any error.
+    if not dry_run and local_dir is None:
+        _prefetch_xet_blobs(
+            storage_folder=storage_folder,
+            tree_entries=tree_entries,
+            filenames=filtered_repo_files,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            commit_hash=commit_hash,
+            endpoint=endpoint,
+            token=token,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            headers=headers,
+            force_download=force_download,
+        )
 
     results: list[str | DryRunFileInfo] = []
 
@@ -505,3 +545,68 @@ def snapshot_download(
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
+def _prefetch_xet_blobs(
+    *,
+    storage_folder: str,
+    tree_entries: dict[str, TreeCacheEntry],
+    filenames: list[str],
+    repo_id: str,
+    repo_type: str,
+    commit_hash: str,
+    endpoint: str | None,
+    token: bool | str | None,
+    library_name: str | None,
+    library_version: str | None,
+    user_agent: dict | str | None,
+    headers: dict[str, str] | None,
+    force_download: bool,
+) -> None:
+    """Download all missing xet blobs in a single xet download group (one access token fetch). Best-effort."""
+    from .utils import build_hf_headers
+    from .utils._xet import get_xet_session, xet_headers_without_auth
+
+    to_fetch: dict[str, TreeCacheEntry] = {}  # blob path -> entry (deduplicated by etag)
+    for filename in filenames:
+        entry = tree_entries[filename]
+        if entry.xet_hash is None:
+            continue
+        blob_path = os.path.join(storage_folder, "blobs", entry.etag)
+        if not force_download and os.path.exists(blob_path):
+            continue
+        to_fetch[blob_path] = entry
+    if not to_fetch:
+        return
+    try:
+        from hf_xet import XetFileInfo
+
+        hf_headers = build_hf_headers(
+            token=token,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            headers=headers,
+        )
+        refresh_route = xet_connection_info_refresh_url(
+            token_type=XetTokenType.READ,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=commit_hash,
+            endpoint=endpoint,
+        )
+        os.makedirs(os.path.join(storage_folder, "blobs"), exist_ok=True)
+        incomplete_paths = {blob_path: f"{blob_path}.{os.getpid()}.xet.incomplete" for blob_path in to_fetch}
+        session = get_xet_session()
+        with session.new_file_download_group(
+            token_refresh_url=refresh_route,
+            token_refresh_headers=hf_headers,
+            custom_headers=xet_headers_without_auth(hf_headers),
+        ) as group:
+            for blob_path, entry in to_fetch.items():
+                group.start_download_file(
+                    XetFileInfo(entry.xet_hash, entry.file_size), os.path.abspath(incomplete_paths[blob_path])
+                )
+        for blob_path, incomplete_path in incomplete_paths.items():
+            os.replace(incomplete_path, blob_path)
+        logger.info(f"Fetched {len(to_fetch)} xet files in a single download group.")
+    except Exception as e:
+        logger.warning(f"Batch xet download failed, falling back to per-file downloads: {e}")
