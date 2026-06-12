@@ -500,3 +500,35 @@ class ConfirmationError(CLIError):
 
 class CLIExtensionInstallError(CLIError):
     """Error during CLI extension installation."""
+
+
+# SANDBOX ERRORS
+
+
+class SandboxError(Exception):
+    """Base exception for sandbox operations (see `huggingface_hub.Sandbox`).
+
+    Attributes:
+        status_code: The HTTP status returned by the in-sandbox server, if the error
+            originated from an API response (e.g. `404` for a missing file). `None` otherwise.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class SandboxCommandError(SandboxError):
+    """Raised when a command run in a sandbox exits with a non-zero code.
+
+    Attributes:
+        cmd: The command that failed.
+        result: The full `CommandResult` (exit_code, stdout, stderr, ...).
+    """
+
+    def __init__(self, cmd, result) -> None:
+        self.cmd = cmd
+        self.result = result
+        stderr_tail = result.stderr[-1000:] if result.stderr else "<empty>"
+        reason = "timed out" if result.timed_out else f"exited with code {result.exit_code}"
+        super().__init__(f"Command {cmd!r} {reason}. stderr:\n{stderr_tail}")

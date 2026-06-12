@@ -40,6 +40,7 @@ $ hf [OPTIONS] COMMAND [ARGS]...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repos`: Manage repos on the Hub. [alias: repo]
+* `sandbox`: Run and manage sandboxes on Hugging Face...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
@@ -3538,6 +3539,244 @@ $ hf repos tag list [OPTIONS] REPO_ID
 
 Examples
   $ hf repos tag list my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf sandbox`
+
+Run and manage sandboxes on Hugging Face Jobs.
+
+**Usage**:
+
+```console
+$ hf sandbox [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cp`: Copy a file between the local machine and...
+* `create`: Create a sandbox and wait until it is ready.
+* `exec`: Run a command in a sandbox, streaming output.
+* `kill`: Terminate a sandbox.
+* `ls`: List your running sandboxes. [alias: list]
+* `ps`: List background processes running in a...
+* `url`: Print the public URL of an exposed sandbox...
+
+### `hf sandbox cp`
+
+Copy a file between the local machine and a sandbox (docker-style).
+
+**Usage**:
+
+```console
+$ hf sandbox cp [OPTIONS] SRC DST
+```
+
+**Arguments**:
+
+* `SRC`: Source: a local path or <sandbox_id>:<path>.  [required]
+* `DST`: Destination: a local path or <sandbox_id>:<path>.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox cp data.csv <sandbox_id>:/data/data.csv
+  $ hf sandbox cp <sandbox_id>:/app/result.json result.json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox create`
+
+Create a sandbox and wait until it is ready.
+
+**Usage**:
+
+```console
+$ hf sandbox create [OPTIONS] [IMAGE]
+```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image (needs /bin/sh).  [default: python:3.12]
+
+**Options**:
+
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--idle-timeout TEXT`: Auto-terminate after this much inactivity (e.g. '10m'). Defaults to 10m.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox create
+  $ hf sandbox create ubuntu:24.04
+  $ hf sandbox create --flavor a10g-small --timeout 1h
+  $ hf sandbox create --expose 8080 -e DEBUG=1
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox exec`
+
+Run a command in a sandbox, streaming output. Exits with the command's exit code.
+
+**Usage**:
+
+```console
+$ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+* `COMMAND...`: The command to run.  [required]
+
+**Options**:
+
+* `-w, --workdir TEXT`: Working directory.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--timeout FLOAT`: Kill the command after this many seconds.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox exec <sandbox_id> -- python -c "print(42)"
+  $ hf sandbox exec -w /app <sandbox_id> -- pytest -x
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox kill`
+
+Terminate a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox kill [OPTIONS] SANDBOX_ID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox kill <sandbox_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox ls`
+
+List your running sandboxes. [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox ls [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox ps`
+
+List background processes running in a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox ps [OPTIONS] SANDBOX_ID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox ps <sandbox_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox url`
+
+Print the public URL of an exposed sandbox port.
+
+**Usage**:
+
+```console
+$ hf sandbox url [OPTIONS] SANDBOX_ID PORT
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+* `PORT`: Container port (must have been exposed at creation).  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox url <sandbox_id> 8080
 
 Learn more
   Use `hf <command> --help` for more information about a command.

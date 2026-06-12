@@ -102,6 +102,11 @@ _SUBMOD_ATTRS = {
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
     ],
+    "_sandbox": [
+        "CommandResult",
+        "Sandbox",
+        "SandboxProcess",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -684,6 +689,7 @@ __all__ = [
     "ChatCompletionStreamOutputUsage",
     "Collection",
     "CollectionItem",
+    "CommandResult",
     "CommitInfo",
     "CommitOperation",
     "CommitOperationAdd",
@@ -807,6 +813,8 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
+    "Sandbox",
+    "SandboxProcess",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1265,6 +1273,11 @@ if TYPE_CHECKING:  # pragma: no cover
         OAuthUserInfo,  # noqa: F401
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
+    )
+    from ._sandbox import (
+        CommandResult,  # noqa: F401
+        Sandbox,  # noqa: F401
+        SandboxProcess,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (

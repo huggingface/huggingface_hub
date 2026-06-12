@@ -32,6 +32,8 @@
       title: Inference Endpoints
     - local: guides/jobs
       title: Jobs
+    - local: guides/sandbox
+      title: Sandboxes
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -104,3 +106,5 @@
       title: OAuth
     - local: package_reference/jobs
       title: Jobs
+    - local: package_reference/sandbox
+      title: Sandboxes

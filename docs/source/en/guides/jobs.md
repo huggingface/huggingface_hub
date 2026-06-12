@@ -44,6 +44,9 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 Now the rest of this guide will show you the python API.
 If you would like to view all the available `hf jobs` commands and options instead, check out the [guide on the `hf jobs` command line interface](./cli#hf-jobs).
 
+> [!TIP]
+> Need an *interactive* machine instead of a fire-and-forget job — e.g. to run AI-generated code, with command execution and file transfer? Check out [Sandboxes](./sandbox), built on top of Jobs.
+
 ## Run a Job
 
 Run compute Jobs defined with a command and a Docker Image on Hugging Face infrastructure (including GPUs and TPUs).
