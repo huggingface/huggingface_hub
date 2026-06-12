@@ -338,7 +338,7 @@ def jobs_run(
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.id}` to open an SSH session into the job.")
+        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -862,7 +862,7 @@ def jobs_uv_run(
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.id}` to open an SSH session into the job.")
+        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
