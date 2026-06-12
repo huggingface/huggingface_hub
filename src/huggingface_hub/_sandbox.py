@@ -464,12 +464,17 @@ class Sandbox:
             expose=[SANDBOX_SERVER_PORT, *(expose or [])],
             namespace=namespace,
         )
-        base_url = _find_server_url(job)
-        sandbox = cls(job_id=job.id, base_url=base_url, sandbox_token=sandbox_token, job=job, api=api)
         try:
+            base_url = _find_server_url(job)
+            sandbox = cls(job_id=job.id, base_url=base_url, sandbox_token=sandbox_token, job=job, api=api)
             sandbox._wait_ready(start_timeout)
         except Exception:
-            sandbox.kill()
+            # run_job already started a billable job; cancel it before re-raising so it
+            # doesn't linger as an orphan (e.g. if the server port isn't exposed or startup fails).
+            try:
+                api.cancel_job(job_id=job.id, namespace=job.owner.name)
+            except Exception as e:
+                logger.warning(f"Failed to cancel sandbox job {job.id} after startup failure: {e}")
             raise
         return sandbox
 
@@ -481,6 +486,7 @@ class Sandbox:
         (the sandbox auth token is derived, not stored).
         """
         api = HfApi(token=token)
+        sandbox_id, namespace = _split_sandbox_id(sandbox_id, namespace)
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
         nonce = (job.labels or {}).get(SANDBOX_LABEL)
         if nonce is None:
@@ -510,12 +516,14 @@ class Sandbox:
         """Terminate the sandbox (cancels the underlying job). Idempotent."""
         if self._killed:
             return
-        self._killed = True
-        self._client.close()
         try:
             self._api.cancel_job(job_id=self.id, namespace=self._job.owner.name)
         except Exception as e:
+            # Don't mark as killed: a later kill() call should retry so the job isn't left running.
             logger.warning(f"Failed to cancel sandbox job {self.id}: {e}")
+            return
+        self._killed = True
+        self._client.close()
 
     def __enter__(self) -> "Sandbox":
         return self
@@ -696,6 +704,20 @@ def _effective_token(api: HfApi) -> str:
     if not token:
         raise SandboxError("A Hugging Face token is required to use sandboxes. Run `hf auth login` first.")
     return token
+
+
+def _split_sandbox_id(sandbox_id: str, namespace: str | None) -> tuple[str, str | None]:
+    """Accept `namespace/sandbox_id` ids (as shown in the Hub UI), like `hf jobs` does."""
+    if "/" not in sandbox_id:
+        return sandbox_id, namespace
+    extracted_namespace, parsed_id = sandbox_id.split("/", 1)
+    if not extracted_namespace or not parsed_id or "/" in parsed_id:
+        raise SandboxError(f"Sandbox id must be 'sandbox_id' or 'namespace/sandbox_id', got {sandbox_id!r}.")
+    if namespace is not None and namespace != extracted_namespace:
+        raise SandboxError(
+            f"Conflicting namespace: got namespace={namespace!r} but sandbox id implies namespace={extracted_namespace!r}."
+        )
+    return parsed_id, extracted_namespace
 
 
 def _find_server_url(job: JobInfo) -> str:
