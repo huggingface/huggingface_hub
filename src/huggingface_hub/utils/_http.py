@@ -1013,13 +1013,14 @@ def _format(
 
 
 # Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
-_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret")
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret", "device_code")
 
 
 def _redact_sensitive_body(body: str) -> str:
-    """Redact OAuth credential values from a JSON request body string."""
+    """Redact OAuth credential values from a JSON or form-urlencoded request body string."""
     for key in _SENSITIVE_BODY_KEYS:
-        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)
+        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)  # JSON
+        body = re.sub(rf"(^|&)({key}=)[^&]*", r"\1\2<REDACTED>", body)  # application/x-www-form-urlencoded
     return body
 
 
