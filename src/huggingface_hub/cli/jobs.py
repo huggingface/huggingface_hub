@@ -63,13 +63,10 @@ Usage:
 
 import multiprocessing
 import multiprocessing.pool
-import shlex
 import shutil
-import subprocess
 import time
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
-from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
@@ -88,8 +85,11 @@ from ._cli_utils import (
     SecretsFileOpt,
     SecretsOpt,
     SoftChoice,
+    SshDryRunOpt,
+    SshIdentityFileOpt,
     TokenOpt,
     VolumesOpt,
+    exec_ssh,
     get_hf_api,
     parse_env_map,
     parse_volumes,
@@ -757,14 +757,8 @@ def jobs_labels(
 )
 def jobs_ssh(
     job_id: JobIdArg,
-    identity_file: Annotated[
-        Path | None,
-        typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Print the SSH command instead of running it."),
-    ] = False,
+    identity_file: SshIdentityFileOpt = None,
+    dry_run: SshDryRunOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -781,18 +775,12 @@ def jobs_ssh(
     if job.status.stage != "RUNNING":
         raise CLIError(f"Cannot SSH into job '{job.id}': job is not running (stage: '{job.status.stage}').")
     ssh_url = urlsplit(job.status.ssh_url)
-    cmd = ["ssh"]
-    if identity_file is not None:
-        cmd += ["-i", str(identity_file)]
-    if ssh_url.port is not None:
-        cmd += ["-p", str(ssh_url.port)]
-    cmd.append(f"{ssh_url.username}@{ssh_url.hostname}")
-    if dry_run:
-        out.text(shlex.join(cmd))
-        return
-    out.text(f"Running `{shlex.join(cmd)}`")
-    result = subprocess.run(cmd)
-    raise typer.Exit(code=result.returncode)
+    exec_ssh(
+        f"{ssh_url.username}@{ssh_url.hostname}",
+        port=ssh_url.port,
+        identity_file=identity_file,
+        dry_run=dry_run,
+    )
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
