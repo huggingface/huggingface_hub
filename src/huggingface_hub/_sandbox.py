@@ -31,13 +31,13 @@ import hashlib
 import hmac
 import json
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List
 
-import requests
-import requests.adapters
+import httpx
 
 from . import constants
 from ._space_api import Volume
@@ -163,7 +163,7 @@ class SandboxProcess:
 
     def wait(self) -> int | None:
         """Block until the process exits and return its exit code (None if killed by signal)."""
-        with self._sandbox._request("GET", f"/v1/procs/{self.pid}/wait", stream=True) as response:
+        with self._sandbox._stream("GET", f"/v1/procs/{self.pid}/wait") as response:
             for event in _iter_events(response):
                 if event["event"] == "exit":
                     return event["exit_code"]
@@ -179,7 +179,7 @@ class SandboxProcess:
         With `follow=True`, keeps streaming live output until the process exits.
         """
         params = {"follow": "1"} if follow else {}
-        with self._sandbox._request("GET", f"/v1/procs/{self.pid}/logs", params=params, stream=True) as response:
+        with self._sandbox._stream("GET", f"/v1/procs/{self.pid}/logs", params=params) as response:
             for event in _iter_events(response):
                 if event["event"] in ("stdout", "stderr"):
                     yield event["event"], event["data"]
@@ -187,7 +187,9 @@ class SandboxProcess:
     def send_stdin(self, data: str | bytes, eof: bool = False) -> None:
         """Write data to the process stdin. Set `eof=True` to close the pipe afterwards."""
         payload = data.encode() if isinstance(data, str) else data
-        self._sandbox._request("POST", f"/v1/procs/{self.pid}/stdin", params={"eof": "1"} if eof else {}, data=payload)
+        self._sandbox._request(
+            "POST", f"/v1/procs/{self.pid}/stdin", params={"eof": "1"} if eof else {}, content=payload
+        )
 
     @property
     def running(self) -> bool:
@@ -230,18 +232,20 @@ class SandboxFiles:
 
         Args:
             path: Destination path in the sandbox.
-            data: Content as `str`, `bytes`, or a binary file object (streamed).
+            data: Content as `str`, `bytes`, or a binary file object.
             mode: Optional octal permission string, e.g. `"755"`.
         """
         if isinstance(data, str):
             data = data.encode()
-        if isinstance(data, bytes) and len(data) > self.PARALLEL_THRESHOLD:
+        elif not isinstance(data, bytes):
+            data = data.read()  # binary file object
+        if len(data) > self.PARALLEL_THRESHOLD:
             self._write_ranges(path, data, mode)
             return
         params = {"path": path}
         if mode is not None:
             params["mode"] = mode
-        self._sandbox._request("PUT", "/v1/files/write", params=params, data=data)
+        self._sandbox._request("PUT", "/v1/files/write", params=params, content=data)
 
     def upload(self, local_path: str | Path, path: str, mode: str | None = None) -> None:
         """Upload a local file to the sandbox (parallel ranged transfer for large files)."""
@@ -260,64 +264,44 @@ class SandboxFiles:
                 for part in self._read_ranges(path, size):
                     f.write(part)
             return
-        response = self._sandbox._request("GET", "/v1/files/read", params={"path": path}, stream=True)
-        with response:
+        with self._sandbox._stream("GET", "/v1/files/read", params={"path": path}) as response:
             with open(local_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                     f.write(chunk)
 
     def _ranges(self, size: int) -> List[tuple[int, int]]:
         chunk = self.PARALLEL_CHUNK_SIZE
         return [(offset, min(chunk, size - offset)) for offset in range(0, size, chunk)]
 
-    def _parallel(self, items: List[Any], fn: Callable[[requests.Session, Any], Any]) -> List[Any]:
-        """Run `fn(session, item)` over items concurrently.
+    def _parallel(self, items: List[Any], fn: Callable[[Any], Any]) -> List[Any]:
+        """Run `fn(item)` over items concurrently.
 
-        Each worker thread gets a dedicated session (requests.Session is not thread-safe),
-        drawn from a small pool that is reused across items and closed at the end.
+        All workers share the sandbox's `httpx.Client`, which is thread-safe and pools
+        connections, so parallel transfers fan out over several streams at once.
         """
         from concurrent.futures import ThreadPoolExecutor
-        from queue import SimpleQueue
 
         workers = min(self.PARALLEL_MAX_WORKERS, len(items))
-        sessions = [self._sandbox._new_session() for _ in range(workers)]
-        pool: SimpleQueue = SimpleQueue()
-        for session in sessions:
-            pool.put(session)
-
-        def run(item: Any) -> Any:
-            session = pool.get()
-            try:
-                return fn(session, item)
-            finally:
-                pool.put(session)
-
-        try:
-            with ThreadPoolExecutor(workers) as executor:
-                return list(executor.map(run, items))
-        finally:
-            for session in sessions:
-                session.close()
+        with ThreadPoolExecutor(workers) as executor:
+            return list(executor.map(fn, items))
 
     def _read_ranges(self, path: str, size: int) -> List[bytes]:
-        def fetch(session: requests.Session, rng: tuple[int, int]) -> bytes:
+        def fetch(rng: tuple[int, int]) -> bytes:
             offset, length = rng
             response = self._sandbox._request(
-                "GET", "/v1/files/read", params={"path": path, "offset": offset, "length": length}, session=session
+                "GET", "/v1/files/read", params={"path": path, "offset": offset, "length": length}
             )
             return response.content
 
         return self._parallel(self._ranges(size), fetch)
 
     def _write_ranges(self, path: str, data: bytes, mode: str | None) -> None:
-        def push(session: requests.Session, rng: tuple[int, int]) -> None:
+        def push(rng: tuple[int, int]) -> None:
             offset, length = rng
             params: dict[str, Any] = {"path": path, "offset": offset}
             if mode is not None:
                 params["mode"] = mode
-            self._sandbox._request(
-                "PUT", "/v1/files/write", params=params, data=data[offset : offset + length], session=session
-            )
+            self._sandbox._request("PUT", "/v1/files/write", params=params, content=data[offset : offset + length])
 
         self._parallel(self._ranges(len(data)), push)
 
@@ -351,7 +335,7 @@ class SandboxFiles:
         self._sandbox._request("POST", "/v1/files/mkdir", params={"path": path})
 
 
-def _iter_events(response: requests.Response) -> Iterator[dict]:
+def _iter_events(response: httpx.Response) -> Iterator[dict]:
     """Iterate NDJSON events from a streaming response, skipping keepalive pings."""
     for line in response.iter_lines():
         if not line:
@@ -359,6 +343,16 @@ def _iter_events(response: requests.Response) -> Iterator[dict]:
         event = json.loads(line)
         if event.get("event") != "ping":
             yield event
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    """Read the error body and raise a SandboxError (works for streaming responses too)."""
+    response.read()  # no-op for buffered responses, reads the body for streaming ones
+    try:
+        message = response.json()["error"]
+    except Exception:
+        message = response.text[:500]
+    raise SandboxError(f"Sandbox API error ({response.status_code}): {message}")
 
 
 class Sandbox:
@@ -385,9 +379,9 @@ class Sandbox:
 
         self._sandbox_token = sandbox_token
         self._auth_token = _effective_token(api)
-        # requests.Session is not thread-safe, so parallel file transfers give each worker
-        # its own session built here; the main session serves all sequential requests.
-        self._session = self._new_session()
+        # httpx.Client is thread-safe, so a single client serves both sequential requests
+        # and the concurrent workers used for parallel file transfers.
+        self._client = self._new_client()
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -517,7 +511,7 @@ class Sandbox:
         if self._killed:
             return
         self._killed = True
-        self._session.close()
+        self._client.close()
         try:
             self._api.cancel_job(job_id=self.id, namespace=self._job.owner.name)
         except Exception as e:
@@ -569,7 +563,7 @@ class Sandbox:
         stdout_parts: list[str] = []
         stderr_parts: list[str] = []
         result: CommandResult | None = None
-        with self._request("POST", "/v1/exec", json=payload, stream=True) as response:
+        with self._stream("POST", "/v1/exec", json=payload) as response:
             for event in _iter_events(response):
                 if event["event"] == "stdout":
                     stdout_parts.append(event["data"])
@@ -643,34 +637,34 @@ class Sandbox:
 
     # ------------------------------------------------------------------ internals
 
-    def _new_session(self) -> requests.Session:
-        """Build a session configured with the sandbox auth headers and connection pool."""
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(pool_maxsize=SandboxFiles.PARALLEL_MAX_WORKERS + 2)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-        session.headers["Authorization"] = f"Bearer {self._auth_token}"
-        session.headers["X-Sandbox-Token"] = self._sandbox_token
-        return session
+    def _new_client(self) -> httpx.Client:
+        """Build an httpx.Client configured with the sandbox auth headers and connection pool."""
+        max_connections = SandboxFiles.PARALLEL_MAX_WORKERS + 2
+        return httpx.Client(
+            headers={
+                "Authorization": f"Bearer {self._auth_token}",
+                "X-Sandbox-Token": self._sandbox_token,
+            },
+            limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
+            follow_redirects=True,
+        )
 
-    def _request(
-        self, method: str, path: str, *, stream: bool = False, session: requests.Session | None = None, **kwargs
-    ) -> requests.Response:
-        """Request to the in-sandbox server. Raises SandboxError on API errors.
-
-        Pass `session` to use a dedicated session (parallel transfers must not share one).
-        """
-        session = session or self._session
-        timeout = (10, 70) if stream else (10, 60)  # server pings every 15s on streams
-        response = session.request(method, self._base_url + path, stream=stream, timeout=timeout, **kwargs)
+    def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
+        """Request to the in-sandbox server. Raises SandboxError on API errors."""
+        timeout = httpx.Timeout(60.0, connect=10.0)
+        response = self._client.request(method, self._base_url + path, timeout=timeout, **kwargs)
         if response.status_code >= 400:
-            try:
-                message = response.json()["error"]
-            except Exception:
-                message = response.text[:500]
-            response.close()
-            raise SandboxError(f"Sandbox API error ({response.status_code}): {message}")
+            _raise_for_status(response)
         return response
+
+    @contextmanager
+    def _stream(self, method: str, path: str, **kwargs) -> Iterator[httpx.Response]:
+        """Streaming request to the in-sandbox server. Raises SandboxError on API errors."""
+        timeout = httpx.Timeout(70.0, connect=10.0)  # server pings every 15s on streams
+        with self._client.stream(method, self._base_url + path, timeout=timeout, **kwargs) as response:
+            if response.status_code >= 400:
+                _raise_for_status(response)
+            yield response
 
     def _wait_ready(self, start_timeout: float) -> None:
         """Poll /health until the server answers; fail fast (with logs) if the job dies."""
@@ -678,10 +672,10 @@ class Sandbox:
         last_job_check = 0.0
         while time.time() < deadline:
             try:
-                response = self._session.get(self._base_url + "/health", timeout=(5, 5))
+                response = self._client.get(self._base_url + "/health", timeout=httpx.Timeout(5.0))
                 if response.status_code == 200:
                     return
-            except requests.RequestException:
+            except httpx.RequestError:
                 pass
             if time.time() - last_job_check > 2.0:
                 last_job_check = time.time()
