@@ -437,11 +437,12 @@ def http_get(
                         new_resume_size += len(chunk)
                         # Some data has been downloaded from the server so we reset the number of retries.
                         _nb_retries = 5
-            except (httpx.ConnectError, httpx.TimeoutException, httpx.ProtocolError) as e:
-                # If ConnectionError (SSLError) or ReadTimeout, or ProtocolError (peer closed the connection before
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+                # If ConnectionError (SSLError), ReadTimeout, or RemoteProtocolError (peer closed the connection before
                 # sending the complete body) happen while streaming data from the server, it is most likely a transient
-                # error (network outage?). We log a warning message and try to resume the download a few times
-                # before giving up. The retry mechanism is basic but should be enough in most cases.
+                # error (network outage? flaky CDN?). We log a warning message and try to resume the download a few times
+                # before giving up. Since `_nb_retries` is reset to 5 whenever a chunk is received, a download that keeps
+                # making progress will keep resuming. The retry mechanism is basic but should be enough in most cases.
                 if _nb_retries <= 0:
                     logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
                     raise
