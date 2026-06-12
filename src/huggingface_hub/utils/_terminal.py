@@ -16,6 +16,7 @@
 import os
 import shutil
 import sys
+from contextlib import contextmanager
 
 from ._detect_agent import is_agent
 
@@ -93,6 +94,153 @@ class ANSI:
             # See https://no-color.org/
             return s
         return f"{code}{s}{cls._reset}"
+
+
+def select_choice(prompt: str, choices: list[str]) -> int:
+    """Single-choice interactive prompt. Returns the index of the selected choice.
+
+    On a TTY, renders an arrow-key menu (Up/Down to move, Enter to confirm, 1-9 to pick
+    directly, Ctrl+C to abort). Falls back to a numbered `input()` prompt when raw
+    keyboard input is not available. Callers are responsible for not prompting at all in
+    non-interactive contexts.
+    """
+    if not choices:
+        raise ValueError("select_choice() requires at least one choice.")
+    if _supports_raw_keyboard():
+        return _select_with_arrows(prompt, choices)
+    return _select_with_numbers(prompt, choices)
+
+
+def _supports_raw_keyboard() -> bool:
+    if not (sys.stdin and sys.stdin.isatty() and sys.stdout.isatty()):
+        return False
+    if sys.platform == "win32":
+        try:
+            import msvcrt  # noqa: F401
+        except ImportError:
+            return False
+        return _enable_windows_vt_processing()
+    try:
+        import termios  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _enable_windows_vt_processing() -> bool:
+    """Enable VT escape-sequence processing on the Windows console (off by default in legacy
+    cmd.exe/PowerShell windows, where the menu would otherwise render as literal `←[K` garbage)."""
+    import ctypes
+
+    ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+    STD_OUTPUT_HANDLE = -11
+    try:
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        return bool(kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
+
+
+@contextmanager
+def _raw_terminal():
+    """Put the terminal in cbreak mode (read keypresses without Enter). No-op on Windows."""
+    if sys.platform == "win32":
+        yield
+        return
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        yield
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+
+def _read_key() -> str:
+    """Read one keypress, normalizing arrow keys to "up"/"down"."""
+    if sys.platform == "win32":
+        import msvcrt
+
+        char = msvcrt.getwch()
+        if char in ("\x00", "\xe0"):  # arrow keys come as a two-character sequence
+            return {"H": "up", "P": "down"}.get(msvcrt.getwch(), "")
+        return char
+
+    import select
+
+    # Read the file descriptor directly: `sys.stdin.read(1)` would buffer the whole escape
+    # sequence internally, making the fd look empty to `select()` below.
+    fd = sys.stdin.fileno()
+    char = os.read(fd, 1)
+    # Disambiguate a bare Escape from an escape sequence (e.g. "\x1b[A" for Up).
+    if char == b"\x1b" and select.select([fd], [], [], 0.05)[0]:
+        if os.read(fd, 1) == b"[" and select.select([fd], [], [], 0.05)[0]:
+            return {b"A": "up", b"B": "down"}.get(os.read(fd, 1), "")
+        return ""
+    return char.decode(errors="replace")
+
+
+def _select_with_arrows(prompt: str, choices: list[str]) -> int:
+    selected = 0
+    print(ANSI.bold(f"? {prompt}") + ANSI.gray("  [Use arrows, Enter to confirm]"))
+
+    def render() -> None:
+        for i, choice in enumerate(choices):
+            line = ANSI.green("> ") + ANSI.bold(choice) if i == selected else "  " + choice
+            sys.stdout.write(f"\r\x1b[K{line}\n")
+        sys.stdout.flush()
+
+    try:
+        sys.stdout.write("\x1b[?25l")  # hide cursor
+        render()
+        with _raw_terminal():
+            while True:
+                key = _read_key()
+                if key == "\x03":
+                    # Ctrl+C: POSIX cbreak keeps ISIG so it never reaches here, but on Windows
+                    # msvcrt.getwch() returns the raw character instead of raising.
+                    raise KeyboardInterrupt
+                if key == "up":
+                    selected = (selected - 1) % len(choices)
+                elif key == "down":
+                    selected = (selected + 1) % len(choices)
+                elif key.isdecimal() and 1 <= int(key) <= len(choices):
+                    selected = int(key) - 1
+                    break
+                elif key in ("\r", "\n"):
+                    break
+                else:
+                    continue
+                sys.stdout.write(f"\x1b[{len(choices)}A")  # move back to the first option line
+                render()
+    finally:
+        sys.stdout.write("\x1b[?25h")  # show cursor
+        sys.stdout.flush()
+
+    # Collapse the menu into a single "? prompt answer" summary line, like gh does.
+    sys.stdout.write(f"\x1b[{len(choices) + 1}A\r\x1b[J")
+    print(ANSI.bold(f"? {prompt} ") + ANSI.green(choices[selected]))
+    return selected
+
+
+def _select_with_numbers(prompt: str, choices: list[str]) -> int:
+    print(f"? {prompt}")
+    for i, choice in enumerate(choices, start=1):
+        print(f"  {i}. {choice}")
+    while True:
+        raw = input("Choice [1]: ").strip()
+        if not raw:
+            return 0
+        if raw.isdecimal() and 1 <= int(raw) <= len(choices):
+            return int(raw) - 1
+        print(f"Invalid choice. Enter a number between 1 and {len(choices)}.")
 
 
 def tabulate(
