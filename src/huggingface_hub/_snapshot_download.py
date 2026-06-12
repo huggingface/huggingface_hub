@@ -16,6 +16,7 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from ._git_pack import fetch_blobs
 from ._tree_cache import TreeCacheEntry, read_tree_cache, write_tree_cache
 from .file_download import (
     REGEX_COMMIT_HASH,
@@ -415,6 +416,23 @@ def snapshot_download(
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
+    # Batch-fetch regular (non-LFS) files in a single git-upload-pack request instead of one
+    # GET /resolve per file. Blobs are written straight to the cache, so the per-file download loop
+    # below only creates symlinks for them (no HTTP call). Best-effort: on any failure, files are
+    # downloaded one by one as usual.
+    if not dry_run and local_dir is None:
+        _prefetch_regular_blobs(
+            storage_folder=storage_folder,
+            tree_entries=tree_entries,
+            filenames=filtered_repo_files,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            endpoint=endpoint,
+            token=token,
+            headers=headers,
+            force_download=force_download,
+        )
+
     results: list[str | DryRunFileInfo] = []
 
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
@@ -505,3 +523,45 @@ def snapshot_download(
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
+
+
+PACK_FETCH_MIN_FILES = 4  # below this, per-file GETs are just as cheap and more cache-friendly (CDN)
+
+
+def _prefetch_regular_blobs(
+    *,
+    storage_folder: str,
+    tree_entries: dict[str, TreeCacheEntry],
+    filenames: list[str],
+    repo_id: str,
+    repo_type: str,
+    endpoint: str | None,
+    token: bool | str | None,
+    headers: dict[str, str] | None,
+    force_download: bool,
+) -> None:
+    """Fetch all missing regular (non-LFS) blobs in one git-upload-pack request. Best-effort."""
+    to_fetch: dict[str, str] = {}  # blob oid -> blob path in cache
+    for filename in filenames:
+        entry = tree_entries[filename]
+        if entry.lfs_sha256 is not None or entry.xet_hash is not None:
+            continue
+        blob_path = os.path.join(storage_folder, "blobs", entry.blob_id)
+        if not force_download and os.path.exists(blob_path):
+            continue
+        to_fetch[entry.blob_id] = blob_path
+    if len(to_fetch) < PACK_FETCH_MIN_FILES:
+        return
+    try:
+        blobs = fetch_blobs(
+            repo_id, repo_type, list(to_fetch), endpoint=endpoint, token=token, headers=headers
+        )
+        os.makedirs(os.path.join(storage_folder, "blobs"), exist_ok=True)
+        for oid, blob_path in to_fetch.items():
+            tmp_path = f"{blob_path}.{os.getpid()}.pack.tmp"
+            with open(tmp_path, "wb") as f:
+                f.write(blobs[oid])
+            os.replace(tmp_path, blob_path)
+        logger.info(f"Fetched {len(to_fetch)} regular files in a single git-upload-pack request.")
+    except Exception as e:
+        logger.warning(f"Batch blob fetch via git-upload-pack failed, falling back to per-file downloads: {e}")
