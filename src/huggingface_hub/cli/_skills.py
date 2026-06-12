@@ -3,6 +3,7 @@
 import json
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
@@ -54,8 +55,30 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
         return _install_marketplace_skill(api, skill, destination_root, force=force)
 
 
-def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
-    """Re-sync managed marketplace skill installs from the bucket."""
+def install_skill_from_content(name: str, content: str, destination_root: Path, force: bool = False) -> Path:
+    """Install a skill by writing generated content directly (no bucket download)."""
+
+    def populate(install_dir: Path) -> None:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        (install_dir / "SKILL.md").write_text(content, encoding="utf-8")
+        (install_dir / MANAGED_MARKER_FILENAME).touch()
+
+    return _install_skill(name, destination_root, populate=populate, force=force)
+
+
+def update_skills(
+    roots: list[Path],
+    selector: str | None = None,
+    local_content_providers: dict[str, Callable[[], str]] | None = None,
+) -> list[SkillUpdateInfo]:
+    """Re-sync managed marketplace skill installs from the bucket.
+
+    Skills whose lowercased name appears in *local_content_providers* are
+    refreshed from the provider's return value instead of being re-downloaded
+    from the marketplace bucket (used for the ``hf-cli`` skill which is generated
+    locally). Providers are only invoked when a matching skill is actually about
+    to be written.
+    """
     skill_dirs = _iter_unique_skill_dirs(roots)
     if selector is not None:
         selector_lower = selector.strip().lower()
@@ -63,10 +86,19 @@ def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillU
         if not skill_dirs:
             raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
 
-    api = get_hf_api()
-    with disable_progress_bars():
-        marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
-        return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
+    providers = local_content_providers or {}
+    needs_marketplace = any(
+        d.name.lower() not in providers and (d / MANAGED_MARKER_FILENAME).exists() for d in skill_dirs
+    )
+
+    api = None
+    marketplace_skills: dict[str, MarketplaceSkill] = {}
+    if needs_marketplace:
+        api = get_hf_api()
+        with disable_progress_bars():
+            marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
+
+    return [_apply_single_update(api, skill_dir, marketplace_skills, providers) for skill_dir in skill_dirs]
 
 
 def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
@@ -96,25 +128,45 @@ def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
 
 def _install_marketplace_skill(api, skill: MarketplaceSkill, destination_root: Path, force: bool = False) -> Path:
     """Install a marketplace skill into a local skills directory."""
+    return _install_skill(
+        skill.name,
+        destination_root,
+        populate=lambda install_dir: _populate_install_dir(api, skill=skill, install_dir=install_dir),
+        force=force,
+    )
+
+
+def _install_skill(
+    name: str,
+    destination_root: Path,
+    populate: Callable[[Path], None],
+    force: bool = False,
+) -> Path:
+    """Install a skill into ``destination_root`` by calling ``populate(install_dir)`` to fill it.
+
+    Used by both the marketplace install (populate = download from bucket) and the
+    locally-generated install (populate = write content). When the install already
+    exists and ``force`` is set, the new content is staged in a sibling tempdir and
+    atomically swapped in, so the existing install stays intact if ``populate``
+    fails halfway through.
+    """
     destination_root = destination_root.expanduser().resolve()
     destination_root.mkdir(parents=True, exist_ok=True)
-    install_dir = destination_root / skill.name
+    install_dir = destination_root / name
     already_exists = install_dir.exists()
 
     if already_exists and not force:
         raise FileExistsError(f"Skill already exists: {install_dir}")
 
     if already_exists:
-        # Stage the new content in a sibling tempdir and atomically rename, so the
-        # existing install stays intact if the download fails halfway through.
         with tempfile.TemporaryDirectory(dir=destination_root, prefix=f".{install_dir.name}.install-") as tmp_dir_str:
             staged_dir = Path(tmp_dir_str) / install_dir.name
-            _populate_install_dir(api, skill=skill, install_dir=staged_dir)
+            populate(staged_dir)
             _atomic_replace_directory(existing_dir=install_dir, staged_dir=staged_dir)
         return install_dir
 
     try:
-        _populate_install_dir(api, skill=skill, install_dir=install_dir)
+        populate(install_dir)
     except Exception:
         if install_dir.exists():
             shutil.rmtree(install_dir)
@@ -238,11 +290,23 @@ def _iter_unique_skill_dirs(roots: list[Path]) -> list[Path]:
     return discovered
 
 
-def _apply_single_update(api, skill_dir: Path, marketplace_skills: dict[str, MarketplaceSkill]) -> SkillUpdateInfo:
+def _apply_single_update(
+    api,
+    skill_dir: Path,
+    marketplace_skills: dict[str, MarketplaceSkill],
+    local_content_providers: dict[str, Callable[[], str]],
+) -> SkillUpdateInfo:
     base = SkillUpdateInfo(name=skill_dir.name, skill_dir=skill_dir, status="unmanaged")
 
     if not (skill_dir / MANAGED_MARKER_FILENAME).exists():
         return base
+
+    if provider := local_content_providers.get(skill_dir.name.lower()):
+        try:
+            install_skill_from_content(skill_dir.name, provider(), skill_dir.parent, force=True)
+        except Exception as exc:
+            return replace(base, status="source_unreachable", detail=str(exc))
+        return replace(base, status="up_to_date")
 
     skill = marketplace_skills.get(skill_dir.name.lower())
     if skill is None:
