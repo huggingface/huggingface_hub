@@ -254,7 +254,7 @@ def is_hf_uri(uri: str) -> bool:
 
 
 @functools.lru_cache
-def parse_hf_uri(uri: str) -> HfUri:
+def parse_hf_uri(uri: str, endpoint: str | None = None) -> HfUri:
     """Parse a Hugging Face Hub URI ('hf://...') or a Hugging Face web URL.
 
     A HF URI is a URI-like string identifying a location on the Hugging Face Hub. The full grammar is:
@@ -273,6 +273,10 @@ def parse_hf_uri(uri: str) -> HfUri:
     Args:
         uri (`str`):
             The URI to parse. Must start with 'hf://', or be a Hugging Face URL (e.g. 'https://huggingface.co/...').
+        endpoint (`str`, *optional*):
+            A custom Hub endpoint (e.g. a self-hosted or proxied Hub like 'https://hub.my-company.com' or
+            'http://localhost:8080/hf'). When provided, web URLs on that endpoint are recognized in addition to
+            the default Hugging Face hosts. Has no effect on 'hf://' URIs.
 
     Returns:
         [`HfUri`]: the parsed URI.
@@ -297,8 +301,8 @@ def parse_hf_uri(uri: str) -> HfUri:
         body = uri[len(constants.HF_PROTOCOL) :]
         if not body:
             raise HfUriError(uri, f"Empty body after '{constants.HF_PROTOCOL}'.")
-    elif _looks_like_hf_url(uri):
-        body = _url_to_uri_body(uri)
+    elif _looks_like_hf_url(uri, endpoint=endpoint):
+        body = _url_to_uri_body(uri, endpoint=endpoint)
     else:
         raise HfUriError(
             uri,
@@ -313,13 +317,33 @@ def parse_hf_uri(uri: str) -> HfUri:
     return _parse_repo_body(location, type_, raw=raw)
 
 
-def _looks_like_hf_url(uri: str) -> bool:
+def _endpoint_host_and_path(endpoint: str | None) -> tuple[str | None, str]:
+    """Return the lowercased host and stripped path prefix of a custom Hub 'endpoint'.
+
+    E.g. 'https://hub.my-company.com' -> ('hub.my-company.com', '') and a self-hosted
+    'http://localhost:8080/hf' -> ('localhost', 'hf'). Returns '(None, "")' when 'endpoint' is None.
+    """
+    if endpoint is None:
+        return None, ""
+    # Prefix '//' for scheme-less endpoints so 'urlsplit' populates 'netloc' instead of 'path'.
+    parsed = urlsplit(endpoint if "://" in endpoint else "//" + endpoint)
+    host = parsed.hostname.lower() if parsed.hostname else None
+    return host, parsed.path.strip("/")
+
+
+def _recognized_hosts(endpoint: str | None) -> frozenset[str]:
+    """The set of hosts whose web URLs can be parsed: the default Hugging Face hosts plus 'endpoint'."""
+    host, _ = _endpoint_host_and_path(endpoint)
+    return constants.HF_URL_HOSTS | {host} if host else constants.HF_URL_HOSTS
+
+
+def _looks_like_hf_url(uri: str, endpoint: str | None = None) -> bool:
     """Return True if 'uri' looks like a (possibly scheme-less) Hugging Face web URL."""
     lowered = uri.lower()
     if lowered.startswith(("http://", "https://")):
         return True
     # Scheme-less host (e.g. 'huggingface.co/org/model').
-    return any(lowered == host or lowered.startswith(host + "/") for host in constants.HF_URL_HOSTS)
+    return any(lowered == host or lowered.startswith(host + "/") for host in _recognized_hosts(endpoint))
 
 
 def _decode_url_path_segment(segment: str) -> str:
@@ -332,25 +356,34 @@ def _decode_url_path_segment(segment: str) -> str:
     return unquote(segment).replace("/", "%2F")
 
 
-def _url_to_uri_body(url: str) -> str:
+def _url_to_uri_body(url: str, endpoint: str | None = None) -> str:
     """Normalize a Hugging Face web URL into the body of a 'hf://' URI (everything after 'hf://').
 
     The returned string is fed back into the regular URI parsing logic, so all validation
     (repo id, revision, empty path segments, ...) is shared with the canonical 'hf://' path.
-    Only unambiguous URLs are accepted: any unrecognized route raises [`HfUriError`].
+    Only unambiguous URLs are accepted: any unrecognized route raises [`HfUriError`]. When 'endpoint'
+    is provided, URLs on that custom Hub host are recognized too (and its path prefix is stripped).
     """
     raw = url
     # Prefix '//' for scheme-less inputs so 'urlsplit' populates 'netloc' instead of 'path'.
     parsed = urlsplit(url if "://" in url else "//" + url)
     host = (parsed.hostname or "").lower()
-    if host not in constants.HF_URL_HOSTS:
+    if host not in _recognized_hosts(endpoint):
         raise HfUriError(
             uri=raw,
             msg=f"Unrecognized host '{host or url}'. Expected a Hugging Face URL (e.g. 'https://huggingface.co/...').",
         )
 
     # Query string and fragment are intentionally dropped (e.g. '?download=true').
-    segments = [segment for segment in parsed.path.split("/") if segment]
+    path = parsed.path
+    # For a self-hosted endpoint with a path prefix (e.g. 'http://localhost:8080/hf'), drop it so the
+    # remaining segments are '[<TYPE>/]<namespace>/<name>[/...]' just like on the public Hub.
+    endpoint_host, endpoint_path = _endpoint_host_and_path(endpoint)
+    if endpoint_path and host == endpoint_host:
+        prefix = "/" + endpoint_path
+        if path == prefix or path.startswith(prefix + "/"):
+            path = path[len(prefix) :]
+    segments = [segment for segment in path.split("/") if segment]
     if not segments:
         raise HfUriError(uri=raw, msg=f"Missing repository or bucket identifier in URL '{url}'.")
 
