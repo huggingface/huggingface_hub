@@ -778,12 +778,6 @@ def jobs_ssh(
     job = api.inspect_job(job_id=job_id, namespace=namespace)
     if job.status.ssh_url is None:
         raise CLIError("SSH is not enabled on this job. Start a job with SSH support using `hf jobs run --ssh ...`.")
-    if job.status.stage == "SCHEDULING":
-        status = out.status("Waiting for the job to start...")
-        while job.status.stage == "SCHEDULING":
-            time.sleep(1)
-            job = api.inspect_job(job_id=job_id, namespace=namespace)
-        status.done(f"Job is {job.status.stage}")
     if job.status.stage != "RUNNING":
         raise CLIError(f"Cannot SSH into job '{job.id}': job is not running (stage: '{job.status.stage}').")
     ssh_url = urlsplit(job.status.ssh_url)
