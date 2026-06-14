@@ -1832,47 +1832,38 @@ class TestAuthLoginCommand:
         ):
             yield mock_poll
 
-    def test_login_json_event_stream(self, runner: CliRunner) -> None:
-        with self._patched_device_flow():
-            result = runner.invoke(app, ["auth", "login", "--format", "json"])
-        assert result.exit_code == 0
-        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
-        assert [e["event"] for e in events] == ["device_code", "auth_success"]
-        assert events[0]["user_code"] == "ABCD-EFGH"
-        assert events[0]["verification_uri"] == "https://huggingface.co/oauth/device"
-        assert events[1]["user"] == "testuser"
-        assert events[1]["token_name"] == "oauth-testuser"
-
-    def test_login_agent_event_stream(self, runner: CliRunner) -> None:
+    def test_login_agent_flow(self, runner: CliRunner) -> None:
+        """In agent mode the command never prompts: it prints relayable instructions, then the result."""
         with self._patched_device_flow():
             result = runner.invoke(app, ["auth", "login", "--format", "agent"])
         assert result.exit_code == 0
-        lines = [line for line in result.stdout.splitlines() if line.startswith("event=")]
-        assert lines[0].startswith("event=device_code ")
-        assert "user_code=ABCD-EFGH" in lines[0]
-        assert lines[1].startswith("event=auth_success ")
+        assert "enter the code ABCD-EFGH" in result.stdout
+        assert "Login successful: logged in as testuser" in result.stdout
 
-    def test_login_json_auth_error_event(self, runner: CliRunner) -> None:
-        """A failed device flow must emit a terminal event on stdout, not just stderr text."""
+    def test_login_agent_already_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_existing"):
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        assert "Already logged in" in result.stdout
+
+    @pytest.mark.parametrize("fmt", ["json", "quiet"])
+    def test_login_rejects_non_interactive_formats(self, runner: CliRunner, fmt: str) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "login", "--format", fmt])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token" in str(result.exception)
+
+    def test_login_agent_denied(self, runner: CliRunner) -> None:
         error = DeviceCodeError("Authorization was denied. Please try again.", error_code="access_denied")
         with (
             patch("huggingface_hub.cli.auth.get_token", return_value=None),
             patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
             patch("huggingface_hub.cli.auth.poll_device_token", side_effect=error),
         ):
-            result = runner.invoke(app, ["auth", "login", "--format", "json"])
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
         assert result.exit_code != 0
-        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
-        assert [e["event"] for e in events] == ["device_code", "auth_error"]
-        assert events[1]["error_code"] == "access_denied"
-
-    def test_login_json_already_logged_in_event(self, runner: CliRunner) -> None:
-        """Already logged in: still exactly one terminal event on stdout."""
-        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_existing"):
-            result = runner.invoke(app, ["auth", "login", "--format", "json"])
-        assert result.exit_code == 0
-        events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
-        assert events == [{"event": "auth_success", "already_logged_in": True}]
+        assert isinstance(result.exception, DeviceCodeError)
 
 
 class TestAuthSwitchCommand:

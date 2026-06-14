@@ -29,8 +29,8 @@ from typing import TypedDict, cast
 import httpx
 
 from . import constants
-from .errors import DeviceCodeError
-from .utils import get_session
+from .errors import DeviceCodeError, OAuthErrorCode
+from .utils._http import get_session, hf_raise_for_status
 
 
 _DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
@@ -68,23 +68,10 @@ def request_device_code() -> DeviceCodeInfo:
             data={"client_id": constants.DEVICE_CODE_OAUTH_CLIENT_ID},
             timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
+        hf_raise_for_status(response)
     except httpx.HTTPError as e:
         raise DeviceCodeError(f"Failed to request device code from {constants.ENDPOINT}/oauth/device: {e}") from e
-    if response.status_code != 200:
-        raise DeviceCodeError(
-            f"Failed to request device code from {constants.ENDPOINT}/oauth/device "
-            f"(status {response.status_code}): {response.text}"
-        )
-    try:
-        info = response.json()
-    except ValueError as e:
-        raise DeviceCodeError(
-            f"Failed to parse response from {constants.ENDPOINT}/oauth/device: {response.text[:500]}"
-        ) from e
-    if not isinstance(info, dict) or not {"device_code", "user_code", "verification_uri"} <= info.keys():
-        raise DeviceCodeError(
-            f"Malformed device code response from {constants.ENDPOINT}/oauth/device: {response.text[:500]}"
-        )
+    info = response.json()
     # `interval` is optional per RFC 8628 (5s is the spec-mandated fallback); `expires_in` is
     # required but defaulted defensively so polling stays bounded if a server omits it.
     info.setdefault("interval", 5)
@@ -134,8 +121,6 @@ def poll_device_token(
                 data = response.json()
         except (httpx.HTTPError, ValueError):
             pass
-        if not isinstance(data, dict):
-            data = None
 
         if data is not None:
             if "access_token" in data:
@@ -144,15 +129,19 @@ def poll_device_token(
             match data.get("error"):
                 case None:
                     pass  # JSON without an OAuth `error` field (proxy error page, ...): transient
-                case "authorization_pending":
+                case OAuthErrorCode.AUTHORIZATION_PENDING:
                     if on_pending is not None:
                         on_pending()
-                case "slow_down":
+                case OAuthErrorCode.SLOW_DOWN:
                     interval += 5
-                case "expired_token":
-                    raise DeviceCodeError("Device code expired. Please try again.", error_code="expired_token")
-                case "access_denied":
-                    raise DeviceCodeError("Authorization was denied. Please try again.", error_code="access_denied")
+                case OAuthErrorCode.EXPIRED_TOKEN:
+                    raise DeviceCodeError(
+                        "Device code expired. Please try again.", error_code=OAuthErrorCode.EXPIRED_TOKEN
+                    )
+                case OAuthErrorCode.ACCESS_DENIED:
+                    raise DeviceCodeError(
+                        "Authorization was denied. Please try again.", error_code=OAuthErrorCode.ACCESS_DENIED
+                    )
                 case error:
                     raise DeviceCodeError(
                         f"OAuth error: {error} - {data.get('error_description', '')}", error_code=error
@@ -160,7 +149,7 @@ def poll_device_token(
 
         time.sleep(interval)
 
-    raise DeviceCodeError("Device code expired (timeout). Please try again.", error_code="expired_token")
+    raise DeviceCodeError("Device code expired (timeout). Please try again.", error_code=OAuthErrorCode.EXPIRED_TOKEN)
 
 
 def refresh_access_token(refresh_token: str) -> OAuthTokenResponse:

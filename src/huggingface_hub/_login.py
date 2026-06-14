@@ -82,7 +82,8 @@ def login(
             User access token to generate from https://huggingface.co/settings/token.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
-            is configured, a warning will be displayed to the user.
+            is configured, a warning will be displayed to the user. Only used when `token`
+            is provided; ignored by the browser-based flow.
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
             Set to `False` to force re-login. In CLI, use `--force` instead.
@@ -104,10 +105,16 @@ def login(
                 "you want to set the git credential as well."
             )
         _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
-    elif is_notebook():
-        notebook_login(skip_if_logged_in=skip_if_logged_in, add_to_git_credential=add_to_git_credential)
+        return
+    if add_to_git_credential:
+        logger.warning(
+            "`add_to_git_credential=True` is only supported when a token is passed directly. "
+            "It is ignored by the browser-based login."
+        )
+    if is_notebook():
+        notebook_login(skip_if_logged_in=skip_if_logged_in)
     else:
-        interpreter_login(skip_if_logged_in=skip_if_logged_in, add_to_git_credential=add_to_git_credential)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
 def logout(token_name: str | None = None) -> None:
@@ -226,7 +233,7 @@ def auth_list() -> None:
 ###
 
 
-def _device_code_login(add_to_git_credential: bool = False) -> None:
+def _device_code_login() -> None:
     """Run the Device Code OAuth flow: request a code, prompt the user to authorize it in a browser,
     poll for the token and save it."""
     device_info = request_device_code()
@@ -241,15 +248,15 @@ def _device_code_login(add_to_git_credential: bool = False) -> None:
     finally:
         print()  # newline after the progress dots, also on failure
 
-    _save_oauth_token(response, add_to_git_credential=add_to_git_credential)
+    _save_oauth_token(response)
 
 
-def _save_oauth_token(response: OAuthTokenResponse, *, add_to_git_credential: bool) -> tuple[str, str]:
+def _save_oauth_token(response: OAuthTokenResponse) -> tuple[str, str]:
     """Validate and persist a token response from the device code flow, including refresh metadata."""
     expires_in = response.get("expires_in")
     token_name, username = _validate_and_save_token(
         response["access_token"],
-        add_to_git_credential=add_to_git_credential,
+        add_to_git_credential=False,
         refresh_token=response.get("refresh_token"),
         expires_at=int(time.time()) + int(expires_in) if expires_in else None,
     )
@@ -274,7 +281,7 @@ def _expiration_note(response: OAuthTokenResponse) -> str | None:
 ###
 
 
-def interpreter_login(*, skip_if_logged_in: bool = True, add_to_git_credential: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -288,9 +295,6 @@ def interpreter_login(*, skip_if_logged_in: bool = True, add_to_git_credential: 
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
             Set to `False` to force re-login. In CLI, use `--force` instead.
-        add_to_git_credential (`bool`, defaults to `False`):
-            If `True`, token will be set as git credential. If no git credential helper
-            is configured, a warning will be displayed to the user.
     """
     if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
@@ -300,9 +304,9 @@ def interpreter_login(*, skip_if_logged_in: bool = True, add_to_git_credential: 
         logger.info("Note: a token is already saved on this machine. Logging in again will replace the active token.")
 
     if _prompt_login_method() == "token":
-        _paste_token_login(add_to_git_credential=add_to_git_credential)
+        _paste_token_login()
     else:
-        _device_code_login(add_to_git_credential=add_to_git_credential)
+        _device_code_login()
 
 
 def _prompt_login_method() -> str:
@@ -313,14 +317,14 @@ def _prompt_login_method() -> str:
     return "browser" if choice == 0 else "token"
 
 
-def _paste_token_login(*, add_to_git_credential: bool) -> None:
+def _paste_token_login() -> None:
     logger.info(
         "    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens ."
     )
     if os.name == "nt":
         logger.info("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
-    _validate_and_save_token(token=token, add_to_git_credential=add_to_git_credential)
+    _validate_and_save_token(token=token, add_to_git_credential=False)
 
 
 ###
@@ -328,7 +332,7 @@ def _paste_token_login(*, add_to_git_credential: bool) -> None:
 ###
 
 
-def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -342,9 +346,6 @@ def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: boo
         skip_if_logged_in (`bool`, defaults to `True`):
             If `True`, do not prompt for token if user is already logged in.
             Set to `False` to force re-login. In CLI, use `--force` instead.
-        add_to_git_credential (`bool`, defaults to `False`):
-            If `True`, token will be set as git credential. If no git credential helper
-            is configured, a warning will be displayed to the user.
     """
     if skip_if_logged_in and get_token() is not None:
         logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
@@ -354,7 +355,7 @@ def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: boo
         from IPython.display import HTML, display  # type: ignore
     except ImportError:
         # Not in a notebook environment: fall back to the terminal flow
-        interpreter_login(skip_if_logged_in=False, add_to_git_credential=add_to_git_credential)
+        interpreter_login(skip_if_logged_in=False)
         return
 
     device_info = request_device_code()
@@ -380,7 +381,7 @@ def notebook_login(*, skip_if_logged_in: bool = True, add_to_git_credential: boo
         return
 
     try:
-        token_name, username = _save_oauth_token(response, add_to_git_credential=add_to_git_credential)
+        token_name, username = _save_oauth_token(response)
     except Exception as error:
         display(HTML(f"<center><b style='color: red;'>{html.escape(str(error))}</b></center>"))
         return

@@ -66,7 +66,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List all stored access tokens. [alias: ls]
-* `login`: Login to the Hub with your browser, or...
+* `login`: Login from your browser, or using a token...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
@@ -96,7 +96,7 @@ Learn more
 
 ### `hf auth login`
 
-Login to the Hub with your browser, or with a token passed via --token.
+Login from your browser, or using a token from huggingface.co/settings/tokens.
 
 **Usage**:
 
@@ -116,7 +116,6 @@ Examples
   $ hf auth login --token $HF_TOKEN
   $ hf auth login --token $HF_TOKEN --add-to-git-credential
   $ hf auth login --force
-  $ hf auth login --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

@@ -200,15 +200,15 @@ Login successful
 The current active token is: `token_name`
 ```
 
-In non-interactive environments (CI, scripts, AI agents), the command never prompts: with `--format json` it runs the browser flow and streams one JSON event per line, so the calling program can surface the URL and code to a user and wait for completion:
+When run by an AI agent (auto-detected, or with `--format agent`), the command never prompts: it runs the browser flow and prints plain instructions the agent can relay to its user, then waits for the authorization:
 
 ```bash
->>> hf auth login --format json
-{"event": "device_code", "verification_uri": "https://huggingface.co/oauth/device", "user_code": "ABCD-EFGH", "verification_uri_complete": "https://huggingface.co/oauth/device", "expires_in": 900, "interval": 5}
-{"event": "auth_success", "user": "wauplin", "token_name": "oauth-wauplin"}
+>>> hf auth login --format agent
+Ask the user to open https://huggingface.co/oauth/device in a browser and enter the code ABCD-EFGH. The code expires in 900 seconds. Waiting for authorization...
+Login successful: logged in as wauplin (token saved as 'oauth-wauplin').
 ```
 
-The command always ends with a terminal event: `auth_success` on success (with `"already_logged_in": true` if there was nothing to do — use `--force` to re-login), or `auth_error` with a non-zero exit code on failure. Events are only emitted for the browser flow: `--token` logins print nothing on success.
+`hf auth login` is interactive, so `--format json` and `--format quiet` are not supported: pass `--token` for scripted, non-interactive logins.
 
 For more details about authentication, check out [this section](../quick-start#authentication).
 

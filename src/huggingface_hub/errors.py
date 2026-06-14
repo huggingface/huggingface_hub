@@ -1,5 +1,6 @@
 """Contains all custom errors."""
 
+from enum import Enum
 from pathlib import Path
 
 from httpx import HTTPError, Response
@@ -45,6 +46,16 @@ class OIDCError(Exception):
 # DEVICE CODE OAUTH ERRORS
 
 
+class OAuthErrorCode(str, Enum):
+    """Known OAuth `error` codes returned by the Hub's token endpoint (RFC 6749 / RFC 8628)."""
+
+    AUTHORIZATION_PENDING = "authorization_pending"
+    SLOW_DOWN = "slow_down"
+    EXPIRED_TOKEN = "expired_token"
+    ACCESS_DENIED = "access_denied"
+    INVALID_GRANT = "invalid_grant"
+
+
 class DeviceCodeError(Exception):
     """Raised when the Device Code OAuth login flow (RFC 8628) or an OAuth token refresh fails.
 
@@ -53,8 +64,8 @@ class DeviceCodeError(Exception):
 
     Attributes:
         error_code (`str`, *optional*):
-            The OAuth `error` code returned by the server (e.g. `"access_denied"`,
-            `"expired_token"`, `"invalid_grant"`), if any.
+            The OAuth `error` code returned by the server, if any. Known values are listed in
+            [`OAuthErrorCode`] but the server may return other codes.
     """
 
     def __init__(self, message: str, error_code: str | None = None):

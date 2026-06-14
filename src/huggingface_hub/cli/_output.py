@@ -69,7 +69,8 @@ class Output:
         return self.mode == OutputFormat.quiet
 
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
-        """Print a free-form text message to stdout."""
+        """Print a free-form text message to stdout, flushed immediately (some flows, like the
+        device-code login, block on user action after printing)."""
         if msg is not None:
             if human is not None or agent is not None:
                 raise ValueError("Cannot mix 'msg' with 'human'/'agent'.")
@@ -79,10 +80,10 @@ class Output:
         match self.mode:
             case OutputFormat.human:
                 if human is not None:
-                    print(human)
+                    print(human, flush=True)
             case OutputFormat.agent:
                 if agent is not None:
-                    print(agent)
+                    print(agent, flush=True)
             # json/quiet: no-op
 
     def table(
@@ -174,28 +175,6 @@ class Output:
                 values = list(data.values())
                 if values:
                     print(values[0])
-
-    def event(self, name: str, **data: Any) -> None:
-        """Emit one machine-readable event line to stdout, flushed immediately.
-
-        For flows that block on user action (e.g. the device-code login) and must stream their
-        progress to a watching program. JSON mode prints one JSON object per line; agent and
-        quiet modes print a line of `key=value` pairs (quiet is not silenced: the event payload,
-        e.g. the login URL + code, is the command's output). No-op in human mode, where the flow
-        prints its own UX.
-        """
-        match self.mode:
-            case OutputFormat.json:
-                print(json.dumps({"event": name, **data}), flush=True)
-            case OutputFormat.agent | OutputFormat.quiet:
-                parts = [f"event={name}"]
-                for k, v in data.items():
-                    if v is None:
-                        continue
-                    value = str(v)
-                    parts.append(f'{k}="{value}"' if " " in value else f"{k}={value}")
-                print(" ".join(parts), flush=True)
-            # human: no-op
 
     def confirm(self, message: str, *, default: bool = False, yes: bool = False, confirm_param: str = "--yes") -> None:
         """

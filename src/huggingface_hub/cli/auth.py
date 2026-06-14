@@ -61,7 +61,6 @@ auth_cli = typer_factory(help="Manage authentication (login, logout, etc.).")
         "hf auth login --token $HF_TOKEN",
         "hf auth login --token $HF_TOKEN --add-to-git-credential",
         "hf auth login --force",
-        "hf auth login --format json",
     ],
 )
 def auth_login(
@@ -79,36 +78,34 @@ def auth_login(
         ),
     ] = False,
 ) -> None:
-    """Login to the Hub with your browser, or with a token passed via --token."""
+    """Login from your browser, or using a token from huggingface.co/settings/tokens."""
     if token is not None or out.mode == OutputFormat.human:
         # `--token` bypasses any prompt; in human mode the gh-style menu lives in `login()`.
         login(token=token, add_to_git_credential=add_to_git_credential, skip_if_logged_in=not force)
         return
 
-    # agent/json/quiet modes: no interactive prompt, run the device flow with streamed events
-    # so that an agent can surface the URL + code to the user and wait for a terminal event
-    # (`auth_success` or `auth_error`).
-    if not force and get_token() is not None:
-        # Still emit a terminal event: an agent watching stdout must always get one.
-        out.event("auth_success", already_logged_in=True)
-        out.hint("Already logged in. Use `hf auth login --force` to re-login.")
-        return
-    try:
-        device_info = request_device_code()
-        out.event(
-            "device_code",
-            verification_uri=device_info["verification_uri"],
-            user_code=device_info["user_code"],
-            verification_uri_complete=device_info["verification_uri_complete"],
-            expires_in=device_info["expires_in"],
-            interval=device_info["interval"],
+    # Logging in is an interactive flow: besides human mode, only agent mode is supported.
+    if out.mode != OutputFormat.agent:
+        raise CLIError(
+            "`hf auth login` is interactive and does not support --format json/quiet. "
+            "Pass --token for a non-interactive login."
         )
-        response = poll_device_token(device_info)
-        token_name, username = _save_oauth_token(response, add_to_git_credential=add_to_git_credential)
-    except Exception as e:
-        out.event("auth_error", error_code=getattr(e, "error_code", None), message=str(e))
-        raise
-    out.event("auth_success", user=username, token_name=token_name)
+
+    # agent mode: never prompt; print instructions the agent can relay to its user.
+    if not force and get_token() is not None:
+        out.text(agent="Already logged in. Use `hf auth login --force` to re-login.")
+        return
+    device_info = request_device_code()
+    out.text(
+        agent=(
+            f"Ask the user to open {device_info['verification_uri_complete']} in a browser and enter the code "
+            f"{device_info['user_code']}. The code expires in {device_info['expires_in']} seconds. "
+            "Waiting for authorization..."
+        )
+    )
+    response = poll_device_token(device_info)
+    token_name, username = _save_oauth_token(response)
+    out.text(agent=f"Login successful: logged in as {username} (token saved as '{token_name}').")
 
 
 @auth_cli.command(

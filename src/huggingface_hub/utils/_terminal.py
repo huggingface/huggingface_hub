@@ -13,12 +13,21 @@
 # limitations under the License.
 """Contains utilities to print stuff to the terminal (styling, helpers)."""
 
+import ctypes
 import os
 import shutil
 import sys
 from contextlib import contextmanager
 
 from ._detect_agent import is_agent
+
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import select
+    import termios
+    import tty
 
 
 class StatusLine:
@@ -115,23 +124,13 @@ def _supports_raw_keyboard() -> bool:
     if not (sys.stdin and sys.stdin.isatty() and sys.stdout.isatty()):
         return False
     if sys.platform == "win32":
-        try:
-            import msvcrt  # noqa: F401
-        except ImportError:
-            return False
         return _enable_windows_vt_processing()
-    try:
-        import termios  # noqa: F401
-    except ImportError:
-        return False
     return True
 
 
 def _enable_windows_vt_processing() -> bool:
     """Enable VT escape-sequence processing on the Windows console (off by default in legacy
     cmd.exe/PowerShell windows, where the menu would otherwise render as literal `←[K` garbage)."""
-    import ctypes
-
     ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
     STD_OUTPUT_HANDLE = -11
     try:
@@ -151,8 +150,6 @@ def _raw_terminal():
     if sys.platform == "win32":
         yield
         return
-    import termios
-    import tty
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -166,14 +163,10 @@ def _raw_terminal():
 def _read_key() -> str:
     """Read one keypress, normalizing arrow keys to "up"/"down"."""
     if sys.platform == "win32":
-        import msvcrt
-
         char = msvcrt.getwch()
         if char in ("\x00", "\xe0"):  # arrow keys come as a two-character sequence
             return {"H": "up", "P": "down"}.get(msvcrt.getwch(), "")
         return char
-
-    import select
 
     # Read the file descriptor directly: `sys.stdin.read(1)` would buffer the whole escape
     # sequence internally, making the fd look empty to `select()` below.

@@ -248,18 +248,12 @@ class TestRequestDeviceCode:
         assert result["expires_in"] == 900
 
     def test_failure(self):
-        response = _mock_response({}, status_code=400, text="bad request")
+        response = httpx.Response(
+            400, text="bad request", request=httpx.Request("POST", "https://hub.test/oauth/device")
+        )
         with patch("huggingface_hub._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
             with pytest.raises(DeviceCodeError, match="Failed to request device code"):
-                request_device_code()
-
-    def test_malformed_response(self):
-        """A 200 response missing required fields raises DeviceCodeError, not a bare KeyError."""
-        response = _mock_response({"unexpected": "shape"})
-        with patch("huggingface_hub._oauth_device.get_session") as mock_session:
-            mock_session.return_value.post.return_value = response
-            with pytest.raises(DeviceCodeError, match="Malformed device code response"):
                 request_device_code()
 
 
@@ -362,7 +356,7 @@ class TestGetTokenAutoRefresh:
     def test_refreshes_near_expiry(self):
         self._login_with_oauth_token(expires_in=3600)  # < 1 day left
         refreshed = {"access_token": "hf_oauth_new", "refresh_token": "rt_new", "expires_in": 2592000}
-        with patch("huggingface_hub._oauth_device.refresh_access_token", return_value=refreshed) as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token", return_value=refreshed) as mock_refresh:
             assert get_token() == "hf_oauth_new"
             assert get_token() == "hf_oauth_new"  # second call served from cache
         mock_refresh.assert_called_once_with("rt_old")
@@ -374,28 +368,28 @@ class TestGetTokenAutoRefresh:
 
     def test_no_refresh_when_far_from_expiry(self):
         self._login_with_oauth_token(expires_in=30 * 24 * 3600)
-        with patch("huggingface_hub._oauth_device.refresh_access_token") as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token") as mock_refresh:
             assert get_token() == TOKEN
         mock_refresh.assert_not_called()
 
     def test_no_refresh_without_metadata(self):
         _save_token(TOKEN, "classic-token")
         _set_active_token("classic-token", add_to_git_credential=False)
-        with patch("huggingface_hub._oauth_device.refresh_access_token") as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token") as mock_refresh:
             assert get_token() == TOKEN
         mock_refresh.assert_not_called()
 
     def test_non_rotated_refresh_token_is_kept(self):
         self._login_with_oauth_token(expires_in=3600)
         refreshed = {"access_token": "hf_oauth_new", "expires_in": 2592000}  # no refresh_token in response
-        with patch("huggingface_hub._oauth_device.refresh_access_token", return_value=refreshed):
+        with patch("huggingface_hub.utils._auth.refresh_access_token", return_value=refreshed):
             assert get_token() == "hf_oauth_new"
         assert _read_stored_tokens_full()["oauth-user"]["refresh_token"] == "rt_old"
 
     def test_transient_failure_returns_stale_token(self):
         self._login_with_oauth_token(expires_in=3600)
         with patch(
-            "huggingface_hub._oauth_device.refresh_access_token", side_effect=RuntimeError("offline")
+            "huggingface_hub.utils._auth.refresh_access_token", side_effect=RuntimeError("offline")
         ) as mock_refresh:
             assert get_token() == TOKEN
             assert get_token() == TOKEN  # failure is cached: no retry storm
@@ -404,7 +398,7 @@ class TestGetTokenAutoRefresh:
     def test_invalid_grant_returns_stale_token_and_stops_retrying(self):
         self._login_with_oauth_token(expires_in=3600)
         error = DeviceCodeError("revoked", error_code="invalid_grant")
-        with patch("huggingface_hub._oauth_device.refresh_access_token", side_effect=error) as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token", side_effect=error) as mock_refresh:
             assert get_token() == TOKEN
             assert get_token() == TOKEN
         mock_refresh.assert_called_once()
@@ -412,7 +406,7 @@ class TestGetTokenAutoRefresh:
     def test_env_token_takes_precedence_without_refresh(self, monkeypatch):
         self._login_with_oauth_token(expires_in=3600)
         monkeypatch.setenv("HF_TOKEN", "hf_from_env")
-        with patch("huggingface_hub._oauth_device.refresh_access_token") as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token") as mock_refresh:
             assert get_token() == "hf_from_env"
         mock_refresh.assert_not_called()
 
@@ -420,7 +414,7 @@ class TestGetTokenAutoRefresh:
         """A token lifetime shorter than the refresh margin must not trigger a refresh per call."""
         self._login_with_oauth_token(expires_in=3600)
         refreshed = {"access_token": "hf_oauth_new", "refresh_token": "rt_new", "expires_in": 60}
-        with patch("huggingface_hub._oauth_device.refresh_access_token", return_value=refreshed) as mock_refresh:
+        with patch("huggingface_hub.utils._auth.refresh_access_token", return_value=refreshed) as mock_refresh:
             assert get_token() == "hf_oauth_new"
             assert get_token() == "hf_oauth_new"
         mock_refresh.assert_called_once()
@@ -438,7 +432,7 @@ class TestGetTokenAutoRefresh:
 
         with (
             patch("huggingface_hub.utils._auth.WeakFileLock", lock_after_other_process_refreshed),
-            patch("huggingface_hub._oauth_device.refresh_access_token") as mock_refresh,
+            patch("huggingface_hub.utils._auth.refresh_access_token") as mock_refresh,
         ):
             assert get_token() == "hf_oauth_other"
         mock_refresh.assert_not_called()
@@ -469,7 +463,7 @@ class TestDeviceCodeLogin:
     )
     @patch("huggingface_hub._login.request_device_code", return_value=_device_info())
     def test_device_code_login_success(self, mock_request, mock_poll, mock_whoami):
-        _device_code_login(add_to_git_credential=False)
+        _device_code_login()
 
         assert _get_token_from_file() == "hf_oauth_123"
         fields = _read_stored_tokens_full()["oauth-testuser"]

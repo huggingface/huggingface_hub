@@ -24,7 +24,8 @@ from threading import Lock
 from typing import TypedDict
 
 from .. import constants
-from ..errors import DeviceCodeError, OIDCError
+from .._oauth_device import refresh_access_token
+from ..errors import DeviceCodeError, OAuthErrorCode, OIDCError
 from ._fixes import WeakFileLock
 from ._runtime import is_colab_enterprise, is_google_colab
 
@@ -288,8 +289,6 @@ def _refresh_oauth_token_if_needed(token: str) -> str:
             }
             return token
 
-        from .._oauth_device import refresh_access_token
-
         try:
             # Cross-process file lock: if the server rotates refresh tokens, two processes
             # refreshing concurrently would invalidate each other's refresh token.
@@ -316,7 +315,7 @@ def _refresh_oauth_token_if_needed(token: str) -> str:
                         _write_secret(Path(constants.HF_TOKEN_PATH), new_token)
                     logger.info(f"Access token `{token_name}` has been refreshed.")
         except Exception as e:
-            if isinstance(e, DeviceCodeError) and e.error_code == "invalid_grant":
+            if isinstance(e, DeviceCodeError) and e.error_code == OAuthErrorCode.INVALID_GRANT:
                 # Refresh token expired or revoked: retrying is pointless, a re-login is required.
                 # Warned unconditionally (the inf recheck guarantees it fires at most once): an
                 # earlier transient warning must not suppress this actionable message.
