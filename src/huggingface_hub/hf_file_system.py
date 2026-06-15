@@ -1309,6 +1309,8 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         # streaming state
         self._stream_iterator: Iterator[bytes] | None = None
         self._stream_buffer = bytearray()
+        self._stream_opened = False
+        self._xet_mode = False
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1325,13 +1327,16 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
         If reading the stream fails, we retry with a new connection.
         """
-        if self.response is None:
+        # (Re)open when never opened, or when an HTTP stream's response was dropped
+        # (used to force a reconnect, e.g. after a mid-stream failure). In xet mode there
+        # is no response object, so the iterator alone drives the stream.
+        if not self._stream_opened or (not self._xet_mode and self.response is None):
             self._open_connection()
 
         retried_once = False
         while True:
             try:
-                if self.response is None or self._stream_iterator is None:
+                if self._stream_iterator is None:
                     return b""  # Already read the entire file
                 out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
@@ -1341,7 +1346,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                     self.response.close()
                 if retried_once:  # Already retried once, give up
                     raise
-                # First failure, retry with range header
+                # First failure, retry with a fresh connection / stream from self.loc
                 self._open_connection()
                 retried_once = True
 
@@ -1393,13 +1398,29 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
 
     def _open_connection(self):
-        """Open a connection to the remote file."""
+        """Open a connection to the remote file (xet stream when Xet-backed, else HTTP)."""
         # reset streaming state
         self._stream_buffer.clear()
         self._stream_iterator = None
+        self._stream_opened = True
+        self._xet_mode = False
+
+        headers = self.fs._api._build_hf_headers()
+        xet_file_data, size = _try_get_xet_metadata(self.url(), headers, self.fs.endpoint)
+        if xet_file_data is not None:
+            self._xet_mode = True
+            if self.size is None and size is not None:
+                self.size = size
+            group = get_xet_download_stream_group(
+                refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.fs.endpoint
+            )
+            start = self.loc if self.loc > 0 else None
+            self._stream_iterator = xet_download_stream(
+                group, xet_file_data.file_hash, self.size, start=start, end=None
+            )
+            return
 
         url = self.url()
-        headers = self.fs._api._build_hf_headers()
         if self.loc > 0:
             headers["Range"] = f"bytes={self.loc}-"
         self.response = self._exit_stack.enter_context(

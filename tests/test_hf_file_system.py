@@ -7,6 +7,7 @@ import os
 import pickle
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Iterable, Optional, Type
 from unittest.mock import MagicMock, Mock, patch
@@ -132,10 +133,13 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             self.assertIsInstance(f, HfFileSystemStreamFile)
             self.assertEqual(f.read(6), b"dummy ")
-            # Simulate that streaming fails mid-way
+            # Simulate that streaming fails mid-way (HTTP mode only: drop the response)
             f.response = None
             self.assertEqual(f.read(6), b"binary")
-            self.assertIsNotNone(f.response)  # a new connection has been created
+            # In HTTP mode a new connection is opened (response becomes non-None).
+            # In Xet mode there is no response object; the stream iterator drives reads.
+            if not f._xet_mode:
+                self.assertIsNotNone(f.response)  # a new connection has been created
 
     def test_stream_file_reuse_response(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
@@ -158,6 +162,8 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         f = HfFileSystemStreamFile(self.hffs, self.hf_path + "/data/binary_data.bin")  # dummy
         f.response = _FakeResponse(chunks)
         f._stream_iterator = f.response.iter_bytes()
+        f._stream_opened = True
+        f._xet_mode = False
         return f
 
     def test_stream_buffer_overflow_leftover_is_buffered(self):
@@ -1011,3 +1017,74 @@ class TestHfFileSystemFileXetRouting:
             f._fetch_range(0, 1)
             f._fetch_range(1, 2)
         mock_meta.assert_called_once()  # detection HEAD happens at most once per file
+
+
+class TestHfFileSystemStreamFileXetRouting:
+    def _make_stream_file(self):
+        fs = HfFileSystem(endpoint="https://hub")
+        f = HfFileSystemStreamFile.__new__(HfFileSystemStreamFile)
+        f.fs = fs
+        f.path = "datasets/x/data.parquet"
+        f.loc = 0
+        f.size = None
+        f.response = None
+        f._stream_opened = False
+        f._xet_mode = False
+        f._stream_iterator = None
+        f._stream_buffer = bytearray()
+        f._exit_stack = ExitStack()
+        f.url = lambda: "https://hub/resolve/data.parquet"
+        return f, fs
+
+    def test_open_connection_uses_xet_when_backed(self):
+        f, fs = self._make_stream_file()
+        fake_group = object()
+        with patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 8)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=fake_group), \
+             patch.object(hffs_mod, "xet_download_stream", return_value=iter([b"abcd", b"efgh"])) as mock_stream, \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}):
+            data = f.read()
+        assert data == b"abcdefgh"
+        assert f.response is None
+        assert f._xet_mode is True
+        assert mock_stream.call_args[0] == (fake_group, "h", 8)
+        assert mock_stream.call_args[1] == {"start": None, "end": None}
+
+    def test_open_connection_falls_back_to_http(self):
+        f, fs = self._make_stream_file()
+        with patch.object(hffs_mod, "_try_get_xet_metadata", return_value=(None, None)), \
+             patch.object(hffs_mod, "http_stream_backoff") as mock_http, \
+             patch.object(hffs_mod, "hf_raise_for_status"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={}):
+            response = MagicMock()
+            response.iter_bytes.return_value = iter([b"xy"])
+            mock_http.return_value.__enter__.return_value = response
+            data = f.read()
+        assert data == b"xy"
+        assert f._xet_mode is False
+        mock_http.assert_called_once()
+
+    def test_http_response_none_forces_reopen(self):
+        # Offline mirror of test_stream_file_retry: in HTTP mode, dropping `response`
+        # mid-stream must trigger a fresh connection on the next read.
+        f, fs = self._make_stream_file()
+        opened = []
+
+        def fake_http(*args, **kwargs):
+            resp = MagicMock()
+            resp.iter_bytes.return_value = iter([b"part"])
+            opened.append(resp)
+            cm = MagicMock()
+            cm.__enter__.return_value = resp
+            return cm
+
+        with patch.object(hffs_mod, "_try_get_xet_metadata", return_value=(None, None)), \
+             patch.object(hffs_mod, "http_stream_backoff", side_effect=fake_http), \
+             patch.object(hffs_mod, "hf_raise_for_status"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={}):
+            assert f.read(4) == b"part"
+            f.response = None  # simulate mid-stream failure
+            assert f.read(4) == b"part"
+        assert len(opened) == 2  # a new connection was opened
+        assert f.response is not None
