@@ -437,6 +437,57 @@ def test_xet_session_holder_fork_safety_multiprocessing():
         assert wpid is not None
 
 
+from unittest.mock import MagicMock, patch
+
+import huggingface_hub.utils._xet as _xet_mod
+from huggingface_hub.utils._xet import (
+    get_xet_download_stream_group,
+    reset_xet_download_stream_group_cache,
+    xet_download_stream,
+)
+
+
+class TestXetDownloadStreamHelpers:
+    def setup_method(self):
+        reset_xet_download_stream_group_cache()
+
+    def test_group_is_built_from_session_with_expected_args(self):
+        fake_session = MagicMock()
+        with patch.object(_xet_mod, "get_xet_session", return_value=fake_session):
+            group = get_xet_download_stream_group(
+                refresh_route="https://hub/api/models/x/xet-read-token/main",
+                headers={"authorization": "Bearer hf_abc", "user-agent": "ua"},
+                endpoint="https://hub",
+            )
+        assert group is fake_session.new_download_stream_group.return_value
+        _, kwargs = fake_session.new_download_stream_group.call_args
+        assert kwargs["token_refresh_url"] == "https://hub/api/models/x/xet-read-token/main"
+        assert kwargs["token_refresh_headers"] == {"authorization": "Bearer hf_abc", "user-agent": "ua"}
+        assert "authorization" not in {k.lower() for k in kwargs["custom_headers"]}
+
+    def test_group_is_cached_by_route_and_auth(self):
+        fake_session = MagicMock()
+        # side_effect returns a fresh MagicMock per call so distinct groups are distinguishable
+        fake_session.new_download_stream_group.side_effect = [MagicMock(), MagicMock()]
+        with patch.object(_xet_mod, "get_xet_session", return_value=fake_session):
+            g1 = get_xet_download_stream_group(refresh_route="r", headers={"authorization": "a"}, endpoint="e")
+            g2 = get_xet_download_stream_group(refresh_route="r", headers={"authorization": "a"}, endpoint="e")
+            g3 = get_xet_download_stream_group(refresh_route="r", headers={"authorization": "b"}, endpoint="e")
+        assert g1 is g2
+        assert g1 is not g3
+        assert fake_session.new_download_stream_group.call_count == 2
+
+    def test_xet_download_stream_passes_range_to_group(self):
+        group = MagicMock()
+        group.download_stream.return_value = iter([b"ab", b"cd"])
+        with patch("hf_xet.XetFileInfo", create=True) as file_info_cls:
+            out = b"".join(xet_download_stream(group, "hash123", 4, start=1, end=3))
+        assert out == b"abcd"
+        file_info_cls.assert_called_once_with("hash123", 4)
+        _, kwargs = group.download_stream.call_args
+        assert kwargs == {"start": 1, "end": 3}
+
+
 @pytest.mark.parametrize(
     "kwargs, expected_suffix",
     [

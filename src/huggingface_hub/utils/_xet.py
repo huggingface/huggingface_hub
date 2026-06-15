@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -368,3 +369,57 @@ def abort_xet_session():
     call to :func:`get_xet_session` starts fresh (notebook-friendly).
     """
     _GLOBAL_XET_HOLDER.sigint_abort()
+
+
+XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE = 128
+_XET_DOWNLOAD_STREAM_GROUP_CACHE: "OrderedDict[str, object]" = OrderedDict()
+_XET_DOWNLOAD_STREAM_GROUP_LOCK = threading.Lock()
+
+
+def _xet_download_stream_group_cache_key(refresh_route: str, headers: dict[str, str], endpoint: str) -> str:
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    auth_header = lower_headers.get("authorization", "")
+    return f"{endpoint}|{refresh_route}|{auth_header}"
+
+
+def get_xet_download_stream_group(*, refresh_route: str, headers: dict[str, str], endpoint: str | None = None):
+    """Return a shared :class:`hf_xet.XetDownloadStreamGroup` for a repo's Xet endpoint.
+
+    Groups are cached (bounded LRU) by ``(endpoint, refresh_route, authorization)`` so the
+    CAS handshake and token fetch are amortized across all files/reads of a dataset.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    key = _xet_download_stream_group_cache_key(refresh_route, headers, endpoint)
+    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
+        group = _XET_DOWNLOAD_STREAM_GROUP_CACHE.get(key)
+        if group is not None:
+            _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
+            return group
+        session = get_xet_session()
+        group = session.new_download_stream_group(
+            token_refresh_url=refresh_route,
+            token_refresh_headers=headers,
+            custom_headers=xet_headers_without_auth(headers),
+        )
+        _XET_DOWNLOAD_STREAM_GROUP_CACHE[key] = group
+        _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
+        while len(_XET_DOWNLOAD_STREAM_GROUP_CACHE) > XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE:
+            _XET_DOWNLOAD_STREAM_GROUP_CACHE.popitem(last=False)
+        return group
+
+
+def reset_xet_download_stream_group_cache() -> None:
+    """Clear the cached download stream groups. Used by tests."""
+    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
+        _XET_DOWNLOAD_STREAM_GROUP_CACHE.clear()
+
+
+def xet_download_stream(group, file_hash: str, size: int | None, start: int | None = None, end: int | None = None):
+    """Return an ordered ``bytes`` iterator for ``[start, end)`` of a Xet file.
+
+    ``end`` is exclusive, matching both fsspec ``_fetch_range`` and hf_xet ``download_stream``.
+    """
+    from hf_xet import XetFileInfo  # type: ignore[no-redef]
+
+    file_info = XetFileInfo(file_hash, size)
+    return group.download_stream(file_info, start=start, end=end)
