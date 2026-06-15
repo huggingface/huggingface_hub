@@ -1330,6 +1330,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         # (Re)open when never opened, or when an HTTP stream's response was dropped
         # (used to force a reconnect, e.g. after a mid-stream failure). In xet mode there
         # is no response object, so the iterator alone drives the stream.
+        # Xet streams can only be force-reopened via the retry loop below.
         if not self._stream_opened or (not self._xet_mode and self.response is None):
             self._open_connection()
 
@@ -1341,6 +1342,12 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
                 return out
+            except KeyboardInterrupt:
+                if self._xet_mode:
+                    from .utils._xet import abort_xet_session
+
+                    abort_xet_session()
+                raise
             except Exception:
                 if self.response is not None:
                     self.response.close()
@@ -1415,9 +1422,15 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.fs.endpoint
             )
             start = self.loc if self.loc > 0 else None
-            self._stream_iterator = xet_download_stream(
-                group, xet_file_data.file_hash, self.size, start=start, end=None
-            )
+            try:
+                self._stream_iterator = xet_download_stream(
+                    group, xet_file_data.file_hash, self.size, start=start, end=None
+                )
+            except KeyboardInterrupt:
+                from .utils._xet import abort_xet_session
+
+                abort_xet_session()
+                raise
             return
 
         url = self.url()

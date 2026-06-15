@@ -1088,3 +1088,19 @@ class TestHfFileSystemStreamFileXetRouting:
             assert f.read(4) == b"part"
         assert len(opened) == 2  # a new connection was opened
         assert f.response is not None
+
+    def test_keyboard_interrupt_aborts_xet_session(self):
+        f, fs = self._make_stream_file()
+
+        def boom(*args, **kwargs):
+            raise KeyboardInterrupt
+
+        with patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 8)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=object()), \
+             patch.object(hffs_mod, "xet_download_stream", side_effect=boom), \
+             patch.object(fs._api, "_build_hf_headers", return_value={}), \
+             patch("huggingface_hub.utils._xet.abort_xet_session") as mock_abort:
+            with pytest.raises(KeyboardInterrupt):
+                f.read()
+        mock_abort.assert_called_once()
