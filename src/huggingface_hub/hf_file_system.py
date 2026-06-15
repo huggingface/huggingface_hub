@@ -1180,6 +1180,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             raise
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
+        self._xet_checked = False
+        self._xet_group = None
+        self._xet_file_hash: str | None = None
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -1187,7 +1190,32 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             return
         return super().__del__()
 
+    def _ensure_xet(self) -> None:
+        if self._xet_checked:
+            return
+        self._xet_checked = True
+        headers = self.fs._api._build_hf_headers()
+        xet_file_data, size = _try_get_xet_metadata(self.url(), headers, self.fs.endpoint)
+        if xet_file_data is not None:
+            self._xet_group = get_xet_download_stream_group(
+                refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.fs.endpoint
+            )
+            self._xet_file_hash = xet_file_data.file_hash
+            if self.size is None and size is not None:
+                self.size = size
+
     def _fetch_range(self, start: int, end: int) -> bytes:
+        self._ensure_xet()
+        if self._xet_group is not None:
+            try:
+                return b"".join(
+                    xet_download_stream(self._xet_group, self._xet_file_hash, self.size, start=start, end=end)
+                )
+            except KeyboardInterrupt:
+                from .utils._xet import abort_xet_session
+
+                abort_xet_session()
+                raise
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),

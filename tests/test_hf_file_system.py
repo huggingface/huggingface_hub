@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Iterable, Optional, Type
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import fsspec
 import pytest
@@ -953,3 +953,56 @@ class TestXetMetadataResolution:
         _, kwargs = mock_meta.call_args
         assert kwargs["headers"] == {"authorization": "a"}
         assert kwargs["endpoint"] == "http://endpoint"
+
+
+class TestHfFileSystemFileXetRouting:
+    def _make_file(self):
+        fs = HfFileSystem(endpoint="https://hub")
+        f = HfFileSystemFile.__new__(HfFileSystemFile)
+        # bypass network in __init__; set the attributes _fetch_range relies on
+        f.fs = fs
+        f.path = "datasets/x/data.parquet"
+        f.size = 100
+        f._xet_checked = False
+        f._xet_group = None
+        f._xet_file_hash = None
+        f.url = lambda: "https://hub/resolve/data.parquet"
+        return f, fs
+
+    def test_fetch_range_uses_xet_when_backed(self):
+        f, fs = self._make_file()
+        fake_group = object()
+        with patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 100)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=fake_group), \
+             patch.object(hffs_mod, "xet_download_stream", return_value=iter([b"AB", b"CD"])) as mock_stream, \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}):
+            out = f._fetch_range(10, 14)
+        assert out == b"ABCD"
+        _, kwargs = mock_stream.call_args
+        assert kwargs == {"start": 10, "end": 14}
+        assert mock_stream.call_args[0] == (fake_group, "h", 100)
+
+    def test_fetch_range_falls_back_to_http_when_not_xet(self):
+        f, fs = self._make_file()
+        response = MagicMock()
+        response.content = b"http-bytes"
+        with patch.object(hffs_mod, "_try_get_xet_metadata", return_value=(None, None)), \
+             patch.object(hffs_mod, "http_backoff", return_value=response) as mock_http, \
+             patch.object(hffs_mod, "hf_raise_for_status"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}):
+            out = f._fetch_range(0, 10)
+        assert out == b"http-bytes"
+        mock_http.assert_called_once()
+
+    def test_fetch_range_detects_xet_only_once(self):
+        f, fs = self._make_file()
+        fake_group = object()
+        with patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 100)) as mock_meta, \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=fake_group), \
+             patch.object(hffs_mod, "xet_download_stream", return_value=iter([b"x"])), \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}):
+            f._fetch_range(0, 1)
+            f._fetch_range(1, 2)
+        mock_meta.assert_called_once()  # detection HEAD happens at most once per file
