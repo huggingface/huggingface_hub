@@ -932,13 +932,12 @@ def test_hf_file_system_file_can_handle_gzipped_file():
 
 def test_fetch_range_retries_on_request_timeout():
     """`_fetch_range` should opt into retrying 408 Request Time-out.
-
-    Under concurrent range reads the Hub's load balancer (in front of the CDN) can
+    
+    With concurrent range reads the Hub's load balancer (in front of the CDN) can
     intermittently return a transient 408 before the request reaches the backend. It is
     safe to repeat (RFC 7231 §6.5.7) and recovers on a fresh connection, so range reads
     must pass 408 to `http_backoff`'s retried statuses (it is not in the default set).
     """
-    # Build a file object without hitting the network (skip __init__ / resolve_path).
     file = HfFileSystemFile.__new__(HfFileSystemFile)
     file.fs = Mock()
     file.fs._api._build_hf_headers.return_value = {}
