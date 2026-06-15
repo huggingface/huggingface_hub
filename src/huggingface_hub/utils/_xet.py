@@ -2,8 +2,10 @@ import os
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import httpx
 
@@ -382,7 +384,7 @@ def _xet_download_stream_group_cache_key(refresh_route: str, headers: dict[str, 
     return f"{endpoint}|{refresh_route}|{auth_header}"
 
 
-def get_xet_download_stream_group(*, refresh_route: str, headers: dict[str, str], endpoint: str | None = None):
+def get_xet_download_stream_group(*, refresh_route: str, headers: dict[str, str], endpoint: str | None = None) -> "Any":
     """Return a shared :class:`hf_xet.XetDownloadStreamGroup` for a repo's Xet endpoint.
 
     Groups are cached (bounded LRU) by ``(endpoint, refresh_route, authorization)`` so the
@@ -390,21 +392,32 @@ def get_xet_download_stream_group(*, refresh_route: str, headers: dict[str, str]
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     key = _xet_download_stream_group_cache_key(refresh_route, headers, endpoint)
+
+    # Fast path: return a cached group without doing any network work under the lock.
     with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
         group = _XET_DOWNLOAD_STREAM_GROUP_CACHE.get(key)
         if group is not None:
             _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
             return group
-        session = get_xet_session()
-        group = session.new_download_stream_group(
-            token_refresh_url=refresh_route,
-            token_refresh_headers=headers,
-            custom_headers=xet_headers_without_auth(headers),
-        )
-        _XET_DOWNLOAD_STREAM_GROUP_CACHE[key] = group
+
+    # Slow path: establish the connection outside the lock (network handshake).
+    session = get_xet_session()
+    group = session.new_download_stream_group(
+        token_refresh_url=refresh_route,
+        token_refresh_headers=headers,
+        custom_headers=xet_headers_without_auth(headers),
+    )
+
+    # Insert under the lock, honoring a concurrent insert of the same key.
+    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
+        existing = _XET_DOWNLOAD_STREAM_GROUP_CACHE.get(key)
+        if existing is not None:
+            group = existing
+        else:
+            _XET_DOWNLOAD_STREAM_GROUP_CACHE[key] = group
+            while len(_XET_DOWNLOAD_STREAM_GROUP_CACHE) > XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE:
+                _XET_DOWNLOAD_STREAM_GROUP_CACHE.popitem(last=False)
         _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
-        while len(_XET_DOWNLOAD_STREAM_GROUP_CACHE) > XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE:
-            _XET_DOWNLOAD_STREAM_GROUP_CACHE.popitem(last=False)
         return group
 
 
@@ -414,7 +427,7 @@ def reset_xet_download_stream_group_cache() -> None:
         _XET_DOWNLOAD_STREAM_GROUP_CACHE.clear()
 
 
-def xet_download_stream(group, file_hash: str, size: int | None, start: int | None = None, end: int | None = None):
+def xet_download_stream(group: "Any", file_hash: str, size: int | None, start: int | None = None, end: int | None = None) -> Iterator[bytes]:
     """Return an ordered ``bytes`` iterator for ``[start, end)`` of a Xet file.
 
     ``end`` is exclusive, matching both fsspec ``_fetch_range`` and hf_xet ``download_stream``.

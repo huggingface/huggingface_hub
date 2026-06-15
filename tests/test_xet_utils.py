@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+import huggingface_hub.utils._xet as _xet_mod
 from huggingface_hub import HfApi, constants
 from huggingface_hub.utils._xet import (
     XetFileData,
@@ -13,10 +14,13 @@ from huggingface_hub.utils._xet import (
     XetTokenType,
     _fetch_xet_connection_info_with_url,
     fetch_xet_connection_info_from_repo_info,
+    get_xet_download_stream_group,
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
+    reset_xet_download_stream_group_cache,
     xet_connection_info_refresh_url,
+    xet_download_stream,
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -437,16 +441,6 @@ def test_xet_session_holder_fork_safety_multiprocessing():
         assert wpid is not None
 
 
-from unittest.mock import MagicMock, patch
-
-import huggingface_hub.utils._xet as _xet_mod
-from huggingface_hub.utils._xet import (
-    get_xet_download_stream_group,
-    reset_xet_download_stream_group_cache,
-    xet_download_stream,
-)
-
-
 class TestXetDownloadStreamHelpers:
     def setup_method(self):
         reset_xet_download_stream_group_cache()
@@ -486,6 +480,27 @@ class TestXetDownloadStreamHelpers:
         file_info_cls.assert_called_once_with("hash123", 4)
         _, kwargs = group.download_stream.call_args
         assert kwargs == {"start": 1, "end": 3}
+
+    def test_reset_clears_cache(self):
+        fake_session = MagicMock()
+        with patch.object(_xet_mod, "get_xet_session", return_value=fake_session):
+            get_xet_download_stream_group(refresh_route="r", headers={"authorization": "a"}, endpoint="e")
+        assert len(_xet_mod._XET_DOWNLOAD_STREAM_GROUP_CACHE) == 1
+        reset_xet_download_stream_group_cache()
+        assert len(_xet_mod._XET_DOWNLOAD_STREAM_GROUP_CACHE) == 0
+
+    def test_lru_eviction_drops_oldest(self):
+        size = _xet_mod.XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE
+        fake_session = MagicMock()
+        fake_session.new_download_stream_group.side_effect = [MagicMock() for _ in range(size + 1)]
+        with patch.object(_xet_mod, "get_xet_session", return_value=fake_session):
+            for i in range(size + 1):
+                get_xet_download_stream_group(refresh_route=f"r{i}", headers={"authorization": "a"}, endpoint="e")
+        assert len(_xet_mod._XET_DOWNLOAD_STREAM_GROUP_CACHE) == size
+        # r0 was the oldest and must have been evicted; r1..rN remain
+        keys = list(_xet_mod._XET_DOWNLOAD_STREAM_GROUP_CACHE.keys())
+        assert not any(k.endswith("|r0|a") for k in keys)
+        assert any(k.endswith("|r1|a") for k in keys)
 
 
 @pytest.mark.parametrize(
