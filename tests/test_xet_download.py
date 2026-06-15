@@ -19,7 +19,6 @@ from huggingface_hub.utils import (
     XetFileData,
     refresh_xet_connection_info,
 )
-from huggingface_hub.utils._xet import reset_xet_download_stream_group_cache
 
 from .testing_utils import (
     DUMMY_XET_FILE,
@@ -350,12 +349,6 @@ class TestXetSnapshotDownload:
 
 @with_production_testing
 class TestHfFileSystemXetStreaming:
-    @pytest.fixture(autouse=True)
-    def _clear_group_cache(self):
-        reset_xet_download_stream_group_cache()
-        yield
-        reset_xet_download_stream_group_cache()
-
     def _reference_bytes(self) -> bytes:
         local = hf_hub_download(DUMMY_XET_MODEL_ID, DUMMY_XET_FILE)
         return Path(local).read_bytes()

@@ -1,7 +1,6 @@
 import os
 import threading
 import time
-from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
@@ -373,64 +372,43 @@ def abort_xet_session():
     _GLOBAL_XET_HOLDER.sigint_abort()
 
 
-# Bounded LRU cache of download stream groups. Each group holds a CAS connection pool;
-# evicted groups are released via the Rust `Drop` impl when garbage-collected (no explicit
-# close), same as the connection-info cache above. The bound keeps this from growing
-# unboundedly while amortizing the CAS handshake across files of a repo.
-XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE = 128
-_XET_DOWNLOAD_STREAM_GROUP_CACHE: "OrderedDict[str, object]" = OrderedDict()
-_XET_DOWNLOAD_STREAM_GROUP_LOCK = threading.Lock()
+def _xet_group_seed_kwargs(file_data: "XetFileData", headers: dict[str, str]) -> dict[str, Any]:
+    """Build the kwargs that seed a fresh download/file group with a cached read token.
 
+    The short-lived CAS read token (with its endpoint and expiry) is looked up via
+    :func:`refresh_xet_connection_info`, which caches it by refresh route + auth until expiry.
+    Seeding via ``token``/``token_expiry_unix_secs`` skips the group's initial token-refresh
+    round-trip, while ``token_refresh_url`` stays set so the group refreshes the token itself
+    once the seeded one expires.
 
-def _xet_download_stream_group_cache_key(refresh_route: str, headers: dict[str, str], endpoint: str) -> str:
-    lower_headers = {k.lower(): v for k, v in headers.items()}
-    auth_header = lower_headers.get("authorization", "")
-    return f"{endpoint}|{refresh_route}|{auth_header}"
-
-
-def get_xet_download_stream_group(
-    *, refresh_route: str, headers: dict[str, str], endpoint: str | None = None
-) -> "Any":
-    """Return a shared :class:`hf_xet.XetDownloadStreamGroup` for a repo's Xet endpoint.
-
-    Groups are cached (bounded LRU) by ``(endpoint, refresh_route, authorization)`` so the
-    CAS handshake and token fetch are amortized across all files/reads of a dataset.
+    Note: only this token info is cached (it is plain, fork-safe data). The group itself is
+    NOT cached — see :func:`open_xet_download_stream_group`.
     """
-    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    key = _xet_download_stream_group_cache_key(refresh_route, headers, endpoint)
+    connection_info = refresh_xet_connection_info(file_data=file_data, headers=headers)
+    return {
+        "endpoint": connection_info.endpoint,
+        "token": connection_info.access_token,
+        "token_expiry_unix_secs": connection_info.expiration_unix_epoch,
+        "token_refresh_url": file_data.refresh_route,
+        "token_refresh_headers": headers,
+        "custom_headers": xet_headers_without_auth(headers),
+    }
 
-    # Fast path: return a cached group without doing any network work under the lock.
-    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
-        group = _XET_DOWNLOAD_STREAM_GROUP_CACHE.get(key)
-        if group is not None:
-            _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
-            return group
 
-    # Slow path: establish the connection outside the lock (network handshake).
+def open_xet_download_stream_group(*, file_data: "XetFileData", headers: dict[str, str]) -> "Any":
+    """Create a new :class:`hf_xet.XetDownloadStreamGroup`, seeded with a cached read token.
+
+    A fresh group is created on every call and is **never cached**. A group is bound to the
+    current :class:`hf_xet.XetSession`'s runtime, which is torn down on ``KeyboardInterrupt``
+    (:func:`abort_xet_session`) and is invalid in a forked child; a cached group would then
+    reference a dead runtime. Only the short-lived read token is cached (see
+    :func:`refresh_xet_connection_info`), so creating a group does not re-fetch the token.
+
+    Reuse the returned group for multiple ``download_stream`` calls on the same file (e.g.
+    across ``_fetch_range`` blocks); do not store it past the file's lifetime.
+    """
     session = get_xet_session()
-    group = session.new_download_stream_group(
-        token_refresh_url=refresh_route,
-        token_refresh_headers=headers,
-        custom_headers=xet_headers_without_auth(headers),
-    )
-
-    # Insert under the lock, honoring a concurrent insert of the same key.
-    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
-        existing = _XET_DOWNLOAD_STREAM_GROUP_CACHE.get(key)
-        if existing is not None:
-            group = existing
-        else:
-            _XET_DOWNLOAD_STREAM_GROUP_CACHE[key] = group
-            while len(_XET_DOWNLOAD_STREAM_GROUP_CACHE) > XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE:
-                _XET_DOWNLOAD_STREAM_GROUP_CACHE.popitem(last=False)
-        _XET_DOWNLOAD_STREAM_GROUP_CACHE.move_to_end(key)
-        return group
-
-
-def reset_xet_download_stream_group_cache() -> None:
-    """Clear the cached download stream groups. Used by tests."""
-    with _XET_DOWNLOAD_STREAM_GROUP_LOCK:
-        _XET_DOWNLOAD_STREAM_GROUP_CACHE.clear()
+    return session.new_download_stream_group(**_xet_group_seed_kwargs(file_data, headers))
 
 
 def xet_download_stream(
@@ -444,3 +422,34 @@ def xet_download_stream(
 
     file_info = XetFileInfo(file_hash, size)
     return group.download_stream(file_info, start=start, end=end)
+
+
+def xet_download_file(
+    *,
+    file_data: "XetFileData",
+    headers: dict[str, str],
+    size: int | None,
+    path: str,
+    progress_callback: "Any | None" = None,
+) -> None:
+    """Download a Xet file directly to ``path`` on disk via a fresh file-download group.
+
+    Unlike :func:`xet_download_stream` (which reconstructs through Python on every read),
+    this lets ``hf_xet`` write the file from Rust (parallel) and populates the local chunk
+    cache, so it is the right tool when a real local path is available. The group is created
+    fresh and seeded with a cached read token (never cached itself, like
+    :func:`open_xet_download_stream_group`). ``progress_callback``, if given, receives
+    ``(GroupProgressReport, dict)`` updates roughly every 100ms.
+    """
+    from hf_xet import XetFileInfo  # type: ignore[no-redef]
+
+    session = get_xet_session()
+    group_kwargs = _xet_group_seed_kwargs(file_data, headers)
+    if progress_callback is not None:
+        group_kwargs["progress_callback"] = progress_callback
+    try:
+        with session.new_file_download_group(**group_kwargs) as group:
+            group.start_download_file(XetFileInfo(file_data.file_hash, size), path)
+    except KeyboardInterrupt:
+        abort_xet_session()
+        raise

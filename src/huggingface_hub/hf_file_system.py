@@ -39,7 +39,7 @@ from .utils import (
     parse_hf_uri,
 )
 from .utils._runtime import is_xet_available
-from .utils._xet import get_xet_download_stream_group, xet_download_stream
+from .utils._xet import open_xet_download_stream_group, xet_download_file, xet_download_stream
 from .utils.insecure_hashlib import md5
 
 
@@ -1118,13 +1118,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
             os.makedirs(os.path.dirname(lpath), exist_ok=True)
 
-        # Open file if not already open
-        close_file = False
-        if outfile is None:
-            outfile = open(lpath, "wb")
-            close_file = True
-        initial_pos = outfile.tell()
-
         # Custom implementation of `get_file` to use `http_get`.
         resolve_remote_path = self.resolve_path(rpath, revision=revision)
         expected_size = self.info(rpath, revision=revision)["size"]
@@ -1132,11 +1125,40 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         headers = self._api._build_hf_headers()
         download_url = self.url(resolve_remote_path.unresolve())
         xet_file_data, _ = _try_get_xet_metadata(download_url, headers, self.endpoint)
+
+        # Fast path: a Xet-backed file written to a real local path. Hand the path to hf_xet
+        # so it writes the file directly from Rust (parallel) and populates the local chunk
+        # cache, instead of streaming chunks through Python. Only applies when we have a path
+        # (not a file-like object).
+        if xet_file_data is not None and outfile is None and isinstance(lpath, (str, Path)):
+            _prev = 0
+
+            def _on_progress(group_report, _):
+                nonlocal _prev
+                current = group_report.total_bytes_completed
+                callback.relative_update(max(0, current - _prev))
+                _prev = current
+
+            xet_download_file(
+                file_data=xet_file_data,
+                headers=headers,
+                size=expected_size,
+                path=str(Path(lpath).absolute()),
+                progress_callback=_on_progress if isinstance(callback, TqdmCallback) else None,
+            )
+            return
+
+        # Open file if not already open
+        close_file = False
+        if outfile is None:
+            outfile = open(lpath, "wb")
+            close_file = True
+        initial_pos = outfile.tell()
         try:
             if xet_file_data is not None:
-                group = get_xet_download_stream_group(
-                    refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.endpoint
-                )
+                # Xet-backed file written to a file-like object (no path for hf_xet to write
+                # to) => reconstruct as a byte stream and write the chunks ourselves.
+                group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
                 try:
                     for chunk in xet_download_stream(group, xet_file_data.file_hash, expected_size):
                         outfile.write(chunk)
@@ -1225,9 +1247,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         headers = self.fs._api._build_hf_headers()
         xet_file_data, size = _try_get_xet_metadata(self.url(), headers, self.fs.endpoint)
         if xet_file_data is not None:
-            self._xet_group = get_xet_download_stream_group(
-                refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.fs.endpoint
-            )
+            self._xet_group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
             self._xet_file_hash = xet_file_data.file_hash
             if self.size is None and size is not None:
                 self.size = size
@@ -1443,9 +1463,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             self._xet_mode = True
             if self.size is None and size is not None:
                 self.size = size
-            group = get_xet_download_stream_group(
-                refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.fs.endpoint
-            )
+            group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
             start = self.loc if self.loc > 0 else None
             try:
                 self._stream_iterator = xet_download_stream(
