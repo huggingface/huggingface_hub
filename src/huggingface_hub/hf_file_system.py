@@ -29,7 +29,15 @@ from .errors import (
 )
 from .file_download import get_hf_file_metadata, hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, logging, parse_hf_uri
+from .utils import (
+    HFValidationError,
+    XetFileData,
+    hf_raise_for_status,
+    http_backoff,
+    http_stream_backoff,
+    logging,
+    parse_hf_uri,
+)
 from .utils._runtime import is_xet_available
 from .utils._xet import get_xet_download_stream_group, xet_download_stream
 from .utils.insecure_hashlib import md5

@@ -388,7 +388,9 @@ def _xet_download_stream_group_cache_key(refresh_route: str, headers: dict[str, 
     return f"{endpoint}|{refresh_route}|{auth_header}"
 
 
-def get_xet_download_stream_group(*, refresh_route: str, headers: dict[str, str], endpoint: str | None = None) -> "Any":
+def get_xet_download_stream_group(
+    *, refresh_route: str, headers: dict[str, str], endpoint: str | None = None
+) -> "Any":
     """Return a shared :class:`hf_xet.XetDownloadStreamGroup` for a repo's Xet endpoint.
 
     Groups are cached (bounded LRU) by ``(endpoint, refresh_route, authorization)`` so the
@@ -431,7 +433,9 @@ def reset_xet_download_stream_group_cache() -> None:
         _XET_DOWNLOAD_STREAM_GROUP_CACHE.clear()
 
 
-def xet_download_stream(group: "Any", file_hash: str, size: int | None, start: int | None = None, end: int | None = None) -> Iterator[bytes]:
+def xet_download_stream(
+    group: "Any", file_hash: str, size: int | None, start: int | None = None, end: int | None = None
+) -> Iterator[bytes]:
     """Return an ordered ``bytes`` iterator for ``[start, end)`` of a Xet file.
 
     ``end`` is exclusive, matching both fsspec ``_fetch_range`` and hf_xet ``download_stream``.
