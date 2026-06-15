@@ -375,7 +375,7 @@ def http_get(
         headers=headers,
         timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         retry_on_exceptions=(),
-        retry_on_status_codes=(429,),
+        retry_on_status_codes=(408, 429),
     ) as response:
         hf_raise_for_status(response)
 
