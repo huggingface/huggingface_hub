@@ -107,14 +107,13 @@ def save_torch_model(
     Example:
 
     ```py
-    >>> from huggingface_hub import save_torch_model
+    >>> from huggingface_hub import load_torch_model, save_torch_model
     >>> model = ... # A PyTorch model
 
     # Save state dict to "path/to/folder". The model will be split into shards of 5GB each and saved as safetensors.
     >>> save_torch_model(model, "path/to/folder")
 
     # Load model back
-    >>> from huggingface_hub import load_torch_model  # TODO
     >>> load_torch_model(model, "path/to/folder")
     >>>
     ```
@@ -205,7 +204,7 @@ def save_torch_state_dict(
     >>> model = ... # A PyTorch model
 
     # Save state dict to "path/to/folder". The model will be split into shards of 5GB each and saved as safetensors.
-    >>> state_dict = model_to_save.state_dict()
+    >>> state_dict = model.state_dict()
     >>> save_torch_state_dict(state_dict, "path/to/folder")
     ```
     """
