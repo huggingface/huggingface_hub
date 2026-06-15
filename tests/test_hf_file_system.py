@@ -928,3 +928,29 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+def test_fetch_range_retries_on_request_timeout():
+    """`_fetch_range` should opt into retrying 408 Request Time-out.
+
+    Under concurrent range reads the Hub's load balancer (in front of the CDN) can
+    intermittently return a transient 408 before the request reaches the backend. It is
+    safe to repeat (RFC 7231 §6.5.7) and recovers on a fresh connection, so range reads
+    must pass 408 to `http_backoff`'s retried statuses (it is not in the default set).
+    """
+    # Build a file object without hitting the network (skip __init__ / resolve_path).
+    file = HfFileSystemFile.__new__(HfFileSystemFile)
+    file.fs = Mock()
+    file.fs._api._build_hf_headers.return_value = {}
+    file.url = Mock(return_value="https://huggingface.co/datasets/foo/resolve/main/data.parquet")
+
+    response = Mock(content=b"data")
+    with (
+        patch.object(hf_file_system, "http_backoff", return_value=response) as mock_http_backoff,
+        patch.object(hf_file_system, "hf_raise_for_status"),
+    ):
+        out = file._fetch_range(0, 4)
+
+    assert out == b"data"
+    mock_http_backoff.assert_called_once()
+    assert 408 in mock_http_backoff.call_args.kwargs["retry_on_status_codes"]

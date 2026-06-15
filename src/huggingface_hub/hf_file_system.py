@@ -1191,7 +1191,17 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             **self.fs._api._build_hf_headers(),
         }
         url = self.url()
-        r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
+        r = http_backoff(
+            "GET",
+            url,
+            headers=headers,
+            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+            # 408 is added to the default retried statuses: under concurrent range reads the Hub's
+            # load balancer (in front of the CDN) can intermittently return "408 Request Time-out"
+            # before the request reaches the backend. It is transient and safe to repeat per
+            # RFC 7231 §6.5.7, and recovers on the next (fresh-connection) attempt.
+            retry_on_status_codes=(408, 429, 500, 502, 503, 504),
+        )
         hf_raise_for_status(r)
         return r.content
 
