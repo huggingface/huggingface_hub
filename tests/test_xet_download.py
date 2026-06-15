@@ -5,7 +5,8 @@ from unittest.mock import DEFAULT, MagicMock, Mock, patch
 
 import pytest
 
-from huggingface_hub import snapshot_download
+import huggingface_hub.hf_file_system as hffs_mod
+from huggingface_hub import HfFileSystem, snapshot_download
 from huggingface_hub.file_download import (
     HfFileMetadata,
     get_hf_file_metadata,
@@ -18,6 +19,7 @@ from huggingface_hub.utils import (
     XetFileData,
     refresh_xet_connection_info,
 )
+from huggingface_hub.utils._xet import reset_xet_download_stream_group_cache
 
 from .testing_utils import (
     DUMMY_XET_FILE,
@@ -344,3 +346,59 @@ class TestXetSnapshotDownload:
         )
 
         assert os.path.exists(file_path)
+
+
+@with_production_testing
+class TestHfFileSystemXetStreaming:
+    @pytest.fixture(autouse=True)
+    def _clear_group_cache(self):
+        reset_xet_download_stream_group_cache()
+        yield
+        reset_xet_download_stream_group_cache()
+
+    def _reference_bytes(self) -> bytes:
+        local = hf_hub_download(DUMMY_XET_MODEL_ID, DUMMY_XET_FILE)
+        return Path(local).read_bytes()
+
+    def _path(self) -> str:
+        return f"{DUMMY_XET_MODEL_ID}/{DUMMY_XET_FILE}"
+
+    def test_random_access_range_is_byte_exact(self):
+        expected = self._reference_bytes()
+        assert len(expected) > 128, "test file too small to exercise a mid-file range"
+        mid = len(expected) // 2
+        fs = HfFileSystem()
+        with fs.open(self._path(), "rb") as f:  # buffered (random-access) file
+            f.seek(mid)
+            chunk = f.read(64)
+        assert chunk == expected[mid : mid + 64]
+
+    def test_sequential_full_read_is_byte_exact(self):
+        expected = self._reference_bytes()
+        fs = HfFileSystem()
+        with fs.open(self._path(), "rb", block_size=0) as f:  # streaming file
+            data = f.read()
+        assert data == expected
+
+    def test_get_file_is_byte_exact(self, tmp_path):
+        expected = self._reference_bytes()
+        out = tmp_path / "copy.bin"
+        HfFileSystem().get_file(self._path(), str(out))
+        assert out.read_bytes() == expected
+
+    def test_stream_read_uses_xet_path(self):
+        fs = HfFileSystem()
+        with patch.object(hffs_mod, "xet_download_stream", wraps=hffs_mod.xet_download_stream) as spy:
+            with fs.open(self._path(), "rb", block_size=0) as f:
+                f.read()
+        spy.assert_called()  # confirms the read went through the xet path, not HTTP
+
+    def test_random_access_uses_xet_path(self):
+        expected_len_probe = HfFileSystem().info(self._path())["size"]
+        assert expected_len_probe is not None
+        fs = HfFileSystem()
+        with patch.object(hffs_mod, "xet_download_stream", wraps=hffs_mod.xet_download_stream) as spy:
+            with fs.open(self._path(), "rb") as f:
+                f.seek(0)
+                f.read(32)
+        spy.assert_called()
