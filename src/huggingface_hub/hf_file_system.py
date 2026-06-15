@@ -29,10 +29,13 @@ from .errors import (
 )
 from .file_download import get_hf_file_metadata, hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, logging, parse_hf_uri
 from .utils._runtime import is_xet_available
 from .utils._xet import get_xet_download_stream_group, xet_download_stream
 from .utils.insecure_hashlib import md5
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -1456,11 +1459,17 @@ def _try_get_xet_metadata(
     """Return ``(xet_file_data, size)`` for ``url`` when Xet is usable, else ``(None, None)``.
 
     Performs a single HEAD via :func:`get_hf_file_metadata`. ``xet_file_data`` is ``None``
-    when the file is not Xet-backed, in which case the caller falls back to HTTP.
+    when the file is not Xet-backed, when Xet is unavailable, or when the metadata lookup
+    fails — in all cases the caller falls back to the HTTP read path (which has its own
+    retries), so Xet detection never breaks a read.
     """
     if not is_xet_available():
         return None, None
-    metadata = get_hf_file_metadata(url, headers=headers, endpoint=endpoint)
+    try:
+        metadata = get_hf_file_metadata(url, headers=headers, endpoint=endpoint)
+    except Exception as e:
+        logger.warning(f"Could not fetch Xet metadata for {url}, falling back to HTTP: {e}")
+        return None, None
     return metadata.xet_file_data, metadata.size
 
 

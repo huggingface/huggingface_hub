@@ -954,6 +954,11 @@ class TestXetMetadataResolution:
         assert kwargs["headers"] == {"authorization": "a"}
         assert kwargs["endpoint"] == "http://endpoint"
 
+    def test_returns_none_when_metadata_lookup_fails(self):
+        with patch.object(hffs_mod, "is_xet_available", return_value=True), \
+             patch.object(hffs_mod, "get_hf_file_metadata", side_effect=RuntimeError("boom")):
+            assert hffs_mod._try_get_xet_metadata("http://u", {"authorization": "a"}, None) == (None, None)
+
 
 class TestHfFileSystemFileXetRouting:
     def _make_file(self):
