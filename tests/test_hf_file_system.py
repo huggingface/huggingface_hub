@@ -1105,6 +1105,33 @@ class TestHfFileSystemStreamFileXetRouting:
                 f.read()
         mock_abort.assert_called_once()
 
+    def test_xet_stream_resumes_byte_exact_after_midstream_error(self):
+        # A non-KeyboardInterrupt failure mid-stream must be retried by reopening the
+        # xet stream from self.loc (only advanced on bytes actually returned), producing
+        # byte-exact output with no loss or duplication.
+        f, fs = self._make_stream_file()
+        starts = []
+
+        def fake_stream(group, file_hash, size, start=None, end=None):
+            starts.append(start)
+            if len(starts) == 1:
+                def gen():
+                    yield b"abcd"
+                    raise RuntimeError("mid-stream failure")
+                return gen()
+            return iter([b"efgh"])
+
+        with patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 8)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=object()), \
+             patch.object(hffs_mod, "xet_download_stream", side_effect=fake_stream), \
+             patch.object(fs._api, "_build_hf_headers", return_value={}):
+            first = f.read(4)
+            second = f.read(4)
+        assert first == b"abcd"
+        assert second == b"efgh"
+        assert starts == [None, 4]  # resumed from self.loc after the 4 returned bytes
+
 
 class TestGetFileXetRouting:
     def test_get_file_uses_xet_when_backed(self, tmp_path):

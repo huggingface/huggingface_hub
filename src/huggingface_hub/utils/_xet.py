@@ -373,6 +373,10 @@ def abort_xet_session():
     _GLOBAL_XET_HOLDER.sigint_abort()
 
 
+# Bounded LRU cache of download stream groups. Each group holds a CAS connection pool;
+# evicted groups are released via the Rust `Drop` impl when garbage-collected (no explicit
+# close), same as the connection-info cache above. The bound keeps this from growing
+# unboundedly while amortizing the CAS handshake across files of a repo.
 XET_DOWNLOAD_STREAM_GROUP_CACHE_SIZE = 128
 _XET_DOWNLOAD_STREAM_GROUP_CACHE: "OrderedDict[str, object]" = OrderedDict()
 _XET_DOWNLOAD_STREAM_GROUP_LOCK = threading.Lock()
