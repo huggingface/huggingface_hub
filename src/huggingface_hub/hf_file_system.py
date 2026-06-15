@@ -27,9 +27,11 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import hf_hub_url, http_get
+from .file_download import get_hf_file_metadata, hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils._runtime import is_xet_available
+from .utils._xet import get_xet_download_stream_group, xet_download_stream
 from .utils.insecure_hashlib import md5
 
 
@@ -1418,6 +1420,20 @@ def make_instance(cls, args, kwargs, instance_state):
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs
+
+
+def _try_get_xet_metadata(
+    url: str, headers: dict[str, str], endpoint: str | None
+) -> tuple["XetFileData | None", int | None]:
+    """Return ``(xet_file_data, size)`` for ``url`` when Xet is usable, else ``(None, None)``.
+
+    Performs a single HEAD via :func:`get_hf_file_metadata`. ``xet_file_data`` is ``None``
+    when the file is not Xet-backed, in which case the caller falls back to HTTP.
+    """
+    if not is_xet_available():
+        return None, None
+    metadata = get_hf_file_metadata(url, headers=headers, endpoint=endpoint)
+    return metadata.xet_file_data, metadata.size
 
 
 hffs = HfFileSystem()

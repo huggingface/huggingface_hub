@@ -14,8 +14,11 @@ from unittest.mock import Mock, patch
 import fsspec
 import pytest
 
+import huggingface_hub.hf_file_system as hffs_mod
 from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.file_download import HfFileMetadata
+from huggingface_hub.utils import XetFileData
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
@@ -928,3 +931,25 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+class TestXetMetadataResolution:
+    def test_returns_none_when_xet_unavailable(self):
+        with patch.object(hffs_mod, "is_xet_available", return_value=False), \
+             patch.object(hffs_mod, "get_hf_file_metadata") as mock_meta:
+            assert hffs_mod._try_get_xet_metadata("http://u", {}, None) == (None, None)
+        mock_meta.assert_not_called()
+
+    def test_returns_xet_file_data_and_size_when_available(self):
+        meta = HfFileMetadata(
+            commit_hash="c", etag="e", location="loc", size=1234,
+            xet_file_data=XetFileData(file_hash="h", refresh_route="r"),
+        )
+        with patch.object(hffs_mod, "is_xet_available", return_value=True), \
+             patch.object(hffs_mod, "get_hf_file_metadata", return_value=meta) as mock_meta:
+            xfd, size = hffs_mod._try_get_xet_metadata("http://u", {"authorization": "a"}, "http://endpoint")
+        assert xfd == XetFileData(file_hash="h", refresh_route="r")
+        assert size == 1234
+        _, kwargs = mock_meta.call_args
+        assert kwargs["headers"] == {"authorization": "a"}
+        assert kwargs["endpoint"] == "http://endpoint"
