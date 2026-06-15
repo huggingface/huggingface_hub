@@ -1104,3 +1104,62 @@ class TestHfFileSystemStreamFileXetRouting:
             with pytest.raises(KeyboardInterrupt):
                 f.read()
         mock_abort.assert_called_once()
+
+
+class TestGetFileXetRouting:
+    def test_get_file_uses_xet_when_backed(self, tmp_path):
+        fs = HfFileSystem(endpoint="https://hub")
+        out_path = tmp_path / "out.bin"
+        fake_group = object()
+        with patch.object(fs, "resolve_path") as mock_resolve, \
+             patch.object(fs, "info", return_value={"size": 6}), \
+             patch.object(fs, "isdir", return_value=False), \
+             patch.object(fs, "url", return_value="https://hub/resolve/data.bin"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}), \
+             patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 6)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=fake_group), \
+             patch.object(hffs_mod, "xet_download_stream", return_value=iter([b"abc", b"def"])) as mock_stream:
+            mock_resolve.return_value.unresolve.return_value = "hf://datasets/x/data.bin"
+            fs.get_file("datasets/x/data.bin", str(out_path))
+        assert out_path.read_bytes() == b"abcdef"
+        assert mock_stream.call_args[0] == (fake_group, "h", 6)
+
+    def test_get_file_falls_back_to_http_when_not_xet(self, tmp_path):
+        fs = HfFileSystem(endpoint="https://hub")
+        out_path = tmp_path / "out.bin"
+        def fake_http_get(*, url, temp_file, **kwargs):
+            temp_file.write(b"http-data")
+        with patch.object(fs, "resolve_path") as mock_resolve, \
+             patch.object(fs, "info", return_value={"size": 9}), \
+             patch.object(fs, "isdir", return_value=False), \
+             patch.object(fs, "url", return_value="https://hub/resolve/data.bin"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}), \
+             patch.object(hffs_mod, "_try_get_xet_metadata", return_value=(None, None)), \
+             patch.object(hffs_mod, "http_get", side_effect=fake_http_get) as mock_http:
+            mock_resolve.return_value.unresolve.return_value = "hf://datasets/x/data.bin"
+            fs.get_file("datasets/x/data.bin", str(out_path))
+        assert out_path.read_bytes() == b"http-data"
+        mock_http.assert_called_once()
+
+    def test_get_file_aborts_xet_session_on_keyboard_interrupt(self, tmp_path):
+        fs = HfFileSystem(endpoint="https://hub")
+        out_path = tmp_path / "out.bin"
+
+        def boom(*args, **kwargs):
+            raise KeyboardInterrupt
+
+        with patch.object(fs, "resolve_path") as mock_resolve, \
+             patch.object(fs, "info", return_value={"size": 6}), \
+             patch.object(fs, "isdir", return_value=False), \
+             patch.object(fs, "url", return_value="https://hub/resolve/data.bin"), \
+             patch.object(fs._api, "_build_hf_headers", return_value={"authorization": "a"}), \
+             patch.object(hffs_mod, "_try_get_xet_metadata",
+                          return_value=(XetFileData(file_hash="h", refresh_route="r"), 6)), \
+             patch.object(hffs_mod, "get_xet_download_stream_group", return_value=object()), \
+             patch.object(hffs_mod, "xet_download_stream", side_effect=boom), \
+             patch("huggingface_hub.utils._xet.abort_xet_session") as mock_abort:
+            mock_resolve.return_value.unresolve.return_value = "hf://datasets/x/data.bin"
+            with pytest.raises(KeyboardInterrupt):
+                fs.get_file("datasets/x/data.bin", str(out_path))
+        mock_abort.assert_called_once()

@@ -1121,16 +1121,33 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         resolve_remote_path = self.resolve_path(rpath, revision=revision)
         expected_size = self.info(rpath, revision=revision)["size"]
         callback.set_size(expected_size)
+        headers = self._api._build_hf_headers()
+        download_url = self.url(resolve_remote_path.unresolve())
+        xet_file_data, _ = _try_get_xet_metadata(download_url, headers, self.endpoint)
         try:
-            http_get(
-                url=self.url(resolve_remote_path.unresolve()),
-                temp_file=outfile,  # type: ignore
-                displayed_filename=rpath,
-                expected_size=expected_size,
-                resume_size=0,
-                headers=self._api._build_hf_headers(),
-                _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
-            )
+            if xet_file_data is not None:
+                group = get_xet_download_stream_group(
+                    refresh_route=xet_file_data.refresh_route, headers=headers, endpoint=self.endpoint
+                )
+                try:
+                    for chunk in xet_download_stream(group, xet_file_data.file_hash, expected_size):
+                        outfile.write(chunk)
+                        callback.relative_update(len(chunk))
+                except KeyboardInterrupt:
+                    from .utils._xet import abort_xet_session
+
+                    abort_xet_session()
+                    raise
+            else:
+                http_get(
+                    url=download_url,
+                    temp_file=outfile,  # type: ignore
+                    displayed_filename=rpath,
+                    expected_size=expected_size,
+                    resume_size=0,
+                    headers=headers,
+                    _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+                )
             outfile.seek(initial_pos)
         finally:
             # Close file only if we opened it ourselves
