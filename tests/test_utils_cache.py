@@ -229,6 +229,31 @@ class TestValidCacheUtils(unittest.TestCase):
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
+class TestIgnoredCacheFiles(unittest.TestCase):
+    cache_dir: Path
+
+    def test_ignore_os_metadata_files_in_cache_structure(self) -> None:
+        repo_path = self.cache_dir / "models--foo--bar"
+        refs_path = repo_path / "refs"
+        snapshots_path = repo_path / "snapshots"
+        revision_path = snapshots_path / "123"
+        revision_path.mkdir(parents=True)
+        refs_path.mkdir()
+        (refs_path / "main").write_text("123")
+
+        ignored_files = [".DS_Store", "Thumbs.db", "desktop.ini"]
+        for filename in ignored_files:
+            (self.cache_dir / filename).touch()
+            (refs_path / filename).touch()
+            (snapshots_path / filename).touch()
+
+        report = scan_cache_dir(self.cache_dir)
+
+        self.assertEqual(len(report.warnings), 0)
+        self.assertEqual(len(report.repos), 1)
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
 class TestCorruptedCacheUtils(unittest.TestCase):
     cache_dir: Path
     repo_path: Path

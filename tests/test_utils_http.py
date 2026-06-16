@@ -739,3 +739,25 @@ class TestNoReferenceCycleInRaise:
         # After exiting the except block, the exception should be freed by
         # refcount alone (no gc.collect() needed) if there is no cycle.
         assert ref() is None
+
+
+class TestRedactSensitiveBody:
+    def test_redacts_json_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = '{"grant_type": "refresh_token", "refresh_token": "hf_secret", "client_id": "abc"}'
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert '"refresh_token": "<REDACTED>"' in redacted
+        assert '"client_id": "abc"' in redacted
+
+    def test_redacts_form_urlencoded_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = "grant_type=refresh_token&refresh_token=hf_secret&device_code=dev_secret&client_id=abc"
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert "dev_secret" not in redacted
+        assert "refresh_token=<REDACTED>" in redacted
+        assert "device_code=<REDACTED>" in redacted
+        assert "client_id=abc" in redacted

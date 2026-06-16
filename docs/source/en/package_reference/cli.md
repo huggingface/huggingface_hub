@@ -66,7 +66,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List all stored access tokens. [alias: ls]
-* `login`: Login using a token from...
+* `login`: Login from your browser, or using a token...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
@@ -96,7 +96,7 @@ Learn more
 
 ### `hf auth login`
 
-Login using a token from huggingface.co/settings/tokens.
+Login from your browser, or using a token from huggingface.co/settings/tokens.
 
 **Usage**:
 
@@ -2120,6 +2120,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `ps`: List Jobs.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
+* `ssh`: SSH into a running Job.
 * `stats`: Fetch the resource usage statistics and...
 * `uv`: Run UV scripts (Python with inline...
 * `wait`: Wait for one or more Jobs to reach a...
@@ -2327,6 +2328,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2641,6 +2643,41 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs ssh`
+
+SSH into a running Job.
+
+Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`) and your SSH
+public key to be registered at https://huggingface.co/settings/keys.
+
+**Usage**:
+
+```console
+$ hf jobs ssh [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs ssh <job_id>
+  $ hf jobs ssh <job_id> --dry-run
+  $ hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs stats`
 
 Fetch the resource usage statistics and metrics of Jobs
@@ -2715,6 +2752,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed

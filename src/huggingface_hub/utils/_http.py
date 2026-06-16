@@ -391,7 +391,7 @@ if hasattr(os, "register_at_fork"):
 
 
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
-_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
 
 def _http_backoff_base(
@@ -1013,13 +1013,21 @@ def _format(
 
 
 # Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
-_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret")
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret", "device_code")
+_SENSITIVE_BODY_PATTERNS = [
+    pattern
+    for key in _SENSITIVE_BODY_KEYS
+    for pattern in (
+        (re.compile(rf'("{key}"\s*:\s*")[^"]*(")'), r"\1<REDACTED>\2"),  # JSON
+        (re.compile(rf"(^|&)({key}=)[^&]*"), r"\1\2<REDACTED>"),  # application/x-www-form-urlencoded
+    )
+]
 
 
 def _redact_sensitive_body(body: str) -> str:
-    """Redact OAuth credential values from a JSON request body string."""
-    for key in _SENSITIVE_BODY_KEYS:
-        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)
+    """Redact OAuth credential values from a JSON or form-urlencoded request body string."""
+    for pattern, replacement in _SENSITIVE_BODY_PATTERNS:
+        body = pattern.sub(replacement, body)
     return body
 
 
