@@ -3942,34 +3942,36 @@ class HfApiTokenAttributeTest(unittest.TestCase):
 @patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
-        url = RepoUrl("https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
 
         # RepoUrl Is a string
         self.assertIsInstance(url, str)
-        self.assertEqual(url, "https://huggingface.co/gpt2")
+        self.assertEqual(url, "https://huggingface.co/user/repo_name")
 
         # Any str-method can be applied
-        self.assertEqual(url.split("/"), "https://huggingface.co/gpt2".split("/"))
+        self.assertEqual(url.split("/"), "https://huggingface.co/user/repo_name".split("/"))
 
         # String formatting and concatenation work
-        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/gpt2")
-        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/gpt2")
+        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/user/repo_name")
+        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/user/repo_name")
 
         # __repr__ is modified for debugging purposes
         self.assertEqual(
             repr(url),
-            "RepoUrl('https://huggingface.co/gpt2',"
-            " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')",
+            "RepoUrl('https://huggingface.co/user/repo_name',"
+            " endpoint='https://huggingface.co', repo_type='model', repo_id='user/repo_name')",
         )
 
     def test_repo_url_endpoint(self):
         # Implicit endpoint
-        url = RepoUrl("https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
         self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
 
-        # Explicit endpoint
-        url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
+        # Explicit (custom / self-hosted) endpoint: the endpoint prefix is stripped before parsing.
+        url = RepoUrl("https://example.com/user/repo_name", endpoint="https://example.com")
         self.assertEqual(url.endpoint, "https://example.com")
+        self.assertEqual(url.repo_id, "user/repo_name")
+        self.assertEqual(url.repo_type, "model")
 
     def test_repo_url_repo_type(self):
         # Explicit repo type
@@ -3987,37 +3989,37 @@ class RepoUrlTest(unittest.TestCase):
         self.assertEqual(url.repo_type, "model")
 
     def test_repo_url_namespace(self):
-        # Canonical model (e.g. no username)
-        url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertIsNone(url.namespace)
-        self.assertEqual(url.repo_id, "gpt2")
-
-        # "Normal" model
         url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
         self.assertEqual(url.namespace, "dummy_user")
+        self.assertEqual(url.repo_name, "dummy_model")
         self.assertEqual(url.repo_id, "dummy_user/dummy_model")
 
     def test_repo_url_url_property(self):
         # RepoUrl.url returns a pure `str` value
-        url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url, "https://huggingface.co/gpt2")
-        self.assertEqual(url.url, "https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url, "https://huggingface.co/user/repo_name")
+        self.assertEqual(url.url, "https://huggingface.co/user/repo_name")
         self.assertIsInstance(url, RepoUrl)
         self.assertNotIsInstance(url.url, RepoUrl)
 
-    def test_repo_url_canonical_model(self):
-        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2"):
+    def test_repo_url_accepts_bare_and_hf_ids(self):
+        # Bare '<namespace>/<name>' ids and 'hf://' URIs are normalized through `parse_hf_uri`.
+        for _id in ("user/repo_name", "hf://user/repo_name"):
             with self.subTest(_id):
                 url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "gpt2")
+                self.assertEqual(url.repo_id, "user/repo_name")
                 self.assertEqual(url.repo_type, "model")
 
-    def test_repo_url_canonical_dataset(self):
-        for _id in ("datasets/squad", "hf://datasets/squad", "https://huggingface.co/datasets/squad"):
+        url = RepoUrl("hf://datasets/user/squad")
+        self.assertEqual(url.repo_id, "user/squad")
+        self.assertEqual(url.repo_type, "dataset")
+
+    def test_repo_url_canonical_repo_not_supported(self):
+        # Canonical single-segment repos (no namespace) are intentionally rejected.
+        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2", "https://huggingface.co/datasets/squad"):
             with self.subTest(_id):
-                url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "squad")
-                self.assertEqual(url.repo_type, "dataset")
+                with self.assertRaises(ValueError):
+                    RepoUrl(_id)
 
     def test_repo_url_in_commit_info(self):
         info = CommitInfo(

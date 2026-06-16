@@ -375,7 +375,7 @@ def http_get(
         headers=headers,
         timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         retry_on_exceptions=(),
-        retry_on_status_codes=(429,),
+        retry_on_status_codes=(408, 429),
     ) as response:
         hf_raise_for_status(response)
 
@@ -437,10 +437,11 @@ def http_get(
                         new_resume_size += len(chunk)
                         # Some data has been downloaded from the server so we reset the number of retries.
                         _nb_retries = 5
-            except (httpx.ConnectError, httpx.TimeoutException) as e:
-                # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-                # a transient error (network outage?). We log a warning message and try to resume the download a few times
-                # before giving up. The retry mechanism is basic but should be enough in most cases.
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+                # If ConnectionError (SSLError), ReadTimeout, or RemoteProtocolError (peer closed the connection before
+                # sending the complete body) happen while streaming data from the server, it is most likely a transient
+                # error (network outage?). We log a warning message and try to resume the download a few times  before
+                # giving up. The retry mechanism is basic but should be enough in most cases.
                 if _nb_retries <= 0:
                     logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
                     raise

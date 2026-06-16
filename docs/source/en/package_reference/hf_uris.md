@@ -106,6 +106,13 @@ HfUri(type='dataset', id='my-org/my-dataset', revision='main', path_in_repo='tra
 
 URLs from `huggingface.co` (and its `hf.co` short domain, the staging host, and the host of a custom `HF_ENDPOINT`) are recognized, with or without the `https://` scheme. Query strings (`?download=true`) and fragments (`#L10`) are ignored.
 
+To parse a URL from another Hub deployment (e.g. a self-hosted or proxied Hub), pass its base URL as `endpoint`. Its host is then recognized in addition to the default ones, and a path prefix (e.g. `http://localhost:8080/hf`) is stripped before parsing:
+
+```python
+>>> parse_hf_uri("https://hub.my-company.com/datasets/my-org/my-dataset", endpoint="https://hub.my-company.com")
+HfUri(type='dataset', id='my-org/my-dataset', revision=None, path_in_repo='')
+```
+
 ### Supported URL formats
 
 The table below lists the supported routes. For brevity, only the **URL path** is shown (the part after the host, e.g. `huggingface.co`); the recognized host is implied.

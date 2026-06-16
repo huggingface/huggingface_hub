@@ -1993,6 +1993,26 @@ Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
 >>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
 ```
 
+### SSH into a Job
+
+Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container reachable over SSH, then connect with `hf jobs ssh`:
+
+```bash
+# Start a job with SSH enabled
+>>> hf jobs run --ssh --detach python:3.12 sleep infinity
+
+# Open an SSH session into it
+>>> hf jobs ssh <job_id>
+
+# Print the SSH command instead of running it
+>>> hf jobs ssh <job_id> --dry-run
+
+# Use a specific identity file
+>>> hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
+
 ### UV Scripts (Experimental)
 
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.
