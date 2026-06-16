@@ -4808,7 +4808,7 @@ def test_create_inference_endpoint_custom_image_payload(
         "instance_type": "nvidia-a10g",
         "region": "us-east-1",
         "vendor": "aws",
-        "type": "protected",
+        "type": "authenticated",
         "task": "text-generation",
         "namespace": "Wauplin",
     }
@@ -4919,6 +4919,47 @@ def test_create_inference_endpoint_container_command_and_args_payload(mock_post:
     assert payload["model"]["image"] == {
         "custom": {"url": "nexagi/sglang:v0.5.12", "healthRoute": "/health", "port": 30000}
     }
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_create_inference_endpoint_type_default_and_protected_deprecation(mock_post: Mock):
+    mock_session = mock_post.return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "my-endpoint",
+        "model": {"repository": "gpt2", "framework": "pytorch", "revision": None, "task": "text-generation"},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.post.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    common_args = {
+        "name": "my-endpoint",
+        "repository": "gpt2",
+        "framework": "pytorch",
+        "accelerator": "cpu",
+        "instance_size": "x2",
+        "instance_type": "intel-icl",
+        "region": "us-east-1",
+        "vendor": "aws",
+        "namespace": "Wauplin",
+    }
+
+    # Default type is now "authenticated".
+    api.create_inference_endpoint(**common_args)
+    _, call_kwargs = mock_session.post.call_args
+    assert call_kwargs["json"]["type"] == "authenticated"
+
+    # Passing "protected" still works but is deprecated.
+    with pytest.warns(FutureWarning, match="authenticated"):
+        api.create_inference_endpoint(type="protected", **common_args)
 
 
 class HfApiVerifyChecksumsTest(HfApiCommonTest):

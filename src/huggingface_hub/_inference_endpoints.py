@@ -30,7 +30,8 @@ class InferenceEndpointStatus(str, Enum):
 
 class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
-    PROTECTED = "protected"
+    PROTECTED = "protected"  # deprecated, use AUTHENTICATED instead
+    AUTHENTICATED = "authenticated"
     PRIVATE = "private"
 
 
@@ -66,7 +67,7 @@ class InferenceEndpoint:
         updated_at (`datetime.datetime`):
             The timestamp of the last update of the Inference Endpoint.
         type ([`InferenceEndpointType`]):
-            The type of the Inference Endpoint (public, protected, private).
+            The type of the Inference Endpoint (public, authenticated, private).
         raw (`dict`):
             The raw dictionary data returned from the API.
         token (`str` or `bool`, *optional*):

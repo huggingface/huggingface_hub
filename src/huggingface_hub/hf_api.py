@@ -9013,7 +9013,7 @@ class HfApi:
         container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
-        type: InferenceEndpointType | str = InferenceEndpointType.PROTECTED,
+        type: InferenceEndpointType | str = InferenceEndpointType.AUTHENTICATED,
         domain: str | None = None,
         path: str | None = None,
         cache_http_responses: bool | None = None,
@@ -9075,8 +9075,9 @@ class HfApi:
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
-                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"`, `"authenticated"`
-                or `"private"`.
+                The type of the Inference Endpoint, which can be `"authenticated"` (default), `"public"` or
+                `"private"`. `"protected"` is deprecated in favor of `"authenticated"` and will be removed in a
+                future release.
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
@@ -9108,7 +9109,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9132,7 +9133,7 @@ class HfApi:
             ...     accelerator="gpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
             ...     env={
@@ -9164,7 +9165,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9176,6 +9177,13 @@ class HfApi:
 
         """
         namespace = namespace or self._get_namespace(token=token)
+
+        if type == InferenceEndpointType.PROTECTED:
+            warnings.warn(
+                "`type='protected'` is deprecated and will be removed in a future release. "
+                "Use `type='authenticated'` instead.",
+                FutureWarning,
+            )
 
         if custom_image is not None:
             image = (

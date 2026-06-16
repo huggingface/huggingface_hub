@@ -27,7 +27,7 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ...     accelerator="cpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x2",
 ...     instance_type="intel-icl"
 ... )
@@ -46,7 +46,7 @@ hf endpoints catalog deploy --repo openai/gpt-oss-120b --accelerator gpu
 ```
 
 
-In this example, we created a `protected` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. A `protected` Inference Endpoint means your token is required to access the API. We also need to provide additional information to configure the hardware requirements, such as vendor, region, accelerator, instance type, and size. You can check out the list of available resources [here](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
+In this example, we created an `authenticated` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. An `authenticated` Inference Endpoint means your token is required to access the API. We also need to provide additional information to configure the hardware requirements, such as vendor, region, accelerator, instance type, and size. You can check out the list of available resources [here](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
 
 The value returned by [`create_inference_endpoint`] is an [`InferenceEndpoint`] object:
 
@@ -82,7 +82,7 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 ...     accelerator="gpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x1",
 ...     instance_type="nvidia-a10g",
 ...     custom_image={
