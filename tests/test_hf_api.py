@@ -3266,7 +3266,7 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
         }
 
         # Select LFS files that are on main
-        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        lfs_files_on_main = [file for file in lfs_files if file.ref in ("main", "refs/heads/main")]
         assert len(lfs_files_on_main) == 2
 
         # Permanently delete LFS files
