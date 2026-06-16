@@ -4591,7 +4591,7 @@ class HfApi:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
                 # tests. To avoid any inconvenience, we retry to create the repo for this specific error.
-                # NOTE: This could have being fixed directly in the tests but adding it here should fixed CIs for all
+                # NOTE: This could have been fixed directly in the tests, but adding it here should fix CIs for all
                 # dependent libraries.
                 # NOTE: If a fix is implemented server-side, we should be able to remove this retry mechanism.
                 logger.debug("Create repo failed due to a concurrency issue. Retrying...")
@@ -9927,7 +9927,7 @@ class HfApi:
             collection_slug (`str`):
                 Slug of the collection to delete. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if collection doesn't exists.
+                If `True`, do not raise an error if the collection doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9951,7 +9951,7 @@ class HfApi:
             hf_raise_for_status(r)
         except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
-                # Collection doesn't exists and `missing_ok=True`
+                # Collection doesn't exist and `missing_ok=True`
                 return
             else:
                 raise
@@ -10110,7 +10110,7 @@ class HfApi:
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
                 It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if item doesn't exists.
+                If `True`, do not raise an error if the item doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
