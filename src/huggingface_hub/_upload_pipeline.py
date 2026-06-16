@@ -667,17 +667,16 @@ def pipelined_upload(
     Requires `hf_xet` to be installed. See module docstring for the architecture.
     """
 
-      return _UploadPipeline(
-          api,
-          repo_id=repo_id,
-          repo_type=repo_type,
-          add_operations=add_operations,
-          delete_operations=delete_operations,
-          commit_message=commit_message,
-          commit_description=commit_description,
-          token=token,
-          revision=revision,
-          create_pr=create_pr,
-          parent_commit=parent_commit,
-      ).run()
-    
+    return _UploadPipeline(
+        api,
+        repo_id=repo_id,
+        repo_type=repo_type,
+        add_operations=add_operations,
+        delete_operations=delete_operations,
+        commit_message=commit_message,
+        commit_description=commit_description,
+        token=token,
+        revision=revision,
+        create_pr=create_pr,
+        parent_commit=parent_commit,
+    ).run()
