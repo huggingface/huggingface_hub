@@ -69,8 +69,7 @@ class Output:
         return self.mode == OutputFormat.quiet
 
     def text(self, msg: str | None = None, *, human: str | None = None, agent: str | None = None) -> None:
-        """Print a free-form text message to stdout, flushed immediately (some flows, like the
-        device-code login, block on user action after printing)."""
+        """Print a free-form text message to stdout."""
         if msg is not None:
             if human is not None or agent is not None:
                 raise ValueError("Cannot mix 'msg' with 'human'/'agent'.")
@@ -105,9 +104,9 @@ class Output:
         if not items:
             match self.mode:
                 case OutputFormat.agent | OutputFormat.human:
-                    print("No results found.")
+                    print("No results found.", flush=True)
                 case OutputFormat.json:
-                    print("[]")
+                    print("[]", flush=True)
             return
 
         if headers is None:
@@ -129,20 +128,21 @@ class Output:
                         cast("list[list[str | int]]", formatted_rows),
                         headers=screaming_headers,
                         alignments=screaming_alignments,
-                    )
+                    ),
+                    flush=True,
                 )
                 if is_truncated:
                     self.hint("Use `--no-truncate` or `--format json` to display full values.")
             case OutputFormat.agent:  # TSV, no truncation, full timestamps
-                print("\t".join(headers))
+                print("\t".join(headers), flush=True)
                 for row in rows:
-                    print("\t".join(_format_table_cell_agent(v) for v in row))
+                    print("\t".join(_format_table_cell_agent(v) for v in row), flush=True)
             case OutputFormat.json:  # compact JSON array
-                print(json.dumps(list(items), default=str))
+                print(json.dumps(list(items), default=str), flush=True)
             case OutputFormat.quiet:  # id_key column (or first column), one per line
                 quiet_key = id_key or headers[0]
                 for item in items:
-                    print(item.get(quiet_key, ""))
+                    print(item.get(quiet_key, ""), flush=True)
 
     def dict(self, data: Any, *, id_key: str | None = None) -> None:
         """Print structured data as JSON in all modes (indented for human, compact otherwise).
@@ -152,10 +152,10 @@ class Output:
         if dataclasses.is_dataclass(data) and not isinstance(data, type):
             data = _dataclass_to_dict(data)
         if self.mode == OutputFormat.quiet and id_key is not None:
-            print(data.get(id_key, ""))
+            print(data.get(id_key, ""), flush=True)
             return
         indent = 2 if self.mode == OutputFormat.human else None
-        print(json.dumps(data, indent=indent, default=str))
+        print(json.dumps(data, indent=indent, default=str), flush=True)
 
     def result(self, message: str, **data: Any) -> None:
         """Print a success summary to stdout."""
@@ -165,16 +165,16 @@ class Output:
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
-                print("\n".join(parts))
+                print("\n".join(parts), flush=True)
             case OutputFormat.agent:  # key=val pairs, space-separated
                 parts = [f"{k}={v}" for k, v in data.items() if v is not None]
-                print(" ".join(parts) if parts else message)
+                print(" ".join(parts) if parts else message, flush=True)
             case OutputFormat.json:  # json.dumps(data), message ignored
-                print(json.dumps(data, default=str) if data else "")
+                print(json.dumps(data, default=str) if data else "", flush=True)
             case OutputFormat.quiet:  # first value only
                 values = list(data.values())
                 if values:
-                    print(values[0])
+                    print(values[0], flush=True)
 
     def confirm(self, message: str, *, default: bool = False, yes: bool = False, confirm_param: str = "--yes") -> None:
         """
@@ -196,16 +196,16 @@ class Output:
     def warning(self, message: str) -> None:
         """Print a non-fatal warning to stderr (all modes)."""
         if self.mode == OutputFormat.human:
-            print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr)
+            print(ANSI.yellow(f"Warning: {message}"), file=sys.stderr, flush=True)
         else:
-            print(f"Warning: {message}", file=sys.stderr)
+            print(f"Warning: {message}", file=sys.stderr, flush=True)
 
     def error(self, message: str) -> None:
         """Print an error to stderr (all modes)."""
         if self.mode == OutputFormat.human:
-            print(ANSI.red(f"Error: {message}"), file=sys.stderr)
+            print(ANSI.red(f"Error: {message}"), file=sys.stderr, flush=True)
         else:
-            print(f"Error: {message}", file=sys.stderr)
+            print(f"Error: {message}", file=sys.stderr, flush=True)
 
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, json/agent: plain text).
@@ -217,9 +217,9 @@ class Output:
         if self.mode == OutputFormat.quiet:
             return
         if self.mode == OutputFormat.human:
-            print(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
+            print(ANSI.gray(f"Hint: {message}"), file=sys.stderr, flush=True)
         else:
-            print(f"Hint: {message}", file=sys.stderr)
+            print(f"Hint: {message}", file=sys.stderr, flush=True)
 
 
 # HELPERS
