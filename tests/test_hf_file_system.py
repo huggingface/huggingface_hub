@@ -12,6 +12,7 @@ from typing import Iterable, Optional, Type
 from unittest.mock import Mock, patch
 
 import fsspec
+import httpx
 import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
@@ -928,3 +929,136 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+def _make_hffs_file_for_range_tests(url: str) -> HfFileSystemFile:
+    file = HfFileSystemFile.__new__(HfFileSystemFile)
+    file.fs = Mock()
+    file.fs._api._build_hf_headers.return_value = {"authorization": "Bearer hf_token"}
+    file.url = Mock(return_value=url)
+    file._source_url = None
+    file._resolved_url = None
+    return file
+
+
+def _httpx_response(
+    status_code: int,
+    url: str,
+    *,
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+    content: bytes = b"",
+) -> httpx.Response:
+    return httpx.Response(
+        status_code,
+        headers=headers,
+        content=content,
+        request=httpx.Request(method, url),
+    )
+
+
+def test_fetch_range_caches_resolved_cdn_url():
+    hub_url = "https://huggingface.co/datasets/foo/resolve/main/data.parquet"
+    cdn_url = "https://cdn-lfs.huggingface.co/foo/data.parquet?Expires=123"
+    file = _make_hffs_file_for_range_tests(hub_url)
+    client = Mock()
+    client.request.side_effect = [
+        _httpx_response(302, hub_url, method="HEAD", headers={"Location": cdn_url}),
+        _httpx_response(206, cdn_url, content=b"data"),
+        _httpx_response(206, cdn_url, content=b"more"),
+    ]
+
+    with patch.object(hf_file_system, "get_session", return_value=client):
+        assert file._fetch_range(0, 4) == b"data"
+        assert file._fetch_range(4, 8) == b"more"
+
+    calls = client.request.call_args_list
+    assert calls[0].args[:2] == ("HEAD", hub_url)
+    assert calls[0].kwargs["follow_redirects"] is False
+    assert "range" not in calls[0].kwargs["headers"]
+    assert calls[1].args[:2] == ("GET", cdn_url)
+    assert calls[1].kwargs["headers"]["range"] == "bytes=0-3"
+    assert "authorization" not in calls[1].kwargs["headers"]
+    assert calls[2].args[:2] == ("GET", cdn_url)
+    assert calls[2].kwargs["headers"]["range"] == "bytes=4-7"
+
+
+def test_fetch_range_uses_hub_url_when_resolve_does_not_redirect():
+    hub_url = "https://huggingface.co/datasets/foo/resolve/main/small.txt"
+    file = _make_hffs_file_for_range_tests(hub_url)
+    client = Mock()
+    client.request.side_effect = [
+        _httpx_response(200, hub_url, method="HEAD"),
+        _httpx_response(206, hub_url, content=b"data"),
+    ]
+
+    with patch.object(hf_file_system, "get_session", return_value=client):
+        assert file._fetch_range(0, 4) == b"data"
+
+    range_call = client.request.call_args_list[1]
+    assert range_call.args[:2] == ("GET", hub_url)
+    assert range_call.kwargs["headers"]["authorization"] == "Bearer hf_token"
+
+
+def test_fetch_range_refreshes_resolved_url_on_forbidden():
+    hub_url = "https://huggingface.co/datasets/foo/resolve/main/data.parquet"
+    old_cdn_url = "https://cdn-lfs.huggingface.co/foo/data.parquet?Expires=123"
+    new_cdn_url = "https://cdn-lfs.huggingface.co/foo/data.parquet?Expires=456"
+    file = _make_hffs_file_for_range_tests(hub_url)
+    file._resolved_url = old_cdn_url
+    client = Mock()
+    client.request.side_effect = [
+        _httpx_response(403, old_cdn_url),
+        _httpx_response(302, hub_url, method="HEAD", headers={"Location": new_cdn_url}),
+        _httpx_response(206, new_cdn_url, content=b"data"),
+    ]
+
+    with patch.object(hf_file_system, "get_session", return_value=client):
+        assert file._fetch_range(0, 4) == b"data"
+
+    calls = client.request.call_args_list
+    assert calls[0].args[:2] == ("GET", old_cdn_url)
+    assert calls[1].args[:2] == ("HEAD", hub_url)
+    assert calls[2].args[:2] == ("GET", new_cdn_url)
+
+
+def test_fetch_range_retries_on_remote_protocol_error():
+    hub_url = "https://huggingface.co/datasets/foo/resolve/main/data.parquet"
+    cdn_url = "https://cdn-lfs.huggingface.co/foo/data.parquet?Expires=123"
+    file = _make_hffs_file_for_range_tests(hub_url)
+    file._resolved_url = cdn_url
+    client = Mock()
+    client.request.side_effect = [
+        httpx.RemoteProtocolError("server disconnected without sending a response"),
+        _httpx_response(206, cdn_url, content=b"data"),
+    ]
+
+    with (
+        patch.object(hf_file_system, "get_session", return_value=client),
+        patch.object(hf_file_system.time, "sleep") as mock_sleep,
+    ):
+        assert file._fetch_range(0, 4) == b"data"
+
+    assert client.request.call_count == 2
+    mock_sleep.assert_called_once_with(1.0)
+
+
+def test_fetch_range_retries_on_request_timeout_status():
+    hub_url = "https://huggingface.co/datasets/foo/resolve/main/data.parquet"
+    cdn_url = "https://cdn-lfs.huggingface.co/foo/data.parquet?Expires=123"
+    file = _make_hffs_file_for_range_tests(hub_url)
+    file._resolved_url = cdn_url
+    client = Mock()
+    client.request.side_effect = [
+        _httpx_response(408, cdn_url),
+        _httpx_response(206, cdn_url, content=b"data"),
+    ]
+
+    with (
+        patch.object(hf_file_system, "get_session", return_value=client),
+        patch.object(hf_file_system.time, "sleep") as mock_sleep,
+    ):
+        assert file._fetch_range(0, 4) == b"data"
+
+    assert client.request.call_count == 2
+    mock_sleep.assert_called_once_with(1.0)

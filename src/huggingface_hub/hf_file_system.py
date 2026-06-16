@@ -1,6 +1,7 @@
 import os
 import tempfile
 import threading
+import time
 from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
@@ -10,7 +11,7 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, Union
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urljoin, urlparse
 
 import fsspec
 import httpx
@@ -29,7 +30,7 @@ from .errors import (
 )
 from .file_download import hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import HFValidationError, get_session, hf_raise_for_status, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
 
 
@@ -1166,6 +1167,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         }
 
 
+_RANGE_RETRY_STATUS_CODES = (408, 429, 500, 502, 503, 504)
+_RANGE_RETRY_EXCEPTIONS = (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)
+
+
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: str | None = None, **kwargs):
         try:
@@ -1178,6 +1183,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             raise
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
+        self._source_url: str | None = None
+        self._resolved_url: str | None = None
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -1186,14 +1193,79 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         return super().__del__()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
+        url = self._resolve_url()
+        r = self._request_range(url, start, end)
+        if r.status_code == 403:
+            r.close()
+            url = self._resolve_url(refresh=True)
+            r = self._request_range(url, start, end)
+        hf_raise_for_status(r)
+        return r.content
+
+    def _resolve_url(self, refresh: bool = False) -> str:
+        if self._resolved_url is not None and not refresh:
+            return self._resolved_url
+
+        url = self._get_source_url()
+        r = self._request_with_retry(
+            "HEAD",
+            url,
+            headers=self.fs._api._build_hf_headers(),
+            follow_redirects=False,
+        )
+        try:
+            hf_raise_for_status(r)
+            location = r.headers.get("Location")
+            self._resolved_url = urljoin(url, location) if location else url
+            return self._resolved_url
+        finally:
+            r.close()
+
+    def _get_source_url(self) -> str:
+        if self._source_url is None:
+            self._source_url = self.url()
+        return self._source_url
+
+    def _request_range(self, url: str, start: int, end: int) -> httpx.Response:
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
         }
-        url = self.url()
-        r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
-        hf_raise_for_status(r)
-        return r.content
+        if urlparse(url).netloc != urlparse(self._get_source_url()).netloc:
+            headers.pop("authorization", None)
+            headers.pop("Authorization", None)
+        return self._request_with_retry("GET", url, headers=headers)
+
+    def _request_with_retry(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        follow_redirects: bool | None = None,
+        max_retries: int = 5,
+    ) -> httpx.Response:
+        sleep_time = 1.0
+        client = get_session()
+        request_kwargs: dict[str, Any] = {"headers": headers, "timeout": constants.HF_HUB_DOWNLOAD_TIMEOUT}
+        if follow_redirects is not None:
+            request_kwargs["follow_redirects"] = follow_redirects
+
+        for attempt in range(max_retries + 1):
+            try:
+                r = client.request(method, url, **request_kwargs)
+            except _RANGE_RETRY_EXCEPTIONS:
+                if attempt == max_retries:
+                    raise
+            else:
+                if r.status_code not in _RANGE_RETRY_STATUS_CODES or attempt == max_retries:
+                    return r
+                r.close()
+
+            time.sleep(sleep_time)
+            sleep_time = min(8.0, sleep_time * 2)
+
+        raise RuntimeError("unreachable")
 
     def _initiate_upload(self) -> None:
         self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)

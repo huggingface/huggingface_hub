@@ -300,7 +300,6 @@ _DEV_MODE_INTERMEDIATE_STATUSES = {
 
 
 def _wait_for_dev_mode(api: HfApi, space_id: str) -> SpaceInfo | None:
-
     status = out.status()
     while True:
         info = api.space_info(space_id)
