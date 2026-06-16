@@ -97,6 +97,7 @@ from .errors import (
     FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
+    HfUriError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
@@ -289,6 +290,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
+
+    > [!WARNING]
+    > Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into a structured [`HfUri`].
+    > See https://huggingface.co/docs/huggingface_hub/package_reference/hf_uris for more details.
 
     Args:
         hf_id (`str`):
@@ -626,7 +631,7 @@ class RepoUrl(str):
     `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
     compatibility. At initialization, the URL is parsed to populate properties:
     - endpoint (`str`)
-    - namespace (`Optional[str]`)
+    - namespace (`str`)
     - repo_name (`str`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
@@ -640,8 +645,8 @@ class RepoUrl(str):
 
     Example:
     ```py
-    >>> RepoUrl('https://huggingface.co/gpt2')
-    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+    >>> RepoUrl('https://huggingface.co/openai-community/gpt2')
+    RepoUrl('https://huggingface.co/openai-community/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='openai-community/gpt2')
 
     >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
     RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
@@ -654,10 +659,8 @@ class RepoUrl(str):
     ```
 
     Raises:
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If URL cannot be parsed.
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `repo_type` is unknown.
+        [`~errors.HfUriError`]:
+            If the URL cannot be parsed (e.g. canonical single-segment repo, or unknown `repo_type`).
     """
 
     def __new__(cls, url: Any, endpoint: str | None = None):
@@ -666,15 +669,23 @@ class RepoUrl(str):
 
     def __init__(self, url: Any, endpoint: str | None = None) -> None:
         super().__init__()
-        # Parse URL
         self.endpoint = endpoint or constants.ENDPOINT
-        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
-        # Populate fields
-        self.namespace = namespace
-        self.repo_name = repo_name
-        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
-        self.repo_type = repo_type or constants.REPO_TYPE_MODEL
+        # Parse with the shared 'parse_hf_uri' parser, which handles 'hf://' URIs as well as Hugging
+        # Face web URLs (including ones on this custom 'endpoint'). If that fails, the input is a bare
+        # '<namespace>/<name>' id, which we reparse as an 'hf://' URI.
+        raw = str(self)
+        try:
+            parsed = parse_hf_uri(raw, endpoint=self.endpoint)
+        except HfUriError:
+            if "://" in raw:
+                raise  # it was a URL: the original error is authoritative, don't retry as a bare id
+            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{raw}")
+
+        # Populate fields ('parsed.id' is always '<namespace>/<name>').
+        self.namespace, self.repo_name = parsed.id.split("/")
+        self.repo_id = parsed.id
+        self.repo_type = parsed.type
         self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
@@ -4582,7 +4593,7 @@ class HfApi:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
                 # tests. To avoid any inconvenience, we retry to create the repo for this specific error.
-                # NOTE: This could have being fixed directly in the tests but adding it here should fixed CIs for all
+                # NOTE: This could have been fixed directly in the tests, but adding it here should fix CIs for all
                 # dependent libraries.
                 # NOTE: If a fix is implemented server-side, we should be able to remove this retry mechanism.
                 logger.debug("Create repo failed due to a concurrency issue. Retrying...")
@@ -8625,16 +8636,25 @@ class HfApi:
             constants.REPO_TYPE_SPACE: "spaces",
         }[repo_type]
 
-        # Parse to_id if provided
-        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
-
-        # Infer target repo_id
-        to_namespace = (
-            parsed_to_id.namespace
-            if parsed_to_id is not None and parsed_to_id.namespace is not None
-            else self.whoami(token)["name"]
-        )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+        # Resolve the target namespace + name. When 'to_id' is provided we take the name from it,
+        # otherwise we reuse the source name. Both may be a URL, an 'hf://' URI, or a bare id, so we
+        # try 'parse_hf_uri' first and fall back to a plain split ('<namespace>/<name>', or just
+        # '<name>' for 'to_id'). A missing namespace defaults to the caller's account.
+        to_namespace: str | None = None
+        if to_id is not None:
+            try:
+                to_namespace, to_repo_name = parse_hf_uri(to_id).id.split("/")
+            except HfUriError:
+                namespace_and_name = to_id.rsplit("/", 1)
+                to_namespace = namespace_and_name[0] if len(namespace_and_name) == 2 else None
+                to_repo_name = namespace_and_name[-1]
+        else:
+            try:
+                to_repo_name = parse_hf_uri(from_id).id.split("/")[1]
+            except HfUriError:
+                to_repo_name = from_id.rsplit("/", 1)[-1]
+        if to_namespace is None:
+            to_namespace = self.whoami(token)["name"]
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
@@ -9920,7 +9940,7 @@ class HfApi:
             collection_slug (`str`):
                 Slug of the collection to delete. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if collection doesn't exists.
+                If `True`, do not raise an error if the collection doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9944,7 +9964,7 @@ class HfApi:
             hf_raise_for_status(r)
         except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
-                # Collection doesn't exists and `missing_ok=True`
+                # Collection doesn't exist and `missing_ok=True`
                 return
             else:
                 raise
@@ -10103,7 +10123,7 @@ class HfApi:
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
                 It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if item doesn't exists.
+                If `True`, do not raise an error if the item doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11607,6 +11627,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11648,6 +11669,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11698,6 +11725,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -12094,6 +12122,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12142,6 +12171,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12219,6 +12254,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
             namespace=namespace,
             token=token,
         )

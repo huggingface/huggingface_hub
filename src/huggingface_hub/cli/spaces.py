@@ -63,8 +63,11 @@ from ._cli_utils import (
     SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
+    SshDryRunOpt,
+    SshIdentityFileOpt,
     TokenOpt,
     VolumesOpt,
+    exec_ssh,
     get_hf_api,
     make_expand_properties_parser,
     parse_env_map,
@@ -375,14 +378,8 @@ def dev_mode(
 )
 def spaces_ssh(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    identity_file: Annotated[
-        Path | None,
-        typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Print the SSH command instead of running it."),
-    ] = False,
+    identity_file: SshIdentityFileOpt = None,
+    dry_run: SshDryRunOpt = False,
     auto: Annotated[
         bool,
         typer.Option("--auto", help="Enable Dev Mode without prompting if not already enabled."),
@@ -406,16 +403,7 @@ def spaces_ssh(
         if new_info is None:
             raise CLIError(f"Runtime not available for Space '{space_id}'.")
         info = new_info
-    cmd = ["ssh"]
-    if identity_file is not None:
-        cmd += ["-i", str(identity_file)]
-    cmd.append(f"{info.subdomain}@ssh.hf.space")
-    if dry_run:
-        out.text(shlex.join(cmd))
-        return
-    out.text(f"Running `{shlex.join(cmd)}`")
-    result = subprocess.run(cmd)
-    raise typer.Exit(code=result.returncode)
+    exec_ssh(f"{info.subdomain}@ssh.hf.space", identity_file=identity_file, dry_run=dry_run)
 
 
 @spaces_cli.command(

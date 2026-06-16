@@ -391,7 +391,7 @@ if hasattr(os, "register_at_fork"):
 
 
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
-_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
 
 def _http_backoff_base(
@@ -935,13 +935,20 @@ def _format(
                 data = {}
 
         error = data.get("error")
+        error_description = data.get("error_description")
         if error is not None:
             if isinstance(error, list):
                 # Case {'error': ['my error 1', 'my error 2']}
                 server_errors.extend(error)
+            elif error_description is not None:
+                # OAuth-style case {'error': 'invalid_grant', 'error_description': 'my description'}
+                server_errors.append(f"{error}: {error_description}")
             else:
                 # Case {'error': 'my error'}
                 server_errors.append(error)
+        elif error_description is not None:
+            # Case {'error_description': 'my description'} (no 'error' field)
+            server_errors.append(error_description)
 
         errors = data.get("errors")
         if errors is not None:
@@ -1005,6 +1012,17 @@ def _format(
     return err
 
 
+# Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret")
+
+
+def _redact_sensitive_body(body: str) -> str:
+    """Redact OAuth credential values from a JSON request body string."""
+    for key in _SENSITIVE_BODY_KEYS:
+        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)
+    return body
+
+
 def _curlify(request: httpx.Request) -> str:
     """Convert a `httpx.Request` into a curl command (str).
 
@@ -1029,6 +1047,7 @@ def _curlify(request: httpx.Request) -> str:
             body = request.content.decode("utf-8", errors="ignore")
             if len(body) > 1000:
                 body = f"{body[:1000]} ... [truncated]"
+            body = _redact_sensitive_body(body)
     except httpx.RequestNotRead:
         body = "<streaming body>"
     if body is not None:

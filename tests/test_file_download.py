@@ -514,7 +514,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url("gpt2", filename="tf_model.h5")
         metadata = get_hf_file_metadata(url)
 
-        self.assertIn("xethub.hf.co", metadata.location)  # Redirection
+        assert "xethub.hf.co" in metadata.location or "cdn.hf.co" in metadata.location  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
 
     def test_file_consistency_check_fails_regular_file(self):

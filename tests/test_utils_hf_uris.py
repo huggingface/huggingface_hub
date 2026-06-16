@@ -630,6 +630,24 @@ def test_parse_hf_uri_from_url_failure(url: str, error_substring: str) -> None:
     assert exc_info.value.uri == url
 
 
+def test_parse_hf_uri_custom_endpoint() -> None:
+    # URLs on a custom Hub endpoint are recognized when 'endpoint' is passed...
+    assert parse_hf_uri(
+        "https://hub.my-company.com/datasets/my-org/my-dataset/blob/main/train.csv",
+        endpoint="https://hub.my-company.com",
+    ) == HfUri(type="dataset", id="my-org/my-dataset", revision="main", path_in_repo="train.csv")
+
+    # ... including self-hosted endpoints that carry a path prefix (stripped before parsing).
+    assert parse_hf_uri(
+        "http://localhost:8080/hf/my-org/my-model",
+        endpoint="http://localhost:8080/hf",
+    ) == HfUri(type="model", id="my-org/my-model", revision=None, path_in_repo="")
+
+    # ... but the same URL is rejected without the matching 'endpoint'.
+    with pytest.raises(HfUriError, match="Unrecognized host"):
+        parse_hf_uri("https://hub.my-company.com/my-org/my-model")
+
+
 @pytest.mark.parametrize(("uri", "expected_path"), TO_URL_CASES)
 def test_hf_uri_to_url(uri: HfUri, expected_path: str) -> None:
     expected = constants.ENDPOINT + expected_path
