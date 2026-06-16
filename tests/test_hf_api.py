@@ -2716,6 +2716,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         assert any(model.id == self.repo_id for model in self._api.list_models(token=self._token, **kwargs))
 
 
+@pytest.mark.xet
 @pytest.mark.usefixtures("fx_cache_dir")
 class UploadFolderMockedTest(unittest.TestCase):
     api = HfApi()
