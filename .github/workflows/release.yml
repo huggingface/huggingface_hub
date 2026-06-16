@@ -886,9 +886,14 @@ jobs:
             git add pyproject.toml
           fi
 
-          # Enable prerelease flag in workflow files
-          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
-          git add .github/workflows/
+          # Enable prerelease flag in workflow files.
+          # Skipped for sentence-transformers: its pyproject.toml pin already forces our RC, and
+          # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
+          # the latest transformers and cause spurious CI failures.
+          if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
+            find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+            git add .github/workflows/
+          fi
 
           git --no-pager diff --staged
           git commit -m "Test hfh ${VERSION}"
