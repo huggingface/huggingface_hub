@@ -18,6 +18,8 @@ from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelet
 from huggingface_hub._upload_pipeline import _CommitPacer, _LiveDisplay, _UploadPipeline
 
 
+pytestmark = pytest.mark.xet
+
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
