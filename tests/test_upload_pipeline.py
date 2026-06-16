@@ -84,7 +84,7 @@ class FakeCommitEndpoint:
                 raise RuntimeError(f"injected commit failure (call {n})")
             return SimpleNamespace(
                 json=lambda: {
-                    "commitUrl": f"https://hub.fake/commit/{n}",
+                    "commitUrl": f"https://hub.fake/user/repo/commit/{n}",
                     "commitOid": f"oid{n}",
                 }
             )
