@@ -11951,7 +11951,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             timeout=timeout,
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
@@ -12030,7 +12030,7 @@ class HfApi:
             f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
             headers=self._build_hf_headers(token=token),
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return JobInfo(**response.json(), endpoint=self.endpoint)
 
     def cancel_job(
@@ -12057,10 +12057,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}/{job_id}/cancel",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def update_job_labels(
         self,
@@ -12515,10 +12516,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/suspend",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def resume_scheduled_job(
         self,
@@ -12544,10 +12546,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/resume",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def update_scheduled_job_labels(
         self,

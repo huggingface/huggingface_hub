@@ -39,6 +39,7 @@ from ..errors import (
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
+    JobNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -169,6 +170,10 @@ BUCKET_API_REGEX = re.compile(
     flags=re.VERBOSE,
 )
 
+# Regex to extract the job_id from a (scheduled) job API URL.
+# Matches /api/jobs/{namespace}/{job_id}[/...] and /api/scheduled-jobs/{namespace}/{job_id}[/...].
+_JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
+
 # Regex to extract repo_type and repo_id from API URLs.
 # Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
 _REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
@@ -208,6 +213,12 @@ def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
 def _parse_bucket_id_from_url(url: str) -> str | None:
     """Extract bucket_id (namespace/name) from a bucket API URL."""
     match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    return match.group(1) if match else None
+
+
+def _parse_job_id_from_url(url: str) -> str | None:
+    """Extract the job_id from a (scheduled) job API URL, if present."""
+    match = _JOB_ID_FROM_URL_REGEX.search(url)
     return match.group(1) if match else None
 
 
@@ -811,6 +822,19 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
             raise _format(
                 BucketNotFoundError, message, response, bucket_id=_parse_bucket_id_from_url(request_url)
             ) from e
+
+        elif (
+            response.status_code == 404
+            and request_url is not None
+            and (job_id := _parse_job_id_from_url(request_url)) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Job Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct job ID and namespace."
+            )
+            raise _format(JobNotFoundError, message, response, job_id=job_id) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
