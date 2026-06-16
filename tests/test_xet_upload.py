@@ -52,6 +52,35 @@ def assert_upload_mode(mode: str):
             )
 
 
+@contextmanager
+def assert_xet_pipeline_upload():
+    """Assert that `upload_folder` uploaded through the streamed xet pipeline.
+
+    The pipeline uploads xet files via `XetSession.new_upload_commit` directly (not through
+    `_commit_api._upload_xet_files`), so `assert_upload_mode("xet")` does not apply here. We wrap
+    the real session in a spy proxy to detect the call while keeping the actual upload working.
+    """
+    from huggingface_hub.utils._xet import get_xet_session
+
+    real_session = get_xet_session()
+
+    class _SpySession:
+        def __init__(self) -> None:
+            self.new_upload_commit_called = False
+
+        def new_upload_commit(self, *args, **kwargs):
+            self.new_upload_commit_called = True
+            return real_session.new_upload_commit(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(real_session, name)
+
+    spy = _SpySession()
+    with patch("huggingface_hub._upload_pipeline.get_xet_session", return_value=spy):
+        yield
+    assert spy.new_upload_commit_called, "Expected the streamed xet upload pipeline to be used"
+
+
 @pytest.fixture(scope="module")
 def api():
     return HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
@@ -290,7 +319,7 @@ class TestXetUpload:
     def test_upload_folder(self, api, repo_url):
         repo_id = repo_url.repo_id
         folder_in_repo = "temp"
-        with assert_upload_mode("xet"):
+        with assert_xet_pipeline_upload():
             return_val = api.upload_folder(
                 folder_path=self.folder_path,
                 path_in_repo=folder_in_repo,
@@ -316,7 +345,7 @@ class TestXetUpload:
     def test_upload_folder_create_pr(self, api, repo_url) -> None:
         repo_id = repo_url.repo_id
         folder_in_repo = "temp_create_pr"
-        with assert_upload_mode("xet"):
+        with assert_xet_pipeline_upload():
             return_val = api.upload_folder(
                 folder_path=self.folder_path,
                 path_in_repo=folder_in_repo,
