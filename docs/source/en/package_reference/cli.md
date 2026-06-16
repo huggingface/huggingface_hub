@@ -2778,6 +2778,8 @@ Wait for one or more Jobs to reach a terminal state.
 Blocks until every Job has finished, then exits with code 0 if all Jobs completed
 successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
 
+All Jobs must belong to the same namespace.
+
 **Usage**:
 
 ```console

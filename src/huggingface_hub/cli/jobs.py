@@ -761,11 +761,21 @@ def jobs_wait(
 
     Blocks until every Job has finished, then exits with code 0 if all Jobs completed
     successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
+
+    All Jobs must belong to the same namespace.
     """
     parsed_ids = []
+    namespaces = set()
     for job_id in job_ids:
-        job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-        parsed_ids.append(job_id)
+        parsed_id, parsed_namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(parsed_id)
+        namespaces.add(parsed_namespace)
+    if len(namespaces) > 1:
+        raise CLIError(
+            "All Job IDs must be in the same namespace, got: "
+            + ", ".join(str(ns) for ns in sorted(namespaces, key=str))
+        )
+    namespace = namespaces.pop()
     timeout_secs = parse_duration(timeout) if timeout is not None else None
 
     api = get_hf_api(token=token)

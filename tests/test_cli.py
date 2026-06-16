@@ -3427,14 +3427,6 @@ class TestJobsWaitCommand:
         job.status.message = None
         return job
 
-    def test_wait_all_completed(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
-            result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
-        assert result.exit_code == 0
-        api.wait_for_job.assert_called_once_with(["job-a", "job-b"], timeout=None, namespace=None)
-
     def test_wait_fails_if_any_job_not_completed(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
@@ -3453,6 +3445,41 @@ class TestJobsWaitCommand:
         assert isinstance(result.exception, CLIError)
         assert "Timed out after 5s" in str(result.exception)
         api.wait_for_job.assert_called_once_with(["job-a"], timeout=5, namespace=None)
+
+    @pytest.mark.parametrize(
+        "args, expected_namespace",
+        [
+            # All-bare IDs use the default namespace.
+            (["job-a", "job-b"], None),
+            # An explicit --namespace makes bare IDs share it, so no conflict with 'alice/job-a'.
+            (["alice/job-a", "job-b", "--namespace", "alice"], "alice"),
+        ],
+    )
+    def test_wait_resolves_namespace(self, runner: CliRunner, args: list, expected_namespace: str | None) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 0
+        api.wait_for_job.assert_called_once_with(["job-a", "job-b"], timeout=None, namespace=expected_namespace)
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            # A bare ID must NOT silently inherit alice's namespace: errors instead of leaking.
+            ["alice/job-a", "job-b"],
+            # Two IDs implying different namespaces conflict.
+            ["alice/job-a", "bob/job-b"],
+        ],
+    )
+    def test_wait_rejects_mismatched_namespaces(self, runner: CliRunner, args: list) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "same namespace" in str(result.exception)
+        api.wait_for_job.assert_not_called()
 
 
 class TestBucketTransport:
