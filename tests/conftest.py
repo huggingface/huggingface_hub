@@ -7,8 +7,8 @@ from _pytest.fixtures import SubRequest
 
 import huggingface_hub
 from huggingface_hub import constants
-from huggingface_hub.utils import SoftTemporaryDirectory, logging
-from huggingface_hub.utils._detect_agent import _STANDARD_AGENT_VARS, _TOOL_AGENTS
+from huggingface_hub.utils import SoftTemporaryDirectory, _detect_agent, logging
+from huggingface_hub.utils._runtime import is_package_available
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -27,13 +27,48 @@ def patch_constants(mocker):
 
 
 @pytest.fixture(autouse=True)
+def reset_oauth_refresh_state():
+    """`get_token()` caches its OAuth refresh decision in process-global state: reset between tests."""
+    from huggingface_hub.utils import _auth
+
+    _auth._OAUTH_REFRESH_CACHE = None
+    _auth._OAUTH_REFRESH_WARNED = False
+    yield
+
+
+@pytest.fixture(autouse=True)
+def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make Xet usage explicit and deterministic, locally and in CI.
+
+    Three modes:
+    - `@pytest.mark.xet`: test requires `hf_xet` => skipped when it is not installed,
+      Xet force-enabled otherwise.
+    - `@pytest.mark.no_xet`: test must run without `hf_xet` (e.g. legacy LFS behavior)
+      => skipped when it is installed.
+    - unmarked: test must work regardless of Xet => nothing is forced; the test runs
+      with whatever the environment provides. CI runs unmarked tests both with and
+      without `hf_xet` installed.
+    """
+    xet = request.node.get_closest_marker("xet") is not None
+    no_xet = request.node.get_closest_marker("no_xet") is not None
+    if xet and no_xet:
+        pytest.fail("A test cannot be marked with both `xet` and `no_xet`.")
+    if xet:
+        if not is_package_available("hf_xet"):
+            pytest.skip("Test requires `hf_xet` (marked with `pytest.mark.xet`)")
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", False)
+        monkeypatch.delenv("HF_HUB_DISABLE_XET", raising=False)
+    elif no_xet:
+        if is_package_available("hf_xet"):
+            pytest.skip("Test must run without `hf_xet` installed (marked with `pytest.mark.no_xet`)")
+
+
+@pytest.fixture(autouse=True)
 def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Deterministic baseline: no agent env vars, no ANSI colors, reset output mode, fixed terminal width."""
-    all_vars = list(_STANDARD_AGENT_VARS)
-    for env_vars, _ in _TOOL_AGENTS:
-        all_vars.extend(env_vars)
-    for var in all_vars:
-        monkeypatch.delenv(var, raising=False)
+    """Deterministic baseline: agent detection disabled, no ANSI colors, reset output mode, fixed terminal width."""
+    # Pin an empty agent registry so detection never hits the network and always reports "no agent",
+    # regardless of any agent env var that may be set on the host running the tests.
+    monkeypatch.setattr(_detect_agent, "_registry", _detect_agent._EMPTY_REGISTRY)
     monkeypatch.setenv("NO_COLOR", "1")
     # Pin terminal width so adaptive truncation produces deterministic output
     # regardless of the runner's actual terminal size. `shutil.get_terminal_size`

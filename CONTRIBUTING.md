@@ -224,3 +224,40 @@ $ pytest tests/                          # run all tests (slow, many require net
 $ pytest tests/test_repository.py        # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
+
+#### Xet vs non-Xet tests
+
+Whether a test depends on Xet is declared explicitly with markers, enforced by the
+`xet_mode` fixture in `tests/conftest.py`:
+
+- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download).
+  It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise.
+  Mark a whole module with `pytestmark = pytest.mark.xet`.
+- `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS
+  behavior). It is skipped when `hf_xet` is installed.
+- unmarked — the test must work **regardless of Xet**. Nothing is forced: it runs with
+  whatever your environment provides. In CI, unmarked tests run twice: once with
+  `hf_xet` installed ("with hf_xet" job) and once without (other jobs). If an unmarked
+  test only passes in one mode, mark it `xet` or `no_xet` accordingly.
+
+```bash
+$ pytest tests -m xet                    # only Xet-required tests (needs hf_xet)
+$ pytest tests -m no_xet                 # only legacy tests (skipped if hf_xet installed)
+$ pytest tests -m "not xet"              # what CI runs without hf_xet installed
+$ pytest tests -m "not no_xet"           # what CI runs with hf_xet installed
+```
+
+#### Inference tests
+
+Inference tests (client, providers, types, endpoints) are declared with the `inference`
+marker and run in their own CI job, separate from the Xet jobs above:
+
+- `@pytest.mark.inference` — the test belongs to the Inference suite. Mark a whole module
+  with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files
+  are tagged).
+- unmarked — everything else.
+
+```bash
+$ pytest tests -m inference              # only inference tests (the dedicated CI job)
+$ pytest tests -m "not inference"        # everything except inference tests
+```

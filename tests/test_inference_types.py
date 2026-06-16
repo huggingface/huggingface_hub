@@ -9,6 +9,9 @@ from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitio
 from huggingface_hub.inference._generated.types.base import BaseInferenceType, dataclass_with_extra
 
 
+pytestmark = pytest.mark.inference
+
+
 @dataclass_with_extra
 class DummyType(BaseInferenceType):
     foo: int
