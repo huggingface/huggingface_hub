@@ -798,7 +798,7 @@ class TestUploadImpl:
             ignore_patterns=None,
             delete_patterns=["*.json"],
         )
-        print_mock.assert_called_once_with("done")
+        print_mock.assert_called_once_with("done", flush=True)
 
     def test_upload_file_mock(self, *_: object) -> None:
         api = Mock()
@@ -835,7 +835,7 @@ class TestUploadImpl:
             commit_description=None,
             create_pr=True,
         )
-        print_mock.assert_called_once_with("uploaded")
+        print_mock.assert_called_once_with("uploaded", flush=True)
 
     def test_upload_file_no_revision_mock(self, *_: object) -> None:
         api = Mock()
@@ -1024,7 +1024,7 @@ class TestDownloadImpl:
                 repo_type=RepoType.model,
                 revision="main",
             )
-        print_mock.assert_called_once_with("file-path")
+        print_mock.assert_called_once_with("file-path", flush=True)
         mock_download.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -1051,7 +1051,7 @@ class TestDownloadImpl:
                 force_download=True,
                 max_workers=4,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1110,7 +1110,7 @@ class TestDownloadImpl:
                 exclude=["data/*"],
                 force_download=True,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         assert any("Ignoring" in str(w.message) for w in caught)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
@@ -1139,7 +1139,7 @@ class TestDownloadImpl:
                 filenames=["art/"],
                 repo_type=RepoType.dataset,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/dataset",
@@ -1167,7 +1167,7 @@ class TestDownloadImpl:
                 filenames=["art/", "config.json"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1195,7 +1195,7 @@ class TestDownloadImpl:
                 filenames=["art/", "data/images/"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
