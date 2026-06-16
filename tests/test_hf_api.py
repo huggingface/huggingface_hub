@@ -2754,17 +2754,28 @@ class UploadFolderMockedTest(unittest.TestCase):
         ]
         self.api.list_repo_files = self.repo_files_mock
 
-        self.create_commit_mock = Mock()
-        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
-        self.create_commit_mock.return_value.pr_url = None
-        self.api.create_commit = self.create_commit_mock
+        # `upload_folder` now delegates the actual upload to the streamed xet pipeline. We mock
+        # `pipelined_upload` to capture the add/delete operations it would commit, and force the
+        # xet path so the test is deterministic regardless of whether `hf_xet` is installed.
+        self.pipeline_mock = Mock()
+        self.pipeline_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
+        self.pipeline_mock.return_value.pr_url = None
+        xet_patcher = patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
+        pipeline_patcher = patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
+        xet_patcher.start()
+        pipeline_patcher.start()
+        self.addCleanup(xet_patcher.stop)
+        self.addCleanup(pipeline_patcher.stop)
 
     def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
-        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
+        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir
         self.api.upload_folder(repo_id="repo_id", **kwargs)
-        return self.create_commit_mock.call_args_list[0][1]["operations"]
+        call_kwargs = self.pipeline_mock.call_args_list[0][1]
+        # `upload_folder` passes additions and deletions separately to the pipeline. Recombine them
+        # (deletions first, as `create_commit` used to receive them) for the assertions below.
+        return call_kwargs["delete_operations"] + call_kwargs["add_operations"]
 
     def test_allow_everything(self):
         operations = self._upload_folder_alias()
