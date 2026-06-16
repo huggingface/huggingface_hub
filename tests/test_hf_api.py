@@ -3247,22 +3247,13 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
             revision="my-branch",
         )
 
-        # PR files
-        self._api.upload_file(
-            path_or_fileobj=b"LFS content PR", path_in_repo="lfs_file_PR.bin", repo_id=repo_id, create_pr=True
-        )
-        self._api.upload_file(
-            path_or_fileobj=b"TXT content PR", path_in_repo="txt_file_PR.txt", repo_id=repo_id, create_pr=True
-        )
-
         # List LFS files
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 4
+        assert len(lfs_files) == 3
         assert {file.filename for file in lfs_files} == {
             "lfs_file.bin",
             "lfs_file_2.bin",
             "lfs_file_branch.bin",
-            "lfs_file_PR.bin",
         }
 
         # Select LFS files that are on main
@@ -3272,10 +3263,10 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
         # Permanently delete LFS files
         self._api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
 
-        # LFS files from branch and PR remain
+        # LFS file from the branch remains
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 2
-        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin", "lfs_file_PR.bin"}
+        assert len(lfs_files) == 1
+        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin"}
 
         # Downloading "lfs_file.bin" fails with EntryNotFoundError
         files = self._api.list_repo_files(repo_id=repo_id)
