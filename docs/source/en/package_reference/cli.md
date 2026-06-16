@@ -66,7 +66,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List all stored access tokens. [alias: ls]
-* `login`: Login using a token from...
+* `login`: Login from your browser, or using a token...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
@@ -96,7 +96,7 @@ Learn more
 
 ### `hf auth login`
 
-Login using a token from huggingface.co/settings/tokens.
+Login from your browser, or using a token from huggingface.co/settings/tokens.
 
 **Usage**:
 
