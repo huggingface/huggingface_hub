@@ -1,7 +1,8 @@
 # tests/test_upload_large_folder.py
 import unittest
 from hashlib import sha256
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -74,12 +75,22 @@ class TestValidateUploadLimits(unittest.TestCase):
     """Test the _validate_upload_limits function directly."""
 
     class MockPath:
-        """Mock object to simulate LocalUploadFilePaths."""
+        """Mock object to simulate LocalUploadFilePaths.
+
+        Uses a lightweight stub instead of MagicMock for `file_path`: some tests create
+        100k+ instances and MagicMock construction/configuration would take ~70s.
+        """
+
+        class _FileStub:
+            def __init__(self, size_bytes):
+                self._stat = SimpleNamespace(st_size=size_bytes)
+
+            def stat(self):
+                return self._stat
 
         def __init__(self, path_in_repo, size_bytes=1000):
             self.path_in_repo = path_in_repo
-            self.file_path = MagicMock()
-            self.file_path.stat.return_value.st_size = size_bytes
+            self.file_path = self._FileStub(size_bytes)
 
     @patch("huggingface_hub._upload_large_folder.logger")
     def test_no_warnings_under_limits(self, mock_logger):
