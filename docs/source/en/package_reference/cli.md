@@ -3562,10 +3562,11 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `cp`: Copy a file between the local machine and...
-* `create`: Create one dedicated sandbox, or shared...
+* `create`: Create one dedicated sandbox (a full VM).
 * `exec`: Run a command in a sandbox, streaming output.
 * `kill`: Terminate a sandbox, a whole shared host,...
 * `ls`: List your running sandboxes (dedicated and... [alias: list]
+* `pool`: Define sandbox pools and spawn cheap...
 * `ps`: List background processes running in a...
 * `url`: Print the public URL of an exposed sandbox...
 
@@ -3601,7 +3602,10 @@ Learn more
 
 ### `hf sandbox create`
 
-Create one dedicated sandbox, or shared sandbox(es) packed onto host VMs.
+Create one dedicated sandbox (a full VM).
+
+For many cheap CPU sandboxes packed into shared host VMs, define a pool with
+`hf sandbox pool create` and spawn from it with `hf sandbox pool spawn`.
 
 **Usage**:
 
@@ -3615,10 +3619,6 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 
 **Options**:
 
-* `-n, --num INTEGER RANGE`: How many sandboxes to create. 1 (default) = one dedicated VM; >1 = many cheap shared sandboxes packed into host VMs.  [default: 1; x>=1]
-* `--shared`: Create the sandbox(es) in shared mode: pack onto a warm host VM (reusing one if available, else booting one) instead of a dedicated VM. Implied by -n > 1.
-* `--name TEXT`: Shared mode only: pool name to scope host reuse (default: share unnamed hosts).
-* `--per-host INTEGER RANGE`: Shared mode only: sandboxes packed per host VM (default 50).  [default: 50; x>=1]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--idle-timeout TEXT`: Auto-terminate after this much inactivity (e.g. '10m'). Defaults to 10m.
@@ -3637,8 +3637,7 @@ Examples
   $ hf sandbox create
   $ hf sandbox create ubuntu:24.04
   $ hf sandbox create --flavor a10g-small --timeout 1h
-  $ hf sandbox create --shared
-  $ hf sandbox create -n 100 --per-host 50 --flavor cpu-basic
+  $ hf sandbox create --expose 8080
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3729,6 +3728,151 @@ $ hf sandbox ls [OPTIONS]
 
 Examples
   $ hf sandbox ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox pool`
+
+Define sandbox pools and spawn cheap shared sandboxes from them.
+
+**Usage**:
+
+```console
+$ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Define a sandbox pool.
+* `delete`: Delete a pool definition and terminate any... [alias: rm]
+* `ls`: List locally-defined sandbox pools. [alias: list]
+* `spawn`: Spawn sandbox(es) from a pool, reusing a...
+
+#### `hf sandbox pool create`
+
+Define a sandbox pool. Starts no host and bills nothing — just saves the config.
+
+Returns a pool id; spawn sandboxes from it with `hf sandbox pool spawn <id>`, which
+inherits the image/flavor/timeout/env/secrets defined here.
+
+**Usage**:
+
+```console
+$ hf sandbox pool create [OPTIONS]
+```
+
+**Options**:
+
+* `--image TEXT`: Docker image for the hosts (needs /bin/sh).  [default: python:3.12]
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--per-host INTEGER RANGE`: Sandboxes packed per host VM (default 50).  [default: 50; x>=1]
+* `--max-hosts INTEGER RANGE`: Optional cap on the number of host VMs.  [x>=1]
+* `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--idle-timeout TEXT`: Auto-terminate an idle host after this much inactivity (e.g. '10m'). Defaults to 10m.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--forward-hf-token`: Inject your HF token as HF_TOKEN in each sandbox.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool create
+  $ hf sandbox pool create --image python:3.12 --flavor cpu-basic
+  $ hf sandbox pool create --per-host 50 --secret OPENAI_API_KEY=sk-...
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool delete`
+
+Delete a pool definition and terminate any host VMs it has running. [alias: rm]
+
+**Usage**:
+
+```console
+$ hf sandbox pool delete [OPTIONS] POOL_ID
+```
+
+**Arguments**:
+
+* `POOL_ID`: Pool id to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompts automatically.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool delete <pool_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool ls`
+
+List locally-defined sandbox pools. [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox pool ls [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool spawn`
+
+Spawn sandbox(es) from a pool, reusing a warm host or booting one as needed.
+
+A single spawn packs onto a warm host (found via job labels, possibly left by an
+earlier spawn or another machine) before booting a new one — so you can grow on
+demand one sandbox at a time. Hosts stop billing after the pool's idle timeout or
+via `hf sandbox kill`.
+
+**Usage**:
+
+```console
+$ hf sandbox pool spawn [OPTIONS] POOL_ID
+```
+
+**Arguments**:
+
+* `POOL_ID`: Pool id from `hf sandbox pool create`.  [required]
+
+**Options**:
+
+* `-n, --num INTEGER RANGE`: How many sandboxes to spawn.  [default: 1; x>=1]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool spawn <pool_id>
+  $ hf sandbox pool spawn <pool_id> -n 100
 
 Learn more
   Use `hf <command> --help` for more information about a command.

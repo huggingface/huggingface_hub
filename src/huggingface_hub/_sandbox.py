@@ -898,7 +898,6 @@ class SandboxPool:
         sandboxes_per_host: int = DEFAULT_SANDBOXES_PER_HOST,
         max_hosts: int | None = None,
         name: str | None = None,
-        discover: bool = True,
         timeout: int | float | str | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         env: dict[str, Any] | None = None,
@@ -918,12 +917,11 @@ class SandboxPool:
             sandboxes_per_host: How many sandboxes to pack per host (per VM density).
             max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
-            name: Optional pool name. Reuse is scoped to hosts created with the same
-                name (and matching image/flavor); leave as `None` to share unnamed
-                hosts. Use distinct names to keep separate pools from sharing hosts.
-            discover: If True (default), `create()` may attach to already-running hosts
-                found via job labels (including hosts from other processes) before
-                booting a new one. Set to False to only use hosts this pool created.
+            name: Optional pool name. `create()` reuses running hosts (found via job
+                labels, including from other processes) that match this pool's
+                image/flavor/name before booting new ones. Reuse is scoped to the name,
+                so distinct names keep separate pools from sharing hosts; `None` shares
+                unnamed hosts.
             timeout: Max lifetime of each host job, e.g. `"1h"`.
             idle_timeout: Auto-shutdown a host after this much inactivity. Acts as a
                 billing backstop if you forget to `close()`. Pass `None` to disable.
@@ -944,7 +942,6 @@ class SandboxPool:
         self.sandboxes_per_host = sandboxes_per_host
         self.max_hosts = max_hosts
         self.name = name
-        self._discover = discover
         self._timeout = timeout
         self._idle_timeout = idle_timeout
         self._namespace = namespace
@@ -966,8 +963,8 @@ class SandboxPool:
         """Create `count` sandboxes, provisioning hosts as needed.
 
         Returns a single [`Sandbox`] when `count == 1`, else a list. Existing hosts
-        with free capacity (this pool's, or — when `discover=True` — warm hosts found
-        via job labels) are filled first; only the shortfall boots new hosts, in
+        with free capacity (this pool's, or warm hosts found via job labels) are
+        filled first; only the shortfall boots new hosts, in
         parallel, with one batched create per host. So a single `create()` reuses a
         warm host in ~one round-trip, and a large fan-out costs ~one host cold start.
 
@@ -985,7 +982,7 @@ class SandboxPool:
         # 1. Reserve slots on hosts we already track; if short, try to attach to warm
         #    hosts discovered via labels (incl. other processes') before booting new ones.
         reservations, remaining = self._reserve_on_existing(count)
-        if remaining > 0 and self._discover:
+        if remaining > 0:
             self._discover_hosts()
             more, remaining = self._reserve_on_existing(remaining)
             reservations.extend(more)

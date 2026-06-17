@@ -4208,3 +4208,45 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class TestSandboxPoolCli:
+    """The `hf sandbox pool` subgroup: a pool is a local config (no billing); spawning
+    from it packs sandboxes onto shared host VMs."""
+
+    def test_create_ls_delete_flow(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        monkeypatch.setattr(sandbox_cli_mod, "_POOLS_DIR", tmp_path / "pools")
+
+        # create: writes a private config, prints a pool id, starts no job.
+        result = runner.invoke(app, ["sandbox", "pool", "create", "--image", "alpine:3.20", "--per-host", "10"])
+        assert result.exit_code == 0, result.output
+        pool_files = list((tmp_path / "pools").glob("*.json"))
+        assert len(pool_files) == 1
+        config = json.loads(pool_files[0].read_text())
+        assert config["image"] == "alpine:3.20"
+        assert config["sandboxes_per_host"] == 10
+        pool_id = config["id"]
+
+        # ls: shows the saved pool.
+        result = runner.invoke(app, ["sandbox", "pool", "ls"])
+        assert result.exit_code == 0, result.output
+        assert pool_id in result.output
+
+        # delete: removes the config (no running hosts here, so no jobs cancelled).
+        fake_api = Mock()
+        fake_api.list_jobs.return_value = []
+        monkeypatch.setattr(sandbox_cli_mod, "get_hf_api", lambda **kwargs: fake_api)
+        result = runner.invoke(app, ["sandbox", "pool", "delete", pool_id, "-y"])
+        assert result.exit_code == 0, result.output
+        assert not pool_files[0].exists()
+
+    def test_spawn_unknown_pool_errors(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        monkeypatch.setattr(sandbox_cli_mod, "_POOLS_DIR", tmp_path / "pools")
+        result = runner.invoke(app, ["sandbox", "pool", "spawn", "pool-nope"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "Unknown pool" in str(result.exception)

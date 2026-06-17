@@ -35,8 +35,23 @@ down on `close()`. Every sandbox it hands out is a normal `Sandbox` (`run`, `spa
 You can grow on demand instead of warming a batch: `pool.create()` (count 1) reuses a
 host with free capacity before booting a new one, and warm hosts are discovered via
 job labels (`hf-sandbox-host` + `hf-sandbox-capacity` + optional `hf-sandbox-pool`
-name) so reuse works **across processes** — a fresh pool, or `hf sandbox create
---shared`, attaches to a host an earlier run left running.
+name) so reuse works **across processes** — a fresh pool, or `hf sandbox pool spawn
+<id>`, attaches to a host an earlier run left running.
+
+From the CLI, host mode is driven through a `pool` subgroup so the dedicated and shared
+options never mix on `hf sandbox create`:
+
+```bash
+hf sandbox pool create --image python:3.12 --flavor cpu-basic   # local config, no billing -> pool id
+hf sandbox pool spawn <pool_id>                                 # reuse a warm host or boot one
+hf sandbox pool spawn <pool_id> -n 100                          # batch
+hf sandbox pool ls
+hf sandbox pool delete <pool_id>                                # drop config + terminate its hosts
+```
+
+A pool is just a saved set of options (image, flavor, env, secrets, packing density)
+stored locally; the `pool` id is also the `hf-sandbox-pool` label, which is what scopes
+host reuse to that pool across processes and machines.
 
 ## Isolation: uid (DAC) + Landlock LSM, both unprivileged
 

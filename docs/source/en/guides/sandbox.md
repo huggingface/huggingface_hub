@@ -157,9 +157,9 @@ as work arrives and they pack themselves onto warm hosts:
 ```
 
 Warm hosts are discovered through job labels, so this works **across processes** too: a brand-new
-`SandboxPool` (same `image`/`flavor`/`name`) — or a fresh `hf sandbox create --shared` — attaches
+`SandboxPool` (same `image`/`flavor`/`name`) — or a fresh `hf sandbox pool spawn <id>` — attaches
 to hosts an earlier run left running, rather than booting its own. Pass a `name=` to keep separate
-pools from sharing hosts, or `discover=False` to only use hosts a given pool created.
+pools from sharing hosts.
 
 **Isolation & trust model.** Sandboxes within a host are isolated from each other by distinct uids
 plus a per-sandbox Landlock ruleset: they cannot read, signal, or write each other's files, and
@@ -185,12 +185,14 @@ hi
 >>> hf sandbox ls
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 
-# One shared sandbox on demand — reuses a warm host, or boots one if none has room
->>> hf sandbox create --shared
->>> hf sandbox create --shared     # packs onto the same host as the previous call
+# Many cheap shared sandboxes: define a pool once (no billing), then spawn from it
+>>> hf sandbox pool create --image python:3.12 --flavor cpu-basic
+✓ Pool created id=pool-ae9f7efe0bc7 image=python:3.12 flavor=cpu-basic
 
-# Or a whole batch at once (implies shared mode)
->>> hf sandbox create -n 100
+# Each spawn reuses a warm host (found via the pool's job label), or boots one if none has room
+>>> hf sandbox pool spawn pool-ae9f7efe0bc7
+>>> hf sandbox pool spawn pool-ae9f7efe0bc7 -n 100   # or a whole batch at once
+
 >>> hf sandbox kill --all          # tear down every sandbox and host
 ```
 
