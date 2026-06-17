@@ -33,25 +33,36 @@ down on `close()`. Every sandbox it hands out is a normal `Sandbox` (`run`, `spa
 `files`, `connect`, `kill`).
 
 You can grow on demand instead of warming a batch: `pool.create()` (count 1) reuses a
-host with free capacity before booting a new one, and warm hosts are discovered via
-job labels (`hf-sandbox-host` + `hf-sandbox-capacity` + optional `hf-sandbox-pool`
-name) so reuse works **across processes** — a fresh pool, or `hf sandbox pool spawn
-<id>`, attaches to a host an earlier run left running.
+host with free capacity before booting a new one, and warm hosts are discovered via the
+`hf-sandbox-host` + `hf-sandbox-pool` job labels so reuse works **across processes** — a
+fresh pool, or `hf sandbox create --pool <id>`, attaches to a host an earlier run left running.
 
-From the CLI, host mode is driven through a `pool` subgroup so the dedicated and shared
-options never mix on `hf sandbox create`:
+### Pools have no local state
+
+A pool is **not** a local config file — it's a set of running host VMs sharing a
+`hf-sandbox-pool=<id>` job label. This keeps pools consistent with the rest of the
+sandbox API (everything is discoverable from labels, reattachable from any machine):
 
 ```bash
-hf sandbox pool create --image python:3.12 --flavor cpu-basic   # local config, no billing -> pool id
-hf sandbox pool spawn <pool_id>                                 # reuse a warm host or boot one
-hf sandbox pool spawn <pool_id> -n 100                          # batch
+hf sandbox pool create --image python:3.12 --flavor cpu-basic   # warms 1 host (bills) -> pool id
+hf sandbox create --pool <pool_id>                              # pack onto a host, or boot a duplicate
+hf sandbox create --pool <pool_id> --secrets K=v                # env/secrets are per-sandbox
 hf sandbox pool ls
-hf sandbox pool delete <pool_id>                                # drop config + terminate its hosts
+hf sandbox pool delete <pool_id>                                # terminate the pool's hosts
 ```
 
-A pool is just a saved set of options (image, flavor, env, secrets, packing density)
-stored locally; the `pool` id is also the `hf-sandbox-pool` label, which is what scopes
-host reuse to that pool across processes and machines.
+- `pool create` warms one host carrying the pool's config (image/flavor/`sandboxes_per_host`/
+  idle timeout) in its **job env vars** — labels are kept for filtering only.
+- `hf sandbox create --pool` (or `SandboxPool.connect(id)`) finds the pool's hosts by label, and
+  when it must boot a duplicate it **reads that config back from a running host job** (via
+  `inspect_job` env vars). Env/secrets are *not* pool-level: each sandbox gets its own, passed at
+  create time — so no secret is ever stored on a host or kept locally.
+- Capacity is **server-authoritative**: a host refuses creates past `sandboxes_per_host`
+  (replying `{"rejected": N}`), and the client packs the overflow onto another host or
+  boots a duplicate. This makes packing exact even when several processes create at once.
+- **Idle eviction is two-level**: each sandbox is evicted after its own `idle_timeout` of
+  inactivity (unless it still has a running process); once a host has had no sandboxes for the
+  host idle timeout, it shuts itself down. A pool **stops existing once all its hosts are gone**.
 
 ## Isolation: uid (DAC) + Landlock LSM, both unprivileged
 
@@ -114,10 +125,14 @@ Server-side create/exec/delete are each ~1ms; the budget is network. The host VM
 - **Server** (`sandbox-server`, single unified `sbx-server` binary): a `sandboxes`
   module + a `landlock` module (raw syscalls, zero deps). The dedicated routes
   (`/v1/exec`, `/v1/files/*`, `/v1/procs/*`) and the host routes (`/v1/sandboxes/*`,
-  including per-sandbox `exec`/`files`/`procs`) live in the same ~672KB binary.
+  including per-sandbox `exec`/`files`/`procs`) live in the same ~672KB binary. Host mode
+  also enforces `SBX_CAPACITY` (atomic slot reservation; replies `{"rejected": N}` when
+  full) and runs the two-level idle watchdog (per-sandbox eviction + empty-host shutdown).
 - **Client** (`huggingface_hub`): `SandboxPool` provisions/packs/scales hosts; a single
   `Sandbox` class serves both backends via a path prefix (`/v1/*` vs
   `/v1/sandboxes/<id>/*`) and a per-mode kill strategy (cancel Job vs `DELETE` sandbox).
+  `SandboxPool.connect(pool_id)` rebuilds a pool from a running host job's env vars, and
+  `create()` retries any `rejected` sandboxes on another (or a fresh) host.
 
 ## Reproduce
 

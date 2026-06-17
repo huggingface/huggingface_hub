@@ -7,8 +7,8 @@ import pytest
 
 import huggingface_hub._sandbox as sandbox_mod
 from huggingface_hub._sandbox import (
-    HOST_CAPACITY_LABEL,
     HOST_LABEL,
+    POOL_LABEL,
     SANDBOX_LABEL,
     CommandResult,
     Sandbox,
@@ -77,6 +77,8 @@ class _FakeServer(BaseHTTPRequestHandler):
     """Minimal stand-in for sbx-server speaking the same protocol (both modes)."""
 
     sandboxes: set = set()
+    capacity = None  # None == unlimited; set per-subclass to test the full handshake
+    seq = 0  # monotonic id source (survives deletes)
 
     def log_message(self, *args) -> None:
         pass
@@ -114,22 +116,29 @@ class _FakeServer(BaseHTTPRequestHandler):
         # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
         if self.path == "/v1/exec" or (self.path.startswith("/v1/sandboxes/") and self.path.endswith("/exec")):
             self._exec(body)
-        elif self.path == "/v1/sandboxes":  # batch-create sandboxes
+        elif self.path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
+            cls = type(self)
             count = int(body.get("count", 1))
             created = []
+            rejected = 0
             for i in range(count):
-                sid = f"sbx{len(_FakeServer.sandboxes) + i}"
-                _FakeServer.sandboxes.add(sid)
+                if cls.capacity is not None and len(cls.sandboxes) >= cls.capacity:
+                    rejected = count - i
+                    break
+                sid = f"sbx{cls.seq}"
+                cls.seq += 1
+                cls.sandboxes.add(sid)
                 created.append({"id": sid})
-            self._json({"sandboxes": created})
+            self._json({"sandboxes": created, "rejected": rejected})
 
     def do_DELETE(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
         sid = self.path.rsplit("/", 1)[-1]
-        _FakeServer.sandboxes.discard(sid)
+        type(self).sandboxes.discard(sid)
         self._json({"id": sid, "deleted": True})
 
     def do_GET(self) -> None:
+        cls = type(self)
         if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
             self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
         elif self.path.startswith("/v1/files/read") or "/files/read" in self.path:
@@ -140,17 +149,32 @@ class _FakeServer(BaseHTTPRequestHandler):
         elif self.path == "/v1/procs" or self.path.endswith("/procs"):
             self._json([{"pid": 42, "cmd": "x", "running": True, "exit_code": None}])
         elif self.path == "/v1/sandboxes":
-            self._json([{"id": sid} for sid in sorted(_FakeServer.sandboxes)])
+            self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
 
 
 @pytest.fixture()
 def fake_server():
     _FakeServer.sandboxes = set()
+    _FakeServer.seq = 0
+    _FakeServer.capacity = None
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.server_port}"
     server.shutdown()
+
+
+def _spawn_fake(capacity=None):
+    """Start an independent fake server (its own sandbox set/capacity). Returns (url, cls)."""
+
+    class _Fake(_FakeServer):
+        sandboxes: set = set()
+        seq = 0
+
+    _Fake.capacity = capacity
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Fake)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{server.server_port}", _Fake
 
 
 class TestSandboxClient:
@@ -182,11 +206,6 @@ class TestSandboxClient:
         sandbox = _make_sandbox(fake_server)
         procs = sandbox.processes()
         assert procs[0].pid == 42 and procs[0].running
-
-    def test_url_requires_exposed_port(self, fake_server: str) -> None:
-        sandbox = _make_sandbox(fake_server)
-        with pytest.raises(SandboxError):
-            sandbox.url(8080)
 
     def test_kill_is_idempotent(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
@@ -231,11 +250,6 @@ class TestSharedSandbox:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
         assert "local1" not in _FakeServer.sandboxes
-
-    def test_url_not_supported(self, fake_server: str) -> None:
-        sandbox = self._make_shared(fake_server)
-        with pytest.raises(SandboxError, match="not available for shared"):
-            sandbox.url(8080)
 
 
 class TestSandboxPool:
@@ -293,6 +307,20 @@ class TestSandboxPool:
         with pytest.raises(SandboxError, match="closed"):
             pool.create()
 
+    def test_full_host_triggers_duplicate(self, monkeypatch) -> None:
+        # First host fills at 1 sandbox (server-authoritative); the duplicate has room.
+        # create(count=2) must place one on each, booting the second when the first is full.
+        url1, _ = _spawn_fake(capacity=1)
+        url2, _ = _spawn_fake(capacity=10)
+        servers = iter([_make_server(url1, job_id="h0", capacity=2), _make_server(url2, job_id="h1", capacity=2)])
+        pool = SandboxPool(sandboxes_per_host=2, token="hf_test")
+        pool._api.list_jobs = MagicMock(return_value=[])
+        monkeypatch.setattr(pool, "_boot_host", lambda: next(servers))
+        boxes = pool.create(count=2)
+        assert len(boxes) == 2
+        assert pool.num_hosts == 2  # had to boot a duplicate
+        assert {b.id.split(".")[0] for b in boxes} == {"h0", "h1"}
+
 
 class TestHostDiscovery:
     """`create()` should attach to a warm host found via job labels (e.g. left by
@@ -306,7 +334,8 @@ class TestHostDiscovery:
         job.space_id = None
         job.flavor = "cpu-basic"
         job.status.stage = "RUNNING"
-        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1", HOST_CAPACITY_LABEL: str(capacity)}
+        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1"}
+        job.environment = {"SBX_CAPACITY": str(capacity)}  # config lives in env vars, not labels
         return job
 
     def _pool(self, fake_server, monkeypatch, **kwargs) -> SandboxPool:
@@ -326,7 +355,7 @@ class TestHostDiscovery:
         assert isinstance(box, Sandbox)
         assert pool.num_hosts == 1
         assert pool._hosts[0].job_id == "host9"  # adopted, not freshly booted
-        assert pool._hosts[0].capacity == 4  # read from the label
+        assert pool._hosts[0].capacity == 4  # read from the host's env var
         assert box.host_id == "host9"
 
     def test_discovery_respects_pool_name(self, fake_server: str, monkeypatch) -> None:
@@ -335,3 +364,39 @@ class TestHostDiscovery:
         pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9")])
         pool.create()
         assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)
+
+
+class TestPoolConnect:
+    """`SandboxPool.connect(pool_id)` rebuilds a pool from a running host's job spec +
+    env vars — no local state, no config endpoint — then packs onto that host."""
+
+    def test_connect_reads_config_from_host_env(self, monkeypatch) -> None:
+        url, _ = _spawn_fake(capacity=7)
+        job = MagicMock()
+        job.id = "hostA"
+        job.owner.name = "user"
+        job.status.stage = "RUNNING"
+        job.docker_image = "alpine:3.20"
+        job.space_id = None
+        job.flavor = "cpu-basic"
+        job.labels = {SANDBOX_LABEL: "n", HOST_LABEL: "1", POOL_LABEL: "pool-x"}
+        job.environment = {"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600"}
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [job])
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(url, job_id=jid, capacity=7)
+        )
+
+        pool = SandboxPool.connect("pool-x", token="hf_test")
+        assert pool.image == "alpine:3.20"
+        assert pool.flavor == "cpu-basic"
+        assert pool.sandboxes_per_host == 7
+        assert pool.name == "pool-x"
+
+        box = pool.create()  # packs onto the discovered host, no boot
+        assert isinstance(box, Sandbox)
+        assert box.host_id == "hostA"
+
+    def test_connect_raises_when_pool_gone(self, monkeypatch) -> None:
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [])
+        with pytest.raises(SandboxError, match="No running host found for pool"):
+            SandboxPool.connect("pool-dead", token="hf_test")

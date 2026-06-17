@@ -22,7 +22,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError, SandboxError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -4211,42 +4211,79 @@ class TestSkillsMarketplaceCLI:
 
 
 class TestSandboxPoolCli:
-    """The `hf sandbox pool` subgroup: a pool is a local config (no billing); spawning
-    from it packs sandboxes onto shared host VMs."""
+    """The `hf sandbox pool` subgroup: no local state — `create` warms a host, `spawn`
+    finds the pool's hosts via labels and packs onto them (booting a duplicate if full)."""
 
-    def test_create_ls_delete_flow(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+    def test_create_warms_one_host(self, runner: CliRunner, monkeypatch) -> None:
         from huggingface_hub.cli import sandbox as sandbox_cli_mod
 
-        monkeypatch.setattr(sandbox_cli_mod, "_POOLS_DIR", tmp_path / "pools")
+        warmed: dict = {}
 
-        # create: writes a private config, prints a pool id, starts no job.
+        def fake_warm(self, num_hosts: int = 1) -> list:
+            warmed["name"] = self.name
+            warmed["image"] = self.image
+            return ["host-abc"]
+
+        monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "warm", fake_warm)
         result = runner.invoke(app, ["sandbox", "pool", "create", "--image", "alpine:3.20", "--per-host", "10"])
         assert result.exit_code == 0, result.output
-        pool_files = list((tmp_path / "pools").glob("*.json"))
-        assert len(pool_files) == 1
-        config = json.loads(pool_files[0].read_text())
-        assert config["image"] == "alpine:3.20"
-        assert config["sandboxes_per_host"] == 10
-        pool_id = config["id"]
+        assert warmed["image"] == "alpine:3.20"
+        assert warmed["name"].startswith("pool-")
+        assert "host-abc" in result.output  # the warmed host id is reported
 
-        # ls: shows the saved pool.
-        result = runner.invoke(app, ["sandbox", "pool", "ls"])
-        assert result.exit_code == 0, result.output
-        assert pool_id in result.output
-
-        # delete: removes the config (no running hosts here, so no jobs cancelled).
-        fake_api = Mock()
-        fake_api.list_jobs.return_value = []
-        monkeypatch.setattr(sandbox_cli_mod, "get_hf_api", lambda **kwargs: fake_api)
-        result = runner.invoke(app, ["sandbox", "pool", "delete", pool_id, "-y"])
-        assert result.exit_code == 0, result.output
-        assert not pool_files[0].exists()
-
-    def test_spawn_unknown_pool_errors(self, runner: CliRunner, tmp_path: Path, monkeypatch) -> None:
+    def test_create_into_pool_packs(self, runner: CliRunner, monkeypatch) -> None:
         from huggingface_hub.cli import sandbox as sandbox_cli_mod
 
-        monkeypatch.setattr(sandbox_cli_mod, "_POOLS_DIR", tmp_path / "pools")
-        result = runner.invoke(app, ["sandbox", "pool", "spawn", "pool-nope"])
+        fake_pool = Mock()
+        sbx = Mock()
+        sbx.id = "host1.sb0"
+        sbx.host_id = "host1"
+        fake_pool.create.return_value = sbx
+        monkeypatch.setattr(
+            sandbox_cli_mod.SandboxPool, "connect", classmethod(lambda cls, pid, namespace=None, token=None: fake_pool)
+        )
+        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--secrets", "K=v"])
+        assert result.exit_code == 0, result.output
+        assert "host1.sb0" in result.output
+        fake_pool.create.assert_called_once()
+        assert fake_pool.create.call_args.kwargs["env"] == {"K": "v"}  # per-sandbox env
+
+    def test_create_pool_rejects_image_and_flavor(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["sandbox", "create", "alpine:3.20", "--pool", "pool-x"])
         assert result.exit_code != 0
         assert isinstance(result.exception, CLIError)
-        assert "Unknown pool" in str(result.exception)
+
+    def test_create_pool_gone_errors(self, runner: CliRunner, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        def boom(cls, pid, namespace=None, token=None):
+            raise SandboxError(f"No running host found for pool '{pid}'.")
+
+        monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "connect", classmethod(boom))
+        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, SandboxError)
+
+    def test_ls_and_delete(self, runner: CliRunner, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        job = Mock()
+        job.id = "h1"
+        job.owner.name = "user"
+        job.status.stage = "RUNNING"
+        job.docker_image = "python:3.12"
+        job.space_id = None
+        job.flavor = "cpu-basic"
+        job.labels = {"hf-sandbox": "n", "hf-sandbox-host": "1", "hf-sandbox-pool": "pool-x"}
+        job.environment = {"SBX_CAPACITY": "50"}  # config read from env vars, not labels
+        fake_api = Mock()
+        fake_api.list_jobs.return_value = [job]
+        monkeypatch.setattr(sandbox_cli_mod, "get_hf_api", lambda **kwargs: fake_api)
+
+        result = runner.invoke(app, ["sandbox", "pool", "ls"])
+        assert result.exit_code == 0, result.output
+        assert "pool-x" in result.output
+
+        result = runner.invoke(app, ["sandbox", "pool", "delete", "pool-x", "-y"])
+        assert result.exit_code == 0, result.output
+        fake_api.cancel_job.assert_called_once()

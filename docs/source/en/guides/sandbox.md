@@ -4,15 +4,15 @@ rendered properly in your Markdown viewer.
 # Sandboxes
 
 Sandboxes are isolated cloud machines built on top of [Jobs](./jobs): spin one up in seconds, run
-commands with live-streamed output, move files in and out, expose ports publicly — from Python or
-the CLI. They are ideal for running untrusted or AI-generated code, reproducible builds, or quick
-experiments on any hardware (CPUs, GPUs).
+commands with live-streamed output, move files in and out — from Python or the CLI. They are ideal
+for running untrusted or AI-generated code, reproducible builds, or quick experiments on any
+hardware (CPUs, GPUs).
 
 There are two ways to get a sandbox, sharing the exact same `Sandbox` surface (`run`, `spawn`,
 `files`, ...):
 
 - [`Sandbox.create`] — **one dedicated Job per sandbox**: a full isolated VM. Best for a single
-  sandbox, GPU workloads, untrusted code, or public port forwarding. ~6s cold start.
+  sandbox, GPU workloads, or untrusted code. ~6s cold start.
 - [`SandboxPool`] — **many lightweight sandboxes packed into shared "host" Jobs**, isolated from
   each other by uid + the Landlock LSM. Best for fanning out many cheap CPU sandboxes (e.g. RL
   rollouts): the cost of one VM is amortized across dozens of sandboxes and per-sandbox cold start
@@ -83,22 +83,10 @@ Start background processes with [`Sandbox.spawn`]:
 Transfers above 8 MiB automatically use parallel ranged requests (several hundred MiB/s from a
 well-connected machine).
 
-## Exposing ports
-
-Expose extra ports at creation and get their public URLs with [`Sandbox.url`]. Requests to these
-URLs require an HF token with read access to the sandbox's namespace:
-
-```python
->>> sbx = Sandbox.create(expose=[8080])
->>> sbx.spawn("python -m http.server 8080")
->>> sbx.url(8080)
-'https://<sandbox_id>--8080.hf.jobs'
-```
-
 ## Lifecycle
 
 ```python
->>> sbx = Sandbox.create(timeout="1h", idle_timeout="10m")
+>>> sbx = Sandbox.create(idle_timeout="10m")
 >>> sbx.id
 '687f911eaea852de79c4a50a'
 
@@ -109,9 +97,9 @@ URLs require an HF token with read access to the sandbox's namespace:
 >>> sbx.kill()           # terminate now
 ```
 
-- `timeout` is the maximum lifetime (a Jobs timeout; 30 minutes by default).
-- `idle_timeout` (default 10 minutes) terminates the sandbox automatically when no API call is made
-  and no process is running — abandoned sandboxes don't keep billing.
+- `idle_timeout` (default 10 minutes) is the real keeper: it terminates the sandbox when no API call
+  is made and no process is running, so abandoned sandboxes don't keep billing.
+- The job runs with a fixed 24h maximum lifetime as a hard backstop (not configurable).
 - Your HF token is never sent to the sandbox unless you pass `forward_hf_token=True`.
 
 ## Many sandboxes at once: SandboxPool
@@ -133,8 +121,9 @@ hi
 
 Each returned object is a full [`Sandbox`] (`run`, `spawn`, `files`, `connect`, `kill`). The pool
 provisions host Jobs lazily as sandboxes are requested, packs `sandboxes_per_host` per host, and
-terminates everything on `close()` (or when a host goes idle, as a billing backstop). The typical
-fan-out pattern:
+terminates everything on `close()` (or when a host goes idle, as a billing backstop). Env, secrets
+and the per-sandbox `idle_timeout` belong to each sandbox — pass them to `create(env=..., idle_timeout=...)`,
+so sandboxes in the same pool can have different environments. The typical fan-out pattern:
 
 ```python
 >>> from concurrent.futures import ThreadPoolExecutor
@@ -157,16 +146,24 @@ as work arrives and they pack themselves onto warm hosts:
 ```
 
 Warm hosts are discovered through job labels, so this works **across processes** too: a brand-new
-`SandboxPool` (same `image`/`flavor`/`name`) — or a fresh `hf sandbox pool spawn <id>` — attaches
-to hosts an earlier run left running, rather than booting its own. Pass a `name=` to keep separate
-pools from sharing hosts.
+`SandboxPool` (same `image`/`flavor`/`name`) attaches to hosts an earlier run left running rather
+than booting its own. Pass a `name=` to keep separate pools from sharing hosts.
+
+To reattach from another machine with no local state, give the pool a `name` and reconnect by it
+with [`SandboxPool.connect`] — it finds a running host, rebuilds the pool's config (image, flavor,
+packing density) from that host job's spec and env vars, and is ready to `create()` more (booting a
+duplicate host, with the same config, only once every existing host reports full):
+
+```python
+>>> pool = SandboxPool.connect("pool-ae9f7efe0bc7")   # from anywhere, no config needed
+>>> sbx = pool.create()
+```
 
 **Isolation & trust model.** Sandboxes within a host are isolated from each other by distinct uids
 plus a per-sandbox Landlock ruleset: they cannot read, signal, or write each other's files, and
 each is confined to its own private home (a leading `/` in a file path is taken relative to that
 home). This is the right boundary for *one user's own* parallel workloads; for mutually-hostile
-untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). Per-sandbox exposed
-ports are not available in shared mode (use [`Sandbox.create`] for [`Sandbox.url`]).
+untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox).
 
 Shared sandbox ids look like `<host_job_id>.<local_id>` and work everywhere a dedicated id does
 (`Sandbox.connect`, `hf sandbox exec/cp/kill`).
@@ -185,16 +182,23 @@ hi
 >>> hf sandbox ls
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 
-# Many cheap shared sandboxes: define a pool once (no billing), then spawn from it
+# Many cheap shared sandboxes: warm a pool once, then create into it on demand
 >>> hf sandbox pool create --image python:3.12 --flavor cpu-basic
-✓ Pool created id=pool-ae9f7efe0bc7 image=python:3.12 flavor=cpu-basic
+✓ Pool created id=pool-ae9f7efe0bc7 image=python:3.12 flavor=cpu-basic host=687f... elapsed=5.7s
 
-# Each spawn reuses a warm host (found via the pool's job label), or boots one if none has room
->>> hf sandbox pool spawn pool-ae9f7efe0bc7
->>> hf sandbox pool spawn pool-ae9f7efe0bc7 -n 100   # or a whole batch at once
+# Each create packs onto a host with room (found via the pool's job label, from any
+# machine); only when every host is full does it boot a duplicate. Env/secrets are per-sandbox.
+>>> hf sandbox create --pool pool-ae9f7efe0bc7 --secrets OPENAI_API_KEY=sk-...
+>>> hf sandbox create --pool pool-ae9f7efe0bc7   # packs onto the same host
 
->>> hf sandbox kill --all          # tear down every sandbox and host
+>>> hf sandbox pool ls
+>>> hf sandbox pool delete pool-ae9f7efe0bc7   # terminate the pool's hosts (and sandboxes)
 ```
+
+A pool has **no local state**: `pool create` warms a host VM (billing starts) tagged with the pool
+id, with its config (image/flavor/density) in the host job's env vars. `hf sandbox create --pool`
+finds the pool's hosts by that label — so it works from any machine — and a pool stops existing
+once all of its hosts are gone (killed or idle-timed-out).
 
 `hf sandbox exec` streams output live and exits with the command's exit code, so it composes in
 scripts: `hf sandbox exec $ID -- pytest && echo green`.

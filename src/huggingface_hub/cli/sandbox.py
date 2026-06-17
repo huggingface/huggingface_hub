@@ -15,13 +15,13 @@
 
 Two ways to get a sandbox:
 
-    # One dedicated sandbox (a full VM — GPU, untrusted code, exposed ports)
+    # One dedicated sandbox (a full VM — GPU, untrusted code)
     hf sandbox create [IMAGE]
 
     # Many cheap shared sandboxes packed into host VMs (CPU fan-out, RL rollouts).
-    # Define a pool once, then spawn sandboxes from it on demand:
+    # Warm a pool once, then create sandboxes into it on demand:
     hf sandbox pool create --image python:3.12 --flavor cpu-basic   # -> pool id
-    hf sandbox pool spawn <pool_id>                                 # reuse/boot a host
+    hf sandbox create --pool <pool_id>                              # pack onto / boot a host
 
 Both kinds share the same commands:
 
@@ -29,23 +29,17 @@ Both kinds share the same commands:
     hf sandbox cp local.txt <sandbox_id>:/tmp/remote.txt
     hf sandbox ls
     hf sandbox ps <sandbox_id>
-    hf sandbox url <sandbox_id> <port>
     hf sandbox kill <sandbox_id>
 """
 
-import json
-import os
 import sys
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Annotated, Any, Iterator
 
 import typer
 
-from huggingface_hub import constants
 from huggingface_hub._sandbox import (
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_IMAGE,
@@ -60,6 +54,7 @@ from huggingface_hub._sandbox import (
     _split_sandbox_id,
 )
 from huggingface_hub.errors import CLIError, SandboxError
+from huggingface_hub.utils import get_token
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -74,7 +69,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._output import out
-from .jobs import ExposeOpt, FlavorOpt, NamespaceOpt, TimeoutOpt
+from .jobs import FlavorOpt, NamespaceOpt
 
 
 sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
@@ -101,46 +96,64 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
     examples=[
         "hf sandbox create",
         "hf sandbox create ubuntu:24.04",
-        "hf sandbox create --flavor a10g-small --timeout 1h",
-        "hf sandbox create --expose 8080",
+        "hf sandbox create --flavor a10g-small",
+        "hf sandbox create --pool pool-ab12cd34ef56 --secrets OPENAI_API_KEY=sk-...",
     ],
 )
 def sandbox_create(
-    image: Annotated[str, typer.Argument(help="Docker image (needs /bin/sh).")] = DEFAULT_IMAGE,
+    image: Annotated[str | None, typer.Argument(help="Docker image (needs /bin/sh).")] = None,
+    pool: Annotated[
+        str | None,
+        typer.Option("--pool", help="Spawn a cheap shared sandbox in this pool (from `hf sandbox pool create`)."),
+    ] = None,
     flavor: FlavorOpt = None,
-    timeout: TimeoutOpt = None,
     idle_timeout: Annotated[
         str | None,
-        typer.Option(help="Auto-terminate after this much inactivity (e.g. '10m'). Defaults to 10m."),
+        typer.Option(help="Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m."),
     ] = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     volume: VolumesOpt = None,
-    expose: ExposeOpt = None,
     namespace: NamespaceOpt = None,
     forward_hf_token: Annotated[
         bool, typer.Option("--forward-hf-token", help="Inject your HF token as HF_TOKEN in the sandbox.")
     ] = False,
     token: TokenOpt = None,
 ) -> None:
-    """Create one dedicated sandbox (a full VM).
+    """Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
 
-    For many cheap CPU sandboxes packed into shared host VMs, define a pool with
-    `hf sandbox pool create` and spawn from it with `hf sandbox pool spawn`.
+    Env/secrets/idle-timeout apply to the sandbox in both modes. With `--pool`, the
+    image and flavor come from the pool, so passing them here is an error. Define a pool
+    first with `hf sandbox pool create`.
     """
     start = time.time()
     idle = idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT
+    sandbox_env = {**(parse_env_map(env, env_file) or {}), **(parse_env_map(secrets, secrets_file) or {})}
+
+    if pool is not None:
+        # image/flavor/volume are fixed by the pool's hosts — reject rather than silently ignore.
+        if image is not None or flavor is not None or volume:
+            raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
+        if forward_hf_token and (hf_token := token or get_token()):
+            sandbox_env["HF_TOKEN"] = hf_token
+        created = SandboxPool.connect(pool, namespace=namespace, token=token).create(
+            env=sandbox_env, idle_timeout=idle
+        )
+        sbx = created[0] if isinstance(created, list) else created
+        out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, pool=pool, elapsed=f"{time.time() - start:.1f}s")
+        out.hint(f"Run a command with `hf sandbox exec {sbx.id} -- echo hello`.")
+        out.hint(f"Terminate it with `hf sandbox kill {sbx.id}`.")
+        return
+
     sandbox = Sandbox.create(
-        image=image,
+        image=image or DEFAULT_IMAGE,
         flavor=flavor or "cpu-basic",
-        timeout=timeout,
         idle_timeout=idle,
         env=parse_env_map(env, env_file),
         secrets=parse_env_map(secrets, secrets_file),
         volumes=parse_volumes(volume),
-        expose=expose,
         namespace=namespace,
         forward_hf_token=forward_hf_token,
         token=token,
@@ -148,7 +161,7 @@ def sandbox_create(
     # Release the HTTP client (the sandbox keeps running); this one-shot command reports the id
     # and exits, later commands reattach with their own connection.
     sandbox.close()
-    out.result("Sandbox ready", id=sandbox.id, image=image, elapsed=f"{time.time() - start:.1f}s")
+    out.result("Sandbox ready", id=sandbox.id, image=sandbox.image, elapsed=f"{time.time() - start:.1f}s")
     out.hint(f"Run a command with `hf sandbox exec {sandbox.id} -- echo hello`.")
     out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
 
@@ -304,20 +317,6 @@ def sandbox_cp(
     out.result("Copied", src=src, dst=dst)
 
 
-@sandbox_cli.command("url", examples=["hf sandbox url <sandbox_id> 8080"])
-def sandbox_url(
-    sandbox_id: SandboxIdArg,
-    port: Annotated[int, typer.Argument(help="Container port (must have been exposed at creation).")],
-    namespace: NamespaceOpt = None,
-    token: TokenOpt = None,
-) -> None:
-    """Print the public URL of an exposed sandbox port (dedicated sandboxes only)."""
-    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
-        url = sandbox.url(port)
-    out.text(url)
-    out.hint("Requests must include an HF token: `curl -H 'Authorization: Bearer ...' <url>`.")
-
-
 @sandbox_cli.command(
     "kill",
     examples=[
@@ -382,37 +381,15 @@ def sandbox_kill(
 
 # --------------------------------------------------------------------- pool subgroup
 #
-# A "pool" is a saved set of sandbox options (image, flavor, env, ...). It is purely a
-# local config — `pool create` starts no job and bills nothing. Spawning from it
-# (`pool spawn <id>`) packs landlock sandboxes onto shared host VMs, reusing a warm host
-# (discovered via the `hf-sandbox-pool=<id>` job label, so reuse works across processes
-# and machines) before booting a new one.
+# A "pool" is a set of running host VMs sharing a `hf-sandbox-pool=<id>` job label. There
+# is NO local state: `pool create` warms one host (and stores the pool's config on it as a
+# secret); `pool spawn <id>` finds the pool's hosts via the label, packs a sandbox onto one
+# with room, or — once they all report full — boots a duplicate (fetching the config from a
+# running host). So pools are discoverable from any machine, and a pool stops existing once
+# all of its hosts are gone.
 
-pool_cli = typer_factory(help="Define sandbox pools and spawn cheap shared sandboxes from them.")
+pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
 sandbox_cli.add_typer(pool_cli, name="pool")
-
-_POOLS_DIR = Path(constants.HF_HOME) / "sandbox" / "pools"
-
-
-def _pool_path(pool_id: str) -> Path:
-    return _POOLS_DIR / f"{pool_id}.json"
-
-
-def _save_pool(config: dict[str, Any]) -> None:
-    _POOLS_DIR.mkdir(parents=True, exist_ok=True)
-    # The config may hold secrets, so keep both the directory and the file private (0700/0600).
-    os.chmod(_POOLS_DIR, 0o700)
-    path = _pool_path(config["id"])
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        json.dump(config, f, indent=2)
-
-
-def _load_pool(pool_id: str) -> dict[str, Any]:
-    path = _pool_path(pool_id)
-    if not path.is_file():
-        raise CLIError(f"Unknown pool '{pool_id}'. List pools with `hf sandbox pool ls`.")
-    return json.loads(path.read_text())
 
 
 @pool_cli.command(
@@ -420,7 +397,7 @@ def _load_pool(pool_id: str) -> dict[str, Any]:
     examples=[
         "hf sandbox pool create",
         "hf sandbox pool create --image python:3.12 --flavor cpu-basic",
-        "hf sandbox pool create --per-host 50 --secret OPENAI_API_KEY=sk-...",
+        "hf sandbox pool create --per-host 50 --idle-timeout 30m",
     ],
 )
 def pool_create(
@@ -435,123 +412,77 @@ def pool_create(
     max_hosts: Annotated[
         int | None, typer.Option("--max-hosts", min=1, help="Optional cap on the number of host VMs.")
     ] = None,
-    timeout: TimeoutOpt = None,
     idle_timeout: Annotated[
         str | None,
-        typer.Option(help="Auto-terminate an idle host after this much inactivity (e.g. '10m'). Defaults to 10m."),
+        typer.Option(
+            help="Shut a host down once it has had no sandboxes for this long (e.g. '10m'). Defaults to 10m."
+        ),
     ] = None,
-    env: EnvOpt = None,
-    secrets: SecretsOpt = None,
-    env_file: EnvFileOpt = None,
-    secrets_file: SecretsFileOpt = None,
     namespace: NamespaceOpt = None,
-    forward_hf_token: Annotated[
-        bool, typer.Option("--forward-hf-token", help="Inject your HF token as HF_TOKEN in each sandbox.")
-    ] = False,
+    token: TokenOpt = None,
 ) -> None:
-    """Define a sandbox pool. Starts no host and bills nothing — just saves the config.
+    """Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
 
-    Returns a pool id; spawn sandboxes from it with `hf sandbox pool spawn <id>`, which
-    inherits the image/flavor/timeout/env/secrets defined here.
+    Returns a pool id. Spawn sandboxes into it with `hf sandbox create --pool <id>` —
+    each sandbox carries its own env/secrets/idle-timeout. Billing starts now (the host
+    is running); stop it with `hf sandbox pool delete <id>`.
     """
     pool_id = f"pool-{uuid.uuid4().hex[:12]}"
-    config: dict[str, Any] = {
-        "id": pool_id,
-        "image": image,
-        "flavor": flavor or "cpu-basic",
-        "sandboxes_per_host": per_host,
-        "max_hosts": max_hosts,
-        "timeout": timeout,
-        "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
-        "env": parse_env_map(env, env_file),
-        "secrets": parse_env_map(secrets, secrets_file),
-        "forward_hf_token": forward_hf_token,
-        "namespace": namespace,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _save_pool(config)
-    out.result("Pool created", id=pool_id, image=config["image"], flavor=config["flavor"])
-    out.hint(f"Spawn a sandbox with `hf sandbox pool spawn {pool_id}`.")
+    start = time.time()
+    pool = SandboxPool(
+        image=image,
+        flavor=flavor or "cpu-basic",
+        sandboxes_per_host=per_host,
+        max_hosts=max_hosts,
+        name=pool_id,
+        idle_timeout=idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
+        namespace=namespace,
+        token=token,
+    )
+    host_ids = pool.warm(1)
+    out.result(
+        "Pool created",
+        id=pool_id,
+        image=image,
+        flavor=flavor or "cpu-basic",
+        host=host_ids[0],
+        elapsed=f"{time.time() - start:.1f}s",
+    )
+    out.hint(f"Spawn a sandbox with `hf sandbox create --pool {pool_id}`.")
     out.hint(f"Delete the pool (and its hosts) with `hf sandbox pool delete {pool_id}`.")
 
 
-@pool_cli.command(
-    "spawn",
-    examples=[
-        "hf sandbox pool spawn <pool_id>",
-        "hf sandbox pool spawn <pool_id> -n 100",
-    ],
-)
-def pool_spawn(
-    pool_id: Annotated[str, typer.Argument(help="Pool id from `hf sandbox pool create`.")],
-    num: Annotated[int, typer.Option("-n", "--num", min=1, help="How many sandboxes to spawn.")] = 1,
+@pool_cli.command("ls | list", examples=["hf sandbox pool ls"])
+def pool_ls(
+    namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Spawn sandbox(es) from a pool, reusing a warm host or booting one as needed.
-
-    A single spawn packs onto a warm host (found via job labels, possibly left by an
-    earlier spawn or another machine) before booting a new one — so you can grow on
-    demand one sandbox at a time. Hosts stop billing after the pool's idle timeout or
-    via `hf sandbox kill`.
-    """
-    config = _load_pool(pool_id)
-    start = time.time()
-    pool = SandboxPool(
-        image=config["image"],
-        flavor=config["flavor"],
-        sandboxes_per_host=config["sandboxes_per_host"],
-        max_hosts=config.get("max_hosts"),
-        name=pool_id,
-        timeout=config.get("timeout"),
-        idle_timeout=config.get("idle_timeout"),
-        env=config.get("env") or None,
-        secrets=config.get("secrets") or None,
-        forward_hf_token=config.get("forward_hf_token", False),
-        namespace=config.get("namespace"),
-        token=token,
-    )
-    created = pool.create(count=num)
-    sandboxes = created if isinstance(created, list) else [created]
-    if len(sandboxes) == 1:
-        sbx = sandboxes[0]
-        out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, pool=pool_id, elapsed=f"{time.time() - start:.1f}s")
-    else:
-        out.table([{"id": sbx.id} for sbx in sandboxes], id_key="id")
-        out.result(
-            "Sandboxes ready",
-            count=len(sandboxes),
-            hosts=len(pool.host_ids),
-            pool=pool_id,
-            elapsed=f"{time.time() - start:.1f}s",
+    """List running sandbox pools (grouped from their host VMs)."""
+    api = get_hf_api(token=token)
+    pools: dict[str, dict[str, Any]] = {}
+    for job in api.list_jobs(namespace=namespace):
+        labels = job.labels or {}
+        pid = labels.get(POOL_LABEL)
+        if not pid or not labels.get(HOST_LABEL) or job.status.stage != "RUNNING":
+            continue
+        env = job.environment if isinstance(job.environment, dict) else {}
+        info = pools.setdefault(
+            pid,
+            {
+                "id": pid,
+                "image": job.docker_image or job.space_id,
+                "flavor": job.flavor,
+                "per_host": env.get("SBX_CAPACITY", ""),
+                "hosts": 0,
+            },
         )
-    out.hint(f"Run a command with `hf sandbox exec {sandboxes[0].id} -- echo hello`.")
-    out.hint(f"Spawn another onto the same host(s) with `hf sandbox pool spawn {pool_id}`.")
-
-
-@pool_cli.command("ls | list", examples=["hf sandbox pool ls"])
-def pool_ls() -> None:
-    """List locally-defined sandbox pools."""
-    rows = []
-    if _POOLS_DIR.is_dir():
-        for path in sorted(_POOLS_DIR.glob("*.json")):
-            try:
-                c = json.loads(path.read_text())
-            except (OSError, json.JSONDecodeError):
-                continue
-            rows.append(
-                {
-                    "id": c.get("id", path.stem),
-                    "image": c.get("image", ""),
-                    "flavor": c.get("flavor", ""),
-                    "per_host": c.get("sandboxes_per_host", ""),
-                    "created": c.get("created_at", ""),
-                }
-            )
+        info["hosts"] += 1
+    rows = list(pools.values())
     out.table(rows, id_key="id")
     if not rows:
-        out.hint("Define one with `hf sandbox pool create`.")
+        out.hint("Create one with `hf sandbox pool create`.")
     else:
-        out.hint("Spawn a sandbox with `hf sandbox pool spawn <id>`, or see running ones with `hf sandbox ls`.")
+        out.hint("Spawn a sandbox with `hf sandbox create --pool <id>`, or see running ones with `hf sandbox ls`.")
 
 
 @pool_cli.command(
@@ -564,18 +495,17 @@ def pool_delete(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Delete a pool definition and terminate any host VMs it has running."""
-    config = _load_pool(pool_id)
+    """Terminate every host VM of a pool (and therefore all its sandboxes)."""
     api = get_hf_api(token=token)
-    ns = namespace or config.get("namespace")
     hosts = [
         job
-        for job in api.list_jobs(namespace=ns)
+        for job in api.list_jobs(namespace=namespace)
         if (job.labels or {}).get(POOL_LABEL) == pool_id and job.status.stage == "RUNNING"
     ]
-    suffix = f" and terminate {len(hosts)} running host(s)?" if hosts else "?"
-    out.confirm(f"Delete pool '{pool_id}'{suffix}", yes=yes)
+    if not hosts:
+        out.text(f"No running hosts for pool '{pool_id}'.")
+        return
+    out.confirm(f"Terminate {len(hosts)} host(s) of pool '{pool_id}' (and all their sandboxes)?", yes=yes)
     for job in hosts:
         api.cancel_job(job_id=job.id, namespace=job.owner.name)
-    _pool_path(pool_id).unlink(missing_ok=True)
     out.result("Pool deleted", id=pool_id, hosts_terminated=len(hosts))
