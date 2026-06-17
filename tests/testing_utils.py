@@ -468,7 +468,10 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
             try:
                 return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:
-                self._api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
+                try:
+                    self._api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
+                except Exception:
+                    pass
 
         return _inner
 
