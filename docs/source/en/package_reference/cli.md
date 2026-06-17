@@ -3562,10 +3562,10 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `cp`: Copy a file between the local machine and...
-* `create`: Create a sandbox and wait until it is ready.
+* `create`: Create one dedicated sandbox, or (with -n)...
 * `exec`: Run a command in a sandbox, streaming output.
-* `kill`: Terminate a sandbox.
-* `ls`: List your running sandboxes. [alias: list]
+* `kill`: Terminate a sandbox, a whole shared host,...
+* `ls`: List your running sandboxes (dedicated and... [alias: list]
 * `ps`: List background processes running in a...
 * `url`: Print the public URL of an exposed sandbox...
 
@@ -3601,7 +3601,7 @@ Learn more
 
 ### `hf sandbox create`
 
-Create a sandbox and wait until it is ready.
+Create one dedicated sandbox, or (with -n) many cheap shared sandboxes.
 
 **Usage**:
 
@@ -3615,6 +3615,8 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 
 **Options**:
 
+* `-n, --num INTEGER RANGE`: How many sandboxes to create. 1 (default) = one dedicated VM; >1 = many cheap shared sandboxes packed into host VMs.  [default: 1; x>=1]
+* `--per-host INTEGER RANGE`: Shared mode only: sandboxes packed per host VM (default 50).  [default: 50; x>=1]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--idle-timeout TEXT`: Auto-terminate after this much inactivity (e.g. '10m'). Defaults to 10m.
@@ -3633,7 +3635,8 @@ Examples
   $ hf sandbox create
   $ hf sandbox create ubuntu:24.04
   $ hf sandbox create --flavor a10g-small --timeout 1h
-  $ hf sandbox create --expose 8080 -e DEBUG=1
+  $ hf sandbox create -n 100
+  $ hf sandbox create -n 100 --per-host 50 --flavor cpu-basic
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3676,26 +3679,30 @@ Learn more
 
 ### `hf sandbox kill`
 
-Terminate a sandbox.
+Terminate a sandbox, a whole shared host, or everything (--all).
 
 **Usage**:
 
 ```console
-$ hf sandbox kill [OPTIONS] SANDBOX_ID
+$ hf sandbox kill [OPTIONS] [SANDBOX_ID]
 ```
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+* `[SANDBOX_ID]`: The sandbox or host id to terminate.
 
 **Options**:
 
+* `--all`: Terminate every sandbox and host in the namespace.
+* `-y, --yes`: Answer Yes to prompts automatically.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf sandbox kill <sandbox_id>
+  $ hf sandbox kill <host_id>   # kills a whole shared host (all its sandboxes)
+  $ hf sandbox kill --all
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3704,7 +3711,7 @@ Learn more
 
 ### `hf sandbox ls`
 
-List your running sandboxes. [alias: list]
+List your running sandboxes (dedicated and shared). [alias: list]
 
 **Usage**:
 
@@ -3756,7 +3763,7 @@ Learn more
 
 ### `hf sandbox url`
 
-Print the public URL of an exposed sandbox port.
+Print the public URL of an exposed sandbox port (dedicated sandboxes only).
 
 **Usage**:
 

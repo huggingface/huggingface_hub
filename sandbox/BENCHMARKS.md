@@ -57,8 +57,32 @@ The client automatically switches to parallel ranged transfers above 8 MiB
 7. **Readiness polling at 150ms** directly against /health (no blind sleep), with
    job-status checks every 2s to fail fast with logs when the image is broken.
 
+## SandboxPool — shared/host mode at scale (2026-06-17, cpu-basic)
+
+`SandboxPool` packs many landlock-isolated sandboxes into shared host VMs. Measured
+with `experiments/exp10_pool_scale.py` against real HF Jobs (client on a laptop,
+all traffic through the Jobs proxy):
+
+| N sandboxes | hosts (50/host) | provision + create all | exec `echo` in all | kill all | TOTAL |
+|---|---|---|---|---|---|
+| 100  | 2  | 6.1s | 1.5s (93/100, no retry) | 0.6s | **8.2s** |
+| 1000 | 20 | 7.4s | 4.2s (1000/1000, 23 needed 1 proxy retry) | 4.2s | **15.8s** |
+
+- **Provision + create** boots `ceil(N/per_host)` hosts in parallel and creates all N
+  sandboxes with one batched request per host — so 1000 sandboxes cost roughly one host
+  cold start (~6s), not N. Server-side `create` is ~1ms/sandbox (mkdir + chown + Landlock
+  ruleset), dwarfed by the proxy round-trip.
+- **exec** fans out ≤200 concurrent `run("echo")` calls over the proxy: p50 738ms, p95
+  1054ms per call (proxy-RTT-bound, not server-bound). Under heavy fan-out the proxy
+  occasionally drops a connection (transient `RemoteProtocolError`); a single retry brought
+  1000/1000 to success.
+- **Cost**: 1000 sandboxes for ~16s used 20 × cpu-basic ≈ 20 × $0.01/h × (16/3600) ≈
+  **$0.0009 total** — vs ~$0.06 for 1000 one-job-per-sandbox VMs alive the same duration,
+  and without the 1000-VM scheduling burst.
+
 ## Cost reference
 
-cpu-basic is $0.01/hour. A sandbox that cold-starts, runs a command and is killed
-costs ~$0.00002. The 10-minute default idle watchdog bounds the cost of leaked
-sandboxes to ~$0.002.
+cpu-basic is $0.01/hour. A dedicated sandbox that cold-starts, runs a command and is killed
+costs ~$0.00002. The 10-minute default idle watchdog bounds the cost of leaked sandboxes to
+~$0.002. In shared mode you pay per *host* VM, not per sandbox, so packing `sandboxes_per_host`
+sandboxes divides the per-sandbox cost by that factor.

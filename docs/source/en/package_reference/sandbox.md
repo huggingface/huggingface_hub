@@ -10,6 +10,10 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 [[autodoc]] Sandbox
 
+## SandboxPool
+
+[[autodoc]] SandboxPool
+
 ## Data structures
 
 ### CommandResult

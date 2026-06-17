@@ -8,6 +8,16 @@ commands with live-streamed output, move files in and out, expose ports publicly
 the CLI. They are ideal for running untrusted or AI-generated code, reproducible builds, or quick
 experiments on any hardware (CPUs, GPUs).
 
+There are two ways to get a sandbox, sharing the exact same `Sandbox` surface (`run`, `spawn`,
+`files`, ...):
+
+- [`Sandbox.create`] — **one dedicated Job per sandbox**: a full isolated VM. Best for a single
+  sandbox, GPU workloads, untrusted code, or public port forwarding. ~6s cold start.
+- [`SandboxPool`] — **many lightweight sandboxes packed into shared "host" Jobs**, isolated from
+  each other by uid + the Landlock LSM. Best for fanning out many cheap CPU sandboxes (e.g. RL
+  rollouts): the cost of one VM is amortized across dozens of sandboxes and per-sandbox cold start
+  is ~one network round-trip. See [Many sandboxes at once](#many-sandboxes-at-once-sandboxpool).
+
 > [!TIP]
 > Like Jobs, sandboxes are available to [Pro users](https://huggingface.co/pro) and
 > [Team or Enterprise organizations](https://huggingface.co/enterprise). You pay only for the
@@ -104,9 +114,50 @@ URLs require an HF token with read access to the sandbox's namespace:
   and no process is running — abandoned sandboxes don't keep billing.
 - Your HF token is never sent to the sandbox unless you pass `forward_hf_token=True`.
 
+## Many sandboxes at once: SandboxPool
+
+When you need *many* sandboxes (parallel RL rollouts, fan-out evaluation, batch tool execution),
+creating one Job per sandbox is wasteful: each pays a full VM cold start and holds a whole machine
+for a workload that needs a few MB of RAM. [`SandboxPool`] packs many lightweight sandboxes into a
+few shared **host** Jobs instead — one billed VM serves dozens of sandboxes, so the per-sandbox
+cost drops by that factor and per-sandbox cold start is ~one round-trip.
+
+```python
+>>> from huggingface_hub import SandboxPool
+
+>>> with SandboxPool(image="python:3.12", flavor="cpu-basic") as pool:
+...     boxes = pool.create(count=100)          # ~2 host VMs (50 sandboxes each), booted in parallel
+...     print(boxes[0].run("echo hi").stdout)    # each box is a normal Sandbox
+hi
+```
+
+Each returned object is a full [`Sandbox`] (`run`, `spawn`, `files`, `connect`, `kill`). The pool
+provisions host Jobs lazily as sandboxes are requested, packs `sandboxes_per_host` per host, and
+terminates everything on `close()` (or when a host goes idle, as a billing backstop). The typical
+fan-out pattern:
+
+```python
+>>> from concurrent.futures import ThreadPoolExecutor
+>>> with SandboxPool(image="python:3.12") as pool:
+...     boxes = pool.create(count=len(tasks))
+...     with ThreadPoolExecutor(32) as ex:
+...         outputs = list(ex.map(lambda b, t: b.run(t.cmd).stdout, boxes, tasks))
+```
+
+**Isolation & trust model.** Sandboxes within a host are isolated from each other by distinct uids
+plus a per-sandbox Landlock ruleset: they cannot read, signal, or write each other's files, and
+each is confined to its own private home (a leading `/` in a file path is taken relative to that
+home). This is the right boundary for *one user's own* parallel workloads; for mutually-hostile
+untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). Per-sandbox exposed
+ports are not available in shared mode (use [`Sandbox.create`] for [`Sandbox.url`]).
+
+Shared sandbox ids look like `<host_job_id>.<local_id>` and work everywhere a dedicated id does
+(`Sandbox.connect`, `hf sandbox exec/cp/kill`).
+
 ## From the CLI
 
 ```bash
+# One dedicated sandbox
 >>> hf sandbox create
 ✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
 
@@ -116,6 +167,10 @@ hi
 >>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
 >>> hf sandbox ls
 >>> hf sandbox kill 687f911eaea852de79c4a50a
+
+# Many shared sandboxes (the count switches to pool mode)
+>>> hf sandbox create -n 100
+>>> hf sandbox kill --all          # tear down every sandbox and host
 ```
 
 `hf sandbox exec` streams output live and exits with the command's exit code, so it composes in

@@ -8,8 +8,10 @@ import pytest
 from huggingface_hub._sandbox import (
     CommandResult,
     Sandbox,
+    SandboxPool,
     _derive_sandbox_token,
     _duration_to_secs,
+    _SandboxServer,
 )
 from huggingface_hub.errors import SandboxCommandError, SandboxError
 
@@ -48,21 +50,29 @@ class TestHelpers:
         assert error.result is result
 
 
-def _make_sandbox(base_url: str) -> Sandbox:
-    """Build a Sandbox wired to a local server, bypassing job creation."""
+def _make_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _SandboxServer:
+    """Build a _SandboxServer wired to a local fake server, bypassing job creation."""
     job = MagicMock()
-    job.id = "job123"
+    job.id = job_id
     job.owner.name = "user"
+    job.docker_image = "python:3.12"
+    job.space_id = None
     job.status.expose_urls = [base_url]
     api = MagicMock()
     api.token = "hf_test"
-    return Sandbox(job_id="job123", base_url=base_url, sandbox_token="secret", job=job, api=api, owns_job=True)
+    return _SandboxServer(job=job, base_url=base_url, sandbox_token="secret", api=api, capacity=capacity)
+
+
+def _make_sandbox(base_url: str) -> Sandbox:
+    """A dedicated sandbox (one job) wired to a local server."""
+    server = _make_server(base_url)
+    return Sandbox(id="job123", server=server, local_id=None, owns_sandbox=True, owns_server=True)
 
 
 class _FakeServer(BaseHTTPRequestHandler):
-    """Minimal stand-in for sbx-server speaking the same protocol."""
+    """Minimal stand-in for sbx-server speaking the same protocol (both modes)."""
 
-    files: dict = {}
+    sandboxes: set = set()
 
     def log_message(self, *args) -> None:
         pass
@@ -75,44 +85,63 @@ class _FakeServer(BaseHTTPRequestHandler):
             self.wfile.write((json.dumps(event) + "\n").encode())
             self.wfile.flush()
 
+    def _json(self, obj) -> None:
+        body = json.dumps(obj).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _exec(self, body) -> None:
+        self._ndjson(
+            [
+                {"event": "start", "pid": 42},
+                {"event": "stdout", "data": "out1"},
+                {"event": "ping"},
+                {"event": "stderr", "data": "err1"},
+                {"event": "exit", "exit_code": 0 if body["cmd"] != "fail" else 3, "duration_ms": 5},
+            ]
+        )
+
     def do_POST(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
-        if self.path == "/v1/exec":
-            self._ndjson(
-                [
-                    {"event": "start", "pid": 42},
-                    {"event": "stdout", "data": "out1"},
-                    {"event": "ping"},
-                    {"event": "stderr", "data": "err1"},
-                    {"event": "exit", "exit_code": 0 if body["cmd"] != "fail" else 3, "duration_ms": 5},
-                ]
-            )
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
+        if self.path == "/v1/exec" or (self.path.startswith("/v1/sandboxes/") and self.path.endswith("/exec")):
+            self._exec(body)
+        elif self.path == "/v1/sandboxes":  # batch-create sandboxes
+            count = int(body.get("count", 1))
+            created = []
+            for i in range(count):
+                sid = f"sbx{len(_FakeServer.sandboxes) + i}"
+                _FakeServer.sandboxes.add(sid)
+                created.append({"id": sid})
+            self._json({"sandboxes": created})
+
+    def do_DELETE(self) -> None:
+        assert self.headers["X-Sandbox-Token"] == "secret"
+        sid = self.path.rsplit("/", 1)[-1]
+        _FakeServer.sandboxes.discard(sid)
+        self._json({"id": sid, "deleted": True})
 
     def do_GET(self) -> None:
-        if self.path.startswith("/v1/files/stat"):
-            body = json.dumps({"name": "x", "path": "/x", "type": "file", "size": 5}).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        elif self.path.startswith("/v1/files/read"):
+        if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
+            self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
+        elif self.path.startswith("/v1/files/read") or "/files/read" in self.path:
             self.send_response(200)
             self.send_header("Content-Length", "5")
             self.end_headers()
             self.wfile.write(b"hello")
-        elif self.path == "/v1/procs":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            body = json.dumps([{"pid": 42, "cmd": "x", "running": True, "exit_code": None}]).encode()
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+        elif self.path == "/v1/procs" or self.path.endswith("/procs"):
+            self._json([{"pid": 42, "cmd": "x", "running": True, "exit_code": None}])
+        elif self.path == "/v1/sandboxes":
+            self._json([{"id": sid} for sid in sorted(_FakeServer.sandboxes)])
 
 
 @pytest.fixture()
 def fake_server():
+    _FakeServer.sandboxes = set()
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -159,19 +188,100 @@ class TestSandboxClient:
         sandbox = _make_sandbox(fake_server)
         sandbox.kill()
         sandbox.kill()
-        sandbox._api.cancel_job.assert_called_once_with(job_id="job123", namespace="user")
+        sandbox._server._api.cancel_job.assert_called_once_with(job_id="job123", namespace="user")
 
     def test_context_manager_kills(self, fake_server: str) -> None:
         with _make_sandbox(fake_server) as sandbox:
             pass
-        sandbox._api.cancel_job.assert_called_once()
+        sandbox._server._api.cancel_job.assert_called_once()
 
     def test_context_manager_closes_when_reattached(self, fake_server: str) -> None:
-        # A sandbox reattached via `connect` (owns_job=False) keeps running on exit: the local
-        # HTTP client is released but the job is not cancelled.
+        # A sandbox reattached via `connect` (owns_sandbox=False) keeps running on exit: the
+        # local HTTP client is released but the job is not cancelled.
         sandbox = _make_sandbox(fake_server)
-        sandbox._owns_job = False
+        sandbox._owns_sandbox = False
         with sandbox:
             pass
-        sandbox._api.cancel_job.assert_not_called()
-        assert sandbox._client.is_closed
+        sandbox._server._api.cancel_job.assert_not_called()
+        assert sandbox._server._client.is_closed
+
+
+class TestSharedSandbox:
+    """A shared sandbox routes operations under /v1/sandboxes/<local_id>/ and is
+    terminated with a DELETE on the host (the host job keeps running)."""
+
+    def _make_shared(self, base_url: str) -> Sandbox:
+        server = _make_server(base_url, capacity=10)
+        _FakeServer.sandboxes.add("local1")
+        return Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
+
+    def test_base_path_is_scoped(self, fake_server: str) -> None:
+        sandbox = self._make_shared(fake_server)
+        assert sandbox._base_path == "/v1/sandboxes/local1"
+        assert sandbox.host_id == "job123"
+        # exec is routed under the per-sandbox prefix and still parsed correctly.
+        assert sandbox.run("echo").stdout == "out1"
+
+    def test_kill_deletes_sandbox_not_job(self, fake_server: str) -> None:
+        sandbox = self._make_shared(fake_server)
+        sandbox.kill()
+        sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
+        assert "local1" not in _FakeServer.sandboxes
+
+    def test_url_not_supported(self, fake_server: str) -> None:
+        sandbox = self._make_shared(fake_server)
+        with pytest.raises(SandboxError, match="not available for shared"):
+            sandbox.url(8080)
+
+
+class TestSandboxPool:
+    def _pool(self, fake_server: str, monkeypatch, per_host: int = 4) -> SandboxPool:
+        pool = SandboxPool(image="python:3.12", sandboxes_per_host=per_host, token="hf_test")
+        # Avoid real job creation: every host boot returns a server pointing at the fake server.
+        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=per_host))
+        return pool
+
+    def test_packs_into_hosts_and_tracks_slots(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch, per_host=4)
+        boxes = pool.create(count=6)  # ceil(6/4) = 2 hosts
+        assert isinstance(boxes, list) and len(boxes) == 6
+        assert pool.num_hosts == 2
+        assert pool.num_sandboxes == 6
+        # Each sandbox id is "<host_job_id>.<local_id>".
+        assert all("." in b.id for b in boxes)
+
+    def test_single_create_returns_one_sandbox(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        box = pool.create()
+        assert isinstance(box, Sandbox)
+        assert pool.num_sandboxes == 1
+
+    def test_kill_frees_slot(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch, per_host=4)
+        boxes = pool.create(count=2)
+        assert pool.num_sandboxes == 2
+        boxes[0].kill()
+        assert pool.num_sandboxes == 1  # slot reclaimed via the pool callback
+
+    def test_reuses_free_slots_before_new_host(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch, per_host=4)
+        pool.create(count=2)
+        pool.create(count=2)  # fits on the same host (4 slots)
+        assert pool.num_hosts == 1
+        assert pool.num_sandboxes == 4
+
+    def test_max_hosts_enforced(self, fake_server: str, monkeypatch) -> None:
+        pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, token="hf_test")
+        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=2))
+        with pytest.raises(SandboxError, match="max_hosts"):
+            pool.create(count=3)  # needs 2 hosts, only 1 allowed
+
+    def test_close_cancels_hosts(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        pool.create(count=1)
+        host = pool._hosts[0]
+        pool.close()
+        host._api.cancel_job.assert_called_once()
+        assert pool.num_hosts == 0
+        with pytest.raises(SandboxError, match="closed"):
+            pool.create()
