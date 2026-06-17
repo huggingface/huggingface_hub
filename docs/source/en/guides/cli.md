@@ -2001,7 +2001,7 @@ Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container 
 # Start a job with SSH enabled
 >>> hf jobs run --ssh --detach python:3.12 sleep infinity
 
-# Open an SSH session into it
+# Open an SSH session into it (waits for the Job to be running if still scheduling)
 >>> hf jobs ssh <job_id>
 
 # Print the SSH command instead of running it
@@ -2010,6 +2010,8 @@ Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container 
 # Use a specific identity file
 >>> hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
 ```
+
+If the Job is still scheduling, `hf jobs ssh` waits until it reaches the `RUNNING` stage before connecting. If the Job finishes (e.g. errors out or completes) before reaching `RUNNING`, the command exits with an error.
 
 Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 

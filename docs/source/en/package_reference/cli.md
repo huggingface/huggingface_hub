@@ -2646,6 +2646,8 @@ Learn more
 
 SSH into a running Job.
 
+If the Job is still scheduling, waits until it reaches the RUNNING stage.
+
 Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`) and your SSH
 public key to be registered at https://huggingface.co/settings/keys.
 

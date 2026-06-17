@@ -3400,6 +3400,62 @@ class TestJobsCommand:
         assert volume_2.read_only is None
 
 
+class TestJobsSshCommand:
+    """Tests for `hf jobs ssh` — waiting for job to be running."""
+
+    @staticmethod
+    def _make_job(stage: str, ssh_url: str | None = "ssh://abc123@ssh.hf.jobs") -> Mock:
+        status = Mock(stage=stage, ssh_url=ssh_url)
+        return Mock(id="abc123", status=status)
+
+    def test_ssh_running_immediately(self, runner: CliRunner) -> None:
+        job = self._make_job("RUNNING")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs.exec_ssh"),
+        ):
+            api = api_cls.return_value
+            api.inspect_job.return_value = job
+            result = runner.invoke(app, ["jobs", "ssh", "abc123", "--dry-run"])
+        assert result.exit_code == 0
+        api.inspect_job.assert_called_once()
+
+    def test_ssh_waits_for_scheduling(self, runner: CliRunner) -> None:
+        scheduling_job = self._make_job("SCHEDULING")
+        running_job = self._make_job("RUNNING")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs.exec_ssh"),
+            patch("huggingface_hub.cli.jobs.time") as mock_time,
+        ):
+            api = api_cls.return_value
+            api.inspect_job.side_effect = [scheduling_job, scheduling_job, running_job]
+            result = runner.invoke(app, ["jobs", "ssh", "abc123", "--dry-run"])
+        assert result.exit_code == 0
+        assert api.inspect_job.call_count == 3
+        assert mock_time.sleep.call_count == 2
+
+    def test_ssh_fails_on_terminal_stage(self, runner: CliRunner) -> None:
+        job = self._make_job("ERROR")
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.inspect_job.return_value = job
+            result = runner.invoke(app, ["jobs", "ssh", "abc123"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "already finished" in str(result.exception)
+
+    def test_ssh_fails_when_not_enabled(self, runner: CliRunner) -> None:
+        job = self._make_job("RUNNING", ssh_url=None)
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.inspect_job.return_value = job
+            result = runner.invoke(app, ["jobs", "ssh", "abc123"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "SSH is not enabled" in str(result.exception)
+
+
 class TestBucketTransport:
     """Tests for the bucket-based script transport used when `hf jobs uv run` is given local files."""
 

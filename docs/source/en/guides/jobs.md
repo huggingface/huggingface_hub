@@ -305,7 +305,7 @@ Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container r
 'ssh://68498e23210b3a4f4e6e2a23@ssh.hf.jobs'
 ```
 
-Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_id>@ssh.hf.jobs`):
+Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_id>@ssh.hf.jobs`). If the Job is still scheduling, the command waits until it reaches the `RUNNING` stage:
 
 ```bash
 >>> hf jobs ssh 68498e23210b3a4f4e6e2a23

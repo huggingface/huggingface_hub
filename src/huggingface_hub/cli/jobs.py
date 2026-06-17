@@ -68,7 +68,7 @@ import time
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
 from queue import Empty, Queue
-from typing import Annotated, Any, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
 import typer
@@ -96,6 +96,11 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._output import _dataclass_to_dict, out
+
+
+if TYPE_CHECKING:
+    from huggingface_hub import JobInfo
+    from huggingface_hub.hf_api import HfApi
 
 
 logger = logging.get_logger(__name__)
@@ -709,6 +714,32 @@ def jobs_labels(
     out.result("Labels updated", id=job.id)
 
 
+_TERMINAL_JOB_STAGES = {"COMPLETED", "CANCELED", "ERROR", "DELETED"}
+
+
+def _wait_for_job_running(api: "HfApi", job_id: str, namespace: str | None) -> "JobInfo":
+    """Poll inspect_job until the Job reaches RUNNING (or a terminal stage)."""
+    job = api.inspect_job(job_id=job_id, namespace=namespace)
+    if job.status.stage == "RUNNING":
+        return job
+
+    if str(job.status.stage) in _TERMINAL_JOB_STAGES:
+        raise CLIError(f"Cannot SSH into job '{job.id}': job already finished (stage: '{job.status.stage}').")
+
+    status = out.status(f"Waiting for job to be running (stage: '{job.status.stage}')...")
+    while job.status.stage != "RUNNING":
+        if str(job.status.stage) in _TERMINAL_JOB_STAGES:
+            status.done(f"Job finished (stage: '{job.status.stage}').")
+            raise CLIError(
+                f"Cannot SSH into job '{job.id}': job finished while waiting (stage: '{job.status.stage}')."
+            )
+        time.sleep(2)
+        job = api.inspect_job(job_id=job_id, namespace=namespace)
+        status.update(f"Waiting for job to be running (stage: '{job.status.stage}')...")
+    status.done("Job is running!")
+    return job
+
+
 @jobs_cli.command(
     "ssh",
     examples=[
@@ -726,16 +757,16 @@ def jobs_ssh(
 ) -> None:
     """SSH into a running Job.
 
+    If the Job is still scheduling, waits until it reaches the RUNNING stage.
+
     Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`) and your SSH
     public key to be registered at https://huggingface.co/settings/keys.
     """
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
-    job = api.inspect_job(job_id=job_id, namespace=namespace)
+    job = _wait_for_job_running(api, job_id, namespace)
     if job.status.ssh_url is None:
         raise CLIError("SSH is not enabled on this job. Start a job with SSH support using `hf jobs run --ssh ...`.")
-    if job.status.stage != "RUNNING":
-        raise CLIError(f"Cannot SSH into job '{job.id}': job is not running (stage: '{job.status.stage}').")
     ssh_url = urlsplit(job.status.ssh_url)
     exec_ssh(
         f"{ssh_url.username}@{ssh_url.hostname}",
