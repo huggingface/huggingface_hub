@@ -93,7 +93,7 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         "hf sandbox create",
         "hf sandbox create ubuntu:24.04",
         "hf sandbox create --flavor a10g-small --timeout 1h",
-        "hf sandbox create -n 100",
+        "hf sandbox create --shared",
         "hf sandbox create -n 100 --per-host 50 --flavor cpu-basic",
     ],
 )
@@ -109,6 +109,21 @@ def sandbox_create(
             ">1 = many cheap shared sandboxes packed into host VMs.",
         ),
     ] = 1,
+    shared: Annotated[
+        bool,
+        typer.Option(
+            "--shared",
+            help="Create the sandbox(es) in shared mode: pack onto a warm host VM (reusing one "
+            "if available, else booting one) instead of a dedicated VM. Implied by -n > 1.",
+        ),
+    ] = False,
+    name: Annotated[
+        str | None,
+        typer.Option(
+            "--name",
+            help="Shared mode only: pool name to scope host reuse (default: share unnamed hosts).",
+        ),
+    ] = None,
     per_host: Annotated[
         int,
         typer.Option(
@@ -135,11 +150,12 @@ def sandbox_create(
     ] = False,
     token: TokenOpt = None,
 ) -> None:
-    """Create one dedicated sandbox, or (with -n) many cheap shared sandboxes."""
+    """Create one dedicated sandbox, or shared sandbox(es) packed onto host VMs."""
     start = time.time()
     idle = idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT
+    use_shared = shared or num > 1
 
-    if num == 1:
+    if not use_shared:
         sandbox = Sandbox.create(
             image=image,
             flavor=flavor or "cpu-basic",
@@ -161,15 +177,17 @@ def sandbox_create(
         out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
         return
 
-    # Shared mode: pack `num` sandboxes into host VMs. The hosts persist after this
-    # command returns (the pool is intentionally not closed); they stop billing on
-    # their own after `idle_timeout`, or via `hf sandbox kill`.
+    # Shared mode: pack sandbox(es) onto host VMs, reusing a warm host (found via job
+    # labels, possibly from an earlier `create`) before booting a new one — so you can
+    # grow on demand one at a time. Hosts persist after this command (the pool is not
+    # closed); they stop billing after `idle_timeout` or via `hf sandbox kill`.
     if volume or expose:
-        raise CLIError("--volume and --expose are only supported for a single dedicated sandbox (drop -n).")
+        raise CLIError("--volume and --expose are only supported for a dedicated sandbox (drop --shared/-n).")
     pool = SandboxPool(
         image=image,
         flavor=flavor or "cpu-basic",
         sandboxes_per_host=per_host,
+        name=name,
         timeout=timeout,
         idle_timeout=idle,
         env=parse_env_map(env, env_file),
@@ -180,15 +198,20 @@ def sandbox_create(
     )
     created = pool.create(count=num)
     sandboxes = created if isinstance(created, list) else [created]
-    out.table([{"id": sbx.id} for sbx in sandboxes], id_key="id")
-    out.result(
-        "Sandboxes ready",
-        count=len(sandboxes),
-        hosts=len(pool.host_ids),
-        image=image,
-        elapsed=f"{time.time() - start:.1f}s",
-    )
+    if len(sandboxes) == 1:
+        sbx = sandboxes[0]
+        out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, image=image, elapsed=f"{time.time() - start:.1f}s")
+    else:
+        out.table([{"id": sbx.id} for sbx in sandboxes], id_key="id")
+        out.result(
+            "Sandboxes ready",
+            count=len(sandboxes),
+            hosts=len(pool.host_ids),
+            image=image,
+            elapsed=f"{time.time() - start:.1f}s",
+        )
     out.hint(f"Run a command with `hf sandbox exec {sandboxes[0].id} -- echo hello`.")
+    out.hint("Add another to the same host(s) with `hf sandbox create --shared`.")
     out.hint("Terminate everything with `hf sandbox kill --all`.")
 
 

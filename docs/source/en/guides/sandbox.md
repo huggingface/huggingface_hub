@@ -144,6 +144,23 @@ fan-out pattern:
 ...         outputs = list(ex.map(lambda b, t: b.run(t.cmd).stdout, boxes, tasks))
 ```
 
+### Grow on demand (instead of warming a batch up front)
+
+You don't have to ask for all your sandboxes at once. `pool.create()` (count 1) **reuses a host
+that still has free capacity** before booting a new one, so you can spawn sandboxes one at a time
+as work arrives and they pack themselves onto warm hosts:
+
+```python
+>>> pool = SandboxPool(image="python:3.12", flavor="cpu-basic")
+>>> sbx = pool.create()    # boots the first host
+>>> sbx = pool.create()    # packs onto the same warm host (~one round-trip, no new VM)
+```
+
+Warm hosts are discovered through job labels, so this works **across processes** too: a brand-new
+`SandboxPool` (same `image`/`flavor`/`name`) — or a fresh `hf sandbox create --shared` — attaches
+to hosts an earlier run left running, rather than booting its own. Pass a `name=` to keep separate
+pools from sharing hosts, or `discover=False` to only use hosts a given pool created.
+
 **Isolation & trust model.** Sandboxes within a host are isolated from each other by distinct uids
 plus a per-sandbox Landlock ruleset: they cannot read, signal, or write each other's files, and
 each is confined to its own private home (a leading `/` in a file path is taken relative to that
@@ -168,7 +185,11 @@ hi
 >>> hf sandbox ls
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 
-# Many shared sandboxes (the count switches to pool mode)
+# One shared sandbox on demand — reuses a warm host, or boots one if none has room
+>>> hf sandbox create --shared
+>>> hf sandbox create --shared     # packs onto the same host as the previous call
+
+# Or a whole batch at once (implies shared mode)
 >>> hf sandbox create -n 100
 >>> hf sandbox kill --all          # tear down every sandbox and host
 ```

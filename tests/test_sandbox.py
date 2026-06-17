@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import huggingface_hub._sandbox as sandbox_mod
 from huggingface_hub._sandbox import (
+    HOST_CAPACITY_LABEL,
+    HOST_LABEL,
+    SANDBOX_LABEL,
     CommandResult,
     Sandbox,
     SandboxPool,
@@ -236,7 +240,8 @@ class TestSharedSandbox:
 
 class TestSandboxPool:
     def _pool(self, fake_server: str, monkeypatch, per_host: int = 4) -> SandboxPool:
-        pool = SandboxPool(image="python:3.12", sandboxes_per_host=per_host, token="hf_test")
+        # discover=False to test boot/packing in isolation (discovery is covered separately).
+        pool = SandboxPool(image="python:3.12", sandboxes_per_host=per_host, discover=False, token="hf_test")
         # Avoid real job creation: every host boot returns a server pointing at the fake server.
         monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=per_host))
         return pool
@@ -271,7 +276,7 @@ class TestSandboxPool:
         assert pool.num_sandboxes == 4
 
     def test_max_hosts_enforced(self, fake_server: str, monkeypatch) -> None:
-        pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, token="hf_test")
+        pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, discover=False, token="hf_test")
         monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=2))
         with pytest.raises(SandboxError, match="max_hosts"):
             pool.create(count=3)  # needs 2 hosts, only 1 allowed
@@ -285,3 +290,53 @@ class TestSandboxPool:
         assert pool.num_hosts == 0
         with pytest.raises(SandboxError, match="closed"):
             pool.create()
+
+
+class TestHostDiscovery:
+    """`create()` should attach to a warm host found via job labels (e.g. left by
+    another process) before booting a new one."""
+
+    def _host_job(self, job_id: str = "host9", capacity: int = 4, pool_name=None) -> MagicMock:
+        job = MagicMock()
+        job.id = job_id
+        job.owner.name = "user"
+        job.docker_image = "python:3.12"
+        job.space_id = None
+        job.flavor = "cpu-basic"
+        job.status.stage = "RUNNING"
+        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1", HOST_CAPACITY_LABEL: str(capacity)}
+        return job
+
+    def _pool(self, fake_server, monkeypatch, **kwargs) -> SandboxPool:
+        pool = SandboxPool(image="python:3.12", flavor="cpu-basic", token="hf_test", **kwargs)
+        # A new host boot would fail (no real Jobs); discovery must avoid it here.
+        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=4))
+        # `_connect_host` (module-level) returns a server wired to the fake server.
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+        return pool
+
+    def test_discovers_and_reuses_existing_host(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9", capacity=4)])
+        box = pool.create()
+        assert isinstance(box, Sandbox)
+        assert pool.num_hosts == 1
+        assert pool._hosts[0].job_id == "host9"  # adopted, not freshly booted
+        assert pool._hosts[0].capacity == 4  # read from the label
+        assert box.host_id == "host9"
+
+    def test_discover_false_skips_discovery(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch, discover=False)
+        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9")])
+        pool.create()
+        pool._api.list_jobs.assert_not_called()  # no discovery
+        assert pool._hosts[0].job_id != "host9"  # booted a fresh host instead
+
+    def test_discovery_respects_pool_name(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch, name="mine")
+        # An unnamed host must not be adopted by a named pool.
+        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9")])
+        pool.create()
+        assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)

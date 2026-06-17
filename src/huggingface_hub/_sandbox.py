@@ -77,6 +77,11 @@ SANDBOX_SERVER_PORT = 49983
 SANDBOX_LABEL = "hf-sandbox"
 # Marks a job as a *host* (shared mode: one job, many landlock sandboxes).
 HOST_LABEL = "hf-sandbox-host"
+# Host packing capacity, so a pool discovering an existing host (possibly created
+# by another process) knows how many sandboxes it was sized for.
+HOST_CAPACITY_LABEL = "hf-sandbox-capacity"
+# Optional pool name, to scope host reuse to a named group (see SandboxPool(name=...)).
+POOL_LABEL = "hf-sandbox-pool"
 
 DEFAULT_IMAGE = "python:3.12"
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
@@ -872,6 +877,17 @@ class SandboxPool:
     ...     print(boxes[0].run("echo hi").stdout)
     hi
     ```
+
+    `create()` reuses a host that still has free capacity before booting a new one,
+    so you can also grow on demand — one sandbox at a time — instead of warming a
+    whole batch up front. Warm hosts are discovered via job labels, so reuse works
+    **across processes** too (a fresh pool with the same `image`/`flavor`/`name`
+    attaches to hosts an earlier run left behind):
+
+    ```python
+    >>> pool = SandboxPool(image="python:3.12")
+    >>> sbx = pool.create()    # finds a warm host (here or in another process), else boots one
+    ```
     """
 
     def __init__(
@@ -881,6 +897,8 @@ class SandboxPool:
         flavor: str = "cpu-basic",
         sandboxes_per_host: int = DEFAULT_SANDBOXES_PER_HOST,
         max_hosts: int | None = None,
+        name: str | None = None,
+        discover: bool = True,
         timeout: int | float | str | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         env: dict[str, Any] | None = None,
@@ -900,6 +918,12 @@ class SandboxPool:
             sandboxes_per_host: How many sandboxes to pack per host (per VM density).
             max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
+            name: Optional pool name. Reuse is scoped to hosts created with the same
+                name (and matching image/flavor); leave as `None` to share unnamed
+                hosts. Use distinct names to keep separate pools from sharing hosts.
+            discover: If True (default), `create()` may attach to already-running hosts
+                found via job labels (including hosts from other processes) before
+                booting a new one. Set to False to only use hosts this pool created.
             timeout: Max lifetime of each host job, e.g. `"1h"`.
             idle_timeout: Auto-shutdown a host after this much inactivity. Acts as a
                 billing backstop if you forget to `close()`. Pass `None` to disable.
@@ -919,6 +943,8 @@ class SandboxPool:
         self.flavor = flavor
         self.sandboxes_per_host = sandboxes_per_host
         self.max_hosts = max_hosts
+        self.name = name
+        self._discover = discover
         self._timeout = timeout
         self._idle_timeout = idle_timeout
         self._namespace = namespace
@@ -939,9 +965,11 @@ class SandboxPool:
     def create(self, count: int = 1, *, env: dict[str, Any] | None = None) -> "Sandbox | List[Sandbox]":
         """Create `count` sandboxes, provisioning hosts as needed.
 
-        Returns a single [`Sandbox`] when `count == 1`, else a list. New hosts are
-        booted in parallel and sandboxes are created in one batched request per host,
-        so a large fan-out costs roughly one host cold start (~6s) regardless of count.
+        Returns a single [`Sandbox`] when `count == 1`, else a list. Existing hosts
+        with free capacity (this pool's, or — when `discover=True` — warm hosts found
+        via job labels) are filled first; only the shortfall boots new hosts, in
+        parallel, with one batched create per host. So a single `create()` reuses a
+        warm host in ~one round-trip, and a large fan-out costs ~one host cold start.
 
         Args:
             count: Number of sandboxes to create.
@@ -954,8 +982,13 @@ class SandboxPool:
             raise ValueError("count must be >= 1.")
         sandbox_env = {**self._default_env, **(env or {})}
 
-        # 1. Reserve slots on existing hosts, then decide how many new hosts to boot.
+        # 1. Reserve slots on hosts we already track; if short, try to attach to warm
+        #    hosts discovered via labels (incl. other processes') before booting new ones.
         reservations, remaining = self._reserve_on_existing(count)
+        if remaining > 0 and self._discover:
+            self._discover_hosts()
+            more, remaining = self._reserve_on_existing(remaining)
+            reservations.extend(more)
         new_hosts: List[_SandboxServer] = []
         try:
             if remaining > 0:
@@ -1045,6 +1078,38 @@ class SandboxPool:
                     remaining -= take
         return reservations, remaining
 
+    def _discover_hosts(self) -> None:
+        """Attach to running host jobs that match this pool (image/flavor/name).
+
+        Lets `create()` reuse a host warmed by an earlier call or another process
+        instead of booting a new one. Hosts are found via job labels; each adopted
+        host's free capacity is read from the server, so packing stays accurate.
+        """
+        known = {host.job_id for host in self._hosts}
+        matches = []
+        for job in self._api.list_jobs(namespace=self._namespace):
+            labels = job.labels or {}
+            if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING" or job.id in known:
+                continue
+            if (job.docker_image or job.space_id) != self.image or job.flavor != self.flavor:
+                continue
+            if labels.get(POOL_LABEL) != self.name:  # None == unnamed pool
+                continue
+            matches.append(job)
+
+        for job in matches:
+            try:
+                server = _connect_host(self._api, job.id, namespace=self._namespace)
+                server.capacity = int((job.labels or {}).get(HOST_CAPACITY_LABEL, self.sandboxes_per_host))
+                server.live = len(server.request("GET", "/v1/sandboxes").json())
+            except SandboxError:
+                continue  # host died or is still starting up; skip it
+            with self._lock:
+                if any(host.job_id == job.id for host in self._hosts):
+                    server.close()  # adopted concurrently by another thread
+                else:
+                    self._hosts.append(server)
+
     def _provision_hosts(self, num_new: int) -> List[_SandboxServer]:
         """Boot `num_new` host jobs in parallel, respecting `max_hosts`."""
         with self._lock:
@@ -1074,6 +1139,13 @@ class SandboxPool:
             server_source=self._server_source,
             sandbox_token=sandbox_token,
         )
+        labels = {
+            SANDBOX_LABEL: nonce,
+            HOST_LABEL: "1",
+            HOST_CAPACITY_LABEL: str(self.sandboxes_per_host),
+        }
+        if self.name is not None:
+            labels[POOL_LABEL] = self.name
         job = self._api.run_job(
             image=self.image,
             command=command,
@@ -1081,7 +1153,7 @@ class SandboxPool:
             secrets=job_secrets,
             flavor=self.flavor,
             timeout=self._timeout,
-            labels={SANDBOX_LABEL: nonce, HOST_LABEL: "1"},
+            labels=labels,
             volumes=job_volumes or None,
             expose=[SANDBOX_SERVER_PORT],
             namespace=self._namespace,
