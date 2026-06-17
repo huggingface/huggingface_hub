@@ -13,7 +13,12 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
+from huggingface_hub.errors import (
+    BucketNotFoundError,
+    HfHubHTTPError,
+    OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+)
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,

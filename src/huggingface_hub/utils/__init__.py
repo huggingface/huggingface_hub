@@ -24,6 +24,7 @@ from huggingface_hub.errors import (
     GatedRepoError,
     HfHubHTTPError,
     HFValidationError,
+    JobNotFoundError,
     LocalEntryNotFoundError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
