@@ -16,13 +16,21 @@ from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli._errors import get_hint_for_exception
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import (
+    BucketNotFoundError,
+    CLIError,
+    DeviceCodeError,
+    HfUriError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -4282,3 +4290,47 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class TestGetHintForException:
+    @staticmethod
+    def _make_response(status_code: int = 404) -> Mock:
+        response = Mock()
+        response.status_code = status_code
+        response.headers = {}
+        response.url = "https://huggingface.co/api/test"
+        return response
+
+    def test_repo_not_found_with_id(self) -> None:
+        error = RepositoryNotFoundError("not found", response=self._make_response())
+        error.repo_id = "user/my-model"
+        error.repo_type = "model"
+        hint = get_hint_for_exception(error)
+        assert hint == "If the repo does not exist yet, create it with: hf repos create user/my-model"
+
+    def test_repo_not_found_dataset(self) -> None:
+        error = RepositoryNotFoundError("not found", response=self._make_response())
+        error.repo_id = "user/my-dataset"
+        error.repo_type = "dataset"
+        hint = get_hint_for_exception(error)
+        assert hint == "If the repo does not exist yet, create it with: hf repos create user/my-dataset --type dataset"
+
+    def test_repo_not_found_without_id(self) -> None:
+        error = RepositoryNotFoundError("not found", response=self._make_response())
+        error.repo_id = None
+        error.repo_type = None
+        assert get_hint_for_exception(error) is None
+
+    def test_bucket_not_found_with_id(self) -> None:
+        error = BucketNotFoundError("not found", response=self._make_response())
+        error.bucket_id = "user/my-bucket"
+        hint = get_hint_for_exception(error)
+        assert hint == "If the bucket does not exist yet, create it with: hf buckets create user/my-bucket"
+
+    def test_bucket_not_found_without_id(self) -> None:
+        error = BucketNotFoundError("not found", response=self._make_response())
+        error.bucket_id = None
+        assert get_hint_for_exception(error) is None
+
+    def test_unrelated_error(self) -> None:
+        assert get_hint_for_exception(ValueError("something")) is None
