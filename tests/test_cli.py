@@ -22,12 +22,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import (
-    CLIError,
-    DeviceCodeError,
-    HfUriError,
-    RevisionNotFoundError,
-)
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
