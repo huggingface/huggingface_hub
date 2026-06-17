@@ -27,6 +27,7 @@ from huggingface_hub.errors import (
     BucketNotFoundError,
     CLIError,
     DeviceCodeError,
+    GatedRepoError,
     HfUriError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
