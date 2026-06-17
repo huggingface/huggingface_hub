@@ -21,7 +21,8 @@ import typer
 from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
 from huggingface_hub.cli._cp import CP_EXAMPLES, make_cp
-from huggingface_hub.cli._errors import format_known_exception, get_hint_for_exception
+from huggingface_hub.cli._errors import format_known_exception
+from huggingface_hub.cli._output import out
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
@@ -117,13 +118,11 @@ def main():
     except Exception as e:
         message = format_known_exception(e)
         if message:
-            print(f"Error: {message}", file=sys.stderr)
-            if hint := get_hint_for_exception(e):
-                print(ANSI.gray(f"Hint: {hint}"), file=sys.stderr)
+            out.error(message)
             if constants.HF_DEBUG:
                 traceback.print_exc()
             else:
-                print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
+                out.hint("set HF_DEBUG=1 as environment variable for full traceback.")
             sys.exit(1)
         raise
 

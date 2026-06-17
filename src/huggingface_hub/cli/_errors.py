@@ -41,7 +41,15 @@ def _format_repo_not_found(error: RepositoryNotFoundError) -> str:
         msg = f"{label} '{error.repo_id}' not found."
     else:
         msg = f"{label} not found."
-    msg += " If the repo is private, make sure you are authenticated and your token has the required permissions."
+    msg += "\nIf the repo is private, make sure you are authenticated and your token has the required permissions."
+
+    msg += "\nIf the repo does not exist, create it with: "
+    if error.repo_id is not None:
+        type_flag = f" --type {error.repo_type}" if error.repo_type and error.repo_type != "model" else ""
+        msg += f"hf repos create {error.repo_id}{type_flag}"
+    else:
+        msg += "hf repos create <repo_id>"
+
     return msg
 
 
@@ -54,8 +62,14 @@ def _format_gated_repo(error: GatedRepoError) -> str:
 
 def _format_bucket_not_found(error: BucketNotFoundError) -> str:
     if error.bucket_id:
-        return f"Bucket '{error.bucket_id}' not found. If the bucket is private, make sure you are authenticated and your token has the required permissions."
-    return "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated and your token has the required permissions."
+        msg = f"Bucket '{error.bucket_id}' not found."
+        cmd = f"hf buckets create {error.bucket_id}"
+    else:
+        msg = "Bucket not found."
+        cmd = "hf buckets create <bucket_id>"
+    msg += "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
+    msg += f"\nIf the bucket does not exist, create it with: {cmd}"
+    return msg
 
 
 def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:
@@ -129,14 +143,4 @@ def format_known_exception(error: Exception) -> str | None:
     for exc_type, formatter in CLI_ERROR_MAPPINGS.items():
         if isinstance(error, exc_type):
             return formatter(error)
-    return None
-
-
-def get_hint_for_exception(error: Exception) -> str | None:
-    """Return a helpful hint for the given exception, or None if no hint is applicable."""
-    if isinstance(error, BucketNotFoundError) and error.bucket_id:
-        return f"If the bucket does not exist yet, create it with: hf buckets create {error.bucket_id}"
-    if isinstance(error, RepositoryNotFoundError) and error.repo_id:
-        type_flag = f" --type {error.repo_type}" if error.repo_type and error.repo_type != "model" else ""
-        return f"If the repo does not exist yet, create it with: hf repos create {error.repo_id}{type_flag}"
     return None
