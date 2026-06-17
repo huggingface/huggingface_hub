@@ -77,7 +77,7 @@ from urllib.parse import urlsplit
 import typer
 
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage
-from huggingface_hub.errors import CLIError, HfHubHTTPError
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._parsing import format_duration, parse_duration
@@ -403,23 +403,12 @@ def jobs_logs(
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
 
     api = get_hf_api(token=token)
-    try:
-        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
-        for log in logs:
-            out.text(log)
-        if follow:
-            job_ref = f"{namespace}/{job_id}" if namespace else job_id
-            out.hint(
-                f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR)."
-            )
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to fetch job logs: {e}") from e
+    logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
+    for log in logs:
+        out.text(log)
+    if follow:
+        job_ref = f"{namespace}/{job_id}" if namespace else job_id
+        out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
@@ -507,46 +496,37 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
-    try:
-        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            rows_per_job_id: dict[str, list[list[str | int]]] = {}
-            for job_id in job_ids:
-                row: list[str | int] = [job_id]
-                row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-                rows_per_job_id[job_id] = [row]
-            last_update_time = time.time()
-            total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-            # In-place refresh (cursor-up + clear) requires a fixed line count and layout —
-            # `out.table`'s mode-dependent formatting would break it.
-            print(_tabulate(total_rows, headers=table_headers))
+    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+        rows_per_job_id: dict[str, list[list[str | int]]] = {}
+        for job_id in job_ids:
+            row: list[str | int] = [job_id]
+            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            rows_per_job_id[job_id] = [row]
+        last_update_time = time.time()
+        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+        # In-place refresh (cursor-up + clear) requires a fixed line count and layout —
+        # `out.table`'s mode-dependent formatting would break it.
+        print(_tabulate(total_rows, headers=table_headers))
 
-            kwargs_list = [
-                {
-                    "job_id": job_id,
-                    "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
-                    "table_headers": table_headers,
-                }
-                for job_id in job_ids
-            ]
-            for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
-                if done:
-                    rows_per_job_id.pop(job_id, None)
-                else:
-                    rows_per_job_id[job_id] = rows
-                now = time.time()
-                if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
-                    _clear_line(2 + len(total_rows))
-                    total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-                    print(_tabulate(total_rows, headers=table_headers))
-                    last_update_time = now
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to fetch job stats: {e}") from e
+        kwargs_list = [
+            {
+                "job_id": job_id,
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "table_headers": table_headers,
+            }
+            for job_id in job_ids
+        ]
+        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+            if done:
+                rows_per_job_id.pop(job_id, None)
+            else:
+                rows_per_job_id[job_id] = rows
+            now = time.time()
+            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                _clear_line(2 + len(total_rows))
+                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                print(_tabulate(total_rows, headers=table_headers))
+                last_update_time = now
 
 
 @jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
@@ -698,16 +678,7 @@ def jobs_inspect(
         parsed_ids.append(job_id)
     job_ids = parsed_ids
     api = get_hf_api(token=token)
-    try:
-        jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to inspect job: {e}") from e
+    jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     out.table([_dataclass_to_dict(job) for job in jobs])
 
 
@@ -720,16 +691,7 @@ def jobs_cancel(
     """Cancel a Job"""
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
-    try:
-        api.cancel_job(job_id=job_id, namespace=namespace)
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to cancel this job.") from e
-        else:
-            raise CLIError(f"Failed to cancel job: {e}") from e
+    api.cancel_job(job_id=job_id, namespace=namespace)
     out.result("Job cancelled", id=job_id)
 
 

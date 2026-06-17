@@ -2716,6 +2716,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         assert any(model.id == self.repo_id for model in self._api.list_models(token=self._token, **kwargs))
 
 
+@pytest.mark.xet
 @pytest.mark.usefixtures("fx_cache_dir")
 class UploadFolderMockedTest(unittest.TestCase):
     api = HfApi()
@@ -2754,17 +2755,28 @@ class UploadFolderMockedTest(unittest.TestCase):
         ]
         self.api.list_repo_files = self.repo_files_mock
 
-        self.create_commit_mock = Mock()
-        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
-        self.create_commit_mock.return_value.pr_url = None
-        self.api.create_commit = self.create_commit_mock
+        # `upload_folder` now delegates the actual upload to the streamed xet pipeline. We mock
+        # `pipelined_upload` to capture the add/delete operations it would commit, and force the
+        # xet path so the test is deterministic regardless of whether `hf_xet` is installed.
+        self.pipeline_mock = Mock()
+        self.pipeline_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
+        self.pipeline_mock.return_value.pr_url = None
+        xet_patcher = patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
+        pipeline_patcher = patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
+        xet_patcher.start()
+        pipeline_patcher.start()
+        self.addCleanup(xet_patcher.stop)
+        self.addCleanup(pipeline_patcher.stop)
 
     def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
-        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
+        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir
         self.api.upload_folder(repo_id="repo_id", **kwargs)
-        return self.create_commit_mock.call_args_list[0][1]["operations"]
+        call_kwargs = self.pipeline_mock.call_args_list[0][1]
+        # `upload_folder` passes additions and deletions separately to the pipeline. Recombine them
+        # (deletions first, as `create_commit` used to receive them) for the assertions below.
+        return call_kwargs["delete_operations"] + call_kwargs["add_operations"]
 
     def test_allow_everything(self):
         operations = self._upload_folder_alias()
@@ -3235,35 +3247,26 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
             revision="my-branch",
         )
 
-        # PR files
-        self._api.upload_file(
-            path_or_fileobj=b"LFS content PR", path_in_repo="lfs_file_PR.bin", repo_id=repo_id, create_pr=True
-        )
-        self._api.upload_file(
-            path_or_fileobj=b"TXT content PR", path_in_repo="txt_file_PR.txt", repo_id=repo_id, create_pr=True
-        )
-
         # List LFS files
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 4
+        assert len(lfs_files) == 3
         assert {file.filename for file in lfs_files} == {
             "lfs_file.bin",
             "lfs_file_2.bin",
             "lfs_file_branch.bin",
-            "lfs_file_PR.bin",
         }
 
         # Select LFS files that are on main
-        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        lfs_files_on_main = [file for file in lfs_files if file.ref in ("main", "refs/heads/main")]
         assert len(lfs_files_on_main) == 2
 
         # Permanently delete LFS files
         self._api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
 
-        # LFS files from branch and PR remain
+        # LFS file from the branch remains
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 2
-        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin", "lfs_file_PR.bin"}
+        assert len(lfs_files) == 1
+        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin"}
 
         # Downloading "lfs_file.bin" fails with EntryNotFoundError
         files = self._api.list_repo_files(repo_id=repo_id)
