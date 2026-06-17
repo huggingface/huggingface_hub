@@ -32,6 +32,12 @@ This ships as [`SandboxPool`]: it provisions host Jobs lazily, packs
 down on `close()`. Every sandbox it hands out is a normal `Sandbox` (`run`, `spawn`,
 `files`, `connect`, `kill`).
 
+You can grow on demand instead of warming a batch: `pool.create()` (count 1) reuses a
+host with free capacity before booting a new one, and warm hosts are discovered via
+job labels (`hf-sandbox-host` + `hf-sandbox-capacity` + optional `hf-sandbox-pool`
+name) so reuse works **across processes** — a fresh pool, or `hf sandbox create
+--shared`, attaches to a host an earlier run left running.
+
 ## Isolation: uid (DAC) + Landlock LSM, both unprivileged
 
 On a stock Job the container runs **as root inside a user namespace mapping only uids
