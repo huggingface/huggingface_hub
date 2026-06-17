@@ -14,9 +14,9 @@ hf sandbox create                        # CLI
 | piece | where | what |
 |---|---|---|
 | Rust server (`sbx-server`) | [github.com/Wauplin/sandbox-server](https://github.com/Wauplin/sandbox-server) | 641KB static musl binary: exec with NDJSON streaming, background procs, raw-body file API, idle watchdog. Hand-rolled HTTP/1.1 (tiny_http buffers chunked responses — verified — so no framework). Binary hosted at `Wauplin/sbx-server` on the Hub (private). |
-| Python API (`Sandbox`) | `src/huggingface_hub/_sandbox.py` | `create/connect/list/kill`, `run/spawn/processes`, `files.*`, `url(port)`, context manager. Exported from `huggingface_hub`. |
-| CLI (`hf sandbox`) | `src/huggingface_hub/cli/sandbox.py` | `create / ls / exec / ps / cp / url / kill`, follows repo CLI conventions. |
-| Tests | `tests/test_sandbox.py` | 21 tests (helpers + client against an in-process fake server). All pass; `make quality` + mypy clean. |
+| Python API (`Sandbox` + `SandboxPool`) | `src/huggingface_hub/_sandbox.py` | `Sandbox.create/connect/list/kill`, `run/spawn/processes`, `files.*`, `url(port)`, context manager. `SandboxPool` packs many landlock sandboxes per host Job (shared mode, see [HOST_MODE.md](HOST_MODE.md)). Exported from `huggingface_hub`. |
+| CLI (`hf sandbox`) | `src/huggingface_hub/cli/sandbox.py` | `create [-n N] / ls / exec / ps / cp / url / kill`, follows repo CLI conventions. |
+| Tests | `tests/test_sandbox.py` | 31 tests (helpers + dedicated client + shared client + pool, against an in-process fake server). All pass; `make quality` clean. |
 | Docs | `docs/source/en/guides/sandbox.md`, `package_reference/sandbox.md`, sections in `guides/cli.md` + `guides/jobs.md` | guide + API reference, registered in toctree. |
 | Reports | `DESIGN.md`, `BENCHMARKS.md`, `experiments/` | design rationale, measured numbers, all probe/benchmark scripts. |
 
@@ -30,6 +30,11 @@ with Sandbox.create() as sbx:                          # any image, ready in ~6s
     result = sbx.run("python /app/main.py")            # raises with stderr on failure
     server = sbx.spawn("python -m http.server 8080")   # background process
     sbx = Sandbox.connect(sandbox_id)                  # from any machine, stateless
+
+# Fan out cheaply: many landlock sandboxes packed into shared host VMs
+from huggingface_hub import SandboxPool
+with SandboxPool(image="python:3.12") as pool:         # see HOST_MODE.md
+    boxes = pool.create(count=1000)                    # ~20 cpu-basic hosts, ~16s end-to-end
 ```
 
 ## Key design decisions (and why)
