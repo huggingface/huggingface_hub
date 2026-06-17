@@ -136,6 +136,8 @@ def get_hint_for_exception(error: Exception) -> str | None:
     """Return a helpful hint for the given exception, or None if no hint is applicable."""
     if isinstance(error, BucketNotFoundError) and error.bucket_id:
         return f"If the bucket does not exist yet, create it with: hf buckets create {error.bucket_id}"
+    if isinstance(error, GatedRepoError):
+        return None
     if isinstance(error, RepositoryNotFoundError) and error.repo_id:
         type_flag = f" --type {error.repo_type}" if error.repo_type and error.repo_type != "model" else ""
         return f"If the repo does not exist yet, create it with: hf repos create {error.repo_id}{type_flag}"

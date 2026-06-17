@@ -27,6 +27,7 @@ from huggingface_hub.errors import (
     BucketNotFoundError,
     CLIError,
     DeviceCodeError,
+    GatedRepoError,
     HfUriError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -4330,6 +4331,12 @@ class TestGetHintForException:
     def test_bucket_not_found_without_id(self) -> None:
         error = BucketNotFoundError("not found", response=self._make_response())
         error.bucket_id = None
+        assert get_hint_for_exception(error) is None
+
+    def test_gated_repo_no_hint(self) -> None:
+        error = GatedRepoError("gated", response=self._make_response())
+        error.repo_id = "user/gated-model"
+        error.repo_type = "model"
         assert get_hint_for_exception(error) is None
 
     def test_unrelated_error(self) -> None:
