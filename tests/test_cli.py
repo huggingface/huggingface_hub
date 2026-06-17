@@ -16,7 +16,6 @@ from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
-from huggingface_hub.cli._errors import get_hint_for_exception
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -24,12 +23,9 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import (
-    BucketNotFoundError,
     CLIError,
     DeviceCodeError,
-    GatedRepoError,
     HfUriError,
-    RepositoryNotFoundError,
     RevisionNotFoundError,
 )
 from huggingface_hub.hf_api import ModelInfo

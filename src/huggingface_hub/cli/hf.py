@@ -48,7 +48,7 @@ from huggingface_hub.cli.system import env, update, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
 from huggingface_hub.cli.webhooks import webhooks_cli
-from huggingface_hub.utils import ANSI, logging
+from huggingface_hub.utils import logging
 
 
 app = typer_factory(
