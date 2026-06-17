@@ -16,7 +16,6 @@ from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import (
     BucketNotFoundError,
     HfHubHTTPError,
-    JobNotFoundError,
     OfflineModeIsEnabled,
     RepositoryNotFoundError,
 )
