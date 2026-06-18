@@ -89,10 +89,12 @@ class DeepInfraAutomaticSpeechRecognitionTask(TaskProviderHelper):
         # DeepInfra exposes an OpenAI-compatible transcription endpoint, which expects
         # the audio and parameters as a multipart/form-data body (not JSON).
         audio = _open_as_mime_bytes(inputs)
+        # `model` is applied last so caller-supplied parameters/extra_payload cannot
+        # override the mapped provider model (matches the other DeepInfra helpers).
         fields: dict[str, Any] = {
-            "model": provider_mapping_info.provider_id,
             **filter_none(parameters),
             **filter_none(extra_payload or {}),
+            "model": provider_mapping_info.provider_id,
         }
         body, content_type = _encode_multipart(audio, fields)
         return MimeBytes(body, mime_type=content_type)
