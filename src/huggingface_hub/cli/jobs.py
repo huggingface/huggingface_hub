@@ -707,7 +707,7 @@ def jobs_wait(
     job_ids: Annotated[
         list[str],
         typer.Argument(
-            help="Job IDs to wait for.",
+            help="Job IDs to wait for (or 'namespace/job_id').",
         ),
     ],
     timeout: Annotated[
