@@ -1167,6 +1167,12 @@ class SandboxPool:
                     if sandbox is not None:
                         self._save_cache()
                         return sandbox
+                    # sandbox is None: the host is full (packed by another process) or gone.
+                    # Either way it's no longer a host we exclusively own, so stop tracking it
+                    # for teardown — cancelling it on a later round's failure would kill another
+                    # tenant's sandboxes (full host) or hit an already-dead job (gone host).
+                    if host in new_hosts:
+                        new_hosts.remove(host)
                 discovered = False  # re-scan for room / boot a host next round
                 rounds += 1
                 if rounds > _MAX_PACK_ROUNDS:

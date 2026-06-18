@@ -98,7 +98,7 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         "hf sandbox create",
         "hf sandbox create ubuntu:24.04",
         "hf sandbox create --flavor a10g-small",
-        "hf sandbox create --pool pool-ab12cd34ef56 --secrets OPENAI_API_KEY=sk-...",
+        "hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug",
     ],
 )
 def sandbox_create(
@@ -125,18 +125,24 @@ def sandbox_create(
 ) -> None:
     """Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
 
-    Env/secrets/idle-timeout apply to the sandbox in both modes. With `--pool`, the
-    image and flavor come from the pool, so passing them here is an error. Define a pool
-    first with `hf sandbox pool create`.
+    Env and idle-timeout apply to the sandbox in both modes. With `--pool`, the image and
+    flavor come from the pool, so passing them here is an error; `--secrets` is also
+    rejected since pooled sandboxes have no encrypted-secrets channel (use `--env`). Define
+    a pool first with `hf sandbox pool create`.
     """
     start = time.time()
     idle = idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT
-    sandbox_env = {**(parse_env_map(env, env_file) or {}), **(parse_env_map(secrets, secrets_file) or {})}
 
     if pool is not None:
         # image/flavor/volume are fixed by the pool's hosts — reject rather than silently ignore.
         if image is not None or flavor is not None or volume:
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
+        # Pooled sandboxes share a long-lived host job, so per-sandbox values can only travel as
+        # plaintext env in the create request — there's no encrypted-secrets channel like the
+        # dedicated mode gets via the Jobs API. Reject --secrets rather than quietly downgrade it.
+        if secrets or secrets_file:
+            raise CLIError("--pool can't encrypt secrets; pass them with --env/--env-file instead.")
+        sandbox_env = parse_env_map(env, env_file) or {}
         if forward_hf_token and (hf_token := token or get_token()):
             sandbox_env["HF_TOKEN"] = hf_token
         sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(env=sandbox_env, idle_timeout=idle)

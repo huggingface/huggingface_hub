@@ -3690,9 +3690,10 @@ Learn more
 
 Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
 
-Env/secrets/idle-timeout apply to the sandbox in both modes. With `--pool`, the
-image and flavor come from the pool, so passing them here is an error. Define a pool
-first with `hf sandbox pool create`.
+Env and idle-timeout apply to the sandbox in both modes. With `--pool`, the image and
+flavor come from the pool, so passing them here is an error; `--secrets` is also
+rejected since pooled sandboxes have no encrypted-secrets channel (use `--env`). Define
+a pool first with `hf sandbox pool create`.
 
 **Usage**:
 
@@ -3723,7 +3724,7 @@ Examples
   $ hf sandbox create
   $ hf sandbox create ubuntu:24.04
   $ hf sandbox create --flavor a10g-small
-  $ hf sandbox create --pool pool-ab12cd34ef56 --secrets OPENAI_API_KEY=sk-...
+  $ hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug
 
 Learn more
   Use `hf <command> --help` for more information about a command.

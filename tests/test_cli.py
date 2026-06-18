@@ -4480,7 +4480,7 @@ class TestSandboxPoolCli:
         monkeypatch.setattr(
             sandbox_cli_mod.SandboxPool, "connect", classmethod(lambda cls, pid, namespace=None, token=None: fake_pool)
         )
-        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--secrets", "K=v"])
+        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--env", "K=v"])
         assert result.exit_code == 0, result.output
         assert "host1.sb0" in result.output
         fake_pool.create.assert_called_once()
@@ -4488,6 +4488,12 @@ class TestSandboxPoolCli:
 
     def test_create_pool_rejects_image_and_flavor(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["sandbox", "create", "alpine:3.20", "--pool", "pool-x"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+
+    def test_create_pool_rejects_secrets(self, runner: CliRunner) -> None:
+        # Pooled sandboxes have no encrypted-secrets channel, so --secrets is an error (use --env).
+        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--secrets", "K=v"])
         assert result.exit_code != 0
         assert isinstance(result.exception, CLIError)
 

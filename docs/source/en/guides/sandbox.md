@@ -175,8 +175,9 @@ Jobs as needed, packs `sandboxes_per_host` sandboxes per host, and terminates ev
 ...         outputs = list(ex.map(lambda b, t: b.run(t.cmd).stdout, boxes, tasks))
 ```
 
-Env, secrets and `idle_timeout` are **per-sandbox** (they belong to `create()`, not the pool), so
-sandboxes in one pool can have different environments:
+Env and `idle_timeout` are **per-sandbox** (they belong to `create()`, not the pool), so
+sandboxes in one pool can have different environments. Pooled sandboxes share a long-lived host job,
+so there's no encrypted-secrets channel — pass per-sandbox values as `env`:
 
 ```python
 >>> sbx = pool.create(env={"SEED": "42"}, idle_timeout="5m")
@@ -251,8 +252,9 @@ For many cheap shared sandboxes, warm a pool once and then create into it on dem
 ✓ Pool created id=pool-ae9f7efe0bc7 image=python:3.12 flavor=cpu-basic host=687f... elapsed=5.7s
 
 # Each create packs onto a host with room (found by the pool id, from any machine);
-# only when every host is full does it boot a duplicate. Env/secrets are per-sandbox.
->>> hf sandbox create --pool pool-ae9f7efe0bc7 --secrets OPENAI_API_KEY=sk-...
+# only when every host is full does it boot a duplicate. Env is per-sandbox (pooled
+# sandboxes share a host, so there's no encrypted-secrets channel — use --env).
+>>> hf sandbox create --pool pool-ae9f7efe0bc7 --env LOG_LEVEL=debug
 >>> hf sandbox create --pool pool-ae9f7efe0bc7
 
 >>> hf sandbox pool ls
