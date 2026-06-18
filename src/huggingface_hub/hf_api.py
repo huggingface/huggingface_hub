@@ -8531,7 +8531,7 @@ class HfApi:
         repo_id: str,
         *,
         timeout: float | None = None,
-        poll_interval: float = 5.0,
+        poll_interval: float = 1.0,
         token: bool | str | None = None,
     ) -> SpaceRuntime:
         """Wait until a Space reaches a terminal stage (not building/starting).
@@ -8547,7 +8547,7 @@ class HfApi:
             timeout (`float`, *optional*):
                 Maximum time to wait in seconds. If `None`, waits indefinitely.
             poll_interval (`float`, *optional*):
-                Seconds between status checks. Defaults to 5s.
+                Seconds between status checks. Defaults to 1s.
             token (`bool` or `str`, *optional*):
                 A valid user access token. Defaults to the locally saved token, which is the
                 recommended authentication method. Set to `False` to disable authentication.
