@@ -510,7 +510,7 @@ class TestPoolConnect:
         job.space_id = None
         job.flavor = "cpu-basic"
         job.labels = {SANDBOX_LABEL: "n", HOST_LABEL: "1", POOL_LABEL: "pool-x"}
-        job.environment = {"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600"}
+        job.environment = {"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600", "SBX_MAX_HOSTS": "3"}
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [job])
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(url, job_id=jid, capacity=7)
@@ -520,6 +520,7 @@ class TestPoolConnect:
         assert pool.image == "alpine:3.20"
         assert pool.flavor == "cpu-basic"
         assert pool.sandboxes_per_host == 7
+        assert pool.max_hosts == 3  # cost ceiling restored from the host env, not lost
         assert pool.name == "pool-x"
 
         box = pool.create()  # packs onto the discovered host, no boot
@@ -538,6 +539,7 @@ def _save_cache(pool_id: str, hosts, **overrides) -> None:
         "image": "python:3.12",
         "flavor": "cpu-basic",
         "sandboxes_per_host": 4,
+        "max_hosts": None,
         "idle_timeout": 600,
         "namespace": None,
         **overrides,

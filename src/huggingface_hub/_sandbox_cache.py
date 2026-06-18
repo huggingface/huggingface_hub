@@ -61,7 +61,7 @@ from .utils import WeakFileLock, logging
 logger = logging.get_logger(__name__)
 
 # Bump if the on-disk layout changes incompatibly; older/newer files are ignored on read.
-_CACHE_VERSION = 2
+_CACHE_VERSION = 3
 
 # A write should never block a sandbox creation for long: the cache is best-effort, so we
 # rather skip persisting than wait on a stuck lock.
@@ -94,6 +94,7 @@ class PoolCache:
     image: str
     flavor: str
     sandboxes_per_host: int
+    max_hosts: int | None
     idle_timeout: int | None
     namespace: str | None
     hosts: List[CachedHost] = field(default_factory=list)
@@ -137,6 +138,7 @@ def save_pool_cache(
     image: str,
     flavor: str,
     sandboxes_per_host: int,
+    max_hosts: int | None,
     idle_timeout: int | None,
     namespace: str | None,
     hosts: List[CachedHost],
@@ -165,6 +167,7 @@ def save_pool_cache(
                 image=image,
                 flavor=flavor,
                 sandboxes_per_host=sandboxes_per_host,
+                max_hosts=max_hosts,
                 idle_timeout=idle_timeout,
                 namespace=namespace,
                 hosts=list(merged.values()),

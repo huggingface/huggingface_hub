@@ -1076,6 +1076,7 @@ class SandboxPool:
                 image=cache.image,
                 flavor=cache.flavor,
                 sandboxes_per_host=cache.sandboxes_per_host,
+                max_hosts=cache.max_hosts,
                 name=pool_id,
                 idle_timeout=cache.idle_timeout,
                 namespace=cache.namespace if namespace is None else namespace,
@@ -1092,10 +1093,12 @@ class SandboxPool:
             # list_jobs may omit env; fetch the full spec.
             env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
+        max_hosts_raw = env.get("SBX_MAX_HOSTS")
         pool = cls(
             image=job.docker_image or job.space_id or DEFAULT_IMAGE,
             flavor=str(job.flavor) if job.flavor is not None else "cpu-basic",
             sandboxes_per_host=int(env.get("SBX_CAPACITY", DEFAULT_SANDBOXES_PER_HOST)),
+            max_hosts=int(max_hosts_raw) if max_hosts_raw is not None else None,
             name=pool_id,
             idle_timeout=int(idle_raw) if idle_raw is not None else None,
             namespace=namespace,
@@ -1423,6 +1426,11 @@ class SandboxPool:
         # back (with SBX_IDLE_TIMEOUT) by `connect()` to rebuild the pool — labels stay for
         # filtering only.
         job_env["SBX_CAPACITY"] = str(self.sandboxes_per_host)
+        # Persist the optional cost ceiling on the host too, so a later connect() (e.g. the CLI
+        # `pool create --max-hosts N` then `create --pool <id>` flow) rebuilds the cap instead of
+        # defaulting to unlimited and provisioning past it.
+        if self.max_hosts is not None:
+            job_env["SBX_MAX_HOSTS"] = str(self.max_hosts)
         labels = {SANDBOX_LABEL: nonce, HOST_LABEL: "1"}
         if self.name is not None:
             labels[POOL_LABEL] = self.name
@@ -1566,6 +1574,7 @@ class SandboxPool:
             image=self.image,
             flavor=self.flavor,
             sandboxes_per_host=self.sandboxes_per_host,
+            max_hosts=self.max_hosts,
             idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
             namespace=self._namespace,
             hosts=hosts,
