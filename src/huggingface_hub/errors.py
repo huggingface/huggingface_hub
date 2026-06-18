@@ -273,6 +273,21 @@ class BucketNotFoundError(HfHubHTTPError):
     bucket_id: str | None = None
 
 
+# JOB ERRORS
+
+
+class JobNotFoundError(HfHubHTTPError):
+    """
+    Raised when trying to access a Job that does not exist.
+
+    Attributes:
+        job_id (`str`):
+            The job id that was not found.
+    """
+
+    job_id: str
+
+
 # REPOSITORY ERRORS
 
 
