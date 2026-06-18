@@ -105,6 +105,7 @@ _SUBMOD_ATTRS = {
     "_sandbox": [
         "CommandResult",
         "Sandbox",
+        "SandboxInfo",
         "SandboxPool",
         "SandboxProcess",
     ],
@@ -815,6 +816,7 @@ __all__ = [
     "RepoStorageInfo",
     "RepoUrl",
     "Sandbox",
+    "SandboxInfo",
     "SandboxPool",
     "SandboxProcess",
     "SentenceSimilarityInput",
@@ -1279,6 +1281,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._sandbox import (
         CommandResult,  # noqa: F401
         Sandbox,  # noqa: F401
+        SandboxInfo,  # noqa: F401
         SandboxPool,  # noqa: F401
         SandboxProcess,  # noqa: F401
     )

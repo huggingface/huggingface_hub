@@ -46,8 +46,8 @@ A few decisions worth calling out:
 
 - **Download over volume mount.** The binary could also be delivered by mounting a Hub repo as a
   volume, but mounted volumes drop the executable bit (verified) and add ~3s to cold start.
-  Downloading from the in-datacenter HF CDN is faster and free, so it is the default. The mount path
-  is kept as a `server_source="mount"` fallback for images that lack `wget`/`curl`/`python3`.
+  Downloading from the in-datacenter HF CDN is faster and free, so it is the only path: the image
+  just needs `/bin/sh` plus one of `wget`/`curl`/`python3` (every common base image ships one).
 - **A hand-rolled HTTP/1.1 server, no framework.** Live output streaming requires flushing each chunk
   as it is produced. Common minimal Rust HTTP servers (e.g. `tiny_http`) buffer chunked responses
   until the response completes, which breaks streaming (verified). The server therefore implements

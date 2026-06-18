@@ -52,6 +52,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List
@@ -66,7 +67,7 @@ from ._sandbox_cache import (
     save_pool_cache,
 )
 from ._space_api import Volume
-from .errors import SandboxCommandError, SandboxError
+from .errors import HfHubHTTPError, SandboxCommandError, SandboxError
 from .hf_api import HfApi, JobInfo
 from .utils import get_token, logging
 
@@ -118,19 +119,10 @@ d=/tmp/.sbx-server
 if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
 elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
 elif command -v python3 >/dev/null 2>&1; then python3 -c 'import os,urllib.request as u; r=u.Request(os.environ["SBX_SERVER_URL"],headers={"Authorization":"Bearer "+os.environ["SBX_DL_TOKEN"]}); open("/tmp/.sbx-server","wb").write(u.urlopen(r).read())'
-else echo "hf-sandbox: image has none of wget/curl/python3. Create the sandbox with server_source='mount' instead." >&2; exit 96; fi
+else echo "hf-sandbox: image has none of wget/curl/python3 to fetch the sandbox server. Use an image that ships one of them." >&2; exit 96; fi
 chmod +x "$d"
 unset SBX_DL_TOKEN SBX_SERVER_URL
 exec "$d"
-"""
-
-# Fallback for images with /bin/sh but no downloader: the binary repo is mounted
-# as a volume (the mount does not preserve the executable bit, hence cp + chmod).
-_BOOTSTRAP_MOUNT = """\
-set -e
-cp /.hf-sandbox/sbx-server /tmp/.sbx-server
-chmod +x /tmp/.sbx-server
-exec /tmp/.sbx-server
 """
 
 
@@ -202,6 +194,23 @@ class FileEntry:
     size: int
     mtime_ms: int | None = None
     mode: str = ""
+
+
+@dataclass
+class SandboxInfo:
+    """A running sandbox, as returned by [`Sandbox.list`].
+
+    Covers both kinds: dedicated sandboxes (`kind="dedicated"`, their own job) and
+    shared/pool sandboxes (`kind="shared"`, packed inside a host job — `host_id` is set).
+    Reattach to one with `Sandbox.connect(info.id)`.
+    """
+
+    id: str
+    kind: str  # "dedicated" | "shared"
+    image: str | None = None
+    flavor: str | None = None
+    host_id: str | None = None  # the host job id for shared sandboxes (None for dedicated)
+    created_at: datetime | None = None
 
 
 class SandboxProcess:
@@ -608,7 +617,6 @@ class Sandbox:
         volumes: List[Volume] | None = None,
         namespace: str | None = None,
         forward_hf_token: bool = False,
-        server_source: str = "download",
         start_timeout: float = 120.0,
         token: str | None = None,
     ) -> "Sandbox":
@@ -631,10 +639,11 @@ class Sandbox:
             volumes: HF repos/buckets to mount, see [`Volume`].
             namespace: User or org namespace to run under (defaults to current user).
             forward_hf_token: If True, your HF token is injected as `HF_TOKEN` (opt-in).
-            server_source: `"download"` (default, needs wget/curl/python3 in image) or
-                `"mount"` (needs only `/bin/sh`; adds ~3s to cold start).
             start_timeout: Max seconds to wait for the sandbox to become ready.
             token: HF token override.
+
+        The image only needs `/bin/sh` plus one of `wget`/`curl`/`python3` to fetch the
+        sandbox server at startup (all common base images have one).
         """
         api = HfApi(token=token)
         hf_token = _effective_token(api)
@@ -649,7 +658,6 @@ class Sandbox:
             volumes=volumes,
             idle_timeout=idle_timeout,
             forward_hf_token=forward_hf_token,
-            server_source=server_source,
             sandbox_token=sandbox_token,
         )
 
@@ -728,20 +736,15 @@ class Sandbox:
         return cls(id=job.id, server=server, local_id=None, owns_sandbox=False, owns_server=True)
 
     @classmethod
-    def list(cls, *, namespace: str | None = None, token: str | None = None) -> List[JobInfo]:
-        """List running dedicated sandboxes (jobs created by `Sandbox.create`).
+    def list(cls, *, namespace: str | None = None, token: str | None = None) -> List[SandboxInfo]:
+        """List all running sandboxes — both dedicated and shared (pool) ones.
 
-        Shared/pool sandboxes are not jobs; list those via [`SandboxPool`] or the
-        `hf sandbox ls` CLI.
+        Returns a [`SandboxInfo`] per sandbox (`kind` is `"dedicated"` or `"shared"`).
+        Dedicated sandboxes come straight from the jobs list; shared ones are enumerated
+        by querying each running host job, so the full fleet shows up under one call.
+        Reattach to any of them with `Sandbox.connect(info.id)`.
         """
-        api = HfApi(token=token)
-        return [
-            job
-            for job in api.list_jobs(namespace=namespace)
-            if (job.labels or {}).get(SANDBOX_LABEL)
-            and not (job.labels or {}).get(HOST_LABEL)
-            and job.status.stage == "RUNNING"
-        ]
+        return _list_sandboxes(HfApi(token=token), namespace=namespace)
 
     def kill(self) -> None:
         """Terminate the sandbox. Idempotent.
@@ -958,7 +961,6 @@ class SandboxPool:
         name: str | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         namespace: str | None = None,
-        server_source: str = "download",
         start_timeout: float = 120.0,
         token: str | None = None,
     ) -> None:
@@ -988,7 +990,6 @@ class SandboxPool:
                 sandboxes for this long (a billing backstop). Each sandbox also has its
                 own idle timeout, set at `create()`. Pass `None` to disable.
             namespace: User or org namespace to run hosts under.
-            server_source: `"download"` (default) or `"mount"`, see [`Sandbox.create`].
             start_timeout: Max seconds to wait for a host to become ready.
             token: HF token override.
         """
@@ -1005,7 +1006,6 @@ class SandboxPool:
         self.name = name
         self._idle_timeout = idle_timeout
         self._namespace = namespace
-        self._server_source = server_source
         self._start_timeout = start_timeout
         self._hosts: List[_SandboxServer] = []
         self._lock = threading.Lock()
@@ -1049,7 +1049,6 @@ class SandboxPool:
                 name=pool_id,
                 idle_timeout=cache.idle_timeout,
                 namespace=cache.namespace if namespace is None else namespace,
-                server_source=cache.server_source,
                 token=token,
             )
             pool._require_live_host = True
@@ -1116,7 +1115,9 @@ class SandboxPool:
         if self._closed:
             raise SandboxError("This SandboxPool is closed.")
         sandbox_env = dict(env or {})
-        idle_secs = _duration_to_secs(idle_timeout) if idle_timeout is not None else 0
+        # None disables per-sandbox idle eviction (mirrors Sandbox.create): leave it out of
+        # the create body entirely rather than sending 0, which the server reads as "evict now".
+        idle_secs = _duration_to_secs(idle_timeout) if idle_timeout is not None else None
 
         new_hosts: List[_SandboxServer] = []
         discovered = False
@@ -1151,7 +1152,14 @@ class SandboxPool:
                 # 4. Create the sandbox on the reserved host. `None` means the host filled up
                 #    (another process packed it) or a stale cached host is gone — retry.
                 if host is not None:
-                    sandbox = self._create_one(host, sandbox_env, idle_secs)
+                    try:
+                        sandbox = self._create_one(host, sandbox_env, idle_secs)
+                    except Exception:
+                        # The create POST failed on a live host: release the slot we optimistically
+                        # reserved so the host isn't left permanently one sandbox short.
+                        with self._lock:
+                            host.live = max(0, host.live - 1)
+                        raise
                     if sandbox is not None:
                         self._save_cache()
                         return sandbox
@@ -1239,6 +1247,11 @@ class SandboxPool:
         if shortfall <= 0:
             return
         self._discover_hosts()
+        # A connect()'d pool must never boot during warm-up: it may only attach to existing
+        # hosts. Booting is left to create()'s loop, which is guarded by `_require_live_host`
+        # so a pool whose hosts are all gone is reported as stopped instead of resurrected.
+        if self._require_live_host:
+            return
         with self._lock:
             shortfall = target - len(self._hosts)
         if shortfall <= 0:
@@ -1276,13 +1289,19 @@ class SandboxPool:
             matches.append(job)
 
         for job in matches:
+            server = None
             try:
                 server = _connect_host(self._api, job.id, namespace=self._namespace)
                 env = job.environment if isinstance(job.environment, dict) else {}
                 server.capacity = int(env.get("SBX_CAPACITY", self.sandboxes_per_host))
                 server.live = len(server.request("GET", "/v1/sandboxes").json())
-            except SandboxError:
-                continue  # host died or is still starting up; skip it
+            except (SandboxError, httpx.HTTPError, HfHubHTTPError) as e:
+                # Host died (e.g. deleted between list_jobs and inspect_job), is still starting
+                # up, or is unreachable: skip it, closing the client if one was opened.
+                logger.debug(f"Skipping host {job.id} during discovery: {e}")
+                if server is not None:
+                    server.close()
+                continue
             with self._lock:
                 if any(host.job_id == job.id for host in self._hosts):
                     server.close()  # adopted concurrently by another thread
@@ -1299,8 +1318,28 @@ class SandboxPool:
                 f"Pool needs {num_new} more host(s) but max_hosts={self.max_hosts} "
                 f"allows only {max(0, allowed)} more. Raise max_hosts or kill some sandboxes."
             )
+        # Boot in parallel, but collect every result before re-raising: if one boot fails,
+        # the others may have already started billable host jobs, so cancel those instead of
+        # leaking them (executor.map would surface the first error and drop the rest).
         with ThreadPoolExecutor(max_workers=min(num_new, 32)) as executor:
-            return list(executor.map(lambda _: self._boot_host(), range(num_new)))
+            futures = [executor.submit(self._boot_host) for _ in range(num_new)]
+        booted: List[_SandboxServer] = []
+        error: Exception | None = None
+        for future in futures:
+            try:
+                booted.append(future.result())
+            except Exception as e:
+                error = e
+        if error is not None:
+            for server in booted:
+                try:
+                    server.cancel_job()
+                except Exception:
+                    pass
+                finally:
+                    server.close()
+            raise error
+        return booted
 
     def _boot_host(self) -> _SandboxServer:
         """Start one host job and wait until its server is ready."""
@@ -1315,7 +1354,6 @@ class SandboxPool:
             volumes=None,
             idle_timeout=self._idle_timeout,
             forward_hf_token=False,
-            server_source=self._server_source,
             sandbox_token=sandbox_token,
         )
         # Host mode: per-sandbox idle eviction + empty-host shutdown (vs the dedicated
@@ -1360,7 +1398,7 @@ class SandboxPool:
             raise
         return server
 
-    def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int) -> "Sandbox | None":
+    def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int | None) -> "Sandbox | None":
         """Create one sandbox on a reserved `host`. Returns the sandbox, or None to retry.
 
         None means either the host filled up between our reservation and the create
@@ -1368,7 +1406,9 @@ class SandboxPool:
         place the sandbox elsewhere) or a host rebuilt from the cache is gone/unreachable
         (dropped and re-placed via discovery / a fresh boot).
         """
-        body: dict[str, Any] = {"count": 1, "idle_timeout_secs": idle_secs}
+        body: dict[str, Any] = {"count": 1}
+        if idle_secs is not None:
+            body["idle_timeout_secs"] = idle_secs
         if env:
             body["env"] = env
         try:
@@ -1469,7 +1509,6 @@ class SandboxPool:
             sandboxes_per_host=self.sandboxes_per_host,
             idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
             namespace=self._namespace,
-            server_source=self._server_source,
             hosts=hosts,
             dead_host_ids=dead,
         )
@@ -1491,13 +1530,12 @@ def _bootstrap_job_spec(
     volumes: List[Volume] | None,
     idle_timeout: int | float | str | None,
     forward_hf_token: bool,
-    server_source: str,
     sandbox_token: str,
 ) -> tuple[list[str], dict[str, Any], dict[str, Any], List[Volume]]:
     """Build the (command, env, secrets, volumes) to launch a job running sbx-server.
 
     Shared by dedicated sandboxes and shared hosts: both download and exec the same
-    unified `sbx-server` binary.
+    unified `sbx-server` binary at startup (via `/bin/sh` + wget/curl/python3).
     """
     # Reserved SBX_* keys go last so user-provided env/secrets can't override them
     # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
@@ -1509,22 +1547,9 @@ def _bootstrap_job_spec(
     if forward_hf_token:
         job_secrets["HF_TOKEN"] = hf_token
 
-    if server_source == "download":
-        job_env["SBX_SERVER_URL"] = f"{api.endpoint}/{constants.SANDBOX_SERVER_REPO}/resolve/main/sbx-server"
-        job_secrets["SBX_DL_TOKEN"] = hf_token
-        command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
-    elif server_source == "mount":
-        job_volumes.append(
-            Volume(
-                type="model",
-                source=constants.SANDBOX_SERVER_REPO,
-                mount_path="/.hf-sandbox",
-                read_only=True,
-            )
-        )
-        command = ["/bin/sh", "-c", _BOOTSTRAP_MOUNT]
-    else:
-        raise ValueError(f"server_source must be 'download' or 'mount', not {server_source!r}")
+    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/{constants.SANDBOX_SERVER_REPO}/resolve/main/sbx-server"
+    job_secrets["SBX_DL_TOKEN"] = hf_token
+    command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
     return command, job_env, job_secrets, job_volumes
 
 
@@ -1538,6 +1563,55 @@ def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = Non
         f"No running host found for pool '{pool_id}'. The pool has stopped "
         "(all its hosts were killed or idle-timed-out); create a new one."
     )
+
+
+def _list_sandboxes(api: HfApi, *, namespace: str | None = None) -> List[SandboxInfo]:
+    """List every running sandbox in a namespace — dedicated jobs and shared/pool ones.
+
+    Dedicated sandboxes come from the jobs list directly; shared ones are enumerated by
+    connecting to each running host job and asking it for its packed sandboxes. Hosts that
+    are still starting up or unreachable are skipped (their sandboxes simply don't show up).
+    Used by both [`Sandbox.list`] and `hf sandbox ls`.
+    """
+    infos: List[SandboxInfo] = []
+    hosts: List[JobInfo] = []
+    for job in api.list_jobs(namespace=namespace):
+        labels = job.labels or {}
+        if not labels.get(SANDBOX_LABEL) or job.status.stage != "RUNNING":
+            continue
+        if labels.get(HOST_LABEL):
+            hosts.append(job)
+        else:
+            infos.append(
+                SandboxInfo(
+                    id=job.id,
+                    kind="dedicated",
+                    image=job.docker_image or job.space_id,
+                    flavor=str(job.flavor) if job.flavor is not None else None,
+                    created_at=job.created_at,
+                )
+            )
+
+    for job in hosts:
+        try:
+            server = _connect_host(api, job.id, namespace=namespace)
+        except (SandboxError, httpx.HTTPError, HfHubHTTPError):
+            continue  # host still starting up or unreachable; skip its sandboxes
+        try:
+            for item in server.request("GET", "/v1/sandboxes").json():
+                infos.append(
+                    SandboxInfo(
+                        id=f"{job.id}{SHARED_ID_SEP}{item['id']}",
+                        kind="shared",
+                        image=job.docker_image or job.space_id,
+                        flavor=str(job.flavor) if job.flavor is not None else None,
+                        host_id=job.id,
+                        created_at=job.created_at,
+                    )
+                )
+        finally:
+            server.close()
+    return infos
 
 
 def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None) -> _SandboxServer:

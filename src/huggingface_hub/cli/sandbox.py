@@ -50,7 +50,7 @@ from huggingface_hub._sandbox import (
     SHARED_ID_SEP,
     Sandbox,
     SandboxPool,
-    _connect_host,
+    _list_sandboxes,
     _split_sandbox_id,
 )
 from huggingface_hub._sandbox_cache import delete_pool_cache
@@ -171,39 +171,16 @@ def sandbox_ls(
 ) -> None:
     """List your running sandboxes (dedicated and shared)."""
     api = get_hf_api(token=token)
-    rows = []
-    hosts = []
-    for job in api.list_jobs(namespace=namespace):
-        labels = job.labels or {}
-        if not labels.get(SANDBOX_LABEL) or job.status.stage != "RUNNING":
-            continue
-        created = job.created_at.strftime("%Y-%m-%d %H:%M:%S") if job.created_at else "N/A"
-        image = job.docker_image or job.space_id
-        if labels.get(HOST_LABEL):
-            hosts.append((job, image, job.flavor, created))
-        else:
-            rows.append({"id": job.id, "kind": "dedicated", "image": image, "flavor": job.flavor, "created": created})
-
-    # For each host job, enumerate its packed sandboxes via the server.
-    for job, image, flavor, created in hosts:
-        try:
-            server = _connect_host(api, job.id, namespace=namespace)
-        except SandboxError:
-            continue  # host still starting up or unreachable; skip its sandboxes
-        try:
-            for item in server.request("GET", "/v1/sandboxes").json():
-                rows.append(
-                    {
-                        "id": f"{job.id}{SHARED_ID_SEP}{item['id']}",
-                        "kind": "shared",
-                        "image": image,
-                        "flavor": flavor,
-                        "created": created,
-                    }
-                )
-        finally:
-            server.close()
-
+    rows = [
+        {
+            "id": info.id,
+            "kind": info.kind,
+            "image": info.image,
+            "flavor": info.flavor,
+            "created": info.created_at.strftime("%Y-%m-%d %H:%M:%S") if info.created_at else "N/A",
+        }
+        for info in _list_sandboxes(api, namespace=namespace)
+    ]
     out.table(rows, id_key="id")
     if not rows:
         out.hint("Create one with `hf sandbox create` (or define a pool with `hf sandbox pool create`).")

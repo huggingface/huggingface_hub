@@ -423,6 +423,46 @@ class TestHostDiscovery:
         assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)
 
 
+class TestSandboxList:
+    """`Sandbox.list` returns one unified view of dedicated jobs and shared/pool sandboxes."""
+
+    def _job(self, job_id: str, *, host: bool = False) -> MagicMock:
+        job = MagicMock()
+        job.id = job_id
+        job.owner.name = "user"
+        job.docker_image = "python:3.12"
+        job.space_id = None
+        job.flavor = "cpu-basic"
+        job.status.stage = "RUNNING"
+        job.created_at = None
+        job.labels = {SANDBOX_LABEL: "nonce", **({HOST_LABEL: "1"} if host else {})}
+        return job
+
+    def test_list_includes_dedicated_and_shared(self, fake_server: str, monkeypatch) -> None:
+        _FakeServer.sandboxes = {"a", "b"}  # the host packs two shared sandboxes
+        jobs = [self._job("ded1"), self._job("host1", host=True)]
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: jobs)
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+        by_id = {info.id: info for info in Sandbox.list(token="hf_test")}
+        assert by_id["ded1"].kind == "dedicated" and by_id["ded1"].host_id is None
+        assert by_id["host1.a"].kind == "shared" and by_id["host1.a"].host_id == "host1"
+        assert by_id["host1.b"].kind == "shared"
+
+    def test_list_skips_unreachable_host(self, monkeypatch) -> None:
+        # A host that can't be reached (still starting up / deleted) is skipped, not fatal.
+        jobs = [self._job("ded1"), self._job("host1", host=True)]
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: jobs)
+        monkeypatch.setattr(
+            sandbox_mod,
+            "_connect_host",
+            lambda api, jid, namespace=None: (_ for _ in ()).throw(SandboxError("host not ready")),
+        )
+        infos = Sandbox.list(token="hf_test")
+        assert [info.id for info in infos] == ["ded1"]
+
+
 class TestPoolConnect:
     """`SandboxPool.connect(pool_id)` rebuilds a pool from a running host's job spec +
     env vars — no local state, no config endpoint — then packs onto that host."""
@@ -467,7 +507,6 @@ def _save_cache(pool_id: str, hosts, **overrides) -> None:
         "sandboxes_per_host": 4,
         "idle_timeout": 600,
         "namespace": None,
-        "server_source": "download",
         **overrides,
     }
     save_pool_cache(pool_id, hosts=hosts, **config)

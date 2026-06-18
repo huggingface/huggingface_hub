@@ -28,6 +28,10 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 [[autodoc]] huggingface_hub._sandbox.FileEntry
 
+### SandboxInfo
+
+[[autodoc]] SandboxInfo
+
 ## Errors
 
 ### SandboxError
