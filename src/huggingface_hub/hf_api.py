@@ -9041,9 +9041,11 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
-        type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        type: InferenceEndpointType | str = InferenceEndpointType.AUTHENTICATED,
         domain: str | None = None,
         path: str | None = None,
         cache_http_responses: bool | None = None,
@@ -9092,13 +9094,22 @@ class HfApi:
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework or a custom container
+                (see examples).
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
+                used together with `custom_image`.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Typically
+                used together with `custom_image` to pass runtime flags to the container.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
-                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+                The type of the Inference Endpoint, which can be `"authenticated"` (default), `"public"` or
+                `"private"`. `"protected"` is deprecated in favor of `"authenticated"` and will be removed in a
+                future release.
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
@@ -9130,7 +9141,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9154,7 +9165,7 @@ class HfApi:
             ...     accelerator="gpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
             ...     env={
@@ -9164,7 +9175,7 @@ class HfApi:
             ...           "MODEL_ID": "/repository"
             ...         },
             ...     custom_image={
-            ...         "health_route": "/health",
+            ...         "healthRoute": "/health",
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
@@ -9186,7 +9197,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9198,6 +9209,13 @@ class HfApi:
 
         """
         namespace = namespace or self._get_namespace(token=token)
+
+        if type == InferenceEndpointType.PROTECTED:
+            warnings.warn(
+                "`type='protected'` is deprecated and will be removed in a future release. "
+                "Use `type='authenticated'` instead.",
+                FutureWarning,
+            )
 
         if custom_image is not None:
             image = (
@@ -9236,6 +9254,11 @@ class HfApi:
         }
         if scaling_metric:
             payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
+        model_payload: dict[str, Any] = payload["model"]
+        if container_command is not None:
+            model_payload["command"] = container_command
+        if container_args is not None:
+            model_payload["args"] = container_args
         if env:
             payload["model"]["env"] = env
         if secrets:

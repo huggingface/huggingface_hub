@@ -1,13 +1,25 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
+import shlex
 from typing import Annotated
 
 import typer
 
-from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric, InferenceEndpointType
+from huggingface_hub.errors import CLIError, HfHubHTTPError
 
-from ._cli_utils import TokenOpt, get_hf_api, typer_factory
+from ._cli_utils import (
+    EnvFileOpt,
+    EnvOpt,
+    RevisionOpt,
+    SecretsFileOpt,
+    SecretsOpt,
+    SoftChoice,
+    TokenOpt,
+    get_hf_api,
+    parse_env_map,
+    typer_factory,
+)
 from ._output import out
 
 
@@ -152,8 +164,89 @@ def deploy(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
     ] = None,
+    revision: RevisionOpt = None,
+    custom_image: Annotated[
+        str | None,
+        typer.Option(
+            "--custom-image",
+            help="Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
+        ),
+    ] = None,
+    health_route: Annotated[
+        str | None,
+        typer.Option(
+            help="Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.",
+        ),
+    ] = None,
+    port: Annotated[
+        int | None,
+        typer.Option(
+            help="Port the custom container listens on (e.g. 30000). Requires --custom-image.",
+        ),
+    ] = None,
+    container_command: Annotated[
+        str | None,
+        typer.Option(
+            "--container-command",
+            help=(
+                "Override the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "python -m sglang.launch_server"). Requires --custom-image.'
+            ),
+        ),
+    ] = None,
+    container_args: Annotated[
+        str | None,
+        typer.Option(
+            "--container-args",
+            help=(
+                "Arguments appended to the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.'
+            ),
+        ),
+    ] = None,
+    env: EnvOpt = None,
+    env_file: EnvFileOpt = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
+    endpoint_type: Annotated[
+        str | None,
+        typer.Option(
+            "--type",
+            click_type=SoftChoice(InferenceEndpointType),
+            help="Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).",
+        ),
+    ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
+    # Custom-container knobs only make sense alongside a custom image.
+    if custom_image is None and (health_route is not None or port is not None or container_command or container_args):
+        raise CLIError("--health-route, --port, --container-command and --container-args require --custom-image.")
+    custom_image_dict: dict | None = None
+    if custom_image is not None:
+        custom_image_dict = {"url": custom_image}
+        if health_route is not None:
+            custom_image_dict["healthRoute"] = health_route
+        if port is not None:
+            custom_image_dict["port"] = port
+
+    env_map = {key: value or "" for key, value in parse_env_map(env, env_file).items()}
+    secrets_map = {key: value or "" for key, value in parse_env_map(secrets, secrets_file).items()}
+
+    # Only forward the values the user actually set and let `create_inference_endpoint` own the defaults.
+    params: dict = {}
+    if endpoint_type is not None:
+        params["type"] = endpoint_type
+    if custom_image_dict is not None:
+        params["custom_image"] = custom_image_dict
+    if container_command:
+        params["container_command"] = shlex.split(container_command)
+    if container_args:
+        params["container_args"] = shlex.split(container_args)
+    if env_map:
+        params["env"] = env_map
+    if secrets_map:
+        params["secrets"] = secrets_map
+
     api = get_hf_api(token=token)
     endpoint = api.create_inference_endpoint(
         name=name,
@@ -172,8 +265,11 @@ def deploy(
         scaling_metric=scaling_metric,
         scaling_threshold=scaling_threshold,
         scale_to_zero_timeout=scale_to_zero_timeout,
+        revision=revision,
+        **params,
     )
     out.dict(endpoint.raw)
+    out.hint(f"Use 'hf endpoints describe {name}' to check the deployment status.")
 
 
 @catalog_app.command(name="deploy", examples=["hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct"])
