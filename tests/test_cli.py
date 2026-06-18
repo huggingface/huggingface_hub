@@ -22,7 +22,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError, SandboxError
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError, SandboxError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -798,7 +798,7 @@ class TestUploadImpl:
             ignore_patterns=None,
             delete_patterns=["*.json"],
         )
-        print_mock.assert_called_once_with("done")
+        print_mock.assert_called_once_with("done", flush=True)
 
     def test_upload_file_mock(self, *_: object) -> None:
         api = Mock()
@@ -835,7 +835,7 @@ class TestUploadImpl:
             commit_description=None,
             create_pr=True,
         )
-        print_mock.assert_called_once_with("uploaded")
+        print_mock.assert_called_once_with("uploaded", flush=True)
 
     def test_upload_file_no_revision_mock(self, *_: object) -> None:
         api = Mock()
@@ -1024,7 +1024,7 @@ class TestDownloadImpl:
                 repo_type=RepoType.model,
                 revision="main",
             )
-        print_mock.assert_called_once_with("file-path")
+        print_mock.assert_called_once_with("file-path", flush=True)
         mock_download.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -1051,7 +1051,7 @@ class TestDownloadImpl:
                 force_download=True,
                 max_workers=4,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1110,8 +1110,12 @@ class TestDownloadImpl:
                 exclude=["data/*"],
                 force_download=True,
             )
-        print_mock.assert_called_once_with("folder-path")
-        assert any("Ignoring" in str(w.message) for w in caught)
+        print_mock.assert_called_once_with("folder-path", flush=True)
+        warning_messages = [str(w.message) for w in caught]
+        assert warning_messages == [
+            "Ignoring `--include` since filenames have been explicitly set.",
+            "Ignoring `--exclude` since filenames have been explicitly set.",
+        ]
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1139,7 +1143,7 @@ class TestDownloadImpl:
                 filenames=["art/"],
                 repo_type=RepoType.dataset,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/dataset",
@@ -1167,7 +1171,7 @@ class TestDownloadImpl:
                 filenames=["art/", "config.json"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1195,7 +1199,7 @@ class TestDownloadImpl:
                 filenames=["art/", "data/images/"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1809,6 +1813,70 @@ class TestRepoDeleteCommand:
             repo_type="dataset",
             missing_ok=True,
         )
+
+
+class TestAuthLoginCommand:
+    DEVICE_INFO = {
+        "device_code": "device-xxx",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": "https://huggingface.co/oauth/device",
+        "verification_uri_complete": "https://huggingface.co/oauth/device?user_code=ABCD-EFGH",
+        "interval": 5,
+        "expires_in": 900,
+    }
+    TOKEN_RESPONSE = {"access_token": "hf_oauth_123", "refresh_token": "rt_123", "expires_in": 2592000}
+
+    @contextmanager
+    def _patched_device_flow(self):
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", return_value=self.TOKEN_RESPONSE) as mock_poll,
+            patch("huggingface_hub.cli.auth._save_oauth_token", return_value=("oauth-testuser", "testuser")),
+        ):
+            yield mock_poll
+
+    def test_login_agent_flow(self, runner: CliRunner) -> None:
+        """In agent mode the command never prompts: it prints relayable instructions, then the result."""
+        with self._patched_device_flow():
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        assert "enter the code ABCD-EFGH" in result.stdout
+        assert "Login successful: logged in as testuser" in result.stdout
+
+    def test_login_agent_already_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_existing"):
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        assert "Already logged in" in result.stdout
+
+    @pytest.mark.parametrize("fmt", ["json", "quiet"])
+    def test_login_rejects_non_interactive_formats(self, runner: CliRunner, fmt: str) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "login", "--format", fmt])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token" in str(result.exception)
+
+    def test_login_agent_denied(self, runner: CliRunner) -> None:
+        error = DeviceCodeError("Authorization was denied. Please try again.", error_code="access_denied")
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", side_effect=error),
+        ):
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, DeviceCodeError)
+
+
+class TestAuthSwitchCommand:
+    def test_switch_requires_token_name_in_non_interactive_mode(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_stored_tokens", return_value={"a": "hf_a", "b": "hf_b"}):
+            result = runner.invoke(app, ["auth", "switch", "--format", "json"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token-name" in str(result.exception)
 
 
 class TestAuthWhoamiCommand:
@@ -2806,6 +2874,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2832,6 +2901,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2888,6 +2958,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2917,6 +2988,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2944,6 +3016,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
 
@@ -2972,6 +3045,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()

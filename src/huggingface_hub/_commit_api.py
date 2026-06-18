@@ -4,10 +4,12 @@ Type definitions and utilities for the `create_commit` API
 
 import base64
 import io
+import json
 import os
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
@@ -37,7 +39,7 @@ from .utils._runtime import is_xet_available
 
 
 if TYPE_CHECKING:
-    from .hf_api import RepoFile
+    from .hf_api import CommitInfo, RepoFile
 
 
 logger = logging.get_logger(__name__)
@@ -385,27 +387,36 @@ def _upload_files(
     create_pr: bool | None = None,
 ):
     """
-    Negotiates per-file transfer (LFS vs Xet) and uploads in batches.
+    Uploads the files through the Xet protocol if possible, otherwise through the legacy LFS protocol.
+
+    The Xet path does not require any Python-side sha256 computation: hashing happens inside `hf_xet`
+    while chunking the files (single read pass) and is backfilled on the operations afterwards.
     """
-    xet_additions: list[CommitOperationAdd] = []
+    has_buffered_io_data = any(isinstance(op.path_or_fileobj, io.BufferedIOBase) for op in additions)
+    if is_xet_available():
+        if not has_buffered_io_data:
+            _upload_xet_files(
+                additions=additions,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                endpoint=endpoint,
+                revision=revision,
+                create_pr=create_pr,
+            )
+            return
+        logger.warning(
+            "Uploading files as a binary IO buffer is not supported by Xet Storage. Falling back to HTTP upload."
+        )
+
+    # Legacy LFS path: sha256 is required by the LFS batch endpoint => compute missing ones (in parallel).
+    _compute_missing_sha256s(additions, num_threads=num_threads)
+
     lfs_actions: list[dict[str, Any]] = []
     lfs_oid2addop: dict[str, CommitOperationAdd] = {}
-
     for chunk in chunk_iterable(additions, chunk_size=UPLOAD_BATCH_MAX_NUM_FILES):
         chunk_list = [op for op in chunk]
-
-        transfers: list[str] = ["basic", "multipart"]
-        has_buffered_io_data = any(isinstance(op.path_or_fileobj, io.BufferedIOBase) for op in chunk_list)
-        if is_xet_available():
-            if not has_buffered_io_data:
-                transfers.append("xet")
-            else:
-                logger.warning(
-                    "Uploading files as a binary IO buffer is not supported by Xet Storage. "
-                    "Falling back to HTTP upload."
-                )
-
-        actions_chunk, errors_chunk, chosen_transfer = post_lfs_batch_info(
+        actions_chunk, errors_chunk, _ = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk_list],
             repo_id=repo_id,
             repo_type=repo_type,
@@ -413,7 +424,7 @@ def _upload_files(
             endpoint=endpoint,
             headers=headers,
             token=None,  # already passed in 'headers'
-            transfers=transfers,
+            transfers=["basic", "multipart"],
         )
         if errors_chunk:
             message = "\n".join(
@@ -423,15 +434,9 @@ def _upload_files(
                 ]
             )
             raise ValueError(f"LFS batch API returned errors:\n{message}")
-
-        # If server returns a transfer we didn't offer (e.g "xet" while uploading from BytesIO),
-        # fall back to LFS for this chunk.
-        if chosen_transfer == "xet" and ("xet" in transfers):
-            xet_additions.extend(chunk_list)
-        else:
-            lfs_actions.extend(actions_chunk)
-            for op in chunk_list:
-                lfs_oid2addop[op.upload_info.sha256.hex()] = op
+        lfs_actions.extend(actions_chunk)
+        for op in chunk_list:
+            lfs_oid2addop[op.upload_info.sha256.hex()] = op
 
     if len(lfs_actions) > 0:
         _upload_lfs_files(
@@ -442,16 +447,18 @@ def _upload_files(
             num_threads=num_threads,
         )
 
-    if len(xet_additions) > 0:
-        _upload_xet_files(
-            additions=xet_additions,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=endpoint,
-            revision=revision,
-            create_pr=create_pr,
-        )
+
+def _compute_missing_sha256s(additions: list[CommitOperationAdd], num_threads: int) -> None:
+    """Compute the sha256 of the operations that don't have one yet, in parallel."""
+    not_hashed = [op for op in additions if not op.upload_info.is_hashed]
+    if len(not_hashed) == 0:
+        return
+    logger.info(f"Computing sha256 for {len(not_hashed)} files.")
+    if len(not_hashed) == 1:
+        _ = not_hashed[0].upload_info.sha256
+        return
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        list(executor.map(lambda op: op.upload_info.sha256, not_hashed))
 
 
 @validate_hf_hub_args
@@ -628,8 +635,15 @@ def _upload_xet_files(
 
     xet_headers = xet_headers_without_auth(headers)
 
+    import hf_xet
+
     session = get_xet_session()
     progress = None
+
+    def _sha256_arg(op: CommitOperationAdd):
+        # If the sha256 is already known, pass it to avoid recomputation. Otherwise let hf_xet
+        # compute it while chunking the file (single read pass) and backfill it afterwards.
+        return op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
 
     try:
         if not are_progress_bars_disabled():
@@ -641,6 +655,7 @@ def _upload_xet_files(
         all_bytes_ops = [op for op in additions if isinstance(op.path_or_fileobj, bytes)]
         all_paths_ops = [op for op in additions if isinstance(op.path_or_fileobj, (str, Path))]
 
+        handles: list[tuple[CommitOperationAdd, Any]] = []
         with session.new_upload_commit(
             token_refresh_url=refresh_url,
             token_refresh_headers=headers,
@@ -648,9 +663,14 @@ def _upload_xet_files(
             progress_callback=progress_callback,
         ) as commit:
             for op in all_paths_ops:
-                commit.start_upload_file(str(op.path_or_fileobj), sha256=op.upload_info.sha256.hex())
+                handles.append((op, commit.start_upload_file(str(op.path_or_fileobj), sha256=_sha256_arg(op))))
             for op in all_bytes_ops:
-                commit.start_upload_bytes(op.path_or_fileobj, sha256=op.upload_info.sha256.hex())
+                handles.append((op, commit.start_upload_bytes(op.path_or_fileobj, sha256=_sha256_arg(op))))
+
+        # Backfill sha256 computed by hf_xet (needed later for the commit payload).
+        for op, handle in handles:
+            if not op.upload_info.is_hashed:
+                op.upload_info.sha256 = bytes.fromhex(handle.result().xet_info.sha256)
     except KeyboardInterrupt:
         abort_xet_session()
         raise
@@ -983,3 +1003,73 @@ def _prepare_commit_payload(
 
     if nb_ignored_files > 0:
         logger.info(f"Skipped {nb_ignored_files} file(s) in commit (ignored by gitignore file).")
+
+
+def _send_commit(
+    *,
+    operations: Iterable[CommitOperation],
+    files_to_copy: dict[_CopySource, Union["RepoFile", bytes]],
+    commit_message: str,
+    commit_description: str,
+    repo_type: str,
+    repo_id: str,
+    headers: dict[str, str],
+    revision: str,
+    endpoint: str | None = None,
+    parent_commit: str | None = None,
+    create_pr: bool = False,
+    hot_reload: bool = False,
+    retry_on_error: bool = False,
+) -> "CommitInfo":
+    """
+    Build the ndjson payload for `operations` and POST it to the `/commit` endpoint of the Hub.
+
+    `revision` must already be URL-quoted. Operations must be ready to commit: upload modes fetched
+    and LFS/Xet content uploaded.
+
+    If `retry_on_error` is `True`, the POST is retried with exponential backoff on transient errors.
+    Caution: if a commit succeeds but its response is lost, the retry will create a duplicate commit
+    (and a duplicate pull request if `create_pr` is set) — only enable it when this is acceptable.
+
+    Returns a [`CommitInfo`] built from the server response.
+
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    payload = _prepare_commit_payload(
+        operations=operations,
+        files_to_copy=files_to_copy,
+        commit_message=commit_message,
+        commit_description=commit_description,
+        parent_commit=parent_commit,
+    )
+    data = b"".join(json.dumps(item).encode() + b"\n" for item in payload)
+    # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+    headers = {"Content-Type": "application/x-ndjson", **headers}
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
+
+    params: dict[str, str] = {}
+    if create_pr:
+        params["create_pr"] = "1"
+    if hot_reload:
+        params["hot_reload"] = "1"
+
+    if retry_on_error:
+        response = http_backoff("POST", url, headers=headers, content=data, params=params)
+    else:
+        response = get_session().post(url, headers=headers, content=data, params=params)
+    hf_raise_for_status(response, endpoint_name="commit")
+
+    commit_data = response.json()
+    from .hf_api import CommitInfo
+
+    return CommitInfo(
+        commit_url=commit_data["commitUrl"],
+        commit_message=commit_message,
+        commit_description=commit_description,
+        oid=commit_data["commitOid"],
+        pr_url=commit_data["pullRequestUrl"] if create_pr else None,
+        _endpoint=endpoint,
+    )

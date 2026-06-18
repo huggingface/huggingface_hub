@@ -293,6 +293,29 @@ This is especially useful for storage buckets, which provide fast, mutable stora
 
 Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
 
+## SSH into a Job
+
+Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container reachable over SSH. The SSH endpoint is available in the Job status:
+
+```python
+>>> from huggingface_hub import run_job
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["sleep", "infinity"],
+...     ssh=True,
+... )
+>>> job.status.ssh_url
+'ssh://68498e23210b3a4f4e6e2a23@ssh.hf.jobs'
+```
+
+Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_id>@ssh.hf.jobs`):
+
+```bash
+>>> hf jobs ssh 68498e23210b3a4f4e6e2a23
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
+
 ## Configure Job Timeout
 
 Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.
