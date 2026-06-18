@@ -77,6 +77,7 @@ from ._jobs_api import (
     JobHardwareInfo,
     JobInfo,
     JobSpec,
+    JobStage,
     ScheduledJobInfo,
     _create_job_spec,
 )
@@ -12070,7 +12071,8 @@ class HfApi:
         job_id: str,
         *,
         timeout: float | None = None,
-        poll_interval: float = 5.0,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo: ...
@@ -12081,7 +12083,8 @@ class HfApi:
         job_id: list[str],
         *,
         timeout: float | None = None,
-        poll_interval: float = 5.0,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> list[JobInfo]: ...
@@ -12091,17 +12094,21 @@ class HfApi:
         job_id: str | list[str],
         *,
         timeout: float | None = None,
-        poll_interval: float = 5.0,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo | list[JobInfo]:
         """
-        Wait until one or more compute Jobs on Hugging Face infrastructure reach a terminal state.
+        Wait until one or more compute Jobs on Hugging Face infrastructure reach a given stage.
 
-        Each Job status is polled (with [`inspect_job`]) every `poll_interval` seconds until its stage is
-        terminal: `"COMPLETED"`, `"CANCELED"`, `"ERROR"` or `"DELETED"`. The final [`JobInfo`] is returned
-        in all cases: a failed or canceled Job does **not** raise an exception — check `job.status.stage`
-        to act on the outcome.
+        Each Job status is polled (with [`inspect_job`]) every `poll_interval` seconds until its stage is one
+        of `stages` (terminal stages by default: `"COMPLETED"`, `"CANCELED"`, `"ERROR"` or `"DELETED"`). The
+        final [`JobInfo`] is returned in all cases: a failed or canceled Job does **not** raise an exception —
+        check `job.status.stage` to act on the outcome.
+
+        Terminal stages always stop the wait, even when not listed in `stages`. This avoids waiting forever for
+        a stage the Job will never reach (e.g. waiting for `"RUNNING"` on a Job that fails during scheduling).
 
         Args:
             job_id (`str` or `list[str]`):
@@ -12113,7 +12120,12 @@ class HfApi:
                 indefinitely.
 
             poll_interval (`float`, *optional*):
-                The time to wait between each status check, in seconds. Defaults to 5s.
+                The time to wait between each status check, in seconds. Defaults to 1s.
+
+            stages (`list[JobStage]`, *optional*):
+                The stages to wait for. Defaults to the terminal stages (`"COMPLETED"`, `"CANCELED"`,
+                `"ERROR"`, `"DELETED"`). Pass e.g. `[JobStage.RUNNING]` to wait for the Job to start running.
+                Terminal stages always stop the wait regardless of this value.
 
             namespace (`str`, *optional*):
                 The namespace where the Job(s) are running. Defaults to the current user's namespace.
@@ -12124,11 +12136,11 @@ class HfApi:
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
 
         Returns:
-            [`JobInfo`] or `list[JobInfo]`: the final Job info(s), in a terminal stage.
+            [`JobInfo`] or `list[JobInfo]`: the final Job info(s).
 
         Raises:
             `TimeoutError`:
-                If at least one Job has not reached a terminal stage after `timeout` seconds.
+                If at least one Job has not reached one of the target stages after `timeout` seconds.
 
         Example:
 
@@ -12144,6 +12156,9 @@ class HfApi:
         if poll_interval <= 0:
             raise ValueError("`poll_interval` must be positive.")
 
+        # Terminal stages always stop the wait, so a Job that never reaches the target stage doesn't hang.
+        target_stages = set(stages) | set(TERMINAL_JOB_STAGES) if stages else set(TERMINAL_JOB_STAGES)
+
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
         deadline = None if timeout is None else time.monotonic() + timeout
@@ -12151,7 +12166,7 @@ class HfApi:
         def _wait_single(single_job_id: str) -> JobInfo:
             while True:
                 job = self.inspect_job(job_id=single_job_id, namespace=namespace, token=token)
-                if job.status.stage in TERMINAL_JOB_STAGES:
+                if job.status.stage in target_stages:
                     return job
                 remaining = None if deadline is None else deadline - time.monotonic()
                 if remaining is not None and remaining <= 0:
