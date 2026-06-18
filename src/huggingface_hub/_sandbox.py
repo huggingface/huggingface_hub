@@ -1009,6 +1009,9 @@ class SandboxPool:
         self._start_timeout = start_timeout
         self._hosts: List[_SandboxServer] = []
         self._lock = threading.Lock()
+        # Held across the whole one-time warm-up so concurrent first create() calls block until
+        # it finishes (and see the warm hosts) instead of racing past a half-set flag.
+        self._warmup_lock = threading.Lock()
         self._closed = False
         # Whether the one-time warm-up (seed cache + pre-provision `warm_up` hosts) ran.
         self._warmed_up = False
@@ -1087,7 +1090,8 @@ class SandboxPool:
         hosts = self._provision_hosts(num_hosts)
         with self._lock:
             self._hosts.extend(hosts)
-        self._warmed_up = True  # explicit warm-up satisfies create()'s one-time warm-up
+        with self._warmup_lock:
+            self._warmed_up = True  # explicit warm-up satisfies create()'s one-time warm-up
         self._save_cache()
         return [host.job_id for host in hosts]
 
@@ -1230,35 +1234,36 @@ class SandboxPool:
         Cheap by default: seeding is local (no HTTP), and if the cache already gives at
         least `warm_up` hosts we trust them and skip discovery/booting (dead ones are
         pruned lazily by `create()`). Only when short do we list_jobs and boot the
-        shortfall in parallel, capped by `max_hosts`. Runs at most once per pool (guarded
-        under the lock so concurrent `create()` calls don't all warm up).
+        shortfall in parallel, capped by `max_hosts`.
+
+        Runs at most once per pool, under `_warmup_lock`: concurrent first `create()` calls
+        block here until the warm-up completes — and see its hosts — rather than racing past
+        a half-set flag and each booting their own. `_warmed_up` is only set once the work
+        succeeds, so a failed warm-up is retried (seeding/discovery dedupe by job id).
 
         Warm-up hosts are pool-level (like [`warm`]): they are not torn down if the
         triggering `create()` later fails — `close()` (or the `with` block) reclaims them.
         """
-        with self._lock:
+        with self._warmup_lock:
             if self._warmed_up:
                 return
+            self._seed_hosts_from_cache()
+            target = self._warm_up if self.max_hosts is None else min(self._warm_up, self.max_hosts)
+            with self._lock:
+                shortfall = target - len(self._hosts)
+            if shortfall > 0:
+                self._discover_hosts()
+                # A connect()'d pool must never boot during warm-up: it may only attach to
+                # existing hosts. Booting is left to create()'s loop, guarded by
+                # `_require_live_host`, so a stopped pool is reported instead of resurrected.
+                if not self._require_live_host:
+                    with self._lock:
+                        shortfall = target - len(self._hosts)
+                    if shortfall > 0:
+                        booted = self._provision_hosts(shortfall)
+                        with self._lock:
+                            self._hosts.extend(booted)
             self._warmed_up = True
-        self._seed_hosts_from_cache()
-        target = self._warm_up if self.max_hosts is None else min(self._warm_up, self.max_hosts)
-        with self._lock:
-            shortfall = target - len(self._hosts)
-        if shortfall <= 0:
-            return
-        self._discover_hosts()
-        # A connect()'d pool must never boot during warm-up: it may only attach to existing
-        # hosts. Booting is left to create()'s loop, which is guarded by `_require_live_host`
-        # so a pool whose hosts are all gone is reported as stopped instead of resurrected.
-        if self._require_live_host:
-            return
-        with self._lock:
-            shortfall = target - len(self._hosts)
-        if shortfall <= 0:
-            return
-        booted = self._provision_hosts(shortfall)
-        with self._lock:
-            self._hosts.extend(booted)
 
     def _reserve_one(self) -> "_SandboxServer | None":
         """Reserve one slot on the first host with free capacity (under lock), else None."""
