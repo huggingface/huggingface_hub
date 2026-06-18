@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import uuid
 from typing import Any
@@ -12,14 +13,20 @@ _PROVIDER = "deepinfra"
 _BASE_URL = "https://api.deepinfra.com"
 
 
-def _encode_multipart(audio: MimeBytes, fields: dict[str, Any]) -> tuple[bytes, str]:
-    """Encode an audio file plus text fields as a ``multipart/form-data`` body.
+def _form_field_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):  # bool before int: bool is an int subclass
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps(value)
 
-    Returns the raw body bytes and the matching ``Content-Type`` header value
-    (including the generated boundary).
-    """
+
+def _encode_multipart(audio: MimeBytes, fields: dict[str, Any]) -> tuple[bytes, str]:
     boundary = uuid.uuid4().hex
-    filename = "audio" + (mimetypes.guess_extension(audio.mime_type or "") or "")
+    # Fall back to .wav when the MIME type is unknown: transcription servers sniff the format from the filename.
+    filename = "audio" + (mimetypes.guess_extension(audio.mime_type or "") or ".wav")
     lines: list[bytes] = [
         f"--{boundary}".encode(),
         f'Content-Disposition: form-data; name="file"; filename="{filename}"'.encode(),
@@ -32,7 +39,7 @@ def _encode_multipart(audio: MimeBytes, fields: dict[str, Any]) -> tuple[bytes, 
             f"--{boundary}".encode(),
             f'Content-Disposition: form-data; name="{key}"'.encode(),
             b"",
-            str(value).encode(),
+            _form_field_value(value).encode(),
         ]
     lines += [f"--{boundary}--".encode(), b""]
     return b"\r\n".join(lines), f"multipart/form-data; boundary={boundary}"
@@ -86,11 +93,9 @@ class DeepInfraAutomaticSpeechRecognitionTask(TaskProviderHelper):
         provider_mapping_info: InferenceProviderMapping,
         extra_payload: dict | None,
     ) -> MimeBytes | None:
-        # DeepInfra exposes an OpenAI-compatible transcription endpoint, which expects
-        # the audio and parameters as a multipart/form-data body (not JSON).
+        # OpenAI-compatible transcription endpoint expects a multipart/form-data body, not JSON.
         audio = _open_as_mime_bytes(inputs)
-        # `model` is applied last so caller-supplied parameters/extra_payload cannot
-        # override the mapped provider model (matches the other DeepInfra helpers).
+        # `model` is applied last so parameters cannot override the mapped provider model.
         fields: dict[str, Any] = {
             **filter_none(parameters),
             **filter_none(extra_payload or {}),
@@ -100,7 +105,16 @@ class DeepInfraAutomaticSpeechRecognitionTask(TaskProviderHelper):
         return MimeBytes(body, mime_type=content_type)
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
-        text = _as_dict(response)["text"]
+        output = _as_dict(response)
+        text = output["text"]
         if not isinstance(text, str):
             raise ValueError(f"Unexpected output format from DeepInfra API. Expected string, got {type(text)}.")
-        return {"text": text}
+        result: dict[str, Any] = {"text": text}
+        segments = output.get("segments")
+        if isinstance(segments, list):
+            result["chunks"] = [
+                {"text": segment.get("text"), "timestamp": [segment.get("start"), segment.get("end")]}
+                for segment in segments
+                if isinstance(segment, dict)
+            ]
+        return result

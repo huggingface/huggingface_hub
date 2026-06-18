@@ -403,16 +403,51 @@ class TestDeepInfraProvider:
         )
         data = helper._prepare_payload_as_bytes(b"dummy_audio_data", {}, mapping, None)
 
-        # multipart/form-data body carrying the audio file and the provider model id
         assert data.mime_type.startswith("multipart/form-data; boundary=")
         assert b'name="file"' in data
         assert b"dummy_audio_data" in data
         assert b'name="model"' in data
         assert b"nvidia/Some-Provider-ASR-Model" in data
+        assert b'filename="audio.wav"' in data
+
+    def test_automatic_speech_recognition_model_not_overridable(self):
+        helper = DeepInfraAutomaticSpeechRecognitionTask()
+        mapping = InferenceProviderMapping(
+            provider="deepinfra",
+            hf_model_id="nvidia/some-asr-model",
+            providerId="nvidia/Some-Provider-ASR-Model",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+        data = helper._prepare_payload_as_bytes(b"audio", {"model": "attacker/model"}, mapping, None)
+        assert b"nvidia/Some-Provider-ASR-Model" in data
+        assert b"attacker/model" not in data
+
+    def test_automatic_speech_recognition_non_string_fields(self):
+        helper = DeepInfraAutomaticSpeechRecognitionTask()
+        mapping = InferenceProviderMapping(
+            provider="deepinfra",
+            hf_model_id="nvidia/some-asr-model",
+            providerId="nvidia/Some-Provider-ASR-Model",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+        data = helper._prepare_payload_as_bytes(
+            b"audio",
+            {"temperature": 0, "timestamp_granularities": ["word"]},
+            mapping,
+            {"stream": True},
+        )
+        assert b'name="stream"\r\n\r\ntrue' in data
+        assert b'["word"]' in data
+        assert b"['word']" not in data
 
     def test_automatic_speech_recognition_response(self):
         helper = DeepInfraAutomaticSpeechRecognitionTask()
         assert helper.get_response({"text": "Hello world"}) == {"text": "Hello world"}
+        assert helper.get_response(
+            {"text": "Hello world", "segments": [{"text": "Hello world", "start": 0.0, "end": 1.5}]}
+        ) == {"text": "Hello world", "chunks": [{"text": "Hello world", "timestamp": [0.0, 1.5]}]}
 
         with pytest.raises(ValueError):
             helper.get_response({"text": 123})
