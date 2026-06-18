@@ -9,6 +9,9 @@ in any Docker image with `/bin/sh` (no Python/pip required). Try it:
 hf sandbox create                        # CLI
 ```
 
+**New here? Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first** — a 5-minute, diagram-driven
+tour of both modes and how they work under the hood.
+
 ## What was built
 
 | piece | where | what |
@@ -33,8 +36,8 @@ with Sandbox.create() as sbx:                          # any image, ready in ~6s
 
 # Fan out cheaply: many landlock sandboxes packed into shared host VMs
 from huggingface_hub import SandboxPool
-with SandboxPool(image="python:3.12") as pool:         # see HOST_MODE.md
-    boxes = pool.create(count=1000)                    # ~20 cpu-basic hosts, ~16s end-to-end
+with SandboxPool(image="python:3.12", warm_up=20) as pool:   # see HOST_MODE.md
+    boxes = [pool.create() for _ in range(1000)]            # ~20 cpu-basic hosts, ~16s end-to-end
 ```
 
 ## Key design decisions (and why)

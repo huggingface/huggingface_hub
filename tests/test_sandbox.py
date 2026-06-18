@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import huggingface_hub._sandbox as sandbox_mod
+import huggingface_hub._sandbox_cache as cache_mod
 from huggingface_hub._sandbox import (
     HOST_LABEL,
     POOL_LABEL,
@@ -17,7 +18,14 @@ from huggingface_hub._sandbox import (
     _duration_to_secs,
     _SandboxServer,
 )
+from huggingface_hub._sandbox_cache import CachedHost, read_pool_cache, save_pool_cache
 from huggingface_hub.errors import SandboxCommandError, SandboxError
+
+
+@pytest.fixture(autouse=True)
+def _isolate_pool_cache(tmp_path, monkeypatch):
+    """Point the best-effort pool cache at a throwaway dir so tests never touch ~/.cache."""
+    monkeypatch.setattr(cache_mod.constants, "HF_HOME", str(tmp_path))
 
 
 class TestHelpers:
@@ -56,15 +64,18 @@ class TestHelpers:
 
 def _make_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _SandboxServer:
     """Build a _SandboxServer wired to a local fake server, bypassing job creation."""
-    job = MagicMock()
-    job.id = job_id
-    job.owner.name = "user"
-    job.docker_image = "python:3.12"
-    job.space_id = None
-    job.status.expose_urls = [base_url]
     api = MagicMock()
     api.token = "hf_test"
-    return _SandboxServer(job=job, base_url=base_url, sandbox_token="secret", api=api, capacity=capacity)
+    return _SandboxServer(
+        job_id=job_id,
+        owner="user",
+        image="python:3.12",
+        base_url=base_url,
+        nonce="nonce",
+        sandbox_token="secret",
+        api=api,
+        capacity=capacity,
+    )
 
 
 def _make_sandbox(base_url: str) -> Sandbox:
@@ -263,14 +274,14 @@ class TestSandboxPool:
 
     def test_packs_into_hosts_and_tracks_slots(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch, per_host=4)
-        boxes = pool.create(count=6)  # ceil(6/4) = 2 hosts
-        assert isinstance(boxes, list) and len(boxes) == 6
+        boxes = [pool.create() for _ in range(6)]  # 6 sandboxes, 4 per host -> 2 hosts
+        assert len(boxes) == 6
         assert pool.num_hosts == 2
         assert pool.num_sandboxes == 6
         # Each sandbox id is "<host_job_id>.<local_id>".
         assert all("." in b.id for b in boxes)
 
-    def test_single_create_returns_one_sandbox(self, fake_server: str, monkeypatch) -> None:
+    def test_create_returns_one_sandbox(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch)
         box = pool.create()
         assert isinstance(box, Sandbox)
@@ -278,28 +289,39 @@ class TestSandboxPool:
 
     def test_kill_frees_slot(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch, per_host=4)
-        boxes = pool.create(count=2)
+        boxes = [pool.create() for _ in range(2)]
         assert pool.num_sandboxes == 2
         boxes[0].kill()
         assert pool.num_sandboxes == 1  # slot reclaimed via the pool callback
 
     def test_reuses_free_slots_before_new_host(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch, per_host=4)
-        pool.create(count=2)
-        pool.create(count=2)  # fits on the same host (4 slots)
+        for _ in range(4):
+            pool.create()  # all fit on the same host (4 slots)
         assert pool.num_hosts == 1
         assert pool.num_sandboxes == 4
+
+    def test_warm_up_preprovisions_hosts(self, fake_server: str, monkeypatch) -> None:
+        # warm_up=3 boots 3 hosts on the first create(); the rest stay warm for later.
+        pool = SandboxPool(image="python:3.12", sandboxes_per_host=4, warm_up=3, token="hf_test")
+        pool._api.list_jobs = MagicMock(return_value=[])
+        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=4))
+        pool.create()
+        assert pool.num_hosts == 3  # pre-provisioned despite only one sandbox created
+        assert pool.num_sandboxes == 1
 
     def test_max_hosts_enforced(self, fake_server: str, monkeypatch) -> None:
         pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, token="hf_test")
         pool._api.list_jobs = MagicMock(return_value=[])
         monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=2))
+        pool.create()
+        pool.create()  # fills the single allowed host (capacity 2)
         with pytest.raises(SandboxError, match="max_hosts"):
-            pool.create(count=3)  # needs 2 hosts, only 1 allowed
+            pool.create()  # would need a 2nd host, only 1 allowed
 
     def test_close_cancels_hosts(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch)
-        pool.create(count=1)
+        pool.create()
         host = pool._hosts[0]
         pool.close()
         host._api.cancel_job.assert_called_once()
@@ -309,15 +331,14 @@ class TestSandboxPool:
 
     def test_full_host_triggers_duplicate(self, monkeypatch) -> None:
         # First host fills at 1 sandbox (server-authoritative); the duplicate has room.
-        # create(count=2) must place one on each, booting the second when the first is full.
+        # The 2nd create() must boot a second host when the first reports full.
         url1, _ = _spawn_fake(capacity=1)
         url2, _ = _spawn_fake(capacity=10)
         servers = iter([_make_server(url1, job_id="h0", capacity=2), _make_server(url2, job_id="h1", capacity=2)])
         pool = SandboxPool(sandboxes_per_host=2, token="hf_test")
         pool._api.list_jobs = MagicMock(return_value=[])
         monkeypatch.setattr(pool, "_boot_host", lambda: next(servers))
-        boxes = pool.create(count=2)
-        assert len(boxes) == 2
+        boxes = [pool.create(), pool.create()]
         assert pool.num_hosts == 2  # had to boot a duplicate
         assert {b.id.split(".")[0] for b in boxes} == {"h0", "h1"}
 
@@ -400,3 +421,113 @@ class TestPoolConnect:
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [])
         with pytest.raises(SandboxError, match="No running host found for pool"):
             SandboxPool.connect("pool-dead", token="hf_test")
+
+
+def _save_cache(pool_id: str, hosts, **overrides) -> None:
+    """Write a pool cache with sane defaults, overriding config fields as needed."""
+    config = {
+        "image": "python:3.12",
+        "flavor": "cpu-basic",
+        "sandboxes_per_host": 4,
+        "idle_timeout": 600,
+        "namespace": None,
+        "server_source": "download",
+        **overrides,
+    }
+    save_pool_cache(pool_id, hosts=hosts, **config)
+
+
+class TestPoolCacheFile:
+    """Unit tests for the on-disk cache layout (`$HF_HOME/sandbox/pools/<id>.json`)."""
+
+    def test_round_trip(self) -> None:
+        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 1)], namespace="ns")
+        cache = read_pool_cache("p")
+        assert cache is not None
+        assert (cache.image, cache.sandboxes_per_host, cache.namespace) == ("python:3.12", 4, "ns")
+        assert cache.hosts[0].job_id == "h1" and cache.hosts[0].live == 1
+
+    def test_missing_returns_none(self) -> None:
+        assert read_pool_cache("does-not-exist") is None
+
+    def test_corrupt_returns_none(self) -> None:
+        path = cache_mod.pool_cache_path("bad")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{ not valid json")
+        assert read_pool_cache("bad") is None  # tolerated as a cache miss
+
+    def test_version_mismatch_returns_none(self, monkeypatch) -> None:
+        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0)])
+        monkeypatch.setattr(cache_mod, "_CACHE_VERSION", 999)
+        assert read_pool_cache("p") is None
+
+    def test_merge_upserts_and_prunes(self) -> None:
+        _save_cache(
+            "p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0), CachedHost("h2", "user", "u2", "n2", 4, 0)]
+        )
+        # A second writer updates h2's live count and reports h1 as dead.
+        _save_cache("p", [CachedHost("h2", "user", "u2", "n2", 4, 3)], dead_host_ids={"h1"})
+        cache = read_pool_cache("p")
+        assert cache is not None
+        assert {h.job_id for h in cache.hosts} == {"h2"}  # h1 pruned, h2 kept
+        assert cache.hosts[0].live == 3  # updated value won
+
+    def test_delete(self) -> None:
+        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0)])
+        cache_mod.delete_pool_cache("p")
+        assert read_pool_cache("p") is None
+
+
+class TestPoolCacheIntegration:
+    """`SandboxPool.connect` + `create` use the cache to skip list_jobs/inspect_job when warm."""
+
+    def test_warm_cache_packs_without_listing_jobs(self, fake_server: str, monkeypatch) -> None:
+        # An earlier run left a warm host in the cache; a fresh pool must reach it with no HTTP
+        # other than the create POST itself.
+        _save_cache("pool-cached", [CachedHost("host-cached", "user", fake_server, "nonce", 4, 0)])
+        monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
+
+        pool = SandboxPool.connect("pool-cached", token="hf_test")
+        pool._api.list_jobs = MagicMock(side_effect=AssertionError("must not list jobs"))
+        monkeypatch.setattr(pool, "_boot_host", lambda: pytest.fail("must not boot a host"))
+
+        box = pool.create()
+        assert isinstance(box, Sandbox) and box.host_id == "host-cached"
+        pool._api.list_jobs.assert_not_called()
+        cache = read_pool_cache("pool-cached")
+        assert cache is not None and cache.hosts[0].live == 1  # live count persisted back
+
+    def test_stale_host_falls_back_to_discovery_and_prunes(self, fake_server: str, monkeypatch) -> None:
+        # The cached host is dead (refused connection); discovery finds a live one via labels.
+        _save_cache("pool-stale", [CachedHost("dead", "user", "http://127.0.0.1:1", "n", 4, 0)])
+        monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
+        pool = SandboxPool.connect("pool-stale", token="hf_test")
+
+        live_job = MagicMock()
+        live_job.id, live_job.flavor = "live", "cpu-basic"
+        live_job.owner.name, live_job.docker_image, live_job.space_id = "user", "python:3.12", None
+        live_job.status.stage = "RUNNING"
+        live_job.labels = {SANDBOX_LABEL: "n", HOST_LABEL: "1", POOL_LABEL: "pool-stale"}
+        live_job.environment = {"SBX_CAPACITY": "4"}
+        pool._api.list_jobs = MagicMock(return_value=[live_job])
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+
+        box = pool.create()
+        assert box.host_id == "live"
+        cache = read_pool_cache("pool-stale")
+        assert cache is not None and [h.job_id for h in cache.hosts] == ["live"]  # dead host pruned
+
+    def test_stale_cache_does_not_resurrect_dead_pool(self, monkeypatch) -> None:
+        # connect() trusted a stale cache, but every host is gone and labels find nothing:
+        # create() must refuse to boot a fresh host under the same id, and clear the cache.
+        _save_cache("pool-ghost", [CachedHost("dead", "user", "http://127.0.0.1:1", "n", 4, 0)])
+        monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
+        pool = SandboxPool.connect("pool-ghost", token="hf_test")
+        pool._api.list_jobs = MagicMock(return_value=[])
+        monkeypatch.setattr(pool, "_boot_host", lambda: pytest.fail("must not resurrect the pool"))
+
+        with pytest.raises(SandboxError, match="No running host found"):
+            pool.create()
+        assert read_pool_cache("pool-ghost") is None  # cleared

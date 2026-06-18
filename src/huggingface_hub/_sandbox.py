@@ -35,8 +35,8 @@ Two ways to get a sandbox, sharing the same `Sandbox` surface (`run`, `spawn`,
 hello from the sandbox
 
 >>> from huggingface_hub import SandboxPool
->>> with SandboxPool(image="python:3.12") as pool:
-...     boxes = pool.create(count=100)          # 100 sandboxes across shared hosts
+>>> with SandboxPool(image="python:3.12", warm_up=2) as pool:
+...     boxes = [pool.create() for _ in range(100)]   # packed across the warm hosts
 ...     print(boxes[0].run("echo hi").stdout)
 hi
 ```
@@ -59,6 +59,12 @@ from typing import Any, BinaryIO, Callable, Iterator, List
 import httpx
 
 from . import constants
+from ._sandbox_cache import (
+    CachedHost,
+    delete_pool_cache,
+    read_pool_cache,
+    save_pool_cache,
+)
 from ._space_api import Volume
 from .errors import SandboxCommandError, SandboxError
 from .hf_api import HfApi, JobInfo
@@ -414,23 +420,32 @@ class _SandboxServer:
     def __init__(
         self,
         *,
-        job: JobInfo,
+        job_id: str,
+        owner: str,
+        image: str | None,
         base_url: str,
+        nonce: str,
         sandbox_token: str,
         api: HfApi,
         max_connections: int = 10,
         capacity: int = 0,
     ) -> None:
-        self.job = job
-        self.job_id = job.id
-        self.owner = job.owner.name
+        self.job_id = job_id
+        self.owner = owner
+        self._image = image
         self.base_url = base_url
+        # Public nonce the sandbox token is derived from; kept so a host can be persisted
+        # to (and rebuilt from) the pool cache without re-reading the job labels.
+        self.nonce = nonce
         self._api = api
         self._auth_token = _effective_token(api)
         self._sandbox_token = sandbox_token
         # Packing bookkeeping (shared mode only).
         self.capacity = capacity
         self.live = 0
+        # False only for hosts rebuilt from the (best-effort) pool cache: their job may
+        # be gone, so the first failed request drops them instead of failing the create.
+        self.verified = True
         # httpx.Client is thread-safe, so a single client serves both sequential requests
         # and the concurrent workers used for parallel file transfers / many sandboxes.
         self._client = httpx.Client(
@@ -442,9 +457,33 @@ class _SandboxServer:
             follow_redirects=True,
         )
 
+    @classmethod
+    def from_job(
+        cls,
+        *,
+        job: JobInfo,
+        nonce: str,
+        sandbox_token: str,
+        api: HfApi,
+        max_connections: int = 10,
+        capacity: int = 0,
+    ) -> "_SandboxServer":
+        """Build a server from a freshly fetched job (reads its exposed server URL)."""
+        return cls(
+            job_id=job.id,
+            owner=job.owner.name,
+            image=job.docker_image or job.space_id,
+            base_url=_find_server_url(job),
+            nonce=nonce,
+            sandbox_token=sandbox_token,
+            api=api,
+            max_connections=max_connections,
+            capacity=capacity,
+        )
+
     @property
     def image(self) -> str | None:
-        return self.job.docker_image or self.job.space_id
+        return self._image
 
     def request(self, method: str, path: str, **kwargs) -> httpx.Response:
         """Request to the in-job server. Raises SandboxError on API errors."""
@@ -609,9 +648,9 @@ class Sandbox:
         )
         server: "_SandboxServer | None" = None
         try:
-            server = _SandboxServer(
+            server = _SandboxServer.from_job(
                 job=job,
-                base_url=_find_server_url(job),
+                nonce=nonce,
                 sandbox_token=sandbox_token,
                 api=api,
                 max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,
@@ -660,9 +699,9 @@ class Sandbox:
         if job.status.stage != "RUNNING":
             raise SandboxError(f"Sandbox {sandbox_id} is not running (status: {job.status.stage}).")
         sandbox_token = _derive_sandbox_token(_effective_token(api), nonce)
-        server = _SandboxServer(
+        server = _SandboxServer.from_job(
             job=job,
-            base_url=_find_server_url(job),
+            nonce=nonce,
             sandbox_token=sandbox_token,
             api=api,
             max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,
@@ -858,17 +897,18 @@ class SandboxPool:
 
     ```python
     >>> from huggingface_hub import SandboxPool
-    >>> with SandboxPool(image="python:3.12", flavor="cpu-basic") as pool:
-    ...     boxes = pool.create(count=100)   # ~ceil(100/50)=2 hosts spun up in parallel
+    >>> with SandboxPool(image="python:3.12", flavor="cpu-basic", warm_up=2) as pool:
+    ...     boxes = [pool.create() for _ in range(100)]   # packed across the warm hosts
     ...     print(boxes[0].run("echo hi").stdout)
     hi
     ```
 
-    `create()` reuses a host that still has free capacity before booting a new one,
-    so you can also grow on demand — one sandbox at a time — instead of warming a
-    whole batch up front. Warm hosts are discovered via job labels, so reuse works
-    **across processes** too (a fresh pool with the same `image`/`flavor`/`name`
-    attaches to hosts an earlier run left behind):
+    `create()` makes **one** sandbox at a time: it reuses a host that still has free
+    capacity before booting a new one, so you grow on demand as work arrives. To avoid
+    a cold start on the first few calls, pre-provision hosts with `warm_up` (or
+    [`warm`]). Warm hosts are discovered via job labels, so reuse works **across
+    processes** too (a fresh pool with the same `image`/`flavor`/`name` attaches to
+    hosts an earlier run left behind):
 
     ```python
     >>> pool = SandboxPool(image="python:3.12")
@@ -882,6 +922,7 @@ class SandboxPool:
         *,
         flavor: str = "cpu-basic",
         sandboxes_per_host: int = DEFAULT_SANDBOXES_PER_HOST,
+        warm_up: int = 1,
         max_hosts: int | None = None,
         name: str | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
@@ -900,6 +941,11 @@ class SandboxPool:
                 pool share this image.
             flavor: Hardware flavor for the host jobs (e.g. `"cpu-basic"`).
             sandboxes_per_host: How many sandboxes to pack per host (per VM density).
+            warm_up: How many hosts to pre-provision on the first `create()`, so an
+                initial burst of `create()` calls doesn't pay a host cold start each.
+                Existing warm hosts (from the cache / other processes) count towards it,
+                so only the shortfall is booted; capped by `max_hosts`. Defaults to 1
+                (boot one host on demand).
             max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
             name: Optional pool name. `create()` reuses running hosts (found via job
@@ -917,10 +963,13 @@ class SandboxPool:
         """
         if sandboxes_per_host < 1:
             raise ValueError("sandboxes_per_host must be >= 1.")
+        if warm_up < 1:
+            raise ValueError("warm_up must be >= 1.")
         self._api = HfApi(token=token)
         self.image = image
         self.flavor = flavor
         self.sandboxes_per_host = sandboxes_per_host
+        self._warm_up = warm_up
         self.max_hosts = max_hosts
         self.name = name
         self._idle_timeout = idle_timeout
@@ -930,6 +979,13 @@ class SandboxPool:
         self._hosts: List[_SandboxServer] = []
         self._lock = threading.Lock()
         self._closed = False
+        # Whether the one-time warm-up (seed cache + pre-provision `warm_up` hosts) ran.
+        self._warmed_up = False
+        # Set by connect(): the pool must already exist, so create() refuses to silently
+        # resurrect it by booting a fresh host if discovery confirms every host is gone.
+        self._require_live_host = False
+        # Job ids of cached hosts we found dead this session; pruned from the cache on save.
+        self._dead_host_ids: set[str] = set()
 
     # ------------------------------------------------------------------ public API
 
@@ -950,6 +1006,25 @@ class SandboxPool:
             namespace: Namespace to search for the pool's hosts (defaults to yours).
             token: HF token override.
         """
+        # Fast path: rebuild the pool from the local best-effort cache, with no HTTP at all.
+        # The cached hosts are seeded (and verified) lazily on the next create(); if they are
+        # all stale, create() falls back to label discovery exactly like a cold connect would.
+        cache = read_pool_cache(pool_id)
+        if cache is not None:
+            pool = cls(
+                image=cache.image,
+                flavor=cache.flavor,
+                sandboxes_per_host=cache.sandboxes_per_host,
+                name=pool_id,
+                idle_timeout=cache.idle_timeout,
+                namespace=cache.namespace if namespace is None else namespace,
+                server_source=cache.server_source,
+                token=token,
+            )
+            pool._require_live_host = True
+            return pool
+
+        # Cold path: find a running host via labels and rebuild the config from its job spec.
         api = HfApi(token=token)
         job = _find_pool_host_job(api, pool_id, namespace=namespace)
         env = job.environment or {}
@@ -957,7 +1032,7 @@ class SandboxPool:
             # list_jobs may omit env; fetch the full spec.
             env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
-        return cls(
+        pool = cls(
             image=job.docker_image or job.space_id or DEFAULT_IMAGE,
             flavor=str(job.flavor) if job.flavor is not None else "cpu-basic",
             sandboxes_per_host=int(env.get("SBX_CAPACITY", DEFAULT_SANDBOXES_PER_HOST)),
@@ -966,6 +1041,8 @@ class SandboxPool:
             namespace=namespace,
             token=token,
         )
+        pool._require_live_host = True
+        return pool
 
     def warm(self, num_hosts: int = 1) -> List[str]:
         """Boot `num_hosts` empty host(s) now and leave them running. Returns their job ids.
@@ -980,90 +1057,81 @@ class SandboxPool:
         hosts = self._provision_hosts(num_hosts)
         with self._lock:
             self._hosts.extend(hosts)
+        self._warmed_up = True  # explicit warm-up satisfies create()'s one-time warm-up
+        self._save_cache()
         return [host.job_id for host in hosts]
 
     def create(
         self,
-        count: int = 1,
         *,
         env: dict[str, Any] | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
-    ) -> "Sandbox | List[Sandbox]":
-        """Create `count` sandboxes, provisioning hosts as needed.
+    ) -> "Sandbox":
+        """Create one sandbox, provisioning a host if needed.
 
-        Returns a single [`Sandbox`] when `count == 1`, else a list. Existing hosts with
-        free capacity (this pool's, or warm hosts found via job labels) are filled first;
-        only the shortfall boots new hosts, in parallel, with one batched create per host.
-        So a single `create()` reuses a warm host in ~one round-trip, and a large fan-out
-        costs ~one host cold start. If a host fills up under us (another process packed
-        it), the rejected sandboxes are re-placed on another host (or a fresh one).
+        Reuses a host with free capacity (this pool's, or a warm host found via job labels
+        / the local cache) before booting a new one, so a `create()` against a warm host
+        costs ~one round-trip. Call it repeatedly to fan out; use `warm_up` (or [`warm`])
+        to pre-provision hosts and avoid a cold start on the first calls. If a host fills
+        up under us (another process packed it) or a cached host is gone, the sandbox is
+        re-placed on another host (or a fresh one).
 
         Args:
-            count: Number of sandboxes to create.
-            env: Environment variables for these sandboxes (each sandbox gets its own).
+            env: Environment variables for this sandbox (each sandbox gets its own).
             idle_timeout: Per-sandbox idle timeout — a sandbox is evicted from its host
                 after this much inactivity (no API calls, no running process). Distinct
                 from the host idle timeout. Pass `None` to disable.
         """
         if self._closed:
             raise SandboxError("This SandboxPool is closed.")
-        if count < 1:
-            raise ValueError("count must be >= 1.")
         sandbox_env = dict(env or {})
         idle_secs = _duration_to_secs(idle_timeout) if idle_timeout is not None else 0
 
-        created: List[Sandbox] = []
         new_hosts: List[_SandboxServer] = []
-        remaining = count
         discovered = False
         rounds = 0
         try:
-            while remaining > 0:
-                # 1. Reserve slots on hosts we already track.
-                reservations, shortfall = self._reserve_on_existing(remaining)
-                # 2. If short, attach (once) to warm hosts discovered via labels — incl.
-                #    hosts other processes left running for this pool.
-                if shortfall > 0 and not discovered:
+            # One-time warm-up: seed from cache (no HTTP) and pre-provision `warm_up` hosts.
+            # Warm-up hosts are pool-level (like `warm()`), so they survive a failed create().
+            self._ensure_warmed_up()
+            while True:
+                # 1. Reserve a slot on a host we already track.
+                host = self._reserve_one()
+                # 2. If none free, attach (once) to warm hosts discovered via labels.
+                if host is None and not discovered:
                     discovered = True
                     self._discover_hosts()
-                    more, shortfall = self._reserve_on_existing(shortfall)
-                    reservations.extend(more)
-                # 3. Still short? Boot new hosts for the remainder.
-                if shortfall > 0:
-                    num_new = -(-shortfall // self.sandboxes_per_host)  # ceil
-                    booted = self._provision_hosts(num_new)
+                    host = self._reserve_one()
+                # 3. Still none? Boot one host (unless we must not resurrect a dead pool).
+                if host is None:
+                    if self._require_live_host and self.name is not None and discovered and not self._hosts:
+                        # connect()'d to a pool whose hosts are all gone (stale cache + nothing
+                        # found via labels): don't resurrect it under the same id, just report it.
+                        delete_pool_cache(self.name)
+                        raise SandboxError(
+                            f"No running host found for pool '{self.name}'. The pool has stopped "
+                            "(all its hosts were killed or idle-timed-out); create a new one."
+                        )
+                    booted = self._provision_hosts(1)
                     new_hosts.extend(booted)
                     with self._lock:
-                        for host in booted:
-                            if shortfall <= 0:
-                                break
-                            take = min(host.capacity, shortfall)
-                            host.live += take
-                            self._hosts.append(host)
-                            reservations.append((host, take))
-                            shortfall -= take
-                # 4. Create on each reserved host (parallel). A host may report it filled
-                #    up (server-authoritative capacity) — those go back into `remaining`.
-                batch, rejected = self._create_on_hosts(reservations, sandbox_env, idle_secs)
-                created.extend(batch)
-                remaining -= len(batch)
-                if rejected == 0:
-                    continue
+                        self._hosts.extend(booted)
+                    host = self._reserve_one()
+                # 4. Create the sandbox on the reserved host. `None` means the host filled up
+                #    (another process packed it) or a stale cached host is gone — retry.
+                if host is not None:
+                    sandbox = self._create_one(host, sandbox_env, idle_secs)
+                    if sandbox is not None:
+                        self._save_cache()
+                        return sandbox
                 discovered = False  # re-scan for room / boot a host next round
                 rounds += 1
                 if rounds > _MAX_PACK_ROUNDS:
                     raise SandboxError(
-                        f"Could not place {remaining} sandbox(es): hosts kept reporting full. "
-                        "Raise max_hosts or sandboxes_per_host."
+                        "Could not place sandbox: hosts kept reporting full. Raise max_hosts or sandboxes_per_host."
                     )
-            return created[0] if count == 1 else created
         except Exception:
-            # All-or-nothing: tear down sandboxes created in this call and hosts we booted.
-            for sandbox in created:
-                try:
-                    sandbox.kill()
-                except Exception:
-                    pass
+            # All-or-nothing: tear down hosts we booted in this call.
             with self._lock:
                 self._hosts = [h for h in self._hosts if h not in new_hosts]
             for host in new_hosts:
@@ -1106,6 +1174,8 @@ class SandboxPool:
                 logger.warning(f"Failed to cancel sandbox host {host.job_id}: {e}")
             finally:
                 host.close()
+        if self.name is not None:
+            delete_pool_cache(self.name)  # the pool's hosts are gone; don't leave a stale entry
 
     def __enter__(self) -> "SandboxPool":
         return self
@@ -1115,21 +1185,45 @@ class SandboxPool:
 
     # ------------------------------------------------------------------ internals
 
-    def _reserve_on_existing(self, count: int) -> tuple[List[tuple[_SandboxServer, int]], int]:
-        """Optimistically reserve up to `count` slots on existing hosts (under lock)."""
-        reservations: List[tuple[_SandboxServer, int]] = []
-        remaining = count
+    def _ensure_warmed_up(self) -> None:
+        """One-time: seed from the cache and pre-provision up to `warm_up` hosts.
+
+        Cheap by default: seeding is local (no HTTP), and if the cache already gives at
+        least `warm_up` hosts we trust them and skip discovery/booting (dead ones are
+        pruned lazily by `create()`). Only when short do we list_jobs and boot the
+        shortfall in parallel, capped by `max_hosts`. Runs at most once per pool (guarded
+        under the lock so concurrent `create()` calls don't all warm up).
+
+        Warm-up hosts are pool-level (like [`warm`]): they are not torn down if the
+        triggering `create()` later fails — `close()` (or the `with` block) reclaims them.
+        """
+        with self._lock:
+            if self._warmed_up:
+                return
+            self._warmed_up = True
+        self._seed_hosts_from_cache()
+        target = self._warm_up if self.max_hosts is None else min(self._warm_up, self.max_hosts)
+        with self._lock:
+            shortfall = target - len(self._hosts)
+        if shortfall <= 0:
+            return
+        self._discover_hosts()
+        with self._lock:
+            shortfall = target - len(self._hosts)
+        if shortfall <= 0:
+            return
+        booted = self._provision_hosts(shortfall)
+        with self._lock:
+            self._hosts.extend(booted)
+
+    def _reserve_one(self) -> "_SandboxServer | None":
+        """Reserve one slot on the first host with free capacity (under lock), else None."""
         with self._lock:
             for host in self._hosts:
-                if remaining <= 0:
-                    break
-                free = host.capacity - host.live
-                take = min(free, remaining)
-                if take > 0:
-                    host.live += take
-                    reservations.append((host, take))
-                    remaining -= take
-        return reservations, remaining
+                if host.capacity - host.live > 0:
+                    host.live += 1
+                    return host
+        return None
 
     def _discover_hosts(self) -> None:
         """Attach to running host jobs that match this pool (image/flavor/name).
@@ -1216,9 +1310,9 @@ class SandboxPool:
             expose=[SANDBOX_SERVER_PORT],
             namespace=self._namespace,
         )
-        server = _SandboxServer(
+        server = _SandboxServer.from_job(
             job=job,
-            base_url=_find_server_url(job),
+            nonce=nonce,
             sandbox_token=sandbox_token,
             api=self._api,
             max_connections=min(self.sandboxes_per_host + 8, 256),
@@ -1235,51 +1329,119 @@ class SandboxPool:
             raise
         return server
 
-    def _create_on_hosts(
-        self, reservations: List[tuple[_SandboxServer, int]], env: dict[str, Any], idle_secs: int
-    ) -> tuple[List[Sandbox], int]:
-        """Batch-create the reserved sandboxes per host (parallel). Returns (sandboxes, rejected).
+    def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int) -> "Sandbox | None":
+        """Create one sandbox on a reserved `host`. Returns the sandbox, or None to retry.
 
-        A host reports `rejected > 0` when it filled up between our reservation and the
-        create (another client packed it). Those slots are returned so `create()` can
-        place them elsewhere, and the host is marked full so we don't reserve it again.
+        None means either the host filled up between our reservation and the create
+        (server-authoritative capacity — another client packed it, so we mark it full and
+        place the sandbox elsewhere) or a host rebuilt from the cache is gone/unreachable
+        (dropped and re-placed via discovery / a fresh boot).
         """
-
-        def create_on(reservation: tuple[_SandboxServer, int]) -> tuple[List[Sandbox], int]:
-            host, n = reservation
-            body: dict[str, Any] = {"count": n, "idle_timeout_secs": idle_secs}
-            if env:
-                body["env"] = env
+        body: dict[str, Any] = {"count": 1, "idle_timeout_secs": idle_secs}
+        if env:
+            body["env"] = env
+        try:
             data = host.request("POST", "/v1/sandboxes", json=body).json()
-            rejected = int(data.get("rejected", 0))
-            if rejected:
-                with self._lock:
-                    host.live = host.capacity  # the host is full; stop reserving it
-            sandboxes = []
-            for item in data["sandboxes"]:
-                sandbox = Sandbox(
-                    id=f"{host.job_id}{SHARED_ID_SEP}{item['id']}",
-                    server=host,
-                    local_id=item["id"],
-                    owns_sandbox=True,
-                    owns_server=False,
-                )
-                sandbox._on_kill = self._on_sandbox_killed
-                sandboxes.append(sandbox)
-            return sandboxes, rejected
-
-        if not reservations:
-            return [], 0
-        if len(reservations) == 1:
-            return create_on(reservations[0])
-        with ThreadPoolExecutor(max_workers=min(len(reservations), 32)) as executor:
-            results = list(executor.map(create_on, reservations))
-        return [sbx for group, _ in results for sbx in group], sum(rej for _, rej in results)
+        except (SandboxError, httpx.HTTPError) as e:
+            if host.verified:
+                raise  # a host we booted/discovered this session failing is a real error
+            logger.debug(f"Dropping unreachable cached host {host.job_id}: {e}")
+            self._drop_host(host)
+            return None
+        host.verified = True  # it answered, so it's a real live host now
+        sandboxes = data.get("sandboxes") or []
+        if int(data.get("rejected", 0)) or not sandboxes:
+            with self._lock:
+                host.live = host.capacity  # the host is full; stop reserving it
+            return None
+        item = sandboxes[0]
+        sandbox = Sandbox(
+            id=f"{host.job_id}{SHARED_ID_SEP}{item['id']}",
+            server=host,
+            local_id=item["id"],
+            owns_sandbox=True,
+            owns_server=False,
+        )
+        sandbox._on_kill = self._on_sandbox_killed
+        return sandbox
 
     def _on_sandbox_killed(self, sandbox: Sandbox) -> None:
         """Free the packing slot of a shared sandbox that was killed."""
         with self._lock:
             sandbox._server.live = max(0, sandbox._server.live - 1)
+
+    def _drop_host(self, host: _SandboxServer) -> None:
+        """Forget a host found dead this session (and mark it for cache pruning)."""
+        with self._lock:
+            self._hosts = [h for h in self._hosts if h is not host]
+            self._dead_host_ids.add(host.job_id)
+        host.close()
+
+    # ------------------------------------------------------------------ cache (best effort)
+
+    def _seed_hosts_from_cache(self) -> None:
+        """Adopt the pool's cached hosts without any HTTP (rebuilt from cached URL + nonce).
+
+        Best-effort and unverified: each adopted host is confirmed on the first successful
+        request (and dropped on the first failure, see `_create_one`). Hosts the cache
+        believes are full are skipped — label discovery re-checks them with fresh counts if
+        the seeded ones don't satisfy the request, so a stale-full entry never blocks a create.
+        """
+        if self.name is None:
+            return
+        cache = read_pool_cache(self.name)
+        if cache is None:
+            return
+        hf_token = _effective_token(self._api)
+        with self._lock:
+            known = {host.job_id for host in self._hosts}
+            for ch in cache.hosts:
+                if ch.job_id in known or ch.live >= ch.capacity:
+                    continue
+                server = _SandboxServer(
+                    job_id=ch.job_id,
+                    owner=ch.owner,
+                    image=self.image,
+                    base_url=ch.base_url,
+                    nonce=ch.nonce,
+                    sandbox_token=_derive_sandbox_token(hf_token, ch.nonce),
+                    api=self._api,
+                    max_connections=min(self.sandboxes_per_host + 8, 256),
+                    capacity=ch.capacity,
+                )
+                server.live = ch.live
+                server.verified = False
+                self._hosts.append(server)
+
+    def _save_cache(self) -> None:
+        """Persist the pool config + current hosts (with their live counts) for next time."""
+        if self.name is None:
+            return
+        with self._lock:
+            hosts = [
+                CachedHost(
+                    job_id=host.job_id,
+                    owner=host.owner,
+                    base_url=host.base_url,
+                    nonce=host.nonce,
+                    capacity=host.capacity,
+                    live=host.live,
+                    updated_at=time.time(),
+                )
+                for host in self._hosts
+            ]
+            dead = set(self._dead_host_ids)
+        save_pool_cache(
+            self.name,
+            image=self.image,
+            flavor=self.flavor,
+            sandboxes_per_host=self.sandboxes_per_host,
+            idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
+            namespace=self._namespace,
+            server_source=self._server_source,
+            hosts=hosts,
+            dead_host_ids=dead,
+        )
 
 
 def _effective_token(api: HfApi) -> str:
@@ -1355,9 +1517,9 @@ def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None)
         raise SandboxError(f"Job {host_job_id} is not a sandbox host.")
     if job.status.stage != "RUNNING":
         raise SandboxError(f"Sandbox host {host_job_id} is not running (status: {job.status.stage}).")
-    return _SandboxServer(
+    return _SandboxServer.from_job(
         job=job,
-        base_url=_find_server_url(job),
+        nonce=nonce,
         sandbox_token=_derive_sandbox_token(_effective_token(api), nonce),
         api=api,
         max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,

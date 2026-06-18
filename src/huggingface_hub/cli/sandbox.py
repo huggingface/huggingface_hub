@@ -53,6 +53,7 @@ from huggingface_hub._sandbox import (
     _connect_host,
     _split_sandbox_id,
 )
+from huggingface_hub._sandbox_cache import delete_pool_cache
 from huggingface_hub.errors import CLIError, SandboxError
 from huggingface_hub.utils import get_token
 
@@ -138,10 +139,7 @@ def sandbox_create(
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
         if forward_hf_token and (hf_token := token or get_token()):
             sandbox_env["HF_TOKEN"] = hf_token
-        created = SandboxPool.connect(pool, namespace=namespace, token=token).create(
-            env=sandbox_env, idle_timeout=idle
-        )
-        sbx = created[0] if isinstance(created, list) else created
+        sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(env=sandbox_env, idle_timeout=idle)
         out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, pool=pool, elapsed=f"{time.time() - start:.1f}s")
         out.hint(f"Run a command with `hf sandbox exec {sbx.id} -- echo hello`.")
         out.hint(f"Terminate it with `hf sandbox kill {sbx.id}`.")
@@ -503,9 +501,11 @@ def pool_delete(
         if (job.labels or {}).get(POOL_LABEL) == pool_id and job.status.stage == "RUNNING"
     ]
     if not hosts:
+        delete_pool_cache(pool_id)  # nothing running; clear any stale local cache too
         out.text(f"No running hosts for pool '{pool_id}'.")
         return
     out.confirm(f"Terminate {len(hosts)} host(s) of pool '{pool_id}' (and all their sandboxes)?", yes=yes)
     for job in hosts:
         api.cancel_job(job_id=job.id, namespace=job.owner.name)
+    delete_pool_cache(pool_id)  # drop the local best-effort cache for this pool
     out.result("Pool deleted", id=pool_id, hosts_terminated=len(hosts))

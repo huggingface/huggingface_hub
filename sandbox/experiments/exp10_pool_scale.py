@@ -4,8 +4,8 @@
 """Scale benchmark for SandboxPool: N landlock sandboxes packed across host VMs.
 
 Measures, for N sandboxes packed `--per-host` per host job on `--flavor`:
-  1. provision + create  — boot ceil(N/per_host) hosts (in parallel) and create
-     all N sandboxes (one batched request per host),
+  1. provision + create  — pre-warm ceil(N/per_host) hosts (in parallel), then create
+     all N sandboxes one-by-one (parallel `pool.create()` calls over the proxy),
   2. exec                — run `echo` in every sandbox (parallel over the proxy),
   3. kill                — tear everything down (cancel all host jobs).
 
@@ -41,12 +41,13 @@ def main() -> None:
         image="python:3.12",
         flavor=args.flavor,
         sandboxes_per_host=per_host,
-        timeout="30m",
+        warm_up=num_hosts,
     )
     try:
-        # 1. provision hosts + create all sandboxes
+        # 1. provision hosts (warm_up) + create all sandboxes one-by-one, in parallel
         t0 = time.perf_counter()
-        boxes = pool.create(count=n)
+        with ThreadPoolExecutor(max_workers=args.exec_workers) as create_ex:
+            boxes = list(create_ex.map(lambda _: pool.create(), range(n)))
         t1 = time.perf_counter()
         print(f"[1] provision {pool.num_hosts} host(s) + create {len(boxes)} sandboxes: {t1 - t0:6.1f}s")
 

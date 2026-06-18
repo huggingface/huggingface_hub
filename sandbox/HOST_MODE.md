@@ -32,10 +32,12 @@ This ships as [`SandboxPool`]: it provisions host Jobs lazily, packs
 down on `close()`. Every sandbox it hands out is a normal `Sandbox` (`run`, `spawn`,
 `files`, `connect`, `kill`).
 
-You can grow on demand instead of warming a batch: `pool.create()` (count 1) reuses a
-host with free capacity before booting a new one, and warm hosts are discovered via the
-`hf-sandbox-host` + `hf-sandbox-pool` job labels so reuse works **across processes** — a
-fresh pool, or `hf sandbox create --pool <id>`, attaches to a host an earlier run left running.
+`pool.create()` makes one sandbox at a time: it reuses a host with free capacity before
+booting a new one, so you grow on demand as work arrives. Pre-provision hosts with
+`SandboxPool(warm_up=N)` (or `pool.warm(N)`) to skip the cold start on the first calls.
+Warm hosts are discovered via the `hf-sandbox-host` + `hf-sandbox-pool` job labels so reuse
+works **across processes** — a fresh pool, or `hf sandbox create --pool <id>`, attaches to a
+host an earlier run left running.
 
 ### Pools have no local state
 
@@ -63,6 +65,21 @@ hf sandbox pool delete <pool_id>                                # terminate the 
 - **Idle eviction is two-level**: each sandbox is evicted after its own `idle_timeout` of
   inactivity (unless it still has a running process); once a host has had no sandboxes for the
   host idle timeout, it shuts itself down. A pool **stops existing once all its hosts are gone**.
+
+### A best-effort cache keeps `create --pool` fast
+
+Having no local state is great for correctness but costs latency: every cold
+`hf sandbox create --pool <id>` (a fresh CLI process) must `list_jobs` + `inspect_job` each
+host + `GET /v1/sandboxes` before it can `POST` to spawn a sandbox. To avoid paying that on
+every call, a process records what it learned to `$HF_HOME/sandbox/pools/<pool-id>.json`: the
+pool config plus, per host, its proxy URL, auth nonce and last-seen free slots. The next
+process rebuilds the host transport straight from that file (no HTTP) and goes directly to the
+`POST`. It is **purely an optimization** — the in-job server stays authoritative, a stale/gone
+host is dropped and re-discovered on the first failed request, writes are merged under a file
+lock and committed atomically, and a missing/corrupt/foreign-machine file is just a cache miss
+that falls back to label discovery. Worst case = today's behavior; warm case = one round-trip.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md#the-pool-cache--why-create---pool-is-fast) and
+`src/huggingface_hub/_sandbox_cache.py`.
 
 ## Isolation: uid (DAC) + Landlock LSM, both unprivileged
 
