@@ -27,6 +27,7 @@
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_hi.md">हिंदी</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_ko.md">한국인</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_cn.md">中文（简体）</a>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_kn.md">ಕನ್ನಡ</a>
     <p>
 </h4>
 ---
