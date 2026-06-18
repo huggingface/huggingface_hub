@@ -81,6 +81,7 @@ from ._jobs_api import (
     _create_job_spec,
 )
 from ._space_api import (
+    INTERMEDIATE_SPACE_STAGES,
     SpaceHardware,
     SpaceRuntime,
     SpaceSearchResult,
@@ -8524,6 +8525,66 @@ class HfApi:
         ):
             yield event["data"]
 
+    @validate_hf_hub_args
+    def wait_for_space(
+        self,
+        repo_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 5.0,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        """Wait until a Space reaches a terminal stage (not building/starting).
+
+        Polls [`get_space_runtime`] every `poll_interval` seconds until the Space's stage
+        is no longer intermediate (`BUILDING`, `RUNNING_BUILDING`, `APP_STARTING`,
+        `RUNNING_APP_STARTING`). Returns the final [`SpaceRuntime`] in all cases — check
+        `runtime.stage` to act on the outcome (e.g. `RUNNING` vs `BUILD_ERROR`).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to wait for. Example: `"username/my-space"`.
+            timeout (`float`, *optional*):
+                Maximum time to wait in seconds. If `None`, waits indefinitely.
+            poll_interval (`float`, *optional*):
+                Seconds between status checks. Defaults to 5s.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                See https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`SpaceRuntime`]: The final runtime information once the Space reaches a terminal stage.
+
+        Raises:
+            `TimeoutError`:
+                If the Space has not reached a terminal stage after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import restart_space, wait_for_space
+            >>> restart_space("username/my-space")
+            >>> runtime = wait_for_space("username/my-space")
+            >>> runtime.stage
+            'RUNNING'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            runtime = self.get_space_runtime(repo_id, token=token)
+            if runtime.stage not in INTERMEDIATE_SPACE_STAGES:
+                return runtime
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                raise TimeoutError(f"Space '{repo_id}' is still in stage '{runtime.stage}' after {timeout} seconds.")
+            time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -14561,6 +14622,7 @@ delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
 fetch_space_logs = api.fetch_space_logs
+wait_for_space = api.wait_for_space
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints

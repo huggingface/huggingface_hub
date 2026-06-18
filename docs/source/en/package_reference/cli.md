@@ -2799,7 +2799,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: Job IDs to wait for.  [required]
+* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id').  [required]
 
 **Options**:
 
@@ -3789,6 +3789,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `ssh`: SSH into a Space's Dev Mode container.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
+* `wait`: Wait for a Space to finish building/starting.
 
 ### `hf spaces card`
 
@@ -4509,6 +4510,39 @@ $ hf spaces volumes set [OPTIONS] SPACE_ID
 Examples
   $ hf spaces volumes set username/my-space -v hf://models/username/my-model:/models
   $ hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces wait`
+
+Wait for a Space to finish building/starting.
+
+Blocks until the Space leaves an intermediate stage (BUILDING, APP_STARTING, etc.)
+and reaches a settled stage. Exits with code 0 if the Space is RUNNING,
+or a non-zero exit code otherwise (e.g. BUILD_ERROR, RUNTIME_ERROR).
+
+**Usage**:
+
+```console
+$ hf spaces wait [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--timeout TEXT`: Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces wait username/my-space
+  $ hf spaces wait username/my-space --timeout 5m
 
 Learn more
   Use `hf <command> --help` for more information about a command.

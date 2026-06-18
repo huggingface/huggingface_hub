@@ -352,6 +352,7 @@ _SUBMOD_ATTRS = {
         "upload_large_folder",
         "verify_repo_checksums",
         "wait_for_job",
+        "wait_for_space",
         "whoami",
     ],
     "hf_file_system": [
@@ -1114,6 +1115,7 @@ __all__ = [
     "upload_large_folder",
     "verify_repo_checksums",
     "wait_for_job",
+    "wait_for_space",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1514,6 +1516,7 @@ if TYPE_CHECKING:  # pragma: no cover
         upload_large_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401
         wait_for_job,  # noqa: F401
+        wait_for_space,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (
