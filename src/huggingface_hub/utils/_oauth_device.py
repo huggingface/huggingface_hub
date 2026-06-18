@@ -28,9 +28,9 @@ from typing import TypedDict, cast
 
 import httpx
 
-from . import constants
-from .errors import DeviceCodeError, OAuthErrorCode
-from .utils._http import get_session, hf_raise_for_status
+from .. import constants
+from ..errors import DeviceCodeError, OAuthErrorCode
+from ._http import get_session, hf_raise_for_status
 
 
 _DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
