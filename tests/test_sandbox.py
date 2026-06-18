@@ -434,6 +434,27 @@ class TestHostDiscovery:
         pool.create()
         assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)
 
+    def test_discovery_adopts_host_with_missing_flavor(self, fake_server: str, monkeypatch) -> None:
+        # list_jobs may omit flavor (None); a matching host must still be reused, not skipped.
+        pool = self._pool(fake_server, monkeypatch)
+        job = self._host_job("host9", capacity=4)
+        job.flavor = None
+        pool._api.list_jobs = MagicMock(return_value=[job])
+        pool.create()
+        assert pool._hosts[0].job_id == "host9"  # adopted despite the missing flavor field
+
+    def test_discovery_falls_back_to_inspect_for_capacity(self, fake_server: str, monkeypatch) -> None:
+        # When list_jobs omits the host env, capacity is fetched via inspect_job (like connect),
+        # not silently defaulted to the pool's per-host setting.
+        pool = self._pool(fake_server, monkeypatch)  # pool default per-host is 50
+        listed = self._host_job("host9", capacity=4)
+        listed.environment = {}  # list_jobs omitted the env
+        pool._api.list_jobs = MagicMock(return_value=[listed])
+        pool._api.inspect_job = MagicMock(return_value=self._host_job("host9", capacity=4))
+        pool.create()
+        assert pool._hosts[0].capacity == 4  # read from inspect_job's env, not the pool default
+        pool._api.inspect_job.assert_called_once()
+
 
 class TestSandboxList:
     """`Sandbox.list` returns one unified view of dedicated jobs and shared/pool sandboxes."""

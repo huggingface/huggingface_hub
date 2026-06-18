@@ -1327,17 +1327,31 @@ class SandboxPool:
             labels = job.labels or {}
             if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING" or job.id in known:
                 continue
-            if (job.docker_image or job.space_id) != self.image or job.flavor != self.flavor:
-                continue
             if labels.get(POOL_LABEL) != self.name:  # None == unnamed pool
                 continue
+            # For a named pool the label already pins the host to this exact pool (one
+            # image/flavor by construction), so image/flavor are redundant. For an unnamed
+            # pool there's no such label, so fall back to image/flavor to avoid adopting
+            # unrelated hosts — but `list_jobs` may omit `flavor` (None), so don't reject a
+            # labelled match on a missing field.
+            if self.name is None:
+                if (job.docker_image or job.space_id) != self.image:
+                    continue
+                if job.flavor is not None and job.flavor != self.flavor:
+                    continue
             matches.append(job)
 
         for job in matches:
             server = None
             try:
                 server = _connect_host(self._api, job.id, namespace=self._namespace)
+                # Capacity comes from the host's SBX_CAPACITY env. list_jobs may omit env, so
+                # fall back to inspect_job for it (same as SandboxPool.connect) — otherwise an
+                # adopted host would silently pack at the pool default and mis-pack.
                 env = job.environment if isinstance(job.environment, dict) else {}
+                if "SBX_CAPACITY" not in env:
+                    env = self._api.inspect_job(job_id=job.id, namespace=self._namespace).environment or {}
+                    env = env if isinstance(env, dict) else {}
                 server.capacity = int(env.get("SBX_CAPACITY", self.sandboxes_per_host))
                 server.live = len(server.request("GET", "/v1/sandboxes").json())
             except (SandboxError, httpx.HTTPError, HfHubHTTPError) as e:
