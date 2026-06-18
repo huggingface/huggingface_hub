@@ -27,3 +27,13 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 [[autodoc]] huggingface_hub._sandbox.SandboxProcessInfo
 
 [[autodoc]] huggingface_hub._sandbox.FileEntry
+
+## Errors
+
+### SandboxError
+
+[[autodoc]] huggingface_hub.errors.SandboxError
+
+### SandboxCommandError
+
+[[autodoc]] huggingface_hub.errors.SandboxCommandError

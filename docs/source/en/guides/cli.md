@@ -2059,7 +2059,7 @@ Manage scheduled jobs using
 
 ## hf sandbox
 
-`hf sandbox` spins up isolated cloud machines built on Jobs: create one in ~6 seconds, run commands with live-streamed output, copy files in and out, and expose ports publicly. Any Docker image with `/bin/sh` works — no Python or agent required in the image. See the [Sandboxes guide](./sandbox) for the Python API and how it works under the hood.
+`hf sandbox` spins up isolated cloud machines built on Jobs: create one in ~6 seconds, run commands with live-streamed output, and copy files in and out. Any Docker image with `/bin/sh` works — no Python or agent required in the image. See the [Sandboxes guide](./sandbox) for the Python API, and the [conceptual guide](../concepts/sandbox) for how it works under the hood.
 
 ```bash
 # Create a sandbox (waits until it is ready, prints its id)
@@ -2077,11 +2077,10 @@ hi
 # Manage sandboxes
 >>> hf sandbox ls
 >>> hf sandbox ps 687f911eaea852de79c4a50a
->>> hf sandbox url 687f911eaea852de79c4a50a 8080
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 
-Use `--flavor` to pick hardware (e.g. `a10g-small`), `--expose` to publish extra ports, `--timeout` / `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables.
+Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
 
 ## hf webhooks
 
