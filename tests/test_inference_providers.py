@@ -19,6 +19,7 @@ from huggingface_hub.inference._providers._common import (
 from huggingface_hub.inference._providers.black_forest_labs import BlackForestLabsTextToImageTask
 from huggingface_hub.inference._providers.clarifai import ClarifaiConversationalTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
+from huggingface_hub.inference._providers.deepinfra import DeepInfraAutomaticSpeechRecognitionTask
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
@@ -383,6 +384,38 @@ class TestClarifaiProvider:
             "messages": [{"role": "user", "content": "Hello!"}],
             "model": "meta-llama/llama-3.1-8B-Instruct",
         }
+
+
+class TestDeepInfraProvider:
+    def test_automatic_speech_recognition_url(self):
+        helper = DeepInfraAutomaticSpeechRecognitionTask()
+        url = helper._prepare_url("hf_token", "nvidia/some-asr-model")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/audio/transcriptions"
+
+    def test_automatic_speech_recognition_payload(self):
+        helper = DeepInfraAutomaticSpeechRecognitionTask()
+        mapping = InferenceProviderMapping(
+            provider="deepinfra",
+            hf_model_id="nvidia/some-asr-model",
+            providerId="nvidia/Some-Provider-ASR-Model",
+            task="automatic-speech-recognition",
+            status="live",
+        )
+        data = helper._prepare_payload_as_bytes(b"dummy_audio_data", {}, mapping, None)
+
+        # multipart/form-data body carrying the audio file and the provider model id
+        assert data.mime_type.startswith("multipart/form-data; boundary=")
+        assert b'name="file"' in data
+        assert b"dummy_audio_data" in data
+        assert b'name="model"' in data
+        assert b"nvidia/Some-Provider-ASR-Model" in data
+
+    def test_automatic_speech_recognition_response(self):
+        helper = DeepInfraAutomaticSpeechRecognitionTask()
+        assert helper.get_response({"text": "Hello world"}) == {"text": "Hello world"}
+
+        with pytest.raises(ValueError):
+            helper.get_response({"text": 123})
 
 
 class TestFalAIProvider:
