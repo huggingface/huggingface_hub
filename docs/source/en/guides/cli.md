@@ -1115,6 +1115,20 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 >>> hf spaces restart username/my-space --factory-reboot
 ```
 
+### Wait for a Space
+
+Use `hf spaces wait` to block until a Space finishes building/starting and reaches a settled stage. Exits with code 0 if the Space is `RUNNING`, or non-zero otherwise (e.g. `BUILD_ERROR`). Handy for scripting after a restart or hardware change.
+
+```bash
+>>> hf spaces wait username/my-space
+
+# With a timeout
+>>> hf spaces wait username/my-space --timeout 5m
+
+# Chain with restart
+>>> hf spaces restart username/my-space && hf spaces wait username/my-space
+```
+
 ### List available hardware
 
 Use `hf spaces hardware` to list all available hardware options for Spaces, including pricing.
@@ -1827,6 +1841,18 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
+
+# Wait until one or more jobs finish (exit code 0 only if all jobs completed successfully)
+>>> hf jobs wait <job_id> [<job_id>...]
+
+# Wait for all currently running jobs
+>>> hf jobs ps -q | xargs hf jobs wait
+```
+
+Non-detached `hf jobs run` and `hf jobs wait` exit with a non-zero code if a Job fails, so you can chain commands with `&&`:
+
+```bash
+>>> hf jobs run python:3.12 python train.py && echo "training succeeded"
 ```
 
 #### 3. Run on GPU
@@ -2219,6 +2245,23 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Deploy a custom container
+
+To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--container-command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated` or `private`):
+
+```bash
+>>> hf endpoints deploy nex-n2-pro \
+      --repo nex-agi/Nex-N2-Pro \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --custom-image nexagi/sglang:v0.5.12 \
+      --health-route /health --port 30000 \
+      --container-args "--reasoning-parser qwen3 --tool-call-parser qwen3_coder --mamba-scheduler-strategy extra_buffer --tp 8" \
+      --env MODEL_ID=/repository \
+      --type authenticated
+```
 
 ### hf endpoints catalog
 

@@ -152,17 +152,32 @@ Hello from the cloud!
 >>> cancel_job(job_id=job_id)
 ```
 
-Check the status of multiple jobs to know when they're all finished using a loop and [`inspect_job`]:
+## Wait until Jobs finish
+
+Use [`wait_for_job`] to block until a Job reaches a terminal stage (`COMPLETED`, `CANCELED`, `ERROR` or `DELETED`). The final [`JobInfo`] is always returned — a failed Job does not raise an exception — so check `job.status.stage` to act on the outcome. Pass a list of Job IDs to wait on a whole batch at once.
 
 ```python
-# Run multiple jobs in parallel and wait for their completions
->>> import time
->>> from huggingface_hub import inspect_job, run_job
+>>> from huggingface_hub import run_job, wait_for_job
+>>> job = run_job(image="python:3.12", command=["python", "-c", "print('hello')"])
+>>> wait_for_job(job_id=job.id).status.stage
+'COMPLETED'
+
+# Run multiple jobs in parallel and wait for all of them to finish
 >>> jobs = [run_job(image=image, command=command) for command in commands]
->>> for job in jobs:
-...     while inspect_job(job_id=job.id).status.stage not in ("COMPLETED", "ERROR"):
-...         time.sleep(10)
+>>> finished_jobs = wait_for_job(job_id=[job.id for job in jobs], timeout=3600)
 ```
+
+The same is available in the CLI with `hf jobs wait`, which exits with code 0 only if all Jobs completed successfully — handy for chaining commands in shell scripts or CI:
+
+```bash
+# Chain on success
+hf jobs wait <job_id> && hf jobs run --detach python:3.12 python eval.py
+
+# Wait for all currently running jobs
+hf jobs ps -q | xargs hf jobs wait
+```
+
+Note that a non-detached `hf jobs run` (or `hf jobs uv run`) also exits with a non-zero code if the Job fails, so `hf jobs run ... && next-step` chains correctly without an explicit wait.
 
 ## Select the hardware
 

@@ -71,8 +71,18 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import (
+    TERMINAL_JOB_STAGES,
+    JobHardware,
+    JobHardwareInfo,
+    JobInfo,
+    JobSpec,
+    JobStage,
+    ScheduledJobInfo,
+    _create_job_spec,
+)
 from ._space_api import (
+    INTERMEDIATE_SPACE_STAGES,
     SpaceHardware,
     SpaceRuntime,
     SpaceSearchResult,
@@ -8516,6 +8526,66 @@ class HfApi:
         ):
             yield event["data"]
 
+    @validate_hf_hub_args
+    def wait_for_space(
+        self,
+        repo_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        """Wait until a Space reaches a terminal stage (not building/starting).
+
+        Polls [`get_space_runtime`] every `poll_interval` seconds until the Space's stage
+        is no longer intermediate (`BUILDING`, `RUNNING_BUILDING`, `APP_STARTING`,
+        `RUNNING_APP_STARTING`). Returns the final [`SpaceRuntime`] in all cases — check
+        `runtime.stage` to act on the outcome (e.g. `RUNNING` vs `BUILD_ERROR`).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to wait for. Example: `"username/my-space"`.
+            timeout (`float`, *optional*):
+                Maximum time to wait in seconds. If `None`, waits indefinitely.
+            poll_interval (`float`, *optional*):
+                Seconds between status checks. Defaults to 1s.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                See https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`SpaceRuntime`]: The final runtime information once the Space reaches a terminal stage.
+
+        Raises:
+            `TimeoutError`:
+                If the Space has not reached a terminal stage after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import restart_space, wait_for_space
+            >>> restart_space("username/my-space")
+            >>> runtime = wait_for_space("username/my-space")
+            >>> runtime.stage
+            'RUNNING'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            runtime = self.get_space_runtime(repo_id, token=token)
+            if runtime.stage not in INTERMEDIATE_SPACE_STAGES:
+                return runtime
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                raise TimeoutError(f"Space '{repo_id}' is still in stage '{runtime.stage}' after {timeout} seconds.")
+            time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -9041,9 +9111,11 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
-        type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        type: InferenceEndpointType | str = InferenceEndpointType.AUTHENTICATED,
         domain: str | None = None,
         path: str | None = None,
         cache_http_responses: bool | None = None,
@@ -9092,13 +9164,22 @@ class HfApi:
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework or a custom container
+                (see examples).
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
+                used together with `custom_image`.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Typically
+                used together with `custom_image` to pass runtime flags to the container.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
-                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+                The type of the Inference Endpoint, which can be `"authenticated"` (default), `"public"` or
+                `"private"`. `"protected"` is deprecated in favor of `"authenticated"` and will be removed in a
+                future release.
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
@@ -9130,7 +9211,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9154,7 +9235,7 @@ class HfApi:
             ...     accelerator="gpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
             ...     env={
@@ -9164,7 +9245,7 @@ class HfApi:
             ...           "MODEL_ID": "/repository"
             ...         },
             ...     custom_image={
-            ...         "health_route": "/health",
+            ...         "healthRoute": "/health",
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
@@ -9186,7 +9267,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9198,6 +9279,13 @@ class HfApi:
 
         """
         namespace = namespace or self._get_namespace(token=token)
+
+        if type == InferenceEndpointType.PROTECTED:
+            warnings.warn(
+                "`type='protected'` is deprecated and will be removed in a future release. "
+                "Use `type='authenticated'` instead.",
+                FutureWarning,
+            )
 
         if custom_image is not None:
             image = (
@@ -9236,6 +9324,11 @@ class HfApi:
         }
         if scaling_metric:
             payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
+        model_payload: dict[str, Any] = payload["model"]
+        if container_command is not None:
+            model_payload["command"] = container_command
+        if container_args is not None:
+            model_payload["args"] = container_args
         if env:
             payload["model"]["env"] = env
         if secrets:
@@ -12033,6 +12126,120 @@ class HfApi:
         hf_raise_for_status(response)
         return JobInfo(**response.json(), endpoint=self.endpoint)
 
+    @overload
+    def wait_for_job(
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo: ...
+
+    @overload
+    def wait_for_job(
+        self,
+        job_id: list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> list[JobInfo]: ...
+
+    def wait_for_job(
+        self,
+        job_id: str | list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo | list[JobInfo]:
+        """
+        Wait until one or more compute Jobs on Hugging Face infrastructure reach a given stage.
+
+        Each Job status is polled (with [`inspect_job`]) every `poll_interval` seconds until its stage is one
+        of `stages` (terminal stages by default: `"COMPLETED"`, `"CANCELED"`, `"ERROR"` or `"DELETED"`). The
+        final [`JobInfo`] is returned in all cases: a failed or canceled Job does **not** raise an exception —
+        check `job.status.stage` to act on the outcome.
+
+        Terminal stages always stop the wait, even when not listed in `stages`. This avoids waiting forever for
+        a stage the Job will never reach (e.g. waiting for `"RUNNING"` on a Job that fails during scheduling).
+
+        Args:
+            job_id (`str` or `list[str]`):
+                ID of the Job, or a list of Job IDs to wait for. If a list is passed, a list of [`JobInfo`]
+                is returned (in the same order).
+
+            timeout (`float`, *optional*):
+                The maximum time to wait for the Job(s) to finish, in seconds. If `None`, will wait
+                indefinitely.
+
+            poll_interval (`float`, *optional*):
+                The time to wait between each status check, in seconds. Defaults to 1s.
+
+            stages (`list[JobStage]`, *optional*):
+                The stages to wait for. Defaults to the terminal stages (`"COMPLETED"`, `"CANCELED"`,
+                `"ERROR"`, `"DELETED"`). Pass e.g. `[JobStage.RUNNING]` to wait for the Job to start running.
+                Terminal stages always stop the wait regardless of this value.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job(s) are running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`] or `list[JobInfo]`: the final Job info(s).
+
+        Raises:
+            `TimeoutError`:
+                If at least one Job has not reached one of the target stages after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_job, wait_for_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello from HF compute!')"])
+            >>> wait_for_job(job_id=job.id).status.stage
+            'COMPLETED'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        # Terminal stages always stop the wait, so a Job that never reaches the target stage doesn't hang.
+        target_stages = set(stages) | set(TERMINAL_JOB_STAGES) if stages else set(TERMINAL_JOB_STAGES)
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        deadline = None if timeout is None else time.monotonic() + timeout
+
+        def _wait_single(single_job_id: str) -> JobInfo:
+            while True:
+                job = self.inspect_job(job_id=single_job_id, namespace=namespace, token=token)
+                if job.status.stage in target_stages:
+                    return job
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError(
+                        f"Job '{single_job_id}' is still in stage '{job.status.stage}' after {timeout} seconds."
+                    )
+                time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
+        if isinstance(job_id, str):
+            return _wait_single(job_id)
+        return [_wait_single(single_job_id) for single_job_id in job_id]
+
     def cancel_job(
         self,
         *,
@@ -14430,6 +14637,7 @@ delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
 fetch_space_logs = api.fetch_space_logs
+wait_for_space = api.wait_for_space
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints
@@ -14488,6 +14696,7 @@ fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
+wait_for_job = api.wait_for_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job
