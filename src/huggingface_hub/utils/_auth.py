@@ -24,9 +24,9 @@ from threading import Lock
 from typing import TypedDict
 
 from .. import constants
-from .._oauth_device import refresh_access_token
 from ..errors import DeviceCodeError, OAuthErrorCode, OIDCError
 from ._fixes import WeakFileLock
+from ._oauth_device import refresh_access_token
 from ._runtime import is_colab_enterprise, is_google_colab
 
 

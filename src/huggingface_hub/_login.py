@@ -23,7 +23,6 @@ from getpass import getpass
 from pathlib import Path
 
 from . import constants
-from ._oauth_device import OAuthTokenResponse, poll_device_token, request_device_code
 from .errors import DeviceCodeError
 from .utils import (
     ANSI,
@@ -49,6 +48,7 @@ from .utils._auth import (
     _write_secret,
     get_stored_tokens,
 )
+from .utils._oauth_device import OAuthTokenResponse, poll_device_token, request_device_code
 
 
 logger = logging.get_logger(__name__)
