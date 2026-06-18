@@ -4498,12 +4498,14 @@ class TestSandboxPoolCli:
 
         warmed: dict = {}
 
-        def fake_warm(self, num_hosts: int = 1) -> list:
+        def fake_warmup(self) -> None:
+            # The constructor pre-provisions the pool's host(s); record its config instead of
+            # actually booting a Job.
             warmed["name"] = self.name
             warmed["image"] = self.image
-            return ["host-abc"]
 
-        monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "warm", fake_warm)
+        monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "_ensure_warmed_up", fake_warmup)
+        monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "host_ids", property(lambda self: ["host-abc"]))
         result = runner.invoke(app, ["sandbox", "pool", "create", "alpine:3.20", "--per-host", "10"])
         assert result.exit_code == 0, result.output
         assert warmed["image"] == "alpine:3.20"

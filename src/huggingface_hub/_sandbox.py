@@ -953,8 +953,9 @@ class SandboxPool:
     for GPU or strong VM-level isolation between mutually-distrusting workloads, use
     [`Sandbox.create`] instead.
 
-    Hosts are provisioned lazily as sandboxes are requested and torn down on
-    `close()` (or when idle, via `idle_timeout`). The user never manages jobs:
+    The constructor pre-provisions `warm_up` hosts (default 1) and blocks until they are
+    ready; further hosts are then provisioned on demand as sandboxes are requested, and all
+    are torn down on `close()` (or when idle, via `idle_timeout`). The user never manages jobs:
 
     ```python
     >>> from huggingface_hub import SandboxPool
@@ -990,8 +991,9 @@ class SandboxPool:
         namespace: str | None = None,
         start_timeout: float = 120.0,
         token: str | None = None,
+        _connect_mode: bool = False,
     ) -> None:
-        """Configure a pool. No host job is started until the first `create()` (or `warm()`).
+        """Configure a pool and pre-provision `warm_up` hosts (blocks until they are ready).
 
         Env/secrets are *not* set here: they belong to each sandbox and are passed to
         `create(env=...)`, so sandboxes in the same pool can have different environments.
@@ -1001,11 +1003,11 @@ class SandboxPool:
                 pool share this image.
             flavor: Hardware flavor for the host jobs (e.g. `"cpu-basic"`).
             sandboxes_per_host: How many sandboxes to pack per host (per VM density).
-            warm_up: How many hosts to pre-provision on the first `create()`, so an
-                initial burst of `create()` calls doesn't pay a host cold start each.
-                Existing warm hosts (from the cache / other processes) count towards it,
-                so only the shortfall is booted; capped by `max_hosts`. Defaults to 1
-                (boot one host on demand).
+            warm_up: How many hosts to pre-provision in the constructor (which blocks
+                until they are ready), so an initial burst of `create()` calls doesn't pay
+                a host cold start each. Existing warm hosts (from the cache / other processes)
+                count towards it, so only the shortfall is booted; capped by `max_hosts`.
+                Defaults to 1 (a single host).
             max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
             name: Pool name, used as the `hf-sandbox-pool` job label so the pool is
@@ -1039,18 +1041,30 @@ class SandboxPool:
         # Held across the whole one-time warm-up so concurrent first create() calls block until
         # it finishes (and see the warm hosts) instead of racing past a half-set flag.
         self._warmup_lock = threading.Lock()
+        # Serializes on-demand host creation within the process: a burst of create() calls that
+        # all find every host full boots one host at a time (each new host frees
+        # `sandboxes_per_host` slots for the threads still queued behind the lock) instead of
+        # one host per thread. The CLI is a single process per command, so this is a no-op there.
+        self._boot_lock = threading.Lock()
         self._closed = False
         # Whether the one-time warm-up (seed cache + pre-provision `warm_up` hosts) ran.
         self._warmed_up = False
-        # Set by connect(): the pool must already exist, so create() refuses to silently
-        # resurrect it by booting a fresh host if discovery confirms every host is gone.
-        self._require_live_host = False
+        # Set for connect()'d handles: the pool must already exist, so create() refuses to
+        # silently resurrect it by booting a fresh host if discovery confirms every host is gone.
+        # Such a handle also never boots during construction — it attaches lazily on create().
+        self._require_live_host = _connect_mode
         # Whether close()/`__exit__` cancels the host jobs. True for a pool we created; False
         # for a connect()'d handle, which only releases its HTTP clients on exit — the shared
         # hosts (possibly serving other clients) are left running, like Sandbox.connect().
-        self._owns_hosts = True
+        self._owns_hosts = not _connect_mode
         # Job ids of cached hosts we found dead this session; pruned from the cache on save.
         self._dead_host_ids: set[str] = set()
+
+        # Pre-provision `warm_up` hosts now so the constructor returns only once the pool is
+        # warm. A connect()'d handle skips this: it must never boot during construction (it can
+        # only attach to existing hosts, lazily on the first create()).
+        if not _connect_mode:
+            self._ensure_warmed_up()
 
     # ------------------------------------------------------------------ public API
 
@@ -1076,7 +1090,7 @@ class SandboxPool:
         # all stale, create() falls back to label discovery exactly like a cold connect would.
         cache = read_pool_cache(pool_id)
         if cache is not None:
-            pool = cls(
+            return cls(
                 image=cache.image,
                 flavor=cache.flavor,
                 sandboxes_per_host=cache.sandboxes_per_host,
@@ -1085,10 +1099,8 @@ class SandboxPool:
                 idle_timeout=cache.idle_timeout,
                 namespace=cache.namespace if namespace is None else namespace,
                 token=token,
+                _connect_mode=True,  # attach to existing hosts; never boot during construction
             )
-            pool._require_live_host = True
-            pool._owns_hosts = False  # attached to existing hosts; don't tear them down on close()
-            return pool
 
         # Cold path: find a running host via labels and rebuild the config from its job spec.
         api = HfApi(token=token)
@@ -1099,7 +1111,7 @@ class SandboxPool:
             env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
         max_hosts_raw = env.get("SBX_MAX_HOSTS")
-        pool = cls(
+        return cls(
             image=job.docker_image or job.space_id or DEFAULT_IMAGE,
             flavor=str(job.flavor) if job.flavor is not None else "cpu-basic",
             sandboxes_per_host=int(env.get("SBX_CAPACITY", DEFAULT_SANDBOXES_PER_HOST)),
@@ -1108,10 +1120,8 @@ class SandboxPool:
             idle_timeout=int(idle_raw) if idle_raw is not None else None,
             namespace=namespace,
             token=token,
+            _connect_mode=True,  # attach to existing hosts; never boot during construction
         )
-        pool._require_live_host = True
-        pool._owns_hosts = False  # attached to existing hosts; don't tear them down on close()
-        return pool
 
     def warm(self, num_hosts: int = 1) -> List[str]:
         """Ensure `num_hosts` empty host(s) are running and leave them running. Returns the
@@ -1200,11 +1210,7 @@ class SandboxPool:
                             f"No running host found for pool '{self.name}'. The pool has stopped "
                             "(all its hosts were killed or idle-timed-out); create a new one."
                         )
-                    booted = self._provision_hosts(1)
-                    new_hosts.extend(booted)
-                    with self._lock:
-                        self._hosts.extend(booted)
-                    host = self._reserve_one()
+                    host = self._boot_one_host(new_hosts)
                 # 4. Create the sandbox on the reserved host. `None` means the host filled up
                 #    (another process packed it) or a stale cached host is gone — retry.
                 if host is not None:
@@ -1339,6 +1345,71 @@ class SandboxPool:
                     host.live += 1
                     return host
         return None
+
+    def _boot_one_host(self, new_hosts: List["_SandboxServer"]) -> "_SandboxServer | None":
+        """Provision (or adopt) one host and reserve a slot on it. Returns None to retry.
+
+        Held under `_boot_lock` so that, within a process, only one host is booted at a time:
+        a burst of create() calls that all found every host full queue here, and each new host
+        frees `sandboxes_per_host` slots for the threads still waiting — so they reuse it instead
+        of each booting their own. Before booting, we reuse a slot freed by a concurrent boot and,
+        failing that, adopt a host already SCHEDULING for this pool (here or in another process)
+        rather than piling on a duplicate.
+        """
+        with self._boot_lock:
+            # A concurrent boot (this process) may have added a host with free slots while we
+            # waited for the lock — reuse it instead of booting another.
+            host = self._reserve_one()
+            if host is not None:
+                return host
+            # A host already coming up for this pool (ours, or another process'): wait for it
+            # to start and adopt it instead of booting a duplicate.
+            if self._adopt_pending_host():
+                host = self._reserve_one()
+                if host is not None:
+                    return host
+            booted = self._provision_hosts(1)
+            new_hosts.extend(booted)
+            with self._lock:
+                self._hosts.extend(booted)
+            return self._reserve_one()
+
+    def _adopt_pending_host(self) -> bool:
+        """Wait for and adopt a host already SCHEDULING for this pool, if any.
+
+        Avoids over-provisioning when a host is already on its way up for this pool (started by
+        another process, or an earlier create() in this one): rather than booting a duplicate,
+        wait for it to reach RUNNING and adopt it via discovery. Returns True if a pending host
+        was found (whether or not it eventually came up), False if none is scheduling.
+        """
+        known = {host.job_id for host in self._hosts}
+        pending = next(
+            (
+                job
+                for job in self._api.list_jobs(namespace=self._namespace)
+                if (job.labels or {}).get(HOST_LABEL)
+                and (job.labels or {}).get(POOL_LABEL) == self.name
+                and job.status.stage == "SCHEDULING"
+                and job.id not in known
+            ),
+            None,
+        )
+        if pending is None:
+            return False
+        logger.debug(f"Pool '{self.name}' host {pending.id} is already SCHEDULING; waiting for it instead of booting.")
+        deadline = time.time() + self._start_timeout
+        while time.time() < deadline:
+            stage = self._api.inspect_job(job_id=pending.id, namespace=self._namespace).status.stage
+            if stage not in ("SCHEDULING", "RUNNING"):
+                return False  # it died before starting up; let the caller boot a fresh one
+            if stage == "RUNNING":
+                # RUNNING precedes "server ready" (the host still has to fetch + exec sbx-server),
+                # so discovery only adopts it once its server answers — keep polling until it does.
+                self._discover_hosts()
+                if any(host.job_id == pending.id for host in self._hosts):
+                    return True
+            time.sleep(1.0)
+        return False
 
     def _discover_hosts(self) -> None:
         """Attach to running host jobs that match this pool (image/flavor/name).

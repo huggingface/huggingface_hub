@@ -444,6 +444,8 @@ def pool_create(
     """
     start = time.time()
     image = image or DEFAULT_IMAGE
+    # The constructor blocks until one host is warm (warm_up defaults to 1), so the pool is
+    # ready to spawn into as soon as it returns.
     pool = SandboxPool(
         image=image,
         flavor=flavor or "cpu-basic",
@@ -454,7 +456,7 @@ def pool_create(
         token=token,
     )
     pool_id = pool.name
-    host_ids = pool.warm(1)
+    host_ids = pool.host_ids
     out.result(
         "Pool created",
         id=pool_id,

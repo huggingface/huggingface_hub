@@ -313,12 +313,12 @@ class TestSharedSandbox:
 
 class TestSandboxPool:
     def _pool(self, fake_server: str, monkeypatch, per_host: int = 4) -> SandboxPool:
-        pool = SandboxPool(image="python:3.12", sandboxes_per_host=per_host, token="hf_test")
-        # No warm hosts to discover: test boot/packing in isolation (discovery is covered separately).
-        pool._api.list_jobs = MagicMock(return_value=[])
-        # Avoid real job creation: every host boot returns a server pointing at the fake server.
-        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=per_host))
-        return pool
+        # Patch before construction: the constructor warms up `warm_up` (=1) host(s), so the
+        # fake boot + empty discovery must already be in place. No warm hosts to discover here;
+        # discovery is covered separately. Every host boot returns a server at the fake server.
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=per_host))
+        return SandboxPool(image="python:3.12", sandboxes_per_host=per_host, token="hf_test")
 
     def test_packs_into_hosts_and_tracks_slots(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch, per_host=4)
@@ -350,18 +350,19 @@ class TestSandboxPool:
         assert pool.num_sandboxes == 4
 
     def test_warm_up_preprovisions_hosts(self, fake_server: str, monkeypatch) -> None:
-        # warm_up=3 boots 3 hosts on the first create(); the rest stay warm for later.
+        # warm_up=3 boots 3 hosts in the constructor; the rest stay warm for later.
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=4))
         pool = SandboxPool(image="python:3.12", sandboxes_per_host=4, warm_up=3, token="hf_test")
-        pool._api.list_jobs = MagicMock(return_value=[])
-        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=4))
+        assert pool.num_hosts == 3  # pre-provisioned by the constructor, before any create()
         pool.create()
-        assert pool.num_hosts == 3  # pre-provisioned despite only one sandbox created
+        assert pool.num_hosts == 3  # still 3 despite only one sandbox created
         assert pool.num_sandboxes == 1
 
     def test_max_hosts_enforced(self, fake_server: str, monkeypatch) -> None:
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=2))
         pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, token="hf_test")
-        pool._api.list_jobs = MagicMock(return_value=[])
-        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=2))
         pool.create()
         pool.create()  # fills the single allowed host (capacity 2)
         with pytest.raises(SandboxError, match="max_hosts"):
@@ -383,9 +384,9 @@ class TestSandboxPool:
         url1, _ = _spawn_fake(capacity=1)
         url2, _ = _spawn_fake(capacity=10)
         servers = iter([_make_server(url1, job_id="h0", capacity=2), _make_server(url2, job_id="h1", capacity=2)])
-        pool = SandboxPool(sandboxes_per_host=2, token="hf_test")
-        pool._api.list_jobs = MagicMock(return_value=[])
-        monkeypatch.setattr(pool, "_boot_host", lambda: next(servers))
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: next(servers))
+        pool = SandboxPool(sandboxes_per_host=2, token="hf_test")  # constructor warms host h0
         boxes = [pool.create(), pool.create()]
         assert pool.num_hosts == 2  # had to boot a duplicate
         assert {b.id.split(".")[0] for b in boxes} == {"h0", "h1"}
@@ -407,44 +408,63 @@ class TestHostDiscovery:
         job.environment = {"SBX_CAPACITY": str(capacity)}  # config lives in env vars, not labels
         return job
 
-    def _pool(self, fake_server, monkeypatch, name: str = "p1", **kwargs) -> SandboxPool:
-        pool = SandboxPool(image="python:3.12", flavor="cpu-basic", name=name, token="hf_test", **kwargs)
+    def _pool(self, fake_server, monkeypatch, jobs, name: str = "p1", **kwargs) -> SandboxPool:
+        # Patch discovery + boot before construction: the constructor warms up, adopting any
+        # matching running host found via labels (a freshly booted host is only the fallback).
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: jobs)
         # A new host boot would fail (no real Jobs); discovery must avoid it here.
-        monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=4))
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=4))
         # `_connect_host` (module-level) returns a server wired to the fake server.
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
         )
-        return pool
+        return SandboxPool(image="python:3.12", flavor="cpu-basic", name=name, token="hf_test", **kwargs)
 
     def test_discovers_and_reuses_existing_host(self, fake_server: str, monkeypatch) -> None:
-        pool = self._pool(fake_server, monkeypatch)
-        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9", capacity=4)])
+        pool = self._pool(fake_server, monkeypatch, jobs=[self._host_job("host9", capacity=4)])
         box = pool.create()
         assert isinstance(box, Sandbox)
         assert pool.num_hosts == 1
-        assert pool._hosts[0].job_id == "host9"  # adopted, not freshly booted
+        assert pool._hosts[0].job_id == "host9"  # adopted by the constructor, not freshly booted
         assert pool._hosts[0].capacity == 4  # read from the host's env var
         assert box.host_id == "host9"
 
     def test_discovery_respects_pool_name(self, fake_server: str, monkeypatch) -> None:
-        pool = self._pool(fake_server, monkeypatch, name="mine")
         # A host from a different pool must not be adopted.
-        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9", pool_name="other")])
+        pool = self._pool(fake_server, monkeypatch, jobs=[self._host_job("host9", pool_name="other")], name="mine")
         pool.create()
         assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)
 
     def test_discovery_falls_back_to_inspect_for_capacity(self, fake_server: str, monkeypatch) -> None:
         # When list_jobs omits the host env, capacity is fetched via inspect_job (like connect),
         # not silently defaulted to the pool's per-host setting.
-        pool = self._pool(fake_server, monkeypatch)  # pool default per-host is 50
         listed = self._host_job("host9", capacity=4)
         listed.environment = {}  # list_jobs omitted the env
-        pool._api.list_jobs = MagicMock(return_value=[listed])
-        pool._api.inspect_job = MagicMock(return_value=self._host_job("host9", capacity=4))
-        pool.create()
+        inspect = MagicMock(return_value=self._host_job("host9", capacity=4))
+        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", inspect)
+        pool = self._pool(fake_server, monkeypatch, jobs=[listed])  # pool default per-host is 50
         assert pool._hosts[0].capacity == 4  # read from inspect_job's env, not the pool default
-        pool._api.inspect_job.assert_called_once()
+        inspect.assert_called_once()
+
+    def test_adopts_scheduling_host_instead_of_booting(self, fake_server: str, monkeypatch) -> None:
+        # A host already SCHEDULING for this pool (e.g. booted by another process) is waited
+        # for and adopted, rather than piling on a duplicate.
+        job = self._host_job("host-sched", capacity=4)
+        job.status.stage = "SCHEDULING"
+
+        def fake_inspect(self, **kwargs) -> MagicMock:
+            job.status.stage = "RUNNING"  # the scheduling host has come up
+            return job
+
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [job])
+        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", fake_inspect)
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+        # `_connect_mode` skips the constructor warm-up so we exercise adoption in isolation.
+        pool = SandboxPool(name="p1", token="hf_test", _connect_mode=True)
+        assert pool._adopt_pending_host() is True
+        assert [host.job_id for host in pool._hosts] == ["host-sched"]  # adopted, not booted
 
 
 class TestSandboxList:
@@ -523,8 +543,9 @@ class TestPoolConnect:
     def test_connected_pool_close_leaves_hosts_running(self, fake_server: str, monkeypatch) -> None:
         # A connect()'d handle doesn't own the shared hosts: close()/`with` releases the local
         # HTTP client but must not cancel the host job (other clients may be using it).
-        pool = SandboxPool(name="pool-x", token="hf_test")
-        pool._owns_hosts = False  # as set by connect()
+        # `_connect_mode=True` mirrors connect(): no warm-up boot, hosts not owned.
+        pool = SandboxPool(name="pool-x", token="hf_test", _connect_mode=True)
+        assert pool._owns_hosts is False
         host = _make_server(fake_server, job_id="hostA")
         pool._hosts.append(host)
         pool.close()
