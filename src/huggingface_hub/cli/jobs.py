@@ -826,7 +826,7 @@ def jobs_ssh(
         status.done("Job is running.")
     ssh_url = urlsplit(job.status.ssh_url)
     exec_ssh(
-        f"{ssh_url.username}@{ssh_url.hostname}",
+        f"{ssh_url.username}@{ssh_url.hostname}",  # type: ignore
         port=ssh_url.port,
         identity_file=identity_file,
         dry_run=dry_run,
