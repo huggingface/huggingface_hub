@@ -71,7 +71,15 @@ from ._commit_api import (
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
-from ._jobs_api import JobHardware, JobHardwareInfo, JobInfo, JobSpec, ScheduledJobInfo, _create_job_spec
+from ._jobs_api import (
+    TERMINAL_JOB_STAGES,
+    JobHardware,
+    JobHardwareInfo,
+    JobInfo,
+    JobSpec,
+    ScheduledJobInfo,
+    _create_job_spec,
+)
 from ._space_api import (
     SpaceHardware,
     SpaceRuntime,
@@ -12056,6 +12064,106 @@ class HfApi:
         hf_raise_for_status(response)
         return JobInfo(**response.json(), endpoint=self.endpoint)
 
+    @overload
+    def wait_for_job(
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 5.0,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo: ...
+
+    @overload
+    def wait_for_job(
+        self,
+        job_id: list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 5.0,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> list[JobInfo]: ...
+
+    def wait_for_job(
+        self,
+        job_id: str | list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 5.0,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo | list[JobInfo]:
+        """
+        Wait until one or more compute Jobs on Hugging Face infrastructure reach a terminal state.
+
+        Each Job status is polled (with [`inspect_job`]) every `poll_interval` seconds until its stage is
+        terminal: `"COMPLETED"`, `"CANCELED"`, `"ERROR"` or `"DELETED"`. The final [`JobInfo`] is returned
+        in all cases: a failed or canceled Job does **not** raise an exception — check `job.status.stage`
+        to act on the outcome.
+
+        Args:
+            job_id (`str` or `list[str]`):
+                ID of the Job, or a list of Job IDs to wait for. If a list is passed, a list of [`JobInfo`]
+                is returned (in the same order).
+
+            timeout (`float`, *optional*):
+                The maximum time to wait for the Job(s) to finish, in seconds. If `None`, will wait
+                indefinitely.
+
+            poll_interval (`float`, *optional*):
+                The time to wait between each status check, in seconds. Defaults to 5s.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job(s) are running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`] or `list[JobInfo]`: the final Job info(s), in a terminal stage.
+
+        Raises:
+            `TimeoutError`:
+                If at least one Job has not reached a terminal stage after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_job, wait_for_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello from HF compute!')"])
+            >>> wait_for_job(job_id=job.id).status.stage
+            'COMPLETED'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        deadline = None if timeout is None else time.monotonic() + timeout
+
+        def _wait_single(single_job_id: str) -> JobInfo:
+            while True:
+                job = self.inspect_job(job_id=single_job_id, namespace=namespace, token=token)
+                if job.status.stage in TERMINAL_JOB_STAGES:
+                    return job
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError(
+                        f"Job '{single_job_id}' is still in stage '{job.status.stage}' after {timeout} seconds."
+                    )
+                time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
+        if isinstance(job_id, str):
+            return _wait_single(job_id)
+        return [_wait_single(single_job_id) for single_job_id in job_id]
+
     def cancel_job(
         self,
         *,
@@ -14511,6 +14619,7 @@ fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
+wait_for_job = api.wait_for_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job

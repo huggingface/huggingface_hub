@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
@@ -3137,8 +3137,6 @@ class TestJobsCommand:
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/3736.
         """
-        from huggingface_hub._jobs_api import JobOwner
-
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
@@ -3148,9 +3146,31 @@ class TestJobsCommand:
             api = api_cls.return_value
             api.run_job.return_value = job
             api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value.status.stage = "COMPLETED"
             result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
         assert result.exit_code == 0
         api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=True)
+
+    def test_run_fails_when_job_does_not_complete(self, runner: CliRunner) -> None:
+        """A non-detached `hf jobs run` exits with a non-zero code if the Job did not complete successfully."""
+        job_owner = JobOwner(id="user-id", name="my-username", type="user")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
+        final = Mock(id="my-job-id")
+        final.status.stage = "ERROR"
+        final.status.message = "Job failed with exit code: 1"
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value = final
+            result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "finished with stage 'ERROR'" in str(result.exception)
+        assert "Job failed with exit code: 1" in str(result.exception)
 
     def test_logs_default_no_follow(self, runner: CliRunner) -> None:
         """Test that `hf jobs logs <id>` defaults to follow=False (non-blocking, like `docker logs`)."""
@@ -3480,6 +3500,68 @@ class TestJobsCommand:
         assert volume_2.source == "org/b"
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
+
+
+class TestJobsWaitCommand:
+    def _job(self, job_id: str, stage: str) -> Mock:
+        job = Mock(id=job_id)
+        job.status.stage = stage
+        job.status.message = None
+        return job
+
+    def test_wait_fails_if_any_job_not_completed(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "CANCELED")]
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "job-b (CANCELED)" in str(result.exception)
+
+    def test_wait_timeout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.side_effect = TimeoutError
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "--timeout", "5s"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Timed out after 5s" in str(result.exception)
+        api.wait_for_job.assert_called_once_with(["job-a"], timeout=5, namespace=None)
+
+    @pytest.mark.parametrize(
+        "args, expected_namespace",
+        [
+            # All-bare IDs use the default namespace.
+            (["job-a", "job-b"], None),
+            # An explicit --namespace makes bare IDs share it, so no conflict with 'alice/job-a'.
+            (["alice/job-a", "job-b", "--namespace", "alice"], "alice"),
+        ],
+    )
+    def test_wait_resolves_namespace(self, runner: CliRunner, args: list, expected_namespace: str | None) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 0
+        api.wait_for_job.assert_called_once_with(["job-a", "job-b"], timeout=None, namespace=expected_namespace)
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            # A bare ID must NOT silently inherit alice's namespace: errors instead of leaking.
+            ["alice/job-a", "job-b"],
+            # Two IDs implying different namespaces conflict.
+            ["alice/job-a", "bob/job-b"],
+        ],
+    )
+    def test_wait_rejects_mismatched_namespaces(self, runner: CliRunner, args: list) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "same namespace" in str(result.exception)
+        api.wait_for_job.assert_not_called()
 
 
 class TestBucketTransport:
