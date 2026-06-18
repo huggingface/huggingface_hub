@@ -2634,6 +2634,27 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 "HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin"
             )
 
+    def test_parse_safetensors_metadata_default_timeout(self) -> None:
+        # Regression test: the Range request must carry a timeout so a stalled connection cannot hang forever.
+        with patch("huggingface_hub.hf_api.get_session") as mock_get_session:
+            mock_get_session.return_value.get.side_effect = RuntimeError("stop after first request")
+            with self.assertRaises(RuntimeError):
+                self._api.parse_safetensors_file_metadata(
+                    "HuggingFaceH4/zephyr-7b-beta", "model-00003-of-00008.safetensors"
+                )
+        _, kwargs = mock_get_session.return_value.get.call_args
+        assert kwargs["timeout"] == constants.HF_HUB_DOWNLOAD_TIMEOUT
+
+    def test_parse_safetensors_metadata_custom_timeout(self) -> None:
+        with patch("huggingface_hub.hf_api.get_session") as mock_get_session:
+            mock_get_session.return_value.get.side_effect = RuntimeError("stop after first request")
+            with self.assertRaises(RuntimeError):
+                self._api.parse_safetensors_file_metadata(
+                    "HuggingFaceH4/zephyr-7b-beta", "model-00003-of-00008.safetensors", timeout=42
+                )
+        _, kwargs = mock_get_session.return_value.get.call_args
+        assert kwargs["timeout"] == 42
+
     def test_inference_provider_mapping_model_info(self):
         model = self._api.model_info("deepseek-ai/DeepSeek-R1-0528", expand="inferenceProviderMapping")
         mapping = model.inference_provider_mapping
