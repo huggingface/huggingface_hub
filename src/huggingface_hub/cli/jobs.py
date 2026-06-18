@@ -817,7 +817,7 @@ def jobs_ssh(
         raise CLIError(f"Cannot SSH into job '{job.id}': job has already finished (stage: '{job.status.stage}').")
     if job.status.stage != JobStage.RUNNING:
         status = out.status(f"Waiting for job '{job.id}' to be running (stage: '{job.status.stage}')...")
-        job = api.wait_for_job(job_id=job.id, namespace=namespace, stages=[JobStage.RUNNING, ])
+        job = api.wait_for_job(job_id=job.id, namespace=namespace, stages=[JobStage.RUNNING])
         if job.status.stage != JobStage.RUNNING:
             status.done("Job finished.")
             raise CLIError(

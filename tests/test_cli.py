@@ -3572,29 +3572,29 @@ class TestJobsSshCommand:
         return job
 
     def test_ssh_waits_for_running(self, runner: CliRunner) -> None:
+        from huggingface_hub import JobStage
+
         scheduling_job = self._job("SCHEDULING")
         running_job = self._job("RUNNING")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli.jobs.exec_ssh") as mock_exec_ssh,
-            patch("huggingface_hub.cli.jobs.time.sleep"),
         ):
             api = api_cls.return_value
-            api.inspect_job.side_effect = [scheduling_job, scheduling_job, running_job]
+            api.inspect_job.return_value = scheduling_job
+            api.wait_for_job.return_value = running_job
             result = runner.invoke(app, ["jobs", "ssh", "my-job-id"])
         assert result.exit_code == 0
-        assert api.inspect_job.call_count == 3
+        api.wait_for_job.assert_called_once_with(job_id="my-job-id", namespace=None, stages=[JobStage.RUNNING])
         mock_exec_ssh.assert_called_once()
 
     def test_ssh_errors_if_job_finishes_before_running(self, runner: CliRunner) -> None:
         scheduling_job = self._job("SCHEDULING")
         completed_job = self._job("COMPLETED")
-        with (
-            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
-            patch("huggingface_hub.cli.jobs.time.sleep"),
-        ):
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.inspect_job.side_effect = [scheduling_job, completed_job]
+            api.inspect_job.return_value = scheduling_job
+            api.wait_for_job.return_value = completed_job
             result = runner.invoke(app, ["jobs", "ssh", "my-job-id"])
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
