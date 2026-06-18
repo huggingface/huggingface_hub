@@ -1045,6 +1045,10 @@ class SandboxPool:
         # Set by connect(): the pool must already exist, so create() refuses to silently
         # resurrect it by booting a fresh host if discovery confirms every host is gone.
         self._require_live_host = False
+        # Whether close()/`__exit__` cancels the host jobs. True for a pool we created; False
+        # for a connect()'d handle, which only releases its HTTP clients on exit — the shared
+        # hosts (possibly serving other clients) are left running, like Sandbox.connect().
+        self._owns_hosts = True
         # Job ids of cached hosts we found dead this session; pruned from the cache on save.
         self._dead_host_ids: set[str] = set()
 
@@ -1083,6 +1087,7 @@ class SandboxPool:
                 token=token,
             )
             pool._require_live_host = True
+            pool._owns_hosts = False  # attached to existing hosts; don't tear them down on close()
             return pool
 
         # Cold path: find a running host via labels and rebuild the config from its job spec.
@@ -1105,6 +1110,7 @@ class SandboxPool:
             token=token,
         )
         pool._require_live_host = True
+        pool._owns_hosts = False  # attached to existing hosts; don't tear them down on close()
         return pool
 
     def warm(self, num_hosts: int = 1) -> List[str]:
@@ -1248,19 +1254,27 @@ class SandboxPool:
             return [host.job_id for host in self._hosts]
 
     def close(self) -> None:
-        """Terminate all host jobs (and therefore all their sandboxes). Idempotent."""
+        """Release the pool. Idempotent.
+
+        For a pool we created, this terminates all host jobs (and therefore all their
+        sandboxes). For a `connect()`'d handle it only releases the local HTTP clients: the
+        shared hosts may be serving other clients, so — like [`Sandbox.connect`] — leaving a
+        `with` block must not tear them down. Terminate a connected pool's hosts explicitly
+        with `hf sandbox pool delete <id>`.
+        """
         with self._lock:
             hosts = self._hosts
             self._hosts = []
             self._closed = True
         for host in hosts:
             try:
-                host.cancel_job()
+                if self._owns_hosts:
+                    host.cancel_job()
             except Exception as e:
                 logger.warning(f"Failed to cancel sandbox host {host.job_id}: {e}")
             finally:
                 host.close()
-        if self.name is not None:
+        if self._owns_hosts and self.name is not None:
             delete_pool_cache(self.name)  # the pool's hosts are gone; don't leave a stale entry
 
     def __enter__(self) -> "SandboxPool":

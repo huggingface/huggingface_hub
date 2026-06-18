@@ -523,9 +523,22 @@ class TestPoolConnect:
         assert pool.max_hosts == 3  # cost ceiling restored from the host env, not lost
         assert pool.name == "pool-x"
 
+        assert pool._owns_hosts is False  # attached to shared hosts; close() must not kill them
+
         box = pool.create()  # packs onto the discovered host, no boot
         assert isinstance(box, Sandbox)
         assert box.host_id == "hostA"
+
+    def test_connected_pool_close_leaves_hosts_running(self, fake_server: str, monkeypatch) -> None:
+        # A connect()'d handle doesn't own the shared hosts: close()/`with` releases the local
+        # HTTP client but must not cancel the host job (other clients may be using it).
+        pool = SandboxPool(name="pool-x", token="hf_test")
+        pool._owns_hosts = False  # as set by connect()
+        host = _make_server(fake_server, job_id="hostA")
+        pool._hosts.append(host)
+        pool.close()
+        host._api.cancel_job.assert_not_called()  # host left running
+        assert host._client.is_closed  # but the local client is released
 
     def test_connect_raises_when_pool_gone(self, monkeypatch) -> None:
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [])

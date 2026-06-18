@@ -229,6 +229,11 @@ density) from that host job, and is ready to `create()` more:
 >>> sbx = pool.create()
 ```
 
+A `connect()`'d pool **does not own** the shared hosts (other clients may be using them), so —
+like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local
+HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with
+`pool delete` / `hf sandbox pool delete <id>`.
+
 > [!WARNING]
 > Sandboxes within a host are isolated from each other by distinct uids plus a per-sandbox Landlock
 > ruleset — they cannot read, signal, or write each other's files, and each is confined to its own
