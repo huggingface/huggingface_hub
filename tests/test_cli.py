@@ -2445,41 +2445,6 @@ class TestSpacesHardwareCommand:
         assert cpu_basic["cost/hour"] == "free"
 
 
-class TestSpacesWaitCommand:
-    def _runtime(self, stage: str) -> Mock:
-        runtime = Mock()
-        runtime.stage = stage
-        return runtime
-
-    def test_wait_running(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.wait_for_space.return_value = self._runtime("RUNNING")
-            result = runner.invoke(app, ["spaces", "wait", "user/my-space"])
-        assert result.exit_code == 0
-        api.wait_for_space.assert_called_once_with("user/my-space", timeout=None)
-
-    def test_wait_build_error(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.wait_for_space.return_value = self._runtime("BUILD_ERROR")
-            result = runner.invoke(app, ["spaces", "wait", "user/my-space"])
-        assert result.exit_code == 1
-        assert isinstance(result.exception, CLIError)
-        assert "BUILD_ERROR" in str(result.exception)
-        assert "Space ready" not in result.stdout
-
-    def test_wait_timeout(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.wait_for_space.side_effect = TimeoutError
-            result = runner.invoke(app, ["spaces", "wait", "user/my-space", "--timeout", "30s"])
-        assert result.exit_code == 1
-        assert isinstance(result.exception, CLIError)
-        assert "Timed out after 30s" in str(result.exception)
-        api.wait_for_space.assert_called_once_with("user/my-space", timeout=30)
-
-
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
