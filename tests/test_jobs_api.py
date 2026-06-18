@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, JobStage
 from huggingface_hub._jobs_api import JobInfo
 
 
@@ -47,3 +47,30 @@ class TestWaitForJob:
         ):
             with pytest.raises(TimeoutError):
                 self.api.wait_for_job(job_id="job-id", timeout=0, namespace="user")
+
+    def test_stages_waits_for_running(self) -> None:
+        with (
+            patch.object(
+                self.api,
+                "inspect_job",
+                side_effect=[_job_info("SCHEDULING"), _job_info("RUNNING"), _job_info("COMPLETED")],
+            ) as mock_inspect,
+            patch("huggingface_hub.hf_api.time.sleep"),
+        ):
+            job = self.api.wait_for_job(job_id="job-id", namespace="user", stages=[JobStage.RUNNING])
+        # Stops as soon as RUNNING is reached, without waiting for a terminal stage.
+        assert job.status.stage == "RUNNING"
+        assert mock_inspect.call_count == 2
+
+    def test_stages_stops_on_terminal_even_if_target_not_reached(self) -> None:
+        # Terminal stages always stop the wait, so waiting for RUNNING doesn't hang on a Job that fails early.
+        with (
+            patch.object(
+                self.api,
+                "inspect_job",
+                side_effect=[_job_info("SCHEDULING"), _job_info("ERROR")],
+            ),
+            patch("huggingface_hub.hf_api.time.sleep"),
+        ):
+            job = self.api.wait_for_job(job_id="job-id", namespace="user", stages=[JobStage.RUNNING])
+        assert job.status.stage == "ERROR"

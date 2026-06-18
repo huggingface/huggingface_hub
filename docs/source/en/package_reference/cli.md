@@ -2658,8 +2658,9 @@ Learn more
 
 SSH into a running Job.
 
-Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`) and your SSH
-public key to be registered at https://huggingface.co/settings/keys.
+If the Job is not yet running, waits until it reaches the RUNNING state before
+connecting. Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`)
+and your SSH public key to be registered at https://huggingface.co/settings/keys.
 
 **Usage**:
 
@@ -2799,7 +2800,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: Job IDs to wait for.  [required]
+* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id').  [required]
 
 **Options**:
 
