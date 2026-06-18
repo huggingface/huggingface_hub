@@ -2534,12 +2534,6 @@ class TestInferenceEndpointsCommands:
             scaling_threshold=None,
             scale_to_zero_timeout=None,
             revision=None,
-            custom_image=None,
-            container_command=None,
-            container_args=None,
-            env=None,
-            secrets=None,
-            type="authenticated",
         )
         assert '"name": "hub"' in result.stdout
 
@@ -2590,7 +2584,7 @@ class TestInferenceEndpointsCommands:
             "port": 30000,
         }
         assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
-        assert kwargs["container_command"] is None
+        assert "container_command" not in kwargs
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
 

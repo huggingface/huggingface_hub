@@ -5,7 +5,7 @@ from typing import Annotated
 
 import typer
 
-from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric
+from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric, InferenceEndpointType
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 
 from ._cli_utils import (
@@ -212,7 +212,7 @@ def deploy(
         str | None,
         typer.Option(
             "--type",
-            click_type=SoftChoice(["public", "authenticated", "private"]),
+            click_type=SoftChoice(InferenceEndpointType),
             help="Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).",
         ),
     ] = None,
@@ -231,6 +231,21 @@ def deploy(
 
     env_map = {key: value or "" for key, value in parse_env_map(env, env_file).items()}
     secrets_map = {key: value or "" for key, value in parse_env_map(secrets, secrets_file).items()}
+
+    # Only forward the values the user actually set and let `create_inference_endpoint` own the defaults.
+    params: dict = {}
+    if endpoint_type is not None:
+        params["type"] = endpoint_type
+    if custom_image_dict is not None:
+        params["custom_image"] = custom_image_dict
+    if container_command:
+        params["container_command"] = shlex.split(container_command)
+    if container_args:
+        params["container_args"] = shlex.split(container_args)
+    if env_map:
+        params["env"] = env_map
+    if secrets_map:
+        params["secrets"] = secrets_map
 
     api = get_hf_api(token=token)
     endpoint = api.create_inference_endpoint(
@@ -251,12 +266,7 @@ def deploy(
         scaling_threshold=scaling_threshold,
         scale_to_zero_timeout=scale_to_zero_timeout,
         revision=revision,
-        custom_image=custom_image_dict,
-        container_command=shlex.split(container_command) if container_command else None,
-        container_args=shlex.split(container_args) if container_args else None,
-        env=env_map or None,
-        secrets=secrets_map or None,
-        type=endpoint_type or "authenticated",
+        **params,
     )
     out.dict(endpoint.raw)
     out.hint(f"Use 'hf endpoints describe {name}' to check the deployment status.")
