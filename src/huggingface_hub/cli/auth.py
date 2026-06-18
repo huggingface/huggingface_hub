@@ -41,9 +41,9 @@ from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
 from .._login import _save_oauth_token, auth_list, auth_switch, login, logout
-from .._oauth_device import poll_device_token, request_device_code
 from ..errors import CLIError
 from ..utils import get_stored_tokens, get_token, logging, select_choice
+from ..utils._oauth_device import poll_device_token, request_device_code
 from ._cli_utils import TokenOpt, typer_factory
 from ._output import OutputFormat, out
 

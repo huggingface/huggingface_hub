@@ -17,7 +17,6 @@ from huggingface_hub._login import (
     auth_switch,
     logout,
 )
-from huggingface_hub._oauth_device import poll_device_token, refresh_access_token, request_device_code
 from huggingface_hub.errors import DeviceCodeError
 from huggingface_hub.utils._auth import (
     _get_token_by_name,
@@ -27,6 +26,7 @@ from huggingface_hub.utils._auth import (
     get_stored_tokens,
     get_token,
 )
+from huggingface_hub.utils._oauth_device import poll_device_token, refresh_access_token, request_device_code
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 
@@ -238,7 +238,7 @@ class TestRequestDeviceCode:
                 "verification_uri": "https://huggingface.co/oauth/device",
             }
         )
-        with patch("huggingface_hub._oauth_device.get_session") as mock_session:
+        with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
             result = request_device_code()
         assert result["user_code"] == "ABCD-EFGH"
@@ -251,7 +251,7 @@ class TestRequestDeviceCode:
         response = httpx.Response(
             400, text="bad request", request=httpx.Request("POST", "https://hub.test/oauth/device")
         )
-        with patch("huggingface_hub._oauth_device.get_session") as mock_session:
+        with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
             with pytest.raises(DeviceCodeError, match="Failed to request device code"):
                 request_device_code()
@@ -274,8 +274,8 @@ class TestPollDeviceToken:
         """The full token response is returned after an authorization_pending response."""
         on_pending = MagicMock()
         with (
-            patch("huggingface_hub._oauth_device.get_session") as mock_session,
-            patch("huggingface_hub._oauth_device.time.sleep"),
+            patch("huggingface_hub.utils._oauth_device.get_session") as mock_session,
+            patch("huggingface_hub.utils._oauth_device.time.sleep"),
         ):
             mock_session.return_value.post.side_effect = [
                 _mock_response({"error": "authorization_pending"}),
@@ -287,8 +287,8 @@ class TestPollDeviceToken:
 
     def test_slow_down_increases_interval(self):
         with (
-            patch("huggingface_hub._oauth_device.get_session") as mock_session,
-            patch("huggingface_hub._oauth_device.time.sleep") as mock_sleep,
+            patch("huggingface_hub.utils._oauth_device.get_session") as mock_session,
+            patch("huggingface_hub.utils._oauth_device.time.sleep") as mock_sleep,
         ):
             mock_session.return_value.post.side_effect = [
                 _mock_response({"error": "slow_down"}),
@@ -304,8 +304,8 @@ class TestPollDeviceToken:
         non_json.status_code = 429
         non_json.json.side_effect = ValueError("not json")
         with (
-            patch("huggingface_hub._oauth_device.get_session") as mock_session,
-            patch("huggingface_hub._oauth_device.time.sleep"),
+            patch("huggingface_hub.utils._oauth_device.get_session") as mock_session,
+            patch("huggingface_hub.utils._oauth_device.time.sleep"),
         ):
             mock_session.return_value.post.side_effect = [
                 httpx.ConnectError("network blip"),
@@ -323,8 +323,8 @@ class TestPollDeviceToken:
     )
     def test_oauth_errors(self, error, match):
         with (
-            patch("huggingface_hub._oauth_device.get_session") as mock_session,
-            patch("huggingface_hub._oauth_device.time.sleep"),
+            patch("huggingface_hub.utils._oauth_device.get_session") as mock_session,
+            patch("huggingface_hub.utils._oauth_device.time.sleep"),
         ):
             mock_session.return_value.post.return_value = _mock_response({"error": error})
             with pytest.raises(DeviceCodeError, match=match) as exc_info:
@@ -335,13 +335,13 @@ class TestPollDeviceToken:
 class TestRefreshAccessToken:
     def test_success(self):
         payload = {"access_token": "hf_oauth_new", "refresh_token": "rt_new", "expires_in": 2592000}
-        with patch("huggingface_hub._oauth_device.get_session") as mock_session:
+        with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = _mock_response(payload)
             assert refresh_access_token("rt_old") == payload
 
     def test_invalid_grant(self):
         response = _mock_response({"error": "invalid_grant", "error_description": "revoked"}, status_code=400)
-        with patch("huggingface_hub._oauth_device.get_session") as mock_session:
+        with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
             with pytest.raises(DeviceCodeError, match="Failed to refresh") as exc_info:
                 refresh_access_token("rt_old")
