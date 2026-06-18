@@ -176,12 +176,28 @@ Jobs as needed, packs `sandboxes_per_host` sandboxes per host, and terminates ev
 ```
 
 Env and `idle_timeout` are **per-sandbox** (they belong to `create()`, not the pool), so
-sandboxes in one pool can have different environments. Pooled sandboxes share a long-lived host job,
-so there's no encrypted-secrets channel — pass per-sandbox values as `env`:
+sandboxes in one pool can have different environments:
 
 ```python
->>> sbx = pool.create(env={"SEED": "42"}, idle_timeout="5m")
+>>> sbx = pool.create(env={"SEED": "42"}, idle_timeout="5m", forward_hf_token=True)
 ```
+
+A pooled sandbox is a full [`Sandbox`], but a few inputs are fixed by the host instead of being
+per-sandbox — so [`SandboxPool.create`] accepts a smaller set of arguments than [`Sandbox.create`]:
+
+| Input              | `Sandbox.create` (dedicated)     | `SandboxPool.create` (pooled)                              |
+| ------------------ | -------------------------------- | ---------------------------------------------------------- |
+| `image`, `flavor`  | per-sandbox                      | fixed by the pool (set once on the host)                   |
+| `volumes`          | per-sandbox                      | **not available** (mounted at host boot)                   |
+| `env`              | per-sandbox                      | per-sandbox                                                |
+| `idle_timeout`     | per-sandbox                      | per-sandbox                                                |
+| `forward_hf_token` | per-sandbox                      | per-sandbox                                                |
+| `secrets`          | per-sandbox (encrypted Job secrets) | **not available** — use `env` (see below)               |
+
+Pooled sandboxes share a long-lived host job, so there's no encrypted-Job-secrets channel like
+dedicated sandboxes get. But a pooled sandbox's `env` is delivered to the host server **at sandbox
+creation** (not at job start), so it's never stored in any job's metadata — pass would-be secrets as
+plain `env`.
 
 ### Growing on demand and pre-warming
 
@@ -234,6 +250,7 @@ hi
 >>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
 >>> hf sandbox ls
 >>> hf sandbox ps 687f911eaea852de79c4a50a       # processes running inside the sandbox
+>>> hf sandbox logs 687f911eaea852de79c4a50a     # stream a background process's output (--follow to tail)
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 
@@ -248,7 +265,7 @@ For many cheap shared sandboxes, warm a pool once and then create into it on dem
 
 ```bash
 # Warm a pool -> prints a pool id (billing starts: a host VM is now running)
->>> hf sandbox pool create --image python:3.12 --flavor cpu-basic
+>>> hf sandbox pool create python:3.12 --flavor cpu-basic
 ✓ Pool created id=pool-ae9f7efe0bc7 image=python:3.12 flavor=cpu-basic host=687f... elapsed=5.7s
 
 # Each create packs onto a host with room (found by the pool id, from any machine);

@@ -260,6 +260,18 @@ class TestSandboxClient:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_called_once_with(job_id="job123", namespace="user")
 
+    def test_kill_classmethod_connects_and_kills(self, monkeypatch) -> None:
+        # `Sandbox.kill(id)` is sugar for `connect(id).kill()` (mirrors `hf sandbox kill <id>`),
+        # while `sbx.kill()` still works on a live handle — both via the _KillMethod descriptor.
+        connected = MagicMock()
+        monkeypatch.setattr(
+            sandbox_mod.Sandbox,
+            "connect",
+            classmethod(lambda cls, sid, namespace=None, token=None: connected),
+        )
+        Sandbox.kill("job-xyz", namespace="org")
+        connected.kill.assert_called_once_with()
+
     def test_context_manager_kills(self, fake_server: str) -> None:
         with _make_sandbox(fake_server) as sandbox:
             pass

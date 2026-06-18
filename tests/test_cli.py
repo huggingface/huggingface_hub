@@ -4448,6 +4448,47 @@ class TestSkillsMarketplaceCLI:
         ), result.stdout
 
 
+class TestSandboxCli:
+    """The dedicated `hf sandbox` commands (shared between dedicated and pool sandboxes)."""
+
+    def test_logs_streams_single_process(self, runner: CliRunner, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        fake_sbx = Mock()
+        fake_sbx.processes.return_value = [Mock(pid=1234)]  # exactly one -> no PID needed
+        monkeypatch.setattr(
+            sandbox_cli_mod.Sandbox,
+            "connect",
+            classmethod(lambda cls, sid, namespace=None, token=None: fake_sbx),
+        )
+
+        class FakeProc:
+            def __init__(self, sandbox, pid: int) -> None:
+                self.pid = pid
+
+            def logs(self, follow: bool = False):
+                yield "stdout", "hello\n"
+
+        monkeypatch.setattr(sandbox_cli_mod, "SandboxProcess", FakeProc)
+        result = runner.invoke(app, ["sandbox", "logs", "sbx-1"])
+        assert result.exit_code == 0, result.output
+        assert "hello" in result.output
+
+    def test_logs_requires_pid_when_ambiguous(self, runner: CliRunner, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        fake_sbx = Mock()
+        fake_sbx.processes.return_value = [Mock(pid=1), Mock(pid=2)]  # ambiguous -> must pass a PID
+        monkeypatch.setattr(
+            sandbox_cli_mod.Sandbox,
+            "connect",
+            classmethod(lambda cls, sid, namespace=None, token=None: fake_sbx),
+        )
+        result = runner.invoke(app, ["sandbox", "logs", "sbx-1"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+
+
 class TestSandboxPoolCli:
     """The `hf sandbox pool` subgroup: no local state — `create` warms a host, `spawn`
     finds the pool's hosts via labels and packs onto them (booting a duplicate if full)."""
@@ -4463,7 +4504,7 @@ class TestSandboxPoolCli:
             return ["host-abc"]
 
         monkeypatch.setattr(sandbox_cli_mod.SandboxPool, "warm", fake_warm)
-        result = runner.invoke(app, ["sandbox", "pool", "create", "--image", "alpine:3.20", "--per-host", "10"])
+        result = runner.invoke(app, ["sandbox", "pool", "create", "alpine:3.20", "--per-host", "10"])
         assert result.exit_code == 0, result.output
         assert warmed["image"] == "alpine:3.20"
         assert warmed["name"].startswith("pool-")
@@ -4496,6 +4537,19 @@ class TestSandboxPoolCli:
         result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--secrets", "K=v"])
         assert result.exit_code != 0
         assert isinstance(result.exception, CLIError)
+
+    def test_create_pool_forwards_hf_token(self, runner: CliRunner, monkeypatch) -> None:
+        from huggingface_hub.cli import sandbox as sandbox_cli_mod
+
+        fake_pool = Mock()
+        sbx = Mock(id="host1.sb0", host_id="host1")
+        fake_pool.create.return_value = sbx
+        monkeypatch.setattr(
+            sandbox_cli_mod.SandboxPool, "connect", classmethod(lambda cls, pid, namespace=None, token=None: fake_pool)
+        )
+        result = runner.invoke(app, ["sandbox", "create", "--pool", "pool-x", "--forward-hf-token"])
+        assert result.exit_code == 0, result.output
+        assert fake_pool.create.call_args.kwargs["forward_hf_token"] is True
 
     def test_create_pool_gone_errors(self, runner: CliRunner, monkeypatch) -> None:
         from huggingface_hub.cli import sandbox as sandbox_cli_mod

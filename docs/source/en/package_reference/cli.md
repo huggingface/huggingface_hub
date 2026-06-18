@@ -3652,6 +3652,7 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a sandbox: a dedicated VM by...
 * `exec`: Run a command in a sandbox, streaming output.
 * `kill`: Terminate a sandbox, a whole shared host,...
+* `logs`: Stream the stdout/stderr of a background...
 * `ls`: List your running sandboxes (dedicated and... [alias: list]
 * `pool`: Warm pools of host VMs and spawn cheap...
 * `ps`: List background processes running in a...
@@ -3797,6 +3798,37 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf sandbox logs`
+
+Stream the stdout/stderr of a background process in a sandbox (started with `spawn`).
+
+**Usage**:
+
+```console
+$ hf sandbox logs [OPTIONS] SANDBOX_ID [PID]
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+* `[PID]`: Process id (from `hf sandbox ps`). Optional when only one process is running.
+
+**Options**:
+
+* `-f, --follow`: Keep streaming until the process exits.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox logs <sandbox_id>
+  $ hf sandbox logs <sandbox_id> 1234 --follow
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf sandbox ls`
 
 List your running sandboxes (dedicated and shared). [alias: list]
@@ -3846,18 +3878,21 @@ $ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
 Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
 
 Returns a pool id. Spawn sandboxes into it with `hf sandbox create --pool <id>` —
-each sandbox carries its own env/secrets/idle-timeout. Billing starts now (the host
+each sandbox carries its own env and idle-timeout. Billing starts now (the host
 is running); stop it with `hf sandbox pool delete <id>`.
 
 **Usage**:
 
 ```console
-$ hf sandbox pool create [OPTIONS]
+$ hf sandbox pool create [OPTIONS] [IMAGE]
 ```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image for the hosts (needs /bin/sh).
 
 **Options**:
 
-* `--image TEXT`: Docker image for the hosts (needs /bin/sh).  [default: python:3.12]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--per-host INTEGER RANGE`: Sandboxes packed per host VM (default 50).  [default: 50; x>=1]
 * `--max-hosts INTEGER RANGE`: Optional cap on the number of host VMs.  [x>=1]
@@ -3868,7 +3903,7 @@ $ hf sandbox pool create [OPTIONS]
 
 Examples
   $ hf sandbox pool create
-  $ hf sandbox pool create --image python:3.12 --flavor cpu-basic
+  $ hf sandbox pool create python:3.12 --flavor cpu-basic
   $ hf sandbox pool create --per-host 50 --idle-timeout 30m
 
 Learn more

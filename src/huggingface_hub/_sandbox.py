@@ -55,7 +55,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from secrets import token_hex
-from typing import Any, BinaryIO, Callable, Iterator, List
+from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
 
 import httpx
 
@@ -190,7 +190,7 @@ class FileEntry:
 
     name: str
     path: str
-    type: str  # "file" | "dir" | "symlink"
+    type: Literal["file", "dir", "symlink"]
     size: int
     mtime_ms: int | None = None
     mode: str = ""
@@ -206,7 +206,7 @@ class SandboxInfo:
     """
 
     id: str
-    kind: str  # "dedicated" | "shared"
+    kind: Literal["dedicated", "shared"]
     image: str | None = None
     flavor: str | None = None
     host_id: str | None = None  # the host job id for shared sandboxes (None for dedicated)
@@ -560,6 +560,29 @@ class _SandboxServer:
         raise SandboxError(f"Sandbox job {self.job_id} did not become ready within {start_timeout:.0f}s.")
 
 
+class _KillMethod:
+    """Lets `kill` work both as a classmethod and an instance method.
+
+    `Sandbox.kill(id)` terminates a sandbox by id (a shortcut for `connect(id).kill()`,
+    mirroring `hf sandbox kill <id>`), while `sbx.kill()` terminates a live handle. The
+    two have different signatures, so a plain `@classmethod` can't cover both — hence this
+    small descriptor.
+    """
+
+    @overload
+    def __get__(self, instance: None, owner: type) -> Callable[..., None]: ...
+    @overload
+    def __get__(self, instance: "Sandbox", owner: type) -> Callable[[], None]: ...
+    def __get__(self, instance: "Sandbox | None", owner: type) -> Callable[..., None]:
+        if instance is not None:
+            return instance._kill
+
+        def kill(sandbox_id: str, *, namespace: str | None = None, token: str | None = None) -> None:
+            owner.connect(sandbox_id, namespace=namespace, token=token).kill()  # type: ignore[attr-defined]
+
+        return kill
+
+
 class Sandbox:
     """An isolated cloud machine running on Hugging Face Jobs.
 
@@ -746,7 +769,11 @@ class Sandbox:
         """
         return _list_sandboxes(HfApi(token=token), namespace=namespace)
 
-    def kill(self) -> None:
+    # `kill` is both a classmethod (`Sandbox.kill(id)`) and an instance method (`sbx.kill()`),
+    # dispatched by the `_KillMethod` descriptor; `_kill` holds the instance behaviour.
+    kill = _KillMethod()
+
+    def _kill(self) -> None:
         """Terminate the sandbox. Idempotent.
 
         Dedicated sandboxes cancel their underlying job; shared sandboxes are
@@ -1100,6 +1127,7 @@ class SandboxPool:
         *,
         env: dict[str, Any] | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
+        forward_hf_token: bool = False,
     ) -> "Sandbox":
         """Create one sandbox, provisioning a host if needed.
 
@@ -1115,10 +1143,16 @@ class SandboxPool:
             idle_timeout: Per-sandbox idle timeout — a sandbox is evicted from its host
                 after this much inactivity (no API calls, no running process). Distinct
                 from the host idle timeout. Pass `None` to disable.
+            forward_hf_token: If True, inject your HF token as `HF_TOKEN` in the sandbox
+                (opt-in). Unlike a dedicated sandbox's `secrets`, a pooled sandbox's env is
+                delivered to the host server at creation (never stored in the host job), so
+                it doesn't appear in any job's metadata.
         """
         if self._closed:
             raise SandboxError("This SandboxPool is closed.")
         sandbox_env = dict(env or {})
+        if forward_hf_token:
+            sandbox_env["HF_TOKEN"] = _effective_token(self._api)
         # None disables per-sandbox idle eviction (mirrors Sandbox.create): leave it out of
         # the create body entirely rather than sending 0, which the server reads as "evict now".
         idle_secs = _duration_to_secs(idle_timeout) if idle_timeout is not None else None
