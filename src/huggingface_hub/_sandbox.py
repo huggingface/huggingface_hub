@@ -1114,22 +1114,31 @@ class SandboxPool:
         return pool
 
     def warm(self, num_hosts: int = 1) -> List[str]:
-        """Boot `num_hosts` empty host(s) now and leave them running. Returns their job ids.
+        """Ensure `num_hosts` empty host(s) are running and leave them running. Returns the
+        pool's host job ids.
 
         Used to "create" a pool up front: the hosts carry the pool label and config (in
         their env vars), so a later `SandboxPool.connect(pool_id)` (even from another
         machine) finds them and spawns sandboxes without a cold start. The hosts keep
         billing until killed or idle.
+
+        Adopts hosts already running for this pool (found via job labels) before booting,
+        so a `warm()` after `connect()` — or a repeated `warm()` — tops up to `num_hosts`
+        instead of duplicating live hosts and blowing past `max_hosts`.
         """
         if self._closed:
             raise SandboxError("This SandboxPool is closed.")
-        hosts = self._provision_hosts(num_hosts)
+        self._discover_hosts()
         with self._lock:
-            self._hosts.extend(hosts)
+            shortfall = num_hosts - len(self._hosts)
+        if shortfall > 0:
+            booted = self._provision_hosts(shortfall)
+            with self._lock:
+                self._hosts.extend(booted)
         with self._warmup_lock:
             self._warmed_up = True  # explicit warm-up satisfies create()'s one-time warm-up
         self._save_cache()
-        return [host.job_id for host in hosts]
+        return self.host_ids
 
     def create(
         self,
