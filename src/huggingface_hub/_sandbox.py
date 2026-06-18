@@ -1008,11 +1008,11 @@ class SandboxPool:
                 (boot one host on demand).
             max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
-            name: Optional pool name. `create()` reuses running hosts (found via job
-                labels, including from other processes) that match this pool's
-                image/flavor/name before booting new ones. Reuse is scoped to the name,
-                so distinct names keep separate pools from sharing hosts; `None` shares
-                unnamed hosts.
+            name: Pool name, used as the `hf-sandbox-pool` job label so the pool is
+                discoverable (e.g. `hf sandbox pool ls`, `connect()`). `create()` reuses
+                running hosts carrying this label (including from other processes) before
+                booting new ones, so distinct names keep separate pools from sharing hosts.
+                A random name is generated when omitted.
             idle_timeout: Host idle timeout — a host shuts down once it has had no
                 sandboxes for this long (a billing backstop). Each sandbox also has its
                 own idle timeout, set at `create()`. Pass `None` to disable.
@@ -1030,7 +1030,7 @@ class SandboxPool:
         self.sandboxes_per_host = sandboxes_per_host
         self._warm_up = warm_up
         self.max_hosts = max_hosts
-        self.name = name
+        self.name = name if name is not None else f"pool-{token_hex(6)}"
         self._idle_timeout = idle_timeout
         self._namespace = namespace
         self._start_timeout = start_timeout
@@ -1183,7 +1183,7 @@ class SandboxPool:
                     host = self._reserve_one()
                 # 3. Still none? Boot one host (unless we must not resurrect a dead pool).
                 if host is None:
-                    if self._require_live_host and self.name is not None and discovered and not self._hosts:
+                    if self._require_live_host and discovered and not self._hosts:
                         # connect()'d to a pool whose hosts are all gone (stale cache + nothing
                         # found via labels): don't resurrect it under the same id, just report it.
                         delete_pool_cache(self.name)
@@ -1274,7 +1274,7 @@ class SandboxPool:
                 logger.warning(f"Failed to cancel sandbox host {host.job_id}: {e}")
             finally:
                 host.close()
-        if self._owns_hosts and self.name is not None:
+        if self._owns_hosts:
             delete_pool_cache(self.name)  # the pool's hosts are gone; don't leave a stale entry
 
     def __enter__(self) -> "SandboxPool":
@@ -1344,18 +1344,10 @@ class SandboxPool:
             labels = job.labels or {}
             if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING" or job.id in known:
                 continue
-            if labels.get(POOL_LABEL) != self.name:  # None == unnamed pool
+            if labels.get(POOL_LABEL) != self.name:
                 continue
-            # For a named pool the label already pins the host to this exact pool (one
-            # image/flavor by construction), so image/flavor are redundant. For an unnamed
-            # pool there's no such label, so fall back to image/flavor to avoid adopting
-            # unrelated hosts — but `list_jobs` may omit `flavor` (None), so don't reject a
-            # labelled match on a missing field.
-            if self.name is None:
-                if (job.docker_image or job.space_id) != self.image:
-                    continue
-                if job.flavor is not None and job.flavor != self.flavor:
-                    continue
+            # The label already pins the host to this exact pool (one image/flavor by
+            # construction), so image/flavor are redundant here.
             matches.append(job)
 
         for job in matches:
@@ -1445,9 +1437,7 @@ class SandboxPool:
         # defaulting to unlimited and provisioning past it.
         if self.max_hosts is not None:
             job_env["SBX_MAX_HOSTS"] = str(self.max_hosts)
-        labels = {SANDBOX_LABEL: nonce, HOST_LABEL: "1"}
-        if self.name is not None:
-            labels[POOL_LABEL] = self.name
+        labels = {SANDBOX_LABEL: nonce, HOST_LABEL: "1", POOL_LABEL: self.name}
         job = self._api.run_job(
             image=self.image,
             command=command,
@@ -1539,8 +1529,6 @@ class SandboxPool:
         believes are full are skipped — label discovery re-checks them with fresh counts if
         the seeded ones don't satisfy the request, so a stale-full entry never blocks a create.
         """
-        if self.name is None:
-            return
         cache = read_pool_cache(self.name)
         if cache is None:
             return
@@ -1567,8 +1555,6 @@ class SandboxPool:
 
     def _save_cache(self) -> None:
         """Persist the pool config + current hosts (with their live counts) for next time."""
-        if self.name is None:
-            return
         with self._lock:
             hosts = [
                 CachedHost(

@@ -35,7 +35,6 @@ Both kinds share the same commands:
 
 import sys
 import time
-import uuid
 from contextlib import contextmanager
 from typing import Annotated, Any, Iterator
 
@@ -443,7 +442,6 @@ def pool_create(
     each sandbox carries its own env and idle-timeout. Billing starts now (the host
     is running); stop it with `hf sandbox pool delete <id>`.
     """
-    pool_id = f"pool-{uuid.uuid4().hex[:12]}"
     start = time.time()
     image = image or DEFAULT_IMAGE
     pool = SandboxPool(
@@ -451,11 +449,11 @@ def pool_create(
         flavor=flavor or "cpu-basic",
         sandboxes_per_host=per_host,
         max_hosts=max_hosts,
-        name=pool_id,
         idle_timeout=idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
         namespace=namespace,
         token=token,
     )
+    pool_id = pool.name
     host_ids = pool.warm(1)
     out.result(
         "Pool created",

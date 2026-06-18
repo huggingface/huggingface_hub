@@ -395,7 +395,7 @@ class TestHostDiscovery:
     """`create()` should attach to a warm host found via job labels (e.g. left by
     another process) before booting a new one."""
 
-    def _host_job(self, job_id: str = "host9", capacity: int = 4, pool_name=None) -> MagicMock:
+    def _host_job(self, job_id: str = "host9", capacity: int = 4, pool_name: str = "p1") -> MagicMock:
         job = MagicMock()
         job.id = job_id
         job.owner.name = "user"
@@ -403,12 +403,12 @@ class TestHostDiscovery:
         job.space_id = None
         job.flavor = "cpu-basic"
         job.status.stage = "RUNNING"
-        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1"}
+        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1", POOL_LABEL: pool_name}
         job.environment = {"SBX_CAPACITY": str(capacity)}  # config lives in env vars, not labels
         return job
 
-    def _pool(self, fake_server, monkeypatch, **kwargs) -> SandboxPool:
-        pool = SandboxPool(image="python:3.12", flavor="cpu-basic", token="hf_test", **kwargs)
+    def _pool(self, fake_server, monkeypatch, name: str = "p1", **kwargs) -> SandboxPool:
+        pool = SandboxPool(image="python:3.12", flavor="cpu-basic", name=name, token="hf_test", **kwargs)
         # A new host boot would fail (no real Jobs); discovery must avoid it here.
         monkeypatch.setattr(pool, "_boot_host", lambda: _make_server(fake_server, capacity=4))
         # `_connect_host` (module-level) returns a server wired to the fake server.
@@ -429,19 +429,10 @@ class TestHostDiscovery:
 
     def test_discovery_respects_pool_name(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch, name="mine")
-        # An unnamed host must not be adopted by a named pool.
-        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9")])
+        # A host from a different pool must not be adopted.
+        pool._api.list_jobs = MagicMock(return_value=[self._host_job("host9", pool_name="other")])
         pool.create()
         assert pool._hosts[0].job_id != "host9"  # booted its own host (name mismatch)
-
-    def test_discovery_adopts_host_with_missing_flavor(self, fake_server: str, monkeypatch) -> None:
-        # list_jobs may omit flavor (None); a matching host must still be reused, not skipped.
-        pool = self._pool(fake_server, monkeypatch)
-        job = self._host_job("host9", capacity=4)
-        job.flavor = None
-        pool._api.list_jobs = MagicMock(return_value=[job])
-        pool.create()
-        assert pool._hosts[0].job_id == "host9"  # adopted despite the missing flavor field
 
     def test_discovery_falls_back_to_inspect_for_capacity(self, fake_server: str, monkeypatch) -> None:
         # When list_jobs omits the host env, capacity is fetched via inspect_job (like connect),
