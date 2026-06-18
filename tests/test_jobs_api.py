@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, JobStage
 from huggingface_hub._jobs_api import JobInfo
 
 
@@ -49,8 +49,6 @@ class TestWaitForJob:
                 self.api.wait_for_job(job_id="job-id", timeout=0, namespace="user")
 
     def test_stages_waits_for_running(self) -> None:
-        from huggingface_hub import JobStage
-
         with (
             patch.object(
                 self.api,
@@ -65,8 +63,6 @@ class TestWaitForJob:
         assert mock_inspect.call_count == 2
 
     def test_stages_stops_on_terminal_even_if_target_not_reached(self) -> None:
-        from huggingface_hub import JobStage
-
         # Terminal stages always stop the wait, so waiting for RUNNING doesn't hang on a Job that fails early.
         with (
             patch.object(
