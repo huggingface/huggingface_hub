@@ -2467,6 +2467,7 @@ class TestSpacesWaitCommand:
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
         assert "BUILD_ERROR" in str(result.exception)
+        assert "Space ready" not in result.stdout
 
     def test_wait_timeout(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:

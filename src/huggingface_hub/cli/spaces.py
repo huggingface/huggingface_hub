@@ -324,9 +324,9 @@ def spaces_wait(
         status.done("Timed out.")
         raise CLIError(f"Timed out after {timeout} waiting for Space '{space_id}' to be ready.") from None
     status.done(f"Space reached stage '{runtime.stage}'.")
-    out.result("Space ready", space_id=space_id, stage=str(runtime.stage))
     if runtime.stage != SpaceStage.RUNNING:
         raise CLIError(f"Space '{space_id}' is not running (stage='{runtime.stage}').")
+    out.result("Space ready", space_id=space_id, stage=str(runtime.stage))
     out.hint(f"Use `hf spaces logs {space_id}` to view run logs.")
 
 
