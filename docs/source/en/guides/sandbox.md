@@ -69,12 +69,24 @@ Pick any image and hardware [flavor](./jobs#select-the-hardware):
 [`Sandbox.run`] executes a command and waits for it. Pass a shell string or an argv list:
 
 ```python
->>> sbx.run("pip install -q numpy")                       # runs through /bin/sh -c
->>> sbx.run(["python", "-c", "import numpy; print(numpy.__version__)"])
+>>> sbx.run("pip install -q numpy")                       # string  → runs through /bin/sh -c
+>>> sbx.run(["python", "-c", "import numpy; print(numpy.__version__)"])  # list → exec'd directly
 
 # Live output streaming, plus env, cwd, timeout, stdin
 >>> sbx.run("make -j4", cwd="/app", env={"CC": "gcc"}, timeout=600, on_stdout=print, on_stderr=print)
 ```
+
+By default the mode is inferred from the type (a string runs through `/bin/sh -c`, a list is
+exec'd directly as argv). Pass `shell=` to make it explicit — handy to avoid the classic footgun
+where a one-element list like `["echo hi"]` is exec'd as a single program named `"echo hi"`:
+
+```python
+>>> sbx.run("echo $HOME && ls | wc -l", shell=True)   # force the shell (pipes, globs, $VARS)
+>>> sbx.run(["git", "commit", "-m", msg], shell=False)  # force argv (no quoting surprises)
+```
+
+`shell=True` requires a string and `shell=False` requires a list; passing the wrong type raises
+a `ValueError`.
 
 A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `stderr` and
 `exit_code` attached). Pass `check=False` to get the [`CommandResult`] back instead of raising:

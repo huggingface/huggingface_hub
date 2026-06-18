@@ -389,6 +389,25 @@ class SandboxFiles:
         self._sandbox._request("POST", "/files/mkdir", params={"path": path})
 
 
+def _exec_payload(cmd: str | List[str], shell: bool | None) -> dict[str, Any]:
+    """Build the `cmd`/`shell` part of an `/exec` payload, validating their consistency.
+
+    The shell-vs-argv decision is, by default, inferred from the type of `cmd`: a string is
+    a shell command line (run via `/bin/sh -c`), a list is an argv vector exec'd directly.
+    `shell` makes that choice explicit and authoritative: `True` requires a string, `False`
+    requires a list — passing the wrong type raises a clear error instead of silently doing
+    the wrong thing (e.g. a one-element list being exec'd as a program with a space in its name).
+    """
+    if shell is True and not isinstance(cmd, str):
+        raise ValueError("shell=True requires `cmd` to be a shell command string, not a list.")
+    if shell is False and isinstance(cmd, str):
+        raise ValueError("shell=False requires `cmd` to be an argv list (e.g. ['echo', 'hi']), not a string.")
+    payload: dict[str, Any] = {"cmd": cmd}
+    if shell is not None:
+        payload["shell"] = shell
+    return payload
+
+
 def _iter_events(response: httpx.Response) -> Iterator[dict]:
     """Iterate NDJSON events from a streaming response, skipping keepalive pings."""
     for line in response.iter_lines():
@@ -770,6 +789,7 @@ class Sandbox:
         self,
         cmd: str | List[str],
         *,
+        shell: bool | None = None,
         env: dict[str, Any] | None = None,
         cwd: str | None = None,
         timeout: float | None = None,
@@ -781,7 +801,12 @@ class Sandbox:
         """Run a command in the sandbox and wait for it, streaming output live.
 
         Args:
-            cmd: A shell command string (run with `/bin/sh -c`) or an argv list.
+            cmd: A shell command string (run with `/bin/sh -c`) or an argv list (exec'd directly).
+            shell: Force the execution mode instead of inferring it from the type of `cmd`.
+                `True` runs through `/bin/sh -c` and requires `cmd` to be a string; `False`
+                exec's `cmd` directly and requires it to be an argv list. `None` (default)
+                infers from the type. Set it explicitly to avoid the type-driven footgun (e.g.
+                `["echo hi"]` being exec'd as a single program named `"echo hi"`).
             env: Extra environment variables for this command.
             cwd: Working directory.
             timeout: Kill the command (whole process group) after this many seconds.
@@ -791,7 +816,7 @@ class Sandbox:
 
         Returns: [`CommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
         """
-        payload: dict[str, Any] = {"cmd": cmd}
+        payload = _exec_payload(cmd, shell)
         if env:
             payload["env"] = env
         if cwd:
@@ -833,13 +858,19 @@ class Sandbox:
         self,
         cmd: str | List[str],
         *,
+        shell: bool | None = None,
         env: dict[str, Any] | None = None,
         cwd: str | None = None,
         timeout: float | None = None,
         tag: str | None = None,
     ) -> SandboxProcess:
-        """Start a background process and return immediately with a [`SandboxProcess`] handle."""
-        payload: dict[str, Any] = {"cmd": cmd, "background": True}
+        """Start a background process and return immediately with a [`SandboxProcess`] handle.
+
+        `cmd` and `shell` work as in [`Sandbox.run`]: a string runs via `/bin/sh -c`, a list is
+        exec'd as argv, and `shell` forces the mode explicitly instead of inferring it from the type.
+        """
+        payload = _exec_payload(cmd, shell)
+        payload["background"] = True
         if env:
             payload["env"] = env
         if cwd:

@@ -90,6 +90,7 @@ class _FakeServer(BaseHTTPRequestHandler):
     sandboxes: set = set()
     capacity = None  # None == unlimited; set per-subclass to test the full handshake
     seq = 0  # monotonic id source (survives deletes)
+    last_exec: dict | None = None  # body of the most recent /exec call (for assertions)
 
     def log_message(self, *args) -> None:
         pass
@@ -111,6 +112,10 @@ class _FakeServer(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _exec(self, body) -> None:
+        type(self).last_exec = body
+        if body.get("background"):
+            self._json({"pid": 42, "tag": body.get("tag")})
+            return
         self._ndjson(
             [
                 {"event": "start", "pid": 42},
@@ -168,6 +173,7 @@ def fake_server():
     _FakeServer.sandboxes = set()
     _FakeServer.seq = 0
     _FakeServer.capacity = None
+    _FakeServer.last_exec = None
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -208,6 +214,36 @@ class TestSandboxClient:
         stdout_chunks: list = []
         sandbox.run("echo", on_stdout=stdout_chunks.append)
         assert stdout_chunks == ["out1"]
+
+    def test_run_infers_shell_from_type(self, fake_server: str) -> None:
+        # Without an explicit `shell`, the mode is inferred from the type and no `shell`
+        # field is sent on the wire (the server keeps inferring from the type of `cmd`).
+        sandbox = _make_sandbox(fake_server)
+        sandbox.run("echo hi")
+        assert _FakeServer.last_exec == {"cmd": "echo hi"}
+        sandbox.run(["echo", "hi"])
+        assert _FakeServer.last_exec == {"cmd": ["echo", "hi"]}
+
+    def test_run_explicit_shell_is_sent(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox.run("echo hi", shell=True)
+        assert _FakeServer.last_exec == {"cmd": "echo hi", "shell": True}
+        sandbox.run(["echo", "hi"], shell=False)
+        assert _FakeServer.last_exec == {"cmd": ["echo", "hi"], "shell": False}
+
+    def test_run_rejects_mismatched_shell_and_cmd(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        with pytest.raises(ValueError, match="shell=True requires"):
+            sandbox.run(["echo", "hi"], shell=True)
+        with pytest.raises(ValueError, match="shell=False requires"):
+            sandbox.run("echo hi", shell=False)
+
+    def test_spawn_explicit_shell_is_sent(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox.spawn(["python", "-m", "http.server"], shell=False)
+        assert _FakeServer.last_exec == {"cmd": ["python", "-m", "http.server"], "shell": False, "background": True}
+        with pytest.raises(ValueError, match="shell=True requires"):
+            sandbox.spawn(["python", "-m", "http.server"], shell=True)
 
     def test_files_read(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
