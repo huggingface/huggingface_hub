@@ -30,7 +30,7 @@ jobs:
       - name: Check imports
         run: |
           source .venv/bin/activate
-          python -c "from huggingface_hub import *"
+          python utils/check_imports.py
 
   build-ubuntu:
     runs-on:
