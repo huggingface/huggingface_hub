@@ -412,6 +412,11 @@ def jobs_logs(
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
+def _is_exact_pattern(pattern: str) -> bool:
+    """Whether a filter value is a plain string (no `fnmatch` glob characters)."""
+    return not any(char in pattern for char in "*?[")
+
+
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
     for key, op_str, pattern in filters:
@@ -553,7 +558,6 @@ def jobs_ps(
 ) -> None:
     """List Jobs."""
     api = get_hf_api(token=token)
-    jobs = api.list_jobs(namespace=namespace)
 
     filters: list[tuple[str, str, str]] = []
     labels_filters: list[tuple[str, str, str]] = []
@@ -589,6 +593,18 @@ def jobs_ps(
             filters.append((key.lower(), op, value.lower()))
         else:
             out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+
+    # Push exact status/label filters to the server to narrow results before the client-side filtering
+    # below. Glob patterns and negations (`!=`) are not supported server-side, so they stay client-only.
+    # The client-side pass remains authoritative, so this is a no-op against an endpoint that ignores the
+    # params (e.g. before the server-side feature is deployed).
+    server_stages = [
+        value.upper() for key, op, value in filters if key == "status" and op == "=" and _is_exact_pattern(value)
+    ]
+    server_labels = {
+        key: value for key, op, value in labels_filters if op == "=" and value != "*" and _is_exact_pattern(value)
+    }
+    jobs = api.list_jobs(namespace=namespace, stage=server_stages or None, labels=server_labels or None)
 
     # Filter jobs (operating on JobInfo objects to preserve existing filter behavior)
     filtered_jobs = []

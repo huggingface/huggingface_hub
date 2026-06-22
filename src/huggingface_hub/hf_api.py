@@ -12018,6 +12018,8 @@ class HfApi:
     def list_jobs(
         self,
         *,
+        stage: list[JobStage | str] | JobStage | str | None = None,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12026,6 +12028,14 @@ class HfApi:
         List compute Jobs on Hugging Face infrastructure.
 
         Args:
+            stage (`JobStage`, `str` or `list`, *optional*):
+                Only return Jobs in the given stage(s), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
+                See [`JobStage`] for possible values. Filtering happens server-side.
+
+            labels (`dict[str, str]`, *optional*):
+                Only return Jobs that have all the given `key=value` labels, e.g. `{"env": "prod", "team": "ml"}`.
+                Filtering happens server-side.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -12039,9 +12049,16 @@ class HfApi:
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
+        params: list[tuple[str, str | int | float | None]] = []
+        if stage is not None:
+            stages = [stage] if isinstance(stage, (str, JobStage)) else stage
+            params.extend(("stage", s.value if isinstance(s, JobStage) else str(s)) for s in stages)
+        if labels is not None:
+            params.extend(("label", f"{key}={value}") for key, value in labels.items())
         response = get_session().get(
             f"{self.endpoint}/api/jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
+            params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)

@@ -2017,7 +2017,12 @@ Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
 
 # Show Jobs based on key=value labels
 >>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
+
+# Filter by status
+>>> hf jobs ps -a --filter status=completed
 ```
+
+You can filter by any of `id`, `image`, `command`, `status` and `label`, and values support glob patterns (e.g. `data-*`) and negation (`key!=value`). Exact status and `key=value` label filters are pushed to the server so they apply to all your Jobs, not just the most recent ones; glob and negation filters are applied client-side.
 
 ### SSH into a Job
 

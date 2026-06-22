@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -74,3 +74,45 @@ class TestWaitForJob:
         ):
             job = self.api.wait_for_job(job_id="job-id", namespace="user", stages=[JobStage.RUNNING])
         assert job.status.stage == "ERROR"
+
+
+class TestListJobs:
+    api = HfApi(token="hf_test")
+
+    def _patch_session(self):
+        response = Mock()
+        response.json.return_value = []
+        session = patch("huggingface_hub.hf_api.get_session")
+        return session, response
+
+    def test_forwards_stage_and_labels_as_query_params(self) -> None:
+        session, response = self._patch_session()
+        with session as mock_session:
+            mock_session.return_value.get.return_value = response
+            self.api.list_jobs(
+                namespace="user",
+                stage=[JobStage.RUNNING, "SCHEDULING"],
+                labels={"env": "prod", "team": "ml"},
+            )
+        params = mock_session.return_value.get.call_args.kwargs["params"]
+        # `stage` is serialized to its raw string value (not `JobStage.RUNNING`), labels as `key=value`.
+        assert params == [
+            ("stage", "RUNNING"),
+            ("stage", "SCHEDULING"),
+            ("label", "env=prod"),
+            ("label", "team=ml"),
+        ]
+
+    def test_single_stage_string_is_wrapped(self) -> None:
+        session, response = self._patch_session()
+        with session as mock_session:
+            mock_session.return_value.get.return_value = response
+            self.api.list_jobs(namespace="user", stage="RUNNING")
+        assert mock_session.return_value.get.call_args.kwargs["params"] == [("stage", "RUNNING")]
+
+    def test_no_filters_sends_no_params(self) -> None:
+        session, response = self._patch_session()
+        with session as mock_session:
+            mock_session.return_value.get.return_value = response
+            self.api.list_jobs(namespace="user")
+        assert mock_session.return_value.get.call_args.kwargs["params"] is None

@@ -3390,6 +3390,28 @@ class TestJobsCommand:
         assert "3m 7s" in result.output  # 187s running_secs formatted
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
+    def test_ps_pushes_exact_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
+        """Exact `status=` and `label=key=value` filters are forwarded to `list_jobs` for server-side filtering."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "status=completed", "-f", "label=env=test"])
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["stage"] == ["COMPLETED"]
+        assert kwargs["labels"] == {"env": "test"}
+
+    def test_ps_does_not_push_glob_or_negated_filters(self, runner: CliRunner) -> None:
+        """Glob patterns and negations can't be expressed server-side, so they stay client-side only."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "status=run*", "-f", "label!=prod"])
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["stage"] is None
+        assert kwargs["labels"] is None
+
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
         import json
