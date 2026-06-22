@@ -113,13 +113,28 @@ _MAX_PACK_ROUNDS = 8
 
 # Tries wget (alpine/busybox/debian), curl, then python3 (python:*-slim) to fetch
 # the static server binary, then replaces itself with it. Requires only /bin/sh.
+# Cold start is the priority, so we download straight away with whatever the image
+# already ships. Only if none of them is present do we fall back to installing wget
+# via the system package manager and retry — so minimal images (e.g. bare
+# ubuntu/debian/fedora) still work without every task adding a fetcher to its Dockerfile.
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
-if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
-elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
-elif command -v python3 >/dev/null 2>&1; then python3 -c 'import os,urllib.request as u; r=u.Request(os.environ["SBX_SERVER_URL"],headers={"Authorization":"Bearer "+os.environ["SBX_DL_TOKEN"]}); open("/tmp/.sbx-server","wb").write(u.urlopen(r).read())'
-else echo "hf-sandbox: image has none of wget/curl/python3 to fetch the sandbox server. Use an image that ships one of them." >&2; exit 96; fi
+dl() {
+  if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
+  elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
+  elif command -v python3 >/dev/null 2>&1; then python3 -c 'import os,urllib.request as u; r=u.Request(os.environ["SBX_SERVER_URL"],headers={"Authorization":"Bearer "+os.environ["SBX_DL_TOKEN"]}); open("/tmp/.sbx-server","wb").write(u.urlopen(r).read())'
+  else return 1; fi
+}
+if ! dl; then
+  # No wget/curl/python3 in the image: install wget via the system package manager, then retry.
+  if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -q wget ca-certificates
+  elif command -v apk >/dev/null 2>&1; then apk add --no-cache wget ca-certificates
+  elif command -v yum >/dev/null 2>&1; then yum install -y -q wget ca-certificates
+  elif command -v dnf >/dev/null 2>&1; then dnf install -y -q wget ca-certificates
+  else echo "hf-sandbox: image has none of wget/curl/python3 and no package manager to install one. Use an image that ships one of them." >&2; exit 96; fi
+  dl
+fi
 chmod +x "$d"
 unset SBX_DL_TOKEN SBX_SERVER_URL
 exec "$d"
