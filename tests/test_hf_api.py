@@ -1479,9 +1479,11 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
         model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
         assert model_ckpt.last_commit is not None
         assert model_ckpt.last_commit["oid"] == "bda967fdb79a50844e4a02cccae3217a8ecc86cd"
-        assert model_ckpt.security is not None
-        assert model_ckpt.security["safe"]
-        assert isinstance(model_ckpt.security["av_scan"], dict)  # all details in here
+        # `security` is computed asynchronously by the backend and may be absent from the response.
+        # Only assert its structure when present to avoid flakiness.
+        if model_ckpt.security is not None:
+            assert model_ckpt.security["safe"]
+            assert isinstance(model_ckpt.security["av_scan"], dict)  # all details in here
 
         # check last_commit is present for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
@@ -2570,7 +2572,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert paths_info[1].blob_id is not None
         assert paths_info[1].last_commit is not None
         assert paths_info[1].lfs is not None
-        assert paths_info[1].security is not None
         assert paths_info[1].size > 0
 
     def test_get_safetensors_metadata_single_file(self) -> None:
