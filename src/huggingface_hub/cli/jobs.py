@@ -545,7 +545,7 @@ def jobs_ps(
         typer.Option(
             "-a",
             "--all",
-            help="Show all Jobs (default shows just running)",
+            help="Show all Jobs (default shows running and scheduling)",
         ),
     ] = False,
     status: Annotated[
@@ -613,8 +613,10 @@ def jobs_ps(
             valid = ", ".join(stage.value for stage in JobStage)
             raise CLIError(f"Invalid status '{s}'. Valid values are: {valid}.") from None
 
-    # Default to the running Jobs unless `--all` or an explicit status filter is provided.
-    server_statuses = normalized_statuses if (all or normalized_statuses) else [JobStage.RUNNING.value]
+    # Default to the active Jobs unless `--all` or an explicit status filter is provided.
+    server_statuses = (
+        normalized_statuses if (all or normalized_statuses) else [JobStage.RUNNING.value, JobStage.SCHEDULING.value]
+    )
     jobs = api.list_jobs(namespace=namespace, status=server_statuses or None, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.

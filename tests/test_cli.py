@@ -3406,15 +3406,15 @@ class TestJobsCommand:
         assert kwargs["status"] == ["COMPLETED", "SCHEDULING"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
-    def test_ps_defaults_to_running_status_server_side(self, runner: CliRunner) -> None:
-        """Without `-a` or an explicit `--status`, only RUNNING Jobs are requested server-side."""
+    def test_ps_defaults_to_active_statuses_server_side(self, runner: CliRunner) -> None:
+        """Without `-a` or an explicit `--status`, the active (RUNNING + SCHEDULING) Jobs are requested."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
             result = runner.invoke(app, ["jobs", "ps"])
         assert result.exit_code == 0
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["status"] == ["RUNNING"]
+        assert kwargs["status"] == ["RUNNING", "SCHEDULING"]
         assert kwargs["labels"] is None
 
     def test_ps_all_lists_every_status(self, runner: CliRunner) -> None:
