@@ -23,9 +23,12 @@ class TestUploadInfo(unittest.TestCase):
                 file.write(self.content)
             upload_info = UploadInfo.from_path(filepath)
 
-        self.assertEqual(upload_info.sample, self.sample)
-        self.assertEqual(upload_info.size, self.size)
-        self.assertEqual(upload_info.sha256, self.sha)
+            self.assertEqual(upload_info.sample, self.sample)
+            self.assertEqual(upload_info.size, self.size)
+            # sha256 is lazy: computed on first access, requires the source file to still exist
+            self.assertFalse(upload_info.is_hashed)
+            self.assertEqual(upload_info.sha256, self.sha)
+            self.assertTrue(upload_info.is_hashed)
 
     def test_upload_info_from_bytes(self):
         upload_info = UploadInfo.from_bytes(self.content)

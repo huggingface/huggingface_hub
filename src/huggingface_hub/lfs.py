@@ -16,7 +16,6 @@
 import io
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
 from typing import TYPE_CHECKING, BinaryIO, TypedDict
@@ -51,32 +50,69 @@ LFS_HEADERS = {
 }
 
 
-@dataclass
 class UploadInfo:
     """
-    Dataclass holding required information to determine whether a blob
-    should be uploaded to the hub using the LFS protocol or the regular protocol
+    Data structure holding required information to determine whether a blob
+    should be uploaded to the hub using the LFS protocol or the regular protocol.
+
+    The SHA256 of the blob is computed lazily: creating an `UploadInfo` from a local path only reads
+    the first 512 bytes of the file. The full file is read (and hashed) only if `sha256` is accessed
+    before it has been set. When a file is uploaded through the Xet protocol, the SHA256 is computed
+    during upload (single read pass) and set afterwards.
 
     Args:
-        sha256 (`bytes`):
-            SHA256 hash of the blob
         size (`int`):
             Size in bytes of the blob
         sample (`bytes`):
             First 512 bytes of the blob
+        sha256 (`bytes`, *optional*):
+            SHA256 hash of the blob, if already known. Otherwise computed lazily from `source_path`.
+        source_path (`str`, *optional*):
+            Path to the local file the blob comes from. Required to lazily compute `sha256` if not provided.
     """
 
-    sha256: bytes
-    size: int
-    sample: bytes
+    def __init__(
+        self,
+        size: int,
+        sample: bytes,
+        sha256: bytes | None = None,
+        source_path: str | None = None,
+    ):
+        if sha256 is None and source_path is None:
+            raise ValueError("Either `sha256` or `source_path` must be provided.")
+        self.size = size
+        self.sample = sample
+        self._sha256 = sha256
+        self._source_path = source_path
+
+    @property
+    def sha256(self) -> bytes:
+        """SHA256 of the blob. If not set yet, reads the whole file from `source_path` to compute it."""
+        if self._sha256 is None:
+            assert self._source_path is not None  # guaranteed by __init__
+            with open(self._source_path, "rb") as file:
+                self._sha256 = sha_fileobj(file)
+        return self._sha256
+
+    @sha256.setter
+    def sha256(self, value: bytes) -> None:
+        self._sha256 = value
+
+    @property
+    def is_hashed(self) -> bool:
+        """Whether the SHA256 is already known (accessing `sha256` will not trigger a file read)."""
+        return self._sha256 is not None
+
+    def __repr__(self) -> str:
+        sha = self._sha256.hex() if self._sha256 is not None else "<not computed>"
+        return f"UploadInfo(size={self.size}, sha256={sha})"
 
     @classmethod
     def from_path(cls, path: str):
         size = getsize(path)
         with open(path, "rb") as file:
             sample = file.peek(512)[:512]
-            sha = sha_fileobj(file)
-        return cls(size=size, sha256=sha, sample=sample)
+        return cls(size=size, sample=sample, source_path=path)
 
     @classmethod
     def from_bytes(cls, data: bytes):

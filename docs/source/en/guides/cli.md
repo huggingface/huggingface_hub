@@ -156,9 +156,7 @@ nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
 
 ## hf auth login
 
-In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
-
-Once you have your token, run the following command in your terminal:
+In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, run the following command in your terminal:
 
 ```bash
 >>> hf auth login
@@ -170,25 +168,26 @@ If you are already logged in, this command will skip the prompt and display a me
 >>> hf auth login --force
 ```
 
-If you are not logged in, the command will prompt you for a token. Copy-paste yours and press _Enter_. Then, you'll be asked if the token should also be saved as a git credential. Press _Enter_ again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+By default, the command logs you in with your browser: it prints a URL and a short code. Open the URL, enter the code, approve the request, and the CLI retrieves and saves an access token on your machine. The token expires after a while but is refreshed automatically as long as you keep using it.
 
 ```
-_|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-_|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-_|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-_|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-_|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+? How would you like to log in?  [Use arrows, Enter to confirm]
+> Log in with your browser
+  Paste an access token
 
-To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Enter your token (input will not be visible):
-Add token as git credential? (Y/n)
-Token is valid (permission: write).
-Your token has been saved in your configured git credential helpers (store).
+    Open this URL in your browser:
+        https://huggingface.co/oauth/device
+
+    And enter the code: ABCD-EFGH
+
+    Waiting for authorization...
+Token is valid.
+The token `oauth-wauplin` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
 Your token has been saved to /home/wauplin/.cache/huggingface/token
-Login successful
+Login successful.
 ```
 
-Alternatively, if you want to log-in without being prompted, you can pass the token directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
+You can also choose to paste a [User Access Token](https://huggingface.co/docs/hub/security-tokens) generated from your [Settings page](https://huggingface.co/settings/tokens), either interactively (select *Paste an access token*) or directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
 
 ```bash
 # Or using an environment variable
@@ -200,6 +199,16 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 The current active token is: `token_name`
 ```
+
+When run by an AI agent (auto-detected, or with `--format agent`), the command never prompts: it runs the browser flow and prints plain instructions the agent can relay to its user, then waits for the authorization:
+
+```bash
+>>> hf auth login --format agent
+Ask the user to open https://huggingface.co/oauth/device in a browser and enter the code ABCD-EFGH. The code expires in 900 seconds. Waiting for authorization...
+Login successful: logged in as wauplin (token saved as 'oauth-wauplin').
+```
+
+`hf auth login` is interactive, so `--format json` and `--format quiet` are not supported: pass `--token` for scripted, non-interactive logins.
 
 For more details about authentication, check out [this section](../quick-start#authentication).
 
@@ -1124,6 +1133,20 @@ Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild t
 >>> hf spaces restart username/my-space --factory-reboot
 ```
 
+### Wait for a Space
+
+Use `hf spaces wait` to block until a Space finishes building/starting and reaches a settled stage. Exits with code 0 if the Space is `RUNNING`, or non-zero otherwise (e.g. `BUILD_ERROR`). Handy for scripting after a restart or hardware change.
+
+```bash
+>>> hf spaces wait username/my-space
+
+# With a timeout
+>>> hf spaces wait username/my-space --timeout 5m
+
+# Chain with restart
+>>> hf spaces restart username/my-space && hf spaces wait username/my-space
+```
+
 ### List available hardware
 
 Use `hf spaces hardware` to list all available hardware options for Spaces, including pricing.
@@ -1836,6 +1859,18 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
+
+# Wait until one or more jobs finish (exit code 0 only if all jobs completed successfully)
+>>> hf jobs wait <job_id> [<job_id>...]
+
+# Wait for all currently running jobs
+>>> hf jobs ps -q | xargs hf jobs wait
+```
+
+Non-detached `hf jobs run` and `hf jobs wait` exit with a non-zero code if a Job fails, so you can chain commands with `&&`:
+
+```bash
+>>> hf jobs run python:3.12 python train.py && echo "training succeeded"
 ```
 
 #### 3. Run on GPU
@@ -2001,6 +2036,26 @@ Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
 # Show Jobs based on key=value labels
 >>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
 ```
+
+### SSH into a Job
+
+Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container reachable over SSH, then connect with `hf jobs ssh`:
+
+```bash
+# Start a job with SSH enabled
+>>> hf jobs run --ssh --detach python:3.12 sleep infinity
+
+# Open an SSH session into it
+>>> hf jobs ssh <job_id>
+
+# Print the SSH command instead of running it
+>>> hf jobs ssh <job_id> --dry-run
+
+# Use a specific identity file
+>>> hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 
 ### UV Scripts (Experimental)
 
@@ -2183,6 +2238,23 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Deploy a custom container
+
+To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--container-command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated` or `private`):
+
+```bash
+>>> hf endpoints deploy nex-n2-pro \
+      --repo nex-agi/Nex-N2-Pro \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --custom-image nexagi/sglang:v0.5.12 \
+      --health-route /health --port 30000 \
+      --container-args "--reasoning-parser qwen3 --tool-call-parser qwen3_coder --mamba-scheduler-strategy extra_buffer --tp 8" \
+      --env MODEL_ID=/repository \
+      --type authenticated
+```
 
 ### hf endpoints catalog
 

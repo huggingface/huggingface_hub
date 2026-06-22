@@ -65,7 +65,7 @@ This can prove useful if you want to clean a remote folder before pushing files 
 already exists.
 
 The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
-but before that, all previous logs on the repo on deleted. All of this in a single commit.
+but before that, all previous logs on the repo are deleted. All of this in a single commit.
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder/logs",
@@ -75,6 +75,25 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ...     delete_patterns="*.txt", # Delete all remote text files before
 ... )
 ```
+
+### How files are uploaded
+
+When `hf_xet` is installed (which is the case by default), [`upload_folder`] uploads files through a streamed pipeline: files are checked against the Hub, uploaded to the Xet storage backend (which chunks, deduplicates and retries transfers internally), and committed in adaptive batches, all in parallel. In practice this means:
+
+- **Folders of any size**: small folders are uploaded in a single commit, while folders with many files are automatically split into several commits to stay below server limits. When this happens, follow-up commits get a ` (part 2)`, ` (part 3)`, ... suffix on the commit message.
+- **Resumable**: if the upload is interrupted for any reason, simply re-run the same call. Files already committed are detected and skipped, and chunks already uploaded are deduplicated — re-uploading them transfers (almost) no data. No local state is involved: you can even resume from a different machine. One exception: with `create_pr=True`, re-running opens a new pull request. We recommend re-run with `revision="refs/pr/N"` instead when resuming upload.
+- **No double read**: files are hashed while being chunked for upload, in a single read pass. There is no separate "hashing" phase before the upload starts.
+
+A live progress display keeps track of the three stages:
+
+```
+Found 5,000 files to upload
+  Preparing   ████████████████████  5,000 / 5,000 ✓
+  Uploading   ██████████████░░░░░░  423 / 603 files  3.8GB · 19.7MB/s
+  Committing  ██████████████████░░  4,580 / 5,000  6 commits
+```
+
+If `hf_xet` is not installed, [`upload_folder`] falls back to the legacy behavior: hash everything first, upload over HTTP, then create a single commit. We always recommend to keep `hf_xet` installed for better robustness
 
 ## Upload from the CLI
 
@@ -274,12 +293,6 @@ You can also copy within the same repository:
 
 > [!TIP]
 > [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
-
-### Upload a folder by chunks
-
-[`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
-hundreds of GB), we recommend using [`upload_large_folder`], which splits the upload into multiple commits. See the [Upload a large folder](#upload-a-large-folder) section for more details.
-
 
 ### Scheduled uploads
 

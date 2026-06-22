@@ -48,9 +48,10 @@ from huggingface_hub._space_api import SpaceHardware, SpaceStage
 from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
-from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceInfo, SpaceSort_T
+from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import disable_progress_bars
+from huggingface_hub.utils._parsing import parse_duration
 
 from ._cli_utils import (
     REPO_LIST_DEFAULT_LIMIT,
@@ -63,8 +64,11 @@ from ._cli_utils import (
     SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
+    SshDryRunOpt,
+    SshIdentityFileOpt,
     TokenOpt,
     VolumesOpt,
+    exec_ssh,
     get_hf_api,
     make_expand_properties_parser,
     parse_env_map,
@@ -288,30 +292,42 @@ def spaces_search(
         out.hint("Use --description to show AI-generated descriptions.")
 
 
-_DEV_MODE_INTERMEDIATE_STATUSES = {
-    SpaceStage.BUILDING: "building...",
-    SpaceStage.RUNNING_BUILDING: "building...",
-    SpaceStage.APP_STARTING: "app starting...",
-    SpaceStage.RUNNING_APP_STARTING: "app starting...",
-}
+@spaces_cli.command(
+    "wait",
+    examples=[
+        "hf spaces wait username/my-space",
+        "hf spaces wait username/my-space --timeout 5m",
+    ],
+)
+def spaces_wait(
+    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    timeout: Annotated[
+        str | None,
+        typer.Option(
+            help="Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Wait for a Space to finish building/starting.
 
-
-def _wait_for_dev_mode(api: HfApi, space_id: str) -> SpaceInfo | None:
-
-    status = out.status()
-    while True:
-        info = api.space_info(space_id)
-        if info.runtime is None:
-            return None
-        if info.runtime.stage not in _DEV_MODE_INTERMEDIATE_STATUSES:
-            break
-        status.update(_DEV_MODE_INTERMEDIATE_STATUSES[info.runtime.stage])
-        time.sleep(1)
-    if info.runtime.stage != SpaceStage.RUNNING:
-        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
-        return None
-    status.done("Dev mode ready!")
-    return info
+    Blocks until the Space leaves an intermediate stage (BUILDING, APP_STARTING, etc.)
+    and reaches a settled stage. Exits with code 0 if the Space is RUNNING,
+    or a non-zero exit code otherwise (e.g. BUILD_ERROR, RUNTIME_ERROR).
+    """
+    timeout_secs = parse_duration(timeout) if timeout is not None else None
+    api = get_hf_api(token=token)
+    status = out.status("Waiting for Space to be ready...")
+    try:
+        runtime = api.wait_for_space(space_id, timeout=timeout_secs)
+    except TimeoutError:
+        status.done("Timed out.")
+        raise CLIError(f"Timed out after {timeout} waiting for Space '{space_id}' to be ready.") from None
+    status.done(f"Space reached stage '{runtime.stage}'.")
+    if runtime.stage != SpaceStage.RUNNING:
+        raise CLIError(f"Space '{space_id}' is not running (stage='{runtime.stage}').")
+    out.result("Space ready", space_id=space_id, stage=str(runtime.stage))
+    out.hint(f"Use `hf spaces logs {space_id}` to view run logs.")
 
 
 @spaces_cli.command(
@@ -340,9 +356,11 @@ def dev_mode(
         print(f"Dev mode disabled for '{space_id}'")
         return
     api.enable_space_dev_mode(space_id)
-    info = _wait_for_dev_mode(api, space_id)
-    if info is None:
+    runtime = api.wait_for_space(space_id)
+    if runtime.stage != SpaceStage.RUNNING:
+        out.warning(f"Dev mode is not ready (stage='{runtime.stage}')")
         return
+    info = api.space_info(space_id)
     folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
     folder_query_param = f"folder={folder}" if folder else ""
     print("Connect to dev environment:")
@@ -375,14 +393,8 @@ def dev_mode(
 )
 def spaces_ssh(
     space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    identity_file: Annotated[
-        Path | None,
-        typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Print the SSH command instead of running it."),
-    ] = False,
+    identity_file: SshIdentityFileOpt = None,
+    dry_run: SshDryRunOpt = False,
     auto: Annotated[
         bool,
         typer.Option("--auto", help="Enable Dev Mode without prompting if not already enabled."),
@@ -402,20 +414,11 @@ def spaces_ssh(
             f"Dev Mode is disabled on '{space_id}'. Enable it now?", yes=auto, default=True, confirm_param="--auto"
         )
         api.enable_space_dev_mode(space_id)
-        new_info = _wait_for_dev_mode(api, space_id)
-        if new_info is None:
-            raise CLIError(f"Runtime not available for Space '{space_id}'.")
-        info = new_info
-    cmd = ["ssh"]
-    if identity_file is not None:
-        cmd += ["-i", str(identity_file)]
-    cmd.append(f"{info.subdomain}@ssh.hf.space")
-    if dry_run:
-        out.text(shlex.join(cmd))
-        return
-    out.text(f"Running `{shlex.join(cmd)}`")
-    result = subprocess.run(cmd)
-    raise typer.Exit(code=result.returncode)
+        runtime = api.wait_for_space(space_id)
+        if runtime.stage != SpaceStage.RUNNING:
+            raise CLIError(f"Space '{space_id}' is not running (stage='{runtime.stage}').")
+        info = api.space_info(space_id)
+    exec_ssh(f"{info.subdomain}@ssh.hf.space", identity_file=identity_file, dry_run=dry_run)
 
 
 @spaces_cli.command(
@@ -465,7 +468,7 @@ def spaces_restart(
         stage=runtime.stage,
         factory_reboot=factory_reboot,
     )
-    out.hint(f"Use `hf spaces info {space_id}` to monitor the runtime stage.")
+    out.hint(f"Use `hf spaces wait {space_id}` to wait until the Space is ready.")
     out.hint(
         f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
     )

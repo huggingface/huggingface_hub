@@ -152,10 +152,14 @@ def split_state_dict_into_shards_factory(
     # If we only have one shard, we return it => no need to build the index
     if nb_shards == 1:
         filename = filename_pattern.format(suffix="")
+        # Use the keys from the shard itself rather than `state_dict` directly, so that tensors
+        # skipped above (e.g. string tensors from bnb serialization) are excluded from the index,
+        # consistently with the multi-shard path below.
+        keys = list(shard_list[0].keys())
         return StateDictSplit(
             metadata={"total_size": total_size},
-            filename_to_tensors={filename: list(state_dict.keys())},
-            tensor_to_filename={key: filename for key in state_dict.keys()},
+            filename_to_tensors={filename: keys},
+            tensor_to_filename={key: filename for key in keys},
         )
 
     # Now that each tensor is assigned to a shard, let's assign a filename to each shard

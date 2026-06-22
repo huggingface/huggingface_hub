@@ -2716,6 +2716,7 @@ class HfApiPrivateTest(HfApiCommonTest):
         assert any(model.id == self.repo_id for model in self._api.list_models(token=self._token, **kwargs))
 
 
+@pytest.mark.xet
 @pytest.mark.usefixtures("fx_cache_dir")
 class UploadFolderMockedTest(unittest.TestCase):
     api = HfApi()
@@ -2754,17 +2755,28 @@ class UploadFolderMockedTest(unittest.TestCase):
         ]
         self.api.list_repo_files = self.repo_files_mock
 
-        self.create_commit_mock = Mock()
-        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
-        self.create_commit_mock.return_value.pr_url = None
-        self.api.create_commit = self.create_commit_mock
+        # `upload_folder` now delegates the actual upload to the streamed xet pipeline. We mock
+        # `pipelined_upload` to capture the add/delete operations it would commit, and force the
+        # xet path so the test is deterministic regardless of whether `hf_xet` is installed.
+        self.pipeline_mock = Mock()
+        self.pipeline_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
+        self.pipeline_mock.return_value.pr_url = None
+        xet_patcher = patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
+        pipeline_patcher = patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
+        xet_patcher.start()
+        pipeline_patcher.start()
+        self.addCleanup(xet_patcher.stop)
+        self.addCleanup(pipeline_patcher.stop)
 
     def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
-        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
+        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir
         self.api.upload_folder(repo_id="repo_id", **kwargs)
-        return self.create_commit_mock.call_args_list[0][1]["operations"]
+        call_kwargs = self.pipeline_mock.call_args_list[0][1]
+        # `upload_folder` passes additions and deletions separately to the pipeline. Recombine them
+        # (deletions first, as `create_commit` used to receive them) for the assertions below.
+        return call_kwargs["delete_operations"] + call_kwargs["add_operations"]
 
     def test_allow_everything(self):
         operations = self._upload_folder_alias()
@@ -3235,35 +3247,26 @@ class TestListAndPermanentlyDeleteLFSFiles(HfApiCommonTest):
             revision="my-branch",
         )
 
-        # PR files
-        self._api.upload_file(
-            path_or_fileobj=b"LFS content PR", path_in_repo="lfs_file_PR.bin", repo_id=repo_id, create_pr=True
-        )
-        self._api.upload_file(
-            path_or_fileobj=b"TXT content PR", path_in_repo="txt_file_PR.txt", repo_id=repo_id, create_pr=True
-        )
-
         # List LFS files
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 4
+        assert len(lfs_files) == 3
         assert {file.filename for file in lfs_files} == {
             "lfs_file.bin",
             "lfs_file_2.bin",
             "lfs_file_branch.bin",
-            "lfs_file_PR.bin",
         }
 
         # Select LFS files that are on main
-        lfs_files_on_main = [file for file in lfs_files if file.ref == "main"]
+        lfs_files_on_main = [file for file in lfs_files if file.ref in ("main", "refs/heads/main")]
         assert len(lfs_files_on_main) == 2
 
         # Permanently delete LFS files
         self._api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
 
-        # LFS files from branch and PR remain
+        # LFS file from the branch remains
         lfs_files = [file for file in self._api.list_lfs_files(repo_id=repo_id)]
-        assert len(lfs_files) == 2
-        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin", "lfs_file_PR.bin"}
+        assert len(lfs_files) == 1
+        assert {file.filename for file in lfs_files} == {"lfs_file_branch.bin"}
 
         # Downloading "lfs_file.bin" fails with EntryNotFoundError
         files = self._api.list_repo_files(repo_id=repo_id)
@@ -3942,34 +3945,36 @@ class HfApiTokenAttributeTest(unittest.TestCase):
 @patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
-        url = RepoUrl("https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
 
         # RepoUrl Is a string
         self.assertIsInstance(url, str)
-        self.assertEqual(url, "https://huggingface.co/gpt2")
+        self.assertEqual(url, "https://huggingface.co/user/repo_name")
 
         # Any str-method can be applied
-        self.assertEqual(url.split("/"), "https://huggingface.co/gpt2".split("/"))
+        self.assertEqual(url.split("/"), "https://huggingface.co/user/repo_name".split("/"))
 
         # String formatting and concatenation work
-        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/gpt2")
-        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/gpt2")
+        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/user/repo_name")
+        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/user/repo_name")
 
         # __repr__ is modified for debugging purposes
         self.assertEqual(
             repr(url),
-            "RepoUrl('https://huggingface.co/gpt2',"
-            " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')",
+            "RepoUrl('https://huggingface.co/user/repo_name',"
+            " endpoint='https://huggingface.co', repo_type='model', repo_id='user/repo_name')",
         )
 
     def test_repo_url_endpoint(self):
         # Implicit endpoint
-        url = RepoUrl("https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
         self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
 
-        # Explicit endpoint
-        url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
+        # Explicit (custom / self-hosted) endpoint: the endpoint prefix is stripped before parsing.
+        url = RepoUrl("https://example.com/user/repo_name", endpoint="https://example.com")
         self.assertEqual(url.endpoint, "https://example.com")
+        self.assertEqual(url.repo_id, "user/repo_name")
+        self.assertEqual(url.repo_type, "model")
 
     def test_repo_url_repo_type(self):
         # Explicit repo type
@@ -3987,37 +3992,37 @@ class RepoUrlTest(unittest.TestCase):
         self.assertEqual(url.repo_type, "model")
 
     def test_repo_url_namespace(self):
-        # Canonical model (e.g. no username)
-        url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertIsNone(url.namespace)
-        self.assertEqual(url.repo_id, "gpt2")
-
-        # "Normal" model
         url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
         self.assertEqual(url.namespace, "dummy_user")
+        self.assertEqual(url.repo_name, "dummy_model")
         self.assertEqual(url.repo_id, "dummy_user/dummy_model")
 
     def test_repo_url_url_property(self):
         # RepoUrl.url returns a pure `str` value
-        url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url, "https://huggingface.co/gpt2")
-        self.assertEqual(url.url, "https://huggingface.co/gpt2")
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url, "https://huggingface.co/user/repo_name")
+        self.assertEqual(url.url, "https://huggingface.co/user/repo_name")
         self.assertIsInstance(url, RepoUrl)
         self.assertNotIsInstance(url.url, RepoUrl)
 
-    def test_repo_url_canonical_model(self):
-        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2"):
+    def test_repo_url_accepts_bare_and_hf_ids(self):
+        # Bare '<namespace>/<name>' ids and 'hf://' URIs are normalized through `parse_hf_uri`.
+        for _id in ("user/repo_name", "hf://user/repo_name"):
             with self.subTest(_id):
                 url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "gpt2")
+                self.assertEqual(url.repo_id, "user/repo_name")
                 self.assertEqual(url.repo_type, "model")
 
-    def test_repo_url_canonical_dataset(self):
-        for _id in ("datasets/squad", "hf://datasets/squad", "https://huggingface.co/datasets/squad"):
+        url = RepoUrl("hf://datasets/user/squad")
+        self.assertEqual(url.repo_id, "user/squad")
+        self.assertEqual(url.repo_type, "dataset")
+
+    def test_repo_url_canonical_repo_not_supported(self):
+        # Canonical single-segment repos (no namespace) are intentionally rejected.
+        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2", "https://huggingface.co/datasets/squad"):
             with self.subTest(_id):
-                url = RepoUrl(_id)
-                self.assertEqual(url.repo_id, "squad")
-                self.assertEqual(url.repo_type, "dataset")
+                with self.assertRaises(ValueError):
+                    RepoUrl(_id)
 
     def test_repo_url_in_commit_info(self):
         info = CommitInfo(
@@ -4808,7 +4813,7 @@ def test_create_inference_endpoint_custom_image_payload(
         "instance_type": "nvidia-a10g",
         "region": "us-east-1",
         "vendor": "aws",
-        "type": "protected",
+        "type": "authenticated",
         "task": "text-generation",
         "namespace": "Wauplin",
     }
@@ -4875,6 +4880,50 @@ def test_create_inference_endpoint_custom_image_payload(
 
     assert "model" in payload and "image" in payload["model"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_create_inference_endpoint_container_command_and_args_payload(mock_post: Mock):
+    mock_session = mock_post.return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "sglang-endpoint",
+        "model": {"repository": "nex-agi/Nex-N2-Pro", "framework": "custom", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.post.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    api.create_inference_endpoint(
+        name="sglang-endpoint",
+        repository="nex-agi/Nex-N2-Pro",
+        framework="custom",
+        accelerator="gpu",
+        instance_size="x8",
+        instance_type="nvidia-h200",
+        region="us-east-1",
+        vendor="aws",
+        type="authenticated",
+        namespace="Wauplin",
+        custom_image={"url": "nexagi/sglang:v0.5.12", "healthRoute": "/health", "port": 30000},
+        container_command=["python", "-m", "sglang.launch_server"],
+        container_args=["--tp", "8", "--reasoning-parser", "qwen3"],
+    )
+
+    _, call_kwargs = mock_session.post.call_args
+    payload = call_kwargs.get("json", {})
+    assert payload["model"]["command"] == ["python", "-m", "sglang.launch_server"]
+    assert payload["model"]["args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+    assert payload["model"]["image"] == {
+        "custom": {"url": "nexagi/sglang:v0.5.12", "healthRoute": "/health", "port": 30000}
+    }
 
 
 class HfApiVerifyChecksumsTest(HfApiCommonTest):

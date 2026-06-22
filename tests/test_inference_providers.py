@@ -78,6 +78,9 @@ from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, 
 from .testing_utils import assert_in_logs
 
 
+pytestmark = pytest.mark.inference
+
+
 class TestBasicTaskProviderHelper:
     def test_api_key_from_provider(self):
         helper = TaskProviderHelper(provider="provider-name", base_url="https://api.provider.com", task="task-name")

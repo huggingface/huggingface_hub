@@ -20,6 +20,7 @@ from huggingface_hub.errors import (
     BucketNotFoundError,
     CLIError,
     CLIExtensionInstallError,
+    DeviceCodeError,
     EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
@@ -40,7 +41,15 @@ def _format_repo_not_found(error: RepositoryNotFoundError) -> str:
         msg = f"{label} '{error.repo_id}' not found."
     else:
         msg = f"{label} not found."
-    msg += " If the repo is private, make sure you are authenticated and your token has the required permissions."
+    msg += "\nIf the repo is private, make sure you are authenticated and your token has the required permissions."
+
+    msg += "\nIf the repo does not exist, create it with: "
+    if error.repo_id is not None:
+        type_flag = f" --type {error.repo_type}" if error.repo_type and error.repo_type != "model" else ""
+        msg += f"hf repos create {error.repo_id}{type_flag}"
+    else:
+        msg += "hf repos create <repo_id>"
+
     return msg
 
 
@@ -53,8 +62,14 @@ def _format_gated_repo(error: GatedRepoError) -> str:
 
 def _format_bucket_not_found(error: BucketNotFoundError) -> str:
     if error.bucket_id:
-        return f"Bucket '{error.bucket_id}' not found. If the bucket is private, make sure you are authenticated and your token has the required permissions."
-    return "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated and your token has the required permissions."
+        msg = f"Bucket '{error.bucket_id}' not found."
+        cmd = f"hf buckets create {error.bucket_id}"
+    else:
+        msg = "Bucket not found."
+        cmd = "hf buckets create <bucket_id>"
+    msg += "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
+    msg += f"\nIf the bucket does not exist, create it with: {cmd}"
+    return msg
 
 
 def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:
@@ -111,7 +126,8 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     RepositoryNotFoundError: _format_repo_not_found,
     RevisionNotFoundError: _format_revision_not_found,
     LocalTokenNotFoundError: lambda _: "Not logged in. Run 'hf auth login' first.",
-    OIDCError: lambda error: f"OICD Exchange failed. {error}",
+    OIDCError: lambda error: f"OIDC Exchange failed. {error}",
+    DeviceCodeError: lambda error: f"Login failed: {error}",
     RemoteEntryNotFoundError: _format_entry_not_found,
     LocalEntryNotFoundError: _format_local_entry_not_found,
     EntryNotFoundError: lambda error: str(error),

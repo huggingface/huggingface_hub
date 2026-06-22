@@ -225,6 +225,10 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# File caching the AI agent harnesses registry fetched from `{ENDPOINT}/api/agent-harnesses`.
+# Refreshed once per 24 hours at most (see `utils/_detect_agent.py`).
+AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
+
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
 
@@ -317,6 +321,10 @@ OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID")
 OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
 OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
 OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
+
+# OAuth client ID of the Device Code login flow (RFC 8628) used by `hf auth login` / `login()`.
+# Overridable for Hub deployments (staging, Enterprise) where the default client ID is not provisioned.
+DEVICE_CODE_OAUTH_CLIENT_ID = os.environ.get("HF_DEVICE_CODE_OAUTH_CLIENT_ID", "26be6b09-91c5-47da-9861-d2d2bb7a7e36")
 
 # Xet constants
 HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"

@@ -204,9 +204,9 @@ def download(
         # Warn user if patterns are ignored (only if regular filenames are provided)
         if len(regular_filenames) > 0:
             if include is not None and len(include) > 0:
-                warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
+                warnings.warn("Ignoring `--include` since filenames have been explicitly set.")
             if exclude is not None and len(exclude) > 0:
-                warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
+                warnings.warn("Ignoring `--exclude` since filenames have been explicitly set.")
 
         # Single file to download (not a subfolder): use `hf_hub_download`
         if len(regular_filenames) == 1 and len(subfolder_patterns) == 0:

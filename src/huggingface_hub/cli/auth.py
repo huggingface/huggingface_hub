@@ -14,7 +14,10 @@
 """Contains commands to authenticate to the Hugging Face Hub and interact with your repositories.
 
 Usage:
-    # login and save token locally.
+    # login with a browser (OAuth device flow)
+    hf auth login
+
+    # login with an explicit token
     hf auth login --token=hf_*** --add-to-git-credential
 
     # switch between tokens
@@ -37,10 +40,12 @@ import typer
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
-from .._login import auth_list, auth_switch, login, logout
-from ..utils import get_stored_tokens, get_token, logging
+from .._login import _save_oauth_token, auth_list, auth_switch, login, logout
+from ..errors import CLIError
+from ..utils import get_stored_tokens, get_token, logging, select_choice
+from ..utils._oauth_device import poll_device_token, request_device_code
 from ._cli_utils import TokenOpt, typer_factory
-from ._output import out
+from ._output import OutputFormat, out
 
 
 logger = logging.get_logger(__name__)
@@ -73,8 +78,34 @@ def auth_login(
         ),
     ] = False,
 ) -> None:
-    """Login using a token from huggingface.co/settings/tokens."""
-    login(token=token, add_to_git_credential=add_to_git_credential, skip_if_logged_in=not force)
+    """Login from your browser, or using a token from huggingface.co/settings/tokens."""
+    if token is not None or out.mode == OutputFormat.human:
+        # `--token` bypasses any prompt; in human mode the gh-style menu lives in `login()`.
+        login(token=token, add_to_git_credential=add_to_git_credential, skip_if_logged_in=not force)
+        return
+
+    # Logging in is an interactive flow: besides human mode, only agent mode is supported.
+    if out.mode != OutputFormat.agent:
+        raise CLIError(
+            "`hf auth login` is interactive and does not support --format json/quiet. "
+            "Pass --token for a non-interactive login."
+        )
+
+    # agent mode: never prompt; print instructions the agent can relay to its user.
+    if not force and get_token() is not None:
+        out.text(agent="Already logged in. Use `hf auth login --force` to re-login.")
+        return
+    device_info = request_device_code()
+    out.text(
+        agent=(
+            f"Ask the user to open {device_info['verification_uri_complete']} in a browser and enter the code "
+            f"{device_info['user_code']}. The code expires in {device_info['expires_in']} seconds. "
+            "Waiting for authorization..."
+        )
+    )
+    response = poll_device_token(device_info)
+    token_name, username = _save_oauth_token(response)
+    out.text(agent=f"Login successful: logged in as {username} (token saved as '{token_name}').")
 
 
 @auth_cli.command(
@@ -98,21 +129,9 @@ def _select_token_name() -> str | None:
         logger.error("No stored tokens found. Please login first.")
         return None
 
-    print("Available stored tokens:")
-    for i, token_name in enumerate(token_names, 1):
-        print(f"{i}. {token_name}")
-    while True:
-        try:
-            choice = input("Enter the number of the token to switch to (or 'q' to quit): ")
-            if choice.lower() == "q":
-                return None
-            index = int(choice) - 1
-            if 0 <= index < len(token_names):
-                return token_names[index]
-            else:
-                print("Invalid selection. Please try again.")
-        except ValueError:
-            print("Invalid input. Please enter a number or 'q' to quit.")
+    if out.mode != OutputFormat.human:
+        raise CLIError("Use --token-name to select a token in non-interactive mode.")
+    return token_names[select_choice("Select a token to switch to:", token_names)]
 
 
 @auth_cli.command(

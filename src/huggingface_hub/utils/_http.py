@@ -39,6 +39,7 @@ from ..errors import (
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
+    JobNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -169,6 +170,10 @@ BUCKET_API_REGEX = re.compile(
     flags=re.VERBOSE,
 )
 
+# Regex to extract the job_id from a (scheduled) job API URL.
+# Matches /api/jobs/{namespace}/{job_id}[/...] and /api/scheduled-jobs/{namespace}/{job_id}[/...].
+_JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
+
 # Regex to extract repo_type and repo_id from API URLs.
 # Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
 _REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
@@ -208,6 +213,12 @@ def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
 def _parse_bucket_id_from_url(url: str) -> str | None:
     """Extract bucket_id (namespace/name) from a bucket API URL."""
     match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    return match.group(1) if match else None
+
+
+def _parse_job_id_from_url(url: str) -> str | None:
+    """Extract the job_id from a (scheduled) job API URL, if present."""
+    match = _JOB_ID_FROM_URL_REGEX.search(url)
     return match.group(1) if match else None
 
 
@@ -391,7 +402,7 @@ if hasattr(os, "register_at_fork"):
 
 
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
-_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
 
 def _http_backoff_base(
@@ -812,6 +823,19 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 BucketNotFoundError, message, response, bucket_id=_parse_bucket_id_from_url(request_url)
             ) from e
 
+        elif (
+            response.status_code == 404
+            and request_url is not None
+            and (job_id := _parse_job_id_from_url(request_url)) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Job Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct job ID and namespace."
+            )
+            raise _format(JobNotFoundError, message, response, job_id=job_id) from e
+
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
             and error_message != "Invalid credentials in Authorization header"
@@ -935,13 +959,20 @@ def _format(
                 data = {}
 
         error = data.get("error")
+        error_description = data.get("error_description")
         if error is not None:
             if isinstance(error, list):
                 # Case {'error': ['my error 1', 'my error 2']}
                 server_errors.extend(error)
+            elif error_description is not None:
+                # OAuth-style case {'error': 'invalid_grant', 'error_description': 'my description'}
+                server_errors.append(f"{error}: {error_description}")
             else:
                 # Case {'error': 'my error'}
                 server_errors.append(error)
+        elif error_description is not None:
+            # Case {'error_description': 'my description'} (no 'error' field)
+            server_errors.append(error_description)
 
         errors = data.get("errors")
         if errors is not None:
@@ -1006,13 +1037,21 @@ def _format(
 
 
 # Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
-_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret")
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret", "device_code")
+_SENSITIVE_BODY_PATTERNS = [
+    pattern
+    for key in _SENSITIVE_BODY_KEYS
+    for pattern in (
+        (re.compile(rf'("{key}"\s*:\s*")[^"]*(")'), r"\1<REDACTED>\2"),  # JSON
+        (re.compile(rf"(^|&)({key}=)[^&]*"), r"\1\2<REDACTED>"),  # application/x-www-form-urlencoded
+    )
+]
 
 
 def _redact_sensitive_body(body: str) -> str:
-    """Redact OAuth credential values from a JSON request body string."""
-    for key in _SENSITIVE_BODY_KEYS:
-        body = re.sub(rf'("{key}"\s*:\s*")[^"]*(")', r"\1<REDACTED>\2", body)
+    """Redact OAuth credential values from a JSON or form-urlencoded request body string."""
+    for pattern, replacement in _SENSITIVE_BODY_PATTERNS:
+        body = pattern.sub(replacement, body)
     return body
 
 

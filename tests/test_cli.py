@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._download_progress import get_rich_progress_tqdm
@@ -23,7 +23,7 @@ from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -35,7 +35,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, with_production_testing
 
 
 @pytest.fixture
@@ -799,7 +799,7 @@ class TestUploadImpl:
             ignore_patterns=None,
             delete_patterns=["*.json"],
         )
-        print_mock.assert_called_once_with("done")
+        print_mock.assert_called_once_with("done", flush=True)
 
     def test_upload_file_mock(self, *_: object) -> None:
         api = Mock()
@@ -836,7 +836,7 @@ class TestUploadImpl:
             commit_description=None,
             create_pr=True,
         )
-        print_mock.assert_called_once_with("uploaded")
+        print_mock.assert_called_once_with("uploaded", flush=True)
 
     def test_upload_file_no_revision_mock(self, *_: object) -> None:
         api = Mock()
@@ -1041,7 +1041,7 @@ class TestDownloadImpl:
                 repo_type=RepoType.model,
                 revision="main",
             )
-        print_mock.assert_called_once_with("file-path")
+        print_mock.assert_called_once_with("file-path", flush=True)
         mock_download.assert_called_once_with(
             repo_id="author/model",
             repo_type="model",
@@ -1432,7 +1432,7 @@ class TestDownloadImpl:
                 force_download=True,
                 max_workers=4,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1491,8 +1491,12 @@ class TestDownloadImpl:
                 exclude=["data/*"],
                 force_download=True,
             )
-        print_mock.assert_called_once_with("folder-path")
-        assert any("Ignoring" in str(w.message) for w in caught)
+        print_mock.assert_called_once_with("folder-path", flush=True)
+        warning_messages = [str(w.message) for w in caught]
+        assert warning_messages == [
+            "Ignoring `--include` since filenames have been explicitly set.",
+            "Ignoring `--exclude` since filenames have been explicitly set.",
+        ]
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1520,7 +1524,7 @@ class TestDownloadImpl:
                 filenames=["art/"],
                 repo_type=RepoType.dataset,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/dataset",
@@ -1548,7 +1552,7 @@ class TestDownloadImpl:
                 filenames=["art/", "config.json"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -1576,7 +1580,7 @@ class TestDownloadImpl:
                 filenames=["art/", "data/images/"],
                 repo_type=RepoType.model,
             )
-        print_mock.assert_called_once_with("folder-path")
+        print_mock.assert_called_once_with("folder-path", flush=True)
         mock_download.assert_not_called()
         mock_snapshot.assert_called_once_with(
             repo_id="author/model",
@@ -2190,6 +2194,70 @@ class TestRepoDeleteCommand:
             repo_type="dataset",
             missing_ok=True,
         )
+
+
+class TestAuthLoginCommand:
+    DEVICE_INFO = {
+        "device_code": "device-xxx",
+        "user_code": "ABCD-EFGH",
+        "verification_uri": "https://huggingface.co/oauth/device",
+        "verification_uri_complete": "https://huggingface.co/oauth/device?user_code=ABCD-EFGH",
+        "interval": 5,
+        "expires_in": 900,
+    }
+    TOKEN_RESPONSE = {"access_token": "hf_oauth_123", "refresh_token": "rt_123", "expires_in": 2592000}
+
+    @contextmanager
+    def _patched_device_flow(self):
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", return_value=self.TOKEN_RESPONSE) as mock_poll,
+            patch("huggingface_hub.cli.auth._save_oauth_token", return_value=("oauth-testuser", "testuser")),
+        ):
+            yield mock_poll
+
+    def test_login_agent_flow(self, runner: CliRunner) -> None:
+        """In agent mode the command never prompts: it prints relayable instructions, then the result."""
+        with self._patched_device_flow():
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        assert "enter the code ABCD-EFGH" in result.stdout
+        assert "Login successful: logged in as testuser" in result.stdout
+
+    def test_login_agent_already_logged_in(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value="hf_existing"):
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code == 0
+        assert "Already logged in" in result.stdout
+
+    @pytest.mark.parametrize("fmt", ["json", "quiet"])
+    def test_login_rejects_non_interactive_formats(self, runner: CliRunner, fmt: str) -> None:
+        with patch("huggingface_hub.cli.auth.get_token", return_value=None):
+            result = runner.invoke(app, ["auth", "login", "--format", fmt])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token" in str(result.exception)
+
+    def test_login_agent_denied(self, runner: CliRunner) -> None:
+        error = DeviceCodeError("Authorization was denied. Please try again.", error_code="access_denied")
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value=None),
+            patch("huggingface_hub.cli.auth.request_device_code", return_value=self.DEVICE_INFO),
+            patch("huggingface_hub.cli.auth.poll_device_token", side_effect=error),
+        ):
+            result = runner.invoke(app, ["auth", "login", "--format", "agent"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, DeviceCodeError)
+
+
+class TestAuthSwitchCommand:
+    def test_switch_requires_token_name_in_non_interactive_mode(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.auth.get_stored_tokens", return_value={"a": "hf_a", "b": "hf_b"}):
+            result = runner.invoke(app, ["auth", "switch", "--format", "json"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "--token-name" in str(result.exception)
 
 
 class TestAuthWhoamiCommand:
@@ -2846,8 +2914,90 @@ class TestInferenceEndpointsCommands:
             scaling_metric=None,
             scaling_threshold=None,
             scale_to_zero_timeout=None,
+            revision=None,
         )
         assert '"name": "hub"' in result.stdout
+
+    def test_deploy_custom_image(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "custom"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "nex-agi/Nex-N2-Pro",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--custom-image",
+                    "nexagi/sglang:v0.5.12",
+                    "--health-route",
+                    "/health",
+                    "--port",
+                    "30000",
+                    "--container-args",
+                    "--tp 8 --reasoning-parser qwen3",
+                    "--env",
+                    "MODEL_ID=/repository",
+                    "--type",
+                    "authenticated",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["custom_image"] == {
+            "url": "nexagi/sglang:v0.5.12",
+            "healthRoute": "/health",
+            "port": 30000,
+        }
+        assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+        assert "container_command" not in kwargs
+        assert kwargs["env"] == {"MODEL_ID": "/repository"}
+        assert kwargs["type"] == "authenticated"
+
+    def test_deploy_custom_args_require_image(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--container-args",
+                    "--tp 8",
+                ],
+            )
+        assert result.exit_code != 0
+        api_cls.return_value.create_inference_endpoint.assert_not_called()
+        assert "require --custom-image" in (result.stdout + str(result.exception))
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
@@ -3187,6 +3337,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3213,6 +3364,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3269,6 +3421,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3298,6 +3451,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3325,6 +3479,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
 
@@ -3353,6 +3508,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            ssh=False,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3362,8 +3518,6 @@ class TestJobsCommand:
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/3736.
         """
-        from huggingface_hub._jobs_api import JobOwner
-
         job_owner = JobOwner(id="user-id", name="my-username", type="user")
         job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
         with (
@@ -3373,9 +3527,31 @@ class TestJobsCommand:
             api = api_cls.return_value
             api.run_job.return_value = job
             api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value.status.stage = "COMPLETED"
             result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
         assert result.exit_code == 0
         api.fetch_job_logs.assert_called_once_with(job_id="my-job-id", namespace="my-username", follow=True)
+
+    def test_run_fails_when_job_does_not_complete(self, runner: CliRunner) -> None:
+        """A non-detached `hf jobs run` exits with a non-zero code if the Job did not complete successfully."""
+        job_owner = JobOwner(id="user-id", name="my-username", type="user")
+        job = Mock(id="my-job-id", owner=job_owner, url="https://huggingface.co/jobs/687f911eaea852de79c4a50a")
+        final = Mock(id="my-job-id")
+        final.status.stage = "ERROR"
+        final.status.message = "Job failed with exit code: 1"
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_job.return_value = job
+            api.fetch_job_logs.return_value = iter(["log line 1"])
+            api.wait_for_job.return_value = final
+            result = runner.invoke(app, ["jobs", "run", "ubuntu", "echo", "hello"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "finished with stage 'ERROR'" in str(result.exception)
+        assert "Job failed with exit code: 1" in str(result.exception)
 
     def test_logs_default_no_follow(self, runner: CliRunner) -> None:
         """Test that `hf jobs logs <id>` defaults to follow=False (non-blocking, like `docker logs`)."""
@@ -3705,6 +3881,68 @@ class TestJobsCommand:
         assert volume_2.source == "org/b"
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
+
+
+class TestJobsWaitCommand:
+    def _job(self, job_id: str, stage: str) -> Mock:
+        job = Mock(id=job_id)
+        job.status.stage = stage
+        job.status.message = None
+        return job
+
+    def test_wait_fails_if_any_job_not_completed(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "CANCELED")]
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "job-b"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "job-b (CANCELED)" in str(result.exception)
+
+    def test_wait_timeout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.side_effect = TimeoutError
+            result = runner.invoke(app, ["jobs", "wait", "job-a", "--timeout", "5s"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "Timed out after 5s" in str(result.exception)
+        api.wait_for_job.assert_called_once_with(["job-a"], timeout=5, namespace=None)
+
+    @pytest.mark.parametrize(
+        "args, expected_namespace",
+        [
+            # All-bare IDs use the default namespace.
+            (["job-a", "job-b"], None),
+            # An explicit --namespace makes bare IDs share it, so no conflict with 'alice/job-a'.
+            (["alice/job-a", "job-b", "--namespace", "alice"], "alice"),
+        ],
+    )
+    def test_wait_resolves_namespace(self, runner: CliRunner, args: list, expected_namespace: str | None) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.wait_for_job.return_value = [self._job("job-a", "COMPLETED"), self._job("job-b", "COMPLETED")]
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 0
+        api.wait_for_job.assert_called_once_with(["job-a", "job-b"], timeout=None, namespace=expected_namespace)
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            # A bare ID must NOT silently inherit alice's namespace: errors instead of leaking.
+            ["alice/job-a", "job-b"],
+            # Two IDs implying different namespaces conflict.
+            ["alice/job-a", "bob/job-b"],
+        ],
+    )
+    def test_wait_rejects_mismatched_namespaces(self, runner: CliRunner, args: list) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "wait", *args])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "same namespace" in str(result.exception)
+        api.wait_for_job.assert_not_called()
 
 
 class TestBucketTransport:
@@ -4555,7 +4793,7 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
-@requires("hf_xet")
+@pytest.mark.xet
 class TestSkillsMarketplaceCLI:
     @with_production_testing
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:

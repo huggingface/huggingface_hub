@@ -46,6 +46,25 @@ class SpaceStage(str, Enum):
     RUNNING_APP_STARTING = "RUNNING_APP_STARTING"
 
 
+INTERMEDIATE_SPACE_STAGES = (
+    SpaceStage.BUILDING,
+    SpaceStage.RUNNING_BUILDING,
+    SpaceStage.APP_STARTING,
+    SpaceStage.RUNNING_APP_STARTING,
+)
+
+TERMINAL_SPACE_STAGES = (
+    SpaceStage.RUNNING,
+    SpaceStage.BUILD_ERROR,
+    SpaceStage.RUNTIME_ERROR,
+    SpaceStage.CONFIG_ERROR,
+    SpaceStage.NO_APP_FILE,
+    SpaceStage.STOPPED,
+    SpaceStage.PAUSED,
+    SpaceStage.DELETING,
+)
+
+
 class SpaceHardware(str, Enum):
     """
     Enumeration of hardwares available to run your Space on the Hub.
