@@ -403,7 +403,9 @@ def snapshot_download(
     if callable(set_progress_location):
         set_progress_location(str(os.path.realpath(local_dir)) if local_dir is not None else snapshot_folder)
     set_total_files = getattr(bytes_progress, "set_total_files", None)
-    if callable(set_total_files) and isinstance(filtered_repo_files, list):
+    if callable(set_total_files):
+        if not isinstance(filtered_repo_files, list):
+            filtered_repo_files = list(filtered_repo_files)
         set_total_files(len(filtered_repo_files))
     set_current_file = getattr(bytes_progress, "set_current_file", None)
     set_current_file_index = getattr(bytes_progress, "set_current_file_index", None)

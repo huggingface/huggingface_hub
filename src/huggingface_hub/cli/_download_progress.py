@@ -108,6 +108,9 @@ def get_rich_progress_tqdm(name: str | None = None) -> type[base_tqdm]:
                 for item in self.iterable:
                     yield item
                     self.update()
+            except GeneratorExit:
+                self.close()
+                raise
             except BaseException:
                 self.close(failed=True)
                 raise
@@ -218,6 +221,8 @@ def get_rich_progress_tqdm(name: str | None = None) -> type[base_tqdm]:
             displayed_delta = max(self.display_n - previous_display_n, 0.0)
             if self.n >= self._minimum_speed_sample_bytes:
                 self.speed_samples_mb.append(displayed_delta / elapsed / (1024 * 1024))
+                if len(self.speed_samples_mb) > 500:
+                    self.speed_samples_mb = self.speed_samples_mb[-500:]
             self.last_render_time = now
 
         def _format_duration(self, seconds: float | None) -> str:
