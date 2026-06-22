@@ -3390,24 +3390,48 @@ class TestJobsCommand:
         assert "3m 7s" in result.output  # 187s running_secs formatted
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
-    def test_ps_pushes_exact_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
-        """Exact `status=` and `label=key=value` filters are forwarded to `list_jobs` for server-side filtering."""
+    def test_ps_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
+        """`status=` and `label=key=value` filters are forwarded to `list_jobs` for server-side filtering.
+
+        Label key/value casing is preserved (no lowercasing) so it matches what the server stored.
+        """
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "status=completed", "-f", "label=env=test"])
+            result = runner.invoke(app, ["jobs", "ps", "-f", "status=completed", "-f", "label=model=Qwen3-06B"])
         assert result.exit_code == 0
         kwargs = api.list_jobs.call_args.kwargs
         assert kwargs["stage"] == ["COMPLETED"]
-        assert kwargs["labels"] == {"env": "test"}
+        assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
-    def test_ps_does_not_push_glob_or_negated_filters(self, runner: CliRunner) -> None:
-        """Glob patterns and negations can't be expressed server-side, so they stay client-side only."""
+    def test_ps_defaults_to_running_stages_server_side(self, runner: CliRunner) -> None:
+        """Without `-a` or an explicit status filter, the active stages are requested server-side."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "status=run*", "-f", "label!=prod"])
+            result = runner.invoke(app, ["jobs", "ps"])
         assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["stage"] == ["RUNNING", "UPDATING"]
+        assert kwargs["labels"] is None
+
+    def test_ps_all_lists_every_stage(self, runner: CliRunner) -> None:
+        """`-a`/`--all` drops the default stage filter so all Jobs are listed."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ps", "-a"])
+        assert result.exit_code == 0
+        assert api.list_jobs.call_args.kwargs["stage"] is None
+
+    def test_ps_unsupported_filter_warns(self, runner: CliRunner) -> None:
+        """Filtering by anything other than status/label (or using negation/globs) warns and is ignored."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "image=python", "-f", "label!=prod"])
+        assert result.exit_code == 0
+        assert "Ignoring unsupported filter" in result.output
         kwargs = api.list_jobs.call_args.kwargs
         assert kwargs["stage"] is None
         assert kwargs["labels"] is None

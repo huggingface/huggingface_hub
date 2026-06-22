@@ -412,11 +412,6 @@ def jobs_logs(
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
-def _is_exact_pattern(pattern: str) -> bool:
-    """Whether a filter value is a plain string (no `fnmatch` glob characters)."""
-    return not any(char in pattern for char in "*?[")
-
-
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
     """Check if scheduled job matches all specified filters."""
     for key, op_str, pattern in filters:
@@ -552,79 +547,39 @@ def jobs_ps(
         typer.Option(
             "-f",
             "--filter",
-            help="Filter output based on conditions provided (format: key=value)",
+            help="Filter Jobs server-side by status or label. Repeatable. E.g. `-f status=running -f label=env=prod`.",
         ),
     ] = None,
 ) -> None:
-    """List Jobs."""
+    """List Jobs.
+
+    Filtering happens server-side and supports two keys: `status=<stage>` (e.g. `status=running`) and
+    `label=<key>=<value>` (e.g. `label=env=prod`). Repeat `-f`/`--filter` to combine them; a Job must
+    match every filter to be listed. Matching is exact (no glob patterns or negation).
+    """
     api = get_hf_api(token=token)
 
-    filters: list[tuple[str, str, str]] = []
-    labels_filters: list[tuple[str, str, str]] = []
+    # Filtering is delegated to the server: collect the requested stages and labels and forward them as-is.
+    stages: list[str] = []
+    labels: dict[str, str] = {}
     for f in filter or []:
-        if f.startswith("label!=") or f.startswith("label="):
-            if f.startswith("label!="):
-                label_part = f[len("label!=") :]
-                if "=" in label_part:
-                    out.warning(f"Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format.")
-                    continue
-                label_key, op, label_value = label_part, "!=", "*"
-            else:
-                label_part = f[len("label=") :]
-                if "=" in label_part:
-                    label_key, label_value = label_part.split("=", 1)
-                else:
-                    label_key, label_value = label_part, "*"
-                # Negate predicate in case of key!=value
-                if label_key.endswith("!"):
-                    op = "!="
-                    label_key = label_key[:-1]
-                else:
-                    op = "="
-            labels_filters.append((label_key.lower(), op, label_value.lower()))
-        elif "=" in f:
-            key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
-            if key.endswith("!"):
-                op = "!="
-                key = key[:-1]
-            else:
-                op = "="
-            filters.append((key.lower(), op, value.lower()))
+        if f.startswith("status="):
+            stages.append(f[len("status=") :].upper())
+        elif f.startswith("label="):
+            key, _, value = f[len("label=") :].partition("=")
+            labels[key] = value
         else:
-            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+            out.warning(
+                f"Ignoring unsupported filter '{f}'. Only 'status=<stage>' and 'label=<key>=<value>' are supported."
+            )
 
-    # Push exact status/label filters to the server to narrow results before the client-side filtering
-    # below. Glob patterns and negations (`!=`) are not supported server-side, so they stay client-only.
-    # The client-side pass remains authoritative, so this is a no-op against an endpoint that ignores the
-    # params (e.g. before the server-side feature is deployed).
-    server_stages = [
-        value.upper() for key, op, value in filters if key == "status" and op == "=" and _is_exact_pattern(value)
-    ]
-    server_labels = {
-        key: value for key, op, value in labels_filters if op == "=" and value != "*" and _is_exact_pattern(value)
-    }
-    jobs = api.list_jobs(namespace=namespace, stage=server_stages or None, labels=server_labels or None)
-
-    # Filter jobs (operating on JobInfo objects to preserve existing filter behavior)
-    filtered_jobs = []
-    for job in jobs:
-        status = job.status.stage if job.status else "UNKNOWN"
-        if not all and status not in ("RUNNING", "UPDATING"):
-            continue
-        image_or_space = job.docker_image or "N/A"
-        cmd = job.command or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        props = {"id": job.id, "image": image_or_space, "status": status.lower(), "command": command_str}
-        if not _matches_filters(props, filters):
-            continue
-        if not _matches_filters(job.labels or {}, labels_filters):
-            continue
-        filtered_jobs.append(job)
+    # Default to the active Jobs unless `--all` or an explicit status filter is provided.
+    server_stages = stages if (all or stages) else ["RUNNING", "UPDATING"]
+    jobs = api.list_jobs(namespace=namespace, stage=server_stages or None, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     items: list[dict[str, Any]] = []
-    for job in filtered_jobs:
+    for job in jobs:
         item = _dataclass_to_dict(job)
         durations = item.get("durations") or {}
         cmd = item.get("command") or []
@@ -642,10 +597,10 @@ def jobs_ps(
         id_key="job_id",
     )
     if not items:
-        if filters:
-            filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
+        if stages or labels:
+            filters_msg = ", ".join([*(f"status={s}" for s in stages), *(f"label={k}={v}" for k, v in labels.items())])
             out.text(f"No jobs matched filters: {filters_msg}")
-        elif not all and not labels_filters:
+        elif not all:
             out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")
 
 
