@@ -2572,8 +2572,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert paths_info[1].blob_id is not None
         assert paths_info[1].last_commit is not None
         assert paths_info[1].lfs is not None
-        # `security` is computed asynchronously by the backend and may be absent from the response,
-        # so we don't assert its presence to avoid flakiness.
         assert paths_info[1].size > 0
 
     def test_get_safetensors_metadata_single_file(self) -> None:
