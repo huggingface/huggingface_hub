@@ -4,7 +4,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
-from huggingface_hub.errors import LocalEntryNotFoundError, RepositoryNotFoundError
+from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError, RepositoryNotFoundError
+from huggingface_hub.file_download import repo_folder_name
 from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
@@ -195,6 +196,28 @@ class SnapshotDownloadTests(unittest.TestCase):
             with offline(mode=offline_mode):
                 with SoftTemporaryDirectory() as tmpdir:
                     with self.assertRaises(LocalEntryNotFoundError):
+                        snapshot_download(self.repo_id, cache_dir=tmpdir)
+
+    def test_tree_cache_written_and_incomplete_detected(self):
+        """The repo tree listing is cached on disk, and an incomplete snapshot is detected offline."""
+        with SoftTemporaryDirectory() as tmpdir:
+            snapshot_path = snapshot_download(self.repo_id, cache_dir=tmpdir)
+            commit_hash = os.path.basename(snapshot_path)
+
+            # The tree listing of the resolved commit is cached under `trees/`.
+            storage_folder = os.path.join(tmpdir, repo_folder_name(repo_id=self.repo_id, repo_type="model"))
+            tree_cache_file = os.path.join(storage_folder, "trees", f"{commit_hash}.json")
+            self.assertTrue(os.path.isfile(tree_cache_file))
+
+            # A complete cached snapshot is still returned offline.
+            with offline():
+                self.assertEqual(snapshot_download(self.repo_id, cache_dir=tmpdir), snapshot_path)
+
+            # Remove a file from the snapshot => offline re-pull now raises instead of returning a partial folder.
+            os.remove(os.path.join(snapshot_path, "dummy_file.txt"))
+            for offline_mode in OfflineSimulationMode:
+                with offline(mode=offline_mode):
+                    with self.assertRaises(IncompleteSnapshotError):
                         snapshot_download(self.repo_id, cache_dir=tmpdir)
 
     def test_download_model_local_only_multiple(self):

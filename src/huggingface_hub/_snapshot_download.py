@@ -1,5 +1,4 @@
 import os
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal, overload
 
@@ -8,24 +7,80 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
+from ._tree_cache import TreeCacheEntry, read_tree_cache, write_tree_cache
 from .errors import (
     DryRunError,
     GatedRepoError,
     HfHubHTTPError,
+    IncompleteSnapshotError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    HfFileMetadata,
+    _hf_hub_download_to_cache_dir,
+    _hf_hub_download_to_local_dir,
+    hf_hub_url,
+    repo_folder_name,
+)
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
-from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils import (
+    OfflineModeIsEnabled,
+    build_hf_headers,
+    filter_repo_objects,
+    logging,
+    validate_hf_hub_args,
+)
+from .utils._xet import XetFileData, XetTokenType, xet_connection_info_refresh_url
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
 
-LARGE_REPO_THRESHOLD = 1000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
+
+def _missing_snapshot_files(
+    *,
+    storage_folder: str,
+    commit_hash: str,
+    base_dir: str,
+    allow_patterns: list[str] | str | None,
+    ignore_patterns: list[str] | str | None,
+) -> list[str] | None:
+    """List the files expected at `commit_hash` (after pattern filtering) that are missing from `base_dir`.
+
+    Completeness is checked against the repo tree listing cached on disk. The function returns:
+    - a (possibly empty) list of missing file paths when the tree listing is cached;
+    - `None` when the tree listing is not cached, meaning we cannot tell whether the local snapshot is
+      complete. In that case the caller keeps the legacy behavior of returning the folder as-is.
+    """
+    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    if tree_entries is None:
+        return None
+    expected = filter_repo_objects(
+        items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+    )
+    return [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
+
+
+def _incomplete_snapshot_message(
+    repo_id: str, revision: str, commit_hash: str, missing: list[str], api_call_error: Exception | None
+) -> str:
+    sample = ", ".join(missing[:3])
+    if len(missing) > 3:
+        sample += f", ... ({len(missing) - 3} more)"
+    if api_call_error is not None:
+        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
+    else:
+        reason = "Outgoing traffic is disabled ('local_files_only=True')."
+    return (
+        f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
+        f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
+        "to complete the snapshot."
+    )
 
 
 @overload
@@ -204,6 +259,9 @@ def snapshot_download(
             or because it is set to `private` and you do not have access.
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
+        [`~errors.IncompleteSnapshotError`]
+            If the Hub cannot be reached (offline, connection issue, or `local_files_only=True`) and the
+            cached snapshot is missing some of the requested files.
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             If `token=True` and the token cannot be found.
         [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
@@ -213,10 +271,12 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
+    # Normalize paths the same way `hf_hub_download` does, since we now call its internal helpers directly.
+    cache_dir = str(Path(cache_dir).expanduser().resolve())
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    if isinstance(cache_dir, Path):
-        cache_dir = str(cache_dir)
 
     if repo_type is None:
         repo_type = "model"
@@ -290,18 +350,45 @@ def snapshot_download(
                 with open(ref_path) as f:
                     commit_hash = f.read()
 
-        # Try to locate snapshot folder for this commit hash
+        # Try to locate the snapshot folder for this commit hash.
         if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
-                # Snapshot folder exists => let's return it
-                # (but we can't check if all the files are actually there)
+                # The folder exists. If the repo tree listing for this commit is cached on disk, use it to
+                # check the snapshot actually holds every requested file rather than blindly returning a
+                # possibly partial folder (e.g. after an interrupted download).
+                missing = _missing_snapshot_files(
+                    storage_folder=storage_folder,
+                    commit_hash=commit_hash,
+                    base_dir=snapshot_folder,
+                    allow_patterns=allow_patterns,
+                    ignore_patterns=ignore_patterns,
+                )
+                if missing:
+                    raise IncompleteSnapshotError(
+                        _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
+                    ) from api_call_error
+                # `missing == []` => complete; `missing is None` => unknown (no cached tree, legacy behavior).
                 return snapshot_folder
 
-        # If local_dir is not None, return it if it exists and is not empty
+        # If local_dir is provided, return it if it exists and holds every requested file.
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
+                # If we know the commit and cached its tree listing, verify the local_dir is complete.
+                # Otherwise (unknown commit or no cached tree), keep the legacy behavior of returning it.
+                if commit_hash is not None:
+                    missing = _missing_snapshot_files(
+                        storage_folder=storage_folder,
+                        commit_hash=commit_hash,
+                        base_dir=str(local_dir),
+                        allow_patterns=allow_patterns,
+                        ignore_patterns=ignore_patterns,
+                    )
+                    if missing:
+                        raise IncompleteSnapshotError(
+                            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
+                        ) from api_call_error
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
@@ -336,38 +423,39 @@ def snapshot_download(
     # At this stage, internet connection is up and running
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+    commit_hash = repo_info.sha
 
-    # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
-    # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
-    siblings = getattr(repo_info, "siblings", None)
-    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
-    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
-    if unreliable_nb_files:
-        logger.info(
-            "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
-        )
-        repo_files = (
-            f.rfilename
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
+    # Always work from the full tree listing of the resolved commit. The tree of a commit is immutable, so
+    # the listing is cached on disk (under `<storage_folder>/trees/<commit_hash>.json`) and fetched at most
+    # once per commit. The listing also carries each file's download metadata (etag, size, xet hash), which
+    # lets us skip the per-file HEAD call that `hf_hub_download` would otherwise make on every file.
+    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    if tree_entries is None:
+        tree_entries = {
+            f.path: TreeCacheEntry(
+                path=f.path,
+                size=f.size,
+                blob_id=f.blob_id,
+                lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
+                lfs_size=f.lfs.size if f.lfs is not None else None,
+                xet_hash=f.xet_hash,
+            )
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
+        }
+        write_tree_cache(storage_folder, commit_hash, repo_id, repo_type, tree_entries)
+
+    filtered_repo_files = list(
+        filter_repo_objects(
+            items=tree_entries.keys(),
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
         )
-
-    filtered_repo_files: Iterable[str] = filter_repo_objects(
-        items=repo_files,
-        allow_patterns=allow_patterns,
-        ignore_patterns=ignore_patterns,
     )
-
-    if not unreliable_nb_files:
-        filtered_repo_files = list(filtered_repo_files)
-        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
-    else:
-        tqdm_desc = "Fetching ... files"
+    tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc
 
-    commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
@@ -380,6 +468,38 @@ def snapshot_download(
                 f.write(commit_hash)
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
+
+    # Build request headers once (instead of once per file) since every download targets the same repo.
+    hf_headers = build_hf_headers(
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        headers=headers,
+    )
+
+    def _file_metadata(repo_file: str) -> HfFileMetadata:
+        """Reconstruct the metadata the `/resolve` HEAD call would return, from the cached tree entry."""
+        entry = tree_entries[repo_file]
+        xet_file_data = None
+        if entry.xet_hash is not None:
+            xet_file_data = XetFileData(
+                file_hash=entry.xet_hash,
+                refresh_route=xet_connection_info_refresh_url(
+                    token_type=XetTokenType.READ,
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    revision=commit_hash,
+                    endpoint=endpoint,
+                ),
+            )
+        return HfFileMetadata(
+            commit_hash=commit_hash,
+            etag=entry.etag,
+            location=hf_hub_url(repo_id, repo_file, repo_type=repo_type, revision=commit_hash, endpoint=endpoint),
+            size=entry.file_size,
+            xet_file_data=xet_file_data,
+        )
 
     results: list[str | DryRunFileInfo] = []
 
@@ -428,30 +548,47 @@ def snapshot_download(
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
-    # we pass the commit_hash to hf_hub_download
-    # so no network call happens if we already
-    # have the file locally.
+    # We call the internal `hf_hub_download` helpers directly (instead of the public function) so we can
+    # pass the pre-fetched `file_metadata` from the tree listing. This keeps the public `hf_hub_download`
+    # signature unchanged while skipping the per-file HEAD call. We pass `revision=commit_hash` so no extra
+    # ref-resolution call happens, and reuse the headers built once above.
     def _inner_hf_hub_download(repo_file: str) -> None:
-        results.append(
-            hf_hub_download(  # type: ignore
-                repo_id,
+        if local_dir is not None:
+            result = _hf_hub_download_to_local_dir(
+                local_dir=local_dir,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                filename=repo_file,
+                revision=commit_hash,
+                endpoint=endpoint,
+                etag_timeout=etag_timeout,
+                headers=hf_headers,
+                token=token,
+                cache_dir=cache_dir,
+                force_download=force_download,
+                local_files_only=local_files_only,
+                tqdm_class=_AggregatedTqdm,  # type: ignore
+                dry_run=dry_run,
+                file_metadata=_file_metadata(repo_file),
+            )
+        else:
+            result = _hf_hub_download_to_cache_dir(
+                cache_dir=cache_dir,
+                repo_id=repo_id,
                 filename=repo_file,
                 repo_type=repo_type,
                 revision=commit_hash,
                 endpoint=endpoint,
-                cache_dir=cache_dir,
-                local_dir=local_dir,
-                library_name=library_name,
-                library_version=library_version,
-                user_agent=user_agent,
                 etag_timeout=etag_timeout,
-                force_download=force_download,
+                headers=hf_headers,
                 token=token,
-                headers=headers,
+                local_files_only=local_files_only,
+                force_download=force_download,
                 tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
+                file_metadata=_file_metadata(repo_file),
             )
-        )
+        results.append(result)
 
     thread_map(
         _inner_hf_hub_download,

@@ -456,6 +456,26 @@ class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
         super().__init__(message)
 
 
+class IncompleteSnapshotError(LocalEntryNotFoundError):
+    """
+    Raised by [`snapshot_download`] when the Hub cannot be reached (offline, connection issue, or
+    `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
+    the repository's cached tree listing are missing from the local snapshot.
+
+    This is a subclass of [`LocalEntryNotFoundError`], so code that already catches that error (or
+    `FileNotFoundError`) keeps working.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import snapshot_download
+    >>> snapshot_download("bert-base-cased", local_files_only=True)
+    (...)
+    huggingface_hub.errors.IncompleteSnapshotError: The cached snapshot for ... is incomplete: 2 file(s) are missing.
+    ```
+    """
+
+
 # REQUEST ERROR
 class BadRequestError(HfHubHTTPError, ValueError):
     """

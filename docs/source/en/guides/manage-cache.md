@@ -53,6 +53,7 @@ In order to achieve this, all folders contain the same skeleton:
 │  ├─ refs
 │  ├─ blobs
 │  ├─ snapshots
+│  ├─ trees
 ...
 ```
 
@@ -93,6 +94,29 @@ That `README.md` file is actually a symlink linking to the blob that has the has
 
 By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
 revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
+
+### Trees
+
+The `trees` folder caches the list of files that a repository contains at a given commit. A commit is
+immutable, so its file list never changes. This means the list can be cached forever without ever needing
+to be checked again against the Hub.
+
+Each cached list is named after a commit hash and stored as a JSON file, for example `trees/aaaaaa.json`.
+For every file in the repository at that commit, it records what is needed to download the file: its path,
+its size and its hash. This is the same information the Hub would otherwise return, but it normally costs
+one network call per file to fetch it.
+
+This cache is used by [`snapshot_download`]. The first time you download a commit, the file list is fetched
+once and saved here. The next time you download the same commit, the list is read from disk instead of being
+fetched again. As a result, re-running a download when everything is already cached costs a single network
+call: the one needed to resolve the branch or tag name into a commit hash.
+
+Because the cached file list describes exactly what a commit should contain, [`snapshot_download`] can also
+tell whether a local snapshot is complete. If the Hub cannot be reached (you are offline, the connection
+fails, or you passed `local_files_only=True`) and some expected files are missing from the local snapshot,
+[`snapshot_download`] raises [`~errors.IncompleteSnapshotError`] instead of returning a partial folder.
+Before this, an incomplete snapshot was returned silently, which could leave you working with missing files
+without knowing it. Files excluded by `allow_patterns` or `ignore_patterns` are not counted as missing.
 
 ### .no_exist (advanced)
 
@@ -147,13 +171,16 @@ In practice, your cache should look like the following tree:
         │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
         ├── [  96]  refs
         │   └── [  40]  main
-        └── [ 128]  snapshots
-            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
-            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
-            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
-            └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
-                ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
-                └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        ├── [ 128]  snapshots
+        │   ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+        │   │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+        │   │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        │   └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+        │       ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+        │       └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        └── [  96]  trees
+            ├── [ 521]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f.json
+            └── [ 521]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48.json
 ```
 
 ### CACHEDIR.TAG
