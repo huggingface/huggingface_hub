@@ -20,21 +20,16 @@ from .errors import (
 from .file_download import (
     REGEX_COMMIT_HASH,
     DryRunFileInfo,
-    HfFileMetadata,
-    _hf_hub_download_to_cache_dir,
-    _hf_hub_download_to_local_dir,
-    hf_hub_url,
+    hf_hub_download,
     repo_folder_name,
 )
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import (
     OfflineModeIsEnabled,
-    build_hf_headers,
     filter_repo_objects,
     logging,
     validate_hf_hub_args,
 )
-from .utils._xet import XetFileData, XetTokenType, xet_connection_info_refresh_url
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
@@ -271,7 +266,9 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
-    # Normalize paths the same way `hf_hub_download` does, since we now call its internal helpers directly.
+    # Normalize `cache_dir` the same way `hf_hub_download` does. This matters because we write the tree
+    # listing cache under `cache_dir` here, and `hf_hub_download` later reads it back from the normalized
+    # `cache_dir`: both must resolve to the exact same path for the cache to be found.
     cache_dir = str(Path(cache_dir).expanduser().resolve())
     if local_dir is not None:
         local_dir = str(Path(local_dir).expanduser().resolve())
@@ -469,38 +466,6 @@ def snapshot_download(
         except OSError as e:
             logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
-    # Build request headers once (instead of once per file) since every download targets the same repo.
-    hf_headers = build_hf_headers(
-        token=token,
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-        headers=headers,
-    )
-
-    def _file_metadata(repo_file: str) -> HfFileMetadata:
-        """Reconstruct the metadata the `/resolve` HEAD call would return, from the cached tree entry."""
-        entry = tree_entries[repo_file]
-        xet_file_data = None
-        if entry.xet_hash is not None:
-            xet_file_data = XetFileData(
-                file_hash=entry.xet_hash,
-                refresh_route=xet_connection_info_refresh_url(
-                    token_type=XetTokenType.READ,
-                    repo_id=repo_id,
-                    repo_type=repo_type,
-                    revision=commit_hash,
-                    endpoint=endpoint,
-                ),
-            )
-        return HfFileMetadata(
-            commit_hash=commit_hash,
-            etag=entry.etag,
-            location=hf_hub_url(repo_id, repo_file, repo_type=repo_type, revision=commit_hash, endpoint=endpoint),
-            size=entry.file_size,
-            xet_file_data=xet_file_data,
-        )
-
     results: list[str | DryRunFileInfo] = []
 
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
@@ -548,47 +513,32 @@ def snapshot_download(
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
-    # We call the internal `hf_hub_download` helpers directly (instead of the public function) so we can
-    # pass the pre-fetched `file_metadata` from the tree listing. This keeps the public `hf_hub_download`
-    # signature unchanged while skipping the per-file HEAD call. We pass `revision=commit_hash` so no extra
-    # ref-resolution call happens, and reuse the headers built once above.
+    # We pass `revision=commit_hash` so `hf_hub_download` does not make an extra ref-resolution call and,
+    # because the tree listing for this commit is cached on disk, the per-file HEAD call is skipped too
+    # (see `_file_metadata_from_tree_cache` in `file_download.py`). The public `hf_hub_download` is called
+    # here on purpose: the disk tree cache is what lets it skip the HEAD call, so a later standalone
+    # `hf_hub_download` at the same commit benefits from it as well.
     def _inner_hf_hub_download(repo_file: str) -> None:
-        if local_dir is not None:
-            result = _hf_hub_download_to_local_dir(
+        results.append(
+            hf_hub_download(  # type: ignore
+                repo_id,
+                filename=repo_file,
+                repo_type=repo_type,
+                revision=commit_hash,
+                endpoint=endpoint,
+                cache_dir=cache_dir,
                 local_dir=local_dir,
-                repo_id=repo_id,
-                repo_type=repo_type,
-                filename=repo_file,
-                revision=commit_hash,
-                endpoint=endpoint,
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
                 etag_timeout=etag_timeout,
-                headers=hf_headers,
-                token=token,
-                cache_dir=cache_dir,
                 force_download=force_download,
-                local_files_only=local_files_only,
+                token=token,
+                headers=headers,
                 tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
-                file_metadata=_file_metadata(repo_file),
             )
-        else:
-            result = _hf_hub_download_to_cache_dir(
-                cache_dir=cache_dir,
-                repo_id=repo_id,
-                filename=repo_file,
-                repo_type=repo_type,
-                revision=commit_hash,
-                endpoint=endpoint,
-                etag_timeout=etag_timeout,
-                headers=hf_headers,
-                token=token,
-                local_files_only=local_files_only,
-                force_download=force_download,
-                tqdm_class=_AggregatedTqdm,  # type: ignore
-                dry_run=dry_run,
-                file_metadata=_file_metadata(repo_file),
-            )
-        results.append(result)
+        )
 
     thread_map(
         _inner_hf_hub_download,

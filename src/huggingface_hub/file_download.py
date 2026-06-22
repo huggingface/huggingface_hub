@@ -22,6 +22,7 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
+from ._tree_cache import read_tree_cache
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -51,6 +52,7 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
+from .utils._xet import XetTokenType, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -1053,7 +1055,6 @@ def _hf_hub_download_to_cache_dir(
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-    file_metadata: "HfFileMetadata | None" = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
 
@@ -1101,7 +1102,7 @@ def _hf_hub_download_to_cache_dir(
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
-        file_metadata=file_metadata,
+        cache_dir=cache_dir,
     )
 
     # etag can be None for several reasons:
@@ -1275,7 +1276,6 @@ def _hf_hub_download_to_local_dir(
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
     dry_run: bool,
-    file_metadata: "HfFileMetadata | None" = None,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
 
@@ -1320,7 +1320,7 @@ def _hf_hub_download_to_local_dir(
         headers=headers,
         token=token,
         local_files_only=local_files_only,
-        file_metadata=file_metadata,
+        cache_dir=cache_dir,
     )
 
     if head_call_error is not None:
@@ -1636,6 +1636,46 @@ def get_hf_file_metadata(
     )
 
 
+def _file_metadata_from_tree_cache(
+    *,
+    cache_dir: str,
+    repo_id: str,
+    repo_type: str,
+    commit_hash: str,
+    filename: str,
+    endpoint: str | None,
+) -> tuple[str, str, str, int, XetFileData | None, None] | None:
+    """Rebuild the metadata a HEAD call would return, from the on-disk tree listing cache.
+
+    Returns `None` when there is no cached tree listing for this commit, or the file is not in it.
+    The returned tuple matches what `_get_metadata_or_catch_error` returns on success.
+    """
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    if tree_entries is None:
+        return None
+    entry = tree_entries.get(filename)
+    if entry is None:
+        return None
+
+    xet_file_data = None
+    if entry.xet_hash is not None:
+        xet_file_data = XetFileData(
+            file_hash=entry.xet_hash,
+            refresh_route=xet_connection_info_refresh_url(
+                token_type=XetTokenType.READ,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=commit_hash,
+                endpoint=endpoint,
+            ),
+        )
+    # The download URL is the `/resolve` endpoint (same domain as the Hub). The GET request follows the
+    # redirect to the actual blob, exactly as it would after a real HEAD call.
+    location = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
+    return (location, entry.etag, commit_hash, entry.file_size, xet_file_data, None)
+
+
 def _get_metadata_or_catch_error(
     *,
     repo_id: str,
@@ -1650,7 +1690,7 @@ def _get_metadata_or_catch_error(
     relative_filename: str | None = None,  # only used to store `.no_exists` in cache
     storage_folder: str | None = None,  # only used to store `.no_exists` in cache
     retry_on_errors: bool = False,
-    file_metadata: "HfFileMetadata | None" = None,  # pre-fetched metadata (e.g. from a cached tree listing)
+    cache_dir: str | None = None,  # used to look up the on-disk tree listing cache (skips the HEAD call)
 ) -> (
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception]
@@ -1680,23 +1720,22 @@ def _get_metadata_or_catch_error(
             ),
         )
 
-    if (
-        file_metadata is not None
-        and file_metadata.location is not None
-        and file_metadata.etag is not None
-        and file_metadata.commit_hash is not None
-        and file_metadata.size is not None
-    ):
-        # Metadata has already been fetched by the caller (e.g. `snapshot_download` from a cached tree
-        # listing) => skip the per-file HEAD call entirely.
-        return (
-            file_metadata.location,
-            file_metadata.etag,
-            file_metadata.commit_hash,
-            file_metadata.size,
-            file_metadata.xet_file_data,
-            None,
+    # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on
+    # disk (see `_tree_cache.py`). This is only safe when the revision is an immutable commit hash: a
+    # branch or tag could have moved since the listing was cached, so we must still HEAD those.
+    # `snapshot_download` populates this cache, so a later `hf_hub_download` at the same commit (or
+    # any other process sharing the cache) reuses it for free.
+    if cache_dir is not None and REGEX_COMMIT_HASH.match(revision):
+        tree_metadata = _file_metadata_from_tree_cache(
+            cache_dir=cache_dir,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            commit_hash=revision,
+            filename=filename,
+            endpoint=endpoint,
         )
+        if tree_metadata is not None:
+            return tree_metadata
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
