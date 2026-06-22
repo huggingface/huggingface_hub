@@ -2006,7 +2006,7 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `--status` and `--label` in `hf jobs ps` to filter Jobs server-side. `--status` takes one or more statuses (comma-separated or repeated) and `--label` takes a `key=value` pair (repeat it to require several). A Job must match every filter to be listed:
+Use `--status` and `--label` in `hf jobs ps` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
 
 ```bash
 # Show completed Jobs
