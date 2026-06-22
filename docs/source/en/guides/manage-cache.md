@@ -97,26 +97,13 @@ revision `bbbbbb`, it would have the same hash and the file would not need to be
 
 ### Trees
 
-The `trees` folder caches the list of files that a repository contains at a given commit. A commit is
-immutable, so its file list never changes. This means the list can be cached forever without ever needing
-to be checked again against the Hub.
+The `trees` folder caches the list of files that a repository contains at a given commit. A commit is immutable, so its file list never changes. This means the list can be cached forever without ever needing to be checked again against the Hub.
 
-Each cached list is named after a commit hash and stored as a JSON file, for example `trees/aaaaaa.json`.
-For every file in the repository at that commit, it records what is needed to download the file: its path,
-its size and its hash. This is the same information the Hub would otherwise return, but it normally costs
-one network call per file to fetch it.
+Each cached list is named after a commit hash and stored as a JSON file, for example `trees/aaaaaa.json`. For every file in the repository at that commit, it records what is needed to download the file: its path, its size and its hash. This is the same information the Hub would otherwise return, but it normally costs one network call per file to fetch it.
 
-This cache is used by [`snapshot_download`]. The first time you download a commit, the file list is fetched
-once and saved here. The next time you download the same commit, the list is read from disk instead of being
-fetched again. As a result, re-running a download when everything is already cached costs a single network
-call: the one needed to resolve the branch or tag name into a commit hash.
+This cache is used by [`snapshot_download`]. The first time you download a commit, the file list is fetched once and saved here. The next time you download the same commit, the list is read from disk instead of being fetched again. As a result, re-running a download when everything is already cached costs a single network call: the one needed to resolve the branch or tag name into a commit hash.
 
-Because the cached file list describes exactly what a commit should contain, [`snapshot_download`] can also
-tell whether a local snapshot is complete. If the Hub cannot be reached (you are offline, the connection
-fails, or you passed `local_files_only=True`) and some expected files are missing from the local snapshot,
-[`snapshot_download`] raises [`~errors.IncompleteSnapshotError`] instead of returning a partial folder.
-Before this, an incomplete snapshot was returned silently, which could leave you working with missing files
-without knowing it. Files excluded by `allow_patterns` or `ignore_patterns` are not counted as missing.
+Because the cached file list describes exactly what a commit should contain, [`snapshot_download`] can also tell whether a local snapshot is complete. If the Hub cannot be reached (you are offline, the connection fails, or you passed `local_files_only=True`) and some expected files are missing from the local snapshot, [`snapshot_download`] raises [`~errors.IncompleteSnapshotError`] instead of returning a partial folder. Before this, an incomplete snapshot was returned silently, which could leave you working with missing files without knowing it. Files excluded by `allow_patterns` or `ignore_patterns` are not counted as missing.
 
 ### .no_exist (advanced)
 
