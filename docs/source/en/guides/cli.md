@@ -2006,27 +2006,27 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `-f` or `--filter` in `hf jobs ps` to filter Jobs server-side. Two keys are supported, `status=<stage>` and `label=<key>=<value>`, and both are repeatable. A Job must match every filter to be listed:
+Use `--status` and `--label` in `hf jobs ps` to filter Jobs server-side. `--status` takes one or more statuses (comma-separated or repeated) and `--label` takes a `key=value` pair (repeat it to require several). A Job must match every filter to be listed:
 
 ```bash
 # Show completed Jobs
->>> hf jobs ps -a --filter status=completed
+>>> hf jobs ps -a --status completed
+
+# Show running or scheduling Jobs
+>>> hf jobs ps --status running,scheduling
 
 # Show Jobs with the `model=Qwen3-06B` label
->>> hf jobs ps -a --filter label=model=Qwen3-06B
+>>> hf jobs ps -a --label model=Qwen3-06B
 
 # Combine filters: running Jobs labelled both `env=prod` and `team=ml`
->>> hf jobs ps --filter status=running --filter label=env=prod --filter label=team=ml
+>>> hf jobs ps --status running --label env=prod --label team=ml
 ```
 
 <Tip warning={true}>
 
-Filtering is performed server-side and matching is exact: glob patterns (`label=data-*`) and negation (`label!=prod`, `status!=...`) are no longer supported, and filtering by `id`, `image` or `command` was removed. Only `status` and `label` filters are accepted.
+`-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
 
 </Tip>
-
-> [!TIP]
-> Server-side filtering requires a recent enough Hub. Against an older Hub that doesn't support it, the filters are ignored and `hf jobs ps` falls back to listing your most recent Jobs.
 
 ### SSH into a Job
 

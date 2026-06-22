@@ -530,7 +530,15 @@ def jobs_stats(
                 last_update_time = now
 
 
-@jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
+@jobs_cli.command(
+    "ps",
+    examples=[
+        "hf jobs ps",
+        "hf jobs ps -a",
+        "hf jobs ps --status running,scheduling",
+        "hf jobs ps --label env=prod --label team=ml",
+    ],
+)
 def jobs_ps(
     all: Annotated[
         bool,
@@ -540,6 +548,21 @@ def jobs_ps(
             help="Show all Jobs (default shows just running)",
         ),
     ] = False,
+    status: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--status",
+            help="Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.",
+        ),
+    ] = None,
+    label: Annotated[
+        list[str] | None,
+        typer.Option(
+            "-l",
+            "--label",
+            help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -547,35 +570,52 @@ def jobs_ps(
         typer.Option(
             "-f",
             "--filter",
-            help="Filter Jobs server-side by status or label. Repeatable. E.g. `-f status=running -f label=env=prod`.",
+            help="(Deprecated) Use `--status` and `--label` instead.",
         ),
     ] = None,
 ) -> None:
     """List Jobs.
 
-    Filtering happens server-side and supports two keys: `status=<stage>` (e.g. `status=running`) and
-    `label=<key>=<value>` (e.g. `label=env=prod`). Repeat `-f`/`--filter` to combine them; a Job must
-    match every filter to be listed. Matching is exact (no glob patterns or negation).
+    Filtering happens server-side. Use `--status` to filter by status (see [`JobStage`] for possible values)
+    and `--label` to filter by `key=value` labels. A Job must match every filter to be listed.
     """
     api = get_hf_api(token=token)
 
-    # Filtering is delegated to the server: collect the requested stages and labels and forward them as-is.
-    stages: list[str] = []
+    # Filtering is delegated to the server: collect the requested statuses and labels and forward them as-is.
+    statuses: list[str] = []
     labels: dict[str, str] = {}
-    for f in filter or []:
-        if f.startswith("status="):
-            stages.append(f[len("status=") :].upper())
-        elif f.startswith("label="):
-            key, _, value = f[len("label=") :].partition("=")
-            labels[key] = value
-        else:
-            out.warning(
-                f"Ignoring unsupported filter '{f}'. Only 'status=<stage>' and 'label=<key>=<value>' are supported."
-            )
+    for value in status or []:
+        statuses.extend(part.strip() for part in value.split(",") if part.strip())
+    for item in label or []:
+        key, _, value = item.partition("=")
+        labels[key] = value
 
-    # Default to the active Jobs unless `--all` or an explicit status filter is provided.
-    server_stages = stages if (all or stages) else ["RUNNING", "UPDATING"]
-    jobs = api.list_jobs(namespace=namespace, stage=server_stages or None, labels=labels or None)
+    # `--filter key=value` is the legacy syntax: still honored but nudged towards the dedicated options.
+    if filter:
+        out.warning("`-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`.")
+        for f in filter:
+            if f.startswith("status="):
+                statuses.extend(part.strip() for part in f[len("status=") :].split(",") if part.strip())
+            elif f.startswith("label="):
+                key, _, value = f[len("label=") :].partition("=")
+                labels[key] = value
+            else:
+                out.warning(
+                    f"Ignoring unsupported filter '{f}'. Only 'status=<status>' and 'label=<key>=<value>' are supported."
+                )
+
+    # Normalize and validate statuses against the known stages so we surface a friendly error instead of a 400.
+    normalized_statuses: list[str] = []
+    for s in statuses:
+        try:
+            normalized_statuses.append(JobStage(s.upper()).value)
+        except ValueError:
+            valid = ", ".join(stage.value for stage in JobStage)
+            raise CLIError(f"Invalid status '{s}'. Valid values are: {valid}.") from None
+
+    # Default to the running Jobs unless `--all` or an explicit status filter is provided.
+    server_statuses = normalized_statuses if (all or normalized_statuses) else [JobStage.RUNNING.value]
+    jobs = api.list_jobs(namespace=namespace, status=server_statuses or None, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     items: list[dict[str, Any]] = []
@@ -597,8 +637,10 @@ def jobs_ps(
         id_key="job_id",
     )
     if not items:
-        if stages or labels:
-            filters_msg = ", ".join([*(f"status={s}" for s in stages), *(f"label={k}={v}" for k, v in labels.items())])
+        if normalized_statuses or labels:
+            filters_msg = ", ".join(
+                [*(f"status={s}" for s in normalized_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+            )
             out.text(f"No jobs matched filters: {filters_msg}")
         elif not all:
             out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")

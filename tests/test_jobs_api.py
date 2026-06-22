@@ -85,17 +85,17 @@ class TestListJobs:
         session = patch("huggingface_hub.hf_api.get_session")
         return session, response
 
-    def test_forwards_stage_and_labels_as_query_params(self) -> None:
+    def test_forwards_status_and_labels_as_query_params(self) -> None:
         session, response = self._patch_session()
         with session as mock_session:
             mock_session.return_value.get.return_value = response
             self.api.list_jobs(
                 namespace="user",
-                stage=[JobStage.RUNNING, "SCHEDULING"],
+                status=[JobStage.RUNNING, "scheduling"],
                 labels={"env": "prod", "team": "ml"},
             )
         params = mock_session.return_value.get.call_args.kwargs["params"]
-        # `stage` is serialized to its raw string value (not `JobStage.RUNNING`), labels as `key=value`.
+        # `status` is forwarded as the `stage` query param, upper-cased; labels as `key=value`.
         assert params == [
             ("stage", "RUNNING"),
             ("stage", "SCHEDULING"),
@@ -103,11 +103,11 @@ class TestListJobs:
             ("label", "team=ml"),
         ]
 
-    def test_single_stage_string_is_wrapped(self) -> None:
+    def test_single_status_string_is_wrapped(self) -> None:
         session, response = self._patch_session()
         with session as mock_session:
             mock_session.return_value.get.return_value = response
-            self.api.list_jobs(namespace="user", stage="RUNNING")
+            self.api.list_jobs(namespace="user", status="RUNNING")
         assert mock_session.return_value.get.call_args.kwargs["params"] == [("stage", "RUNNING")]
 
     def test_no_filters_sends_no_params(self) -> None:

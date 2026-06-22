@@ -3391,50 +3391,63 @@ class TestJobsCommand:
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
     def test_ps_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
-        """`status=` and `label=key=value` filters are forwarded to `list_jobs` for server-side filtering.
+        """`--status` (comma-separated) and `--label` are forwarded to `list_jobs` for server-side filtering.
 
         Label key/value casing is preserved (no lowercasing) so it matches what the server stored.
         """
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-f", "status=completed", "-f", "label=model=Qwen3-06B"])
+            result = runner.invoke(
+                app, ["jobs", "ps", "--status", "completed,scheduling", "--label", "model=Qwen3-06B"]
+            )
         assert result.exit_code == 0
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["stage"] == ["COMPLETED"]
+        assert kwargs["status"] == ["COMPLETED", "SCHEDULING"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
-    def test_ps_defaults_to_running_stages_server_side(self, runner: CliRunner) -> None:
-        """Without `-a` or an explicit status filter, the active stages are requested server-side."""
+    def test_ps_defaults_to_running_status_server_side(self, runner: CliRunner) -> None:
+        """Without `-a` or an explicit `--status`, only RUNNING Jobs are requested server-side."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
             result = runner.invoke(app, ["jobs", "ps"])
         assert result.exit_code == 0
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["stage"] == ["RUNNING", "UPDATING"]
+        assert kwargs["status"] == ["RUNNING"]
         assert kwargs["labels"] is None
 
-    def test_ps_all_lists_every_stage(self, runner: CliRunner) -> None:
-        """`-a`/`--all` drops the default stage filter so all Jobs are listed."""
+    def test_ps_all_lists_every_status(self, runner: CliRunner) -> None:
+        """`-a`/`--all` drops the default status filter so all Jobs are listed."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
             result = runner.invoke(app, ["jobs", "ps", "-a"])
         assert result.exit_code == 0
-        assert api.list_jobs.call_args.kwargs["stage"] is None
+        assert api.list_jobs.call_args.kwargs["status"] is None
 
-    def test_ps_unsupported_filter_warns(self, runner: CliRunner) -> None:
-        """Filtering by anything other than status/label (or using negation/globs) warns and is ignored."""
+    def test_ps_invalid_status_errors(self, runner: CliRunner) -> None:
+        """An unknown status is rejected client-side with a friendly error before hitting the server."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-a", "-f", "image=python", "-f", "label!=prod"])
+            result = runner.invoke(app, ["jobs", "ps", "--status", "bogus"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "Invalid status 'bogus'" in str(result.exception)
+        api.list_jobs.assert_not_called()
+
+    def test_ps_filter_is_deprecated_but_still_works(self, runner: CliRunner) -> None:
+        """The legacy `-f`/`--filter` syntax warns but is still translated into server-side filters."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ps", "-f", "status=completed", "-f", "label=env=test"])
         assert result.exit_code == 0
-        assert "Ignoring unsupported filter" in result.output
+        assert "deprecated" in result.output
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["stage"] is None
-        assert kwargs["labels"] is None
+        assert kwargs["status"] == ["COMPLETED"]
+        assert kwargs["labels"] == {"env": "test"}
 
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""

@@ -12018,7 +12018,7 @@ class HfApi:
     def list_jobs(
         self,
         *,
-        stage: list[JobStage | str] | JobStage | str | None = None,
+        status: list[JobStage | str] | JobStage | str | None = None,
         labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
@@ -12028,8 +12028,8 @@ class HfApi:
         List compute Jobs on Hugging Face infrastructure.
 
         Args:
-            stage (`JobStage`, `str` or `list`, *optional*):
-                Only return Jobs in the given stage(s), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
+            status (`JobStage`, `str` or `list`, *optional*):
+                Only return Jobs with the given status(es), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
                 See [`JobStage`] for possible values. Filtering happens server-side.
 
             labels (`dict[str, str]`, *optional*):
@@ -12050,9 +12050,9 @@ class HfApi:
         if namespace is None:
             namespace = whoami(token=token)["name"]
         params: list[tuple[str, str | int | float | None]] = []
-        if stage is not None:
-            stages = [stage] if isinstance(stage, (str, JobStage)) else stage
-            params.extend(("stage", s.value if isinstance(s, JobStage) else str(s)) for s in stages)
+        if status is not None:
+            statuses = [status] if isinstance(status, (str, JobStage)) else status
+            params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
         if labels is not None:
             params.extend(("label", f"{key}={value}") for key, value in labels.items())
         response = get_session().get(
