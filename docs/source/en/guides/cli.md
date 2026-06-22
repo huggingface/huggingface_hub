@@ -248,6 +248,24 @@ To download a file located in a subdirectory of the repo, you should provide the
 >>> hf download HiDream-ai/HiDream-I1-Full text_encoder/model.safetensors
 ```
 
+For a large download, you can use `--rich-progress` to show an enhanced live progress panel with a full-width download bar, current and average speed, ETA, and a speed chart. It works for both a single file and an entire repo:
+
+```bash
+>>> hf download adept/fuyu-8b model-00001-of-00002.safetensors --rich-progress
+╭─────────────────────────────── Live download ────────────────────────────────╮
+│ Downloaded ━━━━━━━━━──────────────────────────────── 7.2% (368.3 / 5102.0 MB)│
+│ Current speed                                                      3.65 MB/s │
+│ Average speed                                                      3.78 MB/s │
+│ Elapsed                                                                47.0s │
+│ ETA                                                                  20m 52s │
+│                                                                              │
+│ Speed over time                                                              │
+│ ...                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+For full repo downloads, `--rich-progress` downloads files sequentially so the live panel can stop cleanly when interrupted with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
 ### Download an entire repository
 
 In some cases, you just want to download all the files from a repository. This can be done by just specifying the repo id:

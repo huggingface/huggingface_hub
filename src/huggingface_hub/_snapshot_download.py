@@ -399,6 +399,14 @@ def snapshot_download(
         unit="B",
         unit_scale=True,
     )
+    set_progress_location = getattr(bytes_progress, "set_location", None)
+    if callable(set_progress_location):
+        set_progress_location(str(os.path.realpath(local_dir)) if local_dir is not None else snapshot_folder)
+    set_total_files = getattr(bytes_progress, "set_total_files", None)
+    if callable(set_total_files) and isinstance(filtered_repo_files, list):
+        set_total_files(len(filtered_repo_files))
+    set_current_file = getattr(bytes_progress, "set_current_file", None)
+    set_current_file_index = getattr(bytes_progress, "set_current_file_index", None)
 
     class _AggregatedTqdm:
         """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
@@ -408,16 +416,20 @@ def snapshot_download(
         """
 
         def __init__(self, *args, **kwargs):
+            desc = kwargs.get("desc")
             # Adjust the total of the parent progress bar
             total = kwargs.pop("total", None)
             if total is not None:
                 bytes_progress.total += total
-                bytes_progress.refresh()
 
             # Adjust initial of the parent progress bar
             initial = kwargs.pop("initial", 0)
+            if callable(set_current_file):
+                set_current_file(desc=desc, total=total, initial=initial)
             if initial:
                 bytes_progress.update(initial)
+            else:
+                bytes_progress.refresh()
 
         def __enter__(self):
             return self
@@ -431,7 +443,11 @@ def snapshot_download(
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
-    def _inner_hf_hub_download(repo_file: str) -> None:
+    def _inner_hf_hub_download(repo_file: str, file_index: int | None = None) -> None:
+        if callable(set_current_file_index):
+            set_current_file_index(file_index)
+        if callable(set_current_file):
+            set_current_file(desc=repo_file)
         results.append(
             hf_hub_download(  # type: ignore
                 repo_id,
@@ -453,15 +469,26 @@ def snapshot_download(
             )
         )
 
-    thread_map(
-        _inner_hf_hub_download,
-        filtered_repo_files,
-        desc=tqdm_desc,
-        max_workers=max_workers,
-        tqdm_class=tqdm_class,
-    )
-
-    bytes_progress.set_description("Download complete")
+    try:
+        if max_workers == 1:
+            for file_index, repo_file in enumerate(tqdm_class(filtered_repo_files, desc=tqdm_desc), start=1):
+                _inner_hf_hub_download(repo_file, file_index)
+        else:
+            thread_map(
+                _inner_hf_hub_download,
+                filtered_repo_files,
+                desc=tqdm_desc,
+                max_workers=max_workers,
+                tqdm_class=tqdm_class,
+            )
+    except BaseException:
+        if callable(getattr(bytes_progress, "set_location", None)):
+            bytes_progress.close(failed=True)
+        else:
+            bytes_progress.close()
+        raise
+    else:
+        bytes_progress.set_description("Download complete")
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)

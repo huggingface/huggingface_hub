@@ -1,4 +1,4 @@
-# Copyright 202-present, the HuggingFace Inc. team.
+# Copyright 2024-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ Usage:
 """
 
 import warnings
+from contextlib import contextmanager
 from typing import Annotated
 
 import typer
@@ -53,6 +54,7 @@ from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, parse_hf_uri
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
+from ._download_progress import get_rich_progress_tqdm
 from ._output import out
 
 
@@ -64,6 +66,17 @@ DOWNLOAD_EXAMPLES = [
     "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
     "hf download hf://datasets/HuggingFaceH4/ultrachat_200k",
 ]
+
+
+@contextmanager
+def _disable_xet_for_rich_progress(enabled: bool):
+    previous_disable_xet = constants.HF_HUB_DISABLE_XET
+    if enabled:
+        constants.HF_HUB_DISABLE_XET = True
+    try:
+        yield
+    finally:
+        constants.HF_HUB_DISABLE_XET = previous_disable_xet
 
 
 def download(
@@ -119,6 +132,13 @@ def download(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,
+    rich_progress: Annotated[
+        bool,
+        typer.Option(
+            "--rich-progress",
+            help="Show an enhanced Rich progress panel.",
+        ),
+    ] = False,
 ) -> None:
     """Download files from the Hub."""
     if local_dir is not None and cache_dir is not None:
@@ -200,6 +220,7 @@ def download(
                 token=token,
                 local_dir=local_dir,
                 library_name="huggingface-cli",
+                tqdm_class=get_rich_progress_tqdm(regular_filenames[0]) if rich_progress else None,
                 dry_run=dry_run,
             )
 
@@ -224,7 +245,8 @@ def download(
             token=token,
             local_dir=local_dir,
             library_name="huggingface-cli",
-            max_workers=max_workers,
+            max_workers=1 if rich_progress else max_workers,
+            tqdm_class=get_rich_progress_tqdm(repo_id) if rich_progress else None,
             dry_run=dry_run,
         )
 
@@ -251,4 +273,8 @@ def download(
         ]
         out.table(items)
 
-    _print_result(run_download())
+    try:
+        with _disable_xet_for_rich_progress(rich_progress):
+            _print_result(run_download())
+    except KeyboardInterrupt:
+        raise typer.Exit(code=130) from None

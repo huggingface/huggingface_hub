@@ -11,11 +11,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli._download_progress import get_rich_progress_tqdm
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -1000,6 +1001,22 @@ class TestDownloadCommand:
         assert kwargs["allow_patterns"] == ["art/**"]
         assert kwargs["ignore_patterns"] is None
 
+    def test_download_file_with_rich_progress_via_cli(self, runner: CliRunner) -> None:
+        rich_tqdm = type("RichTqdm", (), {})
+        with (
+            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
+            patch("huggingface_hub.cli.download.hf_hub_download", return_value="path") as download_mock,
+            patch("huggingface_hub.cli.download.get_rich_progress_tqdm", return_value=rich_tqdm) as get_rich_mock,
+        ):
+            result = runner.invoke(app, ["download", DUMMY_MODEL_ID, "config.json", "--rich-progress"])
+        assert result.exit_code == 0
+        assert "path" in result.stdout
+        snapshot_mock.assert_not_called()
+        get_rich_mock.assert_called_once_with("config.json")
+        kwargs = download_mock.call_args.kwargs
+        assert kwargs["filename"] == "config.json"
+        assert kwargs["tqdm_class"] is rich_tqdm
+
     def test_download_without_args_prints_help(self, runner: CliRunner) -> None:
         """`hf download` without args should print help (like groups do), not error out."""
         result = runner.invoke(app, ["download"])
@@ -1038,6 +1055,370 @@ class TestDownloadImpl:
             dry_run=False,
         )
         mock_snapshot.assert_not_called()
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_file_with_rich_progress(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        mock_download.return_value = "file-path"
+        rich_tqdm = type("RichTqdm", (), {})
+        with (
+            patch("builtins.print") as print_mock,
+            patch("huggingface_hub.cli.download.get_rich_progress_tqdm", return_value=rich_tqdm) as get_rich_mock,
+        ):
+            download(
+                repo_id="author/model",
+                filenames=["config.json"],
+                repo_type=RepoType.model,
+                rich_progress=True,
+            )
+        get_rich_mock.assert_called_once_with("config.json")
+        print_mock.assert_called_once_with("file-path")
+        mock_download.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            filename="config.json",
+            cache_dir=None,
+            force_download=False,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            tqdm_class=rich_tqdm,
+            dry_run=False,
+        )
+        mock_snapshot.assert_not_called()
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_model_with_rich_progress(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        mock_snapshot.return_value = "folder-path"
+        rich_tqdm = type("RichTqdm", (), {})
+        with (
+            patch("builtins.print") as print_mock,
+            patch("huggingface_hub.cli.download.get_rich_progress_tqdm", return_value=rich_tqdm) as get_rich_mock,
+        ):
+            download(
+                repo_id="author/model",
+                filenames=[],
+                repo_type=RepoType.model,
+                rich_progress=True,
+            )
+        get_rich_mock.assert_called_once_with("author/model")
+        print_mock.assert_called_once_with("folder-path")
+        mock_download.assert_not_called()
+        mock_snapshot.assert_called_once_with(
+            repo_id="author/model",
+            repo_type="model",
+            revision=None,
+            allow_patterns=None,
+            ignore_patterns=None,
+            force_download=False,
+            cache_dir=None,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            max_workers=1,
+            tqdm_class=rich_tqdm,
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_with_rich_progress_temporarily_disables_xet(
+        self, mock_download: Mock, mock_snapshot: Mock
+    ) -> None:
+        rich_tqdm = type("RichTqdm", (), {})
+
+        def assert_xet_disabled(**kwargs):
+            assert constants.HF_HUB_DISABLE_XET is True
+            return "file-path"
+
+        mock_download.side_effect = assert_xet_disabled
+        original_disable_xet = constants.HF_HUB_DISABLE_XET
+
+        with (
+            patch("builtins.print"),
+            patch("huggingface_hub.cli.download.get_rich_progress_tqdm", return_value=rich_tqdm),
+        ):
+            download(
+                repo_id="author/model",
+                filenames=["config.json"],
+                repo_type=RepoType.model,
+                rich_progress=True,
+            )
+
+        assert constants.HF_HUB_DISABLE_XET is original_disable_xet
+        mock_snapshot.assert_not_called()
+
+    def test_rich_progress_handles_known_total_before_first_byte(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm()(total=10, unit="B")
+        try:
+            progress.refresh()
+            progress.n = 10 * 1024 * 1024
+            progress.start_time -= 10
+            progress.last_update_time -= 1
+            progress.last_render_time -= 0.2
+            progress.refresh()
+            assert 0 < progress.display_n < progress.n
+        finally:
+            progress.close()
+
+    def test_rich_progress_waits_for_meaningful_bytes_before_speed_samples(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm("author/model")(total=10 * 1024 * 1024, unit="B")
+        try:
+            progress.update(512)
+            progress.refresh()
+
+            assert progress.speed_samples_mb == []
+            panel = progress._render()
+            assert "ETA" in panel.renderable.renderables[2].columns[0]._cells
+            assert "unknown" in panel.renderable.renderables[2].columns[1]._cells
+        finally:
+            progress.close()
+
+    def test_rich_progress_title_includes_name(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with (
+            patch("rich.live.Live", FakeLive),
+            patch("rich.console.Console.print"),
+        ):
+            progress = get_rich_progress_tqdm("author/model")(total=10, unit="B")
+            try:
+                panel = progress._render()
+                assert panel.title == "Live download - author/model"
+                progress.set_description("Downloading (incomplete total...)")
+                panel = progress._render()
+                assert panel.title == "Live download - author/model"
+            finally:
+                progress.close()
+
+    def test_rich_progress_renders_current_file_context(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm("author/model")(total=20 * 1024 * 1024, unit="B")
+        try:
+            progress.set_total_files(3)
+            progress.set_current_file_index(2)
+            progress.set_current_file(
+                "weights/model-00002.safetensors", total=8 * 1024 * 1024, initial=2 * 1024 * 1024
+            )
+            panel = progress._render()
+
+            assert panel.renderable.renderables[0].plain == (
+                "File 2 / 3  weights/model-00002.safetensors (2.0 MB / 8.0 MB)"
+            )
+        finally:
+            progress.close()
+
+    def test_rich_progress_marks_new_file_as_starting_transfer(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm("author/model")(total=20 * 1024 * 1024, unit="B")
+        try:
+            progress.set_current_file("weights/model-00002.safetensors", total=8 * 1024 * 1024, initial=0)
+            progress.current_file_started_at -= 1
+            panel = progress._render()
+
+            assert "State" in panel.renderable.renderables[2].columns[0]._cells
+            assert "starting transfer..." in panel.renderable.renderables[2].columns[1]._cells
+        finally:
+            progress.close()
+
+    def test_rich_progress_keeps_aggregate_bytes_when_switching_files(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm("author/model")(total=20 * 1024 * 1024, unit="B")
+        try:
+            progress.update(6 * 1024 * 1024)
+            aggregate_n = progress.n
+            progress.set_current_file(
+                "weights/model-00001.safetensors", total=8 * 1024 * 1024, initial=6 * 1024 * 1024
+            )
+            progress.set_current_file("weights/model-00002.safetensors", total=8 * 1024 * 1024, initial=0)
+
+            assert progress.n == aggregate_n
+            assert progress.current_file_downloaded == 0
+        finally:
+            progress.close()
+
+    def test_rich_progress_closes_on_interrupted_iteration(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                self.stopped = False
+                self.updates = []
+                self.transient = kwargs.get("transient", False)
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                self.updates.append(args[0] if args else None)
+
+            def stop(self):
+                self.stopped = True
+
+        def interrupted_iter():
+            yield "first"
+            raise KeyboardInterrupt
+
+        with patch("rich.live.Live", FakeLive):
+            progress = get_rich_progress_tqdm("author/model")(interrupted_iter(), total=2, unit="B")
+
+        with pytest.raises(KeyboardInterrupt):
+            list(progress)
+
+        assert progress.closed is True
+        assert progress.live is not None
+        assert progress.live.stopped is True
+        assert progress.live.transient is False
+        assert progress.live.updates[-1].title == "Download failed"
+        assert progress.live.updates[-1].border_style == "red"
+
+    def test_rich_progress_prints_summary_on_completion(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                pass
+
+            def stop(self):
+                pass
+
+        with (
+            patch("rich.live.Live", FakeLive),
+            patch("rich.console.Console.print") as print_mock,
+        ):
+            progress = get_rich_progress_tqdm("author/model")(total=10, unit="B")
+            progress.n = 10
+            progress.close(completed=True)
+
+        assert print_mock.called
+
+    def test_rich_progress_prints_summary_on_failure(self) -> None:
+        class FakeLive:
+            def __init__(self, *args, **kwargs):
+                self.stopped = False
+                self.updates = []
+                self.transient = kwargs.get("transient", False)
+
+            def start(self, refresh=True):
+                pass
+
+            def update(self, *args, **kwargs):
+                self.updates.append(args[0] if args else None)
+
+            def stop(self):
+                self.stopped = True
+
+        with (
+            patch("rich.live.Live", FakeLive),
+            patch("rich.console.Console.print") as print_mock,
+        ):
+            progress = get_rich_progress_tqdm("author/model")(total=10 * 1024 * 1024, unit="B")
+            progress.n = 5 * 1024 * 1024
+            progress.set_location("/tmp/model")
+            progress.close(failed=True)
+
+        print_mock.assert_not_called()
+        assert progress.live is not None
+        panel = progress.live.updates[-1]
+        assert panel.title == "Download failed"
+        assert panel.border_style == "red"
+        assert "failed" in panel.renderable.columns[1]._cells
+        assert "/tmp/model" in panel.renderable.columns[1]._cells
+        assert "Current file" not in panel.renderable.columns[0]._cells
+
+    def test_rich_progress_speed_graph_axis_alignment(self) -> None:
+        progress = get_rich_progress_tqdm("author/model")(total=10)
+        progress.speed_samples_mb = [1, 12.5, 25.58, 10, 3]
+        graph = progress._speed_graph(width=8)
+        lines = graph.plain.splitlines()
+        axis_columns = {line.index("│") for line in lines[:10]}
+        assert len(axis_columns) == 1
+        axis_column = axis_columns.pop()
+        assert lines[-2].index("└") == axis_column
+        assert lines[-2].endswith("└" + "─" * 8)
+        assert lines[-1].strip() == "recent samples →"
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
