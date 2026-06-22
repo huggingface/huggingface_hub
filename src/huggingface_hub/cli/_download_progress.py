@@ -85,7 +85,10 @@ def get_rich_progress_tqdm(name: str | None = None) -> type[base_tqdm]:
             return self
 
         def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
-            self.close(failed=exc_type is not None)
+            if exc_type is None:
+                self.close(completed=True)
+            else:
+                self.close(failed=True)
 
         def _start(self) -> None:
             if self.live is not None and not self.started and not self.closed:
