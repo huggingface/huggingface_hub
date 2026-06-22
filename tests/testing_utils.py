@@ -194,37 +194,34 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
     def offline_socket(*args, **kwargs):
         raise socket.error("Offline mode is enabled.")
 
+    def build_offline_client(exc_factory):
+        # Build a fake `httpx.Client` whose every HTTP method fails. We patch the cached `_GLOBAL_CLIENT`
+        # (not the `get_session` function) so that EVERY caller of `get_session()` is offline, including
+        # `HfApi`. `HfApi` binds `get_session` directly (`from .utils._http import get_session`), so a
+        # function-level patch on `huggingface_hub.utils._http.get_session` would leave it reaching the
+        # network while only `file_download` (which resolves `get_session` at call time) is mocked.
+        client = Mock()
+
+        def fail(*args, **kwargs):
+            raise exc_factory()
+
+        for method in ("request", "stream", "send", "get", "post", "head", "put", "patch", "delete"):
+            setattr(client, method, fail)
+        return client
+
     if mode is OfflineSimulationMode.CONNECTION_FAILS:
         # inspired from https://stackoverflow.com/a/18601897
+        offline_client = build_offline_client(lambda: httpx.ConnectError("Connection failed"))
         with patch("socket.socket", offline_socket):
-            with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                mock_client = Mock()
-
-                # Mock the request method to raise connection error
-                def mock_request(*args, **kwargs):
-                    raise httpx.ConnectError("Connection failed")
-
-                # Mock the stream method to raise connection error
-                def mock_stream(*args, **kwargs):
-                    raise httpx.ConnectError("Connection failed")
-
-                mock_client.request = mock_request
-                mock_client.stream = mock_stream
-                get_session_mock.return_value = mock_client
+            with patch("huggingface_hub.utils._http._GLOBAL_CLIENT", offline_client):
                 yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
+        offline_client = build_offline_client(lambda: httpx.ConnectTimeout("Connection timed out"))
+        # `.request` keeps the "hangs until timeout" behavior so the no-timeout guard is still exercised.
+        offline_client.request = timeout_request
         with patch("httpx.request", timeout_request):
-            with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
-                mock_client = Mock()
-                mock_client.request = timeout_request
-
-                # Mock the stream method to raise timeout
-                def mock_stream(*args, **kwargs):
-                    raise httpx.ConnectTimeout("Connection timed out")
-
-                mock_client.stream = mock_stream
-                get_session_mock.return_value = mock_client
+            with patch("huggingface_hub.utils._http._GLOBAL_CLIENT", offline_client):
                 yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
