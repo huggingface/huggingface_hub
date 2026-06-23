@@ -66,7 +66,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List all stored access tokens. [alias: ls]
-* `login`: Login using a token from...
+* `login`: Login from your browser, or using a token...
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
@@ -96,7 +96,7 @@ Learn more
 
 ### `hf auth login`
 
-Login using a token from huggingface.co/settings/tokens.
+Login from your browser, or using a token from huggingface.co/settings/tokens.
 
 **Usage**:
 
@@ -1726,6 +1726,17 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
 * `--scaling-metric [pendingRequests|hardwareUsage]`: The metric reference for scaling.
 * `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
+* `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
+* `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Requires --custom-image.
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
 Examples
@@ -2120,8 +2131,10 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `ps`: List Jobs.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
+* `ssh`: SSH into a running Job.
 * `stats`: Fetch the resource usage statistics and...
 * `uv`: Run UV scripts (Python with inline...
+* `wait`: Wait for one or more Jobs to reach a...
 
 ### `hf jobs cancel`
 
@@ -2326,6 +2339,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2640,6 +2654,42 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs ssh`
+
+SSH into a running Job.
+
+If the Job is not yet running, waits until it reaches the RUNNING state before
+connecting. Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`)
+and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+**Usage**:
+
+```console
+$ hf jobs ssh [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs ssh <job_id>
+  $ hf jobs ssh <job_id> --dry-run
+  $ hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs stats`
 
 Fetch the resource usage statistics and metrics of Jobs
@@ -2714,6 +2764,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--timeout TEXT`: Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
@@ -2726,6 +2777,42 @@ Examples
   $ hf jobs uv run ml_training.py --flavor a10g-small
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs wait`
+
+Wait for one or more Jobs to reach a terminal state.
+
+Blocks until every Job has finished, then exits with code 0 if all Jobs completed
+successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
+
+All Jobs must belong to the same namespace.
+
+**Usage**:
+
+```console
+$ hf jobs wait [OPTIONS] JOB_IDS...
+```
+
+**Arguments**:
+
+* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id').  [required]
+
+**Options**:
+
+* `--timeout TEXT`: Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs wait <job_id>
+  $ hf jobs wait <job_id_1> <job_id_2>
+  $ hf jobs ps -q | xargs hf jobs wait
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3703,6 +3790,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `ssh`: SSH into a Space's Dev Mode container.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
+* `wait`: Wait for a Space to finish building/starting.
 
 ### `hf spaces card`
 
@@ -4423,6 +4511,39 @@ $ hf spaces volumes set [OPTIONS] SPACE_ID
 Examples
   $ hf spaces volumes set username/my-space -v hf://models/username/my-model:/models
   $ hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces wait`
+
+Wait for a Space to finish building/starting.
+
+Blocks until the Space leaves an intermediate stage (BUILDING, APP_STARTING, etc.)
+and reaches a settled stage. Exits with code 0 if the Space is RUNNING,
+or a non-zero exit code otherwise (e.g. BUILD_ERROR, RUNTIME_ERROR).
+
+**Usage**:
+
+```console
+$ hf spaces wait [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--timeout TEXT`: Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces wait username/my-space
+  $ hf spaces wait username/my-space --timeout 5m
 
 Learn more
   Use `hf <command> --help` for more information about a command.

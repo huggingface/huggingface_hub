@@ -63,7 +63,7 @@ jobs:
   # ============================================================
   prepare:
     permissions:
-      contents: write   # push branches and tags
+      contents: read   # branch/tag push uses the app token (see checkout below)
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -74,10 +74,22 @@ jobs:
       bump_type: ${{ steps.version.outputs.bump_type }}
       message_ts: ${{ steps.slack.outputs.message_ts }}
     steps:
+      # Push the release branch/tag with a GitHub App token rather than the default GITHUB_TOKEN.
+      # GitHub does not emit events for GITHUB_TOKEN-authored pushes (recursion guard), so a
+      # GITHUB_TOKEN push to v*-release never triggered build_documentation.yaml and versioned
+      # docs stopped publishing. An App-token push triggers downstream workflows normally.
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ steps.app_token.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -191,6 +203,8 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           BRANCH: ${{ steps.version.outputs.branch }}
           RELEASE_TYPE: ${{ inputs.release_type }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_URL: ${{ github.server_url }}/${{ github.actor }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
 
@@ -200,7 +214,7 @@ jobs:
             patch-release)    TYPE_EMOJI="🐛" TYPE_LABEL="Patch" ;;
           esac
 
-          TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+          TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
 
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
@@ -486,6 +500,39 @@ jobs:
           tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
           gh release create "$TAG" --draft --prerelease --title "$TITLE" --notes-file "${NOTES_FILE}.body"
 
+      # Archive the RAW AI-generated notes to the bucket now, before they are manually
+      # reviewed/edited on the GitHub draft release. The edited version is uploaded
+      # side by side during the minor-release run (see the archive-release-notes job).
+      # Collecting both every week lets us compare the model output against the human
+      # edits and improve the generation prompt over time.
+      - name: Upload raw release notes to bucket
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+
+          # Locate the raw notes file produced by the OpenCode step above.
+          NOTES_FILE=""
+          for f in .release-notes/RELEASE_NOTES_*.md; do
+            if [[ -f "$f" && -s "$f" ]]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+          if [[ -z "$NOTES_FILE" ]]; then
+            echo "::warning::No raw release notes file found in .release-notes/; skipping bucket upload."
+            exit 0
+          fi
+
+          pip install -e .
+
+          # Upload the raw notes under a stable name. The edited notes are uploaded
+          # to the same folder during the minor-release run, side by side.
+          hf cp "$NOTES_FILE" \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/release_notes_raw.txt"
+
       # --- Minor release: update existing draft to point to the final tag ---
       - name: Promote draft release to final version
         if: ${{ inputs.release_type == 'minor-release' }}
@@ -666,15 +713,17 @@ jobs:
           fi
 
   # ============================================================
-  # 4c. SOCIAL POSTS & BUCKET ARCHIVE — generate drafts on minor-release
+  # 4c. ARCHIVE RELEASE NOTES — upload edited notes to the bucket on minor-release
   #
   # Runs on minor-release (not prerelease) so that release notes can be
-  # manually reviewed/edited between the RC and the final release. Fetches
-  # the (possibly edited) notes from the GitHub draft release, generates
-  # social media drafts, and uploads everything (social posts,
-  # release_notes.txt) to the HF bucket.
+  # manually reviewed/edited between the RC and the final release. Fetches the
+  # (possibly edited) notes from the GitHub release and uploads them to the HF
+  # bucket as release_notes_edited.txt, side by side with the release_notes_raw.txt
+  # that the release-notes job uploaded at prerelease time. Collecting both every
+  # week lets us compare the raw model output against the human edits and improve
+  # the generation prompt over time.
   # ============================================================
-  social-posts:
+  archive-release-notes:
     permissions:
       contents: write  # need write to list draft releases
     needs: [prepare, release-notes]
@@ -693,12 +742,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install -e .
-
-      - name: Install OpenCode
-        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
-
-      - name: Verify OpenCode checksum
-        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
         id: fetch
@@ -720,7 +763,7 @@ jobs:
           fi
 
           if [[ -z "$RELEASE_TAG" ]]; then
-            echo "::warning::No release found for v${MINOR}. Skipping drafts generation (likely because release-notes failed)."
+            echo "::warning::No release found for v${MINOR}. Skipping archive (likely because release-notes failed)."
             echo "found=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -730,48 +773,26 @@ jobs:
           gh release view "$RELEASE_TAG" --json body -q '.body' > .release-notes/notes.md
           echo "found=true" >> $GITHUB_OUTPUT
 
-      - name: Generate social media drafts
-        if: ${{ steps.fetch.outputs.found == 'true' }}
-        env:
-          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
-          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
-        run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
-          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          python -m utils.release_notes.generate_social_posts \
-            --version "v${BASE_VERSION}" \
-            --input .release-notes/notes.md
-
-      - name: Upload to bucket
+      - name: Upload edited release notes to bucket
         if: ${{ steps.fetch.outputs.found == 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
 
-          # Stage all artifacts into a single directory for one sync
-          STAGING=".release-notes/bucket"
-          mkdir -p "${STAGING}/socials"
-          cp .release-notes/socials/* "${STAGING}/socials/" 2>/dev/null || true
-          cp .release-notes/notes.md "${STAGING}/release_notes.txt"
+          # Upload the edited notes side by side with the release_notes_raw.txt that
+          # the release-notes job uploaded at prerelease time.
+          hf cp .release-notes/notes.md \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/release_notes_edited.txt"
 
-          hf buckets sync "${STAGING}/" \
-            "hf://buckets/huggingface/releases/huggingface_hub/${VERSION}/"
-
-      - name: Print drafts to summary
+      - name: Print release notes to summary
         if: ${{ steps.fetch.outputs.found == 'true' }}
         run: |
-          echo "## Social Media Drafts" >> $GITHUB_STEP_SUMMARY
-          for f in .release-notes/socials/*.txt; do
-            if [[ -f "$f" ]]; then
-              BASENAME=$(basename "$f")
-              echo "### ${BASENAME}" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              cat "$f" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+          echo "## Edited Release Notes (archived to bucket)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat .release-notes/notes.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Slack
         if: ${{ always() && needs.prepare.outputs.message_ts }}
@@ -784,11 +805,11 @@ jobs:
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
           BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}"
           if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
-            TEXT="⚠️ *Social media drafts* — skipped (no release found)"
+            TEXT="⚠️ *Release notes archive* — skipped (no release found)"
           elif [[ "${{ job.status }}" == "success" ]]; then
-            TEXT="✅ *Social media drafts* — <${BUCKET_URL}|uploaded to bucket>"
+            TEXT="✅ *Release notes archive* — <${BUCKET_URL}|raw + edited uploaded to bucket>"
           else
-            TEXT="❌ *Social media drafts* — generation failed"
+            TEXT="❌ *Release notes archive* — failed"
           fi
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
@@ -874,9 +895,14 @@ jobs:
             git add pyproject.toml
           fi
 
-          # Enable prerelease flag in workflow files
-          find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
-          git add .github/workflows/
+          # Enable prerelease flag in workflow files.
+          # Skipped for sentence-transformers: its pyproject.toml pin already forces our RC, and
+          # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
+          # the latest transformers and cause spurious CI failures.
+          if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
+            find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+            git add .github/workflows/
+          fi
 
           git --no-pager diff --staged
           git commit -m "Test hfh ${VERSION}"
@@ -1182,7 +1208,7 @@ jobs:
   # 9. SLACK — final status update
   # ============================================================
   slack-complete:
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, social-posts, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
@@ -1196,6 +1222,8 @@ jobs:
           TAG="${{ needs.prepare.outputs.tag }}"
           BRANCH="${{ needs.prepare.outputs.branch }}"
           RELEASE_TYPE="${{ inputs.release_type }}"
+          ACTOR="${{ github.actor }}"
+          ACTOR_URL="${{ github.server_url }}/${{ github.actor }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           # Check if any job failed or was cancelled (including prepare itself,
@@ -1207,7 +1235,7 @@ jobs:
             "${{ needs.publish-hf-cli.result }}" \
             "${{ needs.release-notes.result }}" \
             "${{ needs.slack-message.result }}" \
-            "${{ needs.social-posts.result }}" \
+            "${{ needs.archive-release-notes.result }}" \
             "${{ needs.test-downstream.result }}" \
             "${{ needs.post-release.result }}" \
             "${{ needs.sync-hf-cli-skill.result }}" \
@@ -1225,10 +1253,10 @@ jobs:
           esac
 
           if [[ "$FAILED" == "true" ]]; then
-            TEXT="❌ *${TYPE_LABEL} \`${TAG}\` failed*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+            TEXT="❌ *${TYPE_LABEL} \`${TAG}\` failed*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
             REACTION="x"
           else
-            TEXT="✅ *${TYPE_LABEL} \`${TAG}\` completed*"$'\n'">Branch: \`${BRANCH}\` • <${RUN_URL}|View run>"
+            TEXT="✅ *${TYPE_LABEL} \`${TAG}\` completed*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
             REACTION="white_check_mark"
           fi
 

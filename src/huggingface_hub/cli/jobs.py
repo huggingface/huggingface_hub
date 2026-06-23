@@ -35,6 +35,9 @@ Usage:
     # Cancel a running job
     hf jobs cancel <job-id>
 
+    # Wait until one or more jobs finish
+    hf jobs wait <job-id> [<job-id>...]
+
     # List available hardware options
     hf jobs hardware
 
@@ -70,15 +73,17 @@ from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Annotated, Any, TypeVar
+from urllib.parse import urlsplit
 
 import typer
 
-from huggingface_hub import JobHardware, constants
-from huggingface_hub.errors import CLIError, HfHubHTTPError
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, constants
+from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
+from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._hf_uris import _split_mount
-from huggingface_hub.utils._parsing import format_duration
+from huggingface_hub.utils._parsing import format_duration, parse_duration
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -86,7 +91,10 @@ from ._cli_utils import (
     SecretsFileOpt,
     SecretsOpt,
     SoftChoice,
+    SshDryRunOpt,
+    SshIdentityFileOpt,
     TokenOpt,
+    exec_ssh,
     get_hf_api,
     parse_env_map,
     parse_volumes,
@@ -237,6 +245,14 @@ ExposeOpt = Annotated[
     ),
 ]
 
+SshEnabledOpt = Annotated[
+    bool,
+    typer.Option(
+        "--ssh",
+        help="Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     typer.Option(
@@ -336,6 +352,18 @@ JobVolumesOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
+def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
+    """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
+    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
+        out.text(log)
+    # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
+    final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    if final.status.stage != JobStage.COMPLETED:
+        message = f": {final.status.message}" if final.status.message else ""
+        raise CLIError(f"Job {final.id} finished with stage '{final.status.stage}'{message}")
+    out.text(f"Job {final.id} completed")
+
+
 @jobs_cli.command(
     "run",
     context_settings={"ignore_unknown_options": True},
@@ -360,6 +388,7 @@ def jobs_run(
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
+    ssh: SshEnabledOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -378,18 +407,20 @@ def jobs_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        ssh=ssh,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
+    _stream_logs_and_check_status(api, job)
 
 
 @jobs_cli.command(
@@ -434,23 +465,12 @@ def jobs_logs(
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
 
     api = get_hf_api(token=token)
-    try:
-        logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
-        for log in logs:
-            out.text(log)
-        if follow:
-            job_ref = f"{namespace}/{job_id}" if namespace else job_id
-            out.hint(
-                f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR)."
-            )
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to fetch job logs: {e}") from e
+    logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
+    for log in logs:
+        out.text(log)
+    if follow:
+        job_ref = f"{namespace}/{job_id}" if namespace else job_id
+        out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
@@ -538,46 +558,37 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
-    try:
-        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            rows_per_job_id: dict[str, list[list[str | int]]] = {}
-            for job_id in job_ids:
-                row: list[str | int] = [job_id]
-                row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
-                rows_per_job_id[job_id] = [row]
-            last_update_time = time.time()
-            total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-            # In-place refresh (cursor-up + clear) requires a fixed line count and layout —
-            # `out.table`'s mode-dependent formatting would break it.
-            print(_tabulate(total_rows, headers=table_headers))
+    with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+        rows_per_job_id: dict[str, list[list[str | int]]] = {}
+        for job_id in job_ids:
+            row: list[str | int] = [job_id]
+            row += ["-- / --" if ("/" in header or "USAGE" in header) else "--" for header in table_headers[1:]]
+            rows_per_job_id[job_id] = [row]
+        last_update_time = time.time()
+        total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+        # In-place refresh (cursor-up + clear) requires a fixed line count and layout —
+        # `out.table`'s mode-dependent formatting would break it.
+        print(_tabulate(total_rows, headers=table_headers))
 
-            kwargs_list = [
-                {
-                    "job_id": job_id,
-                    "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
-                    "table_headers": table_headers,
-                }
-                for job_id in job_ids
-            ]
-            for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
-                if done:
-                    rows_per_job_id.pop(job_id, None)
-                else:
-                    rows_per_job_id[job_id] = rows
-                now = time.time()
-                if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
-                    _clear_line(2 + len(total_rows))
-                    total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
-                    print(_tabulate(total_rows, headers=table_headers))
-                    last_update_time = now
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to fetch job stats: {e}") from e
+        kwargs_list = [
+            {
+                "job_id": job_id,
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "table_headers": table_headers,
+            }
+            for job_id in job_ids
+        ]
+        for done, job_id, rows in iflatmap_unordered(pool, _get_jobs_stats_rows, kwargs_list=kwargs_list):
+            if done:
+                rows_per_job_id.pop(job_id, None)
+            else:
+                rows_per_job_id[job_id] = rows
+            now = time.time()
+            if now - last_update_time >= STATS_UPDATE_MIN_INTERVAL:
+                _clear_line(2 + len(total_rows))
+                total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
+                print(_tabulate(total_rows, headers=table_headers))
+                last_update_time = now
 
 
 @jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
@@ -729,16 +740,7 @@ def jobs_inspect(
         parsed_ids.append(job_id)
     job_ids = parsed_ids
     api = get_hf_api(token=token)
-    try:
-        jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to view this job.") from e
-        else:
-            raise CLIError(f"Failed to inspect job: {e}") from e
+    jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     out.table([_dataclass_to_dict(job) for job in jobs])
 
 
@@ -751,17 +753,71 @@ def jobs_cancel(
     """Cancel a Job"""
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
-    try:
-        api.cancel_job(job_id=job_id, namespace=namespace)
-    except HfHubHTTPError as e:
-        status = e.response.status_code if e.response is not None else None
-        if status == 404:
-            raise CLIError("Job not found. Please check the job ID.") from e
-        elif status == 403:
-            raise CLIError("Access denied. You may not have permission to cancel this job.") from e
-        else:
-            raise CLIError(f"Failed to cancel job: {e}") from e
+    api.cancel_job(job_id=job_id, namespace=namespace)
     out.result("Job cancelled", id=job_id)
+
+
+@jobs_cli.command(
+    "wait",
+    examples=[
+        "hf jobs wait <job_id>",
+        "hf jobs wait <job_id_1> <job_id_2>",
+        "hf jobs ps -q | xargs hf jobs wait",
+    ],
+)
+def jobs_wait(
+    job_ids: Annotated[
+        list[str],
+        typer.Argument(
+            help="Job IDs to wait for (or 'namespace/job_id').",
+        ),
+    ],
+    timeout: Annotated[
+        str | None,
+        typer.Option(
+            help="Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+        ),
+    ] = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Wait for one or more Jobs to reach a terminal state.
+
+    Blocks until every Job has finished, then exits with code 0 if all Jobs completed
+    successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
+
+    All Jobs must belong to the same namespace.
+    """
+    parsed_ids = []
+    namespaces = set()
+    for job_id in job_ids:
+        parsed_id, parsed_namespace = _parse_namespace_from_job_id(job_id, namespace)
+        parsed_ids.append(parsed_id)
+        namespaces.add(parsed_namespace)
+    if len(namespaces) > 1:
+        raise CLIError(
+            "All Job IDs must be in the same namespace, got: "
+            + ", ".join(str(ns) for ns in sorted(namespaces, key=str))
+        )
+    namespace = namespaces.pop()
+    timeout_secs = parse_duration(timeout) if timeout is not None else None
+
+    api = get_hf_api(token=token)
+    status = out.status(f"Waiting for {len(parsed_ids)} Job(s) to finish...")
+    try:
+        jobs = api.wait_for_job(parsed_ids, timeout=timeout_secs, namespace=namespace)
+    except TimeoutError:
+        status.done("Timed out.")
+        raise CLIError(f"Timed out after {timeout} waiting for Job(s) to finish.") from None
+    status.done(f"{len(jobs)} Job(s) finished.")
+
+    out.table([{"id": job.id, "stage": str(job.status.stage), "message": job.status.message} for job in jobs])
+    failed = [job for job in jobs if job.status.stage != JobStage.COMPLETED]
+    if failed:
+        raise CLIError(
+            f"{len(failed)} of {len(jobs)} Job(s) did not complete successfully: "
+            + ", ".join(f"{job.id} ({job.status.stage})" for job in failed)
+        )
 
 
 @jobs_cli.command(
@@ -790,6 +846,52 @@ def jobs_labels(
     api = get_hf_api(token=token)
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
     out.result("Labels updated", id=job.id)
+
+
+@jobs_cli.command(
+    "ssh",
+    examples=[
+        "hf jobs ssh <job_id>",
+        "hf jobs ssh <job_id> --dry-run",
+        "hf jobs ssh <job_id> -i ~/.ssh/id_ed25519",
+    ],
+)
+def jobs_ssh(
+    job_id: JobIdArg,
+    identity_file: SshIdentityFileOpt = None,
+    dry_run: SshDryRunOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """SSH into a running Job.
+
+    If the Job is not yet running, waits until it reaches the RUNNING state before
+    connecting. Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`)
+    and your SSH public key to be registered at https://huggingface.co/settings/keys.
+    """
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.inspect_job(job_id=job_id, namespace=namespace)
+    if job.status.ssh_url is None:
+        raise CLIError("SSH is not enabled on this job. Start a job with SSH support using `hf jobs run --ssh ...`.")
+    if job.status.stage in TERMINAL_JOB_STAGES:
+        raise CLIError(f"Cannot SSH into job '{job.id}': job has already finished (stage: '{job.status.stage}').")
+    if job.status.stage != JobStage.RUNNING:
+        status = out.status(f"Waiting for job '{job.id}' to be running (stage: '{job.status.stage}')...")
+        job = api.wait_for_job(job_id=job.id, namespace=namespace, stages=[JobStage.RUNNING])
+        if job.status.stage != JobStage.RUNNING:
+            status.done("Job finished.")
+            raise CLIError(
+                f"Cannot SSH into job '{job.id}': job finished before reaching RUNNING (stage: '{job.status.stage}')."
+            )
+        status.done("Job is running.")
+    ssh_url = urlsplit(job.status.ssh_url)
+    exec_ssh(
+        f"{ssh_url.username}@{ssh_url.hostname}",  # type: ignore
+        port=ssh_url.port,
+        identity_file=identity_file,
+        dry_run=dry_run,
+    )
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
@@ -821,6 +923,7 @@ def jobs_uv_run(
     timeout: TimeoutOpt = None,
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
+    ssh: SshEnabledOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -844,18 +947,20 @@ def jobs_uv_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        ssh=ssh,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         return
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
+    _stream_logs_and_check_status(api, job)
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")

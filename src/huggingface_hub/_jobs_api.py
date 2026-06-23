@@ -88,11 +88,16 @@ class JobStage(str, Enum):
     RUNNING = "RUNNING"
 
 
+# Stages indicating the Job has reached a terminal state and will not run further.
+TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
+
+
 @dataclass
 class JobStatus:
     stage: JobStage
     message: str | None
     expose_urls: list[str] | None
+    ssh_url: str | None
 
 
 @dataclass
@@ -193,6 +198,10 @@ class JobInfo:
             Public URLs through which the Job's exposed ports are reachable (one per port exposed via `expose=`),
             e.g. `["https://687fb701029421ae5549d998--8000.hf.jobs"]`. `None` when no port is exposed.
             Accessing a URL requires an HF token with read access to the Job's namespace.
+        ssh_url (`str` or `None`):
+            SSH endpoint of the Job, e.g. `"ssh://687fb701029421ae5549d998@ssh.hf.jobs"`. Only present when the Job
+            was started with `ssh=True`. Connecting requires write access to the Job's namespace and an SSH public
+            key registered on the Hub (https://huggingface.co/settings/keys).
 
     Example:
 
@@ -257,7 +266,10 @@ class JobInfo:
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
         status = kwargs.get("status", {})
         self.status = JobStatus(
-            stage=status["stage"], message=status.get("message"), expose_urls=status.get("exposeUrls")
+            stage=status["stage"],
+            message=status.get("message"),
+            expose_urls=status.get("exposeUrls"),
+            ssh_url=status.get("sshUrl"),
         )
         durations = kwargs.get("durations")
         self.durations = JobDurations(**durations) if durations else None
@@ -509,6 +521,7 @@ def _create_job_spec(
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
+    ssh: bool = False,
 ) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
@@ -536,6 +549,9 @@ def _create_job_spec(
     # expose ports through the jobs proxy
     if expose:
         job_spec["expose"] = {"ports": expose}
+    # make the job container reachable over SSH
+    if ssh:
+        job_spec["ssh"] = {"enabled": True}
     # input is either from docker hub or from HF spaces
     for prefix in (
         "https://huggingface.co/spaces/",

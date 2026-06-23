@@ -149,17 +149,32 @@ Hello from the cloud!
 >>> cancel_job(job_id=job_id)
 ```
 
-Check the status of multiple jobs to know when they're all finished using a loop and [`inspect_job`]:
+## Wait until Jobs finish
+
+Use [`wait_for_job`] to block until a Job reaches a terminal stage (`COMPLETED`, `CANCELED`, `ERROR` or `DELETED`). The final [`JobInfo`] is always returned — a failed Job does not raise an exception — so check `job.status.stage` to act on the outcome. Pass a list of Job IDs to wait on a whole batch at once.
 
 ```python
-# Run multiple jobs in parallel and wait for their completions
->>> import time
->>> from huggingface_hub import inspect_job, run_job
+>>> from huggingface_hub import run_job, wait_for_job
+>>> job = run_job(image="python:3.12", command=["python", "-c", "print('hello')"])
+>>> wait_for_job(job_id=job.id).status.stage
+'COMPLETED'
+
+# Run multiple jobs in parallel and wait for all of them to finish
 >>> jobs = [run_job(image=image, command=command) for command in commands]
->>> for job in jobs:
-...     while inspect_job(job_id=job.id).status.stage not in ("COMPLETED", "ERROR"):
-...         time.sleep(10)
+>>> finished_jobs = wait_for_job(job_id=[job.id for job in jobs], timeout=3600)
 ```
+
+The same is available in the CLI with `hf jobs wait`, which exits with code 0 only if all Jobs completed successfully — handy for chaining commands in shell scripts or CI:
+
+```bash
+# Chain on success
+hf jobs wait <job_id> && hf jobs run --detach python:3.12 python eval.py
+
+# Wait for all currently running jobs
+hf jobs ps -q | xargs hf jobs wait
+```
+
+Note that a non-detached `hf jobs run` (or `hf jobs uv run`) also exits with a non-zero code if the Job fails, so `hf jobs run ... && next-step` chains correctly without an explicit wait.
 
 ## Select the hardware
 
@@ -324,6 +339,29 @@ In the CLI, simply pass a local directory as the source side of `-v`:
 ```bash
 >>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
 ```
+
+## SSH into a Job
+
+Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container reachable over SSH. The SSH endpoint is available in the Job status:
+
+```python
+>>> from huggingface_hub import run_job
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["sleep", "infinity"],
+...     ssh=True,
+... )
+>>> job.status.ssh_url
+'ssh://68498e23210b3a4f4e6e2a23@ssh.hf.jobs'
+```
+
+Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_id>@ssh.hf.jobs`):
+
+```bash
+>>> hf jobs ssh 68498e23210b3a4f4e6e2a23
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 
 ## Configure Job Timeout
 

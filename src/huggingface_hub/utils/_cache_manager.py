@@ -33,7 +33,7 @@ logger = logging.get_logger(__name__)
 REPO_TYPE_T = Literal["model", "dataset", "space"]
 
 # List of OS-created helper files that need to be ignored
-FILES_TO_IGNORE = [".DS_Store"]
+FILES_TO_IGNORE = [".DS_Store", "Thumbs.db", "desktop.ini"]
 
 
 @dataclass(frozen=True)
@@ -655,6 +655,8 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     repos: set[CachedRepoInfo] = set()
     warnings: list[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
+        if repo_path.name in FILES_TO_IGNORE:
+            continue
         if repo_path.name == ".locks":  # skip './.locks/' folder
             continue
         if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file

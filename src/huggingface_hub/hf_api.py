@@ -64,7 +64,7 @@ from ._commit_api import (
     _CopySource,
     _fetch_files_to_copy,
     _fetch_upload_modes,
-    _prepare_commit_payload,
+    _send_commit,
     _upload_files,
     _warn_on_overwriting_operations,
 )
@@ -72,15 +72,18 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import (
+    TERMINAL_JOB_STAGES,
     JobHardware,
     JobHardwareInfo,
     JobInfo,
     JobSpec,
+    JobStage,
     ScheduledJobInfo,
     _create_job_spec,
     _derive_job_volume_name,
 )
 from ._space_api import (
+    INTERMEDIATE_SPACE_STAGES,
     SpaceHardware,
     SpaceRuntime,
     SpaceSearchResult,
@@ -90,6 +93,7 @@ from ._space_api import (
     Volume,
 )
 from ._upload_large_folder import upload_large_folder_internal
+from ._upload_pipeline import pipelined_upload
 from .community import (
     Discussion,
     DiscussionComment,
@@ -104,6 +108,7 @@ from .errors import (
     FileDuplicationError,
     GatedRepoError,
     HfHubHTTPError,
+    HfUriError,
     LocalTokenNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
@@ -141,6 +146,7 @@ from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -295,6 +301,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
+
+    > [!WARNING]
+    > Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into a structured [`HfUri`].
+    > See https://huggingface.co/docs/huggingface_hub/package_reference/hf_uris for more details.
 
     Args:
         hf_id (`str`):
@@ -632,7 +642,7 @@ class RepoUrl(str):
     `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
     compatibility. At initialization, the URL is parsed to populate properties:
     - endpoint (`str`)
-    - namespace (`Optional[str]`)
+    - namespace (`str`)
     - repo_name (`str`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
@@ -646,8 +656,8 @@ class RepoUrl(str):
 
     Example:
     ```py
-    >>> RepoUrl('https://huggingface.co/gpt2')
-    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+    >>> RepoUrl('https://huggingface.co/openai-community/gpt2')
+    RepoUrl('https://huggingface.co/openai-community/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='openai-community/gpt2')
 
     >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
     RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
@@ -660,10 +670,8 @@ class RepoUrl(str):
     ```
 
     Raises:
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If URL cannot be parsed.
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `repo_type` is unknown.
+        [`~errors.HfUriError`]:
+            If the URL cannot be parsed (e.g. canonical single-segment repo, or unknown `repo_type`).
     """
 
     def __new__(cls, url: Any, endpoint: str | None = None):
@@ -672,15 +680,23 @@ class RepoUrl(str):
 
     def __init__(self, url: Any, endpoint: str | None = None) -> None:
         super().__init__()
-        # Parse URL
         self.endpoint = endpoint or constants.ENDPOINT
-        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
-        # Populate fields
-        self.namespace = namespace
-        self.repo_name = repo_name
-        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
-        self.repo_type = repo_type or constants.REPO_TYPE_MODEL
+        # Parse with the shared 'parse_hf_uri' parser, which handles 'hf://' URIs as well as Hugging
+        # Face web URLs (including ones on this custom 'endpoint'). If that fails, the input is a bare
+        # '<namespace>/<name>' id, which we reparse as an 'hf://' URI.
+        raw = str(self)
+        try:
+            parsed = parse_hf_uri(raw, endpoint=self.endpoint)
+        except HfUriError:
+            if "://" in raw:
+                raise  # it was a URL: the original error is authoritative, don't retry as a bare id
+            parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{raw}")
+
+        # Populate fields ('parsed.id' is always '<namespace>/<name>').
+        self.namespace, self.repo_name = parsed.id.split("/")
+        self.repo_id = parsed.id
+        self.repo_type = parsed.type
         self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
@@ -4588,7 +4604,7 @@ class HfApi:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
                 # tests. To avoid any inconvenience, we retry to create the repo for this specific error.
-                # NOTE: This could have being fixed directly in the tests but adding it here should fixed CIs for all
+                # NOTE: This could have been fixed directly in the tests, but adding it here should fix CIs for all
                 # dependent libraries.
                 # NOTE: If a fix is implemented server-side, we should be able to remove this retry mechanism.
                 logger.debug("Create repo failed due to a concurrency issue. Retrying...")
@@ -5093,36 +5109,21 @@ class HfApi:
                 _endpoint=self.endpoint,
             )
 
-        commit_payload = _prepare_commit_payload(
-            operations=operations_without_no_op,
-            files_to_copy=files_to_copy,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            parent_commit=parent_commit,
-        )
-        commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
-
-        def _payload_as_ndjson() -> Iterable[bytes]:
-            for item in commit_payload:
-                yield json.dumps(item).encode()
-                yield b"\n"
-
-        headers = {
-            # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
-            "Content-Type": "application/x-ndjson",
-            **headers,
-        }
-        data = b"".join(_payload_as_ndjson())
-
-        params: dict[str, Any] = {}
-        if create_pr:
-            params["create_pr"] = "1"
-        if _hot_reload:
-            params["hot_reload"] = "1"
-
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, content=data, params=params)
-            hf_raise_for_status(commit_resp, endpoint_name="commit")
+            commit_info = _send_commit(
+                operations=operations_without_no_op,
+                files_to_copy=files_to_copy,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                revision=revision,
+                endpoint=self.endpoint,
+                parent_commit=parent_commit,
+                create_pr=create_pr,
+                hot_reload=_hot_reload,
+            )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
@@ -5138,15 +5139,7 @@ class HfApi:
         for addition in additions:
             addition._is_committed = True
 
-        commit_data = commit_resp.json()
-        return CommitInfo(
-            commit_url=commit_data["commitUrl"],
-            commit_message=commit_message,
-            commit_description=commit_description,
-            oid=commit_data["commitOid"],
-            pr_url=commit_data["pullRequestUrl"] if create_pr else None,
-            _endpoint=self.endpoint,
-        )
+        return commit_info
 
     def preupload_lfs_files(
         self,
@@ -5677,7 +5670,12 @@ class HfApi:
         Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
         file is not taken into account.
 
-        Uses `HfApi.create_commit` under the hood.
+        When `hf_xet` is installed (the default), files are uploaded through a streamed pipeline: uploads start while
+        the folder is still being checked against the Hub, files are hashed while being chunked for upload (single
+        read pass), and large folders are automatically committed in several batches to stay below server limits
+        (follow-up commits get a ` (part N)` suffix on the commit message). If the upload is interrupted, re-running
+        the same call resumes it: already-committed files are skipped and already-uploaded data is deduplicated. When
+        `hf_xet` is not installed, falls back to a single commit created with [`create_commit`].
 
         Args:
             repo_id (`str`):
@@ -5705,16 +5703,16 @@ class HfApi:
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
-                set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
-                against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`. The PR is always
+                opened against the default branch: setting both `create_pr=True` and `revision` raises a
+                `ValueError`. Note that each call with `create_pr=True` opens a new pull request: to resume an
+                interrupted upload into the existing PR, re-run with `revision="refs/pr/N"` instead.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
-                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                especially useful if the repo is updated / committed to concurrently. If the upload is split into
+                several commits (large folders), `parent_commit` only applies to the first one.
             allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`list[str]` or `str`, *optional*):
@@ -5746,9 +5744,6 @@ class HfApi:
         > `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
         > sure you are authenticated, that your token has the required permissions, and that `repo_id` and `repo_type`
         > are set correctly. If repo does not exist, create it first using [`~hf_api.create_repo`].
-
-        > [!TIP]
-        > When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
 
         Example:
 
@@ -5787,6 +5782,12 @@ class HfApi:
         """
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if create_pr and revision is not None and revision != constants.DEFAULT_REVISION:
+            raise ValueError(
+                f"Cannot use `create_pr=True` with `revision='{revision}'`: pull requests created by"
+                " `upload_folder` are always opened against the default branch. Don't set `revision` when"
+                " `create_pr=True`."
+            )
 
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
@@ -5826,6 +5827,31 @@ class HfApi:
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
+        if is_xet_available():
+            # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
+            # committed in adaptive batches, interrupted uploads resume by re-running.
+            return pipelined_upload(
+                self,
+                repo_id=repo_id,
+                repo_type=repo_type or constants.REPO_TYPE_MODEL,
+                add_operations=add_operations,
+                delete_operations=delete_operations,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                revision=revision,
+                create_pr=create_pr or False,
+                parent_commit=parent_commit,
+            )
+
+        # Legacy single-commit path (hf_xet not installed).
+        if len(add_operations) > 30:
+            log = logger.warning if len(add_operations) > 200 else logger.info
+            log(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. Installing `hf_xet` (`pip install hf_xet`) enables a more robust, resumable "
+                "upload that handles large folders in multiple commits."
+            )
         return self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
@@ -8501,6 +8527,66 @@ class HfApi:
         ):
             yield event["data"]
 
+    @validate_hf_hub_args
+    def wait_for_space(
+        self,
+        repo_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        token: bool | str | None = None,
+    ) -> SpaceRuntime:
+        """Wait until a Space reaches a terminal stage (not building/starting).
+
+        Polls [`get_space_runtime`] every `poll_interval` seconds until the Space's stage
+        is no longer intermediate (`BUILDING`, `RUNNING_BUILDING`, `APP_STARTING`,
+        `RUNNING_APP_STARTING`). Returns the final [`SpaceRuntime`] in all cases — check
+        `runtime.stage` to act on the outcome (e.g. `RUNNING` vs `BUILD_ERROR`).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to wait for. Example: `"username/my-space"`.
+            timeout (`float`, *optional*):
+                Maximum time to wait in seconds. If `None`, waits indefinitely.
+            poll_interval (`float`, *optional*):
+                Seconds between status checks. Defaults to 1s.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. Defaults to the locally saved token, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                See https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`SpaceRuntime`]: The final runtime information once the Space reaches a terminal stage.
+
+        Raises:
+            `TimeoutError`:
+                If the Space has not reached a terminal stage after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import restart_space, wait_for_space
+            >>> restart_space("username/my-space")
+            >>> runtime = wait_for_space("username/my-space")
+            >>> runtime.stage
+            'RUNNING'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            runtime = self.get_space_runtime(repo_id, token=token)
+            if runtime.stage not in INTERMEDIATE_SPACE_STAGES:
+                return runtime
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                raise TimeoutError(f"Space '{repo_id}' is still in stage '{runtime.stage}' after {timeout} seconds.")
+            time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -8620,16 +8706,25 @@ class HfApi:
             constants.REPO_TYPE_SPACE: "spaces",
         }[repo_type]
 
-        # Parse to_id if provided
-        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
-
-        # Infer target repo_id
-        to_namespace = (
-            parsed_to_id.namespace
-            if parsed_to_id is not None and parsed_to_id.namespace is not None
-            else self.whoami(token)["name"]
-        )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+        # Resolve the target namespace + name. When 'to_id' is provided we take the name from it,
+        # otherwise we reuse the source name. Both may be a URL, an 'hf://' URI, or a bare id, so we
+        # try 'parse_hf_uri' first and fall back to a plain split ('<namespace>/<name>', or just
+        # '<name>' for 'to_id'). A missing namespace defaults to the caller's account.
+        to_namespace: str | None = None
+        if to_id is not None:
+            try:
+                to_namespace, to_repo_name = parse_hf_uri(to_id).id.split("/")
+            except HfUriError:
+                namespace_and_name = to_id.rsplit("/", 1)
+                to_namespace = namespace_and_name[0] if len(namespace_and_name) == 2 else None
+                to_repo_name = namespace_and_name[-1]
+        else:
+            try:
+                to_repo_name = parse_hf_uri(from_id).id.split("/")[1]
+            except HfUriError:
+                to_repo_name = from_id.rsplit("/", 1)[-1]
+        if to_namespace is None:
+            to_namespace = self.whoami(token)["name"]
 
         payload: dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
@@ -9017,9 +9112,11 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
-        type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        type: InferenceEndpointType | str = InferenceEndpointType.AUTHENTICATED,
         domain: str | None = None,
         path: str | None = None,
         cache_http_responses: bool | None = None,
@@ -9068,13 +9165,22 @@ class HfApi:
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework or a custom container
+                (see examples).
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
+                used together with `custom_image`.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Typically
+                used together with `custom_image` to pass runtime flags to the container.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
-                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+                The type of the Inference Endpoint, which can be `"authenticated"` (default), `"public"` or
+                `"private"`. `"protected"` is deprecated in favor of `"authenticated"` and will be removed in a
+                future release.
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
@@ -9106,7 +9212,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9130,7 +9236,7 @@ class HfApi:
             ...     accelerator="gpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x1",
             ...     instance_type="nvidia-a10g",
             ...     env={
@@ -9140,7 +9246,7 @@ class HfApi:
             ...           "MODEL_ID": "/repository"
             ...         },
             ...     custom_image={
-            ...         "health_route": "/health",
+            ...         "healthRoute": "/health",
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
             ...    secrets={"MY_SECRET_KEY": "secret_value"},
@@ -9162,7 +9268,7 @@ class HfApi:
             ...     accelerator="cpu",
             ...     vendor="aws",
             ...     region="us-east-1",
-            ...     type="protected",
+            ...     type="authenticated",
             ...     instance_size="x2",
             ...     instance_type="intel-icl",
             ... )
@@ -9174,6 +9280,13 @@ class HfApi:
 
         """
         namespace = namespace or self._get_namespace(token=token)
+
+        if type == InferenceEndpointType.PROTECTED:
+            warnings.warn(
+                "`type='protected'` is deprecated and will be removed in a future release. "
+                "Use `type='authenticated'` instead.",
+                FutureWarning,
+            )
 
         if custom_image is not None:
             image = (
@@ -9212,6 +9325,11 @@ class HfApi:
         }
         if scaling_metric:
             payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
+        model_payload: dict[str, Any] = payload["model"]
+        if container_command is not None:
+            model_payload["command"] = container_command
+        if container_args is not None:
+            model_payload["args"] = container_args
         if env:
             payload["model"]["env"] = env
         if secrets:
@@ -9915,7 +10033,7 @@ class HfApi:
             collection_slug (`str`):
                 Slug of the collection to delete. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if collection doesn't exists.
+                If `True`, do not raise an error if the collection doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9939,7 +10057,7 @@ class HfApi:
             hf_raise_for_status(r)
         except HfHubHTTPError as err:
             if missing_ok and err.response.status_code == 404:
-                # Collection doesn't exists and `missing_ok=True`
+                # Collection doesn't exist and `missing_ok=True`
                 return
             else:
                 raise
@@ -10098,7 +10216,7 @@ class HfApi:
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
                 It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
-                If `True`, do not raise an error if item doesn't exists.
+                If `True`, do not raise an error if the item doesn't exist.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -11139,25 +11257,13 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
-        if len(filtered_repo_objects) > 30:
-            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
-            log(
-                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
-                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
-                "`HfApi().upload_large_folder(...)`/`hf upload-large-folder` instead. For more details, "
-                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
-            )
-
-        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
-        operations = [
+        return [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
-        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
-        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: str | None = None, token: bool | str | None = None):
         """
@@ -11614,6 +11720,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11655,6 +11762,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11705,6 +11818,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -11931,7 +12045,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             timeout=timeout,
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
@@ -12010,8 +12124,122 @@ class HfApi:
             f"{self.endpoint}/api/jobs/{namespace}/{job_id}",
             headers=self._build_hf_headers(token=token),
         )
-        response.raise_for_status()
+        hf_raise_for_status(response)
         return JobInfo(**response.json(), endpoint=self.endpoint)
+
+    @overload
+    def wait_for_job(
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo: ...
+
+    @overload
+    def wait_for_job(
+        self,
+        job_id: list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> list[JobInfo]: ...
+
+    def wait_for_job(
+        self,
+        job_id: str | list[str],
+        *,
+        timeout: float | None = None,
+        poll_interval: float = 1.0,
+        stages: list[JobStage] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo | list[JobInfo]:
+        """
+        Wait until one or more compute Jobs on Hugging Face infrastructure reach a given stage.
+
+        Each Job status is polled (with [`inspect_job`]) every `poll_interval` seconds until its stage is one
+        of `stages` (terminal stages by default: `"COMPLETED"`, `"CANCELED"`, `"ERROR"` or `"DELETED"`). The
+        final [`JobInfo`] is returned in all cases: a failed or canceled Job does **not** raise an exception —
+        check `job.status.stage` to act on the outcome.
+
+        Terminal stages always stop the wait, even when not listed in `stages`. This avoids waiting forever for
+        a stage the Job will never reach (e.g. waiting for `"RUNNING"` on a Job that fails during scheduling).
+
+        Args:
+            job_id (`str` or `list[str]`):
+                ID of the Job, or a list of Job IDs to wait for. If a list is passed, a list of [`JobInfo`]
+                is returned (in the same order).
+
+            timeout (`float`, *optional*):
+                The maximum time to wait for the Job(s) to finish, in seconds. If `None`, will wait
+                indefinitely.
+
+            poll_interval (`float`, *optional*):
+                The time to wait between each status check, in seconds. Defaults to 1s.
+
+            stages (`list[JobStage]`, *optional*):
+                The stages to wait for. Defaults to the terminal stages (`"COMPLETED"`, `"CANCELED"`,
+                `"ERROR"`, `"DELETED"`). Pass e.g. `[JobStage.RUNNING]` to wait for the Job to start running.
+                Terminal stages always stop the wait regardless of this value.
+
+            namespace (`str`, *optional*):
+                The namespace where the Job(s) are running. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`] or `list[JobInfo]`: the final Job info(s).
+
+        Raises:
+            `TimeoutError`:
+                If at least one Job has not reached one of the target stages after `timeout` seconds.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import run_job, wait_for_job
+            >>> job = run_job(image="python:3.12", command=["python", "-c", "print('Hello from HF compute!')"])
+            >>> wait_for_job(job_id=job.id).status.stage
+            'COMPLETED'
+            ```
+        """
+        if timeout is not None and timeout < 0:
+            raise ValueError("`timeout` cannot be negative.")
+        if poll_interval <= 0:
+            raise ValueError("`poll_interval` must be positive.")
+
+        # Terminal stages always stop the wait, so a Job that never reaches the target stage doesn't hang.
+        target_stages = set(stages) | set(TERMINAL_JOB_STAGES) if stages else set(TERMINAL_JOB_STAGES)
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        deadline = None if timeout is None else time.monotonic() + timeout
+
+        def _wait_single(single_job_id: str) -> JobInfo:
+            while True:
+                job = self.inspect_job(job_id=single_job_id, namespace=namespace, token=token)
+                if job.status.stage in target_stages:
+                    return job
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError(
+                        f"Job '{single_job_id}' is still in stage '{job.status.stage}' after {timeout} seconds."
+                    )
+                time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
+
+        if isinstance(job_id, str):
+            return _wait_single(job_id)
+        return [_wait_single(single_job_id) for single_job_id in job_id]
 
     def cancel_job(
         self,
@@ -12037,10 +12265,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}/{job_id}/cancel",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def update_job_labels(
         self,
@@ -12101,6 +12330,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        ssh: bool = False,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12149,6 +12379,12 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            ssh (`bool`, *optional*):
+                If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
+                (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
+                write access to the job's namespace and an SSH public key registered on the Hub
+                (https://huggingface.co/settings/keys). Defaults to False.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12226,6 +12462,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            ssh=ssh,
             namespace=namespace,
             token=token,
         )
@@ -12487,10 +12724,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/suspend",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def resume_scheduled_job(
         self,
@@ -12516,10 +12754,11 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        get_session().post(
+        response = get_session().post(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/resume",
             headers=self._build_hf_headers(token=token),
-        ).raise_for_status()
+        )
+        hf_raise_for_status(response)
 
     def update_scheduled_job_labels(
         self,
@@ -14486,6 +14725,7 @@ delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
 fetch_space_logs = api.fetch_space_logs
+wait_for_space = api.wait_for_space
 
 # Inference Endpoint API
 list_inference_endpoints = api.list_inference_endpoints
@@ -14544,6 +14784,7 @@ fetch_job_metrics = api.fetch_job_metrics
 list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
+wait_for_job = api.wait_for_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
 run_uv_job = api.run_uv_job

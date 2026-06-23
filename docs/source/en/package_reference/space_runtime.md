@@ -12,6 +12,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 - Manage secrets: [`add_space_secret`] and [`delete_space_secret`]
 - Manage hardware: [`request_space_hardware`]
 - Manage state: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
+- Wait until Space is ready: [`wait_for_space`]
 
 ## Data structures
 
