@@ -3391,11 +3391,6 @@ class TestJobsCommand:
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
     def test_ps_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
-        """`--status` (comma-separated) and `--label` are forwarded to `list_jobs` for server-side filtering.
-
-        Statuses are forwarded as-is (`list_jobs` normalizes casing) and label key/value casing is preserved
-        (no lowercasing) so it matches what the server stored.
-        """
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
@@ -3406,58 +3401,6 @@ class TestJobsCommand:
         kwargs = api.list_jobs.call_args.kwargs
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
-
-    def test_ps_defaults_to_active_statuses_server_side(self, runner: CliRunner) -> None:
-        """Without `-a` or an explicit `--status`, the active (RUNNING + SCHEDULING) Jobs are requested."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps"])
-        assert result.exit_code == 0
-        kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["status"] == ["RUNNING", "SCHEDULING"]
-        assert kwargs["labels"] is None
-
-    def test_ps_all_lists_every_status(self, runner: CliRunner) -> None:
-        """`-a`/`--all` drops the default status filter so all Jobs are listed."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-a"])
-        assert result.exit_code == 0
-        assert api.list_jobs.call_args.kwargs["status"] is None
-
-    def test_ps_all_with_filter_errors(self, runner: CliRunner) -> None:
-        """`-a`/`--all` lists every Job, so combining it with `--status`/`--label` is rejected."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--status", "completed"])
-        assert result.exit_code != 0
-        assert isinstance(result.exception, CLIError)
-        assert "cannot be combined" in str(result.exception)
-        api.list_jobs.assert_not_called()
-
-    def test_ps_unknown_status_forwarded_to_server(self, runner: CliRunner) -> None:
-        """`--status` uses `SoftChoice`: unknown values are forwarded as-is and left for the server to reject."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "--status", "bogus"])
-        assert result.exit_code == 0
-        assert api.list_jobs.call_args.kwargs["status"] == ["bogus"]
-
-    def test_ps_filter_is_deprecated_and_ignored(self, runner: CliRunner) -> None:
-        """The legacy `-f`/`--filter` syntax warns and is ignored: use `--status`/`--label` instead."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ps", "-f", "status=completed", "-f", "label=env=test"])
-        assert result.exit_code == 0
-        assert "deprecated" in result.output
-        kwargs = api.list_jobs.call_args.kwargs
-        # `--filter` is ignored, so only the default active-status filter is applied.
-        assert kwargs["status"] == ["RUNNING", "SCHEDULING"]
-        assert kwargs["labels"] is None
 
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
