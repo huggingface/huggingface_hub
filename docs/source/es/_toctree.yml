@@ -1,0 +1,6 @@
+- title: "Empezar"
+  sections:
+    - local: index
+      title: Inicio
+    - local: quick-start
+      title: Inicio rápido
