@@ -440,7 +440,7 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        write_tree_cache(storage_folder, commit_hash, repo_id, repo_type, tree_entries)
+        write_tree_cache(storage_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
         filter_repo_objects(

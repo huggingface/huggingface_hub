@@ -63,12 +63,12 @@ class TestTreeCacheEntry:
 
 class TestTreeCacheReadWrite:
     def test_round_trip(self, tmp_path: Path):
-        write_tree_cache(str(tmp_path), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
         read = read_tree_cache(str(tmp_path), COMMIT_HASH)
         assert read == _entries()
 
     def test_file_is_human_readable_and_sorted(self, tmp_path: Path):
-        write_tree_cache(str(tmp_path), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
         path = tmp_path / "trees" / f"{COMMIT_HASH}.json"
         data = json.loads(path.read_text())
         assert data["format_version"] == TREE_CACHE_FORMAT_VERSION
@@ -96,12 +96,12 @@ class TestTreeCacheReadWrite:
     def test_in_memory_cache_avoids_disk_reads(self, tmp_path: Path):
         # Writing populates the in-memory cache, so a later read does not touch the disk: deleting the
         # file on disk must not change the result.
-        write_tree_cache(str(tmp_path), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
         (tmp_path / "trees" / f"{COMMIT_HASH}.json").unlink()
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
 
     def test_in_memory_cache_memoizes_first_read(self, tmp_path: Path):
-        write_tree_cache(str(tmp_path), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
         # Drop the in-memory entry to force a first disk read, then check the result is memoized.
         _IN_MEMORY_TREE_CACHE.pop(str(tmp_path / "trees" / f"{COMMIT_HASH}.json"), None)
         read_tree_cache(str(tmp_path), COMMIT_HASH)
@@ -115,7 +115,7 @@ class TestTreeCacheSkipsHeadCall:
 
     def test_file_metadata_from_tree_cache(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-        write_tree_cache(str(storage_folder), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
 
         result = _file_metadata_from_tree_cache(
             cache_dir=str(tmp_path),
@@ -153,7 +153,7 @@ class TestTreeCacheSkipsHeadCall:
 
     def test_get_metadata_skips_head_for_commit_hash(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-        write_tree_cache(str(storage_folder), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
 
         # `get_hf_file_metadata` would do the network HEAD call. With a cached tree it must not be called.
         with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_head:
@@ -178,7 +178,7 @@ class TestTreeCacheSkipsHeadCall:
     def test_get_metadata_does_not_use_tree_cache_for_branch(self, tmp_path: Path):
         # A branch/tag could have moved since the listing was cached => the HEAD call must still happen.
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-        write_tree_cache(str(storage_folder), COMMIT_HASH, "user/repo", "model", _entries())
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
 
         with patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")):
             with pytest.raises(RuntimeError, match="HEAD called"):
@@ -201,7 +201,7 @@ def _build_cache(cache_dir: Path, present_files: list[str]) -> Path:
     storage_folder = cache_dir / repo_folder_name(repo_id="user/repo", repo_type="model")
     snapshot_folder = storage_folder / "snapshots" / COMMIT_HASH
     snapshot_folder.mkdir(parents=True)
-    write_tree_cache(str(storage_folder), COMMIT_HASH, "user/repo", "model", _entries())
+    write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
     for file in present_files:
         file_path = snapshot_folder / file
         file_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,28 +1,33 @@
+# Copyright 2026-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """On-disk cache for repository tree listings.
 
-A tree listing is the set of files (with their download metadata) contained in a repo at a given
-commit. Because a commit hash is immutable, its tree listing never changes and can be cached forever
-without any invalidation logic.
+A tree listing is the set of files (with their download metadata) contained in a repo at a given commit. Because a
+commit hash is immutable, its tree listing never changes and can be cached forever without any invalidation logic.
 
-The listing is stored as a human-readable JSON file under `<storage_folder>/trees/<commit_hash>.json`,
-next to the existing `refs/`, `blobs/` and `snapshots/` folders. It maps each file path to the
-metadata needed to download it without a per-file HEAD call:
+The listing is stored as a human-readable JSON file under `<storage_folder>/trees/<commit_hash>.json`, next to the
+existing `refs/`, `blobs/` and `snapshots/` folders.
 
 ```json
 {
   "format_version": 1,
-  "repo_id": "user/repo",
-  "repo_type": "model",
-  "commit_hash": "...",
   "files": {
     "config.json": {"size": 519, "blob_id": "<git sha1>"},
     "model.safetensors": {"size": 1234, "blob_id": "...", "lfs_sha256": "<sha256>", "lfs_size": 1234, "xet_hash": "..."}
   }
 }
 ```
-
-`snapshot_download` reads this cache to skip both the repo-wide tree listing call and the per-file
-HEAD call on warm pulls. See `_snapshot_download.py` for usage.
 """
 
 import json
@@ -38,8 +43,7 @@ logger = logging.get_logger(__name__)
 
 TREE_CACHE_FORMAT_VERSION = 1
 
-# In-memory cache of parsed tree listings, keyed by absolute file path. A tree listing is immutable
-# (it is keyed by an immutable commit hash), so once read from disk it never needs to be re-read.
+# In-memory cache of parsed tree listings, keyed by absolute file path.
 _IN_MEMORY_TREE_CACHE: dict[str, "dict[str, TreeCacheEntry]"] = {}
 _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 
@@ -75,12 +79,7 @@ def _tree_cache_path(storage_folder: str, commit_hash: str) -> str:
 
 
 def read_tree_cache(storage_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:
-    """Return the cached tree listing for a commit hash, or `None` if not cached (or unreadable).
-
-    The returned dict is keyed by file path for direct lookup. Results (including "not cached") are
-    memoized in memory so reading the listing for the same commit many times (e.g. once per file in
-    `snapshot_download`) does not hit the disk more than once.
-    """
+    """Return the cached tree listing for a commit hash, or `None` if not cached (or unreadable)."""
     path = _tree_cache_path(storage_folder, commit_hash)
     with _IN_MEMORY_TREE_CACHE_LOCK:
         if path in _IN_MEMORY_TREE_CACHE:
@@ -117,17 +116,8 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
         return None
 
 
-def write_tree_cache(
-    storage_folder: str,
-    commit_hash: str,
-    repo_id: str,
-    repo_type: str,
-    entries: dict[str, TreeCacheEntry],
-) -> None:
-    """Write the tree listing of a commit hash to the cache (atomic, best-effort).
-
-    Failures are logged and ignored: the tree cache is an optimization, never a requirement.
-    """
+def write_tree_cache(storage_folder: str, commit_hash: str, entries: dict[str, TreeCacheEntry]) -> None:
+    """Write the tree listing of a commit hash to the cache (ignoring any failures)."""
     path = _tree_cache_path(storage_folder, commit_hash)
     files: dict[str, dict] = {}
     for file_path in sorted(entries):
@@ -141,9 +131,6 @@ def write_tree_cache(
         files[file_path] = info
     data = {
         "format_version": TREE_CACHE_FORMAT_VERSION,
-        "repo_id": repo_id,
-        "repo_type": repo_type,
-        "commit_hash": commit_hash,
         "files": files,
     }
     try:
@@ -155,7 +142,3 @@ def write_tree_cache(
     except OSError as e:
         logger.warning(f"Ignored error while writing tree cache file {path}: {e}")
         return
-    # Keep the in-memory cache consistent with what we just wrote (and overwrite a previously cached
-    # "not found" result for this commit).
-    with _IN_MEMORY_TREE_CACHE_LOCK:
-        _IN_MEMORY_TREE_CACHE[path] = dict(entries)

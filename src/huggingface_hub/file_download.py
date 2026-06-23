@@ -1720,11 +1720,7 @@ def _get_metadata_or_catch_error(
             ),
         )
 
-    # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on
-    # disk (see `_tree_cache.py`). This is only safe when the revision is an immutable commit hash: a
-    # branch or tag could have moved since the listing was cached, so we must still HEAD those.
-    # `snapshot_download` populates this cache, so a later `hf_hub_download` at the same commit (or
-    # any other process sharing the cache) reuses it for free.
+    # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
     if cache_dir is not None and REGEX_COMMIT_HASH.match(revision):
         tree_metadata = _file_metadata_from_tree_cache(
             cache_dir=cache_dir,
