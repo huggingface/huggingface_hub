@@ -1320,7 +1320,6 @@ def _hf_hub_download_to_local_dir(
         headers=headers,
         token=token,
         local_files_only=local_files_only,
-        cache_dir=cache_dir,
     )
 
     if head_call_error is not None:

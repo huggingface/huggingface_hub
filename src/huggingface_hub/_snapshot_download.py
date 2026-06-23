@@ -368,24 +368,13 @@ def snapshot_download(
                 # `missing == []` => complete; `missing is None` => unknown (no cached tree, legacy behavior).
                 return snapshot_folder
 
-        # If local_dir is provided, return it if it exists and holds every requested file.
+        # If local_dir is not None, return it if it exists and is not empty. The on-disk tree cache
+        # completeness check is intentionally limited to the `cache_dir` path: `local_dir` downloads rely on
+        # the separate (and less robust) `.cache/huggingface/` local-folder cache, so we keep the legacy
+        # behavior of returning the folder as-is here.
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
-                # If we know the commit and cached its tree listing, verify the local_dir is complete.
-                # Otherwise (unknown commit or no cached tree), keep the legacy behavior of returning it.
-                if commit_hash is not None:
-                    missing = _missing_snapshot_files(
-                        storage_folder=storage_folder,
-                        commit_hash=commit_hash,
-                        base_dir=str(local_dir),
-                        allow_patterns=allow_patterns,
-                        ignore_patterns=ignore_patterns,
-                    )
-                    if missing:
-                        raise IncompleteSnapshotError(
-                            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
-                        ) from api_call_error
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
