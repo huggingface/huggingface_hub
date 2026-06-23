@@ -401,8 +401,6 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=close_session)
 
 
-# `RemoteProtocolError` is included to retry stale keep-alive connections dropped by the server
-# (it is a `ProtocolError`, not a `NetworkError`, so it is not covered by the latter).
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (
     httpx.TimeoutException,
     httpx.NetworkError,
