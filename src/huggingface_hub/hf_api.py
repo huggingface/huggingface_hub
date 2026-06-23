@@ -149,7 +149,7 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
-from .utils.tqdm import _get_progress_bar_context
+from .utils.tqdm import tqdm as hf_tqdm
 
 
 if TYPE_CHECKING:
@@ -14216,31 +14216,23 @@ class HfApi:
         xet_headers = xet_headers_without_auth(headers)
 
         # Download files
-        progress_cm = _get_progress_bar_context(
-            desc="Downloading bucket files",
-            log_level=logger.getEffectiveLevel(),
-            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
-            initial=0,
-            name="huggingface_hub.download_bucket_files",
-        )
+        from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
         session = get_xet_session()
 
-        with progress_cm as progress:
-            prev = 0
-
-            def _on_progress(group_report, _):
-                nonlocal prev
-                current = group_report.total_bytes_completed
-                progress.update(max(0, current - prev))
-                prev = current
-
+        with XetDownloadProgressReporter(
+            reconstruction_desc="Downloading bucket files",
+            transfer_desc="Downloading bytes",
+            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
+            log_level=logger.getEffectiveLevel(),
+            name="huggingface_hub.download_bucket_files",
+        ) as progress:
             try:
                 with session.new_file_download_group(
                     token_refresh_url=metadata.xet_file_data.refresh_route,
                     token_refresh_headers=headers,
                     custom_headers=xet_headers,
-                    progress_callback=_on_progress,
+                    progress_callback=progress.update_progress,
                 ) as group:
                     for xet_info, dest in non_zero_download_items:
                         group.start_download_file(xet_info, dest)

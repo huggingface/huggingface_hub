@@ -386,14 +386,25 @@ def snapshot_download(
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
     tqdm_class = tqdm_class or hf_tqdm
 
-    # Create a progress bar for the bytes downloaded
-    # This progress bar is shared across threads/files and gets updated each time we fetch
-    # metadata for a file.
+    # Create progress bars for the bytes downloaded.
+    # Transfer bytes are received from the network; reconstruction bytes are written to disk.
+    transfer_progress = _create_progress_bar(
+        cls=tqdm_class,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.snapshot_download.transfer",
+        desc="Downloading bytes",
+        total=None,
+        initial=0,
+        unit="B",
+        unit_scale=True,
+        bar_format="{l_bar}{bar}| {n_fmt:>5}B{postfix}",
+    )
+
     bytes_progress = _create_progress_bar(
         cls=tqdm_class,
         log_level=logger.getEffectiveLevel(),
         name="huggingface_hub.snapshot_download",
-        desc="Downloading (incomplete total...)",
+        desc="Reconstructing (incomplete total...)",
         total=0,
         initial=0,
         unit="B",
@@ -401,10 +412,10 @@ def snapshot_download(
     )
 
     class _AggregatedTqdm:
-        """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
+        """Fake tqdm object to aggregate progress into the parent snapshot progress bars.
 
         In practice, the `_AggregatedTqdm` object won't be displayed; it's just used to update
-        the `bytes_progress` bar from each thread/file download.
+        the `bytes_progress` and `transfer_progress` bars from each thread/file download.
         """
 
         def __init__(self, *args, **kwargs):
@@ -427,6 +438,12 @@ def snapshot_download(
 
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
+
+        def update_transfer(self, n: int | float | None = 1) -> None:
+            transfer_progress.update(n)
+
+        def set_transfer_postfix_str(self, postfix: str, refresh: bool = False) -> None:
+            transfer_progress.set_postfix_str(postfix, refresh=refresh)
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
@@ -461,7 +478,8 @@ def snapshot_download(
         tqdm_class=tqdm_class,
     )
 
-    bytes_progress.set_description("Download complete")
+    bytes_progress.set_description("Reconstruction complete")
+    transfer_progress.set_description("Download complete")
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)

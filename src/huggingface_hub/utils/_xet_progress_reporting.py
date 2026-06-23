@@ -2,7 +2,129 @@ from collections import OrderedDict
 from typing import Any
 
 from . import is_google_colab, is_notebook
-from .tqdm import tqdm
+from .tqdm import _create_progress_bar, tqdm
+
+
+def _format_speed_postfix(speed: float | None) -> str:
+    s = tqdm.format_sizeof(speed) if speed is not None else "???"
+    return f"{s}B/s  ".rjust(10, " ")
+
+
+class XetDownloadProgressReporter:
+    """Dual progress bars for Xet downloads: network transfer and file reconstruction.
+
+    ``total_transfer_bytes_completed`` tracks bytes received from the network (updated continuously).
+    ``total_bytes_completed`` tracks bytes written to disk (updated after buffered chunks are flushed).
+    Showing both bars gives responsive feedback on slow connections where reconstruction lags behind transfer.
+    """
+
+    _TRANSFER_BAR_FORMAT = "{l_bar}{bar}| {n_fmt:>5}B{postfix:>12}"
+    _RECONSTRUCTION_BAR_FORMAT = "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
+
+    def __init__(
+        self,
+        *,
+        reconstruction_desc: str,
+        transfer_desc: str = "Downloading bytes",
+        total: int | None = None,
+        log_level: int,
+        name: str | None = None,
+        tqdm_class: type | None = None,
+        external_reconstruction_bar: Any | None = None,
+        position: int = 0,
+    ):
+        self._prev_bytes_completed = 0
+        self._prev_transfer_bytes_completed = 0
+
+        cls = tqdm_class or tqdm
+        self._owns_reconstruction_bar = external_reconstruction_bar is None
+        self._owns_transfer_bar = True
+
+        if external_reconstruction_bar is not None:
+            self.reconstruction_bar = external_reconstruction_bar
+        else:
+            self.reconstruction_bar = _create_progress_bar(
+                cls=cls,
+                log_level=log_level,
+                name=name,
+                desc=reconstruction_desc,
+                total=total,
+                unit="B",
+                unit_scale=True,
+                position=position + 1,
+                bar_format=self._RECONSTRUCTION_BAR_FORMAT,
+                leave=True,
+            )
+
+        if not self._owns_reconstruction_bar or (isinstance(cls, type) and issubclass(cls, tqdm)):
+            self.transfer_bar = _create_progress_bar(
+                cls=tqdm,
+                log_level=log_level,
+                name=f"{name}.transfer" if name else None,
+                desc=transfer_desc,
+                total=None,
+                unit="B",
+                unit_scale=True,
+                position=position,
+                bar_format=self._TRANSFER_BAR_FORMAT,
+                leave=True,
+            )
+        else:
+            # Custom tqdm_class (e.g. snapshot_download's aggregated bar) may also route transfer updates.
+            self.transfer_bar = self.reconstruction_bar
+            self._owns_transfer_bar = False
+
+    def update_progress(self, group_report, _item_reports: dict | None = None) -> None:
+        bytes_inc = max(0, group_report.total_bytes_completed - self._prev_bytes_completed)
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        transfer_inc = max(0, group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed)
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
+
+        if bytes_inc > 0:
+            self.reconstruction_bar.update(bytes_inc)
+            if hasattr(group_report, "total_bytes_completion_rate"):
+                self.reconstruction_bar.set_postfix_str(
+                    _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
+                )
+
+        if transfer_inc > 0:
+            if self.transfer_bar is self.reconstruction_bar and callable(
+                getattr(self.reconstruction_bar, "update_transfer", None)
+            ):
+                self.reconstruction_bar.update_transfer(transfer_inc)
+                if hasattr(self.reconstruction_bar, "set_transfer_postfix_str") and hasattr(
+                    group_report, "total_transfer_bytes_completion_rate"
+                ):
+                    self.reconstruction_bar.set_transfer_postfix_str(
+                        _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                    )
+            elif self.transfer_bar is not self.reconstruction_bar:
+                self.transfer_bar.update(transfer_inc)
+                if hasattr(group_report, "total_transfer_bytes_completion_rate") and hasattr(
+                    self.transfer_bar, "set_postfix_str"
+                ):
+                    self.transfer_bar.set_postfix_str(
+                        _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                    )
+
+        if hasattr(self.reconstruction_bar, "total") and group_report.total_bytes:
+            self.reconstruction_bar.total = group_report.total_bytes
+
+    def close(self) -> None:
+        if self._owns_reconstruction_bar and hasattr(self.reconstruction_bar, "close"):
+            self.reconstruction_bar.close()
+        if (
+            self._owns_transfer_bar
+            and self.transfer_bar is not self.reconstruction_bar
+            and hasattr(self.transfer_bar, "close")
+        ):
+            self.transfer_bar.close()
+
+    def __enter__(self) -> "XetDownloadProgressReporter":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.close()
 
 
 class XetProgressReporter:
@@ -147,10 +269,6 @@ class XetProgressReporter:
                     bar.refresh()
 
         # Update overall bars
-        def postfix(speed):
-            s = tqdm.format_sizeof(speed) if speed is not None else "???"
-            return f"{s}B/s  ".rjust(10, " ")
-
         bytes_inc = group_report.total_bytes_completed - self._prev_bytes_completed
         self._prev_bytes_completed = group_report.total_bytes_completed
         transfer_inc = group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed
@@ -162,11 +280,15 @@ class XetProgressReporter:
             self.format_desc(f"Processing Files ({len(self.completed_items)} / {total_files_count})", False),
             refresh=False,
         )
-        self.data_processing_bar.set_postfix_str(postfix(group_report.total_bytes_completion_rate), refresh=False)
+        self.data_processing_bar.set_postfix_str(
+            _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
+        )
         self.data_processing_bar.update(bytes_inc)
 
         self.upload_bar.total = group_report.total_transfer_bytes
-        self.upload_bar.set_postfix_str(postfix(group_report.total_transfer_bytes_completion_rate), refresh=False)
+        self.upload_bar.set_postfix_str(
+            _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+        )
         self.upload_bar.update(transfer_inc)
 
     def close(self):
