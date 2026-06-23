@@ -2057,10 +2057,10 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 >>> hf jobs uv run my_script.py
 
 # Run with persistent repo
->>> hf jobs uv run my_script.py --repo my-uv-scripts
+>>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
->>> hf jobs uv run ml_training.py --flavor gpu-t4-small
+>>> hf jobs uv run --flavor gpu-t4-small ml_training.py
 
 # Pass arguments to script
 >>> hf jobs uv run process.py input.csv output.parquet
