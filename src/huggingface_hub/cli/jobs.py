@@ -537,6 +537,7 @@ def jobs_stats(
         "hf jobs ps -a",
         "hf jobs ps --status running,scheduling",
         "hf jobs ps --label env=prod --label team=ml",
+        "hf jobs ps --all --label hf-sandbox=1",
     ],
 )
 def jobs_ps(
@@ -545,7 +546,7 @@ def jobs_ps(
         typer.Option(
             "-a",
             "--all",
-            help="Show all Jobs (default shows running and scheduling)",
+            help="Show all Jobs (default shows running and scheduling). Cannot be combined with --status.",
         ),
     ] = False,
     status: Annotated[
@@ -598,8 +599,8 @@ def jobs_ps(
             " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
         )
 
-    if all and (statuses or labels):
-        raise CLIError("`-a`/`--all` cannot be combined with `--status` or `--label`.")
+    if all and statuses:
+        raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
 
     # Default to the active Jobs unless `--all` or an explicit `--status` is provided.
     server_statuses: list[str] | None
