@@ -616,25 +616,25 @@ def jobs_ps(
     jobs = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
-    items: list[dict[str, Any]] = []
+    job_items: list[dict[str, Any]] = []
     for job in jobs:
-        item = _dataclass_to_dict(job)
-        durations = item.get("durations") or {}
-        cmd = item.get("command") or []
-        item["job_id"] = item.get("id", "")
-        item["image/space"] = item.get("docker_image") or "N/A"
-        item["command"] = " ".join(cmd) if cmd else "N/A"
-        item["created"] = item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A"
-        item["status"] = (item.get("status") or {}).get("stage", "UNKNOWN")
-        item["runtime"] = format_duration(durations.get("running_secs"))
-        items.append(item)
+        job_item = _dataclass_to_dict(job)
+        durations = job_item.get("durations") or {}
+        cmd = job_item.get("command") or []
+        job_item["job_id"] = job_item.get("id", "")
+        job_item["image/space"] = job_item.get("docker_image") or "N/A"
+        job_item["command"] = " ".join(cmd) if cmd else "N/A"
+        job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
+        job_item["status"] = (job_item.get("status") or {}).get("stage", "UNKNOWN")
+        job_item["runtime"] = format_duration(durations.get("running_secs"))
+        job_items.append(job_item)
 
     out.table(
-        items,
+        job_items,
         headers=["job_id", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
-    if not items:
+    if not job_items:
         if raw_statuses or labels:
             filters_msg = ", ".join(
                 [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
