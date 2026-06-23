@@ -40,10 +40,7 @@ TREE_CACHE_FORMAT_VERSION = 1
 
 # In-memory cache of parsed tree listings, keyed by absolute file path. A tree listing is immutable
 # (it is keyed by an immutable commit hash), so once read from disk it never needs to be re-read.
-# This matters when downloading many files from the same commit: without it, every single file
-# download would re-open and re-parse the same JSON file. `None` is a valid cached value: it means
-# "we already looked and there is no tree listing on disk for this commit".
-_IN_MEMORY_TREE_CACHE: dict[str, "dict[str, TreeCacheEntry] | None"] = {}
+_IN_MEMORY_TREE_CACHE: dict[str, "dict[str, TreeCacheEntry]"] = {}
 _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 
 
@@ -89,8 +86,9 @@ def read_tree_cache(storage_folder: str, commit_hash: str) -> dict[str, TreeCach
         if path in _IN_MEMORY_TREE_CACHE:
             return _IN_MEMORY_TREE_CACHE[path]
     entries = _read_tree_cache_from_disk(path)
-    with _IN_MEMORY_TREE_CACHE_LOCK:
-        _IN_MEMORY_TREE_CACHE[path] = entries
+    if entries is not None:
+        with _IN_MEMORY_TREE_CACHE_LOCK:
+            _IN_MEMORY_TREE_CACHE[path] = entries
     return entries
 
 
