@@ -583,33 +583,36 @@ def jobs_ps(
     """
     api = get_hf_api(token=token)
 
-    statuses: list[str] = []
-    labels: dict[str, str] = {}
-    for value in status or []:
-        statuses.extend(part.strip() for part in value.split(",") if part.strip())
-    for item in label or []:
-        if "=" not in item:
-            raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
-        key, value = item.split("=")
-        labels[key] = value
-
     if filter:
         out.warning(
             f"Ignoring filter '{filter}'."
             " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
         )
 
-    if all and statuses:
+    if all and status:
         raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
 
-    # Default to the active Jobs unless `--all` or an explicit `--status` is provided.
+    # Status filtering (default to active Jobs, unless `--all` or `--status` is provided).
+    raw_statuses: list[str] = []
+    for value in status or []:
+        raw_statuses.extend(part.strip() for part in value.split(",") if part.strip())
+
     server_statuses: list[str] | None
-    if statuses:
-        server_statuses = statuses
+    if raw_statuses:
+        server_statuses = raw_statuses
     elif all:
         server_statuses = None
     else:
         server_statuses = [JobStage.RUNNING.value, JobStage.SCHEDULING.value]
+
+    # Labels filtering
+    labels: dict[str, str] = {}
+    for item in label or []:
+        if "=" not in item:
+            raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
+        key, value = item.split("=")
+        labels[key] = value
+
     jobs = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
