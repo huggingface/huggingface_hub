@@ -2300,7 +2300,7 @@ $ hf jobs ps [OPTIONS]
 
 **Options**:
 
-* `-a, --all`: Show all Jobs (default shows running and scheduling)
+* `-a, --all`: Show all Jobs (default shows running and scheduling). Cannot be combined with --status.
 * `--status [COMPLETED|CANCELED|ERROR|DELETED|SCHEDULING|RUNNING]`: Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.
 * `-l, --label TEXT`: Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2313,6 +2313,7 @@ Examples
   $ hf jobs ps -a
   $ hf jobs ps --status running,scheduling
   $ hf jobs ps --label env=prod --label team=ml
+  $ hf jobs ps --all --label hf-sandbox=1
 
 Learn more
   Use `hf <command> --help` for more information about a command.
