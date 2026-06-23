@@ -1,6 +1,7 @@
 import os
 import tempfile
 import threading
+import time
 from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
@@ -31,6 +32,13 @@ from .file_download import hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
+
+
+# Reconnect attempts (with exponential backoff) for a single streaming `read()` call when the
+# connection drops mid-transfer. Mirrors the defaults used by `http_backoff`.
+_STREAM_READ_MAX_RETRIES = 5
+_STREAM_READ_BASE_WAIT = 1.0  # seconds
+_STREAM_READ_MAX_WAIT = 8.0  # seconds
 
 
 @dataclass
@@ -1287,15 +1295,17 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
     def read(self, length: int = -1):
         """Read the remote file.
 
-        If the file is already open, we reuse the connection.
-        Otherwise, open a new connection and read from it.
+        If the file is already open, we reuse the connection. Otherwise, open a new connection.
 
-        If reading the stream fails, we retry with a new connection.
+        If reading the stream fails (e.g. a stale keep-alive connection is dropped mid-transfer),
+        we reconnect and resume from the current position via a Range header, retrying up to
+        `_STREAM_READ_MAX_RETRIES` times with exponential backoff before giving up.
         """
         if self.response is None:
             self._open_connection()
 
-        retried_once = False
+        nb_retries = 0
+        sleep_time = _STREAM_READ_BASE_WAIT
         while True:
             try:
                 if self.response is None or self._stream_iterator is None:
@@ -1304,13 +1314,12 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 self.loc += len(out)
                 return out
             except Exception:
-                if self.response is not None:
-                    self.response.close()
-                if retried_once:  # Already retried once, give up
+                nb_retries += 1
+                if nb_retries > _STREAM_READ_MAX_RETRIES:
                     raise
-                # First failure, retry with range header
-                self._open_connection()
-                retried_once = True
+                time.sleep(sleep_time)
+                sleep_time = min(_STREAM_READ_MAX_WAIT, sleep_time * 2)
+                self._open_connection()  # reconnect with Range header (also closes the stale one)
 
     def _read_from_stream(self, iterator: Iterator[bytes], length: int = -1) -> bytes:
         """Read up to `length` bytes from stream buffer and stream.
@@ -1361,7 +1370,13 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
     def _open_connection(self):
         """Open a connection to the remote file."""
+        # Close the previous connection (if any) so stale response context managers don't pile up
+        # in the ExitStack across reconnects.
+        self._exit_stack.close()
+        self._exit_stack = ExitStack()
+
         # reset streaming state
+        self.response = None
         self._stream_buffer.clear()
         self._stream_iterator = None
 
