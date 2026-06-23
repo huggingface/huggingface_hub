@@ -401,7 +401,13 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=close_session)
 
 
-_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
+# `RemoteProtocolError` is included to retry stale keep-alive connections dropped by the server
+# (it is a `ProtocolError`, not a `NetworkError`, so it is not covered by the latter).
+_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (
+    httpx.TimeoutException,
+    httpx.NetworkError,
+    httpx.RemoteProtocolError,
+)
 _DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
 
@@ -538,7 +544,7 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
@@ -619,7 +625,7 @@ def http_stream_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
