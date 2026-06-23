@@ -587,7 +587,9 @@ def jobs_ps(
     for value in status or []:
         statuses.extend(part.strip() for part in value.split(",") if part.strip())
     for item in label or []:
-        key, _, value = item.partition("=")
+        if "=" not in item:
+            raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
+        key, value = item.split("=")
         labels[key] = value
 
     # `-f`/`--filter` is the legacy syntax: now ignored, with a nudge towards the dedicated `--status`/`--label`.
