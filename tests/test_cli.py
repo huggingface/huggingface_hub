@@ -3393,7 +3393,8 @@ class TestJobsCommand:
     def test_ps_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
         """`--status` (comma-separated) and `--label` are forwarded to `list_jobs` for server-side filtering.
 
-        Label key/value casing is preserved (no lowercasing) so it matches what the server stored.
+        Statuses are forwarded as-is (`list_jobs` normalizes casing) and label key/value casing is preserved
+        (no lowercasing) so it matches what the server stored.
         """
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
@@ -3403,7 +3404,7 @@ class TestJobsCommand:
             )
         assert result.exit_code == 0
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["status"] == ["COMPLETED", "SCHEDULING"]
+        assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
     def test_ps_defaults_to_active_statuses_server_side(self, runner: CliRunner) -> None:
@@ -3426,19 +3427,27 @@ class TestJobsCommand:
         assert result.exit_code == 0
         assert api.list_jobs.call_args.kwargs["status"] is None
 
-    def test_ps_invalid_status_errors(self, runner: CliRunner) -> None:
-        """An unknown status is rejected client-side with a friendly error before hitting the server."""
+    def test_ps_all_with_filter_errors(self, runner: CliRunner) -> None:
+        """`-a`/`--all` lists every Job, so combining it with `--status`/`--label` is rejected."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "ps", "-a", "--status", "completed"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, CLIError)
+        assert "cannot be combined" in str(result.exception)
+        api.list_jobs.assert_not_called()
+
+    def test_ps_unknown_status_forwarded_to_server(self, runner: CliRunner) -> None:
+        """`--status` uses `SoftChoice`: unknown values are forwarded as-is and left for the server to reject."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
             result = runner.invoke(app, ["jobs", "ps", "--status", "bogus"])
-        assert result.exit_code != 0
-        assert isinstance(result.exception, CLIError)
-        assert "Invalid status 'bogus'" in str(result.exception)
-        api.list_jobs.assert_not_called()
+        assert result.exit_code == 0
+        assert api.list_jobs.call_args.kwargs["status"] == ["bogus"]
 
-    def test_ps_filter_is_deprecated_but_still_works(self, runner: CliRunner) -> None:
-        """The legacy `-f`/`--filter` syntax warns but is still translated into server-side filters."""
+    def test_ps_filter_is_deprecated_and_ignored(self, runner: CliRunner) -> None:
+        """The legacy `-f`/`--filter` syntax warns and is ignored: use `--status`/`--label` instead."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = self._make_mock_jobs()
@@ -3446,8 +3455,9 @@ class TestJobsCommand:
         assert result.exit_code == 0
         assert "deprecated" in result.output
         kwargs = api.list_jobs.call_args.kwargs
-        assert kwargs["status"] == ["COMPLETED"]
-        assert kwargs["labels"] == {"env": "test"}
+        # `--filter` is ignored, so only the default active-status filter is applied.
+        assert kwargs["status"] == ["RUNNING", "SCHEDULING"]
+        assert kwargs["labels"] is None
 
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""

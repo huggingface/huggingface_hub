@@ -552,6 +552,7 @@ def jobs_ps(
         list[str] | None,
         typer.Option(
             "--status",
+            click_type=SoftChoice(JobStage),
             help="Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.",
         ),
     ] = None,
@@ -576,12 +577,11 @@ def jobs_ps(
 ) -> None:
     """List Jobs.
 
-    Filtering happens server-side. Use `--status` to filter by status (see [`JobStage`] for possible values)
-    and `--label` to filter by `key=value` labels. A Job must match every filter to be listed.
+    Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
+    labels. A Job must match every filter to be listed.
     """
     api = get_hf_api(token=token)
 
-    # Filtering is delegated to the server: collect the requested statuses and labels and forward them as-is.
     statuses: list[str] = []
     labels: dict[str, str] = {}
     for value in status or []:
@@ -590,34 +590,27 @@ def jobs_ps(
         key, _, value = item.partition("=")
         labels[key] = value
 
-    # `--filter key=value` is the legacy syntax: still honored but nudged towards the dedicated options.
+    # `-f`/`--filter` is the legacy syntax: now ignored, with a nudge towards the dedicated `--status`/`--label`.
     if filter:
-        out.warning("`-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`.")
-        for f in filter:
-            if f.startswith("status="):
-                statuses.extend(part.strip() for part in f[len("status=") :].split(",") if part.strip())
-            elif f.startswith("label="):
-                key, _, value = f[len("label=") :].partition("=")
-                labels[key] = value
-            else:
-                out.warning(
-                    f"Ignoring unsupported filter '{f}'. Only 'status=<status>' and 'label=<key>=<value>' are supported."
-                )
+        out.warning(
+            f"Ignoring filter '{filter}'."
+            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
+        )
 
-    # Normalize and validate statuses against the known stages so we surface a friendly error instead of a 400.
-    normalized_statuses: list[str] = []
-    for s in statuses:
-        try:
-            normalized_statuses.append(JobStage(s.upper()).value)
-        except ValueError:
-            valid = ", ".join(stage.value for stage in JobStage)
-            raise CLIError(f"Invalid status '{s}'. Valid values are: {valid}.") from None
+    # `--all` lists every Job, so combining it with a filter is contradictory.
+    if all and (statuses or labels):
+        raise CLIError("`-a`/`--all` cannot be combined with `--status` or `--label`.")
 
-    # Default to the active Jobs unless `--all` or an explicit status filter is provided.
-    server_statuses = (
-        normalized_statuses if (all or normalized_statuses) else [JobStage.RUNNING.value, JobStage.SCHEDULING.value]
-    )
-    jobs = api.list_jobs(namespace=namespace, status=server_statuses or None, labels=labels or None)
+    # Statuses are forwarded as-is (`SoftChoice` accepts any value) and validated server-side; `list_jobs` uppercases.
+    # Default to the active Jobs unless `--all` or an explicit `--status` is provided.
+    server_statuses: list[str] | None
+    if statuses:
+        server_statuses = statuses
+    elif all:
+        server_statuses = None
+    else:
+        server_statuses = [JobStage.RUNNING.value, JobStage.SCHEDULING.value]
+    jobs = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     items: list[dict[str, Any]] = []
@@ -639,9 +632,9 @@ def jobs_ps(
         id_key="job_id",
     )
     if not items:
-        if normalized_statuses or labels:
+        if statuses or labels:
             filters_msg = ", ".join(
-                [*(f"status={s}" for s in normalized_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+                [*(f"status={s}" for s in statuses), *(f"label={k}={v}" for k, v in labels.items())]
             )
             out.text(f"No jobs matched filters: {filters_msg}")
         elif not all:
