@@ -115,7 +115,7 @@ Jobs run in the background. The next section guides you through [`inspect_job`] 
 >>> jobs[0]
 JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22, 13, 24, 46, 909000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='COMPLETED', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a')
 
-# List your running jobs (filtering happens server-side)
+# List your running jobs
 >>> running_jobs = list_jobs(status="RUNNING")
 
 # Filter by one or more statuses and/or labels

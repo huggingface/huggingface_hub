@@ -12030,11 +12030,10 @@ class HfApi:
         Args:
             status (`JobStage`, `str` or `list`, *optional*):
                 Only return Jobs with the given status(es), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
-                See [`JobStage`] for possible values. Filtering happens server-side.
+                See [`JobStage`] for possible values.
 
             labels (`dict[str, str]`, *optional*):
                 Only return Jobs that have all the given `key=value` labels, e.g. `{"env": "prod", "team": "ml"}`.
-                Filtering happens server-side.
 
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
