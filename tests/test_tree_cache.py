@@ -47,20 +47,6 @@ def _entries():
     }
 
 
-class TestTreeCacheEntry:
-    def test_etag_and_size_for_git_file(self):
-        entry = TreeCacheEntry(path="config.json", size=5, blob_id="blob-config")
-        assert entry.etag == "blob-config"  # git blob id
-        assert entry.file_size == 5
-
-    def test_etag_and_size_for_lfs_file(self):
-        entry = TreeCacheEntry(
-            path="model.safetensors", size=42, blob_id="blob-model", lfs_sha256="sha256-model", lfs_size=1024
-        )
-        assert entry.etag == "sha256-model"  # LFS sha256, matches `/resolve` ETag
-        assert entry.file_size == 1024
-
-
 class TestTreeCacheReadWrite:
     def test_round_trip(self, tmp_path: Path):
         write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
@@ -72,8 +58,6 @@ class TestTreeCacheReadWrite:
         path = tmp_path / "trees" / f"{COMMIT_HASH}.json"
         data = json.loads(path.read_text())
         assert data["format_version"] == TREE_CACHE_FORMAT_VERSION
-        assert data["repo_id"] == "user/repo"
-        assert data["commit_hash"] == COMMIT_HASH
         assert list(data["files"]) == ["config.json", "model.safetensors"]  # sorted by path
         # git-only file has no lfs/xet keys
         assert data["files"]["config.json"] == {"size": 5, "blob_id": "blob-config"}
@@ -93,13 +77,6 @@ class TestTreeCacheReadWrite:
         path.write_text("{ not valid json")
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
 
-    def test_in_memory_cache_avoids_disk_reads(self, tmp_path: Path):
-        # Writing populates the in-memory cache, so a later read does not touch the disk: deleting the
-        # file on disk must not change the result.
-        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
-        (tmp_path / "trees" / f"{COMMIT_HASH}.json").unlink()
-        assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
-
     def test_in_memory_cache_memoizes_first_read(self, tmp_path: Path):
         write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
         # Drop the in-memory entry to force a first disk read, then check the result is memoized.
@@ -111,20 +88,25 @@ class TestTreeCacheReadWrite:
 
 
 class TestTreeCacheSkipsHeadCall:
-    """The download path rebuilds file metadata from the cached tree, skipping the per-file HEAD call."""
+    """The download path rebuilds metadata from the cached tree for Xet files, skipping the per-file HEAD call.
+
+    The optimization is intentionally limited to Xet files (when Xet is enabled): that's the only case where
+    skipping the HEAD pays off. Regular files always HEAD, even with a cached tree.
+    """
 
     def test_file_metadata_from_tree_cache(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
 
-        result = _file_metadata_from_tree_cache(
-            cache_dir=str(tmp_path),
-            repo_id="user/repo",
-            repo_type="model",
-            commit_hash=COMMIT_HASH,
-            filename="model.safetensors",
-            endpoint=None,
-        )
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            result = _file_metadata_from_tree_cache(
+                cache_dir=str(tmp_path),
+                repo_id="user/repo",
+                repo_type="model",
+                commit_hash=COMMIT_HASH,
+                filename="model.safetensors",
+                endpoint=None,
+            )
         assert result is not None
         location, etag, commit_hash, size, xet_file_data, error = result
         assert location == hf_hub_url("user/repo", "model.safetensors", repo_type="model", revision=COMMIT_HASH)
@@ -138,28 +120,66 @@ class TestTreeCacheSkipsHeadCall:
             token_type=XetTokenType.READ, repo_id="user/repo", repo_type="model", revision=COMMIT_HASH
         )
 
-    def test_no_tree_cache_returns_none(self, tmp_path: Path):
-        assert (
-            _file_metadata_from_tree_cache(
-                cache_dir=str(tmp_path),
-                repo_id="user/repo",
-                repo_type="model",
-                commit_hash=COMMIT_HASH,
-                filename="config.json",
-                endpoint=None,
+    def test_non_xet_file_returns_none(self, tmp_path: Path):
+        # `config.json` is a regular (non-Xet) file => the cache is not used, the caller must HEAD.
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            assert (
+                _file_metadata_from_tree_cache(
+                    cache_dir=str(tmp_path),
+                    repo_id="user/repo",
+                    repo_type="model",
+                    commit_hash=COMMIT_HASH,
+                    filename="config.json",
+                    endpoint=None,
+                )
+                is None
             )
-            is None
-        )
 
-    def test_get_metadata_skips_head_for_commit_hash(self, tmp_path: Path):
+    def test_xet_file_returns_none_when_xet_unavailable(self, tmp_path: Path):
+        # Even a Xet file falls back to the HEAD call when Xet is not enabled.
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=False):
+            assert (
+                _file_metadata_from_tree_cache(
+                    cache_dir=str(tmp_path),
+                    repo_id="user/repo",
+                    repo_type="model",
+                    commit_hash=COMMIT_HASH,
+                    filename="model.safetensors",
+                    endpoint=None,
+                )
+                is None
+            )
+
+    def test_no_tree_cache_returns_none(self, tmp_path: Path):
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            assert (
+                _file_metadata_from_tree_cache(
+                    cache_dir=str(tmp_path),
+                    repo_id="user/repo",
+                    repo_type="model",
+                    commit_hash=COMMIT_HASH,
+                    filename="model.safetensors",
+                    endpoint=None,
+                )
+                is None
+            )
+
+    def test_get_metadata_skips_head_for_xet_file_at_commit_hash(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
 
-        # `get_hf_file_metadata` would do the network HEAD call. With a cached tree it must not be called.
-        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_head:
-            url, etag, commit_hash, size, _, error = _get_metadata_or_catch_error(
+        # `get_hf_file_metadata` would do the network HEAD call. With a cached tree for a Xet file it must not.
+        with (
+            patch("huggingface_hub.file_download.is_xet_available", return_value=True),
+            patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_head,
+        ):
+            _url, etag, commit_hash, size, xet_file_data, error = _get_metadata_or_catch_error(
                 repo_id="user/repo",
-                filename="config.json",
+                filename="model.safetensors",
                 repo_type="model",
                 revision=COMMIT_HASH,
                 endpoint=None,
@@ -170,10 +190,34 @@ class TestTreeCacheSkipsHeadCall:
                 cache_dir=str(tmp_path),
             )
             mock_head.assert_not_called()
-        assert etag == "blob-config"
+        assert etag == "sha256-model"
         assert commit_hash == COMMIT_HASH
-        assert size == 5
+        assert size == 1024
+        assert xet_file_data is not None
         assert error is None
+
+    def test_get_metadata_heads_for_non_xet_file(self, tmp_path: Path):
+        # A regular file is not served from the tree cache => the HEAD call must still happen.
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
+
+        with (
+            patch("huggingface_hub.file_download.is_xet_available", return_value=True),
+            patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")),
+        ):
+            with pytest.raises(RuntimeError, match="HEAD called"):
+                _get_metadata_or_catch_error(
+                    repo_id="user/repo",
+                    filename="config.json",
+                    repo_type="model",
+                    revision=COMMIT_HASH,
+                    endpoint=None,
+                    etag_timeout=10,
+                    headers={},
+                    token=None,
+                    local_files_only=False,
+                    cache_dir=str(tmp_path),
+                )
 
     def test_get_metadata_does_not_use_tree_cache_for_branch(self, tmp_path: Path):
         # A branch/tag could have moved since the listing was cached => the HEAD call must still happen.

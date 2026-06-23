@@ -50,7 +50,12 @@ _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 
 @dataclass(frozen=True)
 class TreeCacheEntry:
-    """Metadata of a single file in a cached tree listing."""
+    """Raw metadata of a single file in a cached tree listing.
+
+    This is a dumb container that mirrors the fields returned by the `/tree` endpoint. It does not derive any
+    download metadata (e.g. which field is the `/resolve` ETag); that logic lives in `file_download.py`, which
+    owns the knowledge of how the server serves files.
+    """
 
     path: str
     size: int
@@ -58,20 +63,6 @@ class TreeCacheEntry:
     lfs_sha256: str | None = None
     lfs_size: int | None = None
     xet_hash: str | None = None
-
-    @property
-    def etag(self) -> str:
-        """The value the `/resolve` endpoint returns as ETag: LFS sha256 for LFS files, git blob id otherwise.
-
-        This is what the blob file is named after in the cache, so it must match `/resolve` exactly to keep
-        caches built by different code paths interoperable.
-        """
-        return self.lfs_sha256 if self.lfs_sha256 is not None else self.blob_id
-
-    @property
-    def file_size(self) -> int:
-        """The real file size: LFS size for LFS files, git blob size otherwise."""
-        return self.lfs_size if self.lfs_size is not None else self.size
 
 
 def _tree_cache_path(storage_folder: str, commit_hash: str) -> str:

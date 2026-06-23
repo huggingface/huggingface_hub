@@ -1643,36 +1643,48 @@ def _file_metadata_from_tree_cache(
     commit_hash: str,
     filename: str,
     endpoint: str | None,
-) -> tuple[str, str, str, int, XetFileData | None, None] | None:
+) -> tuple[str, str, str, int, XetFileData, None] | None:
     """Rebuild the metadata a HEAD call would return, from the on-disk tree listing cache.
 
-    Returns `None` when there is no cached tree listing for this commit, or the file is not in it.
-    The returned tuple matches what `_get_metadata_or_catch_error` returns on success.
+    The optimization is intentionally limited to **Xet files when Xet is enabled**: that's the only case
+    where skipping the HEAD call pays off, since Xet downloads don't rely on the `/resolve` redirect that the
+    HEAD call would resolve. For regular files (or when Xet is unavailable) we return `None` and let the
+    caller make the HEAD call as usual.
+
+    Returns `None` when there is no cached tree listing for this commit, the file is not in it, or the file is
+    not a Xet file we can serve from the cache. The returned tuple matches what `_get_metadata_or_catch_error`
+    returns on success.
     """
+    if not is_xet_available():
+        return None
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     tree_entries = read_tree_cache(storage_folder, commit_hash)
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None:
+    if entry is None or entry.xet_hash is None:
         return None
 
-    xet_file_data = None
-    if entry.xet_hash is not None:
-        xet_file_data = XetFileData(
-            file_hash=entry.xet_hash,
-            refresh_route=xet_connection_info_refresh_url(
-                token_type=XetTokenType.READ,
-                repo_id=repo_id,
-                repo_type=repo_type,
-                revision=commit_hash,
-                endpoint=endpoint,
-            ),
-        )
+    xet_file_data = XetFileData(
+        file_hash=entry.xet_hash,
+        refresh_route=xet_connection_info_refresh_url(
+            token_type=XetTokenType.READ,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=commit_hash,
+            endpoint=endpoint,
+        ),
+    )
+    # Reconstruct exactly what a `/resolve` HEAD call would have returned. The ETag is the LFS sha256 for
+    # LFS-tracked files (which Xet files are) and the git blob id otherwise; the size follows the same rule.
+    # This mapping lives here on purpose: `_tree_cache` only stores raw fields and stays agnostic of how the
+    # server derives download metadata.
+    etag = entry.lfs_sha256 if entry.lfs_sha256 is not None else entry.blob_id
+    file_size = entry.lfs_size if entry.lfs_size is not None else entry.size
     # The download URL is the `/resolve` endpoint (same domain as the Hub). The GET request follows the
     # redirect to the actual blob, exactly as it would after a real HEAD call.
     location = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
-    return (location, entry.etag, commit_hash, entry.file_size, xet_file_data, None)
+    return (location, etag, commit_hash, file_size, xet_file_data, None)
 
 
 def _get_metadata_or_catch_error(
