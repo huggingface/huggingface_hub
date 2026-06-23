@@ -592,18 +592,15 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
-    # `-f`/`--filter` is the legacy syntax: now ignored, with a nudge towards the dedicated `--status`/`--label`.
     if filter:
         out.warning(
             f"Ignoring filter '{filter}'."
             " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
         )
 
-    # `--all` lists every Job, so combining it with a filter is contradictory.
     if all and (statuses or labels):
         raise CLIError("`-a`/`--all` cannot be combined with `--status` or `--label`.")
 
-    # Statuses are forwarded as-is (`SoftChoice` accepts any value) and validated server-side; `list_jobs` uppercases.
     # Default to the active Jobs unless `--all` or an explicit `--status` is provided.
     server_statuses: list[str] | None
     if statuses:
