@@ -635,9 +635,9 @@ def jobs_ps(
         id_key="job_id",
     )
     if not items:
-        if statuses or labels:
+        if raw_statuses or labels:
             filters_msg = ", ".join(
-                [*(f"status={s}" for s in statuses), *(f"label={k}={v}" for k, v in labels.items())]
+                [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
             )
             out.text(f"No jobs matched filters: {filters_msg}")
         elif not all:

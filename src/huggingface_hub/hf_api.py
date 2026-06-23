@@ -12048,7 +12048,7 @@ class HfApi:
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
-        params: list[tuple[str, str | int | float | None]] = []
+        params: list[tuple[str, Any]] = []
         if status is not None:
             statuses = [status] if isinstance(status, (str, JobStage)) else status
             params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
