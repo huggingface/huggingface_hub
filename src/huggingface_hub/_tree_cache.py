@@ -16,8 +16,14 @@
 A tree listing is the set of files (with their download metadata) contained in a repo at a given commit. Because a
 commit hash is immutable, its tree listing never changes and can be cached forever without any invalidation logic.
 
-The listing is stored as a human-readable JSON file under `<storage_folder>/trees/<commit_hash>.json`, next to the
-existing `refs/`, `blobs/` and `snapshots/` folders.
+The listing is stored as a human-readable JSON file under `<storage_folder>/trees/<commit_hash>.json`. The storage
+folder depends on the download target:
+
+- `cache_dir` downloads: the per-repo `storage_folder` (next to the existing `refs/`, `blobs/` and `snapshots/`
+  folders).
+- `local_dir` downloads: `local_dir/.cache/huggingface/` (see `tree_cache_folder_for_local_dir`), because repo
+  files are written directly at the root of `local_dir` and a `trees/` folder there would collide with a repo
+  file literally named `trees/...`.
 
 ```json
 {
@@ -52,9 +58,7 @@ _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 class TreeCacheEntry:
     """Raw metadata of a single file in a cached tree listing.
 
-    This is a dumb container that mirrors the fields returned by the `/tree` endpoint. It does not derive any
-    download metadata (e.g. which field is the `/resolve` ETag); that logic lives in `file_download.py`, which
-    owns the knowledge of how the server serves files.
+    This is a dumb container that mirrors the fields returned by the `/tree` endpoint.
     """
 
     path: str
@@ -67,6 +71,17 @@ class TreeCacheEntry:
 
 def _tree_cache_path(storage_folder: str, commit_hash: str) -> str:
     return os.path.join(storage_folder, "trees", f"{commit_hash}.json")
+
+
+def tree_cache_folder_for_local_dir(local_dir: str) -> str:
+    """Folder under which the `trees/` cache lives for a `local_dir` download.
+
+    Repo files are written directly at the root of `local_dir`, so we must **not** create a `trees/` folder
+    there: a repo file literally named `trees/...` would collide with it. Instead we reuse the existing
+    `local_dir/.cache/huggingface/` metadata directory, which is already reserved for download bookkeeping
+    (it holds `download/*.metadata` files and is git-ignored) and therefore never overlaps with repo content.
+    """
+    return os.path.join(local_dir, ".cache", "huggingface")
 
 
 def read_tree_cache(storage_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:

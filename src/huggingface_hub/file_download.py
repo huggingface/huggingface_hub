@@ -22,7 +22,7 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
-from ._tree_cache import read_tree_cache
+from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
     GatedRepoError,
@@ -1102,7 +1102,7 @@ def _hf_hub_download_to_cache_dir(
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
-        cache_dir=cache_dir,
+        tree_cache_folder=storage_folder,
     )
 
     # etag can be None for several reasons:
@@ -1310,6 +1310,10 @@ def _hf_hub_download_to_local_dir(
             return local_file
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
+    # The tree listing is cached under `local_dir/.cache/huggingface/` (never at the root, where it could
+    # collide with a repo file named `trees/...`). `snapshot_download` writes it there for the resolved commit,
+    # so a standalone `hf_hub_download(..., local_dir=...)` for a Xet file at that commit skips its HEAD call.
+    tree_cache_folder = tree_cache_folder_for_local_dir(str(local_dir))
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
@@ -1320,6 +1324,7 @@ def _hf_hub_download_to_local_dir(
         headers=headers,
         token=token,
         local_files_only=local_files_only,
+        tree_cache_folder=tree_cache_folder,
     )
 
     if head_call_error is not None:
@@ -1637,7 +1642,7 @@ def get_hf_file_metadata(
 
 def _file_metadata_from_tree_cache(
     *,
-    cache_dir: str,
+    tree_cache_folder: str,
     repo_id: str,
     repo_type: str,
     commit_hash: str,
@@ -1651,14 +1656,18 @@ def _file_metadata_from_tree_cache(
     HEAD call would resolve. For regular files (or when Xet is unavailable) we return `None` and let the
     caller make the HEAD call as usual.
 
+    `tree_cache_folder` is the directory under which `trees/<commit_hash>.json` lives. It is the caller's
+    responsibility to pick a location that cannot overlap with repo files: for `cache_dir` downloads this is
+    the per-repo `storage_folder` (repo content lives under `snapshots/`, never at the storage folder root),
+    and for `local_dir` downloads it is `local_dir/.cache/huggingface/` (the reserved metadata dir).
+
     Returns `None` when there is no cached tree listing for this commit, the file is not in it, or the file is
     not a Xet file we can serve from the cache. The returned tuple matches what `_get_metadata_or_catch_error`
     returns on success.
     """
     if not is_xet_available():
         return None
-    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
-    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
@@ -1701,7 +1710,7 @@ def _get_metadata_or_catch_error(
     relative_filename: str | None = None,  # only used to store `.no_exists` in cache
     storage_folder: str | None = None,  # only used to store `.no_exists` in cache
     retry_on_errors: bool = False,
-    cache_dir: str | None = None,  # used to look up the on-disk tree listing cache (skips the HEAD call)
+    tree_cache_folder: str | None = None,  # if set, read the on-disk tree listing to skip the HEAD call
 ) -> (
     # Either an exception is caught and returned
     tuple[None, None, None, None, None, Exception]
@@ -1732,9 +1741,9 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if cache_dir is not None and REGEX_COMMIT_HASH.match(revision):
+    if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
         tree_metadata = _file_metadata_from_tree_cache(
-            cache_dir=cache_dir,
+            tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
             repo_type=repo_type,
             commit_hash=revision,

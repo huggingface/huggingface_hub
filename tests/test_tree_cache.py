@@ -1,10 +1,16 @@
-"""Network-free tests for the on-disk tree listing cache and the resulting `snapshot_download` behavior.
-
-The integration tests in `test_snapshot_download.py` exercise the online path against the Hub. Here we
-only build cache folders by hand and check the offline / `local_files_only` logic, so these tests need
-neither network access nor a token.
-"""
-
+# Copyright 2026-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import json
 import os
 from pathlib import Path
@@ -18,6 +24,7 @@ from huggingface_hub._tree_cache import (
     TREE_CACHE_FORMAT_VERSION,
     TreeCacheEntry,
     read_tree_cache,
+    tree_cache_folder_for_local_dir,
     write_tree_cache,
 )
 from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError
@@ -30,7 +37,7 @@ from huggingface_hub.file_download import (
 from huggingface_hub.utils._xet import XetTokenType, xet_connection_info_refresh_url
 
 
-COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"  # valid-looking 40-char commit hash
+COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"
 
 
 def _entries():
@@ -59,7 +66,6 @@ class TestTreeCacheReadWrite:
         data = json.loads(path.read_text())
         assert data["format_version"] == TREE_CACHE_FORMAT_VERSION
         assert list(data["files"]) == ["config.json", "model.safetensors"]  # sorted by path
-        # git-only file has no lfs/xet keys
         assert data["files"]["config.json"] == {"size": 5, "blob_id": "blob-config"}
 
     def test_missing_file_returns_none(self, tmp_path: Path):
@@ -100,7 +106,7 @@ class TestTreeCacheSkipsHeadCall:
 
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             result = _file_metadata_from_tree_cache(
-                cache_dir=str(tmp_path),
+                tree_cache_folder=str(storage_folder),
                 repo_id="user/repo",
                 repo_type="model",
                 commit_hash=COMMIT_HASH,
@@ -127,7 +133,7 @@ class TestTreeCacheSkipsHeadCall:
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             assert (
                 _file_metadata_from_tree_cache(
-                    cache_dir=str(tmp_path),
+                    tree_cache_folder=str(storage_folder),
                     repo_id="user/repo",
                     repo_type="model",
                     commit_hash=COMMIT_HASH,
@@ -144,7 +150,7 @@ class TestTreeCacheSkipsHeadCall:
         with patch("huggingface_hub.file_download.is_xet_available", return_value=False):
             assert (
                 _file_metadata_from_tree_cache(
-                    cache_dir=str(tmp_path),
+                    tree_cache_folder=str(storage_folder),
                     repo_id="user/repo",
                     repo_type="model",
                     commit_hash=COMMIT_HASH,
@@ -155,10 +161,11 @@ class TestTreeCacheSkipsHeadCall:
             )
 
     def test_no_tree_cache_returns_none(self, tmp_path: Path):
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             assert (
                 _file_metadata_from_tree_cache(
-                    cache_dir=str(tmp_path),
+                    tree_cache_folder=str(storage_folder),
                     repo_id="user/repo",
                     repo_type="model",
                     commit_hash=COMMIT_HASH,
@@ -187,7 +194,7 @@ class TestTreeCacheSkipsHeadCall:
                 headers={},
                 token=None,
                 local_files_only=False,
-                cache_dir=str(tmp_path),
+                tree_cache_folder=str(storage_folder),
             )
             mock_head.assert_not_called()
         assert etag == "sha256-model"
@@ -216,7 +223,7 @@ class TestTreeCacheSkipsHeadCall:
                     headers={},
                     token=None,
                     local_files_only=False,
-                    cache_dir=str(tmp_path),
+                    tree_cache_folder=str(storage_folder),
                 )
 
     def test_get_metadata_does_not_use_tree_cache_for_branch(self, tmp_path: Path):
@@ -236,8 +243,55 @@ class TestTreeCacheSkipsHeadCall:
                     headers={},
                     token=None,
                     local_files_only=False,
-                    cache_dir=str(tmp_path),
+                    tree_cache_folder=str(storage_folder),
                 )
+
+
+class TestTreeCacheForLocalDir:
+    """`local_dir` downloads cache the tree listing under `.cache/huggingface/`, never at the local_dir root.
+
+    Repo files are written directly at the root of `local_dir`, so a `trees/` folder there would collide with a
+    repo file literally named `trees/...`. The cache must live under the reserved metadata dir instead.
+    """
+
+    def test_tree_cache_folder_is_under_cache_huggingface(self, tmp_path: Path):
+        folder = tree_cache_folder_for_local_dir(str(tmp_path))
+        assert folder == str(tmp_path / ".cache" / "huggingface")
+
+    def test_tree_cache_does_not_collide_with_repo_file_named_trees(self, tmp_path: Path):
+        # Simulate a repo that contains a file literally named `trees/<something>` at its root.
+        repo_tree_file = tmp_path / "trees" / "collides.json"
+        repo_tree_file.parent.mkdir(parents=True)
+        repo_tree_file.write_text("I am a repo file, not the cache")
+
+        # Writing the tree cache must not touch that repo file.
+        folder = tree_cache_folder_for_local_dir(str(tmp_path))
+        write_tree_cache(folder, COMMIT_HASH, _entries())
+
+        # The repo file is untouched...
+        assert repo_tree_file.read_text() == "I am a repo file, not the cache"
+        # ...and the cache lives separately, under `.cache/huggingface/trees/`.
+        cache_file = tmp_path / ".cache" / "huggingface" / "trees" / f"{COMMIT_HASH}.json"
+        assert cache_file.is_file()
+        assert read_tree_cache(folder, COMMIT_HASH) == _entries()
+
+    def test_file_metadata_from_tree_cache_reads_local_dir_location(self, tmp_path: Path):
+        # The metadata-rebuild path must find a tree written under the local_dir metadata folder.
+        folder = tree_cache_folder_for_local_dir(str(tmp_path))
+        write_tree_cache(folder, COMMIT_HASH, _entries())
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            result = _file_metadata_from_tree_cache(
+                tree_cache_folder=folder,
+                repo_id="user/repo",
+                repo_type="model",
+                commit_hash=COMMIT_HASH,
+                filename="model.safetensors",
+                endpoint=None,
+            )
+        assert result is not None
+        _location, etag, _commit_hash, _size, xet_file_data, _error = result
+        assert etag == "sha256-model"
+        assert xet_file_data is not None
 
 
 def _build_cache(cache_dir: Path, present_files: list[str]) -> Path:
@@ -288,3 +342,67 @@ class TestIncompleteSnapshotOffline:
         (snapshot_folder / "config.json").write_text("x")  # model.safetensors missing, but no tree to know
         result = snapshot_download("user/repo", cache_dir=str(tmp_path), revision=COMMIT_HASH, local_files_only=True)
         assert os.path.realpath(result) == os.path.realpath(str(snapshot_folder))
+
+
+def _build_local_dir(local_dir: Path, present_files: list[str]) -> Path:
+    """Materialize a `local_dir` with a cached tree listing (under `.cache/huggingface/`) and only some files."""
+    write_tree_cache(tree_cache_folder_for_local_dir(str(local_dir)), COMMIT_HASH, _entries())
+    for file in present_files:
+        file_path = local_dir / file
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text("x")
+    return local_dir
+
+
+class TestIncompleteSnapshotOfflineLocalDir:
+    """Same completeness guarantees as the cache_dir path, but for `local_dir` downloads."""
+
+    def test_complete_local_dir_is_returned(self, tmp_path: Path):
+        local_dir = tmp_path / "out"
+        local_dir.mkdir()
+        _build_local_dir(local_dir, present_files=["config.json", "model.safetensors"])
+        result = snapshot_download("user/repo", local_dir=str(local_dir), revision=COMMIT_HASH, local_files_only=True)
+        assert os.path.realpath(result) == os.path.realpath(str(local_dir))
+
+    def test_incomplete_local_dir_raises(self, tmp_path: Path):
+        local_dir = tmp_path / "out"
+        local_dir.mkdir()
+        _build_local_dir(local_dir, present_files=["config.json"])  # model.safetensors missing
+        with pytest.raises(IncompleteSnapshotError) as exc_info:
+            snapshot_download("user/repo", local_dir=str(local_dir), revision=COMMIT_HASH, local_files_only=True)
+        assert "model.safetensors" in str(exc_info.value)
+        assert isinstance(exc_info.value, LocalEntryNotFoundError)
+
+    def test_incomplete_local_dir_but_filtered_out_is_returned(self, tmp_path: Path):
+        local_dir = tmp_path / "out"
+        local_dir.mkdir()
+        _build_local_dir(local_dir, present_files=["config.json"])  # model.safetensors missing but ignored
+        result = snapshot_download(
+            "user/repo",
+            local_dir=str(local_dir),
+            revision=COMMIT_HASH,
+            local_files_only=True,
+            ignore_patterns=["*.safetensors"],
+        )
+        assert os.path.realpath(result) == os.path.realpath(str(local_dir))
+
+    def test_tree_cache_file_does_not_collide_with_repo_file_named_trees(self, tmp_path: Path):
+        # A repo file literally named `trees/...` at the local_dir root must survive a download that writes
+        # the tree cache, and must not be mistaken for the cache.
+        local_dir = tmp_path / "out"
+        local_dir.mkdir()
+        repo_tree_file = local_dir / "trees" / "collides.json"
+        repo_tree_file.parent.mkdir(parents=True)
+        repo_tree_file.write_text("I am a repo file")
+
+        # Cache the tree listing (goes under `.cache/huggingface/trees/`) and mark the snapshot complete.
+        _build_local_dir(local_dir, present_files=["config.json", "model.safetensors"])
+        # The repo file is untouched and distinct from the cache file.
+        assert repo_tree_file.read_text() == "I am a repo file"
+        cache_file = local_dir / ".cache" / "huggingface" / "trees" / f"{COMMIT_HASH}.json"
+        assert cache_file.is_file()
+        assert repo_tree_file != cache_file
+
+        # Offline, the snapshot is reported complete (both requested files are present).
+        result = snapshot_download("user/repo", local_dir=str(local_dir), revision=COMMIT_HASH, local_files_only=True)
+        assert os.path.realpath(result) == os.path.realpath(str(local_dir))

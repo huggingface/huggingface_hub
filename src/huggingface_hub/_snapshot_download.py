@@ -7,7 +7,7 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
-from ._tree_cache import TreeCacheEntry, read_tree_cache, write_tree_cache
+from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     DryRunError,
     GatedRepoError,
@@ -284,6 +284,13 @@ def snapshot_download(
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    # Folder under which the per-commit tree listing (`trees/<commit_hash>.json`) is cached on disk.
+    # For `cache_dir` downloads this is the per-repo `storage_folder`, where `trees/` sits alongside the
+    # reserved `blobs/`, `snapshots/` and `refs/` folders and never overlaps with repo content. For
+    # `local_dir` downloads repo files are written directly at the root of `local_dir`, so we cache under
+    # `local_dir/.cache/huggingface/` instead — a repo file named `trees/...` would otherwise collide.
+    tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
+
     api = HfApi(
         library_name=library_name,
         library_version=library_version,
@@ -355,7 +362,7 @@ def snapshot_download(
                 # check the snapshot actually holds every requested file rather than blindly returning a
                 # possibly partial folder (e.g. after an interrupted download).
                 missing = _missing_snapshot_files(
-                    storage_folder=storage_folder,
+                    storage_folder=tree_cache_folder,
                     commit_hash=commit_hash,
                     base_dir=snapshot_folder,
                     allow_patterns=allow_patterns,
@@ -368,13 +375,26 @@ def snapshot_download(
                 # `missing == []` => complete; `missing is None` => unknown (no cached tree, legacy behavior).
                 return snapshot_folder
 
-        # If local_dir is not None, return it if it exists and is not empty. The on-disk tree cache
-        # completeness check is intentionally limited to the `cache_dir` path: `local_dir` downloads rely on
-        # the separate (and less robust) `.cache/huggingface/` local-folder cache, so we keep the legacy
-        # behavior of returning the folder as-is here.
+        # If local_dir is provided, return it if it exists and holds every requested file.
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
+                # If we know the commit and cached its tree listing, verify the local_dir is complete.
+                # Otherwise (unknown commit or no cached tree), keep the legacy behavior of returning it.
+                # The tree listing is read from `local_dir/.cache/huggingface/` (see `tree_cache_folder`),
+                # never from the repo content at the root of `local_dir`.
+                if commit_hash is not None:
+                    missing = _missing_snapshot_files(
+                        storage_folder=tree_cache_folder,
+                        commit_hash=commit_hash,
+                        base_dir=str(local_dir),
+                        allow_patterns=allow_patterns,
+                        ignore_patterns=ignore_patterns,
+                    )
+                    if missing:
+                        raise IncompleteSnapshotError(
+                            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
+                        ) from api_call_error
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
@@ -415,7 +435,7 @@ def snapshot_download(
     # the listing is cached on disk (under `<storage_folder>/trees/<commit_hash>.json`) and fetched at most
     # once per commit. The listing also carries each file's download metadata (etag, size, xet hash), which
     # lets us skip the per-file HEAD call that `hf_hub_download` would otherwise make on every file.
-    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         tree_entries = {
             f.path: TreeCacheEntry(
@@ -429,7 +449,7 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        write_tree_cache(storage_folder, commit_hash, tree_entries)
+        write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
         filter_repo_objects(
