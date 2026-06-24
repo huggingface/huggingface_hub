@@ -95,6 +95,19 @@ class TestPathsUtils(unittest.TestCase):
             allow_patterns=["path/to/"],
         )
 
+    def test_filter_object_with_empty_pattern(self) -> None:
+        # An empty pattern must not raise: `_add_wildcard_to_directories("")` indexed `pattern[-1]`.
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=[],
+            allow_patterns=[""],
+        )
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=["file.txt", "lfs.bin"],
+            ignore_patterns=[""],
+        )
+
     def _check(
         self,
         items: list[Any],
