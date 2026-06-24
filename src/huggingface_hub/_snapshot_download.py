@@ -50,10 +50,8 @@ def _raise_if_incomplete_snapshot(
 ) -> None:
     """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
 
-    Completeness is checked against the repo tree listing cached on disk:
-    - if the tree listing is not cached we cannot tell, so we do nothing and the caller keeps the legacy
-      behavior of returning the folder as-is;
-    - otherwise every file expected at `commit_hash` (after pattern filtering) must exist under `base_dir`.
+    If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
+    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
     """
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
@@ -62,15 +60,9 @@ def _raise_if_incomplete_snapshot(
         items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
     )
     missing = [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
-    if missing:
-        raise IncompleteSnapshotError(
-            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
-        ) from api_call_error
+    if not missing:
+        return
 
-
-def _incomplete_snapshot_message(
-    repo_id: str, revision: str, commit_hash: str, missing: list[str], api_call_error: Exception | None
-) -> str:
     sample = ", ".join(missing[:3])
     if len(missing) > 3:
         sample += f", ... ({len(missing) - 3} more)"
@@ -78,11 +70,11 @@ def _incomplete_snapshot_message(
         reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
     else:
         reason = "Outgoing traffic is disabled ('local_files_only=True')."
-    return (
+    raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
         "to complete the snapshot."
-    )
+    ) from api_call_error
 
 
 @overload
@@ -273,9 +265,8 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
-    # Normalize `cache_dir` the same way `hf_hub_download` does. This matters because we write the tree
-    # listing cache under `cache_dir` here, and `hf_hub_download` later reads it back from the normalized
-    # `cache_dir`: both must resolve to the exact same path for the cache to be found.
+    # Normalize like `hf_hub_download` does: it reads back the tree cache we write under `cache_dir`, so both
+    # must resolve to the exact same path.
     cache_dir = str(Path(cache_dir).expanduser().resolve())
     if local_dir is not None:
         local_dir = str(Path(local_dir).expanduser().resolve())
@@ -292,10 +283,6 @@ def snapshot_download(
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
     # Folder under which the per-commit tree listing (`trees/<commit_hash>.json`) is cached on disk.
-    # For `cache_dir` downloads this is the per-repo `storage_folder`, where `trees/` sits alongside the
-    # reserved `blobs/`, `snapshots/` and `refs/` folders and never overlaps with repo content. For
-    # `local_dir` downloads repo files are written directly at the root of `local_dir`, so we cache under
-    # `local_dir/.cache/huggingface/` instead — a repo file named `trees/...` would otherwise collide.
     tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
 
     api = HfApi(
@@ -365,10 +352,8 @@ def snapshot_download(
         if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
-                # The folder exists. If the repo tree listing for this commit is cached on disk, use it to
-                # check the snapshot actually holds every requested file rather than blindly returning a
-                # possibly partial folder (e.g. after an interrupted download). No cached tree => unknown
-                # completeness => keep the legacy behavior of returning the folder as-is.
+                # The folder exists, but may be partial (e.g. after an interrupted download): only return it
+                # if the cached tree listing confirms it is complete.
                 _raise_if_incomplete_snapshot(
                     tree_cache_folder=tree_cache_folder,
                     commit_hash=commit_hash,
@@ -385,10 +370,6 @@ def snapshot_download(
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
-                # If we know the commit and cached its tree listing, verify the local_dir is complete.
-                # Otherwise (unknown commit or no cached tree), keep the legacy behavior of returning it.
-                # The tree listing is read from `local_dir/.cache/huggingface/` (see `tree_cache_folder`),
-                # never from the repo content at the root of `local_dir`.
                 if commit_hash is not None:
                     _raise_if_incomplete_snapshot(
                         tree_cache_folder=tree_cache_folder,
@@ -436,10 +417,9 @@ def snapshot_download(
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     commit_hash = repo_info.sha
 
-    # Always work from the full tree listing of the resolved commit. The tree of a commit is immutable, so
-    # the listing is cached on disk (under `<storage_folder>/trees/<commit_hash>.json`) and fetched at most
-    # once per commit. The listing also carries each file's download metadata (etag, size, xet hash), which
-    # lets us skip the per-file HEAD call that `hf_hub_download` would otherwise make on every file.
+    # Work from the full tree listing of the resolved commit. A commit's tree is immutable, so the listing is
+    # cached on disk and fetched at most once per commit. It also carries each file's download metadata, which
+    # lets `hf_hub_download` skip its per-file HEAD call.
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         tree_entries = {
@@ -454,8 +434,7 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        # A dry run is a preview and must not persist anything to disk.
-        if not dry_run:
+        if not dry_run:  # a dry run is a preview and must not persist anything to disk
             write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
@@ -529,11 +508,8 @@ def snapshot_download(
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
-    # We pass `revision=commit_hash` so `hf_hub_download` does not make an extra ref-resolution call and,
-    # because the tree listing for this commit is cached on disk, the per-file HEAD call is skipped too
-    # (see `_file_metadata_from_tree_cache` in `file_download.py`). The public `hf_hub_download` is called
-    # here on purpose: the disk tree cache is what lets it skip the HEAD call, so a later standalone
-    # `hf_hub_download` at the same commit benefits from it as well.
+    # Pass `revision=commit_hash` to skip the ref-resolution call. The per-file HEAD call is also skipped
+    # thanks to the on-disk tree cache (see `_file_metadata_from_tree_cache` in `file_download.py`).
     def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
             hf_hub_download(  # type: ignore

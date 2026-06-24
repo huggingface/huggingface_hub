@@ -1309,10 +1309,8 @@ def _hf_hub_download_to_local_dir(
         if not force_download:
             return local_file
 
-    # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    # The tree listing is cached under `local_dir/.cache/huggingface/` (never at the root, where it could
-    # collide with a repo file named `trees/...`). `snapshot_download` writes it there for the resolved commit,
-    # so a standalone `hf_hub_download(..., local_dir=...)` for a Xet file at that commit skips its HEAD call.
+    # Local file doesn't exist or commit_hash doesn't match => we need the etag. If `snapshot_download` cached
+    # the tree listing for the resolved commit, this lets a standalone Xet download skip its HEAD call.
     tree_cache_folder = tree_cache_folder_for_local_dir(str(local_dir))
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
@@ -1651,19 +1649,10 @@ def _file_metadata_from_tree_cache(
 ) -> tuple[str, str, str, int, XetFileData, None] | None:
     """Rebuild the metadata a HEAD call would return, from the on-disk tree listing cache.
 
-    The optimization is intentionally limited to **Xet files when Xet is enabled**: that's the only case
-    where skipping the HEAD call pays off, since Xet downloads don't rely on the `/resolve` redirect that the
-    HEAD call would resolve. For regular files (or when Xet is unavailable) we return `None` and let the
-    caller make the HEAD call as usual.
-
-    `tree_cache_folder` is the directory under which `trees/<commit_hash>.json` lives. It is the caller's
-    responsibility to pick a location that cannot overlap with repo files: for `cache_dir` downloads this is
-    the per-repo `storage_folder` (repo content lives under `snapshots/`, never at the storage folder root),
-    and for `local_dir` downloads it is `local_dir/.cache/huggingface/` (the reserved metadata dir).
-
-    Returns `None` when there is no cached tree listing for this commit, the file is not in it, or the file is
-    not a Xet file we can serve from the cache. The returned tuple matches what `_get_metadata_or_catch_error`
-    returns on success.
+    The optimization is intentionally limited to **Xet files when Xet is enabled**: that's the only case where
+    skipping the HEAD call pays off, since Xet downloads don't rely on the `/resolve` redirect the HEAD call
+    would resolve. For regular files (or when Xet is unavailable) we return `None` and let the caller make the
+    HEAD call as usual. Also returns `None` when the commit's tree listing or the file is not cached.
     """
     if not is_xet_available():
         return None
@@ -1684,14 +1673,10 @@ def _file_metadata_from_tree_cache(
             endpoint=endpoint,
         ),
     )
-    # Reconstruct exactly what a `/resolve` HEAD call would have returned. The ETag is the LFS sha256 for
-    # LFS-tracked files (which Xet files are) and the git blob id otherwise; the size follows the same rule.
-    # This mapping lives here on purpose: `_tree_cache` only stores raw fields and stays agnostic of how the
-    # server derives download metadata.
+    # Mirror the server's HEAD response: ETag/size come from the LFS metadata for LFS-tracked files (which Xet
+    # files are) and from the git blob otherwise.
     etag = entry.lfs_sha256 if entry.lfs_sha256 is not None else entry.blob_id
     file_size = entry.lfs_size if entry.lfs_size is not None else entry.size
-    # The download URL is the `/resolve` endpoint (same domain as the Hub). The GET request follows the
-    # redirect to the actual blob, exactly as it would after a real HEAD call.
     location = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
     return (location, etag, commit_hash, file_size, xet_file_data, None)
 

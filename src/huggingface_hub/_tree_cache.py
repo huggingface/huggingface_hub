@@ -16,14 +16,9 @@
 A tree listing is the set of files (with their download metadata) contained in a repo at a given commit. Because a
 commit hash is immutable, its tree listing never changes and can be cached forever without any invalidation logic.
 
-The listing is stored as a human-readable JSON file under `<storage_folder>/trees/<commit_hash>.json`. The storage
-folder depends on the download target:
-
-- `cache_dir` downloads: the per-repo `storage_folder` (next to the existing `refs/`, `blobs/` and `snapshots/`
-  folders).
-- `local_dir` downloads: `local_dir/.cache/huggingface/` (see `tree_cache_folder_for_local_dir`), because repo
-  files are written directly at the root of `local_dir` and a `trees/` folder there would collide with a repo
-  file literally named `trees/...`.
+The listing is stored as a human-readable JSON file under `<tree_cache_folder>/trees/<commit_hash>.json`. The
+folder depends on the download target: the per-repo `storage_folder` for `cache_dir` downloads, or
+`local_dir/.cache/huggingface/` for `local_dir` downloads (see `tree_cache_folder_for_local_dir`).
 
 ```json
 {
@@ -56,10 +51,7 @@ _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 
 @dataclass(frozen=True)
 class TreeCacheEntry:
-    """Raw metadata of a single file in a cached tree listing.
-
-    This is a dumb container that mirrors the fields returned by the `/tree` endpoint.
-    """
+    """Raw metadata of a single file in a cached tree listing, mirroring the `/tree` endpoint fields."""
 
     path: str
     size: int
@@ -98,10 +90,8 @@ def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
 def tree_cache_folder_for_local_dir(local_dir: str) -> str:
     """Folder under which the `trees/` cache lives for a `local_dir` download.
 
-    Repo files are written directly at the root of `local_dir`, so we must **not** create a `trees/` folder
-    there: a repo file literally named `trees/...` would collide with it. Instead we reuse the existing
-    `local_dir/.cache/huggingface/` metadata directory, which is already reserved for download bookkeeping
-    (it holds `download/*.metadata` files and is git-ignored) and therefore never overlaps with repo content.
+    Repo files are written at the root of `local_dir`, so caching under the reserved
+    `local_dir/.cache/huggingface/` metadata dir avoids a clash with a repo file literally named `trees/...`.
     """
     return os.path.join(local_dir, ".cache", "huggingface")
 
@@ -151,7 +141,6 @@ def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str
         logger.warning(f"Ignored error while writing tree cache file {path}: {e}")
         return
 
-    # Seed the in-memory cache so callers reading this commit right after reuse the parsed listing instead of each
-    # re-reading and re-parsing the file we just wrote.
+    # Seed the in-memory cache so later readers of this commit skip re-reading and re-parsing the file.
     with _IN_MEMORY_TREE_CACHE_LOCK:
         _IN_MEMORY_TREE_CACHE[path] = dict(entries)
