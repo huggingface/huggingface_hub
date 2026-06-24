@@ -196,10 +196,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 
     def build_offline_client(exc_factory):
         # Build a fake `httpx.Client` whose every HTTP method fails. We patch the cached `_GLOBAL_CLIENT`
-        # (not the `get_session` function) so that EVERY caller of `get_session()` is offline, including
-        # `HfApi`. `HfApi` binds `get_session` directly (`from .utils._http import get_session`), so a
-        # function-level patch on `huggingface_hub.utils._http.get_session` would leave it reaching the
-        # network while only `file_download` (which resolves `get_session` at call time) is mocked.
+        # so that EVERY caller of `get_session()` is offline,
         client = Mock()
 
         def fail(*args, **kwargs):
