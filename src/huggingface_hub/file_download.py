@@ -1649,7 +1649,7 @@ def _file_metadata_from_tree_cache(
 ) -> tuple[str, str, str, int, XetFileData, None] | None:
     """Rebuild the metadata a HEAD call would return, from the on-disk tree listing cache.
 
-    The optimization is intentionally limited to **Xet files when Xet is enabled**: that's the only case where
+    The optimization is intentionally limited to Xet files when Xet is enabled: that's the only case where
     skipping the HEAD call pays off, since Xet downloads don't rely on the `/resolve` redirect the HEAD call
     would resolve. For regular files (or when Xet is unavailable) we return `None` and let the caller make the
     HEAD call as usual. Also returns `None` when the commit's tree listing or the file is not cached.
@@ -1660,7 +1660,7 @@ def _file_metadata_from_tree_cache(
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None or entry.xet_hash is None:
+    if entry is None or entry.xet_hash is None or entry.lfs_sha256 is None or entry.lfs_size is None:
         return None
 
     xet_file_data = XetFileData(
@@ -1674,9 +1674,9 @@ def _file_metadata_from_tree_cache(
         ),
     )
     # Mirror the server's HEAD response: ETag/size come from the LFS metadata for LFS-tracked files (which Xet
-    # files are) and from the git blob otherwise.
-    etag = entry.lfs_sha256 if entry.lfs_sha256 is not None else entry.blob_id
-    file_size = entry.lfs_size if entry.lfs_size is not None else entry.size
+    # files are).
+    etag = entry.lfs_sha256
+    file_size = entry.lfs_size
     location = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
     return (location, etag, commit_hash, file_size, xet_file_data, None)
 

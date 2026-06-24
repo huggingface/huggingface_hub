@@ -61,7 +61,6 @@ class TreeCacheEntry:
     xet_hash: str | None = None
 
     def to_json(self) -> dict:
-        """Serialize to the on-disk JSON shape, omitting optional fields that are unset."""
         info: dict = {"size": self.size, "blob_id": self.blob_id}
         if self.lfs_sha256 is not None:
             info["lfs_sha256"] = self.lfs_sha256
@@ -72,7 +71,6 @@ class TreeCacheEntry:
 
     @classmethod
     def from_json(cls, path: str, info: dict) -> "TreeCacheEntry":
-        """Rebuild an entry from its on-disk JSON shape (inverse of `to_json`)."""
         return cls(
             path=path,
             size=info["size"],
@@ -88,11 +86,7 @@ def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
 
 
 def tree_cache_folder_for_local_dir(local_dir: str) -> str:
-    """Folder under which the `trees/` cache lives for a `local_dir` download.
-
-    Repo files are written at the root of `local_dir`, so caching under the reserved
-    `local_dir/.cache/huggingface/` metadata dir avoids a clash with a repo file literally named `trees/...`.
-    """
+    """Folder under which the `trees/` cache lives for a `local_dir` download."""
     return os.path.join(local_dir, ".cache", "huggingface")
 
 
