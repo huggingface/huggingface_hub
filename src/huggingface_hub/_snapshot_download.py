@@ -215,8 +215,6 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
-    # Normalize like `hf_hub_download` does: it reads back the tree cache we write under `cache_dir`, so both
-    # must resolve to the exact same path.
     cache_dir = str(Path(cache_dir).expanduser().resolve())
     if local_dir is not None:
         local_dir = str(Path(local_dir).expanduser().resolve())
