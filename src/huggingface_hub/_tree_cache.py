@@ -68,9 +68,31 @@ class TreeCacheEntry:
     lfs_size: int | None = None
     xet_hash: str | None = None
 
+    def to_json(self) -> dict:
+        """Serialize to the on-disk JSON shape, omitting optional fields that are unset."""
+        info: dict = {"size": self.size, "blob_id": self.blob_id}
+        if self.lfs_sha256 is not None:
+            info["lfs_sha256"] = self.lfs_sha256
+            info["lfs_size"] = self.lfs_size
+        if self.xet_hash is not None:
+            info["xet_hash"] = self.xet_hash
+        return info
 
-def _tree_cache_path(storage_folder: str, commit_hash: str) -> str:
-    return os.path.join(storage_folder, "trees", f"{commit_hash}.json")
+    @classmethod
+    def from_json(cls, path: str, info: dict) -> "TreeCacheEntry":
+        """Rebuild an entry from its on-disk JSON shape (inverse of `to_json`)."""
+        return cls(
+            path=path,
+            size=info["size"],
+            blob_id=info["blob_id"],
+            lfs_sha256=info.get("lfs_sha256"),
+            lfs_size=info.get("lfs_size"),
+            xet_hash=info.get("xet_hash"),
+        )
+
+
+def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
+    return os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json")
 
 
 def tree_cache_folder_for_local_dir(local_dir: str) -> str:
@@ -84,9 +106,9 @@ def tree_cache_folder_for_local_dir(local_dir: str) -> str:
     return os.path.join(local_dir, ".cache", "huggingface")
 
 
-def read_tree_cache(storage_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:
+def read_tree_cache(tree_cache_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:
     """Return the cached tree listing for a commit hash, or `None` if not cached (or unreadable)."""
-    path = _tree_cache_path(storage_folder, commit_hash)
+    path = _tree_cache_path(tree_cache_folder, commit_hash)
     with _IN_MEMORY_TREE_CACHE_LOCK:
         if path in _IN_MEMORY_TREE_CACHE:
             return _IN_MEMORY_TREE_CACHE[path]
@@ -104,17 +126,7 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
         if data.get("format_version") != TREE_CACHE_FORMAT_VERSION:
             # Unknown format (e.g. written by a newer version) => ignore and re-fetch.
             return None
-        return {
-            file_path: TreeCacheEntry(
-                path=file_path,
-                size=info["size"],
-                blob_id=info["blob_id"],
-                lfs_sha256=info.get("lfs_sha256"),
-                lfs_size=info.get("lfs_size"),
-                xet_hash=info.get("xet_hash"),
-            )
-            for file_path, info in data["files"].items()
-        }
+        return {file_path: TreeCacheEntry.from_json(file_path, info) for file_path, info in data["files"].items()}
     except FileNotFoundError:
         return None
     except (OSError, ValueError, KeyError, TypeError) as e:
@@ -122,22 +134,12 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
         return None
 
 
-def write_tree_cache(storage_folder: str, commit_hash: str, entries: dict[str, TreeCacheEntry]) -> None:
+def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str, TreeCacheEntry]) -> None:
     """Write the tree listing of a commit hash to the cache (ignoring any failures)."""
-    path = _tree_cache_path(storage_folder, commit_hash)
-    files: dict[str, dict] = {}
-    for file_path in sorted(entries):
-        entry = entries[file_path]
-        info: dict = {"size": entry.size, "blob_id": entry.blob_id}
-        if entry.lfs_sha256 is not None:
-            info["lfs_sha256"] = entry.lfs_sha256
-            info["lfs_size"] = entry.lfs_size
-        if entry.xet_hash is not None:
-            info["xet_hash"] = entry.xet_hash
-        files[file_path] = info
+    path = _tree_cache_path(tree_cache_folder, commit_hash)
     data = {
         "format_version": TREE_CACHE_FORMAT_VERSION,
-        "files": files,
+        "files": {file_path: entries[file_path].to_json() for file_path in sorted(entries)},
     }
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -148,3 +150,8 @@ def write_tree_cache(storage_folder: str, commit_hash: str, entries: dict[str, T
     except OSError as e:
         logger.warning(f"Ignored error while writing tree cache file {path}: {e}")
         return
+
+    # Seed the in-memory cache so callers reading this commit right after reuse the parsed listing instead of each
+    # re-reading and re-parsing the file we just wrote.
+    with _IN_MEMORY_TREE_CACHE_LOCK:
+        _IN_MEMORY_TREE_CACHE[path] = dict(entries)

@@ -37,28 +37,35 @@ from .utils.tqdm import tqdm as hf_tqdm
 logger = logging.get_logger(__name__)
 
 
-def _missing_snapshot_files(
+def _raise_if_incomplete_snapshot(
     *,
-    storage_folder: str,
+    tree_cache_folder: str,
     commit_hash: str,
     base_dir: str,
     allow_patterns: list[str] | str | None,
     ignore_patterns: list[str] | str | None,
-) -> list[str] | None:
-    """List the files expected at `commit_hash` (after pattern filtering) that are missing from `base_dir`.
+    repo_id: str,
+    revision: str,
+    api_call_error: Exception | None,
+) -> None:
+    """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
 
-    Completeness is checked against the repo tree listing cached on disk. The function returns:
-    - a (possibly empty) list of missing file paths when the tree listing is cached;
-    - `None` when the tree listing is not cached, meaning we cannot tell whether the local snapshot is
-      complete. In that case the caller keeps the legacy behavior of returning the folder as-is.
+    Completeness is checked against the repo tree listing cached on disk:
+    - if the tree listing is not cached we cannot tell, so we do nothing and the caller keeps the legacy
+      behavior of returning the folder as-is;
+    - otherwise every file expected at `commit_hash` (after pattern filtering) must exist under `base_dir`.
     """
-    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
-        return None
+        return
     expected = filter_repo_objects(
         items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
     )
-    return [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
+    missing = [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
+    if missing:
+        raise IncompleteSnapshotError(
+            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
+        ) from api_call_error
 
 
 def _incomplete_snapshot_message(
@@ -360,19 +367,18 @@ def snapshot_download(
             if os.path.exists(snapshot_folder):
                 # The folder exists. If the repo tree listing for this commit is cached on disk, use it to
                 # check the snapshot actually holds every requested file rather than blindly returning a
-                # possibly partial folder (e.g. after an interrupted download).
-                missing = _missing_snapshot_files(
-                    storage_folder=tree_cache_folder,
+                # possibly partial folder (e.g. after an interrupted download). No cached tree => unknown
+                # completeness => keep the legacy behavior of returning the folder as-is.
+                _raise_if_incomplete_snapshot(
+                    tree_cache_folder=tree_cache_folder,
                     commit_hash=commit_hash,
                     base_dir=snapshot_folder,
                     allow_patterns=allow_patterns,
                     ignore_patterns=ignore_patterns,
+                    repo_id=repo_id,
+                    revision=revision,
+                    api_call_error=api_call_error,
                 )
-                if missing:
-                    raise IncompleteSnapshotError(
-                        _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
-                    ) from api_call_error
-                # `missing == []` => complete; `missing is None` => unknown (no cached tree, legacy behavior).
                 return snapshot_folder
 
         # If local_dir is provided, return it if it exists and holds every requested file.
@@ -384,17 +390,16 @@ def snapshot_download(
                 # The tree listing is read from `local_dir/.cache/huggingface/` (see `tree_cache_folder`),
                 # never from the repo content at the root of `local_dir`.
                 if commit_hash is not None:
-                    missing = _missing_snapshot_files(
-                        storage_folder=tree_cache_folder,
+                    _raise_if_incomplete_snapshot(
+                        tree_cache_folder=tree_cache_folder,
                         commit_hash=commit_hash,
                         base_dir=str(local_dir),
                         allow_patterns=allow_patterns,
                         ignore_patterns=ignore_patterns,
+                        repo_id=repo_id,
+                        revision=revision,
+                        api_call_error=api_call_error,
                     )
-                    if missing:
-                        raise IncompleteSnapshotError(
-                            _incomplete_snapshot_message(repo_id, revision, commit_hash, missing, api_call_error)
-                        ) from api_call_error
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
@@ -449,7 +454,9 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
+        # A dry run is a preview and must not persist anything to disk.
+        if not dry_run:
+            write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
         filter_repo_objects(
