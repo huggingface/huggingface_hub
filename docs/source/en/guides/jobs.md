@@ -109,11 +109,14 @@ Jobs run in the background. The next section guides you through [`inspect_job`] 
 ## Check Job status
 
 ```python
-# List your jobs
+# List your jobs (results are paginated and returned as an iterator)
 >>> from huggingface_hub import list_jobs
 >>> jobs = list_jobs()
->>> jobs[0]
+>>> next(iter(jobs))
 JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22, 13, 24, 46, 909000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='COMPLETED', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a')
+
+# Materialize the iterator into a list
+>>> all_jobs = list(list_jobs())
 
 # List your running jobs
 >>> running_jobs = list_jobs(status="RUNNING")

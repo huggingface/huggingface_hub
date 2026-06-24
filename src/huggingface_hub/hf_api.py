@@ -12023,9 +12023,12 @@ class HfApi:
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> list[JobInfo]:
+    ) -> Iterable[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
+
+        Results are paginated and returned as an iterator: the Hub is queried page by page as you iterate over the
+        result. To get a list, wrap the result in `list(...)`.
 
         Args:
             status (`JobStage`, `str` or `list`, *optional*):
@@ -12045,6 +12048,9 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
@@ -12054,14 +12060,24 @@ class HfApi:
             params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
         if labels is not None:
             params.extend(("label", f"{key}={value}") for key, value in labels.items())
+
+        headers = self._build_hf_headers(token=token)
         response = get_session().get(
             f"{self.endpoint}/api/jobs/{namespace}",
-            headers=self._build_hf_headers(token=token),
+            headers=headers,
             params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)
-        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+        yield from (JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json())
+
+        # Follow pagination. The "next" link (if any) already contains the query params for the next page.
+        next_page = response.links.get("next", {}).get("url")
+        while next_page is not None:
+            response = http_backoff("GET", next_page, headers=headers, timeout=timeout)
+            hf_raise_for_status(response)
+            yield from (JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json())
+            next_page = response.links.get("next", {}).get("url")
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
