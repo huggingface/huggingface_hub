@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -617,3 +618,17 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
+
+
+def test_sync_job_volume_warns_when_bucket_public(tmp_path, monkeypatch):
+    """A pre-existing public jobs-artifacts bucket triggers a warning instead of silently uploading data."""
+    (tmp_path / "data.txt").write_text("hi")
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    public_info = MagicMock(spec=BucketInfo, private=False)
+    monkeypatch.setattr(api, "create_bucket", MagicMock())
+    monkeypatch.setattr(api, "sync_bucket", MagicMock())
+    monkeypatch.setattr(api, "batch_bucket_files", MagicMock())
+    monkeypatch.setattr(api, "bucket_info", MagicMock(return_value=public_info))
+
+    with pytest.warns(UserWarning, match="publicly accessible"):
+        api.sync_job_volume(tmp_path, "/inputs", namespace=USER)
