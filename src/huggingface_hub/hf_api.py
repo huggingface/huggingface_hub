@@ -13104,8 +13104,9 @@ class HfApi:
     ) -> Volume:
         """Sync a local directory to a bucket and return a [`Volume`] ready to mount in a Job.
 
-        Files are uploaded to a subfolder of the `{namespace}/jobs-artifacts` bucket (auto-created,
-        private) using the same sync logic as [`sync_bucket`]: re-syncing the same directory only
+        Files are uploaded to a subfolder of the `{namespace}/jobs-artifacts` bucket (auto-created as
+        private; a warning is emitted if it already exists and is public) using the same sync logic
+        as [`sync_bucket`]: re-syncing the same directory only
         uploads new or modified files. By default the subfolder name is derived from the directory
         path and the machine's hostname, so repeated calls from the same directory reuse the same
         remote folder. Pass `remote_name` to use a fixed name instead.
@@ -13166,8 +13167,16 @@ class HfApi:
         bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
         folder = remote_name or _derive_job_volume_name(source_path)
 
-        # The jobs-artifacts bucket holds user scripts and data: always created private.
+        # The jobs-artifacts bucket holds user scripts and data, so it must be private. A new bucket
+        # is created private here; if it already exists we cannot change its visibility, so warn when
+        # it is public instead of silently uploading the data to a publicly accessible bucket.
         self.create_bucket(bucket_id=bucket_id, exist_ok=True, private=True, token=token)
+        if not self.bucket_info(bucket_id=bucket_id, token=token).private:
+            warnings.warn(
+                f"Bucket '{bucket_id}' already exists and is public: data synced for the Job will be "
+                f"publicly accessible. Make it private from {self.endpoint}/buckets/{bucket_id}.",
+                UserWarning,
+            )
         self.sync_bucket(str(source_path), f"hf://buckets/{bucket_id}/{folder}", token=token)
         if not any(path.is_file() for path in source_path.rglob("*")):
             # A folder cannot be empty in a bucket, and mounting a non-existent folder fails the Job.
