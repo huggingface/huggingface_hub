@@ -26,8 +26,8 @@ from huggingface_hub._tree_cache import (
     write_tree_cache,
 )
 from huggingface_hub.file_download import (
-    _file_metadata_from_tree_cache,
     _get_metadata_or_catch_error,
+    _xet_file_metadata_from_tree_cache,
     hf_hub_url,
     repo_folder_name,
 )
@@ -105,9 +105,9 @@ class TestTreeCacheSkipsHeadCall:
     skipping the HEAD pays off. Regular files always HEAD, even with a cached tree.
     """
 
-    def test_file_metadata_from_tree_cache(self, tree_cache_folder: str):
+    def test_xet_file_metadata_from_tree_cache(self, tree_cache_folder: str):
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            result = _file_metadata_from_tree_cache(
+            result = _xet_file_metadata_from_tree_cache(
                 tree_cache_folder=str(tree_cache_folder),
                 repo_id="user/repo",
                 repo_type="model",
@@ -132,7 +132,7 @@ class TestTreeCacheSkipsHeadCall:
         # `config.json` is a regular (non-Xet) file => the cache is not used, the caller must HEAD.
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             assert (
-                _file_metadata_from_tree_cache(
+                _xet_file_metadata_from_tree_cache(
                     tree_cache_folder=tree_cache_folder,
                     repo_id="user/repo",
                     repo_type="model",
@@ -147,7 +147,7 @@ class TestTreeCacheSkipsHeadCall:
         # Even a Xet file falls back to the HEAD call when Xet is not enabled.
         with patch("huggingface_hub.file_download.is_xet_available", return_value=False):
             assert (
-                _file_metadata_from_tree_cache(
+                _xet_file_metadata_from_tree_cache(
                     tree_cache_folder=tree_cache_folder,
                     repo_id="user/repo",
                     repo_type="model",
@@ -162,7 +162,7 @@ class TestTreeCacheSkipsHeadCall:
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             assert (
-                _file_metadata_from_tree_cache(
+                _xet_file_metadata_from_tree_cache(
                     tree_cache_folder=str(storage_folder),
                     repo_id="user/repo",
                     repo_type="model",
@@ -237,7 +237,7 @@ class TestTreeCacheSkipsHeadCall:
 
 
 class TestTreeCacheForLocalDir:
-    def test_file_metadata_from_tree_cache_reads_local_dir_location(self, tmp_path: Path):
+    def test_xet_file_metadata_from_tree_cache_reads_local_dir_location(self, tmp_path: Path):
         # Metadata under .cache/huggingface/trees/...
         folder = tree_cache_folder_for_local_dir(str(tmp_path))
         assert folder == str(tmp_path / ".cache" / "huggingface")
@@ -245,7 +245,7 @@ class TestTreeCacheForLocalDir:
 
         # Cache is read correctly
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            result = _file_metadata_from_tree_cache(
+            result = _xet_file_metadata_from_tree_cache(
                 tree_cache_folder=folder,
                 repo_id="user/repo",
                 repo_type="model",

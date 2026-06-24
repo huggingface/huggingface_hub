@@ -1638,7 +1638,7 @@ def get_hf_file_metadata(
     )
 
 
-def _file_metadata_from_tree_cache(
+def _xet_file_metadata_from_tree_cache(
     *,
     tree_cache_folder: str,
     repo_id: str,
@@ -1727,7 +1727,7 @@ def _get_metadata_or_catch_error(
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
     if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
-        tree_metadata = _file_metadata_from_tree_cache(
+        tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
             repo_type=repo_type,

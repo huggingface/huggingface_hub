@@ -508,8 +508,9 @@ def snapshot_download(
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
-    # Pass `revision=commit_hash` to skip the ref-resolution call. The per-file HEAD call is also skipped
-    # thanks to the on-disk tree cache (see `_file_metadata_from_tree_cache` in `file_download.py`).
+    # Pass the commit_hash as revision to hf_hub_download to skip network call if:
+    # - file is cached
+    # - or xet file with metadata cached in /tree cache
     def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
             hf_hub_download(  # type: ignore
