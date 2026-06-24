@@ -1097,11 +1097,19 @@ def sync_bucket_internal(
         >>> api.sync_bucket(apply="sync-plan.jsonl")
         ```
     """
-    # Build API with token if needed
+    # Rebuild the API with the explicit token, preserving the caller's endpoint and other config
+    # (otherwise an HfApi pointing at a custom endpoint would silently fall back to the default Hub).
     if token is not None:
         from .hf_api import HfApi
 
-        api = HfApi(token=token)
+        api = HfApi(
+            endpoint=api.endpoint,
+            token=token,
+            library_name=api.library_name,
+            library_version=api.library_version,
+            user_agent=api.user_agent,
+            headers=api.headers,
+        )
     # --- Apply mode ---
     if apply:
         if source or dest:

@@ -632,3 +632,27 @@ def test_sync_job_volume_warns_when_bucket_public(tmp_path, monkeypatch):
 
     with pytest.warns(UserWarning, match="publicly accessible"):
         api.sync_job_volume(tmp_path, "/inputs", namespace=USER)
+
+
+def test_sync_bucket_preserves_endpoint_when_token_passed(monkeypatch):
+    """Regression: passing an explicit token must not drop the caller's custom endpoint."""
+    from huggingface_hub import _buckets
+
+    captured = {}
+    real_init = HfApi.__init__
+
+    def spy_init(self, *args, **kwargs):
+        captured.update(kwargs)
+        real_init(self, *args, **kwargs)
+
+    api = HfApi(endpoint="https://custom.example.com", token="initial")
+    monkeypatch.setattr(HfApi, "__init__", spy_init)
+
+    # Remote-to-remote raises right after the API is rebuilt with the token, so the rebuild is
+    # exercised without any network call.
+    with pytest.raises(ValueError, match="Remote to remote"):
+        _buckets.sync_bucket_internal(
+            source="hf://buckets/org/a", dest="hf://buckets/org/b", api=api, token="explicit-token"
+        )
+    assert captured["endpoint"] == "https://custom.example.com"
+    assert captured["token"] == "explicit-token"
