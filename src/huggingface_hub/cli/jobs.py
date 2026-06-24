@@ -570,7 +570,7 @@ def jobs_ps(
         int,
         typer.Option(
             "--limit",
-            help="Maximum number of Jobs to display. Set to 0 to show all (no limit). Defaults to 100.",
+            help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
         ),
     ] = 100,
     namespace: NamespaceOpt = None,

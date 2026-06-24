@@ -12027,9 +12027,6 @@ class HfApi:
         """
         List compute Jobs on Hugging Face infrastructure.
 
-        Results are paginated and returned as an iterator: the Hub is queried page by page as you iterate over the
-        result. To get a list, wrap the result in `list(...)`.
-
         Args:
             status (`JobStage`, `str` or `list`, *optional*):
                 Only return Jobs with the given status(es), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.

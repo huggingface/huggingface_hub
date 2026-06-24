@@ -2303,7 +2303,7 @@ $ hf jobs ps [OPTIONS]
 * `-a, --all`: Show all Jobs (default shows running and scheduling). Cannot be combined with --status.
 * `--status [COMPLETED|CANCELED|ERROR|DELETED|SCHEDULING|RUNNING]`: Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.
 * `-l, --label TEXT`: Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
-* `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit). Defaults to 100.  [default: 100]
+* `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit).  [default: 100]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
