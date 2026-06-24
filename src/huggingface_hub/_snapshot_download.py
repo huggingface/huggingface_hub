@@ -370,7 +370,6 @@ def snapshot_download(
     if tree_entries is None:
         tree_entries = {
             f.path: TreeCacheEntry(
-                path=f.path,
                 size=f.size,
                 blob_id=f.blob_id,
                 lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,

@@ -53,7 +53,6 @@ _IN_MEMORY_TREE_CACHE_LOCK = threading.Lock()
 class TreeCacheEntry:
     """Raw metadata of a single file in a cached tree listing, mirroring the `/tree` endpoint fields."""
 
-    path: str
     size: int
     blob_id: str
     lfs_sha256: str | None = None
@@ -70,9 +69,8 @@ class TreeCacheEntry:
         return info
 
     @classmethod
-    def from_json(cls, path: str, info: dict) -> "TreeCacheEntry":
+    def from_json(cls, info: dict) -> "TreeCacheEntry":
         return cls(
-            path=path,
             size=info["size"],
             blob_id=info["blob_id"],
             lfs_sha256=info.get("lfs_sha256"),
@@ -110,7 +108,7 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
         if data.get("format_version") != TREE_CACHE_FORMAT_VERSION:
             # Unknown format (e.g. written by a newer version) => ignore and re-fetch.
             return None
-        return {file_path: TreeCacheEntry.from_json(file_path, info) for file_path, info in data["files"].items()}
+        return {file_path: TreeCacheEntry.from_json(info) for file_path, info in data["files"].items()}
     except FileNotFoundError:
         return None
     except (OSError, ValueError, KeyError, TypeError) as e:
