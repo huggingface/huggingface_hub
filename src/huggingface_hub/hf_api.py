@@ -12058,23 +12058,10 @@ class HfApi:
         if labels is not None:
             params.extend(("label", f"{key}={value}") for key, value in labels.items())
 
+        path = f"{self.endpoint}/api/jobs/{namespace}"
         headers = self._build_hf_headers(token=token)
-        response = get_session().get(
-            f"{self.endpoint}/api/jobs/{namespace}",
-            headers=headers,
-            params=params or None,
-            timeout=timeout,
-        )
-        hf_raise_for_status(response)
-        yield from (JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json())
-
-        # Follow pagination. The "next" link (if any) already contains the query params for the next page.
-        next_page = response.links.get("next", {}).get("url")
-        while next_page is not None:
-            response = http_backoff("GET", next_page, headers=headers, timeout=timeout)
-            hf_raise_for_status(response)
-            yield from (JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json())
-            next_page = response.links.get("next", {}).get("url")
+        for job_info in paginate(path, params=params, headers=headers, timeout=timeout):
+            yield JobInfo(**job_info, endpoint=self.endpoint)
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
