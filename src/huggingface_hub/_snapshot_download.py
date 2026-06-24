@@ -365,9 +365,7 @@ def snapshot_download(
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     commit_hash = repo_info.sha
 
-    # Work from the full tree listing of the resolved commit. A commit's tree is immutable, so the listing is
-    # cached on disk and fetched at most once per commit. It also carries each file's download metadata, which
-    # lets `hf_hub_download` skip its per-file HEAD call.
+    # Retrieve /tree listing from cache or fetch it
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         tree_entries = {
@@ -382,7 +380,7 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        if not dry_run:  # a dry run is a preview and must not persist anything to disk
+        if not dry_run:
             write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
