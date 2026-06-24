@@ -17,19 +17,9 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import (
-    REGEX_COMMIT_HASH,
-    DryRunFileInfo,
-    hf_hub_download,
-    repo_folder_name,
-)
+from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
-from .utils import (
-    OfflineModeIsEnabled,
-    filter_repo_objects,
-    logging,
-    validate_hf_hub_args,
-)
+from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
