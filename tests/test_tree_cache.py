@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from huggingface_hub import snapshot_download
 from huggingface_hub._tree_cache import (
     _IN_MEMORY_TREE_CACHE,
     TREE_CACHE_FORMAT_VERSION,
@@ -27,7 +25,6 @@ from huggingface_hub._tree_cache import (
     tree_cache_folder_for_local_dir,
     write_tree_cache,
 )
-from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _file_metadata_from_tree_cache,
     _get_metadata_or_catch_error,
