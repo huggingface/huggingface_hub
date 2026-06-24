@@ -3390,6 +3390,18 @@ class TestJobsCommand:
         assert "3m 7s" in result.output  # 187s running_secs formatted
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
+    def test_ps_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(
+                app, ["jobs", "ps", "--status", "completed,scheduling", "--label", "model=Qwen3-06B"]
+            )
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["status"] == ["completed", "scheduling"]
+        assert kwargs["labels"] == {"model": "Qwen3-06B"}
+
     def test_ps_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
         import json

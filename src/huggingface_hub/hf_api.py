@@ -12019,6 +12019,8 @@ class HfApi:
     def list_jobs(
         self,
         *,
+        status: list[JobStage | str] | JobStage | str | None = None,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12027,6 +12029,13 @@ class HfApi:
         List compute Jobs on Hugging Face infrastructure.
 
         Args:
+            status (`JobStage`, `str` or `list`, *optional*):
+                Only return Jobs with the given status(es), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
+                See [`JobStage`] for possible values.
+
+            labels (`dict[str, str]`, *optional*):
+                Only return Jobs that have all the given `key=value` labels, e.g. `{"env": "prod", "team": "ml"}`.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -12040,9 +12049,16 @@ class HfApi:
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
+        params: list[tuple[str, Any]] = []
+        if status is not None:
+            statuses = [status] if isinstance(status, (str, JobStage)) else status
+            params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
+        if labels is not None:
+            params.extend(("label", f"{key}={value}") for key, value in labels.items())
         response = get_session().get(
             f"{self.endpoint}/api/jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
+            params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)
