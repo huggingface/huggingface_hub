@@ -27,46 +27,6 @@ from .utils.tqdm import tqdm as hf_tqdm
 logger = logging.get_logger(__name__)
 
 
-def _raise_if_incomplete_snapshot(
-    *,
-    tree_cache_folder: str,
-    commit_hash: str,
-    base_dir: str,
-    allow_patterns: list[str] | str | None,
-    ignore_patterns: list[str] | str | None,
-    repo_id: str,
-    revision: str,
-    api_call_error: Exception | None,
-) -> None:
-    """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
-
-    If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
-    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
-    """
-    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
-    if tree_entries is None:
-        return
-    expected = filter_repo_objects(
-        items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
-    )
-    missing = [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
-    if not missing:
-        return
-
-    sample = ", ".join(missing[:3])
-    if len(missing) > 3:
-        sample += f", ... ({len(missing) - 3} more)"
-    if api_call_error is not None:
-        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
-    else:
-        reason = "Outgoing traffic is disabled ('local_files_only=True')."
-    raise IncompleteSnapshotError(
-        f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
-        f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
-        "to complete the snapshot."
-    ) from api_call_error
-
-
 @overload
 def snapshot_download(
     repo_id: str,
@@ -540,3 +500,43 @@ def snapshot_download(
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
+
+
+def _raise_if_incomplete_snapshot(
+    *,
+    tree_cache_folder: str,
+    commit_hash: str,
+    base_dir: str,
+    allow_patterns: list[str] | str | None,
+    ignore_patterns: list[str] | str | None,
+    repo_id: str,
+    revision: str,
+    api_call_error: Exception | None,
+) -> None:
+    """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
+
+    If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
+    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
+    """
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        return
+    expected = filter_repo_objects(
+        items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+    )
+    missing = [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
+    if not missing:
+        return
+
+    sample = ", ".join(missing[:3])
+    if len(missing) > 3:
+        sample += f", ... ({len(missing) - 3} more)"
+    if api_call_error is not None:
+        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
+    else:
+        reason = "Outgoing traffic is disabled ('local_files_only=True')."
+    raise IncompleteSnapshotError(
+        f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
+        f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
+        "to complete the snapshot."
+    ) from api_call_error
