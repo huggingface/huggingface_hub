@@ -2006,18 +2006,27 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
+Use `--status` and `--label` in `hf jobs ps` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
 
 ```bash
-# Show fine-tuning Jobs
->>> hf jobs ps -a --filter label=fine-tuning
+# Show completed Jobs
+>>> hf jobs ps -a --status completed
 
-# Show Jobs that don't have the "prod" label and have a label that starts with "data-"
->>> hf jobs ps -a --filter label!=prod --filter "label=data-*"
+# Show running or scheduling Jobs
+>>> hf jobs ps --status running,scheduling
 
-# Show Jobs based on key=value labels
->>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
+# Show Jobs with the `model=Qwen3-06B` label
+>>> hf jobs ps -a --label model=Qwen3-06B
+
+# Combine filters: running Jobs labelled both `env=prod` and `team=ml`
+>>> hf jobs ps --status running --label env=prod --label team=ml
 ```
+
+<Tip warning={true}>
+
+`-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
+
+</Tip>
 
 ### SSH into a Job
 
@@ -2048,10 +2057,10 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 >>> hf jobs uv run my_script.py
 
 # Run with persistent repo
->>> hf jobs uv run my_script.py --repo my-uv-scripts
+>>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
->>> hf jobs uv run ml_training.py --flavor gpu-t4-small
+>>> hf jobs uv run --flavor gpu-t4-small ml_training.py
 
 # Pass arguments to script
 >>> hf jobs uv run process.py input.csv output.parquet
