@@ -463,15 +463,6 @@ class IncompleteSnapshotError(LocalEntryNotFoundError):
     the repository's cached tree listing are missing from the local snapshot.
 
     This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
-
-    Example:
-
-    ```py
-    >>> from huggingface_hub import snapshot_download
-    >>> snapshot_download("bert-base-cased", local_files_only=True)
-    (...)
-    huggingface_hub.errors.IncompleteSnapshotError: The cached snapshot for ... is incomplete: 2 file(s) are missing.
-    ```
     """
 
 
