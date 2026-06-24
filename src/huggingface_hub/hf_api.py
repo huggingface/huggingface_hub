@@ -149,7 +149,6 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
-from .utils.tqdm import tqdm as hf_tqdm
 
 
 if TYPE_CHECKING:

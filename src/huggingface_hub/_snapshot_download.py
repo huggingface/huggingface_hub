@@ -19,6 +19,12 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._xet_progress_reporting import (
+    XET_BYTES_BAR_FORMAT,
+    XET_TRANSFER_BAR_FORMAT,
+    _finish_transfer_bar,
+    make_xet_aggregated_progress_proxy,
+)
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
 
@@ -393,11 +399,11 @@ def snapshot_download(
         log_level=logger.getEffectiveLevel(),
         name="huggingface_hub.snapshot_download.transfer",
         desc="Downloading bytes",
-        total=None,
+        total=0,
         initial=0,
         unit="B",
         unit_scale=True,
-        bar_format="{l_bar}{bar}| {n_fmt:>5}B{postfix}",
+        bar_format=XET_TRANSFER_BAR_FORMAT,
     )
 
     bytes_progress = _create_progress_bar(
@@ -409,41 +415,10 @@ def snapshot_download(
         initial=0,
         unit="B",
         unit_scale=True,
+        bar_format=XET_BYTES_BAR_FORMAT,
     )
 
-    class _AggregatedTqdm:
-        """Fake tqdm object to aggregate progress into the parent snapshot progress bars.
-
-        In practice, the `_AggregatedTqdm` object won't be displayed; it's just used to update
-        the `bytes_progress` and `transfer_progress` bars from each thread/file download.
-        """
-
-        def __init__(self, *args, **kwargs):
-            # Adjust the total of the parent progress bar
-            total = kwargs.pop("total", None)
-            if total is not None:
-                bytes_progress.total += total
-                bytes_progress.refresh()
-
-            # Adjust initial of the parent progress bar
-            initial = kwargs.pop("initial", 0)
-            if initial:
-                bytes_progress.update(initial)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
-
-        def update(self, n: int | float | None = 1) -> None:
-            bytes_progress.update(n)
-
-        def update_transfer(self, n: int | float | None = 1) -> None:
-            transfer_progress.update(n)
-
-        def set_transfer_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-            transfer_progress.set_postfix_str(postfix, refresh=refresh)
+    _AggregatedTqdm = make_xet_aggregated_progress_proxy(bytes_progress, transfer_progress)
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
@@ -480,6 +455,7 @@ def snapshot_download(
 
     bytes_progress.set_description("Reconstruction complete")
     transfer_progress.set_description("Download complete")
+    _finish_transfer_bar(transfer_progress)
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)
