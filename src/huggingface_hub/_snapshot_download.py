@@ -520,7 +520,7 @@ def _raise_if_incomplete_snapshot(
     expected = filter_repo_objects(
         items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
     )
-    missing = [path for path in expected if not os.path.isfile(os.path.join(base_dir, *path.split("/")))]
+    missing = [path for path in expected if not _local_file_exists(base_dir, path)]
     if not missing:
         return
 
@@ -536,3 +536,15 @@ def _raise_if_incomplete_snapshot(
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
         "to complete the snapshot."
     ) from api_call_error
+
+
+def _local_file_exists(base_dir: str, path: str) -> bool:
+    """Check whether a repo file (path relative to `base_dir`, '/'-separated) exists on disk.
+
+    On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path.isfile` reports an
+    existing file as missing.
+    """
+    full_path = os.path.join(base_dir, *path.split("/"))
+    if os.name == "nt" and len(os.path.abspath(full_path)) > 255 and not full_path.startswith("\\\\?\\"):
+        full_path = "\\\\?\\" + os.path.abspath(full_path)
+    return os.path.isfile(full_path)
