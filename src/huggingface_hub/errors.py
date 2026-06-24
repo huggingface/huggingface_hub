@@ -462,8 +462,7 @@ class IncompleteSnapshotError(LocalEntryNotFoundError):
     `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
     the repository's cached tree listing are missing from the local snapshot.
 
-    This is a subclass of [`LocalEntryNotFoundError`], so code that already catches that error (or
-    `FileNotFoundError`) keeps working.
+    This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
 
     Example:
 
