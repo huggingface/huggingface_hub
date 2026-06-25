@@ -15,7 +15,6 @@ import datetime
 import os
 import re
 import subprocess
-import tempfile
 import time
 import types
 import uuid
@@ -103,7 +102,6 @@ from .testing_utils import (
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
-    rmtree_with_retry,
 )
 
 
@@ -295,8 +293,8 @@ class TestHfApiEndpoints:
 
 class TestCommitApi:
     @pytest.fixture(autouse=True)
-    def _tmp_files(self):
-        self.tmp_dir = tempfile.mkdtemp()
+    def _tmp_files(self, tmp_path: Path):
+        self.tmp_dir = str(tmp_path)
         self.tmp_file = os.path.join(self.tmp_dir, "temp")
         self.tmp_file_content = "Content of the file"
         with open(self.tmp_file, "w+") as f:
@@ -305,8 +303,6 @@ class TestCommitApi:
         self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
         with open(self.nested_tmp_file, "wb+") as f:
             f.truncate(1024 * 1024)
-        yield
-        rmtree_with_retry(self.tmp_dir)
 
     def test_upload_file_validation(self, api: HfApi) -> None:
         with pytest.raises(ValueError):
