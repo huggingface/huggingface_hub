@@ -532,6 +532,9 @@ class TestPoolCacheFile:
         for bad in ("../evil", "a/b", "..", "x\x00y"):
             with pytest.raises(ValueError):
                 cache_mod.pool_cache_path(bad)
+        # read/save stay best-effort (no raise) even for an invalid id.
+        assert read_pool_cache("../evil") is None
+        _save_cache("../evil", [CachedHost("h1", "user", "u", "n", 4, 0)])  # no raise
 
     def test_corrupt_returns_none(self) -> None:
         path = cache_mod.pool_cache_path("bad")

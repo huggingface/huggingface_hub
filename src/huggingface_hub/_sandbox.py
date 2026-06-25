@@ -15,8 +15,7 @@
 """Sandboxes on Hugging Face Jobs: isolated cloud machines with command execution,
 file transfer and port forwarding.
 
-Two ways to get a sandbox, sharing the same `Sandbox` surface (`run`, `spawn`,
-`files`, ...):
+Two ways to get a sandbox, sharing the same `Sandbox` surface (`run`, `files`, ...):
 
 - [`Sandbox.create`] — one dedicated HF Job per sandbox (full VM isolation, GPU
   support, public port forwarding). Best for a single sandbox, untrusted code or

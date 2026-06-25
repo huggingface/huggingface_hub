@@ -119,8 +119,8 @@ def read_pool_cache(pool_id: str) -> PoolCache | None:
     Never raises: the cache is best-effort, so any problem reading it is treated as a
     cache miss and the caller falls back to label discovery.
     """
-    path = pool_cache_path(pool_id)
     try:
+        path = pool_cache_path(pool_id)
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
         if data.get("version") != _CACHE_VERSION:
@@ -130,7 +130,7 @@ def read_pool_cache(pool_id: str) -> PoolCache | None:
     except FileNotFoundError:
         return None
     except Exception as e:
-        logger.debug(f"Ignoring unreadable sandbox pool cache {path}: {e}")
+        logger.debug(f"Ignoring unreadable sandbox pool cache for {pool_id!r}: {e}")
         return None
 
 
@@ -153,9 +153,9 @@ def save_pool_cache(
     it learned and never drops hosts another process discovered. The result is written
     atomically. The pool config is refreshed from the arguments.
     """
-    path = pool_cache_path(pool_id)
     dead = dead_host_ids or set()
     try:
+        path = pool_cache_path(pool_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         with WeakFileLock(str(path) + ".lock", timeout=_LOCK_TIMEOUT):
             existing = read_pool_cache(pool_id)
@@ -177,7 +177,7 @@ def save_pool_cache(
             )
             _atomic_write(path, cache)
     except Exception as e:
-        logger.debug(f"Could not write sandbox pool cache {path}: {e}")
+        logger.debug(f"Could not write sandbox pool cache for {pool_id!r}: {e}")
 
 
 def delete_pool_cache(pool_id: str) -> None:
