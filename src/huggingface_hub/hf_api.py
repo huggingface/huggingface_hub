@@ -12023,7 +12023,7 @@ class HfApi:
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> list[JobInfo]:
+    ) -> Iterable[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
 
@@ -12045,6 +12045,9 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
@@ -12054,14 +12057,11 @@ class HfApi:
             params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
         if labels is not None:
             params.extend(("label", f"{key}={value}") for key, value in labels.items())
-        response = get_session().get(
-            f"{self.endpoint}/api/jobs/{namespace}",
-            headers=self._build_hf_headers(token=token),
-            params=params or None,
-            timeout=timeout,
-        )
-        hf_raise_for_status(response)
-        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+
+        path = f"{self.endpoint}/api/jobs/{namespace}"
+        headers = self._build_hf_headers(token=token)
+        for job_info in paginate(path, params=params, headers=headers, timeout=timeout):
+            yield JobInfo(**job_info, endpoint=self.endpoint)
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
