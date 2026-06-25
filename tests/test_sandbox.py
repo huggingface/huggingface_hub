@@ -528,6 +528,11 @@ class TestPoolCacheFile:
     def test_missing_returns_none(self) -> None:
         assert read_pool_cache("does-not-exist") is None
 
+    def test_path_rejects_traversal(self) -> None:
+        for bad in ("../evil", "a/b", "..", "x\x00y"):
+            with pytest.raises(ValueError):
+                cache_mod.pool_cache_path(bad)
+
     def test_corrupt_returns_none(self) -> None:
         path = cache_mod.pool_cache_path("bad")
         path.parent.mkdir(parents=True, exist_ok=True)

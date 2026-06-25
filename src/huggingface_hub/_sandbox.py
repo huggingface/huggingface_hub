@@ -106,6 +106,10 @@ DEFAULT_SANDBOXES_PER_HOST = 50
 # local state.
 SHARED_ID_SEP = "."
 
+# Job stages in which a sandbox/host is finished and needs no teardown. Anything else
+# (SCHEDULING, RUNNING, ...) is still billable and must be cancelled when killing.
+_TERMINAL_STAGES = ("COMPLETED", "ERROR", "DELETED", "CANCELED")
+
 # Safety bound on create()'s pack-retry loop: each round re-discovers hosts and retries
 # the sandboxes a full host rejected. Only matters under cross-process contention; a high
 # value still terminates because every round either places sandboxes or boots a new host.
@@ -472,7 +476,7 @@ class _SandboxServer:
             if time.time() - last_job_check > 2.0:
                 last_job_check = time.time()
                 job = self._api.inspect_job(job_id=self.job_id, namespace=self.owner)
-                if job.status.stage in ("COMPLETED", "ERROR", "DELETED", "CANCELED"):
+                if job.status.stage in _TERMINAL_STAGES:
                     logs = _tail_job_logs(self._api, self.job_id, namespace=self.owner)
                     raise SandboxError(
                         f"Sandbox job {self.job_id} terminated during startup "
@@ -1215,6 +1219,10 @@ class SandboxPool:
                         with self._lock:
                             self._hosts.extend(booted)
             self._warmed_up = True
+        # Persist the warmed hosts so the next process (e.g. `hf sandbox create --pool` after a
+        # bare `hf sandbox pool create`) hits the cache fast path instead of re-discovering.
+        if self._hosts:
+            self._save_cache()
 
     def _reserve_one(self) -> "_SandboxServer | None":
         """Reserve one slot on the first host with free capacity (under lock), else None."""
@@ -1400,22 +1408,26 @@ class SandboxPool:
             expose=[SANDBOX_SERVER_PORT],
             namespace=self._namespace,
         )
-        server = _SandboxServer.from_job(
-            job=job,
-            nonce=nonce,
-            sandbox_token=sandbox_token,
-            api=self._api,
-            max_connections=min(self.sandboxes_per_host + 8, 256),
-            capacity=self.sandboxes_per_host,
-        )
+        server: "_SandboxServer | None" = None
         try:
+            # from_job is inside the try: if it raises (e.g. the server port isn't exposed),
+            # the already-started host job must still be cancelled so it doesn't linger billing.
+            server = _SandboxServer.from_job(
+                job=job,
+                nonce=nonce,
+                sandbox_token=sandbox_token,
+                api=self._api,
+                max_connections=min(self.sandboxes_per_host + 8, 256),
+                capacity=self.sandboxes_per_host,
+            )
             server.wait_ready(self._start_timeout)
         except Exception:
             try:
                 self._api.cancel_job(job_id=job.id, namespace=job.owner.name)
             except Exception as e:
                 logger.warning(f"Failed to cancel sandbox host {job.id} after startup failure: {e}")
-            server.close()
+            if server is not None:
+                server.close()
             raise
         return server
 

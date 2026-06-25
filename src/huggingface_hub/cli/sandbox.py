@@ -38,6 +38,7 @@ from typing import Annotated, Any, Iterator
 import typer
 
 from huggingface_hub._sandbox import (
+    _TERMINAL_STAGES,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_IMAGE,
     DEFAULT_SANDBOXES_PER_HOST,
@@ -275,7 +276,7 @@ def sandbox_kill(
         jobs = [
             job
             for job in api.list_jobs(namespace=namespace)
-            if (job.labels or {}).get(SANDBOX_LABEL) and job.status.stage == "RUNNING"
+            if (job.labels or {}).get(SANDBOX_LABEL) and job.status.stage not in _TERMINAL_STAGES
         ]
         if not jobs:
             out.text("No running sandboxes.")
@@ -435,7 +436,15 @@ def pool_delete(
 ) -> None:
     """Terminate every host VM of a pool (and therefore all its sandboxes)."""
     api = get_hf_api(token=token)
-    hosts = [job for job in api.list_jobs(namespace=namespace) if _is_running_host(job, pool_id)]
+    # Include SCHEDULING hosts (still booting after `pool create`), not just RUNNING ones, so
+    # they don't keep billing after a delete reported success.
+    hosts = [
+        job
+        for job in api.list_jobs(namespace=namespace)
+        if (job.labels or {}).get(POOL_LABEL) == pool_id
+        and (job.labels or {}).get(HOST_LABEL)
+        and job.status.stage not in _TERMINAL_STAGES
+    ]
     if not hosts:
         delete_pool_cache(pool_id)  # nothing running; clear any stale local cache too
         out.text(f"No running hosts for pool '{pool_id}'.")

@@ -108,6 +108,8 @@ def _pools_dir() -> Path:
 
 def pool_cache_path(pool_id: str) -> Path:
     """Path of the cache file for `pool_id` (no I/O)."""
+    if any(c in pool_id for c in ("/", "\\", "\x00")) or pool_id in (".", ".."):
+        raise ValueError(f"Invalid pool id: {pool_id!r}")
     return _pools_dir() / f"{pool_id}.json"
 
 
