@@ -576,5 +576,10 @@ class SandboxCommandError(SandboxError):
         self.cmd = cmd
         self.result = result
         stderr_tail = result.stderr[-1000:] if result.stderr else "<empty>"
-        reason = "timed out" if result.timed_out else f"exited with code {result.exit_code}"
+        if result.timed_out:
+            reason = "timed out"
+        elif result.signal is not None:
+            reason = f"was killed by signal {result.signal}"
+        else:
+            reason = f"exited with code {result.exit_code}"
         super().__init__(f"Command {cmd!r} {reason}. stderr:\n{stderr_tail}")

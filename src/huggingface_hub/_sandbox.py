@@ -654,10 +654,13 @@ class Sandbox:
         if SHARED_ID_SEP in sandbox_id:
             host_job_id, local_id = sandbox_id.split(SHARED_ID_SEP, 1)
             server = _connect_host(api, host_job_id, namespace=namespace)
-            existing = {item["id"] for item in server.request("GET", "/v1/sandboxes").json()}
-            if local_id not in existing:
-                server.close()
-                raise SandboxError(f"Sandbox {sandbox_id} no longer exists on host {host_job_id}.")
+            try:
+                existing = {item["id"] for item in server.request("GET", "/v1/sandboxes").json()}
+                if local_id not in existing:
+                    raise SandboxError(f"Sandbox {sandbox_id} no longer exists on host {host_job_id}.")
+            except Exception:
+                server.close()  # don't leak the HTTP client when the host is gone/unreachable
+                raise
             return cls(id=sandbox_id, server=server, local_id=local_id, owns_sandbox=False, owns_server=True)
 
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
