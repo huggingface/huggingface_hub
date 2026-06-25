@@ -72,12 +72,12 @@ from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Annotated, Any, TypeVar
+from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
 import typer
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, constants
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
 from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
@@ -101,10 +101,6 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._output import _dataclass_to_dict, out
-
-
-if TYPE_CHECKING:
-    from huggingface_hub import HfApi, Volume
 
 
 logger = logging.get_logger(__name__)
@@ -138,7 +134,7 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
     return parsed_job_id, extracted_namespace
 
 
-def _parse_job_volumes(volumes: list[str] | None, *, api: "HfApi", namespace: str | None) -> "list[Volume] | None":
+def _parse_job_volumes(volumes: list[str] | None, *, api: HfApi, namespace: str | None) -> list[Volume] | None:
     """Parse `-v` specs for Jobs commands.
 
     Same as [`parse_volumes`] but the source side can also be a local directory: it is synced to a
