@@ -134,7 +134,9 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
     return parsed_job_id, extracted_namespace
 
 
-def _parse_and_sync_job_volumes(volumes: list[str] | None, *, api: HfApi, namespace: str | None) -> list[Volume] | None:
+def _parse_and_sync_job_volumes(
+    volumes: list[str] | None, *, api: HfApi, namespace: str | None
+) -> list[Volume] | None:
     """Parse `-v` specs for Jobs commands.
 
     Same as [`parse_volumes`] but the source side can also be a local directory: it is synced to a
