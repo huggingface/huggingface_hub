@@ -152,7 +152,6 @@ nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
 ```
 
 > [!TIP]
-> A handful of commands keep their own local formatting options. For example, `hf jobs ps` and `hf jobs scheduled ps` accept Go templates via `--format` (e.g. `--format '{{.id}} {{.status}}'`); `hf buckets sync` has its own `-q` / `--quiet` to control sync verbosity. In those cases the global flags are silently rewritten so user-facing behaviour stays unchanged.
 
 ## hf auth login
 
@@ -1824,9 +1823,9 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 ```bash
 # List your running jobs
->>> hf jobs ps
+>>> hf jobs ls
 # List all jobs
->>> hf jobs ps -a
+>>> hf jobs ls -a
 
 # Inspect the status of a job
 >>> hf jobs inspect <job_id>
@@ -1846,7 +1845,7 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 >>> hf jobs wait <job_id> [<job_id>...]
 
 # Wait for all currently running jobs
->>> hf jobs ps -q | xargs hf jobs wait
+>>> hf jobs ls -q | xargs hf jobs wait
 ```
 
 Non-detached `hf jobs run` and `hf jobs wait` exit with a non-zero code if a Job fails, so you can chain commands with `&&`:
@@ -2006,18 +2005,37 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `-f` or `--filter` in `hf jobs ps` to filter Jobs that match certain labels:
+Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
 
 ```bash
-# Show fine-tuning Jobs
->>> hf jobs ps -a --filter label=fine-tuning
+# Show completed Jobs
+>>> hf jobs ls -a --status completed
 
-# Show Jobs that don't have the "prod" label and have a label that starts with "data-"
->>> hf jobs ps -a --filter label!=prod --filter "label=data-*"
+# Show running or scheduling Jobs
+>>> hf jobs ls --status running,scheduling
 
-# Show Jobs based on key=value labels
->>> hf jobs ps -a --filter label=model=Qwen3-06B --filter label=dataset!=Capybara
+# Show Jobs with the `model=Qwen3-06B` label
+>>> hf jobs ls -a --label model=Qwen3-06B
+
+# Combine filters: running Jobs labelled both `env=prod` and `team=ml`
+>>> hf jobs ls --status running --label env=prod --label team=ml
 ```
+
+By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal. Use `--limit` to change this, or `--limit 0` to show all of them:
+
+```bash
+# Show up to 500 Jobs
+>>> hf jobs ps -a --limit 500
+
+# Show all Jobs (no limit)
+>>> hf jobs ps -a --limit 0
+```
+
+<Tip warning={true}>
+
+`-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
+
+</Tip>
 
 ### SSH into a Job
 
@@ -2048,10 +2066,10 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 >>> hf jobs uv run my_script.py
 
 # Run with persistent repo
->>> hf jobs uv run my_script.py --repo my-uv-scripts
+>>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
->>> hf jobs uv run ml_training.py --flavor gpu-t4-small
+>>> hf jobs uv run --flavor gpu-t4-small ml_training.py
 
 # Pass arguments to script
 >>> hf jobs uv run process.py input.csv output.parquet
@@ -2097,7 +2115,7 @@ Manage scheduled jobs using
 
 ```bash
 # List your active scheduled jobs
->>> hf jobs scheduled ps
+>>> hf jobs scheduled ls
 
 # Inspect the status of a job
 >>> hf jobs scheduled inspect <scheduled_job_id>

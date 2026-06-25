@@ -12,7 +12,7 @@ Hugging Face Hub CLI
 **Usage**:
 
 ```console
-$ hf [OPTIONS] COMMAND [ARGS]...
+$ hf [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
@@ -2128,8 +2128,8 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or...
 * `labels`: Update labels on a Job.
+* `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
-* `ps`: List Jobs.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
@@ -2246,6 +2246,42 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs list | ls | ps`
+
+List Jobs.
+
+Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
+labels. A Job must match every filter to be listed.
+
+**Usage**:
+
+```console
+$ hf jobs list | ls | ps [OPTIONS]
+```
+
+**Options**:
+
+* `-a, --all`: Show all Jobs (default shows running and scheduling). Cannot be combined with --status.
+* `--status [COMPLETED|CANCELED|ERROR|DELETED|SCHEDULING|RUNNING]`: Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.
+* `-l, --label TEXT`: Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
+* `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit).  [default: 100]
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs ls
+  $ hf jobs ls -a
+  $ hf jobs ls --status running,scheduling
+  $ hf jobs ls --label env=prod --label team=ml
+  $ hf jobs ls --all --label hf-sandbox=1
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs logs`
 
 Fetch the logs of a Job.
@@ -2280,33 +2316,6 @@ Examples
   $ hf jobs logs -f <job_id>
   $ hf jobs logs --tail 20 <job_id>
   $ hf jobs logs -f --tail 100 <job_id>
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf jobs ps`
-
-List Jobs.
-
-**Usage**:
-
-```console
-$ hf jobs ps [OPTIONS]
-```
-
-**Options**:
-
-* `-a, --all`: Show all Jobs (default shows just running)
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf jobs ps
-  $ hf jobs ps -a
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2376,7 +2385,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a scheduled Job.
 * `inspect`: Display detailed information on one or...
 * `labels`: Update labels on a scheduled Job.
-* `ps`: List scheduled Jobs
+* `list`: List scheduled Jobs [alias: ls, ps]
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
@@ -2469,14 +2478,14 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-#### `hf jobs scheduled ps`
+#### `hf jobs scheduled list | ls | ps`
 
 List scheduled Jobs
 
 **Usage**:
 
 ```console
-$ hf jobs scheduled ps [OPTIONS]
+$ hf jobs scheduled list | ls | ps [OPTIONS]
 ```
 
 **Options**:
@@ -2488,7 +2497,7 @@ $ hf jobs scheduled ps [OPTIONS]
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf jobs scheduled ps
+  $ hf jobs scheduled ls
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2813,7 +2822,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 Examples
   $ hf jobs wait <job_id>
   $ hf jobs wait <job_id_1> <job_id_2>
-  $ hf jobs ps -q | xargs hf jobs wait
+  $ hf jobs ls -q | xargs hf jobs wait
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3132,7 +3141,7 @@ Manage repos on the Hub. [alias: repo]
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] COMMAND [ARGS]...
+$ hf repos [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
