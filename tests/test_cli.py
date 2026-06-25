@@ -4460,50 +4460,10 @@ class TestSkillsMarketplaceCLI:
         ), result.stdout
 
 
-class TestSandboxCli:
-    """The dedicated `hf sandbox` commands (shared between dedicated and pool sandboxes)."""
-
-    def test_logs_streams_single_process(self, runner: CliRunner, monkeypatch) -> None:
-        from huggingface_hub.cli import sandbox as sandbox_cli_mod
-
-        fake_sbx = Mock()
-        fake_sbx.processes.return_value = [Mock(pid=1234)]  # exactly one -> no PID needed
-        monkeypatch.setattr(
-            sandbox_cli_mod.Sandbox,
-            "connect",
-            classmethod(lambda cls, sid, namespace=None, token=None: fake_sbx),
-        )
-
-        class FakeProc:
-            def __init__(self, sandbox, pid: int) -> None:
-                self.pid = pid
-
-            def logs(self, follow: bool = False):
-                yield "stdout", "hello\n"
-
-        monkeypatch.setattr(sandbox_cli_mod, "SandboxProcess", FakeProc)
-        result = runner.invoke(app, ["sandbox", "logs", "sbx-1"])
-        assert result.exit_code == 0, result.output
-        assert "hello" in result.output
-
-    def test_logs_requires_pid_when_ambiguous(self, runner: CliRunner, monkeypatch) -> None:
-        from huggingface_hub.cli import sandbox as sandbox_cli_mod
-
-        fake_sbx = Mock()
-        fake_sbx.processes.return_value = [Mock(pid=1), Mock(pid=2)]  # ambiguous -> must pass a PID
-        monkeypatch.setattr(
-            sandbox_cli_mod.Sandbox,
-            "connect",
-            classmethod(lambda cls, sid, namespace=None, token=None: fake_sbx),
-        )
-        result = runner.invoke(app, ["sandbox", "logs", "sbx-1"])
-        assert result.exit_code != 0
-        assert isinstance(result.exception, CLIError)
-
-
 class TestSandboxPoolCli:
-    """The `hf sandbox pool` subgroup: no local state — `create` warms a host, `spawn`
-    finds the pool's hosts via labels and packs onto them (booting a duplicate if full)."""
+    """The `hf sandbox pool` subgroup: no local state. `create` warms a host, and
+    `create --pool` finds the pool's hosts via labels and packs onto them (booting a
+    duplicate if full)."""
 
     def test_create_warms_one_host(self, runner: CliRunner, monkeypatch) -> None:
         from huggingface_hub.cli import sandbox as sandbox_cli_mod

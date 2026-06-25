@@ -52,7 +52,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
@@ -180,18 +179,6 @@ class SandboxCommandResult:
 
 
 @dataclass
-class SandboxProcessInfo:
-    """A process running (or finished) inside a sandbox."""
-
-    pid: int
-    cmd: str
-    running: bool
-    exit_code: int | None
-    tag: str | None = None
-    started_at_ms: int = 0
-
-
-@dataclass
 class FileEntry:
     """A file or directory inside a sandbox."""
 
@@ -201,70 +188,6 @@ class FileEntry:
     size: int
     mtime_ms: int | None = None
     mode: str = ""
-
-
-@dataclass
-class SandboxInfo:
-    """A running sandbox, as returned by [`Sandbox.list`].
-
-    Covers both kinds: dedicated sandboxes (`kind="dedicated"`, their own job) and
-    shared/pool sandboxes (`kind="shared"`, packed inside a host job — `host_id` is set).
-    Reattach to one with `Sandbox.connect(info.id)`.
-    """
-
-    id: str
-    kind: Literal["dedicated", "shared"]
-    image: str | None = None
-    flavor: str | None = None
-    host_id: str | None = None  # the host job id for shared sandboxes (None for dedicated)
-    created_at: datetime | None = None
-
-
-class SandboxProcess:
-    """Handle on a background process started with [`Sandbox.spawn`]."""
-
-    def __init__(self, sandbox: "Sandbox", pid: int, tag: str | None = None) -> None:
-        self._sandbox = sandbox
-        self.pid = pid
-        self.tag = tag
-
-    def wait(self) -> int | None:
-        """Block until the process exits and return its exit code (None if killed by signal)."""
-        with self._sandbox._stream("GET", f"/procs/{self.pid}/wait") as response:
-            for event in _iter_events(response):
-                if event["event"] == "exit":
-                    return event["exit_code"]
-        raise SandboxError(f"connection lost while waiting for process {self.pid}")
-
-    def kill(self, signal: str | int = "KILL") -> None:
-        """Send a signal (default SIGKILL) to the process group."""
-        self._sandbox._request("POST", f"/procs/{self.pid}/kill", json={"signal": signal})
-
-    def logs(self, follow: bool = False) -> Iterator[tuple[str, str]]:
-        """Yield `(stream, data)` tuples ("stdout"/"stderr") from the process output.
-
-        With `follow=True`, keeps streaming live output until the process exits.
-        """
-        params = {"follow": "1"} if follow else {}
-        with self._sandbox._stream("GET", f"/procs/{self.pid}/logs", params=params) as response:
-            for event in _iter_events(response):
-                if event["event"] in ("stdout", "stderr"):
-                    yield event["event"], event["data"]
-
-    def send_stdin(self, data: str | bytes, eof: bool = False) -> None:
-        """Write data to the process stdin. Set `eof=True` to close the pipe afterwards."""
-        payload = data.encode() if isinstance(data, str) else data
-        self._sandbox._request("POST", f"/procs/{self.pid}/stdin", params={"eof": "1"} if eof else {}, content=payload)
-
-    @property
-    def running(self) -> bool:
-        for proc in self._sandbox.processes():
-            if proc.pid == self.pid:
-                return proc.running
-        return False
-
-    def __repr__(self) -> str:
-        return f"SandboxProcess(pid={self.pid}, tag={self.tag!r})"
 
 
 class SandboxFiles:
@@ -752,7 +675,7 @@ class Sandbox:
         if (job.labels or {}).get(HOST_LABEL):
             raise SandboxError(
                 f"Job {sandbox_id} is a sandbox host, not a single sandbox. Connect to one of its "
-                f"sandboxes with id '<host_job_id>{SHARED_ID_SEP}<local_id>' (see `hf sandbox ls`)."
+                f"sandboxes with id '<host_job_id>{SHARED_ID_SEP}<local_id>'."
             )
         if job.status.stage != "RUNNING":
             raise SandboxError(f"Sandbox {sandbox_id} is not running (status: {job.status.stage}).")
@@ -765,17 +688,6 @@ class Sandbox:
             max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,
         )
         return cls(id=job.id, server=server, local_id=None, owns_sandbox=False, owns_server=True)
-
-    @classmethod
-    def list(cls, *, namespace: str | None = None, token: str | None = None) -> List[SandboxInfo]:
-        """List all running sandboxes — both dedicated and shared (pool) ones.
-
-        Returns a [`SandboxInfo`] per sandbox (`kind` is `"dedicated"` or `"shared"`).
-        Dedicated sandboxes come straight from the jobs list; shared ones are enumerated
-        by querying each running host job, so the full fleet shows up under one call.
-        Reattach to any of them with `Sandbox.connect(info.id)`.
-        """
-        return _list_sandboxes(HfApi(token=token), namespace=namespace)
 
     # `kill` is both a classmethod (`Sandbox.kill(id)`) and an instance method (`sbx.kill()`),
     # dispatched by the `_KillMethod` descriptor; `_kill` holds the instance behaviour.
@@ -891,39 +803,6 @@ class Sandbox:
         if check and (result.exit_code != 0 or result.timed_out):
             raise SandboxCommandError(cmd=cmd, result=result)
         return result
-
-    def spawn(
-        self,
-        cmd: str | List[str],
-        *,
-        shell: bool | None = None,
-        env: dict[str, Any] | None = None,
-        cwd: str | None = None,
-        timeout: float | None = None,
-        tag: str | None = None,
-    ) -> SandboxProcess:
-        """Start a background process and return immediately with a [`SandboxProcess`] handle.
-
-        `cmd` and `shell` work as in [`Sandbox.run`]: a string runs via `/bin/sh -c`, a list is
-        exec'd as argv, and `shell` forces the mode explicitly instead of inferring it from the type.
-        """
-        payload = _exec_payload(cmd, shell)
-        payload["background"] = True
-        if env:
-            payload["env"] = env
-        if cwd:
-            payload["cwd"] = cwd
-        if timeout is not None:
-            payload["timeout"] = timeout
-        if tag is not None:
-            payload["tag"] = tag
-        response = self._request("POST", "/exec", json=payload)
-        return SandboxProcess(self, pid=response.json()["pid"], tag=tag)
-
-    def processes(self) -> List[SandboxProcessInfo]:
-        """List background processes started in this sandbox."""
-        response = self._request("GET", "/procs")
-        return [SandboxProcessInfo(**proc) for proc in response.json()]
 
     # ------------------------------------------------------------------ misc
 
@@ -1724,55 +1603,6 @@ def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = Non
         f"No running host found for pool '{pool_id}'. The pool has stopped "
         "(all its hosts were killed or idle-timed-out); create a new one."
     )
-
-
-def _list_sandboxes(api: HfApi, *, namespace: str | None = None) -> List[SandboxInfo]:
-    """List every running sandbox in a namespace — dedicated jobs and shared/pool ones.
-
-    Dedicated sandboxes come from the jobs list directly; shared ones are enumerated by
-    connecting to each running host job and asking it for its packed sandboxes. Hosts that
-    are still starting up or unreachable are skipped (their sandboxes simply don't show up).
-    Used by both [`Sandbox.list`] and `hf sandbox ls`.
-    """
-    infos: List[SandboxInfo] = []
-    hosts: List[JobInfo] = []
-    for job in api.list_jobs(namespace=namespace):
-        labels = job.labels or {}
-        if not labels.get(SANDBOX_LABEL) or job.status.stage != "RUNNING":
-            continue
-        if labels.get(HOST_LABEL):
-            hosts.append(job)
-        else:
-            infos.append(
-                SandboxInfo(
-                    id=job.id,
-                    kind="dedicated",
-                    image=job.docker_image or job.space_id,
-                    flavor=str(job.flavor) if job.flavor is not None else None,
-                    created_at=job.created_at,
-                )
-            )
-
-    for job in hosts:
-        try:
-            server = _connect_host(api, job.id, namespace=namespace)
-        except (SandboxError, httpx.HTTPError, HfHubHTTPError):
-            continue  # host still starting up or unreachable; skip its sandboxes
-        try:
-            for item in server.request("GET", "/v1/sandboxes").json():
-                infos.append(
-                    SandboxInfo(
-                        id=f"{job.id}{SHARED_ID_SEP}{item['id']}",
-                        kind="shared",
-                        image=job.docker_image or job.space_id,
-                        flavor=str(job.flavor) if job.flavor is not None else None,
-                        host_id=job.id,
-                        created_at=job.created_at,
-                    )
-                )
-        finally:
-            server.close()
-    return infos
 
 
 def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None) -> _SandboxServer:

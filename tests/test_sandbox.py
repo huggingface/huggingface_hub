@@ -113,9 +113,6 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def _exec(self, body) -> None:
         type(self).last_exec = body
-        if body.get("background"):
-            self._json({"pid": 42, "tag": body.get("tag")})
-            return
         self._ndjson(
             [
                 {"event": "start", "pid": 42},
@@ -162,8 +159,6 @@ class _FakeServer(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "5")
             self.end_headers()
             self.wfile.write(b"hello")
-        elif self.path == "/v1/procs" or self.path.endswith("/procs"):
-            self._json([{"pid": 42, "cmd": "x", "running": True, "exit_code": None}])
         elif self.path == "/v1/sandboxes":
             self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
 
@@ -238,21 +233,9 @@ class TestSandboxClient:
         with pytest.raises(ValueError, match="shell=False requires"):
             sandbox.run("echo hi", shell=False)
 
-    def test_spawn_explicit_shell_is_sent(self, fake_server: str) -> None:
-        sandbox = _make_sandbox(fake_server)
-        sandbox.spawn(["python", "-m", "http.server"], shell=False)
-        assert _FakeServer.last_exec == {"cmd": ["python", "-m", "http.server"], "shell": False, "background": True}
-        with pytest.raises(ValueError, match="shell=True requires"):
-            sandbox.spawn(["python", "-m", "http.server"], shell=True)
-
     def test_files_read(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
         assert sandbox.files.read_text("/x") == "hello"
-
-    def test_processes(self, fake_server: str) -> None:
-        sandbox = _make_sandbox(fake_server)
-        procs = sandbox.processes()
-        assert procs[0].pid == 42 and procs[0].running
 
     def test_kill_is_idempotent(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
@@ -465,46 +448,6 @@ class TestHostDiscovery:
         pool = SandboxPool(name="p1", token="hf_test", _connect_mode=True)
         assert pool._adopt_pending_host() is True
         assert [host.job_id for host in pool._hosts] == ["host-sched"]  # adopted, not booted
-
-
-class TestSandboxList:
-    """`Sandbox.list` returns one unified view of dedicated jobs and shared/pool sandboxes."""
-
-    def _job(self, job_id: str, *, host: bool = False) -> MagicMock:
-        job = MagicMock()
-        job.id = job_id
-        job.owner.name = "user"
-        job.docker_image = "python:3.12"
-        job.space_id = None
-        job.flavor = "cpu-basic"
-        job.status.stage = "RUNNING"
-        job.created_at = None
-        job.labels = {SANDBOX_LABEL: "nonce", **({HOST_LABEL: "1"} if host else {})}
-        return job
-
-    def test_list_includes_dedicated_and_shared(self, fake_server: str, monkeypatch) -> None:
-        _FakeServer.sandboxes = {"a", "b"}  # the host packs two shared sandboxes
-        jobs = [self._job("ded1"), self._job("host1", host=True)]
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: jobs)
-        monkeypatch.setattr(
-            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
-        )
-        by_id = {info.id: info for info in Sandbox.list(token="hf_test")}
-        assert by_id["ded1"].kind == "dedicated" and by_id["ded1"].host_id is None
-        assert by_id["host1.a"].kind == "shared" and by_id["host1.a"].host_id == "host1"
-        assert by_id["host1.b"].kind == "shared"
-
-    def test_list_skips_unreachable_host(self, monkeypatch) -> None:
-        # A host that can't be reached (still starting up / deleted) is skipped, not fatal.
-        jobs = [self._job("ded1"), self._job("host1", host=True)]
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: jobs)
-        monkeypatch.setattr(
-            sandbox_mod,
-            "_connect_host",
-            lambda api, jid, namespace=None: (_ for _ in ()).throw(SandboxError("host not ready")),
-        )
-        infos = Sandbox.list(token="hf_test")
-        assert [info.id for info in infos] == ["ded1"]
 
 
 class TestPoolConnect:

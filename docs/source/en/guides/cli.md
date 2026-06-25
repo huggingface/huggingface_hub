@@ -2147,9 +2147,7 @@ hi
 >>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
 >>> hf sandbox cp 687f911eaea852de79c4a50a:/app/results.json results.json
 
-# Manage sandboxes
->>> hf sandbox ls
->>> hf sandbox ps 687f911eaea852de79c4a50a
+# Terminate a sandbox
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 

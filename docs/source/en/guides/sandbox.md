@@ -18,7 +18,7 @@ Any Docker image with `/bin/sh` works — no Python, pip, or agent needs to be p
 
 ## The two kinds of sandbox
 
-There are two ways to get a sandbox. Both hand you the **same** [`Sandbox`] object — same `run`, `spawn`, `files`, `connect`, `kill` — they differ only in how the underlying machine is allocated:
+There are two ways to get a sandbox. Both hand you the **same** [`Sandbox`] object (same `run`, `files`, `connect`, `kill`); they differ only in how the underlying machine is allocated:
 
 |            | [`Sandbox.create`] — **dedicated**              | [`SandboxPool`] — **shared / pool**                                                     |
 | ---------- | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -78,17 +78,6 @@ A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `st
 1
 ```
 
-Start background processes with [`Sandbox.spawn`]:
-
-```python
->>> server = sbx.spawn("python -m http.server 8080", tag="web")
->>> server.pid, server.running
-(112, True)
->>> for stream, data in server.logs(follow=True):   # tail logs live
-...     print(stream, data)
->>> server.kill()
-```
-
 ## Files
 
 ```python
@@ -114,8 +103,6 @@ A sandbox outlives the process that created it — you can create it now and rec
 
 # Later, from anywhere:
 >>> sbx = Sandbox.connect("687f911eaea852de79c4a50a")
-
->>> Sandbox.list()       # your running sandboxes
 >>> sbx.kill()           # terminate now
 ```
 
@@ -205,9 +192,6 @@ The `hf sandbox` command mirrors the Python API. A dedicated sandbox:
 hi
 
 >>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
->>> hf sandbox ls
->>> hf sandbox ps 687f911eaea852de79c4a50a       # processes running inside the sandbox
->>> hf sandbox logs 687f911eaea852de79c4a50a     # stream a background process's output (--follow to tail)
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 

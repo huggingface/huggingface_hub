@@ -12,7 +12,7 @@ Hugging Face Hub CLI
 **Usage**:
 
 ```console
-$ hf [OPTIONS] [COMMAND] [ARGS]...
+$ hf [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -3141,7 +3141,7 @@ Manage repos on the Hub. [alias: repo]
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] [COMMAND] [ARGS]...
+$ hf repos [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -3661,10 +3661,7 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 * `create`: Create a sandbox: a dedicated VM by...
 * `exec`: Run a command in a sandbox, streaming output.
 * `kill`: Terminate a sandbox, a whole shared host,...
-* `logs`: Stream the stdout/stderr of a background...
-* `ls`: List your running sandboxes (dedicated and... [alias: list]
 * `pool`: Warm pools of host VMs and spawn cheap...
-* `ps`: List background processes running in a...
 
 ### `hf sandbox cp`
 
@@ -3807,61 +3804,6 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-### `hf sandbox logs`
-
-Stream the stdout/stderr of a background process in a sandbox (started with `spawn`).
-
-**Usage**:
-
-```console
-$ hf sandbox logs [OPTIONS] SANDBOX_ID [PID]
-```
-
-**Arguments**:
-
-* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
-* `[PID]`: Process id (from `hf sandbox ps`). Optional when only one process is running.
-
-**Options**:
-
-* `-f, --follow`: Keep streaming until the process exits.
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf sandbox logs <sandbox_id>
-  $ hf sandbox logs <sandbox_id> 1234 --follow
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf sandbox ls`
-
-List your running sandboxes (dedicated and shared). [alias: list]
-
-**Usage**:
-
-```console
-$ hf sandbox ls [OPTIONS]
-```
-
-**Options**:
-
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf sandbox ls
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
 ### `hf sandbox pool`
 
 Warm pools of host VMs and spawn cheap shared sandboxes from them.
@@ -3967,34 +3909,6 @@ $ hf sandbox pool ls [OPTIONS]
 
 Examples
   $ hf sandbox pool ls
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf sandbox ps`
-
-List background processes running in a sandbox.
-
-**Usage**:
-
-```console
-$ hf sandbox ps [OPTIONS] SANDBOX_ID
-```
-
-**Arguments**:
-
-* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
-
-**Options**:
-
-* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf sandbox ps <sandbox_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.

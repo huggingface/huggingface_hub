@@ -27,9 +27,6 @@ Both kinds share the same commands:
 
     hf sandbox exec <sandbox_id> -- python -c "print('hi')"
     hf sandbox cp local.txt <sandbox_id>:/tmp/remote.txt
-    hf sandbox ls
-    hf sandbox ps <sandbox_id>
-    hf sandbox logs <sandbox_id> <pid>
     hf sandbox kill <sandbox_id>
 """
 
@@ -50,8 +47,6 @@ from huggingface_hub._sandbox import (
     SHARED_ID_SEP,
     Sandbox,
     SandboxPool,
-    SandboxProcess,
-    _list_sandboxes,
     _split_sandbox_id,
 )
 from huggingface_hub._sandbox_cache import delete_pool_cache
@@ -171,28 +166,6 @@ def sandbox_create(
     out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
 
 
-@sandbox_cli.command("ls | list", examples=["hf sandbox ls"])
-def sandbox_ls(
-    namespace: NamespaceOpt = None,
-    token: TokenOpt = None,
-) -> None:
-    """List your running sandboxes (dedicated and shared)."""
-    api = get_hf_api(token=token)
-    rows = [
-        {
-            "id": info.id,
-            "kind": info.kind,
-            "image": info.image,
-            "flavor": info.flavor,
-            "created": info.created_at.strftime("%Y-%m-%d %H:%M:%S") if info.created_at else "N/A",
-        }
-        for info in _list_sandboxes(api, namespace=namespace)
-    ]
-    out.table(rows, id_key="id")
-    if not rows:
-        out.hint("Create one with `hf sandbox create` (or define a pool with `hf sandbox pool create`).")
-
-
 @sandbox_cli.command(
     "exec",
     context_settings={"ignore_unknown_options": True},
@@ -238,59 +211,6 @@ def sandbox_exec(
         raise typer.Exit(code=result.exit_code or 124)  # 124: conventional timeout exit code
     if result.exit_code != 0:
         raise typer.Exit(code=result.exit_code if result.exit_code is not None else 1)
-
-
-@sandbox_cli.command("ps", examples=["hf sandbox ps <sandbox_id>"])
-def sandbox_ps(
-    sandbox_id: SandboxIdArg,
-    namespace: NamespaceOpt = None,
-    token: TokenOpt = None,
-) -> None:
-    """List background processes running in a sandbox."""
-    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
-        rows = [
-            {
-                "pid": proc.pid,
-                "tag": proc.tag or "",
-                "status": "running" if proc.running else f"exited ({proc.exit_code})",
-                "command": proc.cmd if len(proc.cmd) <= 60 else proc.cmd[:57] + "...",
-            }
-            for proc in sandbox.processes()
-        ]
-    out.table(rows, id_key="pid")
-
-
-@sandbox_cli.command(
-    "logs",
-    examples=[
-        "hf sandbox logs <sandbox_id>",
-        "hf sandbox logs <sandbox_id> 1234 --follow",
-    ],
-)
-def sandbox_logs(
-    sandbox_id: SandboxIdArg,
-    pid: Annotated[
-        int | None,
-        typer.Argument(help="Process id (from `hf sandbox ps`). Optional when only one process is running."),
-    ] = None,
-    follow: Annotated[bool, typer.Option("-f", "--follow", help="Keep streaming until the process exits.")] = False,
-    namespace: NamespaceOpt = None,
-    token: TokenOpt = None,
-) -> None:
-    """Stream the stdout/stderr of a background process in a sandbox (started with `spawn`)."""
-    with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
-        if pid is None:
-            procs = sandbox.processes()
-            if not procs:
-                out.text("No background processes in this sandbox.")
-                return
-            if len(procs) > 1:
-                raise CLIError(f"Multiple processes running; pass a PID (see `hf sandbox ps {sandbox_id}`).")
-            pid = procs[0].pid
-        for stream, data in SandboxProcess(sandbox, pid=pid).logs(follow=follow):
-            target = sys.stdout if stream == "stdout" else sys.stderr
-            target.write(data)
-            target.flush()
 
 
 @sandbox_cli.command(
@@ -397,11 +317,10 @@ def sandbox_kill(
 # --------------------------------------------------------------------- pool subgroup
 #
 # A "pool" is a set of running host VMs sharing a `hf-sandbox-pool=<id>` job label. There
-# is NO local state: `pool create` warms one host (and stores the pool's config on it as a
-# secret); `pool spawn <id>` finds the pool's hosts via the label, packs a sandbox onto one
-# with room, or — once they all report full — boots a duplicate (fetching the config from a
-# running host). So pools are discoverable from any machine, and a pool stops existing once
-# all of its hosts are gone.
+# is NO local state: `pool create` warms one host (storing the pool's config in its env), and
+# `create --pool <id>` finds the pool's hosts via the label, packs a sandbox onto one with
+# room, or boots a duplicate once they all report full. So pools are discoverable from any
+# machine, and a pool stops existing once all of its hosts are gone.
 
 pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
 sandbox_cli.add_typer(pool_cli, name="pool")
@@ -499,7 +418,7 @@ def pool_ls(
     if not rows:
         out.hint("Create one with `hf sandbox pool create`.")
     else:
-        out.hint("Spawn a sandbox with `hf sandbox create --pool <id>`, or see running ones with `hf sandbox ls`.")
+        out.hint("Spawn a sandbox with `hf sandbox create --pool <id>`.")
 
 
 @pool_cli.command(
