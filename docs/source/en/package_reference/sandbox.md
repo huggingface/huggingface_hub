@@ -16,9 +16,9 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 ## Data structures
 
-### CommandResult
+### SandboxCommandResult
 
-[[autodoc]] CommandResult
+[[autodoc]] SandboxCommandResult
 
 ### SandboxProcess
 

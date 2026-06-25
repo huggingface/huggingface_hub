@@ -103,8 +103,8 @@ _SUBMOD_ATTRS = {
         "parse_huggingface_oauth",
     ],
     "_sandbox": [
-        "CommandResult",
         "Sandbox",
+        "SandboxCommandResult",
         "SandboxInfo",
         "SandboxPool",
         "SandboxProcess",
@@ -693,7 +693,6 @@ __all__ = [
     "ChatCompletionStreamOutputUsage",
     "Collection",
     "CollectionItem",
-    "CommandResult",
     "CommitInfo",
     "CommitOperation",
     "CommitOperationAdd",
@@ -818,6 +817,7 @@ __all__ = [
     "RepoStorageInfo",
     "RepoUrl",
     "Sandbox",
+    "SandboxCommandResult",
     "SandboxInfo",
     "SandboxPool",
     "SandboxProcess",
@@ -1283,8 +1283,8 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_huggingface_oauth,  # noqa: F401
     )
     from ._sandbox import (
-        CommandResult,  # noqa: F401
         Sandbox,  # noqa: F401
+        SandboxCommandResult,  # noqa: F401
         SandboxInfo,  # noqa: F401
         SandboxPool,  # noqa: F401
         SandboxProcess,  # noqa: F401

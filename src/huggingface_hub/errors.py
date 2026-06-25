@@ -569,7 +569,7 @@ class SandboxCommandError(SandboxError):
 
     Attributes:
         cmd: The command that failed.
-        result: The full `CommandResult` (exit_code, stdout, stderr, ...).
+        result: The full `SandboxCommandResult` (exit_code, stdout, stderr, ...).
     """
 
     def __init__(self, cmd, result) -> None:

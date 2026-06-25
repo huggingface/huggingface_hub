@@ -160,7 +160,7 @@ def _duration_to_secs(duration: int | float | str) -> int:
 
 
 @dataclass
-class CommandResult:
+class SandboxCommandResult:
     """Result of a command executed in a sandbox with [`Sandbox.run`]."""
 
     exit_code: int | None
@@ -176,7 +176,7 @@ class CommandResult:
 
     def __repr__(self) -> str:
         out = self.stdout if len(self.stdout) <= 80 else self.stdout[:77] + "..."
-        return f"CommandResult(exit_code={self.exit_code}, stdout={out!r}, duration_ms={self.duration_ms})"
+        return f"SandboxCommandResult(exit_code={self.exit_code}, stdout={out!r}, duration_ms={self.duration_ms})"
 
 
 @dataclass
@@ -835,7 +835,7 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
-    ) -> CommandResult:
+    ) -> SandboxCommandResult:
         """Run a command in the sandbox and wait for it, streaming output live.
 
         Args:
@@ -852,7 +852,7 @@ class Sandbox:
             on_stdout / on_stderr: Callbacks invoked with output chunks as they arrive.
             check: If True (default), raise [`SandboxCommandError`] on non-zero exit.
 
-        Returns: [`CommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
+        Returns: [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
         """
         payload = _exec_payload(cmd, shell)
         if env:
@@ -866,7 +866,7 @@ class Sandbox:
 
         stdout_parts: list[str] = []
         stderr_parts: list[str] = []
-        result: CommandResult | None = None
+        result: SandboxCommandResult | None = None
         with self._stream("POST", "/exec", json=payload) as response:
             for event in _iter_events(response):
                 if event["event"] == "stdout":
@@ -878,7 +878,7 @@ class Sandbox:
                     if on_stderr is not None:
                         on_stderr(event["data"])
                 elif event["event"] == "exit":
-                    result = CommandResult(
+                    result = SandboxCommandResult(
                         exit_code=event["exit_code"],
                         stdout="".join(stdout_parts),
                         stderr="".join(stderr_parts),

@@ -11,8 +11,8 @@ from huggingface_hub._sandbox import (
     HOST_LABEL,
     POOL_LABEL,
     SANDBOX_LABEL,
-    CommandResult,
     Sandbox,
+    SandboxCommandResult,
     SandboxPool,
     _derive_sandbox_token,
     _duration_to_secs,
@@ -51,11 +51,11 @@ class TestHelpers:
             _duration_to_secs("oops")
 
     def test_command_result_ok(self) -> None:
-        assert CommandResult(exit_code=0, stdout="", stderr="").ok
-        assert not CommandResult(exit_code=1, stdout="", stderr="").ok
+        assert SandboxCommandResult(exit_code=0, stdout="", stderr="").ok
+        assert not SandboxCommandResult(exit_code=1, stdout="", stderr="").ok
 
     def test_command_error_message(self) -> None:
-        result = CommandResult(exit_code=2, stdout="", stderr="boom")
+        result = SandboxCommandResult(exit_code=2, stdout="", stderr="boom")
         error = SandboxCommandError(cmd="make", result=result)
         assert "exited with code 2" in str(error)
         assert "boom" in str(error)
