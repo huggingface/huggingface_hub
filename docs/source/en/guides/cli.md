@@ -152,7 +152,6 @@ nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
 ```
 
 > [!TIP]
-> A handful of commands keep their own local formatting options. For example, `hf jobs ls` and `hf jobs scheduled ls` accept Go templates via `--format` (e.g. `--format '{{.id}} {{.status}}'`); `hf buckets sync` has its own `-q` / `--quiet` to control sync verbosity. In those cases the global flags are silently rewritten so user-facing behaviour stays unchanged.
 
 ## hf auth login
 
