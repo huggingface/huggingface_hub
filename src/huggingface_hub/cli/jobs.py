@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value]
+    hf jobs ls [-a] [-f key=value]
 
     # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
@@ -48,7 +48,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value]
+    hf jobs scheduled ls [-a] [-f key=value]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -531,13 +531,13 @@ def jobs_stats(
 
 
 @jobs_cli.command(
-    "ps",
+    "list | ls | ps",
     examples=[
-        "hf jobs ps",
-        "hf jobs ps -a",
-        "hf jobs ps --status running,scheduling",
-        "hf jobs ps --label env=prod --label team=ml",
-        "hf jobs ps --all --label hf-sandbox=1",
+        "hf jobs ls",
+        "hf jobs ls -a",
+        "hf jobs ls --status running,scheduling",
+        "hf jobs ls --label env=prod --label team=ml",
+        "hf jobs ls --all --label hf-sandbox=1",
     ],
 )
 def jobs_ps(
@@ -712,7 +712,7 @@ def jobs_cancel(
     examples=[
         "hf jobs wait <job_id>",
         "hf jobs wait <job_id_1> <job_id_2>",
-        "hf jobs ps -q | xargs hf jobs wait",
+        "hf jobs ls -q | xargs hf jobs wait",
     ],
 )
 def jobs_wait(
@@ -964,7 +964,7 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
+@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
 def scheduled_ps(
     all: Annotated[
         bool,

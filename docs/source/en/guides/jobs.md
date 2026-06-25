@@ -174,7 +174,7 @@ The same is available in the CLI with `hf jobs wait`, which exits with code 0 on
 hf jobs wait <job_id> && hf jobs run --detach python:3.12 python eval.py
 
 # Wait for all currently running jobs
-hf jobs ps -q | xargs hf jobs wait
+hf jobs ls -q | xargs hf jobs wait
 ```
 
 Note that a non-detached `hf jobs run` (or `hf jobs uv run`) also exits with a non-zero code if the Job fails, so `hf jobs run ... && next-step` chains correctly without an explicit wait.
