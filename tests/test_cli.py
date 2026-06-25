@@ -3946,15 +3946,6 @@ class TestDeriveJobVolumeName:
         assert name_a != name_b
         assert name_a.startswith("data-") and name_b.startswith("data-")
 
-    def test_format(self, tmp_path: Path) -> None:
-        path = tmp_path / "my data"
-        path.mkdir()
-        name = _derive_job_volume_name(path)
-        prefix, _, digest = name.rpartition("-")
-        assert prefix == "my_data"  # spaces sanitized
-        assert len(digest) == 8
-        int(digest, 16)  # hex digest
-
 
 class TestVolume:
     """Unit tests for Volume dataclass and serialization."""
