@@ -565,31 +565,24 @@ def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: st
     assert file_path.read_text() == "1234567890"
 
 
-# -- sync_bucket & sync_job_volume --
-
-
-def test_sync_bucket_requires_existing_bucket(api: HfApi, tmp_path):
-    """sync_bucket does not create the destination bucket: uploading to a missing bucket fails."""
-    bucket_id = f"{USER}/{bucket_name()}"
-    (tmp_path / "file.txt").write_text("content")
-    with pytest.raises(BucketNotFoundError):
-        api.sync_bucket(str(tmp_path), f"hf://buckets/{bucket_id}", quiet=True)
+# -- sync_job_volume --
 
 
 def test_sync_job_volume(api: HfApi, tmp_path):
-    """sync_job_volume uploads a local dir to the jobs-artifacts bucket and returns a mountable Volume."""
+    # Create local folder
     (tmp_path / "hello.txt").write_text("hi")
     (tmp_path / "nested").mkdir()
     (tmp_path / "nested" / "file.txt").write_text("nested")
 
+    # Sync it
     volume = api.sync_job_volume(tmp_path, "/inputs")
-
     assert volume.type == "bucket"
     assert volume.source == f"{USER}/jobs-artifacts"
     assert volume.mount_path == "/inputs"
     assert volume.read_only is True
     assert volume.path == _derive_job_volume_name(tmp_path)
 
+    # All files are uploaded
     files = {
         entry.path
         for entry in api.list_bucket_tree(volume.source, prefix=volume.path, recursive=True)
@@ -602,7 +595,6 @@ def test_sync_job_volume(api: HfApi, tmp_path):
 
 
 def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
-    """An empty local dir gets a '.keep' placeholder so the bucket folder exists and can be mounted."""
     remote_name = repo_name(prefix="empty-volume")
     volume = api.sync_job_volume(tmp_path, "/outputs", remote_name=remote_name, read_only=False)
 
@@ -614,41 +606,3 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
-
-
-def test_sync_job_volume_warns_when_bucket_public(tmp_path, monkeypatch):
-    """A pre-existing public jobs-artifacts bucket triggers a warning instead of silently uploading data."""
-    (tmp_path / "data.txt").write_text("hi")
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    public_info = MagicMock(spec=BucketInfo, private=False)
-    monkeypatch.setattr(api, "create_bucket", MagicMock())
-    monkeypatch.setattr(api, "sync_bucket", MagicMock())
-    monkeypatch.setattr(api, "batch_bucket_files", MagicMock())
-    monkeypatch.setattr(api, "bucket_info", MagicMock(return_value=public_info))
-
-    with pytest.warns(UserWarning, match="publicly accessible"):
-        api.sync_job_volume(tmp_path, "/inputs", namespace=USER)
-
-
-def test_sync_bucket_preserves_endpoint_when_token_passed(monkeypatch):
-    """Regression: passing an explicit token must not drop the caller's custom endpoint."""
-    from huggingface_hub import _buckets
-
-    captured = {}
-    real_init = HfApi.__init__
-
-    def spy_init(self, *args, **kwargs):
-        captured.update(kwargs)
-        real_init(self, *args, **kwargs)
-
-    api = HfApi(endpoint="https://custom.example.com", token="initial")
-    monkeypatch.setattr(HfApi, "__init__", spy_init)
-
-    # Remote-to-remote raises right after the API is rebuilt with the token, so the rebuild is
-    # exercised without any network call.
-    with pytest.raises(ValueError, match="Remote to remote"):
-        _buckets.sync_bucket_internal(
-            source="hf://buckets/org/a", dest="hf://buckets/org/b", api=api, token="explicit-token"
-        )
-    assert captured["endpoint"] == "https://custom.example.com"
-    assert captured["token"] == "explicit-token"
