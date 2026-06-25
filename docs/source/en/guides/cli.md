@@ -2022,6 +2022,16 @@ Use `--status` and `--label` in `hf jobs ps` to filter Jobs. `--status` takes on
 >>> hf jobs ps --status running --label env=prod --label team=ml
 ```
 
+By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal. Use `--limit` to change this, or `--limit 0` to show all of them:
+
+```bash
+# Show up to 500 Jobs
+>>> hf jobs ps -a --limit 500
+
+# Show all Jobs (no limit)
+>>> hf jobs ps -a --limit 0
+```
+
 <Tip warning={true}>
 
 `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.

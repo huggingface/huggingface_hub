@@ -64,6 +64,7 @@ Usage:
 
 """
 
+import itertools
 import multiprocessing
 import multiprocessing.pool
 import shutil
@@ -565,6 +566,13 @@ def jobs_ps(
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
         ),
     ] = None,
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
+        ),
+    ] = 100,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -613,7 +621,17 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
-    jobs = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
+    jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
+
+    # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
+    truncated = False
+    if limit > 0:
+        jobs = list(itertools.islice(jobs_iter, limit + 1))
+        if len(jobs) > limit:
+            truncated = True
+            jobs = jobs[:limit]
+    else:
+        jobs = list(jobs_iter)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     job_items: list[dict[str, Any]] = []
@@ -634,6 +652,8 @@ def jobs_ps(
         headers=["job_id", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
+    if truncated:
+        out.hint(f"Output truncated to {limit} Jobs. Use `--limit 0` to show all (or `--limit N`).")
     if not job_items:
         if raw_statuses or labels:
             filters_msg = ", ".join(
