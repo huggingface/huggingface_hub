@@ -15,13 +15,11 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-
 from huggingface_hub.utils import is_package_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
 logger = logging.get_logger(__name__)
-
 
 SMALL_MODEL_IDENTIFIER = "julien-c/bert-xsmall-dummy"
 DUMMY_DIFF_TOKENIZER_IDENTIFIER = "julien-c/dummy-diff-tokenizer"
