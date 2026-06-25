@@ -5,6 +5,7 @@ from typing import Generator
 
 import pytest
 from _pytest.fixtures import SubRequest
+from _pytest.skipping import evaluate_skip_marks
 
 import huggingface_hub
 from huggingface_hub import HfApi, RepoUrl, constants
@@ -178,7 +179,10 @@ def expect_deprecation_marker(request: SubRequest) -> Generator[None, None, None
     ```
     """
     function_names = [name for marker in request.node.iter_markers("deprecated") for name in marker.args]
-    if not function_names:
+    # If the test is statically skipped (`@pytest.mark.skip`/`skipif`), its body never runs and no
+    # warning is emitted; entering `pytest.warns` would then fail the item at teardown instead of
+    # reporting it as skipped. `evaluate_skip_marks` returns a truthy result only when it will skip.
+    if not function_names or evaluate_skip_marks(request.node):
         yield
         return
     with ExitStack() as stack:
