@@ -84,6 +84,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
+from .conftest import RepoFactory
 from .testing_constants import (
     ENDPOINT_STAGING,
     ENTERPRISE_ORG,
@@ -101,7 +102,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
-    RepoFactory,
     repo_name,
     rmtree_with_retry,
 )

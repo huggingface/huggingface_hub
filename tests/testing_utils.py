@@ -9,27 +9,18 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Optional, Protocol, TypeVar, Union
+from typing import Callable, Optional, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import httpx
 import pytest
 
-from huggingface_hub import RepoUrl
+
 from huggingface_hub.utils import is_package_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
 logger = logging.get_logger(__name__)
-
-
-class RepoFactory(Protocol):
-    """Type of the `repo_factory` fixture: create a temporary repo on staging and return its `RepoUrl`.
-
-    The created repo is automatically deleted when the test ends.
-    """
-
-    def __call__(self, repo_type: str = "model", **kwargs) -> RepoUrl: ...
 
 
 SMALL_MODEL_IDENTIFIER = "julien-c/bert-xsmall-dummy"

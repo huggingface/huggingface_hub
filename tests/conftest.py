@@ -1,7 +1,7 @@
 import os
 import shutil
 from contextlib import ExitStack
-from typing import Generator
+from typing import Generator, Protocol
 
 import pytest
 from _pytest.fixtures import SubRequest
@@ -18,7 +18,7 @@ from .testing_constants import (
     ENDPOINT_STAGING,
     TOKEN,
 )
-from .testing_utils import RepoFactory, parse_flag_from_env, repo_name, set_write_permission_and_retry
+from .testing_utils import parse_flag_from_env, repo_name, set_write_permission_and_retry
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -208,6 +208,15 @@ def api() -> HfApi:
 def api_prod() -> HfApi:
     """An unauthenticated `HfApi` client targeting the production Hub (read-only tests)."""
     return HfApi(endpoint=ENDPOINT_PRODUCTION)
+
+
+class RepoFactory(Protocol):
+    """Type of the `repo_factory` fixture: create a temporary repo on staging and return its `RepoUrl`.
+
+    The created repo is automatically deleted when the test ends.
+    """
+
+    def __call__(self, repo_type: str = "model", **kwargs) -> RepoUrl: ...
 
 
 @pytest.fixture
