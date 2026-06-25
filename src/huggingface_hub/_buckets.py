@@ -1096,7 +1096,6 @@ def sync_bucket_internal(
         ```
     """
     # Rebuild the API with the explicit token, preserving the caller's endpoint and other config
-    # (otherwise an HfApi pointing at a custom endpoint would silently fall back to the default Hub).
     if token is not None:
         from .hf_api import HfApi
 
