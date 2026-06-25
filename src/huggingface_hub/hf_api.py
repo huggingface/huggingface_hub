@@ -14384,8 +14384,8 @@ class HfApi:
         """Sync files between a local directory and a bucket.
 
         This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
-        (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket is
-        created automatically if it doesn't exist yet.
+        (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket must
+        already exist (create it first with [`create_bucket`]).
 
         Args:
             source (`str`, *optional*):

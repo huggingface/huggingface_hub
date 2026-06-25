@@ -913,8 +913,6 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
 
         # Execute batch operations
         if add_files or delete_paths:
-            # Auto-create the destination bucket if it doesn't exist yet.
-            api.create_bucket(bucket_id=bucket_id, exist_ok=True)
             if status:
                 parts = []
                 if add_files:
@@ -1021,8 +1019,8 @@ def sync_bucket_internal(
     """Sync files between a local directory and a bucket.
 
     This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
-    (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket is
-    created automatically if it doesn't exist yet.
+    (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket must
+    already exist (create it first with [`create_bucket`]).
 
     Args:
         source (`str`, *optional*):

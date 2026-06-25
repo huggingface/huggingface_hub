@@ -565,19 +565,15 @@ def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: st
     assert file_path.read_text() == "1234567890"
 
 
-# -- sync_bucket auto-create & sync_job_volume --
+# -- sync_bucket & sync_job_volume --
 
 
-def test_sync_bucket_auto_creates_bucket(api: HfApi, tmp_path):
-    """sync_bucket creates the destination bucket if it doesn't exist yet."""
+def test_sync_bucket_requires_existing_bucket(api: HfApi, tmp_path):
+    """sync_bucket does not create the destination bucket: uploading to a missing bucket fails."""
     bucket_id = f"{USER}/{bucket_name()}"
     (tmp_path / "file.txt").write_text("content")
-    try:
+    with pytest.raises(BucketNotFoundError):
         api.sync_bucket(str(tmp_path), f"hf://buckets/{bucket_id}", quiet=True)
-        files = {entry.path for entry in api.list_bucket_tree(bucket_id, recursive=True)}
-        assert files == {"file.txt"}
-    finally:
-        api.delete_bucket(bucket_id)
 
 
 def test_sync_job_volume(api: HfApi, tmp_path):
