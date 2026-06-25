@@ -111,32 +111,24 @@ SHARED_ID_SEP = "."
 # value still terminates because every round either places sandboxes or boots a new host.
 _MAX_PACK_ROUNDS = 8
 
-# Tries wget (alpine/busybox/debian), curl, then python3 (python:*-slim) to fetch
-# the static server binary, then replaces itself with it. Requires only /bin/sh.
-# Cold start is the priority, so we download straight away with whatever the image
-# already ships. Only if none of them is present do we fall back to installing wget
-# via the system package manager and retry — so minimal images (e.g. bare
-# ubuntu/debian/fedora) still work without every task adding a fetcher to its Dockerfile.
+# hf-mount path where the server's model repo is mounted on every sandbox job (see
+# _bootstrap_job_spec). The mount is transparent — it costs nothing unless the bootstrap
+# script actually reads from it, which only happens when the image ships no wget/curl.
+_SERVER_MOUNT_PATH = "/.hf-sbx-server"
+
+# Job startup script (needs only /bin/sh). It fetches the static server binary and exec's it.
+# Fast path: download from the HF CDN with whatever the image already ships (wget or curl).
+# Fallback: if neither is present, copy the binary off the hf-mounted model repo — transparent,
+# but the FUSE mount adds ~2-3s to cold start (and drops the executable bit, hence chmod). This
+# keeps minimal images (e.g. distroless-ish bases without a fetcher) working out of the box.
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
-dl() {
-  if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
-  elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
-  elif command -v python3 >/dev/null 2>&1; then python3 -c 'import os,urllib.request as u; r=u.Request(os.environ["SBX_SERVER_URL"],headers={"Authorization":"Bearer "+os.environ["SBX_DL_TOKEN"]}); open("/tmp/.sbx-server","wb").write(u.urlopen(r).read())'
-  else return 1; fi
-}
-if ! dl; then
-  # No wget/curl/python3 in the image: install wget via the system package manager, then retry.
-  if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -q wget ca-certificates
-  elif command -v apk >/dev/null 2>&1; then apk add --no-cache wget ca-certificates
-  elif command -v yum >/dev/null 2>&1; then yum install -y -q wget ca-certificates
-  elif command -v dnf >/dev/null 2>&1; then dnf install -y -q wget ca-certificates
-  else echo "hf-sandbox: image has none of wget/curl/python3 and no package manager to install one. Use an image that ships one of them." >&2; exit 96; fi
-  dl
-fi
+if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
+elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
+else cp "$SBX_SERVER_MOUNT/sbx-server" "$d"; fi
 chmod +x "$d"
-unset SBX_DL_TOKEN SBX_SERVER_URL
+unset SBX_DL_TOKEN SBX_SERVER_URL SBX_SERVER_MOUNT
 exec "$d"
 """
 
@@ -680,8 +672,9 @@ class Sandbox:
             start_timeout: Max seconds to wait for the sandbox to become ready.
             token: HF token override.
 
-        The image only needs `/bin/sh` plus one of `wget`/`curl`/`python3` to fetch the
-        sandbox server at startup (all common base images have one).
+        The image only needs `/bin/sh`. The sandbox server is downloaded at startup with
+        `wget`/`curl` if available, otherwise read off an always-mounted Hub repo (which
+        adds ~2-3s to cold start, so shipping `wget`/`curl` keeps it fast).
         """
         api = HfApi(token=token)
         hf_token = _effective_token(api)
@@ -1697,8 +1690,9 @@ def _bootstrap_job_spec(
 ) -> tuple[list[str], dict[str, Any], dict[str, Any], List[Volume]]:
     """Build the (command, env, secrets, volumes) to launch a job running sbx-server.
 
-    Shared by dedicated sandboxes and shared hosts: both download and exec the same
-    unified `sbx-server` binary at startup (via `/bin/sh` + wget/curl/python3).
+    Shared by dedicated sandboxes and shared hosts: both fetch and exec the same unified
+    `sbx-server` binary at startup (via `/bin/sh`) — downloading it with wget/curl, or
+    reading it off the always-mounted model repo when the image ships neither.
     """
     # Reserved SBX_* keys go last so user-provided env/secrets can't override them
     # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
@@ -1712,6 +1706,10 @@ def _bootstrap_job_spec(
 
     job_env["SBX_SERVER_URL"] = f"{api.endpoint}/{constants.SANDBOX_SERVER_REPO}/resolve/main/sbx-server"
     job_secrets["SBX_DL_TOKEN"] = hf_token
+    # Always mount the server repo as a transparent fallback for images without wget/curl.
+    # It's only read (paying the ~2-3s FUSE cost) when the bootstrap script can't download.
+    job_env["SBX_SERVER_MOUNT"] = _SERVER_MOUNT_PATH
+    job_volumes.append(Volume(type="model", source=constants.SANDBOX_SERVER_REPO, mount_path=_SERVER_MOUNT_PATH))
     command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
     return command, job_env, job_secrets, job_volumes
 
