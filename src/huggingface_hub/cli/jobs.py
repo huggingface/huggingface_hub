@@ -134,7 +134,7 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
     return parsed_job_id, extracted_namespace
 
 
-def _parse_job_volumes(volumes: list[str] | None, *, api: HfApi, namespace: str | None) -> list[Volume] | None:
+def _parse_and_sync_job_volumes(volumes: list[str] | None, *, api: HfApi, namespace: str | None) -> list[Volume] | None:
     """Parse `-v` specs for Jobs commands.
 
     Same as [`parse_volumes`] but the source side can also be a local directory: it is synced to a
@@ -399,7 +399,7 @@ def jobs_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_job_volumes(volume, api=api, namespace=namespace),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -950,7 +950,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_job_volumes(volume, api=api, namespace=namespace),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -1011,7 +1011,7 @@ def scheduled_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_job_volumes(volume, api=api, namespace=namespace),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -1245,7 +1245,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=_parse_job_volumes(volume, api=api, namespace=namespace),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
