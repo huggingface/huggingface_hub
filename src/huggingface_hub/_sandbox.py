@@ -114,14 +114,14 @@ _TERMINAL_STAGES = ("COMPLETED", "ERROR", "DELETED", "CANCELED")
 # value still terminates because every round either places sandboxes or boots a new host.
 _MAX_PACK_ROUNDS = 8
 
-# hf-mount path where the server's model repo is mounted on every sandbox job (see
-# _bootstrap_job_spec). The mount is transparent — it costs nothing unless the bootstrap
+# hf-mount path where the server bucket is mounted on every sandbox job (see
+# _bootstrap_job_spec). The mount is transparent: it costs nothing unless the bootstrap
 # script actually reads from it, which only happens when the image ships no wget/curl.
 _SERVER_MOUNT_PATH = "/.hf-sbx-server"
 
 # Job startup script (needs only /bin/sh). It fetches the static server binary and exec's it.
 # Fast path: download from the HF CDN with whatever the image already ships (wget or curl).
-# Fallback: if neither is present, copy the binary off the hf-mounted model repo — transparent,
+# Fallback: if neither is present, copy the binary off the hf-mounted server bucket. Transparent,
 # but the FUSE mount adds ~2-3s to cold start (and drops the executable bit, hence chmod). This
 # keeps minimal images (e.g. distroless-ish bases without a fetcher) working out of the box.
 _BOOTSTRAP_DOWNLOAD = """\
@@ -591,7 +591,7 @@ class Sandbox:
             token: HF token override.
 
         The image only needs `/bin/sh`. The sandbox server is downloaded at startup with
-        `wget`/`curl` if available, otherwise read off an always-mounted Hub repo (which
+        `wget`/`curl` if available, otherwise read off an always-mounted server bucket (which
         adds ~2-3s to cold start, so shipping `wget`/`curl` keeps it fast).
         """
         api = HfApi(token=token)
@@ -1564,8 +1564,8 @@ def _bootstrap_job_spec(
     """Build the (command, env, secrets, volumes) to launch a job running sbx-server.
 
     Shared by dedicated sandboxes and shared hosts: both fetch and exec the same unified
-    `sbx-server` binary at startup (via `/bin/sh`) — downloading it with wget/curl, or
-    reading it off the always-mounted model repo when the image ships neither.
+    `sbx-server` binary at startup (via `/bin/sh`), downloading it with wget/curl, or
+    reading it off the always-mounted server bucket when the image ships neither.
     """
     # Reserved SBX_* keys go last so user-provided env/secrets can't override them
     # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
@@ -1577,12 +1577,14 @@ def _bootstrap_job_spec(
     if forward_hf_token:
         job_secrets["HF_TOKEN"] = hf_token
 
-    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/{constants.SANDBOX_SERVER_REPO}/resolve/main/sbx-server"
+    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/sbx-server"
     job_secrets["SBX_DL_TOKEN"] = hf_token
-    # Always mount the server repo as a transparent fallback for images without wget/curl.
+    # Always mount the server bucket as a transparent fallback for images without wget/curl.
     # It's only read (paying the ~2-3s FUSE cost) when the bootstrap script can't download.
     job_env["SBX_SERVER_MOUNT"] = _SERVER_MOUNT_PATH
-    job_volumes.append(Volume(type="model", source=constants.SANDBOX_SERVER_REPO, mount_path=_SERVER_MOUNT_PATH))
+    job_volumes.append(
+        Volume(type="bucket", source=constants.SANDBOX_SERVER_BUCKET, mount_path=_SERVER_MOUNT_PATH, read_only=True)
+    )
     command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
     return command, job_env, job_secrets, job_volumes
 
