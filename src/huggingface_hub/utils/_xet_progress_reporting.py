@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from functools import partial
 from typing import Any
 
 from . import is_google_colab, is_notebook
@@ -11,11 +10,9 @@ def _format_speed_postfix(speed: float | None) -> str:
     return f"{s}B/s  ".rjust(10, " ")
 
 
-# Transfer byte count is hard to predict (dedup/compression), so we show "?" and no percentage.
-# tqdm still needs an internal total for the bar graphic — seeded from file size when known.
-XET_TRANSFER_BAR_FORMAT = "{desc}: {bar}| {n_fmt:>5}B / ?{postfix:>12}"
+# Transfer byte count is hard to predict (dedup/compression), so we omit a total and show bytes only.
+XET_TRANSFER_BAR_FORMAT = "{desc}: {bar}| {n_fmt:>5}B{postfix:>12}"
 XET_BYTES_BAR_FORMAT = "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
-XET_TRANSFER_BAR_MIN_TOTAL = 1024 * 1024
 
 
 def _set_monotonic_total(bar, total: int | None) -> None:
@@ -24,69 +21,30 @@ def _set_monotonic_total(bar, total: int | None) -> None:
     bar.total = max(bar.total or 0, total)
 
 
-def _xet_group_increments(
-    group_report,
-    prev_bytes: int,
-    prev_transfer: int,
-) -> tuple[int, int, int, int]:
-    bytes_inc = max(0, group_report.total_bytes_completed - prev_bytes)
-    transfer_inc = max(0, group_report.total_transfer_bytes_completed - prev_transfer)
-    return bytes_inc, transfer_inc, group_report.total_bytes_completed, group_report.total_transfer_bytes_completed
-
-
 def _update_transfer_bar(bar, inc: int) -> None:
+    """Update the transfer bar and grow its hidden total so the bar graphic advances.
+
+    Network bytes are hard to predict (dedup/compression), so the display omits a denominator.
+    tqdm still needs an internal total for the bar width — seeded from file size when known,
+    then expanded here if bytes received exceed that estimate.
+    """
     n_after = getattr(bar, "n", 0) + inc
     current_total = getattr(bar, "total", 0) or 0
     if n_after > 0 and current_total < n_after:
-        bar.total = max(current_total, int(n_after * 1.25) + 1, XET_TRANSFER_BAR_MIN_TOTAL)
+        bar.total = max(current_total, int(n_after * 1.25) + 1)
     bar.update(inc)
 
 
 def _finish_transfer_bar(bar) -> None:
+    """Snap the transfer bar to 100% when downloading stops.
+
+    Transfer totals are seeded from file size, but actual network bytes are often lower.
+    Set ``total = n`` so the bar fills completely instead of stopping partway.
+    """
     n = getattr(bar, "n", 0)
     if n > 0 and hasattr(bar, "total") and bar.total != n:
         bar.total = n
         bar.refresh()
-
-
-class XetAggregatedProgressProxy:
-    """Routes per-file Xet download progress into shared transfer and reconstruction bars."""
-
-    def __init__(self, reconstruction_bar, transfer_bar, *, total: int | None = None, initial: int = 0, **kwargs):
-        self._reconstruction_bar = reconstruction_bar
-        self._transfer_bar = transfer_bar
-        if total is not None:
-            reconstruction_bar.total = (reconstruction_bar.total or 0) + total
-            transfer_bar.total = (transfer_bar.total or 0) + total
-            reconstruction_bar.refresh()
-        if initial:
-            reconstruction_bar.update(initial)
-
-    def __enter__(self) -> "XetAggregatedProgressProxy":
-        return self
-
-    def __exit__(self, *args) -> None:
-        pass
-
-    def close(self) -> None:
-        """No-op: parent bars are owned and closed by the caller (e.g. snapshot_download)."""
-
-    def update(self, n: int | float | None = 1) -> None:
-        self._reconstruction_bar.update(n)
-
-    def update_transfer(self, n: int | float | None = 1) -> None:
-        _update_transfer_bar(self._transfer_bar, int(n or 0))
-
-    def set_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-        self._reconstruction_bar.set_postfix_str(postfix, refresh=refresh)
-
-    def set_transfer_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-        self._transfer_bar.set_postfix_str(postfix, refresh=refresh)
-
-
-def make_xet_aggregated_progress_proxy(reconstruction_bar, transfer_bar):
-    """Build a tqdm_class-compatible factory for snapshot-style aggregated download bars."""
-    return partial(XetAggregatedProgressProxy, reconstruction_bar, transfer_bar)
 
 
 class XetDownloadProgressReporter:
@@ -113,10 +71,12 @@ class XetDownloadProgressReporter:
         self._prev_transfer_bytes_completed = 0
 
         cls = tqdm_class or tqdm
-        use_aggregated = (
-            external_reconstruction_bar is not None
-            and callable(getattr(external_reconstruction_bar, "update_transfer", None))
-        ) or not (isinstance(cls, type) and issubclass(cls, tqdm))
+        routes_transfer_via_reconstruction = external_reconstruction_bar is not None and callable(
+            getattr(external_reconstruction_bar, "update_transfer", None)
+        )
+        uses_aggregated_tqdm_class = external_reconstruction_bar is None and not (
+            isinstance(cls, type) and issubclass(cls, tqdm)
+        )
 
         if external_reconstruction_bar is not None:
             self.reconstruction_bar = external_reconstruction_bar
@@ -136,8 +96,11 @@ class XetDownloadProgressReporter:
             )
             self._owns_reconstruction_bar = True
 
-        if use_aggregated:
+        if routes_transfer_via_reconstruction or uses_aggregated_tqdm_class:
             self.transfer_bar = self.reconstruction_bar
+            self._owns_transfer_bar = False
+        elif external_reconstruction_bar is not None:
+            self.transfer_bar = None
             self._owns_transfer_bar = False
         else:
             self.transfer_bar = _create_progress_bar(
@@ -145,7 +108,7 @@ class XetDownloadProgressReporter:
                 log_level=log_level,
                 name=f"{name}.transfer" if name else None,
                 desc=transfer_desc,
-                total=total if total else XET_TRANSFER_BAR_MIN_TOTAL,
+                total=total,
                 unit="B",
                 unit_scale=True,
                 position=position,
@@ -156,44 +119,48 @@ class XetDownloadProgressReporter:
 
     @property
     def _aggregated(self) -> bool:
-        return self.transfer_bar is self.reconstruction_bar
+        return self.transfer_bar is not None and self.transfer_bar is self.reconstruction_bar
 
     def update_progress(self, group_report, _item_reports: dict | None = None) -> None:
-        bytes_inc, transfer_inc, self._prev_bytes_completed, self._prev_transfer_bytes_completed = (
-            _xet_group_increments(group_report, self._prev_bytes_completed, self._prev_transfer_bytes_completed)
-        )
+        bytes_inc = max(0, group_report.total_bytes_completed - self._prev_bytes_completed)
+        transfer_inc = max(0, group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed)
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
 
         if bytes_inc > 0:
             self.reconstruction_bar.update(bytes_inc)
-            if hasattr(group_report, "total_bytes_completion_rate"):
-                self.reconstruction_bar.set_postfix_str(
-                    _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
-                )
+            self.reconstruction_bar.set_postfix_str(
+                _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
+            )
 
-        if transfer_inc > 0:
+        if transfer_inc > 0 and self.transfer_bar is not None:
             if self._aggregated:
                 self.reconstruction_bar.update_transfer(transfer_inc)
-                if hasattr(group_report, "total_transfer_bytes_completion_rate"):
-                    self.reconstruction_bar.set_transfer_postfix_str(
-                        _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
-                    )
+                self.reconstruction_bar.set_transfer_postfix_str(
+                    _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                )
             else:
                 _update_transfer_bar(self.transfer_bar, transfer_inc)
-                if hasattr(group_report, "total_transfer_bytes_completion_rate"):
-                    self.transfer_bar.set_postfix_str(
-                        _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
-                    )
+                self.transfer_bar.set_postfix_str(
+                    _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                )
 
-        if hasattr(self.reconstruction_bar, "total") and group_report.total_bytes:
+        if group_report.total_bytes:
             _set_monotonic_total(self.reconstruction_bar, group_report.total_bytes)
 
     def close(self) -> None:
-        if self._owns_transfer_bar and not self._aggregated:
+        """Close bars owned by this reporter.
+
+        Standalone downloads finish the transfer bar first (snap hidden total to ``n``), then close it.
+        Aggregated and external bars (e.g. snapshot ``_AggregatedTqdm`` or a reused ``_tqdm_bar``) are left
+        open — their parent caller owns their lifecycle.
+        """
+        if self.transfer_bar is not None and self._owns_transfer_bar:
             _finish_transfer_bar(self.transfer_bar)
+            if hasattr(self.transfer_bar, "close"):
+                self.transfer_bar.close()
         if self._owns_reconstruction_bar and hasattr(self.reconstruction_bar, "close"):
             self.reconstruction_bar.close()
-        if self._owns_transfer_bar and not self._aggregated and hasattr(self.transfer_bar, "close"):
-            self.transfer_bar.close()
 
     def __enter__(self) -> "XetDownloadProgressReporter":
         return self
@@ -202,7 +169,7 @@ class XetDownloadProgressReporter:
         self.close()
 
 
-class XetProgressReporter:
+class XetUploadProgressReporter:
     """
     Reports on progress for Xet uploads.
 
@@ -344,9 +311,10 @@ class XetProgressReporter:
                     bar.refresh()
 
         # Update overall bars
-        bytes_inc, transfer_inc, self._prev_bytes_completed, self._prev_transfer_bytes_completed = (
-            _xet_group_increments(group_report, self._prev_bytes_completed, self._prev_transfer_bytes_completed)
-        )
+        bytes_inc = max(0, group_report.total_bytes_completed - self._prev_bytes_completed)
+        transfer_inc = max(0, group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed)
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
 
         self.data_processing_bar.total = group_report.total_bytes
         total_files_count = self.total_files if self.total_files is not None else len(self.known_items)

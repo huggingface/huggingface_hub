@@ -154,7 +154,7 @@ from .utils.endpoint_helpers import _is_emission_within_threshold
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
-    from .utils._xet_progress_reporting import XetProgressReporter
+    from .utils._xet_progress_reporting import XetUploadProgressReporter
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
@@ -13881,10 +13881,10 @@ class HfApi:
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         if add and not are_progress_bars_disabled():
-            progress = XetProgressReporter(total_files=len(add))
+            progress = XetUploadProgressReporter(total_files=len(add))
         else:
             progress = None
 
@@ -13911,7 +13911,7 @@ class HfApi:
         copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
         delete: list[str | _BucketDeleteFile] | None = None,
         token: str | bool | None = None,
-        _progress: XetProgressReporter | None = None,
+        _progress: XetUploadProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
@@ -13956,7 +13956,7 @@ class HfApi:
             xet_connection_info_refresh_url,
             xet_headers_without_auth,
         )
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         headers = self._build_hf_headers(token=token)
 
@@ -13980,7 +13980,7 @@ class HfApi:
                 progress.reset_for_next_commit()
                 progress_callback = progress.update_progress
             elif not are_progress_bars_disabled():
-                progress = XetProgressReporter()
+                progress = XetUploadProgressReporter()
                 progress_callback = progress.update_progress
             else:
                 progress, progress_callback = None, None
