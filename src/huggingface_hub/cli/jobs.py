@@ -144,7 +144,7 @@ def _parse_job_volumes(volumes: list[str] | None, *, api: HfApi, namespace: str 
     if not volumes:
         return None
 
-    result: "list[Volume]" = []
+    result: list[Volume] = []
     for raw_spec in volumes:
         if raw_spec.startswith(constants.HF_PROTOCOL):
             result.extend(parse_volumes([raw_spec]) or [])
