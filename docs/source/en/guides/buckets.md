@@ -557,7 +557,7 @@ Notes:
 
 ## Sync directories
 
-The `hf buckets sync` command (and its API equivalent [`sync_bucket`]) is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed. When uploading, the destination bucket must already exist (create it first with `hf buckets create`).
+The `hf buckets sync` command (and its API equivalent [`sync_bucket`]) is the most powerful way to transfer files between a local directory and a bucket. It compares source and destination, and only transfers files that have changed.
 
 ### Basic sync
 
