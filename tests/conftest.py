@@ -154,7 +154,7 @@ def clear_lru_cache():
 
 
 @pytest.fixture(autouse=True)
-def production_endpoint(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+def production_endpoint_marker(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point the Hub at production for tests marked with `@pytest.mark.production`.
 
     Mirrors the former `with_production_testing` decorator: patches both `ENDPOINT` and the
