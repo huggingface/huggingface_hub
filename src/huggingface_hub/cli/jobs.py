@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value]
+    hf jobs ls [-a] [-f key=value]
 
     # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
@@ -48,7 +48,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value]
+    hf jobs scheduled ls [-a] [-f key=value]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -64,6 +64,7 @@ Usage:
 
 """
 
+import itertools
 import multiprocessing
 import multiprocessing.pool
 import shutil
@@ -531,13 +532,13 @@ def jobs_stats(
 
 
 @jobs_cli.command(
-    "ps",
+    "list | ls | ps",
     examples=[
-        "hf jobs ps",
-        "hf jobs ps -a",
-        "hf jobs ps --status running,scheduling",
-        "hf jobs ps --label env=prod --label team=ml",
-        "hf jobs ps --all --label hf-sandbox=1",
+        "hf jobs ls",
+        "hf jobs ls -a",
+        "hf jobs ls --status running,scheduling",
+        "hf jobs ls --label env=prod --label team=ml",
+        "hf jobs ls --all --label hf-sandbox=1",
     ],
 )
 def jobs_ps(
@@ -565,6 +566,13 @@ def jobs_ps(
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
         ),
     ] = None,
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
+        ),
+    ] = 100,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -613,7 +621,17 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
-    jobs = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
+    jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
+
+    # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
+    truncated = False
+    if limit > 0:
+        jobs = list(itertools.islice(jobs_iter, limit + 1))
+        if len(jobs) > limit:
+            truncated = True
+            jobs = jobs[:limit]
+    else:
+        jobs = list(jobs_iter)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     job_items: list[dict[str, Any]] = []
@@ -634,6 +652,8 @@ def jobs_ps(
         headers=["job_id", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
+    if truncated:
+        out.hint(f"Output truncated to {limit} Jobs. Use `--limit 0` to show all (or `--limit N`).")
     if not job_items:
         if raw_statuses or labels:
             filters_msg = ", ".join(
@@ -712,7 +732,7 @@ def jobs_cancel(
     examples=[
         "hf jobs wait <job_id>",
         "hf jobs wait <job_id_1> <job_id_2>",
-        "hf jobs ps -q | xargs hf jobs wait",
+        "hf jobs ls -q | xargs hf jobs wait",
     ],
 )
 def jobs_wait(
@@ -964,7 +984,7 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
+@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
 def scheduled_ps(
     all: Annotated[
         bool,
