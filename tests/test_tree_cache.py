@@ -39,9 +39,8 @@ COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"
 
 def _entries():
     return {
-        "config.json": TreeCacheEntry(path="config.json", size=5, blob_id="blob-config"),
+        "config.json": TreeCacheEntry(size=5, blob_id="blob-config"),
         "model.safetensors": TreeCacheEntry(
-            path="model.safetensors",
             size=42,
             blob_id="blob-model",
             lfs_sha256="sha256-model",
