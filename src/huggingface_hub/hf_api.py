@@ -13182,8 +13182,6 @@ class HfApi:
             # A folder cannot be empty in a bucket, and mounting a non-existent folder fails the Job.
             # Upload a placeholder file so an empty directory (e.g. an output dir) can still be mounted.
             self.batch_bucket_files(bucket_id, add=[(b"", f"{folder}/.keep")], token=token)
-        uri = HfUri(type="bucket", id=bucket_id, path_in_repo=folder)
-        print(f"Local data from '{source}' is available at: {uri.to_url(self.endpoint)}")
 
         return Volume(type="bucket", source=bucket_id, mount_path=mount_path, path=folder, read_only=read_only)
 
