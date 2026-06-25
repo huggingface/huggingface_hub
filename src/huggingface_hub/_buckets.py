@@ -1095,7 +1095,7 @@ def sync_bucket_internal(
         >>> api.sync_bucket(apply="sync-plan.jsonl")
         ```
     """
-    # Rebuild the API with the explicit token, preserving the caller's endpoint and other config
+    # Build API with token if needed
     if token is not None:
         from .hf_api import HfApi
 
