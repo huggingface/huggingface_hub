@@ -12,7 +12,7 @@ Hugging Face Hub CLI
 **Usage**:
 
 ```console
-$ hf [OPTIONS] COMMAND [ARGS]...
+$ hf [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
@@ -3139,7 +3139,7 @@ Manage repos on the Hub. [alias: repo]
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] COMMAND [ARGS]...
+$ hf repos [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
