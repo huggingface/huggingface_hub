@@ -1019,8 +1019,7 @@ def sync_bucket_internal(
     """Sync files between a local directory and a bucket.
 
     This is equivalent to the ``hf buckets sync`` CLI command. One of ``source`` or ``dest`` must be a bucket path
-    (``hf://buckets/...``) and the other must be a local directory path. When uploading, the destination bucket must
-    already exist (create it first with [`create_bucket`]).
+    (``hf://buckets/...``) and the other must be a local directory path.
 
     Args:
         source (`str`, *optional*):
