@@ -173,7 +173,7 @@ class HFCliTyperGroup(TyperGroup):
                 matches = difflib.get_close_matches(cmd_name, visible_names)
                 if matches:
                     suggestions = ", ".join(f"'{m}'" for m in matches)
-                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                    setattr(e, "message", f"{e.message.rstrip('.')}. Did you mean {suggestions}?")
                 items = [
                     (name, sub.get_short_help_str(limit=80))
                     for name in self.list_commands(ctx)
@@ -541,8 +541,8 @@ def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[s
     lines.append(f"\nRun '{cmd_path} --help' for full details.")
     if isinstance(error, click.NoSuchOption) and error.possibilities:
         lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
-        error.possibilities = []
-    error.message += "\n".join(lines)
+        setattr(error, "possibilities", [])
+    setattr(error, "message", error.message + "\n".join(lines))
 
 
 def fallback_typer_group_factory(
