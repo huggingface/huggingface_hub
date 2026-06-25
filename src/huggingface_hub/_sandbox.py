@@ -69,6 +69,7 @@ from ._space_api import Volume
 from .errors import HfHubHTTPError, SandboxCommandError, SandboxError
 from .hf_api import HfApi, JobInfo
 from .utils import get_token, logging
+from .utils._parsing import parse_duration
 
 
 logger = logging.get_logger(__name__)
@@ -146,16 +147,7 @@ def _duration_to_secs(duration: int | float | str) -> int:
     """Parse a duration like 300, "300s", "10m", "2h", "1d" into seconds."""
     if isinstance(duration, (int, float)):
         return int(duration)
-    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-    duration = duration.strip().lower()
-    unit = 1
-    if duration and duration[-1] in units:
-        unit = units[duration[-1]]
-        duration = duration[:-1]
-    try:
-        return int(float(duration) * unit)
-    except ValueError:
-        raise ValueError(f"Invalid duration: {duration!r}. Use e.g. 300, '300s', '10m', '2h'.") from None
+    return parse_duration(duration)
 
 
 @dataclass
@@ -992,10 +984,7 @@ class SandboxPool:
         # Cold path: find a running host via labels and rebuild the config from its job spec.
         api = HfApi(token=token)
         job = _find_pool_host_job(api, pool_id, namespace=namespace)
-        env = job.environment or {}
-        if not isinstance(env, dict) or "SBX_CAPACITY" not in env:
-            # list_jobs may omit env; fetch the full spec.
-            env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}
+        env = _host_env(api, job, namespace=namespace)
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
         max_hosts_raw = env.get("SBX_MAX_HOSTS")
         return cls(
@@ -1306,28 +1295,19 @@ class SandboxPool:
         host's free capacity is read from the server, so packing stays accurate.
         """
         known = {host.job_id for host in self._hosts}
-        matches = []
-        for job in self._api.list_jobs(namespace=self._namespace):
-            labels = job.labels or {}
-            if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING" or job.id in known:
-                continue
-            if labels.get(POOL_LABEL) != self.name:
-                continue
-            # The label already pins the host to this exact pool (one image/flavor by
-            # construction), so image/flavor are redundant here.
-            matches.append(job)
+        matches = [
+            job
+            for job in self._api.list_jobs(namespace=self._namespace)
+            if job.id not in known and _is_running_host(job, self.name)
+        ]
 
         for job in matches:
             server = None
             try:
                 server = _connect_host(self._api, job.id, namespace=self._namespace)
-                # Capacity comes from the host's SBX_CAPACITY env. list_jobs may omit env, so
-                # fall back to inspect_job for it (same as SandboxPool.connect) — otherwise an
-                # adopted host would silently pack at the pool default and mis-pack.
-                env = job.environment if isinstance(job.environment, dict) else {}
-                if "SBX_CAPACITY" not in env:
-                    env = self._api.inspect_job(job_id=job.id, namespace=self._namespace).environment or {}
-                    env = env if isinstance(env, dict) else {}
+                # Capacity comes from the host's SBX_CAPACITY env; otherwise an adopted host
+                # would silently pack at the pool default and mis-pack.
+                env = _host_env(self._api, job, namespace=self._namespace)
                 server.capacity = int(env.get("SBX_CAPACITY", self.sandboxes_per_host))
                 server.live = len(server.request("GET", "/v1/sandboxes").json())
             except (SandboxError, httpx.HTTPError, HfHubHTTPError) as e:
@@ -1593,11 +1573,28 @@ def _bootstrap_job_spec(
     return command, job_env, job_secrets, job_volumes
 
 
+def _is_running_host(job: JobInfo, pool_id: str | None = None) -> bool:
+    """True if `job` is a RUNNING sandbox host, optionally scoped to pool `pool_id`."""
+    labels = job.labels or {}
+    if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING":
+        return False
+    return pool_id is None or labels.get(POOL_LABEL) == pool_id
+
+
+def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, Any]:
+    """Return a host job's env vars (where pool config lives), fetching the full spec via
+    inspect_job when list_jobs omitted them."""
+    env = job.environment if isinstance(job.environment, dict) else {}
+    if "SBX_CAPACITY" not in env:
+        env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}
+        env = env if isinstance(env, dict) else {}
+    return env
+
+
 def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None) -> JobInfo:
     """Return any running host job belonging to `pool_id` (found via the pool label)."""
     for job in api.list_jobs(namespace=namespace):
-        labels = job.labels or {}
-        if labels.get(POOL_LABEL) == pool_id and labels.get(HOST_LABEL) and job.status.stage == "RUNNING":
+        if _is_running_host(job, pool_id):
             return job
     raise SandboxError(
         f"No running host found for pool '{pool_id}'. The pool has stopped "

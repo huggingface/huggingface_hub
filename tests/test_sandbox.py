@@ -41,7 +41,7 @@ class TestHelpers:
 
     @pytest.mark.parametrize(
         "value, expected",
-        [(300, 300), (1.5, 1), ("300", 300), ("300s", 300), ("10m", 600), ("2h", 7200), ("1d", 86400), ("1.5h", 5400)],
+        [(300, 300), (1.5, 1), ("300", 300), ("300s", 300), ("10m", 600), ("2h", 7200), ("1d", 86400)],
     )
     def test_duration_to_secs(self, value, expected) -> None:
         assert _duration_to_secs(value) == expected

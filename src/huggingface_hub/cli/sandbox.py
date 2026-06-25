@@ -47,6 +47,7 @@ from huggingface_hub._sandbox import (
     SHARED_ID_SEP,
     Sandbox,
     SandboxPool,
+    _is_running_host,
     _split_sandbox_id,
 )
 from huggingface_hub._sandbox_cache import delete_pool_cache
@@ -397,9 +398,10 @@ def pool_ls(
     api = get_hf_api(token=token)
     pools: dict[str, dict[str, Any]] = {}
     for job in api.list_jobs(namespace=namespace):
-        labels = job.labels or {}
-        pid = labels.get(POOL_LABEL)
-        if not pid or not labels.get(HOST_LABEL) or job.status.stage != "RUNNING":
+        if not _is_running_host(job):
+            continue
+        pid = (job.labels or {}).get(POOL_LABEL)
+        if not pid:
             continue
         env = job.environment if isinstance(job.environment, dict) else {}
         info = pools.setdefault(
@@ -433,11 +435,7 @@ def pool_delete(
 ) -> None:
     """Terminate every host VM of a pool (and therefore all its sandboxes)."""
     api = get_hf_api(token=token)
-    hosts = [
-        job
-        for job in api.list_jobs(namespace=namespace)
-        if (job.labels or {}).get(POOL_LABEL) == pool_id and job.status.stage == "RUNNING"
-    ]
+    hosts = [job for job in api.list_jobs(namespace=namespace) if _is_running_host(job, pool_id)]
     if not hosts:
         delete_pool_cache(pool_id)  # nothing running; clear any stale local cache too
         out.text(f"No running hosts for pool '{pool_id}'.")
