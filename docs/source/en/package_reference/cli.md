@@ -12,7 +12,7 @@ Hugging Face Hub CLI
 **Usage**:
 
 ```console
-$ hf [OPTIONS] COMMAND [ARGS]...
+$ hf [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
@@ -2289,6 +2289,9 @@ Learn more
 
 List Jobs.
 
+Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
+labels. A Job must match every filter to be listed.
+
 **Usage**:
 
 ```console
@@ -2297,15 +2300,20 @@ $ hf jobs ps [OPTIONS]
 
 **Options**:
 
-* `-a, --all`: Show all Jobs (default shows just running)
+* `-a, --all`: Show all Jobs (default shows running and scheduling). Cannot be combined with --status.
+* `--status [COMPLETED|CANCELED|ERROR|DELETED|SCHEDULING|RUNNING]`: Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.
+* `-l, --label TEXT`: Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
+* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs ps
   $ hf jobs ps -a
+  $ hf jobs ps --status running,scheduling
+  $ hf jobs ps --label env=prod --label team=ml
+  $ hf jobs ps --all --label hf-sandbox=1
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3131,7 +3139,7 @@ Manage repos on the Hub. [alias: repo]
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] COMMAND [ARGS]...
+$ hf repos [OPTIONS] [COMMAND] [ARGS]...
 ```
 
 **Options**:
