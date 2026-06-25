@@ -13,7 +13,7 @@
 # limitations under the License.
 """Pretty ANSI help formatter for the `hf` CLI."""
 
-from collections.abc import Sequence
+from collections.abc import Iterable
 
 import click
 
@@ -25,7 +25,7 @@ class StyledHelpFormatter(click.HelpFormatter):
         styled = ANSI.underline(heading + ":")
         self.write(f"{'':>{self.current_indent}}{styled}\n")
 
-    def write_dl(self, rows: Sequence[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
+    def write_dl(self, rows: Iterable[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
         rows = [(ANSI.bold(first), second) for first, second in rows]
         super().write_dl(rows, col_max=col_max, col_spacing=col_spacing)
 
