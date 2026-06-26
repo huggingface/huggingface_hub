@@ -536,8 +536,8 @@ def ls(
     incomplete_files, incomplete_size = _scan_incomplete_files(cache_dir)
     if incomplete_files:
         out.hint(
-            f"Found {len(incomplete_files)} incomplete download(s) totalling {_format_size(incomplete_size)} "
-            "(leftovers from interrupted downloads). Remove them with 'hf cache prune'."
+            f"Found {len(incomplete_files)} incomplete download(s) totalling {_format_size(incomplete_size)}. "
+            "Remove them with 'hf cache prune'."
         )
 
 
