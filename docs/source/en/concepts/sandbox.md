@@ -50,9 +50,11 @@ Two independent layers protect a sandbox:
 The per-sandbox token is **derived, not stored**:
 
 ```text
-nonce  = random 128-bit hex                       # stored in the job label "hf-sandbox"
+nonce  = random 128-bit hex                       # stored in the job label "hf-sandbox-nonce"
 token  = HMAC-SHA256(key=your_hf_token, msg="hf-sandbox:" + nonce)
 ```
+
+Every sandbox job also carries two stable labels for discovery — `hf-sandbox=1` (on all of them) and `hf-sandbox-mode=dedicated` or `hf-sandbox-mode=pool` — so you can list or filter them server-side, e.g. `hf jobs ps --label hf-sandbox=1`.
 
 The token is delivered to the server via a Job **secret** (encrypted, never in the command line or logs). The client re-derives it on demand from the public nonce in the label. This has some nice consequences:
 
@@ -69,7 +71,7 @@ sequenceDiagram
     participant U as Sandbox.create()
     participant J as Jobs API
     participant S as sbx-server (in Job)
-    U->>J: run_job(image, expose 49983, label hf-sandbox=nonce, secret token)
+    U->>J: run_job(image, expose 49983, labels hf-sandbox=1 + hf-sandbox-nonce, secret token)
     J-->>U: job_id + proxy URL
     U->>S: poll /health until ready (~6s VM boot)
     U->>S: POST /v1/exec  (run a command, stream NDJSON back)

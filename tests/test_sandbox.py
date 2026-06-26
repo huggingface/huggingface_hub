@@ -8,7 +8,9 @@ import pytest
 import huggingface_hub._sandbox as sandbox_mod
 import huggingface_hub._sandbox_cache as cache_mod
 from huggingface_hub._sandbox import (
-    HOST_LABEL,
+    MODE_LABEL,
+    MODE_POOL,
+    NONCE_LABEL,
     POOL_LABEL,
     SANDBOX_LABEL,
     Sandbox,
@@ -20,6 +22,29 @@ from huggingface_hub._sandbox import (
 )
 from huggingface_hub._sandbox_cache import CachedHost, read_pool_cache, save_pool_cache
 from huggingface_hub.errors import SandboxCommandError, SandboxError
+
+
+def _fake_list_jobs(jobs):
+    """Stand-in for `HfApi.list_jobs` that mimics the server-side `status`/`labels` filtering.
+
+    The real endpoint filters by stage and by AND-matched `key=value` labels, so the pool's
+    discovery code now passes those down instead of filtering client-side. The fake applies the
+    same filtering so tests exercise the params we send (e.g. a host from another pool is excluded
+    by the server, not by the client). Accepts an optional leading `self` so it works both as a
+    class attribute (`monkeypatch.setattr(HfApi, "list_jobs", ...)`) and as a bound `MagicMock`.
+    """
+
+    def _list(self=None, *, status=None, labels=None, **kwargs):
+        result = jobs
+        if status is not None:
+            wanted = {status} if isinstance(status, str) else set(status)
+            wanted = {s.upper() for s in wanted}
+            result = [job for job in result if job.status.stage in wanted]
+        if labels:
+            result = [job for job in result if all((job.labels or {}).get(k) == v for k, v in labels.items())]
+        return result
+
+    return _list
 
 
 @pytest.fixture(autouse=True)
@@ -387,14 +412,14 @@ class TestHostDiscovery:
         job.space_id = None
         job.flavor = "cpu-basic"
         job.status.stage = "RUNNING"
-        job.labels = {SANDBOX_LABEL: "nonce", HOST_LABEL: "1", POOL_LABEL: pool_name}
+        job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: pool_name, NONCE_LABEL: "nonce"}
         job.environment = {"SBX_CAPACITY": str(capacity)}  # config lives in env vars, not labels
         return job
 
     def _pool(self, fake_server, monkeypatch, jobs, name: str = "p1", **kwargs) -> SandboxPool:
         # Patch discovery + boot before construction: the constructor warms up, adopting any
         # matching running host found via labels (a freshly booted host is only the fallback).
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: jobs)
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs(jobs))
         # A new host boot would fail (no real Jobs); discovery must avoid it here.
         monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=4))
         # `_connect_host` (module-level) returns a server wired to the fake server.
@@ -439,7 +464,7 @@ class TestHostDiscovery:
             job.status.stage = "RUNNING"  # the scheduling host has come up
             return job
 
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [job])
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([job]))
         monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", fake_inspect)
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
@@ -463,9 +488,9 @@ class TestPoolConnect:
         job.docker_image = "alpine:3.20"
         job.space_id = None
         job.flavor = "cpu-basic"
-        job.labels = {SANDBOX_LABEL: "n", HOST_LABEL: "1", POOL_LABEL: "pool-x"}
+        job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: "pool-x", NONCE_LABEL: "n"}
         job.environment = {"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600", "SBX_MAX_HOSTS": "3"}
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [job])
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([job]))
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(url, job_id=jid, capacity=7)
         )
@@ -496,7 +521,7 @@ class TestPoolConnect:
         assert host._client.is_closed  # but the local client is released
 
     def test_connect_raises_when_pool_gone(self, monkeypatch) -> None:
-        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, namespace=None: [])
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
         with pytest.raises(SandboxError, match="No running host found for pool"):
             SandboxPool.connect("pool-dead", token="hf_test")
 
@@ -593,7 +618,7 @@ class TestPoolCacheIntegration:
         live_job.id, live_job.flavor = "live", "cpu-basic"
         live_job.owner.name, live_job.docker_image, live_job.space_id = "user", "python:3.12", None
         live_job.status.stage = "RUNNING"
-        live_job.labels = {SANDBOX_LABEL: "n", HOST_LABEL: "1", POOL_LABEL: "pool-stale"}
+        live_job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: "pool-stale", NONCE_LABEL: "n"}
         live_job.environment = {"SBX_CAPACITY": "4"}
         pool._api.list_jobs = MagicMock(return_value=[live_job])
         monkeypatch.setattr(

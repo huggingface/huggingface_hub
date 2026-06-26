@@ -38,17 +38,16 @@ from typing import Annotated, Any, Iterator
 import typer
 
 from huggingface_hub._sandbox import (
-    _TERMINAL_STAGES,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_IMAGE,
     DEFAULT_SANDBOXES_PER_HOST,
-    HOST_LABEL,
+    MODE_LABEL,
+    MODE_POOL,
     POOL_LABEL,
     SANDBOX_LABEL,
     SHARED_ID_SEP,
     Sandbox,
     SandboxPool,
-    _is_running_host,
     _split_sandbox_id,
 )
 from huggingface_hub._sandbox_cache import delete_pool_cache
@@ -273,11 +272,9 @@ def sandbox_kill(
     api = get_hf_api(token=token)
 
     if all_:
-        jobs = [
-            job
-            for job in api.list_jobs(namespace=namespace)
-            if (job.labels or {}).get(SANDBOX_LABEL) and job.status.stage not in _TERMINAL_STAGES
-        ]
+        # Every sandbox job (dedicated or host) carries the stable `hf-sandbox=1` label, so the
+        # active ones can be listed entirely server-side.
+        jobs = list(api.list_jobs(status=["RUNNING", "SCHEDULING"], labels={SANDBOX_LABEL: "1"}, namespace=namespace))
         if not jobs:
             out.text("No running sandboxes.")
             return
@@ -303,7 +300,7 @@ def sandbox_kill(
 
     # A bare id: either a dedicated sandbox job or a shared host job.
     job = api.inspect_job(job_id=sid, namespace=ns)
-    if (job.labels or {}).get(HOST_LABEL):
+    if (job.labels or {}).get(MODE_LABEL) == MODE_POOL:
         out.confirm(f"Terminate shared host {sid} and all of its sandboxes?", yes=yes)
         api.cancel_job(job_id=job.id, namespace=job.owner.name)
         out.result("Host terminated", id=sid)
@@ -398,9 +395,7 @@ def pool_ls(
     """List running sandbox pools (grouped from their host VMs)."""
     api = get_hf_api(token=token)
     pools: dict[str, dict[str, Any]] = {}
-    for job in api.list_jobs(namespace=namespace):
-        if not _is_running_host(job):
-            continue
+    for job in api.list_jobs(status="RUNNING", labels={MODE_LABEL: MODE_POOL}, namespace=namespace):
         pid = (job.labels or {}).get(POOL_LABEL)
         if not pid:
             continue
@@ -438,13 +433,13 @@ def pool_delete(
     api = get_hf_api(token=token)
     # Include SCHEDULING hosts (still booting after `pool create`), not just RUNNING ones, so
     # they don't keep billing after a delete reported success.
-    hosts = [
-        job
-        for job in api.list_jobs(namespace=namespace)
-        if (job.labels or {}).get(POOL_LABEL) == pool_id
-        and (job.labels or {}).get(HOST_LABEL)
-        and job.status.stage not in _TERMINAL_STAGES
-    ]
+    hosts = list(
+        api.list_jobs(
+            status=["RUNNING", "SCHEDULING"],
+            labels={MODE_LABEL: MODE_POOL, POOL_LABEL: pool_id},
+            namespace=namespace,
+        )
+    )
     if not hosts:
         delete_pool_cache(pool_id)  # nothing running; clear any stale local cache too
         out.text(f"No running hosts for pool '{pool_id}'.")

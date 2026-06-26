@@ -77,16 +77,21 @@ logger = logging.get_logger(__name__)
 # that typical user ports (3000, 8000, 8080, ...) stay free.
 SANDBOX_SERVER_PORT = 49983
 
-# Label attached to sandbox jobs; its value is the public nonce used to derive
-# the sandbox token (see _derive_sandbox_token). Present on both dedicated
-# sandbox jobs and shared host jobs.
+# Stable marker present on every sandbox job — dedicated sandbox or shared host alike — so all
+# of them can be listed/filtered server-side with `hf-sandbox=1` (its value is always "1").
 SANDBOX_LABEL = "hf-sandbox"
-# Marks a job as a *host* (shared mode: one job, many landlock sandboxes).
-HOST_LABEL = "hf-sandbox-host"
-# Optional pool name, to scope host reuse to a named group (see SandboxPool(name=...)).
-# Pool config (capacity, idle timeout) lives in the host's env vars, read via inspect_job —
-# labels are kept for filtering/grouping only.
+# Sandbox mode: "dedicated" (one job == one sandbox) or "pool" (one host job packs many landlock
+# sandboxes). Lets you filter all jobs of a given mode without knowing the pool name.
+MODE_LABEL = "hf-sandbox-mode"
+MODE_DEDICATED = "dedicated"
+MODE_POOL = "pool"
+# Pool name, to scope host reuse to a named group (see SandboxPool(name=...)). Present on pool
+# host jobs only. Pool config (capacity, idle timeout) lives in the host's env vars, read via
+# inspect_job — labels are kept for filtering/grouping only.
 POOL_LABEL = "hf-sandbox-pool"
+# Per-job public nonce the sandbox token is derived from (see _derive_sandbox_token), so
+# `Sandbox.connect(id)` can recompute the token from any machine with no local state.
+NONCE_LABEL = "hf-sandbox-nonce"
 
 DEFAULT_IMAGE = "python:3.12"
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
@@ -617,7 +622,7 @@ class Sandbox:
             secrets=job_secrets,
             flavor=flavor,
             timeout=SANDBOX_MAX_LIFETIME,
-            labels={SANDBOX_LABEL: nonce},
+            labels={SANDBOX_LABEL: "1", MODE_LABEL: MODE_DEDICATED, NONCE_LABEL: nonce},
             volumes=job_volumes or None,
             expose=[SANDBOX_SERVER_PORT],
             namespace=namespace,
@@ -667,10 +672,11 @@ class Sandbox:
             return cls(id=sandbox_id, server=server, local_id=local_id, owns_sandbox=False, owns_server=True)
 
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
-        nonce = (job.labels or {}).get(SANDBOX_LABEL)
-        if nonce is None:
+        labels = job.labels or {}
+        nonce = labels.get(NONCE_LABEL)
+        if labels.get(SANDBOX_LABEL) != "1" or nonce is None:
             raise SandboxError(f"Job {sandbox_id} is not a sandbox (missing '{SANDBOX_LABEL}' label).")
-        if (job.labels or {}).get(HOST_LABEL):
+        if labels.get(MODE_LABEL) == MODE_POOL:
             raise SandboxError(
                 f"Job {sandbox_id} is a sandbox host, not a single sandbox. Connect to one of its "
                 f"sandboxes with id '<host_job_id>{SHARED_ID_SEP}<local_id>'."
@@ -1272,11 +1278,12 @@ class SandboxPool:
         pending = next(
             (
                 job
-                for job in self._api.list_jobs(namespace=self._namespace)
-                if (job.labels or {}).get(HOST_LABEL)
-                and (job.labels or {}).get(POOL_LABEL) == self.name
-                and job.status.stage == "SCHEDULING"
-                and job.id not in known
+                for job in self._api.list_jobs(
+                    status="SCHEDULING",
+                    labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
+                    namespace=self._namespace,
+                )
+                if job.id not in known
             ),
             None,
         )
@@ -1307,8 +1314,12 @@ class SandboxPool:
         known = {host.job_id for host in self._hosts}
         matches = [
             job
-            for job in self._api.list_jobs(namespace=self._namespace)
-            if job.id not in known and _is_running_host(job, self.name)
+            for job in self._api.list_jobs(
+                status="RUNNING",
+                labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
+                namespace=self._namespace,
+            )
+            if job.id not in known
         ]
 
         for job in matches:
@@ -1394,7 +1405,7 @@ class SandboxPool:
         # defaulting to unlimited and provisioning past it.
         if self.max_hosts is not None:
             job_env["SBX_MAX_HOSTS"] = str(self.max_hosts)
-        labels = {SANDBOX_LABEL: nonce, HOST_LABEL: "1", POOL_LABEL: self.name}
+        labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: self.name, NONCE_LABEL: nonce}
         job = self._api.run_job(
             image=self.image,
             command=command,
@@ -1589,14 +1600,6 @@ def _bootstrap_job_spec(
     return command, job_env, job_secrets, job_volumes
 
 
-def _is_running_host(job: JobInfo, pool_id: str | None = None) -> bool:
-    """True if `job` is a RUNNING sandbox host, optionally scoped to pool `pool_id`."""
-    labels = job.labels or {}
-    if not labels.get(HOST_LABEL) or job.status.stage != "RUNNING":
-        return False
-    return pool_id is None or labels.get(POOL_LABEL) == pool_id
-
-
 def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, Any]:
     """Return a host job's env vars (where pool config lives), fetching the full spec via
     inspect_job when list_jobs omitted them."""
@@ -1609,9 +1612,10 @@ def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, A
 
 def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None) -> JobInfo:
     """Return any running host job belonging to `pool_id` (found via the pool label)."""
-    for job in api.list_jobs(namespace=namespace):
-        if _is_running_host(job, pool_id):
-            return job
+    for job in api.list_jobs(
+        status="RUNNING", labels={MODE_LABEL: MODE_POOL, POOL_LABEL: pool_id}, namespace=namespace
+    ):
+        return job
     raise SandboxError(
         f"No running host found for pool '{pool_id}'. The pool has stopped "
         "(all its hosts were killed or idle-timed-out); create a new one."
@@ -1621,8 +1625,9 @@ def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = Non
 def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None) -> _SandboxServer:
     """Reattach to a running host job and return its server transport."""
     job = api.inspect_job(job_id=host_job_id, namespace=namespace)
-    nonce = (job.labels or {}).get(SANDBOX_LABEL)
-    if nonce is None or not (job.labels or {}).get(HOST_LABEL):
+    labels = job.labels or {}
+    nonce = labels.get(NONCE_LABEL)
+    if nonce is None or labels.get(MODE_LABEL) != MODE_POOL:
         raise SandboxError(f"Job {host_job_id} is not a sandbox host.")
     if job.status.stage != "RUNNING":
         raise SandboxError(f"Sandbox host {host_job_id} is not running (status: {job.status.stage}).")

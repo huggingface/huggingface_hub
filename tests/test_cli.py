@@ -4546,7 +4546,12 @@ class TestSandboxPoolCli:
         job.docker_image = "python:3.12"
         job.space_id = None
         job.flavor = "cpu-basic"
-        job.labels = {"hf-sandbox": "n", "hf-sandbox-host": "1", "hf-sandbox-pool": "pool-x"}
+        job.labels = {
+            "hf-sandbox": "1",
+            "hf-sandbox-mode": "pool",
+            "hf-sandbox-pool": "pool-x",
+            "hf-sandbox-nonce": "n",
+        }
         job.environment = {"SBX_CAPACITY": "50"}  # config read from env vars, not labels
         fake_api = Mock()
         fake_api.list_jobs.return_value = [job]
