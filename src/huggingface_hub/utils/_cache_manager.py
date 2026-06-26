@@ -723,7 +723,7 @@ def _scan_incomplete_files(cache_dir: Path) -> frozenset[CachedIncompleteFileInf
         try:
             size_on_disk = path.stat().st_size
         except OSError:
-            continue  # file vanished between glob and stat
+            continue
         files.add(CachedIncompleteFileInfo(file_path=path, size_on_disk=size_on_disk))
     return frozenset(files)
 
