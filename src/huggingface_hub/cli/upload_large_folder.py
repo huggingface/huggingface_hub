@@ -102,6 +102,7 @@ def upload_large_folder(
         equivalent.append(f"--exclude '{pattern}'")
 
     out.warning(
+        "\n"
         "================================================================================\n"
         "`hf upload-large-folder` is DEPRECATED and will be removed in a future release.\n"
         "\n"
