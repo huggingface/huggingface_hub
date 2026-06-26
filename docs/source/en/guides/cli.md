@@ -1310,6 +1310,15 @@ Add a comment to an existing discussion or PR by specifying its number. The comm
 >>> echo "LGTM" | hf discussions comment username/my-model 5 --body-file -
 ```
 
+### Edit a comment
+
+Edit an existing comment in place by passing the discussion number and the comment ID. Comment IDs can be retrieved with `hf discussions info`:
+
+```bash
+>>> hf discussions edit username/my-model 5 abc123 --body "Updated comment."
+>>> hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+```
+
 ### Close, reopen, and merge
 
 You can close a discussion or PR with `hf discussions close`. By default, you will be prompted for confirmation. Pass `--yes` to skip the prompt, and `--comment` to leave a closing message:
