@@ -653,10 +653,10 @@ def prune(
 
     strategy = hf_cache_info.delete_revisions(*sorted(revisions))
     counts = summarize_deletions(selected)
-    expected_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
+    total_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
 
     summary = _prune_summary(counts.total_revision_count, len(incomplete_files))
-    out.text(f"About to delete {summary} ({_format_size(expected_freed)} total).")
+    out.text(f"About to delete {summary} ({_format_size(total_freed)} total).")
     print_cache_selected_revisions(selected)
 
     if dry_run:
@@ -665,33 +665,24 @@ def prune(
             dry_run=True,
             revisions=counts.total_revision_count,
             incomplete=len(incomplete_files),
-            size=_format_size(expected_freed),
+            size=_format_size(total_freed),
         )
         return
 
     out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
-
-    # Track incomplete files that are actually removed (deletions may fail)
-    incomplete_deleted = 0
-    incomplete_freed = 0
     for incomplete_file in incomplete_files:
         try:
             incomplete_file.file_path.unlink()
         except FileNotFoundError:
-            pass
+            pass  # already removed (e.g. by a full-repo deletion above)
         except OSError as exc:
             out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
-            continue
-        incomplete_deleted += 1
-        incomplete_freed += incomplete_file.size_on_disk
-
-    total_freed = strategy.expected_freed_size + incomplete_freed
     out.result(
-        f"Deleted {_prune_summary(counts.total_revision_count, incomplete_deleted)}; freed {_format_size(total_freed)}.",
+        f"Deleted {summary}; freed {_format_size(total_freed)}.",
         revisions_deleted=counts.total_revision_count,
-        incomplete_deleted=incomplete_deleted,
+        incomplete_deleted=len(incomplete_files),
         freed=_format_size(total_freed),
     )
 
