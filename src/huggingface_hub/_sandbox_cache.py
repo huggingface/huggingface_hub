@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Best-effort local cache for [`SandboxPool`] hosts (host/pool mode)."""
+"""Best-effort local cache for SandboxPool hosts (host/pool mode)."""
 
 import json
 import os
@@ -28,7 +28,7 @@ from .utils import WeakFileLock, logging
 logger = logging.get_logger(__name__)
 
 # Bump if the on-disk layout changes incompatibly; older/newer files are ignored on read.
-_CACHE_VERSION = 3
+_CACHE_VERSION = 1
 
 # A write should never block a sandbox creation for long: the cache is best-effort, so we
 # rather skip persisting than wait on a stuck lock.
@@ -81,11 +81,7 @@ def pool_cache_path(pool_id: str) -> Path:
 
 
 def read_pool_cache(pool_id: str) -> PoolCache | None:
-    """Return the cached view of `pool_id`, or `None` if missing/corrupt/incompatible.
-
-    Never raises: the cache is best-effort, so any problem reading it is treated as a
-    cache miss and the caller falls back to label discovery.
-    """
+    """Return the cached view of `pool_id`, or `None` if missing/corrupt/incompatible."""
     try:
         path = pool_cache_path(pool_id)
         with path.open("r", encoding="utf-8") as f:
