@@ -6210,7 +6210,7 @@ class HfApi:
             "\n"
             "Use `upload_folder` instead:\n"
             "\n"
-            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{repr(folder_path)}")\n'
+            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
             "================================================================================\n",
             FutureWarning,
             stacklevel=2,
