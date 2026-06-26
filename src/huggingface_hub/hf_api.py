@@ -6113,14 +6113,9 @@ class HfApi:
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
-        <Tip warning={true}>
-
-        `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now resilient
-        to interruptions (it streams files in multiple commits and resumes automatically when re-run) and powered by Xet,
-        so it is the recommended way to upload large folders. Simply replace your call with
-        `api.upload_folder(repo_id=..., repo_type=..., folder_path=...)`.
-
-        </Tip>
+        > [!WARNING]
+        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
+        > by default and resilient to interruptions so it is the recommended way to upload large folders.
 
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
