@@ -74,8 +74,8 @@ class XetDownloadProgressReporter:
         routes_transfer_via_reconstruction = external_reconstruction_bar is not None and callable(
             getattr(external_reconstruction_bar, "update_transfer", None)
         )
-        uses_aggregated_tqdm_class = external_reconstruction_bar is None and not (
-            isinstance(cls, type) and issubclass(cls, tqdm)
+        uses_aggregated_tqdm_class = external_reconstruction_bar is None and callable(
+            getattr(cls, "update_transfer", None)
         )
 
         if external_reconstruction_bar is not None:

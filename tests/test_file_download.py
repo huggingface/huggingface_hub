@@ -1261,6 +1261,10 @@ class TestHttpGet:
             def update(self, n=1):
                 tracker.n += n
 
+            def update_transfer(self, n=1):
+                tracker.transfer_n += n
+
+        tracker.transfer_n = 0
         return tracker, _TqdmClass
 
     @staticmethod
@@ -1284,6 +1288,19 @@ class TestHttpGet:
             temp_file = io.BytesIO()
             http_get("fake_url", temp_file=temp_file, **http_get_kwargs)
         return temp_file
+
+    def test_http_get_forwards_update_transfer(self):
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        temp_file = self._http_get_with_mocked_responses(
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+            expected_size=100,
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == b"A" * 100
+        assert tracker.n == 100
+        assert tracker.transfer_n == 100
 
     def test_http_get_retry_reuses_tqdm_class_instance(self):
         """Retries must not re-instantiate the user-supplied tqdm_class.

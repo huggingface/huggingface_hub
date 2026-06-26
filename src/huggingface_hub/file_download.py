@@ -389,6 +389,8 @@ def http_get(
                 # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
                 # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
                 _tqdm_bar.update(-resume_size)
+                if callable(update_transfer := getattr(_tqdm_bar, "update_transfer", None)):
+                    update_transfer(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
@@ -433,6 +435,8 @@ def http_get(
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                     if chunk:  # filter out keep-alive new chunks
                         progress.update(len(chunk))
+                        if callable(update_transfer := getattr(progress, "update_transfer", None)):
+                            update_transfer(len(chunk))
                         temp_file.write(chunk)
                         new_resume_size += len(chunk)
                         # Some data has been downloaded from the server so we reset the number of retries.
