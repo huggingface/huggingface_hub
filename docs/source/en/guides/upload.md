@@ -130,7 +130,7 @@ For more details about the CLI upload command, please refer to the [CLI guide](.
 
 ## Upload a large folder
 
-[`upload_folder`] and the `hf upload` command are the go-to solutions to upload files to the Hub, including for very large folders. Since they are powered by Xet, files are streamed to the Hub in several commits and the process resumes automatically if it gets interrupted: simply re-run the same call and already-uploaded files are skipped. There is nothing special to do for large folders — just point [`upload_folder`] at your directory:
+[`upload_folder`] and the `hf upload` command are the go-to solutions to upload files to the Hub, including for very large folders. Files are streamed to the Hub in several commits and the process resumes automatically if it gets interrupted. Simply re-run the same call and already-uploaded files are skipped.
 
 ```py
 >>> api.upload_folder(

@@ -598,10 +598,10 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 > `hf upload-large-folder` is **deprecated** and will be removed in a future release. Use [`hf upload`](#hf-upload) instead: it is now resilient to interruptions and powered by Xet, so it handles very large folders out of the box and resumes automatically if you re-run the same command.
 
 ```bash
-# Upload a large folder to a model repository (resumes automatically if interrupted)
+# Upload a large folder to a model repository
 >>> hf upload Wauplin/my-cool-model ./large_model_dir
 
-# Upload a large folder to a dataset
+# Upload a dataset
 >>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
 
