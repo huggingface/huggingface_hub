@@ -49,6 +49,23 @@ def test_complex_quotes():
     }
 
 
+def test_escaped_backslash_before_escape_char():
+    # An escaped backslash ("\\") collapses to a single backslash and the next character
+    # stays literal, even when it is "n", "t" or a quote. This used to break: the trailing
+    # character got merged into a newline/tab, so a Windows path like "C:\\new" came out as
+    # "C:" + backslash + newline + "ew".
+    data = r"""
+    WIN="C:\\new"
+    LITERAL="a\\nb"
+    TAB="x\\t"
+    """
+    assert load_dotenv(data) == {
+        "WIN": "C:\\new",
+        "LITERAL": "a\\nb",
+        "TAB": "x\\t",
+    }
+
+
 def test_no_value():
     data = "NOVALUE="
     assert load_dotenv(data) == {"NOVALUE": ""}
