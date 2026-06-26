@@ -6113,6 +6113,10 @@ class HfApi:
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
+        > [!WARNING]
+        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
+        > by default and resilient to interruptions so it is the recommended way to upload large folders.
+
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
         At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
@@ -6199,6 +6203,18 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
+        warnings.warn(
+            "\n"
+            "================================================================================\n"
+            "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
+            "\n"
+            "Use `upload_folder` instead:\n"
+            "\n"
+            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
+            "================================================================================\n",
+            FutureWarning,
+            stacklevel=2,
+        )
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
