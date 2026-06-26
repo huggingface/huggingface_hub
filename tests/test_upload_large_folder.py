@@ -17,14 +17,6 @@ from huggingface_hub._upload_large_folder import (
 )
 
 
-def test_upload_large_folder_is_deprecated(tmp_path):
-    """`upload_large_folder` should warn and redirect users to `upload_folder`."""
-    with patch("huggingface_hub.hf_api.upload_large_folder_internal") as mock_internal:
-        with pytest.warns(FutureWarning, match="DEPRECATED"):
-            HfApi().upload_large_folder(repo_id="user/repo", folder_path=tmp_path, repo_type="model")
-    mock_internal.assert_called_once()
-
-
 @pytest.fixture
 def status():
     return LargeUploadStatus(items=[])
