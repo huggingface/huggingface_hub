@@ -3,7 +3,7 @@ rendered properly in your Markdown viewer.
 -->
 # Sandboxes
 
-A **sandbox** is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
+A sandbox is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
 
@@ -18,7 +18,7 @@ Any Docker image with `/bin/sh` works — no Python, pip, or agent needs to be p
 
 ## The two kinds of sandbox
 
-There are two ways to get a sandbox. Both hand you the **same** [`Sandbox`] object (same `run`, `files`, `connect`, `kill`); they differ only in how the underlying machine is allocated:
+There are two ways to get a sandbox. Both hand you the same [`Sandbox`] object (same `run`, `files`, `connect`, `kill`); they differ only in how the underlying machine is allocated:
 
 |            | [`Sandbox.create`] — **dedicated**              | [`SandboxPool`] — **shared / pool**                                                     |
 | ---------- | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -29,7 +29,7 @@ There are two ways to get a sandbox. Both hand you the **same** [`Sandbox`] obje
 | GPU        | ✅                                               | ❌ (CPU only)                                                                            |
 | best for   | a single sandbox, GPU workloads, untrusted code | many cheap CPU sandboxes (RL rollouts, fan-out)                                         |
 
-Rule of thumb: **need a GPU or to run mutually-untrusted code → dedicated. Need hundreds of cheap CPU sandboxes → a pool.**
+Rule of thumb: need a GPU or to run mutually-untrusted code → dedicated. Need hundreds of cheap CPU sandboxes → a pool.
 
 ## Quickstart
 
@@ -90,7 +90,7 @@ A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `st
 [FileEntry(name='data.csv', path='/data/data.csv', type='file', size=5324, ...)]
 ```
 
-Other helpers: `stat`, `exists`, `mkdir`, `delete`. Transfers above 8 MiB automatically use parallel ranged requests (several hundred MiB/s from a well-connected machine).
+Other helpers: `stat`, `exists`, `mkdir`, `delete`.
 
 ## Lifecycle
 
@@ -108,11 +108,11 @@ A sandbox outlives the process that created it — you can create it now and rec
 
 - `idle_timeout` (default 10 minutes) is the real keeper: it shuts the sandbox down once no API call is made and no process is running, so abandoned sandboxes stop billing. Set it at create time (`Sandbox.create(idle_timeout="30m")`) or pass `None` to disable.
 - The job also has a fixed 24h maximum lifetime as a hard backstop (not configurable).
-- Your HF token is **never** sent into the sandbox unless you opt in with `forward_hf_token=True`.
+- Your HF token is never sent into the sandbox unless you opt in with `forward_hf_token=True`.
 
 ## Many sandboxes at once: SandboxPool
 
-When you need *many* sandboxes (parallel RL rollouts, fan-out evaluation, batch tool execution), one Job per sandbox is wasteful: each pays a full VM cold start and holds a whole machine for a workload that needs a few MB of RAM. [`SandboxPool`] packs many lightweight sandboxes into a few shared **host** Jobs instead — one billed VM serves dozens of sandboxes, so per-sandbox cost drops by that factor and per-sandbox cold start is ~one network round-trip.
+When you need many sandboxes (parallel RL rollouts, fan-out evaluation, batch tool execution), one Job per sandbox is wasteful: each pays a full VM cold start and holds a whole machine for a workload that needs a few MB of RAM. [`SandboxPool`] packs many lightweight sandboxes into a few shared host Jobs instead — one billed VM serves dozens of sandboxes, so per-sandbox cost drops by that factor and per-sandbox cold start is ~one network round-trip.
 
 ```python
 >>> from huggingface_hub import SandboxPool
@@ -123,7 +123,7 @@ When you need *many* sandboxes (parallel RL rollouts, fan-out evaluation, batch 
 hi
 ```
 
-Each `create()` returns **one** full [`Sandbox`]; call it repeatedly to fan out. The pool boots host Jobs as needed, packs `sandboxes_per_host` sandboxes per host, and terminates everything on `close()` (or when a host goes idle, as a billing backstop). The typical fan-out pattern:
+Each `create()` returns one full [`Sandbox`]; call it repeatedly to fan out. The pool boots host Jobs as needed, packs `sandboxes_per_host` sandboxes per host, and terminates everything on `close()` (or when a host goes idle, as a billing backstop). The typical fan-out pattern:
 
 ```python
 >>> from concurrent.futures import ThreadPoolExecutor
@@ -133,7 +133,7 @@ Each `create()` returns **one** full [`Sandbox`]; call it repeatedly to fan out.
 ...         outputs = list(ex.map(lambda b, t: b.run(t.cmd).stdout, boxes, tasks))
 ```
 
-Env and `idle_timeout` are **per-sandbox** (they belong to `create()`, not the pool), so sandboxes in one pool can have different environments:
+Env and `idle_timeout` are per-sandbox (they belong to `create()`, not the pool), so sandboxes in one pool can have different environments:
 
 ```python
 >>> sbx = pool.create(env={"SEED": "42"}, idle_timeout="5m", forward_hf_token=True)
@@ -141,20 +141,19 @@ Env and `idle_timeout` are **per-sandbox** (they belong to `create()`, not the p
 
 A pooled sandbox is a full [`Sandbox`], but a few inputs are fixed by the host instead of being per-sandbox — so [`SandboxPool.create`] accepts a smaller set of arguments than [`Sandbox.create`]:
 
-| Input              | `Sandbox.create` (dedicated)        | `SandboxPool.create` (pooled)             |
-| ------------------ | ----------------------------------- | ----------------------------------------- |
-| `image`, `flavor`  | per-sandbox                         | fixed by the pool (set once on the host)  |
-| `volumes`          | per-sandbox                         | **not available** (mounted at host boot)  |
-| `env`              | per-sandbox                         | per-sandbox                               |
-| `idle_timeout`     | per-sandbox                         | per-sandbox                               |
-| `forward_hf_token` | per-sandbox                         | per-sandbox                               |
-| `secrets`          | per-sandbox (encrypted Job secrets) | **not available** — use `env` (see below) |
+| Input              | `Sandbox.create` (dedicated) | `SandboxPool.create` (pooled)            |
+| ------------------ | ---------------------------- | ---------------------------------------- |
+| `image`, `flavor`  | per-sandbox                  | fixed by the pool (set once on the host) |
+| `volumes`          | per-sandbox                  | **not available** (mounted at host boot) |
+| `env`              | per-sandbox                  | per-sandbox                              |
+| `idle_timeout`     | per-sandbox                  | per-sandbox                              |
+| `forward_hf_token` | per-sandbox                  | per-sandbox                              |
 
-Pooled sandboxes share a long-lived host job, so there's no encrypted-Job-secrets channel like dedicated sandboxes get. But a pooled sandbox's `env` is delivered to the host server **at sandbox creation** (not at job start), so it's never stored in any job's metadata — pass would-be secrets as plain `env`.
+Pooled sandboxes share a long-lived host job, so there's no encrypted-Job-secrets channel like dedicated sandboxes get. But a pooled sandbox's `env` is delivered to the host server at sandbox creation (not at job start), so it's never stored in any job's metadata — pass would-be secrets as plain `env`.
 
 ### Growing on demand and pre-warming
 
-`pool.create()` makes one sandbox at a time, **reusing a host that still has free capacity** before booting a new one — so you can spawn sandboxes as work arrives and they pack themselves onto warm hosts:
+`pool.create()` makes one sandbox at a time, reusing a host that still has free capacity before booting a new one — so you can spawn sandboxes as work arrives and they pack themselves onto warm hosts:
 
 ```python
 >>> pool = SandboxPool(image="python:3.12", flavor="cpu-basic")
@@ -166,7 +165,7 @@ To avoid the host cold start on the first few calls, pre-provision hosts with `w
 
 ### Reusing pools across processes and machines
 
-Warm hosts are discovered through job labels, so reuse works **across processes**: a brand-new `SandboxPool` with the same `image`/`flavor`/`name` attaches to hosts an earlier run left running instead of booting its own. Pass a `name=` to keep separate pools from sharing hosts.
+Warm hosts are discovered through job labels, so reuse works across processes: a brand-new `SandboxPool` with the same `image`/`flavor`/`name` attaches to hosts an earlier run left running instead of booting its own. Pass a `name=` to keep separate pools from sharing hosts.
 
 To reattach from another machine with no local state, reconnect by pool id with [`SandboxPool.connect`] — it finds a running host, rebuilds the pool's config (image, flavor, packing density) from that host job, and is ready to `create()` more:
 
@@ -175,7 +174,7 @@ To reattach from another machine with no local state, reconnect by pool id with 
 >>> sbx = pool.create()
 ```
 
-A `connect()`'d pool **does not own** the shared hosts (other clients may be using them), so — like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with `pool delete` / `hf sandbox pool delete <id>`.
+A `connect()`'d pool does not own the shared hosts (other clients may be using them), so — like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with `pool delete` / `hf sandbox pool delete <id>`.
 
 > [!WARNING]
 > Sandboxes within a host are isolated from each other by distinct uids plus a per-sandbox Landlock ruleset — they cannot read, signal, or write each other's files, and each is confined to its own private home. This is the right boundary for *one user's own* parallel workloads. For mutually-hostile untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
@@ -218,4 +217,4 @@ For many cheap shared sandboxes, warm a pool once and then create into it on dem
 >>> hf sandbox pool delete pool-ae9f7efe0bc7    # terminate the pool's hosts (and their sandboxes)
 ```
 
-`hf sandbox create --pool` produces a shared sandbox; its id looks like `<host_job_id>.<local_id>` and works everywhere a dedicated id does (`exec`, `cp`, `kill`). A pool has **no local state** — it is just its running host VMs, found by the pool id — so it works from any machine and stops existing once all its hosts are gone (killed or idle-timed-out).
+`hf sandbox create --pool` produces a shared sandbox; its id looks like `<host_job_id>.<local_id>` and works everywhere a dedicated id does (`exec`, `cp`, `kill`). A pool has no local state — it is just its running host VMs, found by the pool id — so it works from any machine and stops existing once all its hosts are gone (killed or idle-timed-out).
