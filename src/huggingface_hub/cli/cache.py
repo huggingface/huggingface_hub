@@ -19,14 +19,12 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
 from huggingface_hub.errors import CLIError
 
-from ..constants import HF_HUB_CACHE
 from ..utils import (
     ANSI,
     CachedRepoInfo,
@@ -150,30 +148,6 @@ def build_cache_index(
         for revision in repo.revisions:
             revision_lookup[revision.commit_hash.lower()] = (repo, revision)
     return repo_lookup, revision_lookup
-
-
-def _scan_incomplete_files(cache_dir: str | None) -> tuple[list[Path], int]:
-    """Find orphaned `*.incomplete` partial-download files in the cache.
-
-    Interrupted downloads leave `<cache>/<repo>/blobs/<etag>.incomplete` files behind.
-    These are not tracked by [`scan_cache_dir`] (which only indexes committed blobs and
-    snapshots), so they are surfaced by `hf cache ls` and cleaned up by `hf cache prune`.
-
-    Returns a `(files, total_size)` tuple where `total_size` is in bytes.
-    """
-    root = Path(cache_dir if cache_dir is not None else HF_HUB_CACHE).expanduser().resolve()
-    if not root.is_dir():
-        return [], 0
-
-    files: list[Path] = []
-    total_size = 0
-    for path in sorted(root.glob("*/blobs/*.incomplete")):
-        try:
-            total_size += path.stat().st_size
-        except OSError:
-            continue  # file vanished between glob and stat
-        files.append(path)
-    return files, total_size
 
 
 def _repo_cache_id_from_target(target: str) -> str:
@@ -533,10 +507,11 @@ def ls(
             )
         )
 
-    incomplete_files, incomplete_size = _scan_incomplete_files(cache_dir)
+    incomplete_files = hf_cache_info.incomplete_files
     if incomplete_files:
         out.hint(
-            f"Found {len(incomplete_files)} incomplete download(s) totalling {_format_size(incomplete_size)}. "
+            f"Found {len(incomplete_files)} incomplete download(s) totalling "
+            f"{_format_size(hf_cache_info.incomplete_size_on_disk)}. "
             "Remove them with 'hf cache prune'."
         )
 
@@ -670,7 +645,7 @@ def prune(
         selected[repo] = detached
         revisions.update(revision.commit_hash for revision in detached)
 
-    incomplete_files, incomplete_size = _scan_incomplete_files(cache_dir)
+    incomplete_files = hf_cache_info.incomplete_files
 
     if len(revisions) == 0 and not incomplete_files:
         out.text("No unreferenced revisions or incomplete downloads found. Nothing to prune.")
@@ -678,7 +653,7 @@ def prune(
 
     strategy = hf_cache_info.delete_revisions(*sorted(revisions))
     counts = summarize_deletions(selected)
-    total_freed = strategy.expected_freed_size + incomplete_size
+    total_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
 
     summary = _prune_summary(counts.total_revision_count, len(incomplete_files))
     out.text(f"About to delete {summary} ({_format_size(total_freed)} total).")
@@ -697,13 +672,13 @@ def prune(
     out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
-    for path in incomplete_files:
+    for incomplete_file in incomplete_files:
         try:
-            path.unlink()
+            incomplete_file.file_path.unlink()
         except FileNotFoundError:
             pass
         except OSError as exc:
-            out.warning(f"Could not delete incomplete file {path}: {exc}")
+            out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
     out.result(
         f"Deleted {summary}; freed {_format_size(total_freed)}.",
         revisions_deleted=counts.total_revision_count,

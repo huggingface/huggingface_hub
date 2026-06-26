@@ -287,9 +287,11 @@ class TestCacheCommand:
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
 
+        hf_cache_info.incomplete_files = frozenset()
+        hf_cache_info.incomplete_size_on_disk = 0
+
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
-            patch("huggingface_hub.cli.cache._scan_incomplete_files", return_value=([], 0)),
             patch(
                 "huggingface_hub.cli.cache.summarize_deletions",
                 return_value=counts,
@@ -436,6 +438,7 @@ class TestCacheCommand:
             hf_cache_info = HFCacheInfo(
                 size_on_disk=blob_path.stat().st_size,
                 repos=frozenset({repo}),
+                incomplete_files=frozenset(),
                 warnings=[],
             )
 

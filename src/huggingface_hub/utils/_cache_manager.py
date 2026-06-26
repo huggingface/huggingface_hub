@@ -327,6 +327,34 @@ class DeleteCacheStrategy:
 
 
 @dataclass(frozen=True)
+class CachedIncompleteFileInfo:
+    """Frozen data structure holding information about a single incomplete download.
+
+    Interrupted downloads leave `<cache>/<repo>/blobs/<etag>.incomplete` files behind.
+    These are not part of any committed revision, so they are surfaced separately by
+    [`scan_cache_dir`].
+
+    Args:
+        file_path (`Path`):
+            Path of the `.incomplete` file in the `blobs` folder.
+        size_on_disk (`int`):
+            Size of the partially-downloaded file in bytes.
+    """
+
+    file_path: Path
+    size_on_disk: int
+
+    @property
+    def size_on_disk_str(self) -> str:
+        """
+        (property) Size of the partially-downloaded file as a human-readable string.
+
+        Example: "42.2K".
+        """
+        return _format_size(self.size_on_disk)
+
+
+@dataclass(frozen=True)
 class HFCacheInfo:
     """Frozen data structure holding information about the entire cache-system.
 
@@ -338,6 +366,9 @@ class HFCacheInfo:
         repos (`frozenset[CachedRepoInfo]`):
             Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
+        incomplete_files (`frozenset[CachedIncompleteFileInfo]`):
+            Set of [`~CachedIncompleteFileInfo`] describing orphaned `*.incomplete`
+            files left behind by interrupted downloads.
         warnings (`list[CorruptedCacheException]`):
             List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
@@ -350,6 +381,7 @@ class HFCacheInfo:
 
     size_on_disk: int
     repos: frozenset[CachedRepoInfo]
+    incomplete_files: frozenset[CachedIncompleteFileInfo]
     warnings: list[CorruptedCacheException]
 
     @property
@@ -361,6 +393,11 @@ class HFCacheInfo:
         Example: "42.2K".
         """
         return _format_size(self.size_on_disk)
+
+    @property
+    def incomplete_size_on_disk(self) -> int:
+        """(property) Sum of all incomplete download sizes in bytes."""
+        return sum(file.size_on_disk for file in self.incomplete_files)
 
     def delete_revisions(self, *revisions: str) -> DeleteCacheStrategy:
         """Prepare the strategy to delete one or more revisions cached locally.
@@ -669,8 +706,26 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     return HFCacheInfo(
         repos=frozenset(repos),
         size_on_disk=sum(repo.size_on_disk for repo in repos),
+        incomplete_files=_scan_incomplete_files(cache_dir),
         warnings=warnings,
     )
+
+
+def _scan_incomplete_files(cache_dir: Path) -> frozenset[CachedIncompleteFileInfo]:
+    """Find orphaned `*.incomplete` partial-download files in the cache.
+
+    Interrupted downloads leave `<cache>/<repo>/blobs/<etag>.incomplete` files behind.
+    These are not part of any committed revision, so they are reported separately in the
+    [`~HFCacheInfo`] returned by [`scan_cache_dir`].
+    """
+    files: set[CachedIncompleteFileInfo] = set()
+    for path in cache_dir.glob("*/blobs/*.incomplete"):
+        try:
+            size_on_disk = path.stat().st_size
+        except OSError:
+            continue  # file vanished between glob and stat
+        files.add(CachedIncompleteFileInfo(file_path=path, size_on_disk=size_on_disk))
+    return frozenset(files)
 
 
 def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
