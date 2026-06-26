@@ -403,7 +403,8 @@ class TestXetLargeUpload:
                 (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
 
         with assert_upload_mode("xet"):
-            api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
+            with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
+                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
 
         # Check all files have been uploaded
         uploaded_files = api.list_repo_files(repo_id=repo_id)
@@ -456,7 +457,8 @@ class TestXetLargeUpload:
             return real_upload_xet_files(**kwargs)
 
         with patch("huggingface_hub._commit_api._upload_xet_files", side_effect=spy_upload_xet_files):
-            api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
+            with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
+                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
 
         # Verify _upload_xet_files was called (confirms xet upload path was used)
         assert len(num_files_per_call) > 0, "Expected _upload_xet_files to be called"

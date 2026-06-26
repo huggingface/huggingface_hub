@@ -45,7 +45,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 * `sync`: Sync files between local directory and a...
 * `update`: Update the `hf` CLI to the latest version.
 * `upload`: Upload a file or a folder to the Hub.
-* `upload-large-folder`: Upload a large folder to the Hub.
+* `upload-large-folder`: [Deprecated] Upload a large folder to the...
 * `version`: Print information about the hf version.
 * `webhooks`: Manage webhooks on the Hub.
 
@@ -4650,7 +4650,7 @@ Learn more
 
 ## `hf upload-large-folder`
 
-Upload a large folder to the Hub. Recommended for resumable uploads.
+[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead.
 
 **Usage**:
 

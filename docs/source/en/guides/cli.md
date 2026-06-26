@@ -67,7 +67,7 @@ Main commands:
   spaces               Interact with spaces on the Hub.
   sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
-  upload-large-folder  Upload a large folder to the Hub.
+  upload-large-folder  [Deprecated] Use 'hf upload' instead.
 
 Help commands:
   env      Print information about the environment.
@@ -594,27 +594,16 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## hf upload-large-folder
 
-Use `hf upload-large-folder` to upload very large folders (hundreds of GBs or even TBs) to the Hub. This command is optimized for resumable uploads and handles failures gracefully.
+> [!WARNING]
+> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
 
 ```bash
 # Upload a large folder to a model repository
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
-
-# Upload to a specific revision
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+>>> hf upload Wauplin/my-cool-model ./large_model_dir
 
 # Upload a dataset
->>> hf upload-large-folder Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
+>>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
-
-The command automatically:
-
-- Splits large files into chunks for reliable uploads
-- Resumes interrupted uploads from where they left off
-- Handles network failures gracefully
-
-> [!TIP]
-> Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
 
 ## hf buckets
 
@@ -1474,11 +1463,8 @@ Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-coo
 
 Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
 
-<Tip warning={true}>
-
-Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
-
-</Tip>
+> [!WARNING]
+> Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
 
 ```bash
 >>> hf repos delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
@@ -2031,11 +2017,9 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 >>> hf jobs ps -a --limit 0
 ```
 
-<Tip warning={true}>
+> [!WARNING]
+> `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
 
-`-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
-
-</Tip>
 
 ### SSH into a Job
 
