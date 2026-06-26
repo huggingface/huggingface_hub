@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from huggingface_hub import HfApi
 from huggingface_hub._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths
 from huggingface_hub._upload_large_folder import (
     COMMIT_SIZE_SCALE,
