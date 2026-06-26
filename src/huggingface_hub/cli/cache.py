@@ -664,7 +664,7 @@ def prune(
             "Dry run: no files were deleted.",
             dry_run=True,
             revisions=counts.total_revision_count,
-            incomplete=len(incomplete_files),
+            incomplete=len(incomplete_files), # might be overstated but it's fine
             size=_format_size(total_freed),
         )
         return
