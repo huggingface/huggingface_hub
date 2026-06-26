@@ -1323,7 +1323,7 @@ Add a comment to an existing discussion or PR by specifying its number. The comm
 
 ### Edit a comment
 
-Edit an existing comment in place by passing the discussion number and the comment ID. Comment IDs are available in the `events` array of `hf discussions info ... --format json`:
+Edit an existing comment in place by passing the discussion number and the comment ID. Comment IDs can be retrieved with `hf discussions info`:
 
 ```bash
 >>> hf discussions edit username/my-model 5 abc123 --body "Updated comment."
