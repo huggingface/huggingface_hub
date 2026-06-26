@@ -67,7 +67,7 @@ Main commands:
   spaces               Interact with spaces on the Hub.
   sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
-  upload-large-folder  Upload a large folder to the Hub.
+  upload-large-folder  [Deprecated] Use 'hf upload' instead.
 
 Help commands:
   env      Print information about the environment.
@@ -594,27 +594,16 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## hf upload-large-folder
 
-Use `hf upload-large-folder` to upload very large folders (hundreds of GBs or even TBs) to the Hub. This command is optimized for resumable uploads and handles failures gracefully.
+> [!WARNING]
+> `hf upload-large-folder` is **deprecated** and will be removed in a future release. Use [`hf upload`](#hf-upload) instead: it is now resilient to interruptions and powered by Xet, so it handles very large folders out of the box and resumes automatically if you re-run the same command.
 
 ```bash
-# Upload a large folder to a model repository
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
+# Upload a large folder to a model repository (resumes automatically if interrupted)
+>>> hf upload Wauplin/my-cool-model ./large_model_dir
 
-# Upload to a specific revision
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
-
-# Upload a dataset
->>> hf upload-large-folder Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
+# Upload a large folder to a dataset
+>>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
-
-The command automatically:
-
-- Splits large files into chunks for reliable uploads
-- Resumes interrupted uploads from where they left off
-- Handles network failures gracefully
-
-> [!TIP]
-> Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
 
 ## hf buckets
 
