@@ -510,17 +510,27 @@ class Sandbox:
         keeper — an idle sandbox shuts itself down well before that.
 
         Args:
-            image: Any Docker image with `/bin/sh` (Docker Hub or `hf.co/spaces/...`).
-            flavor: Hardware flavor, e.g. `"cpu-basic"`, `"a10g-small"`. See `hf jobs hardware`.
-            idle_timeout: Auto-shutdown after this much inactivity (no API calls, no running
+            image (`str`, *optional*, defaults to `"python:3.12"`):
+                Any Docker image with `/bin/sh` (Docker Hub or `hf.co/spaces/...`).
+            flavor (`str`, *optional*, defaults to `"cpu-basic"`):
+                Hardware flavor, e.g. `"cpu-basic"`, `"a10g-small"`. See `hf jobs hardware`.
+            idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
+                Auto-shutdown after this much inactivity (no API calls, no running
                 processes). Defaults to 10 minutes; pass `None` to disable.
-            env: Environment variables available in the sandbox.
-            secrets: Secret environment variables (encrypted server-side).
-            volumes: HF repos/buckets to mount, see [`Volume`].
-            namespace: User or org namespace to run under (defaults to current user).
-            forward_hf_token: If True, your HF token is injected as `HF_TOKEN` (opt-in).
-            start_timeout: Max seconds to wait for the sandbox to become ready.
-            token: HF token override.
+            env (`dict[str, Any]`, *optional*):
+                Environment variables available in the sandbox.
+            secrets (`dict[str, Any]`, *optional*):
+                Secret environment variables (encrypted server-side).
+            volumes (`List[Volume]`, *optional*):
+                HF repos/buckets to mount, see [`Volume`].
+            namespace (`str`, *optional*):
+                User or org namespace to run under (defaults to current user).
+            forward_hf_token (`bool`, *optional*, defaults to `False`):
+                If True, your HF token is injected as `HF_TOKEN` (opt-in).
+            start_timeout (`float`, *optional*, defaults to `120.0`):
+                Max seconds to wait for the sandbox to become ready.
+            token (`str`, *optional*):
+                HF token override.
 
         The image only needs `/bin/sh`. The sandbox server is downloaded at startup with
         `wget`/`curl` if available, otherwise read off an always-mounted server bucket (which
@@ -677,18 +687,28 @@ class Sandbox:
         """Run a command in the sandbox and wait for it, streaming output live.
 
         Args:
-            cmd: A shell command string (run with `/bin/sh -c`) or an argv list (exec'd directly).
-            shell: Force the execution mode instead of inferring it from the type of `cmd`.
+            cmd (`str` or `List[str]`):
+                A shell command string (run with `/bin/sh -c`) or an argv list (exec'd directly).
+            shell (`bool`, *optional*):
+                Force the execution mode instead of inferring it from the type of `cmd`.
                 `True` runs through `/bin/sh -c` and requires `cmd` to be a string; `False`
                 exec's `cmd` directly and requires it to be an argv list. `None` (default)
                 infers from the type. Set it explicitly to avoid the type-driven footgun (e.g.
                 `["echo hi"]` being exec'd as a single program named `"echo hi"`).
-            env: Extra environment variables for this command.
-            cwd: Working directory.
-            timeout: Kill the command (whole process group) after this many seconds.
-            stdin: Data to write to the command's stdin.
-            on_stdout / on_stderr: Callbacks invoked with output chunks as they arrive.
-            check: If True (default), raise [`SandboxCommandError`] on non-zero exit.
+            env (`dict[str, Any]`, *optional*):
+                Extra environment variables for this command.
+            cwd (`str`, *optional*):
+                Working directory.
+            timeout (`float`, *optional*):
+                Kill the command (whole process group) after this many seconds.
+            stdin (`str`, *optional*):
+                Data to write to the command's stdin.
+            on_stdout (`Callable[[str], None]`, *optional*):
+                Callback invoked with stdout chunks as they arrive.
+            on_stderr (`Callable[[str], None]`, *optional*):
+                Callback invoked with stderr chunks as they arrive.
+            check (`bool`, *optional*, defaults to `True`):
+                If True, raise [`SandboxCommandError`] on non-zero exit.
 
         Returns: [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
         """
@@ -812,28 +832,38 @@ class SandboxPool:
         `create(env=...)`, so sandboxes in the same pool can have different environments.
 
         Args:
-            image: Docker image for the hosts (needs `/bin/sh`). All sandboxes in the
+            image (`str`, *optional*, defaults to `"python:3.12"`):
+                Docker image for the hosts (needs `/bin/sh`). All sandboxes in the
                 pool share this image.
-            flavor: Hardware flavor for the host jobs (e.g. `"cpu-basic"`).
-            sandboxes_per_host: How many sandboxes to pack per host (per VM density).
-            warm_up: How many hosts to pre-provision in the constructor (which blocks
+            flavor (`str`, *optional*, defaults to `"cpu-basic"`):
+                Hardware flavor for the host jobs (e.g. `"cpu-basic"`).
+            sandboxes_per_host (`int`, *optional*, defaults to `50`):
+                How many sandboxes to pack per host (per VM density).
+            warm_up (`int`, *optional*, defaults to `1`):
+                How many hosts to pre-provision in the constructor (which blocks
                 until they are ready), so an initial burst of `create()` calls doesn't pay
                 a host cold start each. Existing warm hosts (from the cache / other processes)
                 count towards it, so only the shortfall is booted; capped by `max_hosts`.
                 Defaults to 1 (a single host).
-            max_hosts: Optional cap on the number of host jobs (a cost ceiling). When
+            max_hosts (`int`, *optional*):
+                Optional cap on the number of host jobs (a cost ceiling). When
                 reached and all hosts are full, `create()` raises.
-            name: Pool name, used as the `hf-sandbox-pool` job label so the pool is
+            name (`str`, *optional*):
+                Pool name, used as the `hf-sandbox-pool` job label so the pool is
                 discoverable (e.g. `hf sandbox pool ls`, `connect()`). `create()` reuses
                 running hosts carrying this label (including from other processes) before
                 booting new ones, so distinct names keep separate pools from sharing hosts.
                 A random name is generated when omitted.
-            idle_timeout: Host idle timeout — a host shuts down once it has had no
+            idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
+                Host idle timeout — a host shuts down once it has had no
                 sandboxes for this long (a billing backstop). Each sandbox also has its
                 own idle timeout, set at `create()`. Pass `None` to disable.
-            namespace: User or org namespace to run hosts under.
-            start_timeout: Max seconds to wait for a host to become ready.
-            token: HF token override.
+            namespace (`str`, *optional*):
+                User or org namespace to run hosts under.
+            start_timeout (`float`, *optional*, defaults to `120.0`):
+                Max seconds to wait for a host to become ready.
+            token (`str`, *optional*):
+                HF token override.
         """
         if sandboxes_per_host < 1:
             raise ValueError("sandboxes_per_host must be >= 1.")
@@ -894,9 +924,12 @@ class SandboxPool:
         all of its hosts are gone — idle-timed-out or killed).
 
         Args:
-            pool_id: The id returned when the pool was first created.
-            namespace: Namespace to search for the pool's hosts (defaults to yours).
-            token: HF token override.
+            pool_id (`str`):
+                The id returned when the pool was first created.
+            namespace (`str`, *optional*):
+                Namespace to search for the pool's hosts (defaults to yours).
+            token (`str`, *optional*):
+                HF token override.
         """
         # Fast path: rebuild the pool from the local best-effort cache, with no HTTP at all.
         # The cached hosts are seeded (and verified) lazily on the next create(); if they are
@@ -977,11 +1010,14 @@ class SandboxPool:
         re-placed on another host (or a fresh one).
 
         Args:
-            env: Environment variables for this sandbox (each sandbox gets its own).
-            idle_timeout: Per-sandbox idle timeout — a sandbox is evicted from its host
+            env (`dict[str, Any]`, *optional*):
+                Environment variables for this sandbox (each sandbox gets its own).
+            idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
+                Per-sandbox idle timeout — a sandbox is evicted from its host
                 after this much inactivity (no API calls, no running process). Distinct
                 from the host idle timeout. Pass `None` to disable.
-            forward_hf_token: If True, inject your HF token as `HF_TOKEN` in the sandbox
+            forward_hf_token (`bool`, *optional*, defaults to `False`):
+                If True, inject your HF token as `HF_TOKEN` in the sandbox
                 (opt-in). Unlike a dedicated sandbox's `secrets`, a pooled sandbox's env is
                 delivered to the host server at creation (never stored in the host job), so
                 it doesn't appear in any job's metadata.
