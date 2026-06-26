@@ -595,7 +595,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 ## hf upload-large-folder
 
 > [!WARNING]
-> `hf upload-large-folder` is **deprecated** and will be removed in a future release. Use [`hf upload`](#hf-upload) instead: it is now resilient to interruptions and powered by Xet, so it handles very large folders out of the box and resumes automatically if you re-run the same command.
+> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
 
 ```bash
 # Upload a large folder to a model repository
