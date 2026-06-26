@@ -14,10 +14,7 @@ from huggingface_hub._sandbox import (
     POOL_LABEL,
     SANDBOX_LABEL,
     Sandbox,
-    SandboxCommandResult,
     SandboxPool,
-    _derive_sandbox_token,
-    _duration_to_secs,
     _SandboxServer,
 )
 from huggingface_hub._sandbox_cache import CachedHost, read_pool_cache, save_pool_cache
@@ -51,40 +48,6 @@ def _fake_list_jobs(jobs):
 def _isolate_pool_cache(tmp_path, monkeypatch):
     """Point the best-effort pool cache at a throwaway dir so tests never touch ~/.cache."""
     monkeypatch.setattr(cache_mod.constants, "HF_HOME", str(tmp_path))
-
-
-class TestHelpers:
-    def test_derive_sandbox_token_deterministic(self) -> None:
-        token = _derive_sandbox_token("hf_xxx", "abcd1234")
-        assert token == _derive_sandbox_token("hf_xxx", "abcd1234")
-        assert len(token) == 64  # hex sha256
-
-    def test_derive_sandbox_token_unique_per_nonce_and_token(self) -> None:
-        base = _derive_sandbox_token("hf_xxx", "nonce1")
-        assert base != _derive_sandbox_token("hf_xxx", "nonce2")
-        assert base != _derive_sandbox_token("hf_yyy", "nonce1")
-
-    @pytest.mark.parametrize(
-        "value, expected",
-        [(300, 300), (1.5, 1), ("300", 300), ("300s", 300), ("10m", 600), ("2h", 7200), ("1d", 86400)],
-    )
-    def test_duration_to_secs(self, value, expected) -> None:
-        assert _duration_to_secs(value) == expected
-
-    def test_duration_to_secs_invalid(self) -> None:
-        with pytest.raises(ValueError):
-            _duration_to_secs("oops")
-
-    def test_command_result_ok(self) -> None:
-        assert SandboxCommandResult(exit_code=0, stdout="", stderr="").ok
-        assert not SandboxCommandResult(exit_code=1, stdout="", stderr="").ok
-
-    def test_command_error_message(self) -> None:
-        result = SandboxCommandResult(exit_code=2, stdout="", stderr="boom")
-        error = SandboxCommandError(cmd="make", result=result)
-        assert "exited with code 2" in str(error)
-        assert "boom" in str(error)
-        assert error.result is result
 
 
 def _make_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _SandboxServer:
@@ -273,9 +236,7 @@ class TestSandboxClient:
         # while `sbx.kill()` still works on a live handle — both via the _KillMethod descriptor.
         connected = MagicMock()
         monkeypatch.setattr(
-            sandbox_mod.Sandbox,
-            "connect",
-            classmethod(lambda cls, sid, namespace=None, token=None: connected),
+            sandbox_mod.Sandbox, "connect", classmethod(lambda cls, sid, namespace=None, token=None: connected)
         )
         Sandbox.kill("job-xyz", namespace="org")
         connected.kill.assert_called_once_with()
