@@ -12,37 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Sandboxes on Hugging Face Jobs: isolated cloud machines with command execution,
-file transfer and port forwarding.
-
-Two ways to get a sandbox, sharing the same `Sandbox` surface (`run`, `files`, ...):
-
-- [`Sandbox.create`] — one dedicated HF Job per sandbox (full VM isolation, GPU
-  support, public port forwarding). Best for a single sandbox, untrusted code or
-  GPU workloads. ~6s cold start.
-- [`SandboxPool`] — many lightweight sandboxes packed inside shared "host" jobs,
-  isolated from each other by uid + the Landlock LSM. Best for fanning out many
-  cheap CPU sandboxes (e.g. RL rollouts): the cost of one VM is amortized across
-  dozens of sandboxes and per-sandbox cold start is ~one proxy round-trip.
-
-```python
->>> from huggingface_hub import Sandbox
->>> with Sandbox.create() as sbx:
-...     sbx.files.write("/app/hello.py", "print('hello from the sandbox')")
-...     result = sbx.run("python /app/hello.py")
-...     print(result.stdout)
-hello from the sandbox
-
->>> from huggingface_hub import SandboxPool
->>> with SandboxPool(image="python:3.12", warm_up=2) as pool:
-...     boxes = [pool.create() for _ in range(100)]   # packed across the warm hosts
-...     print(boxes[0].run("echo hi").stdout)
-hi
-```
-"""
-
-from __future__ import annotations
-
 import hashlib
 import hmac
 import json
@@ -73,15 +42,12 @@ from .utils._parsing import parse_duration
 
 logger = logging.get_logger(__name__)
 
-# Port the sandbox server listens on inside the job. Deliberately uncommon so
-# that typical user ports (3000, 8000, 8080, ...) stay free.
+# Port the sandbox server listens on inside the job. Deliberately uncommon so that typical user ports stay free.
 SANDBOX_SERVER_PORT = 49983
 
-# Stable marker present on every sandbox job — dedicated sandbox or shared host alike — so all
-# of them can be listed/filtered server-side with `hf-sandbox=1` (its value is always "1").
+# Stable marker present on every sandbox job to ease filtering
 SANDBOX_LABEL = "hf-sandbox"
-# Sandbox mode: "dedicated" (one job == one sandbox) or "pool" (one host job packs many landlock
-# sandboxes). Lets you filter all jobs of a given mode without knowing the pool name.
+# Sandbox mode: "dedicated" or "pool" to ease filtering
 MODE_LABEL = "hf-sandbox-mode"
 MODE_DEDICATED = "dedicated"
 MODE_POOL = "pool"
@@ -94,41 +60,24 @@ POOL_LABEL = "hf-sandbox-pool"
 NONCE_LABEL = "hf-sandbox-nonce"
 
 DEFAULT_IMAGE = "python:3.12"
+
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
-# Hard cap on a sandbox/host job's lifetime. Fixed (not user-tunable): `idle_timeout` is
-# the real keeper — an idle sandbox or empty host shuts down long before this backstop.
 SANDBOX_MAX_LIFETIME = "24h"
-# How many sandboxes a single host job packs by default (shared mode). One host
-# is one billed VM, so this is the per-VM density: higher = cheaper per sandbox,
-# bounded by the host's CPU/RAM. 50 is a safe default for light CPU workloads on
-# cpu-basic; tune via SandboxPool(sandboxes_per_host=...).
+
 DEFAULT_SANDBOXES_PER_HOST = 50
 
-# Separator between a host job id and a host-local sandbox id in the public id of
-# a shared sandbox: "<host_job_id>.<local_id>". Job ids are hex (no dots), so this
-# is unambiguous and lets Sandbox.connect() reattach to a shared sandbox with no
-# local state.
 SHARED_ID_SEP = "."
 
-# Job stages in which a sandbox/host is finished and needs no teardown. Anything else
-# (SCHEDULING, RUNNING, ...) is still billable and must be cancelled when killing.
+# Job stages in which a sandbox/host is finished and needs no teardown.
 _TERMINAL_STAGES = ("COMPLETED", "ERROR", "DELETED", "CANCELED")
 
-# Safety bound on create()'s pack-retry loop: each round re-discovers hosts and retries
-# the sandboxes a full host rejected. Only matters under cross-process contention; a high
-# value still terminates because every round either places sandboxes or boots a new host.
+# Safety bound on create()'s pack-retry loop
 _MAX_PACK_ROUNDS = 8
 
-# hf-mount path where the server bucket is mounted on every sandbox job (see
-# _bootstrap_job_spec). The mount is transparent: it costs nothing unless the bootstrap
-# script actually reads from it, which only happens when the image ships no wget/curl.
+# hf-mount path where the server bucket is mounted on every sandbox job
 _SERVER_MOUNT_PATH = "/.hf-sbx-server"
 
-# Job startup script (needs only /bin/sh). It fetches the static server binary and exec's it.
-# Fast path: download from the HF CDN with whatever the image already ships (wget or curl).
-# Fallback: if neither is present, copy the binary off the hf-mounted server bucket. Transparent,
-# but the FUSE mount adds ~2-3s to cold start (and drops the executable bit, hence chmod). This
-# keeps minimal images (e.g. distroless-ish bases without a fetcher) working out of the box.
+# Job startup script (needs only /bin/sh)
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
@@ -221,13 +170,7 @@ class SandboxFiles:
         return self.read(path).decode(encoding)
 
     def write(self, path: str, data: str | bytes | BinaryIO, mode: str | None = None) -> None:
-        """Write content to a file in the sandbox (parent directories are created).
-
-        Args:
-            path: Destination path in the sandbox.
-            data: Content as `str`, `bytes`, or a binary file object.
-            mode: Optional octal permission string, e.g. `"755"`.
-        """
+        """Write content to a file in the sandbox (parent directories are created)."""
         if isinstance(data, str):
             data = data.encode()
         elif not isinstance(data, bytes):
@@ -241,7 +184,7 @@ class SandboxFiles:
         self._sandbox._request("PUT", "/files/write", params=params, content=data)
 
     def upload(self, local_path: str | Path, path: str, mode: str | None = None) -> None:
-        """Upload a local file to the sandbox (parallel ranged transfer for large files)."""
+        """Upload a local file to the sandbox."""
         size = Path(local_path).stat().st_size
         if size > self.PARALLEL_THRESHOLD:
             self._write_ranges(path, Path(local_path).read_bytes(), mode)
@@ -250,7 +193,7 @@ class SandboxFiles:
             self.write(path, f, mode=mode)
 
     def download(self, path: str, local_path: str | Path) -> None:
-        """Download a file from the sandbox (parallel ranged transfer for large files)."""
+        """Download a file from the sandbox."""
         size = self.stat(path).size
         if size > self.PARALLEL_THRESHOLD:
             with open(local_path, "wb") as f:
@@ -329,14 +272,7 @@ class SandboxFiles:
 
 
 def _exec_payload(cmd: str | List[str], shell: bool | None) -> dict[str, Any]:
-    """Build the `cmd`/`shell` part of an `/exec` payload, validating their consistency.
-
-    The shell-vs-argv decision is, by default, inferred from the type of `cmd`: a string is
-    a shell command line (run via `/bin/sh -c`), a list is an argv vector exec'd directly.
-    `shell` makes that choice explicit and authoritative: `True` requires a string, `False`
-    requires a list — passing the wrong type raises a clear error instead of silently doing
-    the wrong thing (e.g. a one-element list being exec'd as a program with a space in its name).
-    """
+    """Build the `cmd`/`shell` part of an `/exec` payload, validating their consistency."""
     if shell is True and not isinstance(cmd, str):
         raise ValueError("shell=True requires `cmd` to be a shell command string, not a list.")
     if shell is False and isinstance(cmd, str):
@@ -370,9 +306,9 @@ def _raise_for_status(response: httpx.Response) -> None:
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
-    Owns the `httpx.Client`, the base URL and the auth headers. In dedicated mode
-    a server is paired 1:1 with its [`Sandbox`]; in shared mode one server (one
-    host job) is shared by many sandboxes, and `live`/`capacity` track packing.
+    Owns the `httpx.Client`, the base URL and the auth headers.
+    In dedicated mode a server is paired 1:1 with its [`Sandbox`
+    In pool mode one server (one host job) is shared by many sandboxes, and `live`/`capacity` track packing.
     """
 
     def __init__(
@@ -491,13 +427,7 @@ class _SandboxServer:
 
 
 class _KillMethod:
-    """Lets `kill` work both as a classmethod and an instance method.
-
-    `Sandbox.kill(id)` terminates a sandbox by id (a shortcut for `connect(id).kill()`,
-    mirroring `hf sandbox kill <id>`), while `sbx.kill()` terminates a live handle. The
-    two have different signatures, so a plain `@classmethod` can't cover both — hence this
-    small descriptor.
-    """
+    """Lets `kill` work both as a classmethod and an instance method."""
 
     @overload
     def __get__(self, instance: None, owner: type) -> Callable[..., None]: ...
@@ -516,10 +446,8 @@ class _KillMethod:
 class Sandbox:
     """An isolated cloud machine running on Hugging Face Jobs.
 
-    Create a dedicated one with [`Sandbox.create`] (one job per sandbox), or get
-    many cheap shared ones from a [`SandboxPool`]. Reattach to a running sandbox
-    from anywhere with [`Sandbox.connect`]. Use as a context manager to terminate
-    it on exit:
+    Create a dedicated one with [`Sandbox.create`] (one job per sandbox), or get many cheap shared ones from a [`SandboxPool`].
+    Reattach to a running sandbox from anywhere with [`Sandbox.connect`]. Use as a context manager to terminate it on exit:
 
     ```python
     >>> from huggingface_hub import Sandbox
@@ -537,7 +465,6 @@ class Sandbox:
         owns_sandbox: bool,
         owns_server: bool,
     ) -> None:
-        """Use [`Sandbox.create`], [`SandboxPool.create`] or [`Sandbox.connect`] instead."""
         self.id = id
         self._server = server
         # None in dedicated mode; the host-local sandbox id in shared mode.
@@ -651,12 +578,7 @@ class Sandbox:
 
     @classmethod
     def connect(cls, sandbox_id: str, *, namespace: str | None = None, token: str | None = None) -> "Sandbox":
-        """Reattach to a running sandbox from anywhere, using only its id.
-
-        Works for both dedicated sandboxes (id is the job id) and shared/pool
-        sandboxes (id is `<host_job_id>.<local_id>`), from any machine holding the
-        same HF token that created it (the sandbox auth token is derived, not stored).
-        """
+        """Reattach to a running sandbox from anywhere, using only its id."""
         api = HfApi(token=token)
         sandbox_id, namespace = _split_sandbox_id(sandbox_id, namespace)
         if SHARED_ID_SEP in sandbox_id:
@@ -1601,8 +1523,7 @@ def _bootstrap_job_spec(
 
 
 def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, Any]:
-    """Return a host job's env vars (where pool config lives), fetching the full spec via
-    inspect_job when list_jobs omitted them."""
+    """Return a host job's env vars (where pool config lives)"""
     env = job.environment if isinstance(job.environment, dict) else {}
     if "SBX_CAPACITY" not in env:
         env = api.inspect_job(job_id=job.id, namespace=namespace).environment or {}

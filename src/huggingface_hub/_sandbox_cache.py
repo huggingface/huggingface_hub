@@ -12,40 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Best-effort local cache for [`SandboxPool`] hosts (host/pool mode).
-
-Why this exists
----------------
-A pool has **no authoritative local state** — it *is* its running host Jobs, found via
-job labels (see `_sandbox.py`). That makes pools discoverable from any machine, but it
-also means a cold `hf sandbox create --pool <id>` must, every single time:
-
-1. `list_jobs()` to find the pool's hosts (scans *all* the namespace's jobs),
-2. `inspect_job()` each host to rebuild its server URL + auth nonce,
-3. `GET /v1/sandboxes` on each to learn how full it is,
-
-before it can finally `POST /v1/sandboxes` to spawn the sandbox. Even with a warm host
-that is several round-trips of pure overhead per CLI invocation.
-
-This module persists what a process learned about a pool to
-`$HF_HOME/sandbox/pools/<pool-id>.json` so the *next* process can skip straight to the
-`POST`: it caches the pool config (enough to boot a fresh host) and, per host, the URL +
-nonce + last-seen free slots needed to talk to it directly.
-
-It is **purely an optimization and never a source of truth**:
-
-- The in-job server is authoritative on capacity (it replies `{"rejected": N}` when full),
-  so a stale `live` count only ever costs a wasted request, never correctness.
-- Every read tolerates a missing / corrupt / foreign-machine file by returning `None`;
-  the caller then falls back to the label-discovery path.
-- Writes are merged under a [`WeakFileLock`] and committed atomically (temp file +
-  `os.replace`), so concurrent `create` processes don't clobber each other and lock-free
-  readers never see a half-written file.
-
-Deleting the file at any time is safe.
-"""
-
-from __future__ import annotations
+"""Best-effort local cache for [`SandboxPool`] hosts (host/pool mode)."""
 
 import json
 import os
