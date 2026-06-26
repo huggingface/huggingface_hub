@@ -6213,9 +6213,7 @@ class HfApi:
             "================================================================================\n"
             "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
             "\n"
-            "`upload_folder` is now resilient to interruptions and powered by Xet: it streams\n"
-            "files in multiple commits and resumes automatically if you re-run the same call.\n"
-            "Use it instead:\n"
+            "Use `upload_folder` instead:\n"
             "\n"
             f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
             "================================================================================\n",

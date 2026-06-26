@@ -91,9 +91,9 @@ def upload_large_folder(
         raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
     # Build the equivalent `hf upload` command to recommend to the user.
-    equivalent = ["hf upload", repo_id, local_path, f"--repo-type {repo_type.value}"]
+    equivalent = [f"hf upload {repo_id} '{local_path}' --repo-type {repo_type.value}"]
     if revision is not None:
-        equivalent.append(f"--revision {revision}")
+        equivalent.append(f"--revision '{revision}'")
     if private:
         equivalent.append("--private")
     for pattern in include or []:
@@ -105,9 +105,7 @@ def upload_large_folder(
         "================================================================================\n"
         "`hf upload-large-folder` is DEPRECATED and will be removed in a future release.\n"
         "\n"
-        "`hf upload` is now resilient to interruptions and powered by Xet: it streams\n"
-        "files in multiple commits and resumes automatically if you re-run the same command.\n"
-        "Use it instead:\n"
+        "Use `hf upload` instead:\n"
         "\n"
         f"    {' '.join(equivalent)}\n"
         "================================================================================"
