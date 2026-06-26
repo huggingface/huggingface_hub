@@ -1235,6 +1235,7 @@ $ hf discussions [OPTIONS] COMMAND [ARGS]...
 * `comment`: Comment on a discussion or pull request.
 * `create`: Create a new discussion or pull request on...
 * `diff`: Show the diff of a pull request.
+* `edit`: Edit an existing comment on a discussion...
 * `info`: Get info about a discussion or pull request.
 * `list`: List discussions and pull requests on a repo. [alias: ls]
 * `merge`: Merge a pull request.
@@ -1363,6 +1364,39 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 Examples
   $ hf discussions diff username/my-model 5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions edit`
+
+Edit an existing comment on a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+* `COMMENT_ID`: The ID of the comment to edit (see 'hf discussions info ... --format json').  [required]
+
+**Options**:
+
+* `--body TEXT`: The new comment text (supports Markdown).
+* `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
+  $ hf discussions edit username/my-model 5 abc123 --body-file fixed.md
 
 Learn more
   Use `hf <command> --help` for more information about a command.
