@@ -11,24 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to run and manage sandboxes on Hugging Face Jobs.
-
-Two ways to get a sandbox:
-
-    # One dedicated sandbox (a full VM — GPU, untrusted code)
-    hf sandbox create [IMAGE]
-
-    # Many cheap shared sandboxes packed into host VMs (CPU fan-out, RL rollouts).
-    # Warm a pool once, then create sandboxes into it on demand:
-    hf sandbox pool create python:3.12 --flavor cpu-basic   # -> pool id
-    hf sandbox create --pool <pool_id>                      # pack onto / boot a host
-
-Both kinds share the same commands:
-
-    hf sandbox exec <sandbox_id> -- python -c "print('hi')"
-    hf sandbox cp local.txt <sandbox_id>:/tmp/remote.txt
-    hf sandbox kill <sandbox_id>
-"""
+"""Contains commands to run and manage sandboxes on Hugging Face Jobs."""
 
 import sys
 import time
@@ -70,17 +53,15 @@ from .jobs import FlavorOpt, NamespaceOpt
 
 
 sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
+pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
+sandbox_cli.add_typer(pool_cli, name="pool")
 
-SandboxIdArg = Annotated[str, typer.Argument(help="The sandbox id (as printed by `hf sandbox create`).")]
+SandboxIdArg = Annotated[str, typer.Argument(help="The sandbox id as printed by `hf sandbox create`.")]
 
 
 @contextmanager
 def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> Iterator[Sandbox]:
-    """Reattach to a sandbox and close the HTTP client when the command is done.
-
-    Closing matters for one-shot CLI commands: without it the httpx client (and its
-    connection pool) would leak until interpreter shutdown.
-    """
+    """Reattach to a sandbox and close the HTTP client when the command is done."""
     sandbox = Sandbox.connect(sandbox_id, namespace=namespace, token=token)
     try:
         yield sandbox
@@ -130,12 +111,8 @@ def sandbox_create(
     idle = idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT
 
     if pool is not None:
-        # image/flavor/volume are fixed by the pool's hosts — reject rather than silently ignore.
         if image is not None or flavor is not None or volume:
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
-        # Pooled sandboxes share a long-lived host job, so per-sandbox values can only travel as
-        # plaintext env in the create request — there's no encrypted-secrets channel like the
-        # dedicated mode gets via the Jobs API. Reject --secrets rather than quietly downgrade it.
         if secrets or secrets_file:
             raise CLIError("--pool can't encrypt secrets; pass them with --env/--env-file instead.")
         sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(
@@ -159,8 +136,7 @@ def sandbox_create(
         forward_hf_token=forward_hf_token,
         token=token,
     )
-    # Release the HTTP client (the sandbox keeps running); this one-shot command reports the id
-    # and exits, later commands reattach with their own connection.
+    # Release the HTTP client (the sandbox keeps running)
     sandbox.close()
     out.result("Sandbox ready", id=sandbox.id, image=sandbox.image, elapsed=f"{time.time() - start:.1f}s")
     out.hint(f"Run a command with `hf sandbox exec {sandbox.id} -- echo hello`.")
@@ -272,8 +248,6 @@ def sandbox_kill(
     api = get_hf_api(token=token)
 
     if all_:
-        # Every sandbox job (dedicated or host) carries the stable `hf-sandbox=1` label, so the
-        # active ones can be listed entirely server-side.
         jobs = list(api.list_jobs(status=["RUNNING", "SCHEDULING"], labels={SANDBOX_LABEL: "1"}, namespace=namespace))
         if not jobs:
             out.text("No running sandboxes.")
@@ -313,18 +287,6 @@ def sandbox_kill(
     out.result("Sandbox terminated", id=sandbox_id)
 
 
-# --------------------------------------------------------------------- pool subgroup
-#
-# A "pool" is a set of running host VMs sharing a `hf-sandbox-pool=<id>` job label. There
-# is NO local state: `pool create` warms one host (storing the pool's config in its env), and
-# `create --pool <id>` finds the pool's hosts via the label, packs a sandbox onto one with
-# room, or boots a duplicate once they all report full. So pools are discoverable from any
-# machine, and a pool stops existing once all of its hosts are gone.
-
-pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
-sandbox_cli.add_typer(pool_cli, name="pool")
-
-
 @pool_cli.command(
     "create",
     examples=[
@@ -354,16 +316,9 @@ def pool_create(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
-
-    Returns a pool id. Spawn sandboxes into it with `hf sandbox create --pool <id>` —
-    each sandbox carries its own env and idle-timeout. Billing starts now (the host
-    is running); stop it with `hf sandbox pool delete <id>`.
-    """
+    """Warm a pool: boot one host VM now, tagged so it can be found later by its pool id."""
     start = time.time()
     image = image or DEFAULT_IMAGE
-    # The constructor blocks until one host is warm (warm_up defaults to 1), so the pool is
-    # ready to spawn into as soon as it returns.
     pool = SandboxPool(
         image=image,
         flavor=flavor or "cpu-basic",
@@ -431,8 +386,6 @@ def pool_delete(
 ) -> None:
     """Terminate every host VM of a pool (and therefore all its sandboxes)."""
     api = get_hf_api(token=token)
-    # Include SCHEDULING hosts (still booting after `pool create`), not just RUNNING ones, so
-    # they don't keep billing after a delete reported success.
     hosts = list(
         api.list_jobs(
             status=["RUNNING", "SCHEDULING"],
@@ -441,11 +394,11 @@ def pool_delete(
         )
     )
     if not hosts:
-        delete_pool_cache(pool_id)  # nothing running; clear any stale local cache too
+        delete_pool_cache(pool_id)
         out.text(f"No running hosts for pool '{pool_id}'.")
         return
     out.confirm(f"Terminate {len(hosts)} host(s) of pool '{pool_id}' (and all their sandboxes)?", yes=yes)
     for job in hosts:
         api.cancel_job(job_id=job.id, namespace=job.owner.name)
-    delete_pool_cache(pool_id)  # drop the local best-effort cache for this pool
+    delete_pool_cache(pool_id)
     out.result("Pool deleted", id=pool_id, hosts_terminated=len(hosts))

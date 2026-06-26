@@ -3750,7 +3750,7 @@ $ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id (as printed by `hf sandbox create`).  [required]
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
 * `COMMAND...`: The command to run.  [required]
 
 **Options**:
@@ -3827,10 +3827,6 @@ $ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
 #### `hf sandbox pool create`
 
 Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
-
-Returns a pool id. Spawn sandboxes into it with `hf sandbox create --pool <id>` —
-each sandbox carries its own env and idle-timeout. Billing starts now (the host
-is running); stop it with `hf sandbox pool delete <id>`.
 
 **Usage**:
 
