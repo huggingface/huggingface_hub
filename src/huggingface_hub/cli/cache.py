@@ -672,15 +672,15 @@ def prune(
     out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
-    # Track what is actually removed: deletions may fail (e.g. permissions), so we can't
-    # rely on the projected totals for the final report.
+
+    # Track incomplete files that are actually removed (deletions may fail)
     incomplete_deleted = 0
     incomplete_freed = 0
     for incomplete_file in incomplete_files:
         try:
             incomplete_file.file_path.unlink()
         except FileNotFoundError:
-            pass  # already gone, nothing to free
+            pass
         except OSError as exc:
             out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
             continue
