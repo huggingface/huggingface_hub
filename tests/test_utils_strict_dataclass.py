@@ -873,8 +873,10 @@ def test_typed_dict_to_dataclass_is_cached():
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 class TestConfigDictNotRequired:
-    def __init__(self):
-        # cannot be defined at class level because of Python<3.11
+    @pytest.fixture(autouse=True)
+    def _config_dict(self):
+        # Built in an autouse fixture rather than at class level: pytest cannot collect a test
+        # class with an __init__, and Required/NotRequired are only available on Python 3.11+.
         self.ConfigDictNotRequired = TypedDict(
             "ConfigDictNotRequired",
             {"required_value": Required[int], "not_required_value": NotRequired[int]},
