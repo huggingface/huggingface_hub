@@ -474,6 +474,16 @@ TO_URL_CASES: list[tuple[HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
         "/my-org/my-model/blob/feature%2Ffoo/config.json",
     ),
+    # Branch name with '#' is percent-encoded so it is not read as a URL fragment (blob route)
+    (
+        HfUri(type="model", id="my-org/my-model", revision="fix#1", path_in_repo="config.json"),
+        "/my-org/my-model/blob/fix%231/config.json",
+    ),
+    # '#' in the revision is also encoded on the folder (tree) route
+    (
+        HfUri(type="dataset", id="my-org/my-dataset", revision="fix#1"),
+        "/datasets/my-org/my-dataset/tree/fix%231",
+    ),
     # Path with special characters is percent-encoded ('/' kept as the separator)
     (
         HfUri(type="model", id="my-org/my-model", revision="main", path_in_repo="dir/my file#1.txt"),
