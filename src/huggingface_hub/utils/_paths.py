@@ -102,7 +102,6 @@ def filter_repo_objects(
     [CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")]
     ```
     """
-    allow_patterns = allow_patterns or ['*']
     ignore_patterns = ignore_patterns or []
 
     if isinstance(allow_patterns, str):
@@ -111,7 +110,8 @@ def filter_repo_objects(
     if isinstance(ignore_patterns, str):
         ignore_patterns = [ignore_patterns]
 
-    allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
+    if allow_patterns is not None:
+        allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
     ignore_patterns = [_add_wildcard_to_directories(p) for p in ignore_patterns]
 
     if key is None:
@@ -129,7 +129,7 @@ def filter_repo_objects(
         path = key(item)
 
         # Skip if there's an allowlist and path doesn't match any
-        if not any(fnmatch(path, r) for r in allow_patterns):
+        if allow_patterns is not None and not any(fnmatch(path, r) for r in allow_patterns):
             continue
 
         # Skip if there's a denylist and path matches any
