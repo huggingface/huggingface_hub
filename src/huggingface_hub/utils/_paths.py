@@ -102,7 +102,7 @@ def filter_repo_objects(
     [CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")]
     ```
     """
-    allow_patterns = allow_patterns or []
+    allow_patterns = allow_patterns or ['*']
     ignore_patterns = ignore_patterns or []
 
     if isinstance(allow_patterns, str):
