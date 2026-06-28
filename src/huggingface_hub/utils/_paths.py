@@ -97,7 +97,7 @@ def filter_repo_objects(
     ... ],
     ... allow_patterns=["*.pdf"],
     ... ignore_patterns=[".*"],
-    ... key=lambda x: x.repo_in_path
+    ... key=lambda x: x.path_in_repo
     ... ))
     [CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")]
     ```
