@@ -74,7 +74,7 @@ def snapshot_download(
     tqdm_class: type[base_tqdm] | None = None,
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
-    dry_run: Literal[True] = True,
+    dry_run: Literal[True],
 ) -> list[DryRunFileInfo]: ...
 
 
