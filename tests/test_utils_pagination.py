@@ -57,10 +57,10 @@ class TestPagination(unittest.TestCase):
         assert mock_hf_raise_for_status.call_count == 3
 
         # Params not passed to next pages
-        assert mock_get.call_args_list == [call("url", params=mock_params, headers=mock_headers)]
+        assert mock_get.call_args_list == [call("url", params=mock_params, headers=mock_headers, timeout=None)]
         assert mock_http_backoff.call_args_list == [
-            call("GET", "url_p2", headers=mock_headers),
-            call("GET", "url_p3", headers=mock_headers),
+            call("GET", "url_p2", headers=mock_headers, timeout=None),
+            call("GET", "url_p3", headers=mock_headers, timeout=None),
         ]
 
     def test_paginate_hf_api(self) -> None:

@@ -18,7 +18,7 @@ Usage:
     hf jobs run <image> <command>
 
     # List running or completed jobs
-    hf jobs ps [-a] [-f key=value]
+    hf jobs ls [-a] [-f key=value]
 
     # Print logs from a job (non-blocking)
     hf jobs logs <job-id>
@@ -48,7 +48,7 @@ Usage:
     hf jobs scheduled run <schedule> <image> <command>
 
     # List scheduled jobs
-    hf jobs scheduled ps [-a] [-f key=value]
+    hf jobs scheduled ls [-a] [-f key=value]
 
     # Inspect a scheduled job
     hf jobs scheduled inspect <scheduled_job_id>
@@ -64,6 +64,7 @@ Usage:
 
 """
 
+import itertools
 import multiprocessing
 import multiprocessing.pool
 import shutil
@@ -530,16 +531,48 @@ def jobs_stats(
                 last_update_time = now
 
 
-@jobs_cli.command("ps", examples=["hf jobs ps", "hf jobs ps -a"])
+@jobs_cli.command(
+    "list | ls | ps",
+    examples=[
+        "hf jobs ls",
+        "hf jobs ls -a",
+        "hf jobs ls --status running,scheduling",
+        "hf jobs ls --label env=prod --label team=ml",
+        "hf jobs ls --all --label hf-sandbox=1",
+    ],
+)
 def jobs_ps(
     all: Annotated[
         bool,
         typer.Option(
             "-a",
             "--all",
-            help="Show all Jobs (default shows just running)",
+            help="Show all Jobs (default shows running and scheduling). Cannot be combined with --status.",
         ),
     ] = False,
+    status: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--status",
+            click_type=SoftChoice(JobStage),
+            help="Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.",
+        ),
+    ] = None,
+    label: Annotated[
+        list[str] | None,
+        typer.Option(
+            "-l",
+            "--label",
+            help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
+        ),
+    ] = 100,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -547,89 +580,87 @@ def jobs_ps(
         typer.Option(
             "-f",
             "--filter",
-            help="Filter output based on conditions provided (format: key=value)",
+            help="(Deprecated) Use `--status` and `--label` instead.",
         ),
     ] = None,
 ) -> None:
-    """List Jobs."""
+    """List Jobs.
+
+    Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
+    labels. A Job must match every filter to be listed.
+    """
     api = get_hf_api(token=token)
-    jobs = api.list_jobs(namespace=namespace)
 
-    filters: list[tuple[str, str, str]] = []
-    labels_filters: list[tuple[str, str, str]] = []
-    for f in filter or []:
-        if f.startswith("label!=") or f.startswith("label="):
-            if f.startswith("label!="):
-                label_part = f[len("label!=") :]
-                if "=" in label_part:
-                    out.warning(f"Ignoring invalid label filter format 'label!={label_part}'. Use label!=key format.")
-                    continue
-                label_key, op, label_value = label_part, "!=", "*"
-            else:
-                label_part = f[len("label=") :]
-                if "=" in label_part:
-                    label_key, label_value = label_part.split("=", 1)
-                else:
-                    label_key, label_value = label_part, "*"
-                # Negate predicate in case of key!=value
-                if label_key.endswith("!"):
-                    op = "!="
-                    label_key = label_key[:-1]
-                else:
-                    op = "="
-            labels_filters.append((label_key.lower(), op, label_value.lower()))
-        elif "=" in f:
-            key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
-            if key.endswith("!"):
-                op = "!="
-                key = key[:-1]
-            else:
-                op = "="
-            filters.append((key.lower(), op, value.lower()))
-        else:
-            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+    if filter:
+        out.warning(
+            f"Ignoring filter '{filter}'."
+            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
+        )
 
-    # Filter jobs (operating on JobInfo objects to preserve existing filter behavior)
-    filtered_jobs = []
-    for job in jobs:
-        status = job.status.stage if job.status else "UNKNOWN"
-        if not all and status not in ("RUNNING", "UPDATING"):
-            continue
-        image_or_space = job.docker_image or "N/A"
-        cmd = job.command or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        props = {"id": job.id, "image": image_or_space, "status": status.lower(), "command": command_str}
-        if not _matches_filters(props, filters):
-            continue
-        if not _matches_filters(job.labels or {}, labels_filters):
-            continue
-        filtered_jobs.append(job)
+    if all and status:
+        raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
+
+    # Status filtering (default to active Jobs, unless `--all` or `--status` is provided).
+    raw_statuses: list[str] = []
+    for value in status or []:
+        raw_statuses.extend(part.strip() for part in value.split(",") if part.strip())
+
+    server_statuses: list[str] | None
+    if raw_statuses:
+        server_statuses = raw_statuses
+    elif all:
+        server_statuses = None
+    else:
+        server_statuses = [JobStage.RUNNING.value, JobStage.SCHEDULING.value]
+
+    # Labels filtering
+    labels: dict[str, str] = {}
+    for item in label or []:
+        if "=" not in item:
+            raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
+        key, value = item.split("=")
+        labels[key] = value
+
+    jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
+
+    # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
+    truncated = False
+    if limit > 0:
+        jobs = list(itertools.islice(jobs_iter, limit + 1))
+        if len(jobs) > limit:
+            truncated = True
+            jobs = jobs[:limit]
+    else:
+        jobs = list(jobs_iter)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
-    items: list[dict[str, Any]] = []
-    for job in filtered_jobs:
-        item = _dataclass_to_dict(job)
-        durations = item.get("durations") or {}
-        cmd = item.get("command") or []
-        item["job_id"] = item.get("id", "")
-        item["image/space"] = item.get("docker_image") or "N/A"
-        item["command"] = " ".join(cmd) if cmd else "N/A"
-        item["created"] = item["created_at"][:19].replace("T", " ") if item.get("created_at") else "N/A"
-        item["status"] = (item.get("status") or {}).get("stage", "UNKNOWN")
-        item["runtime"] = format_duration(durations.get("running_secs"))
-        items.append(item)
+    job_items: list[dict[str, Any]] = []
+    for job in jobs:
+        job_item = _dataclass_to_dict(job)
+        durations = job_item.get("durations") or {}
+        cmd = job_item.get("command") or []
+        job_item["job_id"] = job_item.get("id", "")
+        job_item["image/space"] = job_item.get("docker_image") or "N/A"
+        job_item["command"] = " ".join(cmd) if cmd else "N/A"
+        job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
+        job_item["status"] = (job_item.get("status") or {}).get("stage", "UNKNOWN")
+        job_item["runtime"] = format_duration(durations.get("running_secs"))
+        job_items.append(job_item)
 
     out.table(
-        items,
+        job_items,
         headers=["job_id", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
-    if not items:
-        if filters:
-            filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
+    if truncated:
+        out.hint(f"Output truncated to {limit} Jobs. Use `--limit 0` to show all (or `--limit N`).")
+    if not job_items:
+        if raw_statuses or labels:
+            filters_msg = ", ".join(
+                [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+            )
             out.text(f"No jobs matched filters: {filters_msg}")
-        elif not all and not labels_filters:
+        elif not all:
             out.hint("No running jobs. Use `-a`/`--all` to include finished (and failed) jobs.")
 
 
@@ -701,7 +732,7 @@ def jobs_cancel(
     examples=[
         "hf jobs wait <job_id>",
         "hf jobs wait <job_id_1> <job_id_2>",
-        "hf jobs ps -q | xargs hf jobs wait",
+        "hf jobs ls -q | xargs hf jobs wait",
     ],
 )
 def jobs_wait(
@@ -953,7 +984,7 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("ps", examples=["hf jobs scheduled ps"])
+@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
 def scheduled_ps(
     all: Annotated[
         bool,

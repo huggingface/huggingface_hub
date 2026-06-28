@@ -139,6 +139,6 @@ def filter_repo_objects(
 
 
 def _add_wildcard_to_directories(pattern: str) -> str:
-    if pattern[-1] == "/":
+    if pattern.endswith("/"):
         return pattern + "*"
     return pattern

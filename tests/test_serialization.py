@@ -243,6 +243,28 @@ def test_tensor_same_storage():
     assert state_dict_split.metadata == {"total_size": 3}  # count them once
 
 
+def test_single_shard_skips_string_tensors():
+    # String values can appear in a state dict when bnb serialization is used (see
+    # https://github.com/huggingface/transformers/pull/24416). They are skipped when building
+    # shards, so they must also be absent from the single-shard index, consistently with the
+    # multi-shard path.
+    state_dict_split = split_state_dict_into_shards_factory(
+        {
+            "layer_1": [6],
+            "bnb_string": "quantization_metadata",  # skipped, must not appear in the index
+            "layer_2": [10],
+        },
+        get_storage_id=_dummy_get_storage_id,
+        get_storage_size=_dummy_get_storage_size,
+        max_shard_size=100,  # large shard size => only one shard
+        filename_pattern="file{suffix}.dummy",
+    )
+    assert not state_dict_split.is_sharded
+    assert state_dict_split.filename_to_tensors == {"file.dummy": ["layer_1", "layer_2"]}
+    assert state_dict_split.tensor_to_filename == {"layer_1": "file.dummy", "layer_2": "file.dummy"}
+    assert state_dict_split.metadata == {"total_size": 16}
+
+
 @requires("torch")
 def test_get_torch_storage_size():
     import torch  # type: ignore[import]

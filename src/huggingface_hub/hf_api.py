@@ -6113,6 +6113,10 @@ class HfApi:
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
+        > [!WARNING]
+        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
+        > by default and resilient to interruptions so it is the recommended way to upload large folders.
+
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
         At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
@@ -6199,6 +6203,18 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
+        warnings.warn(
+            "\n"
+            "================================================================================\n"
+            "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
+            "\n"
+            "Use `upload_folder` instead:\n"
+            "\n"
+            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
+            "================================================================================\n",
+            FutureWarning,
+            stacklevel=2,
+        )
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
@@ -12018,14 +12034,23 @@ class HfApi:
     def list_jobs(
         self,
         *,
+        status: list[JobStage | str] | JobStage | str | None = None,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> list[JobInfo]:
+    ) -> Iterable[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
 
         Args:
+            status (`JobStage`, `str` or `list`, *optional*):
+                Only return Jobs with the given status(es), e.g. `"RUNNING"` or `[JobStage.RUNNING, JobStage.SCHEDULING]`.
+                See [`JobStage`] for possible values.
+
+            labels (`dict[str, str]`, *optional*):
+                Only return Jobs that have all the given `key=value` labels, e.g. `{"env": "prod", "team": "ml"}`.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -12036,16 +12061,23 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
-        response = get_session().get(
-            f"{self.endpoint}/api/jobs/{namespace}",
-            headers=self._build_hf_headers(token=token),
-            timeout=timeout,
-        )
-        hf_raise_for_status(response)
-        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+        params: list[tuple[str, Any]] = []
+        if status is not None:
+            statuses = [status] if isinstance(status, (str, JobStage)) else status
+            params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
+        if labels is not None:
+            params.extend(("label", f"{key}={value}") for key, value in labels.items())
+
+        path = f"{self.endpoint}/api/jobs/{namespace}"
+        headers = self._build_hf_headers(token=token)
+        for job_info in paginate(path, params=params, headers=headers, timeout=timeout):
+            yield JobInfo(**job_info, endpoint=self.endpoint)
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """

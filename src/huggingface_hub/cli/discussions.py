@@ -273,6 +273,54 @@ def discussion_comment(
 
 
 @discussions_cli.command(
+    "edit",
+    examples=[
+        'hf discussions edit username/my-model 5 abc123 --body "Updated comment."',
+        "hf discussions edit username/my-model 5 abc123 --body-file fixed.md",
+    ],
+)
+def discussion_edit(
+    repo_id: RepoIdArg,
+    num: DiscussionNumArg,
+    comment_id: Annotated[
+        str,
+        typer.Argument(
+            help="The ID of the comment to edit (see 'hf discussions info ... --format json').",
+        ),
+    ],
+    body: Annotated[
+        str | None,
+        typer.Option(
+            "--body",
+            help="The new comment text (supports Markdown).",
+        ),
+    ] = None,
+    body_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--body-file",
+            help="Read the new comment from a file. Use '-' for stdin.",
+        ),
+    ] = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+    token: TokenOpt = None,
+) -> None:
+    """Edit an existing comment on a discussion or pull request."""
+    new_content = _read_body(body, body_file)
+    if new_content is None:
+        raise typer.BadParameter("Either --body or --body-file is required.")
+    api = get_hf_api(token=token)
+    api.edit_discussion_comment(
+        repo_id=repo_id,
+        discussion_num=num,
+        comment_id=comment_id,
+        new_content=new_content,
+        repo_type=repo_type.value,
+    )
+    out.result(f"Edited comment {comment_id} on #{num} in {repo_id}", num=num, repo=repo_id, comment_id=comment_id)
+
+
+@discussions_cli.command(
     "close",
     examples=[
         "hf discussions close username/my-model 5",
