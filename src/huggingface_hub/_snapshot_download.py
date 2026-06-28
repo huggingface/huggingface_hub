@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterable
+from operator import attrgetter, is_not_none
 from pathlib import Path
 from typing import Literal, overload
 
@@ -17,7 +18,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
+from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, RepoFolder, RepoSibling, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils.tqdm import _create_progress_bar
 from .utils.tqdm import tqdm as hf_tqdm
@@ -340,18 +341,15 @@ def snapshot_download(
     # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
     # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
     # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
-    siblings = getattr(repo_info, "siblings", None)
-    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
-    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
+    siblings: list[RepoSibling] | Iterable[RepoFile | RepoFolder] = getattr(repo_info, "siblings", [])
+    unreliable_nb_files: bool = not (0 < len(list(siblings)) <= LARGE_REPO_THRESHOLD)
     if unreliable_nb_files:
         logger.info(
             "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
         )
-        repo_files = (
-            f.rfilename
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        )
+        siblings = api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
+
+    repo_files: Iterable[str] = filter(is_not_none, map(attrgetter("rfilename"), siblings))
 
     filtered_repo_files: Iterable[str] = filter_repo_objects(
         items=repo_files,
@@ -359,11 +357,10 @@ def snapshot_download(
         ignore_patterns=ignore_patterns,
     )
 
-    if not unreliable_nb_files:
-        filtered_repo_files = list(filtered_repo_files)
-        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
+    if unreliable_nb_files:
+        tqdm_desc: str = "Fetching ... files"
     else:
-        tqdm_desc = "Fetching ... files"
+        tqdm_desc = f"Fetching {len(tuple(filtered_repo_files))} files"
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc
 

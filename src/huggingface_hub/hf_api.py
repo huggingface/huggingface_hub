@@ -834,7 +834,7 @@ class RepoFile:
         self.security = security
 
         # backwards compatibility
-        self.rfilename = self.path
+        self.rfilename: str = self.path
         self.lastCommit = self.last_commit
 
 
