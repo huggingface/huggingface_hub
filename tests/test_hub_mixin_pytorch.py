@@ -203,7 +203,7 @@ class TestPytorchHubMixin:
         )
         assert model is not None
 
-    def pretend_file_download_fallback(self, cache_dir: Path, **kwargs):
+    def pretend_file_download_fallback(self, tmp_dir: Path, **kwargs):
         filename = kwargs.get("filename")
         if filename == "model.safetensors" or filename == "config.json":
             raise RemoteEntryNotFoundError("not found", response=Mock())
@@ -212,8 +212,8 @@ class TestPytorchHubMixin:
             def _save_pretrained(self, save_directory: Path) -> None:
                 torch.save(DummyModel().state_dict(), save_directory / constants.PYTORCH_WEIGHTS_NAME)
 
-        TestMixin().save_pretrained(cache_dir)
-        return cache_dir / constants.PYTORCH_WEIGHTS_NAME
+        TestMixin().save_pretrained(tmp_dir)
+        return tmp_dir / constants.PYTORCH_WEIGHTS_NAME
 
     def test_from_pretrained_model_from_hub_fallback_pickle(self, mocker: MockerFixture, tmp_path) -> None:
         hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
