@@ -1,5 +1,4 @@
 import time
-import unittest
 from pathlib import Path
 
 import pytest
@@ -24,10 +23,11 @@ STORE_AND_CACHE_HELPERS_CONFIG = """
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestGitCredentials(unittest.TestCase):
+class TestGitCredentials:
     cache_dir: Path
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, fx_cache_dir):
         """Initialize and configure a local repo.
 
         Avoid to configure git helpers globally on a contributor's machine.
@@ -35,13 +35,14 @@ class TestGitCredentials(unittest.TestCase):
         run_subprocess("git init", folder=self.cache_dir)
         with (self.cache_dir / ".git" / "config").open("w") as f:
             f.write(STORE_AND_CACHE_HELPERS_CONFIG)
+        yield
 
     def test_list_credential_helpers(self) -> None:
         helpers = list_credential_helpers(folder=self.cache_dir)
-        self.assertIn("cache", helpers)
-        self.assertIn("store", helpers)
-        self.assertIn("git-credential-manager", helpers)
-        self.assertIn("/usr/libexec/git-core/git-credential-libsecret", helpers)
+        assert "cache" in helpers
+        assert "store" in helpers
+        assert "git-credential-manager" in helpers
+        assert "/usr/libexec/git-core/git-credential-libsecret" in helpers
 
     def test_set_and_unset_git_credential(self) -> None:
         username = "hf_test_user_" + str(round(time.time()))  # make username unique
@@ -54,7 +55,7 @@ class TestGitCredentials(unittest.TestCase):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
-        self.assertIn("password=hf_test_token", output)
+        assert "password=hf_test_token" in output
 
         # Unset credentials
         unset_git_credential(username=username, folder=self.cache_dir)
@@ -66,7 +67,7 @@ class TestGitCredentials(unittest.TestCase):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
-        self.assertEqual("", output)
+        assert output == ""
 
     def test_git_credential_parsing_regex(self) -> None:
         output = """

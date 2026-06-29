@@ -1,15 +1,17 @@
 import subprocess
-import unittest
 from typing import Optional
+
+import pytest
 
 from huggingface_hub._login import _set_store_as_git_credential_helper_globally
 from huggingface_hub.utils import run_subprocess
 
 
-class TestSetGlobalStore(unittest.TestCase):
+class TestSetGlobalStore:
     previous_config: Optional[str]
 
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Get current global config value."""
         try:
             self.previous_config = run_subprocess("git config --global credential.helper").stdout
@@ -18,8 +20,9 @@ class TestSetGlobalStore(unittest.TestCase):
 
         run_subprocess("git config --global credential.helper store")
 
-    def tearDown(self) -> None:
-        """Reset global config value."""
+        yield
+
+        # Reset global config value.
         if self.previous_config is None:
             run_subprocess("git config --global --unset credential.helper")
         else:
@@ -32,4 +35,4 @@ class TestSetGlobalStore(unittest.TestCase):
         """
         _set_store_as_git_credential_helper_globally()
         new_config = run_subprocess("git config --global credential.helper").stdout
-        self.assertEqual(new_config, "store\n")
+        assert new_config == "store\n"

@@ -3,8 +3,7 @@
 #
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
 import json
-import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,31 +18,29 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 
-from .testing_utils import with_production_testing
-
 
 pytestmark = pytest.mark.inference
 
 
-class TestTextGenerationErrors(unittest.TestCase):
+class TestTextGenerationErrors:
     def test_generation_error(self):
         error = _mocked_error({"error_type": "generation", "error": "test"})
-        with self.assertRaises(GenerationError):
+        with pytest.raises(GenerationError):
             raise_text_generation_error(error)
 
     def test_incomplete_generation_error(self):
         error = _mocked_error({"error_type": "incomplete_generation", "error": "test"})
-        with self.assertRaises(IncompleteGenerationError):
+        with pytest.raises(IncompleteGenerationError):
             raise_text_generation_error(error)
 
     def test_overloaded_error(self):
         error = _mocked_error({"error_type": "overloaded", "error": "test"})
-        with self.assertRaises(OverloadedError):
+        with pytest.raises(OverloadedError):
             raise_text_generation_error(error)
 
     def test_validation_error(self):
         error = _mocked_error({"error_type": "validation", "error": "test"})
-        with self.assertRaises(TextGenerationValidationError):
+        with pytest.raises(TextGenerationValidationError):
             raise_text_generation_error(error)
 
 
@@ -54,14 +51,15 @@ def _mocked_error(payload: dict) -> MagicMock:
 
 
 @pytest.mark.skip("Temporary skipping TestTextGenerationClientVCR tests")
-@with_production_testing
-@patch.dict("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
-class TestTextGenerationClientVCR(unittest.TestCase):
+@pytest.mark.production
+class TestTextGenerationClientVCR:
     """Use VCR test to avoid making requests to the prod infra."""
 
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self, mocker):
+        mocker.patch.dict("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
         self.client = InferenceClient(model="google/flan-t5-xxl")
-        return super().setUp()
+        yield
 
     def test_generate_no_details(self):
         response = self.client.text_generation("test", details=False, max_new_tokens=1)
@@ -93,7 +91,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         assert response.details.best_of_sequences[0].seed is not None
 
     def test_generate_validation_error(self):
-        with self.assertRaises(TextGenerationValidationError):
+        with pytest.raises(TextGenerationValidationError):
             self.client.text_generation("test", max_new_tokens=10_000)
 
     def test_generate_stream_no_details(self):
@@ -124,25 +122,25 @@ class TestTextGenerationClientVCR(unittest.TestCase):
 
     def test_generate_non_tgi_endpoint(self):
         text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
-        self.assertEqual(text, " 3 4 5 6 7 8 9 10 11 12")
-        self.assertIn("gpt2", _UNSUPPORTED_TEXT_GENERATION_KWARGS)
+        assert text == " 3 4 5 6 7 8 9 10 11 12"
+        assert "gpt2" in _UNSUPPORTED_TEXT_GENERATION_KWARGS
 
         # Watermark is ignored (+ warning)
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             self.client.text_generation("4 5 6", model="gpt2", max_new_tokens=10, watermark=True)
 
         # Return as detail even if details=True (+ warning)
-        with self.assertWarns(UserWarning):
+        with pytest.warns(UserWarning):
             text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, details=True)
-            self.assertIsInstance(text, str)
+            assert isinstance(text, str)
 
         # Return as stream raises error
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
 
     def test_generate_non_tgi_endpoint_regression_test(self):
         # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
-        with self.assertWarnsRegex(UserWarning, "Ignoring following parameters: return_full_text"):
+        with pytest.warns(UserWarning, match="Ignoring following parameters: return_full_text"):
             text = self.client.text_generation(
                 prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large", return_full_text=True
             )

@@ -1,7 +1,6 @@
 import inspect
 import json
 import os
-import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union, get_type_hints
@@ -9,6 +8,7 @@ from unittest.mock import Mock, patch
 
 import jedi
 import pytest
+from pytest_mock import MockerFixture
 
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.hub_mixin import ModelHubMixin
@@ -196,15 +196,8 @@ class DummyWithDataclassInputs(ModelHubMixin):
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class HubMixinTest(unittest.TestCase):
+class TestHubMixin:
     cache_dir: Path
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     def assert_valid_config_json(self) -> None:
         # config.json saved correctly
@@ -323,16 +316,16 @@ class HubMixinTest(unittest.TestCase):
         mocked_model.save_pretrained(save_directory, push_to_hub=True)
         mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=CONFIG_AS_DICT, model_card_kwargs={})
 
-    @patch.object(DummyModelNoConfig, "_from_pretrained")
-    def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
+    def test_from_pretrained_model_id_only(self, mocker: MockerFixture) -> None:
+        from_pretrained_mock = mocker.patch.object(DummyModelNoConfig, "_from_pretrained")
         model = DummyModelNoConfig.from_pretrained("namespace/repo_name")
         from_pretrained_mock.assert_called_once()
         assert model is from_pretrained_mock.return_value
 
-    @patch.object(DummyModelNoConfig, "_from_pretrained")
-    def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
+    def test_from_pretrained_model_id_and_revision(self, mocker: MockerFixture) -> None:
         """Regression test for #1313.
         See https://github.com/huggingface/huggingface_hub/issues/1313."""
+        from_pretrained_mock = mocker.patch.object(DummyModelNoConfig, "_from_pretrained")
         model = DummyModelNoConfig.from_pretrained("namespace/repo_name", revision="123456789")
         from_pretrained_mock.assert_called_once_with(
             model_id="namespace/repo_name",

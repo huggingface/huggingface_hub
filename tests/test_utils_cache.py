@@ -1,6 +1,6 @@
+import logging
 import os
 import time
-import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -10,7 +10,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, _format_size, scan_cache_dir
 from huggingface_hub.utils._cache_manager import CacheNotFound, _try_delete_path
 
-from .testing_utils import rmtree_with_retry, skip_on_windows, with_production_testing
+from .testing_utils import rmtree_with_retry
 
 
 # On production server to avoid recreating them all the time
@@ -30,26 +30,29 @@ REF_1_NAME = "refs/pr/1"
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestMissingCacheUtils(unittest.TestCase):
+class TestMissingCacheUtils:
     cache_dir: Path
 
     def test_cache_dir_is_missing(self) -> None:
         """Directory to scan does not exist raises CacheNotFound."""
-        self.assertRaises(CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist")
+        with pytest.raises(CacheNotFound):
+            scan_cache_dir(self.cache_dir / "does_not_exist")
 
     def test_cache_dir_is_a_file(self) -> None:
         """Directory to scan is a file raises ValueError."""
         file_path = self.cache_dir / "file.txt"
         file_path.touch()
-        self.assertRaises(ValueError, scan_cache_dir, file_path)
+        with pytest.raises(ValueError):
+            scan_cache_dir(file_path)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestValidCacheUtils(unittest.TestCase):
+@pytest.mark.production
+class TestValidCacheUtils:
     cache_dir: Path
 
-    @with_production_testing
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
         """Set up a clean cache for tests that will remain valid in all tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
@@ -66,7 +69,7 @@ class TestValidCacheUtils(unittest.TestCase):
         # Download a Dataset repo from "main"
         snapshot_download(repo_id=DATASET_ID, revision="main", repo_type="dataset", cache_dir=self.cache_dir)
 
-    @unittest.skipIf(os.name == "nt", "Windows cache is tested separately")
+    @pytest.mark.skipif(os.name == "nt", reason="Windows cache is tested separately")
     def test_scan_cache_on_valid_cache_unix(self) -> None:
         """Scan the cache dir without warnings (on unix-based platform).
 
@@ -76,62 +79,60 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEqual(report.size_on_disk, 3766)
-        self.assertEqual(len(report.repos), 2)  # Model and dataset
-        self.assertEqual(len(report.warnings), 0)  # Repos are valid
+        assert report.size_on_disk == 3766
+        assert len(report.repos) == 2  # Model and dataset
+        assert len(report.warnings) == 0  # Repos are valid
 
         repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
         repo_a_path = self.cache_dir / MODEL_PATH
-        self.assertEqual(repo_a.repo_id, MODEL_ID)
-        self.assertEqual(repo_a.repo_type, "model")
-        self.assertEqual(repo_a.repo_path, repo_a_path)
+        assert repo_a.repo_id == MODEL_ID
+        assert repo_a.repo_type == "model"
+        assert repo_a.repo_path == repo_a_path
 
         # 4 downloads but 3 revisions because "main" and REPO_A_MAIN_HASH are the same
-        self.assertEqual(len(repo_a.revisions), 3)
-        self.assertEqual(
-            {rev.commit_hash for rev in repo_a.revisions},
-            {REPO_A_MAIN_HASH, REPO_A_PR_1_HASH, REPO_A_OTHER_HASH},
-        )
+        assert len(repo_a.revisions) == 3
+        assert {rev.commit_hash for rev in repo_a.revisions} == {
+            REPO_A_MAIN_HASH,
+            REPO_A_PR_1_HASH,
+            REPO_A_OTHER_HASH,
+        }
 
         # Repo size on disk is less than sum of revisions !
-        self.assertEqual(repo_a.size_on_disk, 1501)
-        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4463)
+        assert repo_a.size_on_disk == 1501
+        assert sum(rev.size_on_disk for rev in repo_a.revisions) == 4463
 
         # Repo nb files is less than sum of revisions !
-        self.assertEqual(repo_a.nb_files, 3)
-        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
+        assert repo_a.nb_files == 3
+        assert sum(rev.nb_files for rev in repo_a.revisions) == 6
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have added a tag as well
-        self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
-        self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
-        self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
+        assert set(repo_a.refs.keys()) == {"main", REF_1_NAME}
+        assert repo_a.refs["main"].commit_hash == REPO_A_MAIN_HASH
+        assert repo_a.refs[REF_1_NAME].commit_hash == REPO_A_PR_1_HASH
 
         # Check "main" revision information
         main_revision = repo_a.refs["main"]
         main_revision_path = repo_a_path / "snapshots" / REPO_A_MAIN_HASH
 
-        self.assertEqual(main_revision.commit_hash, REPO_A_MAIN_HASH)
-        self.assertEqual(main_revision.snapshot_path, main_revision_path)
-        self.assertEqual(main_revision.refs, {"main"})
+        assert main_revision.commit_hash == REPO_A_MAIN_HASH
+        assert main_revision.snapshot_path == main_revision_path
+        assert main_revision.refs == {"main"}
 
         # Same nb of files and size on disk that the sum
-        self.assertEqual(main_revision.nb_files, len(main_revision.files))
-        self.assertEqual(
-            main_revision.size_on_disk,
-            sum(file.size_on_disk for file in main_revision.files),
-        )
+        assert main_revision.nb_files == len(main_revision.files)
+        assert main_revision.size_on_disk == sum(file.size_on_disk for file in main_revision.files)
 
         # Check readme file from "main" revision
         main_readme_file = [file for file in main_revision.files if file.file_name == "README.md"][0]
         main_readme_file_path = main_revision_path / "README.md"
         main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
 
-        self.assertEqual(main_readme_file.file_name, "README.md")
-        self.assertEqual(main_readme_file.file_path, main_readme_file_path)
-        self.assertEqual(main_readme_file.blob_path, main_readme_blob_path)
+        assert main_readme_file.file_name == "README.md"
+        assert main_readme_file.file_path == main_readme_file_path
+        assert main_readme_file.blob_path == main_readme_blob_path
 
         # Check readme file from "refs/pr/1" revision
         pr_1_revision = repo_a.refs[REF_1_NAME]
@@ -140,10 +141,10 @@ class TestValidCacheUtils(unittest.TestCase):
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
         # file_path in "refs/pr/1" revision is different from "main" but same blob path
-        self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)  # different
-        self.assertEqual(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
+        assert pr_1_readme_file.file_path == pr_1_readme_file_path  # different
+        assert pr_1_readme_file.blob_path == main_readme_blob_path  # same
 
-    @unittest.skipIf(os.name != "nt", "Windows cache is tested separately")
+    @pytest.mark.skipif(os.name != "nt", reason="Windows cache is tested separately")
     def test_scan_cache_on_valid_cache_windows(self) -> None:
         """Scan the cache dir without warnings (on Windows).
 
@@ -155,64 +156,62 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEqual(report.size_on_disk, 6728)
-        self.assertEqual(len(report.repos), 2)  # Model and dataset
-        self.assertEqual(len(report.warnings), 0)  # Repos are valid
+        assert report.size_on_disk == 6728
+        assert len(report.repos) == 2  # Model and dataset
+        assert len(report.warnings) == 0  # Repos are valid
 
         repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
         repo_a_path = self.cache_dir / MODEL_PATH
-        self.assertEqual(repo_a.repo_id, MODEL_ID)
-        self.assertEqual(repo_a.repo_type, "model")
-        self.assertEqual(repo_a.repo_path, repo_a_path)
+        assert repo_a.repo_id == MODEL_ID
+        assert repo_a.repo_type == "model"
+        assert repo_a.repo_path == repo_a_path
 
         # 4 downloads but 3 revisions because "main" and REPO_A_MAIN_HASH are the same
-        self.assertEqual(len(repo_a.revisions), 3)
-        self.assertEqual(
-            {rev.commit_hash for rev in repo_a.revisions},
-            {REPO_A_MAIN_HASH, REPO_A_PR_1_HASH, REPO_A_OTHER_HASH},
-        )
+        assert len(repo_a.revisions) == 3
+        assert {rev.commit_hash for rev in repo_a.revisions} == {
+            REPO_A_MAIN_HASH,
+            REPO_A_PR_1_HASH,
+            REPO_A_OTHER_HASH,
+        }
 
         # Repo size on disk is equal to the sum of revisions (no symlinks)
-        self.assertEqual(repo_a.size_on_disk, 4463)  # Windows-specific
-        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4463)
+        assert repo_a.size_on_disk == 4463  # Windows-specific
+        assert sum(rev.size_on_disk for rev in repo_a.revisions) == 4463
 
         # Repo nb files is equal to the sum of revisions !
-        self.assertEqual(repo_a.nb_files, 6)  # Windows-specific
-        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
+        assert repo_a.nb_files == 6  # Windows-specific
+        assert sum(rev.nb_files for rev in repo_a.revisions) == 6
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have added a tag as well
         REF_1_NAME = "refs\\pr\\1"  # Windows-specific
-        self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
-        self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
-        self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
+        assert set(repo_a.refs.keys()) == {"main", REF_1_NAME}
+        assert repo_a.refs["main"].commit_hash == REPO_A_MAIN_HASH
+        assert repo_a.refs[REF_1_NAME].commit_hash == REPO_A_PR_1_HASH
 
         # Check "main" revision information
         main_revision = repo_a.refs["main"]
         main_revision_path = repo_a_path / "snapshots" / REPO_A_MAIN_HASH
 
-        self.assertEqual(main_revision.commit_hash, REPO_A_MAIN_HASH)
-        self.assertEqual(main_revision.snapshot_path, main_revision_path)
-        self.assertEqual(main_revision.refs, {"main"})
+        assert main_revision.commit_hash == REPO_A_MAIN_HASH
+        assert main_revision.snapshot_path == main_revision_path
+        assert main_revision.refs == {"main"}
 
         # Same nb of files and size on disk that the sum
-        self.assertEqual(main_revision.nb_files, len(main_revision.files))
-        self.assertEqual(
-            main_revision.size_on_disk,
-            sum(file.size_on_disk for file in main_revision.files),
-        )
+        assert main_revision.nb_files == len(main_revision.files)
+        assert main_revision.size_on_disk == sum(file.size_on_disk for file in main_revision.files)
 
         # Check readme file from "main" revision
         main_readme_file = [file for file in main_revision.files if file.file_name == "README.md"][0]
         main_readme_file_path = main_revision_path / "README.md"
         main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
 
-        self.assertEqual(main_readme_file.file_name, "README.md")
-        self.assertEqual(main_readme_file.file_path, main_readme_file_path)
-        self.assertEqual(main_readme_file.blob_path, main_readme_file_path)  # Windows-specific: no blob file
-        self.assertFalse(main_readme_blob_path.exists())  # Windows-specific
+        assert main_readme_file.file_name == "README.md"
+        assert main_readme_file.file_path == main_readme_file_path
+        assert main_readme_file.blob_path == main_readme_file_path  # Windows-specific: no blob file
+        assert not main_readme_blob_path.exists()  # Windows-specific
 
         # Check readme file from "refs/pr/1" revision
         pr_1_revision = repo_a.refs[REF_1_NAME]
@@ -222,14 +221,12 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # file_path in "refs/pr/1" revision is different from "main"
         # Windows-specific: even blob path is different
-        self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)
-        self.assertNotEqual(  # Windows-specific: different as well
-            pr_1_readme_file.blob_path, main_readme_file.blob_path
-        )
+        assert pr_1_readme_file.file_path == pr_1_readme_file_path
+        assert pr_1_readme_file.blob_path != main_readme_file.blob_path  # Windows-specific: different as well
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestIgnoredCacheFiles(unittest.TestCase):
+class TestIgnoredCacheFiles:
     cache_dir: Path
 
     def test_ignore_os_metadata_files_in_cache_structure(self) -> None:
@@ -249,19 +246,20 @@ class TestIgnoredCacheFiles(unittest.TestCase):
 
         report = scan_cache_dir(self.cache_dir)
 
-        self.assertEqual(len(report.warnings), 0)
-        self.assertEqual(len(report.repos), 1)
+        assert len(report.warnings) == 0
+        assert len(report.repos) == 1
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestCorruptedCacheUtils(unittest.TestCase):
+@pytest.mark.production
+class TestCorruptedCacheUtils:
     cache_dir: Path
     repo_path: Path
     refs_path: Path
     snapshots_path: Path
 
-    @with_production_testing
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
         """Set up a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
@@ -277,10 +275,10 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.touch()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 1)  # Scan still worked !
+        assert len(report.repos) == 1  # Scan still worked !
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(str(report.warnings[0]), f"Repo path is not a directory: {repo_path}")
+        assert len(report.warnings) == 1
+        assert str(report.warnings[0]) == f"Repo path is not a directory: {repo_path}"
 
         # Case 2: a folder with wrong naming
         os.remove(repo_path)
@@ -288,13 +286,10 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.mkdir()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 1)  # Scan still worked !
+        assert len(report.repos) == 1  # Scan still worked !
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]),
-            f"Repo path is not a valid HuggingFace cache directory: {repo_path}",
-        )
+        assert len(report.warnings) == 1
+        assert str(report.warnings[0]) == f"Repo path is not a valid HuggingFace cache directory: {repo_path}"
 
         # Case 3: good naming but not a dataset/model/space
         rmtree_with_retry(repo_path)
@@ -302,12 +297,12 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.mkdir()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 1)  # Scan still worked !
+        assert len(report.repos) == 1  # Scan still worked !
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]),
-            f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path}).",
+        assert len(report.warnings) == 1
+        assert (
+            str(report.warnings[0])
+            == f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path})."
         )
 
     def test_snapshots_path_not_found(self) -> None:
@@ -315,13 +310,10 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         rmtree_with_retry(self.snapshots_path)
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 0)  # Failed
+        assert len(report.repos) == 0  # Failed
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]),
-            f"Snapshots dir doesn't exist in cached repo: {self.snapshots_path}",
-        )
+        assert len(report.warnings) == 1
+        assert str(report.warnings[0]) == f"Snapshots dir doesn't exist in cached repo: {self.snapshots_path}"
 
     def test_file_in_snapshots_dir(self) -> None:
         """Test if snapshots directory contains a file."""
@@ -329,13 +321,10 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         wrong_file_path.touch()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 0)  # Failed
+        assert len(report.repos) == 0  # Failed
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]),
-            f"Snapshots folder corrupted. Found a file: {wrong_file_path}",
-        )
+        assert len(report.warnings) == 1
+        assert str(report.warnings[0]) == f"Snapshots folder corrupted. Found a file: {wrong_file_path}"
 
     def test_snapshot_with_no_blob_files(self) -> None:
         """Test if a snapshot directory (e.g. a cached revision) is empty."""
@@ -348,18 +337,18 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Get single repo
-        self.assertEqual(len(report.warnings), 0)  # Did not fail
-        self.assertEqual(len(report.repos), 1)
+        assert len(report.warnings) == 0  # Did not fail
+        assert len(report.repos) == 1
         repo_report = list(report.repos)[0]
 
         # Repo report is empty
-        self.assertEqual(repo_report.size_on_disk, 0)
-        self.assertEqual(len(repo_report.revisions), 1)
+        assert repo_report.size_on_disk == 0
+        assert len(repo_report.revisions) == 1
         revision_report = list(repo_report.revisions)[0]
 
         # No files in revision so last_modified is the one from the revision folder
-        self.assertEqual(revision_report.nb_files, 0)
-        self.assertEqual(revision_report.last_modified, revision_path.stat().st_mtime)
+        assert revision_report.nb_files == 0
+        assert revision_report.last_modified == revision_path.stat().st_mtime
 
     def test_repo_with_no_snapshots(self) -> None:
         """Test if the snapshot directory exists but is empty."""
@@ -371,15 +360,15 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Get single repo
-        self.assertEqual(len(report.warnings), 0)  # Did not fail
-        self.assertEqual(len(report.repos), 1)
+        assert len(report.warnings) == 0  # Did not fail
+        assert len(report.repos) == 1
         repo_report = list(report.repos)[0]
 
         # No revisions in repos so last_modified is the one from the repo folder
-        self.assertEqual(repo_report.size_on_disk, 0)
-        self.assertEqual(len(repo_report.revisions), 0)
-        self.assertEqual(repo_report.last_modified, self.repo_path.stat().st_mtime)
-        self.assertEqual(repo_report.last_accessed, self.repo_path.stat().st_atime)
+        assert repo_report.size_on_disk == 0
+        assert len(repo_report.revisions) == 0
+        assert repo_report.last_modified == self.repo_path.stat().st_mtime
+        assert repo_report.last_accessed == self.repo_path.stat().st_atime
 
     def test_ref_to_missing_revision(self) -> None:
         """Test if a `refs` points to a missing revision."""
@@ -388,16 +377,16 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             f.write("revision_hash_that_does_not_exist")
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEqual(len(report.repos), 0)  # Failed
+        assert len(report.repos) == 0  # Failed
 
-        self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]),
-            "Reference(s) refer to missing commit hashes: {'revision_hash_that_does_not_exist': {'not_main'}} "
-            + f"({self.repo_path}).",
+        assert len(report.warnings) == 1
+        assert (
+            str(report.warnings[0])
+            == "Reference(s) refer to missing commit hashes: {'revision_hash_that_does_not_exist': {'not_main'}} "
+            + f"({self.repo_path})."
         )
 
-    @skip_on_windows("Last modified/last accessed work a bit differently on Windows.")
+    @pytest.mark.skipif(os.name == "nt", reason="Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
         TIME_GAP = 0.1
@@ -412,9 +401,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         another_file_1 = [file for file in revision_1.files if file.file_name == ".gitattributes"][0]
 
         # Comparison of last_accessed/last_modified between file and repo
-        self.assertLessEqual(readme_file_1.blob_last_accessed, repo_1.last_accessed)
-        self.assertLessEqual(readme_file_1.blob_last_modified, repo_1.last_modified)
-        self.assertEqual(revision_1.last_modified, repo_1.last_modified)
+        assert readme_file_1.blob_last_accessed <= repo_1.last_accessed
+        assert readme_file_1.blob_last_modified <= repo_1.last_modified
+        assert revision_1.last_modified == repo_1.last_modified
 
         # Sleep and write new readme
         time.sleep(TIME_GAP)
@@ -436,36 +425,34 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         another_file_2 = [file for file in revision_1.files if file.file_name == ".gitattributes"][0]
 
         # Report 1 is not updated when cache changes
-        self.assertLess(repo_1.last_accessed, repo_2.last_accessed)
-        self.assertLess(repo_1.last_modified, repo_2.last_modified)
+        assert repo_1.last_accessed < repo_2.last_accessed
+        assert repo_1.last_modified < repo_2.last_modified
 
         # "Another_file.md" did not change
-        self.assertEqual(another_file_1, another_file_2)
+        assert another_file_1 == another_file_2
 
         # Readme.md has been modified and then accessed more recently
-        self.assertGreaterEqual(
-            readme_file_2.blob_last_modified - readme_file_1.blob_last_modified,
-            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
-        )
-        self.assertGreaterEqual(
-            readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed,
-            2 * TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
-        )
-        self.assertGreaterEqual(
-            readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified,
-            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
-        )
+        assert (
+            readme_file_2.blob_last_modified - readme_file_1.blob_last_modified >= TIME_GAP * 0.9
+        )  # 0.9 factor because not exactly precise
+        assert (
+            readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed >= 2 * TIME_GAP * 0.9
+        )  # 0.9 factor because not exactly precise
+        assert (
+            readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified >= TIME_GAP * 0.9
+        )  # 0.9 factor because not exactly precise
 
         # Comparison of last_accessed/last_modified between file and repo
-        self.assertEqual(readme_file_2.blob_last_accessed, repo_2.last_accessed)
-        self.assertEqual(readme_file_2.blob_last_modified, repo_2.last_modified)
-        self.assertEqual(revision_2.last_modified, repo_2.last_modified)
+        assert readme_file_2.blob_last_accessed == repo_2.last_accessed
+        assert readme_file_2.blob_last_modified == repo_2.last_modified
+        assert revision_2.last_modified == repo_2.last_modified
 
 
-class TestDeleteRevisionsDryRun(unittest.TestCase):
+class TestDeleteRevisionsDryRun:
     cache_info: Mock  # Mocked HFCacheInfo
 
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
         """Set up fake cache scan report."""
         repo_A_path = Path("repo_A")
         blobs_path = repo_A_path / "blobs"
@@ -542,7 +529,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
             repos=set(),  # No repo deleted as other revisions exist
             snapshots={Path("repo_A/snapshots_path/repo_A_rev_detached")},
         )
-        self.assertEqual(strategy, expected)
+        assert strategy == expected
 
     def test_delete_pr_1_revision(self) -> None:
         strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_pr_1")
@@ -556,7 +543,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
             repos=set(),  # No repo deleted as other revisions exist
             snapshots={Path("repo_A/snapshots_path/repo_A_rev_pr_1")},
         )
-        self.assertEqual(strategy, expected)
+        assert strategy == expected
 
     def test_delete_pr_1_and_detached(self) -> None:
         strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1")
@@ -575,7 +562,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
                 Path("repo_A/snapshots_path/repo_A_rev_pr_1"),
             },
         )
-        self.assertEqual(strategy, expected)
+        assert strategy == expected
 
     def test_delete_all_revisions(self) -> None:
         strategy = HFCacheInfo.delete_revisions(
@@ -588,27 +575,25 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
             repos={Path("repo_A")},  # No remaining revisions: full repo is deleted
             snapshots=set(),
         )
-        self.assertEqual(strategy, expected)
+        assert strategy == expected
 
-    def test_delete_unknown_revision(self) -> None:
-        with self.assertLogs() as captured:
+    def test_delete_unknown_revision(self, caplog) -> None:
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached", "abcdef123456789")
 
         # Expected is same strategy as without "abcdef123456789"
         expected = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached")
-        self.assertEqual(strategy, expected)
+        assert strategy == expected
 
         # Expect a warning message
-        self.assertEqual(len(captured.records), 1)
-        self.assertEqual(captured.records[0].levelname, "WARNING")
-        self.assertEqual(
-            captured.records[0].message,
-            "Revision(s) not found - cannot delete them: abcdef123456789",
-        )
+        records = [r for r in caplog.records if r.name.startswith("huggingface_hub")]
+        assert len(records) == 1
+        assert records[0].levelname == "WARNING"
+        assert records[0].message == "Revision(s) not found - cannot delete them: abcdef123456789"
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestDeleteStrategyExecute(unittest.TestCase):
+class TestDeleteStrategyExecute:
     cache_dir: Path
 
     def test_execute(self) -> None:
@@ -653,25 +638,25 @@ class TestDeleteStrategyExecute(unittest.TestCase):
         ).execute()
 
         # Repo A deleted
-        self.assertFalse(repo_A_path.exists())
-        self.assertTrue(repo_B_path.exists())
+        assert not repo_A_path.exists()
+        assert repo_B_path.exists()
 
         # Only `blob` 1 remains
-        self.assertTrue(blob_1.exists())
-        self.assertFalse(blob_2.exists())
-        self.assertFalse(blob_3.exists())
+        assert blob_1.exists()
+        assert not blob_2.exists()
+        assert not blob_3.exists()
 
         # Only ref `main` remains
-        self.assertTrue(refs_main_path.exists())
-        self.assertFalse(refs_pr_1_path.exists())
+        assert refs_main_path.exists()
+        assert not refs_pr_1_path.exists()
 
         # Only `snapshot_1` remains
-        self.assertTrue(snapshot_1.exists())
-        self.assertFalse(snapshot_2.exists())
+        assert snapshot_1.exists()
+        assert not snapshot_2.exists()
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class TestTryDeletePath(unittest.TestCase):
+class TestTryDeletePath:
     cache_dir: Path
 
     def test_delete_path_on_file_success(self) -> None:
@@ -679,7 +664,7 @@ class TestTryDeletePath(unittest.TestCase):
         file_path = self.cache_dir / "file.txt"
         file_path.touch()
         _try_delete_path(file_path, path_type="TYPE")
-        self.assertFalse(file_path.exists())
+        assert not file_path.exists()
 
     def test_delete_path_on_folder_success(self) -> None:
         """Successfully delete a local folder."""
@@ -695,35 +680,37 @@ class TestTryDeletePath(unittest.TestCase):
 
         _try_delete_path(dir_path, path_type="TYPE")
 
-        self.assertFalse(dir_path.exists())
-        self.assertFalse(subdir_path.exists())
-        self.assertFalse(file_path_1.exists())
-        self.assertFalse(file_path_2.exists())
+        assert not dir_path.exists()
+        assert not subdir_path.exists()
+        assert not file_path_1.exists()
+        assert not file_path_2.exists()
 
-    def test_delete_path_on_missing_file(self) -> None:
+    def test_delete_path_on_missing_file(self, caplog) -> None:
         """Try to delete a missing file."""
         file_path = self.cache_dir / "file.txt"
 
-        with self.assertLogs() as captured:
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             _try_delete_path(file_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        assert len(captured.output) > 0
-        assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in captured.output)
+        output = [r.getMessage() for r in caplog.records if r.name.startswith("huggingface_hub")]
+        assert len(output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in output)
 
-    def test_delete_path_on_missing_folder(self) -> None:
+    def test_delete_path_on_missing_folder(self, caplog) -> None:
         """Try to delete a missing folder."""
         dir_path = self.cache_dir / "folder"
 
-        with self.assertLogs() as captured:
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             _try_delete_path(dir_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        assert len(captured.output) > 0
-        assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in captured.output)
+        output = [r.getMessage() for r in caplog.records if r.name.startswith("huggingface_hub")]
+        assert len(output) > 0
+        assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in output)
 
-    @skip_on_windows(reason="Permissions are handled differently on Windows.")
-    def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
+    @pytest.mark.skipif(os.name == "nt", reason="Permissions are handled differently on Windows.")
+    def test_delete_path_on_local_folder_with_wrong_permission(self, caplog) -> None:
         """Try to delete a local folder that is protected."""
         dir_path = self.cache_dir / "something"
         dir_path.mkdir()
@@ -731,26 +718,26 @@ class TestTryDeletePath(unittest.TestCase):
         file_path_1.touch()
         dir_path.chmod(444)  # Read-only folder
 
-        with self.assertLogs() as captured:
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             _try_delete_path(dir_path, path_type="TYPE")
 
         # Folder still exists (couldn't be deleted)
-        self.assertTrue(dir_path.is_dir())
+        assert dir_path.is_dir()
 
         # Assert warning message with traceback for debug purposes
-        self.assertEqual(len(captured.output), 1)
-        self.assertTrue(
-            captured.output[0].startswith(
-                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
-                f" permission denied ({dir_path})\nTraceback (most recent call last):"
-            )
+        records = [r for r in caplog.records if r.name.startswith("huggingface_hub")]
+        assert len(records) == 1
+        formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+        assert formatter.format(records[0]).startswith(
+            "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
+            f" permission denied ({dir_path})\nTraceback (most recent call last):"
         )
 
         # For proper cleanup
         dir_path.chmod(509)
 
 
-class TestStringFormatters(unittest.TestCase):
+class TestStringFormatters:
     SIZES = {
         16.0: "16.0",
         1000.0: "1.0K",
@@ -774,8 +761,4 @@ class TestStringFormatters(unittest.TestCase):
     def test_format_size(self) -> None:
         """Test `_format_size` formatter."""
         for size, expected in self.SIZES.items():
-            self.assertEqual(
-                _format_size(size),
-                expected,
-                msg=f"Wrong formatting for {size} == '{expected}'",
-            )
+            assert _format_size(size) == expected, f"Wrong formatting for {size} == '{expected}'"
