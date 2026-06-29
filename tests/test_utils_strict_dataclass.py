@@ -873,7 +873,8 @@ def test_typed_dict_to_dataclass_is_cached():
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 class TestConfigDictNotRequired:
-    def __init__(self):
+    @pytest.fixture(autouse=True)
+    def _setup(self):
         # cannot be defined at class level because of Python<3.11
         self.ConfigDictNotRequired = TypedDict(
             "ConfigDictNotRequired",
