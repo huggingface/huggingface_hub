@@ -5,8 +5,9 @@ from unittest.mock import patch
 import pytest
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
-from huggingface_hub.errors import LocalEntryNotFoundError, RepositoryNotFoundError
-from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError, RepositoryNotFoundError
+from huggingface_hub.file_download import repo_folder_name
+from huggingface_hub.utils import SoftTemporaryDirectory, _http
 
 from .testing_constants import TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
@@ -36,7 +37,7 @@ class TestSnapshotDownload:
             repo_id=repo_id,
             operations=[
                 CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v2"),
-                CommitOperationAdd(path_in_repo="dummy_file_2.txt", path_or_fileobj=b"v3"),
+                CommitOperationAdd(path_in_repo="file.bin", path_or_fileobj=os.urandom(1 * 1024 * 1024)),
             ],
             commit_message="Add file to main branch",
         ).oid
@@ -64,7 +65,7 @@ class TestSnapshotDownload:
             folder_contents = os.listdir(storage_folder)
             assert len(folder_contents) == 4
             assert "dummy_file.txt" in folder_contents
-            assert "dummy_file_2.txt" in folder_contents
+            assert "file.bin" in folder_contents
             assert ".gitattributes" in folder_contents
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
@@ -94,6 +95,27 @@ class TestSnapshotDownload:
 
             # folder name contains the revision's commit sha.
             assert self.first_commit_hash in storage_folder
+
+    @pytest.mark.xet
+    def test_xet_file_skips_per_file_head_call(self):
+        """A regular file is HEAD-ed during download, but a Xet file's HEAD is skipped.
+
+        For a Xet file the metadata is rebuilt from the tree listing cached on disk by `snapshot_download`,
+        so the per-file HEAD `/resolve/` call is never made (the data transfer happens inside `hf_xet`).
+        """
+        session = _http.get_session()
+        with SoftTemporaryDirectory() as tmpdir:
+            # `max_workers=1` keeps the spying deterministic (single thread).
+            with patch.object(session, "request", wraps=session.request) as mock_request:
+                snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir, max_workers=1)
+
+        head_urls = [
+            str(call.kwargs["url"]) for call in mock_request.call_args_list if call.kwargs.get("method") == "HEAD"
+        ]
+        # Regular file => its `/resolve/` URL is HEAD-ed.
+        assert any(url.endswith("/dummy_file.txt") for url in head_urls)
+        # Xet file => no HEAD call at all.
+        assert not any(url.endswith("/file.bin") for url in head_urls)
 
     def test_download_private_model(self, api: HfApi):
         api.update_repo_settings(repo_id=self.repo_id, private=True)
@@ -197,6 +219,28 @@ class TestSnapshotDownload:
                     with pytest.raises(LocalEntryNotFoundError):
                         snapshot_download(self.repo_id, cache_dir=tmpdir)
 
+    def test_tree_cache_written_and_incomplete_detected(self):
+        """The repo tree listing is cached on disk, and an incomplete snapshot is detected offline."""
+        with SoftTemporaryDirectory() as tmpdir:
+            snapshot_path = snapshot_download(self.repo_id, cache_dir=tmpdir)
+            commit_hash = os.path.basename(snapshot_path)
+
+            # The tree listing of the resolved commit is cached under `trees/`.
+            storage_folder = os.path.join(tmpdir, repo_folder_name(repo_id=self.repo_id, repo_type="model"))
+            tree_cache_file = os.path.join(storage_folder, "trees", f"{commit_hash}.json")
+            assert os.path.isfile(tree_cache_file)
+
+            # A complete cached snapshot is still returned offline.
+            with offline():
+                assert snapshot_download(self.repo_id, cache_dir=tmpdir) == snapshot_path
+
+            # Remove a file from the snapshot => offline re-pull now raises instead of returning a partial folder.
+            os.remove(os.path.join(snapshot_path, "dummy_file.txt"))
+            for offline_mode in OfflineSimulationMode:
+                with offline(mode=offline_mode):
+                    with pytest.raises(IncompleteSnapshotError):
+                        snapshot_download(self.repo_id, cache_dir=tmpdir)
+
     def test_download_model_local_only_multiple(self):
         # cache multiple commits and make sure correct commit is taken
         with SoftTemporaryDirectory() as tmpdir:
@@ -209,7 +253,7 @@ class TestSnapshotDownload:
             storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
             assert self.second_commit_hash in storage_folder
 
-    def check_download_model_with_pattern(self, pattern, allow=True):
+    def check_download_model_with_pattern(self, pattern, expected, allow=True):
         # Test `main` branch
         allow_patterns = pattern if allow else None
         ignore_patterns = pattern if not allow else None
@@ -222,25 +266,26 @@ class TestSnapshotDownload:
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )
-
-            # folder contains the three text files but not the .gitattributes
-            folder_contents = os.listdir(storage_folder)
-            assert len(folder_contents) == 3
-            assert "dummy_file.txt" in folder_contents
-            assert "dummy_file_2.txt" in folder_contents
-            assert ".gitattributes" not in folder_contents
+            assert set(os.listdir(storage_folder)) == expected
 
     def test_download_model_with_allow_pattern(self):
-        self.check_download_model_with_pattern("*.txt")
+        # `file.bin` is filtered out (not a `*.txt` file); `subpath/file.txt` keeps the `subpath` folder.
+        self.check_download_model_with_pattern("*.txt", expected={"dummy_file.txt", "subpath"})
 
     def test_download_model_with_allow_pattern_list(self):
-        self.check_download_model_with_pattern(["dummy_file.txt", "dummy_file_2.txt", "subpath/*"])
+        self.check_download_model_with_pattern(
+            ["dummy_file.txt", "file.bin", "subpath/*"], expected={"dummy_file.txt", "file.bin", "subpath"}
+        )
 
     def test_download_model_with_ignore_pattern(self):
-        self.check_download_model_with_pattern(".gitattributes", allow=False)
+        self.check_download_model_with_pattern(
+            ".gitattributes", expected={"dummy_file.txt", "file.bin", "subpath"}, allow=False
+        )
 
     def test_download_model_with_ignore_pattern_list(self):
-        self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
+        self.check_download_model_with_pattern(
+            ["*.git*", "*.pt"], expected={"dummy_file.txt", "file.bin", "subpath"}, allow=False
+        )
 
     def test_download_to_local_dir(self) -> None:
         """Download a repository to local dir.
@@ -257,12 +302,12 @@ class TestSnapshotDownload:
 
                 # Files have been downloaded in correct structure
                 assert (Path(local_dir) / "dummy_file.txt").is_file()
-                assert (Path(local_dir) / "dummy_file_2.txt").is_file()
+                assert (Path(local_dir) / "file.bin").is_file()
                 assert (Path(local_dir) / "subpath" / "file.txt").is_file()
 
                 # Symlinks are not used anymore
                 assert not (Path(local_dir) / "dummy_file.txt").is_symlink()
-                assert not (Path(local_dir) / "dummy_file_2.txt").is_symlink()
+                assert not (Path(local_dir) / "file.bin").is_symlink()
                 assert not (Path(local_dir) / "subpath" / "file.txt").is_symlink()
 
                 # Check returns local dir and not cache dir

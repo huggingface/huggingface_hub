@@ -456,6 +456,16 @@ class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
         super().__init__(message)
 
 
+class IncompleteSnapshotError(LocalEntryNotFoundError):
+    """
+    Raised by [`snapshot_download`] when the Hub cannot be reached (offline, connection issue, or
+    `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
+    the repository's cached tree listing are missing from the local snapshot.
+
+    This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
+    """
+
+
 # REQUEST ERROR
 class BadRequestError(HfHubHTTPError, ValueError):
     """
