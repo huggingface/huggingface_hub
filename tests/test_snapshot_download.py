@@ -1,5 +1,4 @@
 import os
-import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,18 +13,18 @@ from .testing_constants import TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 
-class SnapshotDownloadTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
+class TestSnapshotDownload:
+    @pytest.fixture(scope="class", autouse=True)
+    def _shared_repo(self, request, api: HfApi):
         """
         Share this valid token in all tests below.
         """
-        cls.api = HfApi(token=TOKEN)
-        cls.repo_id = cls.api.create_repo(repo_name("snapshot-download")).repo_id
+        repo_id = api.create_repo(repo_name("snapshot-download")).repo_id
+        request.cls.repo_id = repo_id
 
         # First commit on `main`
-        cls.first_commit_hash = cls.api.create_commit(
-            repo_id=cls.repo_id,
+        request.cls.first_commit_hash = api.create_commit(
+            repo_id=repo_id,
             operations=[
                 CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v1"),
                 CommitOperationAdd(path_in_repo="subpath/file.txt", path_or_fileobj=b"content in subpath"),
@@ -34,8 +33,8 @@ class SnapshotDownloadTests(unittest.TestCase):
         ).oid
 
         # Second commit on `main`
-        cls.second_commit_hash = cls.api.create_commit(
-            repo_id=cls.repo_id,
+        request.cls.second_commit_hash = api.create_commit(
+            repo_id=repo_id,
             operations=[
                 CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v2"),
                 CommitOperationAdd(path_in_repo="file.bin", path_or_fileobj=os.urandom(1 * 1024 * 1024)),
@@ -44,9 +43,9 @@ class SnapshotDownloadTests(unittest.TestCase):
         ).oid
 
         # Third commit on `other`
-        cls.api.create_branch(repo_id=cls.repo_id, branch="other")
-        cls.third_commit_hash = cls.api.create_commit(
-            repo_id=cls.repo_id,
+        api.create_branch(repo_id=repo_id, branch="other")
+        request.cls.third_commit_hash = api.create_commit(
+            repo_id=repo_id,
             operations=[
                 CommitOperationAdd(path_in_repo="dummy_file_2.txt", path_or_fileobj=b"v4"),
             ],
@@ -54,9 +53,8 @@ class SnapshotDownloadTests(unittest.TestCase):
             revision="other",
         ).oid
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.api.delete_repo(repo_id=cls.repo_id)
+        yield
+        api.delete_repo(repo_id=repo_id)
 
     def test_download_model(self):
         # Test `main` branch
@@ -65,17 +63,17 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 4)
-            self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue("file.bin" in folder_contents)
-            self.assertTrue(".gitattributes" in folder_contents)
+            assert len(folder_contents) == 4
+            assert "dummy_file.txt" in folder_contents
+            assert "file.bin" in folder_contents
+            assert ".gitattributes" in folder_contents
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
                 contents = f.read()
-                self.assertEqual(contents, "v2")
+                assert contents == "v2"
 
             # folder name contains the revision's commit sha.
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
         # Test with specific revision
         with SoftTemporaryDirectory() as tmpdir:
@@ -87,16 +85,16 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
-            self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue(".gitattributes" in folder_contents)
+            assert len(folder_contents) == 3
+            assert "dummy_file.txt" in folder_contents
+            assert ".gitattributes" in folder_contents
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
                 contents = f.read()
-                self.assertEqual(contents, "v1")
+                assert contents == "v1"
 
             # folder name contains the revision's commit sha.
-            self.assertTrue(self.first_commit_hash in storage_folder)
+            assert self.first_commit_hash in storage_folder
 
     @pytest.mark.xet
     def test_xet_file_skips_per_file_head_call(self):
@@ -119,26 +117,26 @@ class SnapshotDownloadTests(unittest.TestCase):
         # Xet file => no HEAD call at all.
         assert not any(url.endswith("/file.bin") for url in head_urls)
 
-    def test_download_private_model(self):
-        self.api.update_repo_settings(repo_id=self.repo_id, private=True)
+    def test_download_private_model(self, api: HfApi):
+        api.update_repo_settings(repo_id=self.repo_id, private=True)
 
         # Test download fails without token
         with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaises(RepositoryNotFoundError):
+            with pytest.raises(RepositoryNotFoundError):
                 _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
         # Test we can download with token from cache
         with patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN):
             with SoftTemporaryDirectory() as tmpdir:
                 storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
-                self.assertTrue(self.second_commit_hash in storage_folder)
+                assert self.second_commit_hash in storage_folder
 
         # Test we can download with explicit token
         with SoftTemporaryDirectory() as tmpdir:
             storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir, token=TOKEN)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
-        self.api.update_repo_settings(repo_id=self.repo_id, private=False)
+        api.update_repo_settings(repo_id=self.repo_id, private=False)
 
     def test_download_model_local_only(self):
         # Test no branch specified
@@ -147,7 +145,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, cache_dir=tmpdir)
             # now load from cache
             storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.second_commit_hash in storage_folder)  # has expected revision
+            assert self.second_commit_hash in storage_folder  # has expected revision
 
         # Test with specific revision branch
         with SoftTemporaryDirectory() as tmpdir:
@@ -155,7 +153,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir)
             # now load from cache
             storage_folder = snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.third_commit_hash in storage_folder)  # has expected revision
+            assert self.third_commit_hash in storage_folder  # has expected revision
 
         # Test with specific revision hash
         with SoftTemporaryDirectory() as tmpdir:
@@ -165,7 +163,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             storage_folder = snapshot_download(
                 self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdir, local_files_only=True
             )
-            self.assertTrue(self.first_commit_hash in storage_folder)  # has expected revision
+            assert self.first_commit_hash in storage_folder  # has expected revision
 
         # Test with local_dir
         with SoftTemporaryDirectory() as tmpdir:
@@ -173,7 +171,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             snapshot_download(self.repo_id, local_dir=tmpdir)
             # now load from local_dir
             storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
-            self.assertEqual(str(tmpdir), storage_folder)
+            assert str(tmpdir) == storage_folder
 
     def test_download_model_to_local_dir_with_offline_mode(self):
         """Test that an already downloaded folder is returned when there is a connection error"""
@@ -184,7 +182,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
                     storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir)
-                    self.assertEqual(str(tmpdir), storage_folder)
+                    assert str(tmpdir) == storage_folder
 
     def test_offline_mode_with_cache_and_empty_local_dir(self):
         """Test that when cache exists but an empty local_dir is specified in offline mode, we raise an error."""
@@ -193,32 +191,32 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
-                    with self.assertRaises(LocalEntryNotFoundError):
+                    with pytest.raises(LocalEntryNotFoundError):
                         with SoftTemporaryDirectory() as tmpdir:
                             snapshot_download(self.repo_id, cache_dir=tmpdir_cache, local_dir=tmpdir)
 
     def test_download_model_offline_mode_not_in_local_dir(self):
         """Test when connection error but local_dir is empty."""
         with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaises(LocalEntryNotFoundError):
+            with pytest.raises(LocalEntryNotFoundError):
                 snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
 
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
                 with SoftTemporaryDirectory() as tmpdir:
-                    with self.assertRaises(LocalEntryNotFoundError):
+                    with pytest.raises(LocalEntryNotFoundError):
                         snapshot_download(self.repo_id, local_dir=tmpdir)
 
     def test_download_model_offline_mode_not_cached(self):
         """Test when connection error but cache is empty."""
         with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaises(LocalEntryNotFoundError):
+            with pytest.raises(LocalEntryNotFoundError):
                 snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
 
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
                 with SoftTemporaryDirectory() as tmpdir:
-                    with self.assertRaises(LocalEntryNotFoundError):
+                    with pytest.raises(LocalEntryNotFoundError):
                         snapshot_download(self.repo_id, cache_dir=tmpdir)
 
     def test_tree_cache_written_and_incomplete_detected(self):
@@ -230,17 +228,17 @@ class SnapshotDownloadTests(unittest.TestCase):
             # The tree listing of the resolved commit is cached under `trees/`.
             storage_folder = os.path.join(tmpdir, repo_folder_name(repo_id=self.repo_id, repo_type="model"))
             tree_cache_file = os.path.join(storage_folder, "trees", f"{commit_hash}.json")
-            self.assertTrue(os.path.isfile(tree_cache_file))
+            assert os.path.isfile(tree_cache_file)
 
             # A complete cached snapshot is still returned offline.
             with offline():
-                self.assertEqual(snapshot_download(self.repo_id, cache_dir=tmpdir), snapshot_path)
+                assert snapshot_download(self.repo_id, cache_dir=tmpdir) == snapshot_path
 
             # Remove a file from the snapshot => offline re-pull now raises instead of returning a partial folder.
             os.remove(os.path.join(snapshot_path, "dummy_file.txt"))
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
-                    with self.assertRaises(IncompleteSnapshotError):
+                    with pytest.raises(IncompleteSnapshotError):
                         snapshot_download(self.repo_id, cache_dir=tmpdir)
 
     def test_download_model_local_only_multiple(self):
@@ -253,7 +251,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             # now make sure that loading "main" branch gives correct branch
             # folder name contains the 2nd commit sha and not the 3rd
             storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+            assert self.second_commit_hash in storage_folder
 
     def check_download_model_with_pattern(self, pattern, expected, allow=True):
         # Test `main` branch
@@ -268,8 +266,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )
-
-            self.assertEqual(set(os.listdir(storage_folder)), expected)
+            assert set(os.listdir(storage_folder)) == expected
 
     def test_download_model_with_allow_pattern(self):
         # `file.bin` is filtered out (not a `*.txt` file); `subpath/file.txt` keeps the `subpath` folder.
