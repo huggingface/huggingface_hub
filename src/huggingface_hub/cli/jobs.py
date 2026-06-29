@@ -411,7 +411,6 @@ def jobs_logs(
     if follow:
         job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
-        out.hint(f"Run `hf jobs wait {job_ref}` to block until it reaches a terminal state.")
 
 
 def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
