@@ -52,7 +52,7 @@ class TestValidCacheUtils:
     cache_dir: Path
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> None:
+    def setup(self, fx_cache_dir) -> None:
         """Set up a clean cache for tests that will remain valid in all tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
@@ -259,7 +259,7 @@ class TestCorruptedCacheUtils:
     snapshots_path: Path
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> None:
+    def setup(self, fx_cache_dir) -> None:
         """Set up a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)

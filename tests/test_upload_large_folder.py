@@ -153,9 +153,9 @@ class TestValidateUploadLimits:
         assert any("21.0GB" in call or "21GB" in call for call in warning_calls)
         assert any("20GB (recommended limit)" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_very_large_file_warning(self, mock_logger):
+    def test_very_large_file_warning(self, mocker):
         """Test warning for files exceeding recommended maximum (200GB)."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         # Create a file that's 201 GB
         size_bytes = 201 * 1_000_000_000
         paths = [self.MockPath("huge_file.bin", size_bytes=size_bytes)]
@@ -167,9 +167,9 @@ class TestValidateUploadLimits:
         assert any("201.0GB" in call or "201GB" in call for call in warning_calls)
         assert any("200GB recommended maximum" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_nested_directory_structure(self, mock_logger):
+    def test_nested_directory_structure(self, mocker):
         """Test correct handling of deeply nested directory structures."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         paths = [
             self.MockPath("a/b/c/d/e/file1.txt"),
             self.MockPath("a/b/c/d/e/file2.txt"),

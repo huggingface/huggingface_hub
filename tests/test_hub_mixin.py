@@ -356,12 +356,12 @@ class TestHubMixin:
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
-    def test_push_to_hub(self):
+    def test_push_to_hub(self, api: HfApi):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
         DummyModelConfigAsDataclass(CONFIG_AS_DATACLASS).push_to_hub(repo_id=repo_id, token=TOKEN)
 
         # Test model id exists
-        self._api.model_info(repo_id)
+        api.model_info(repo_id)
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
@@ -384,7 +384,7 @@ class TestHubMixin:
             assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DICT
 
         # Delete repo
-        self._api.delete_repo(repo_id=repo_id)
+        api.delete_repo(repo_id=repo_id)
 
     def test_save_pretrained_do_not_overwrite_new_config(self):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102.

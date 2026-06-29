@@ -1,13 +1,13 @@
 import json
 import os
 import struct
-import unittest
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, Optional, TypeVar
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
 from huggingface_hub.errors import RemoteEntryNotFoundError
@@ -15,7 +15,7 @@ from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.serialization._torch import storage_ptr
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_constants import TOKEN, USER
 from .testing_utils import repo_name, requires
 
 
@@ -136,15 +136,8 @@ else:
 
 @requires("torch")
 @pytest.mark.usefixtures("fx_cache_dir")
-class PytorchHubMixinTest(unittest.TestCase):
+class TestPytorchHubMixin:
     cache_dir: Path
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     def test_save_pretrained_basic(self):
         DummyModel().save_pretrained(self.cache_dir)
@@ -164,7 +157,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         # https://github.com/huggingface/safetensors?tab=readme-ov-file#format
         with open(modelFile, "rb") as f:
             header_size = struct.unpack("<Q", f.read(8))[0]
-            self.assertEqual(header_size, 128)
+            assert header_size == 128
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
@@ -187,11 +180,11 @@ class PytorchHubMixinTest(unittest.TestCase):
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
         mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config, model_card_kwargs={})
 
-    @patch.object(DummyModel, "_from_pretrained")
-    def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
+    def test_from_pretrained_model_id_only(self, mocker: MockerFixture) -> None:
+        from_pretrained_mock = mocker.patch.object(DummyModel, "_from_pretrained")
         model = DummyModel.from_pretrained("namespace/repo_name")
         from_pretrained_mock.assert_called_once()
-        self.assertIs(model, from_pretrained_mock.return_value)
+        assert model is from_pretrained_mock.return_value
 
     def pretend_file_download(self, **kwargs):
         if kwargs.get("filename") == "config.json":
@@ -199,8 +192,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         DummyModel().save_pretrained(self.cache_dir)
         return self.cache_dir / "model.safetensors"
 
-    @patch("huggingface_hub.hub_mixin.hf_hub_download")
-    def test_from_pretrained_model_from_hub_prefer_safetensor(self, hf_hub_download_mock: Mock) -> None:
+    def test_from_pretrained_model_from_hub_prefer_safetensor(self, mocker: MockerFixture) -> None:
+        hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
         hf_hub_download_mock.side_effect = self.pretend_file_download
         model = DummyModel.from_pretrained("namespace/repo_name")
         hf_hub_download_mock.assert_any_call(
@@ -212,7 +205,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             token=None,
             local_files_only=False,
         )
-        self.assertIsNotNone(model)
+        assert model is not None
 
     def pretend_file_download_fallback(self, **kwargs):
         filename = kwargs.get("filename")
@@ -226,8 +219,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         TestMixin().save_pretrained(self.cache_dir)
         return self.cache_dir / constants.PYTORCH_WEIGHTS_NAME
 
-    @patch("huggingface_hub.hub_mixin.hf_hub_download")
-    def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:
+    def test_from_pretrained_model_from_hub_fallback_pickle(self, mocker: MockerFixture) -> None:
+        hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
         hf_hub_download_mock.side_effect = self.pretend_file_download_fallback
         model = DummyModel.from_pretrained("namespace/repo_name")
         hf_hub_download_mock.assert_any_call(
@@ -248,12 +241,12 @@ class PytorchHubMixinTest(unittest.TestCase):
             token=None,
             local_files_only=False,
         )
-        self.assertIsNotNone(model)
+        assert model is not None
 
-    @patch.object(DummyModel, "_from_pretrained")
-    def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
+    def test_from_pretrained_model_id_and_revision(self, mocker: MockerFixture) -> None:
         """Regression test for #1313.
         See https://github.com/huggingface/huggingface_hub/issues/1313."""
+        from_pretrained_mock = mocker.patch.object(DummyModel, "_from_pretrained")
         model = DummyModel.from_pretrained("namespace/repo_name", revision="123456789")
         from_pretrained_mock.assert_called_once_with(
             model_id="namespace/repo_name",
@@ -263,60 +256,55 @@ class PytorchHubMixinTest(unittest.TestCase):
             local_files_only=False,
             token=None,
         )
-        self.assertIs(model, from_pretrained_mock.return_value)
+        assert model is from_pretrained_mock.return_value
 
     def test_from_pretrained_to_relative_path(self):
         with SoftTemporaryDirectory(dir=Path(".")) as tmp_relative_dir:
             relative_save_directory = Path(tmp_relative_dir) / "model"
             DummyModel().save_pretrained(relative_save_directory, config=CONFIG)
             model = DummyModel.from_pretrained(relative_save_directory)
-            self.assertDictEqual(model._hub_mixin_config, CONFIG)
+            assert model._hub_mixin_config == CONFIG
 
     def test_from_pretrained_to_absolute_path(self):
         save_directory = self.cache_dir / "subfolder"
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
-        self.assertDictEqual(model._hub_mixin_config, CONFIG)
+        assert model._hub_mixin_config == CONFIG
 
     def test_from_pretrained_to_absolute_string_path(self):
         save_directory = str(self.cache_dir / "subfolder")
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
-        self.assertDictEqual(model._hub_mixin_config, CONFIG)
+        assert model._hub_mixin_config == CONFIG
 
     def test_return_type_hint_from_pretrained(self):
-        self.assertIn(
-            "return",
-            DummyModel.from_pretrained.__annotations__,
-            "`PyTorchModelHubMixin.from_pretrained` does not set a return type annotation.",
+        assert "return" in DummyModel.from_pretrained.__annotations__, (
+            "`PyTorchModelHubMixin.from_pretrained` does not set a return type annotation."
         )
-        self.assertIsInstance(
+        assert isinstance(
             DummyModel.from_pretrained.__annotations__["return"],
             TypeVar,
-            "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar.",
-        )
-        self.assertEqual(
-            DummyModel.from_pretrained.__annotations__["return"].__bound__.__forward_arg__,
-            "ModelHubMixin",
-            "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar bound by `ModelHubMixin`.",
+        ), "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar."
+        assert DummyModel.from_pretrained.__annotations__["return"].__bound__.__forward_arg__ == "ModelHubMixin", (
+            "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar bound by `ModelHubMixin`."
         )
 
-    def test_push_to_hub(self):
+    def test_push_to_hub(self, api: HfApi):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
         DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
         # Test model id exists
-        assert self._api.model_info(repo_id).id == repo_id
+        assert api.model_info(repo_id).id == repo_id
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
             repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
         )
         with open(tmp_config_path) as f:
-            self.assertDictEqual(json.load(f), CONFIG)
+            assert json.load(f) == CONFIG
 
         # Delete repo
-        self._api.delete_repo(repo_id=repo_id)
+        api.delete_repo(repo_id=repo_id)
 
     def test_generate_model_card(self):
         model = DummyModelWithModelCard()
