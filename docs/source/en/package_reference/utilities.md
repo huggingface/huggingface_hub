@@ -229,6 +229,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.LocalEntryNotFoundError
 
+#### IncompleteSnapshotError
+
+[[autodoc]] huggingface_hub.errors.IncompleteSnapshotError
+
 #### OfflineModeIsEnabled
 
 [[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
