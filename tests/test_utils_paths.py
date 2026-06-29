@@ -108,6 +108,32 @@ class TestPathsUtils(unittest.TestCase):
             ignore_patterns=[""],
         )
 
+    def test_filter_is_case_sensitive(self) -> None:
+        """Pattern matching must be case-sensitive on every platform (see #4434).
+
+        `fnmatch.fnmatch` applies `os.path.normcase`, which made matching case-insensitive
+        on Windows but case-sensitive on Linux/macOS. Repo paths are case-sensitive, so the
+        result must not depend on the client OS.
+        """
+        # Uppercase pattern matches only the uppercase path, not the lowercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["notes.MD"],
+            allow_patterns=["*.MD"],
+        )
+        # Lowercase pattern matches only the lowercase path, not the uppercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["README.md"],
+            allow_patterns=["*.md"],
+        )
+        # Case-sensitivity also applies to the ignore list.
+        self._check(
+            items=["keep.txt", "drop.LOG", "keep.log"],
+            expected_items=["keep.txt", "keep.log"],
+            ignore_patterns=["*.LOG"],
+        )
+
     def _check(
         self,
         items: list[Any],
