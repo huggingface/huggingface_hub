@@ -17,7 +17,8 @@ import warnings
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketInfo
+from huggingface_hub._buckets import BucketFile, BucketInfo
+from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
@@ -561,3 +562,46 @@ def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: st
     # Download from bucket should restore original content
     api.download_bucket_files(bucket_write, files=[("file.txt", str(file_path))])
     assert file_path.read_text() == "1234567890"
+
+
+# -- sync_job_volume --
+
+
+def test_sync_job_volume(api: HfApi, tmp_path):
+    # Create local folder
+    (tmp_path / "hello.txt").write_text("hi")
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "file.txt").write_text("nested")
+
+    # Sync it
+    volume = api.sync_job_volume(tmp_path, "/inputs")
+    assert volume.type == "bucket"
+    assert volume.source == f"{USER}/jobs-artifacts"
+    assert volume.mount_path == "/inputs"
+    assert volume.read_only is True
+    assert volume.path == _derive_job_volume_name(tmp_path)
+
+    # All files are uploaded
+    files = {
+        entry.path
+        for entry in api.list_bucket_tree(volume.source, prefix=volume.path, recursive=True)
+        if isinstance(entry, BucketFile)
+    }
+    assert files == {f"{volume.path}/hello.txt", f"{volume.path}/nested/file.txt"}
+
+    # Re-syncing the same directory reuses the same remote folder
+    assert api.sync_job_volume(tmp_path, "/inputs").path == volume.path
+
+
+def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
+    remote_name = repo_name(prefix="empty-volume")
+    volume = api.sync_job_volume(tmp_path, "/outputs", remote_name=remote_name, read_only=False)
+
+    assert volume.path == remote_name
+    assert volume.read_only is False
+    files = {
+        entry.path
+        for entry in api.list_bucket_tree(volume.source, prefix=volume.path, recursive=True)
+        if isinstance(entry, BucketFile)
+    }
+    assert files == {f"{volume.path}/.keep"}

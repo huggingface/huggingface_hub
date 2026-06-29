@@ -339,6 +339,7 @@ _SUBMOD_ATTRS = {
         "super_squash_history",
         "suspend_scheduled_job",
         "sync_bucket",
+        "sync_job_volume",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -1100,6 +1101,7 @@ __all__ = [
     "super_squash_history",
     "suspend_scheduled_job",
     "sync_bucket",
+    "sync_job_volume",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1503,6 +1505,7 @@ if TYPE_CHECKING:  # pragma: no cover
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401
+        sync_job_volume,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

@@ -1990,6 +1990,23 @@ Use `:ro` to enable read-only:
 
 * mount a storage bucket in read-only: `-v hf://buckets/username/my-bucket:/mnt:ro`
 
+### Mount local data
+
+The source side of `-v` can also be a local directory. It is first synced to your `jobs-artifacts` [Storage Bucket](/docs/hub/storage-buckets) and the resulting bucket folder is mounted in the Job:
+
+```bash
+>>> hf jobs uv run -v ./my-data:/data process.py
+```
+
+Re-running the command only uploads new or modified files. Local directories are mounted read-only by default. Use `:rw` to let the Job write to the volume, e.g. to retrieve outputs after the Job completes (an empty local directory works too):
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+...
+Hint: Volume '/output' is mounted read-write. Once the job is over, pull back its data with:
+  hf buckets sync hf://buckets/username/jobs-artifacts/md-out-a1b2c3d4 ./md-out
+```
+
 ### Labels
 
 Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):

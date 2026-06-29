@@ -71,17 +71,19 @@ import shutil
 import time
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
+from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
 import typer
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
 from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
+from huggingface_hub.utils._hf_uris import _split_mount
 from huggingface_hub.utils._parsing import format_duration, parse_duration
 
 from ._cli_utils import (
@@ -93,7 +95,6 @@ from ._cli_utils import (
     SshDryRunOpt,
     SshIdentityFileOpt,
     TokenOpt,
-    VolumesOpt,
     exec_ssh,
     get_hf_api,
     parse_env_map,
@@ -132,6 +133,50 @@ def _parse_namespace_from_job_id(job_id: str, namespace: str | None) -> tuple[st
         )
 
     return parsed_job_id, extracted_namespace
+
+
+def _parse_and_sync_job_volumes(
+    volumes: list[str] | None, *, api: HfApi, namespace: str | None
+) -> list[Volume] | None:
+    """Parse `-v` specs for Jobs commands.
+
+    Same as [`parse_volumes`] but the source side can also be a local directory: it is synced to a
+    bucket via [`HfApi.sync_job_volume`] and the resulting bucket subfolder is mounted (read-only
+    unless ':rw' is specified).
+    """
+    if not volumes:
+        return None
+
+    result: list[Volume] = []
+    for raw_spec in volumes:
+        if raw_spec.startswith(constants.HF_PROTOCOL):
+            result.extend(parse_volumes([raw_spec]) or [])
+            continue
+
+        # Not a 'hf://' URI: treat the source as a local directory.
+        source, mount_path, read_only = _split_mount(raw_spec, raw=raw_spec)
+        if mount_path is None:
+            raise CLIError(
+                f"Missing mount path in volume spec '{raw_spec}'. Expected 'LOCAL_DIR:/MOUNT_PATH[:ro|:rw]' (e.g. './data:/data')."
+            )
+        if not Path(source).expanduser().is_dir():
+            raise CLIError(
+                f"Volume source '{source}' is not an existing local directory. "
+                "To mount a repo or bucket instead, use the 'hf://' syntax (e.g. 'hf://buckets/my-org/my-bucket:/data')."
+            )
+        volume = api.sync_job_volume(
+            source,
+            mount_path,
+            read_only=read_only if read_only is not None else True,
+            namespace=namespace,
+        )
+        if volume.read_only is False:
+            out.hint(
+                f"Volume '{mount_path}' is mounted read-write. Once the job is over, pull back its data with:\n"
+                f"  hf buckets sync hf://buckets/{volume.source}/{volume.path} {source}"
+            )
+        result.append(volume)
+    return result
 
 
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
@@ -288,6 +333,20 @@ ScheduledJobIdArg = Annotated[
     ),
 ]
 
+JobVolumesOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        "-v",
+        "--volume",
+        help="Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. "
+        "TYPE is one of: models, datasets, spaces, buckets. "
+        "TYPE defaults to models if omitted. "
+        "models, datasets and spaces are always mounted read-only. buckets are read+write by default. "
+        "A local directory source is first synced to a bucket and mounted read-only by default. "
+        "E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs",
+    ),
+]
+
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
@@ -321,7 +380,7 @@ def jobs_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
-    volume: VolumesOpt = None,
+    volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -343,7 +402,7 @@ def jobs_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=parse_volumes(volume),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -887,7 +946,7 @@ def jobs_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
-    volume: VolumesOpt = None,
+    volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -913,7 +972,7 @@ def jobs_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=parse_volumes(volume),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -951,7 +1010,7 @@ def scheduled_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
-    volume: VolumesOpt = None,
+    volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
@@ -974,7 +1033,7 @@ def scheduled_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=parse_volumes(volume),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
@@ -1181,7 +1240,7 @@ def scheduled_uv_run(
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
     label: LabelsOpt = None,
-    volume: VolumesOpt = None,
+    volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
@@ -1208,7 +1267,7 @@ def scheduled_uv_run(
         env=env_map,
         secrets=secrets_map,
         labels=_parse_labels_map(label),
-        volumes=parse_volumes(volume),
+        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
