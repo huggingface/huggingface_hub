@@ -24,7 +24,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from huggingface_hub import HfApi, RepoUrl, constants
+from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
@@ -44,6 +44,7 @@ from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_sess
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
+from .conftest import RepoFactory
 from .testing_constants import OTHER_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
@@ -111,7 +112,7 @@ class TestDiskUsageWarning:
 
 
 class TestStagingDownload:
-    def test_download_from_a_gated_repo_with_hf_hub_download(self, api: HfApi, repo_factory: "RepoFactory") -> None:
+    def test_download_from_a_gated_repo_with_hf_hub_download(self, api: HfApi, repo_factory: RepoFactory) -> None:
         """Checks `hf_hub_download` outputs error on gated repo.
 
         Regression test for #1121.
@@ -137,7 +138,7 @@ class TestStagingDownload:
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
-    def test_download_regular_file_from_private_renamed_repo(self, api: HfApi, repo_factory: "RepoFactory") -> None:
+    def test_download_regular_file_from_private_renamed_repo(self, api: HfApi, repo_factory: RepoFactory) -> None:
         """Regression test for #1999.
 
         See https://github.com/huggingface/huggingface_hub/pull/1999.
@@ -978,9 +979,7 @@ class TestStagingCachedDownloadOnAwfulFilenames:
         assert hf_hub_url(self.repo_url.repo_id, self.filepath) == self.expected_resolve_url
 
     def test_hf_hub_url_on_awful_subfolder_and_filename(self):
-        assert (
-            hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder) == self.expected_resolve_url
-        )
+        assert hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder) == self.expected_resolve_url
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
@@ -1017,7 +1016,9 @@ class TestHfHubDownloadRelativePaths:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_id = api.create_repo(repo_id=repo_name()).repo_id
-        api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id)
+        api.upload_file(
+            path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id
+        )
         yield
         api.delete_repo(repo_id=request.cls.repo_id)
 
