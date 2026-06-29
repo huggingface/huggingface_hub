@@ -6,17 +6,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+import huggingface_hub.utils._xet as _xet_mod
 from huggingface_hub import HfApi, constants
 from huggingface_hub.utils._xet import (
+    XetConnectionInfo,
     XetFileData,
     XetSessionHolder,
     XetTokenType,
     _fetch_xet_connection_info_with_url,
     fetch_xet_connection_info_from_repo_info,
+    open_xet_download_stream_group,
     parse_xet_connection_info_from_headers,
     parse_xet_file_data_from_response,
     refresh_xet_connection_info,
     xet_connection_info_refresh_url,
+    xet_download_file,
+    xet_download_stream,
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -435,6 +440,84 @@ def test_xet_session_holder_fork_safety_multiprocessing():
     for wpid in worker_pids:
         assert wpid != parent_pid, f"Worker used parent's session PID {parent_pid}"
         assert wpid is not None
+
+
+class TestXetDownloadStreamHelpers:
+    def test_open_group_seeds_cached_token_and_is_not_cached(self):
+        # The group is created fresh every call (never cached — it is bound to the session
+        # runtime), but the short-lived read token is reused from the connection-info cache.
+        fake_session = MagicMock()
+        fake_session.new_download_stream_group.side_effect = [MagicMock(), MagicMock()]
+        conn = XetConnectionInfo(access_token="tok", expiration_unix_epoch=999, endpoint="https://cas")
+        file_data = XetFileData(file_hash="h", refresh_route="https://hub/api/models/x/xet-read-token/main")
+        headers = {"authorization": "Bearer hf_abc", "user-agent": "ua"}
+        with (
+            patch.object(_xet_mod, "get_xet_session", return_value=fake_session),
+            patch.object(_xet_mod, "refresh_xet_connection_info", return_value=conn) as mock_refresh,
+        ):
+            g1 = open_xet_download_stream_group(file_data=file_data, headers=headers)
+            g2 = open_xet_download_stream_group(file_data=file_data, headers=headers)
+        # No group caching: two calls => two distinct groups.
+        assert g1 is not g2
+        assert fake_session.new_download_stream_group.call_count == 2
+        # Token reused from the (cached) connection info and seeded into the group.
+        assert mock_refresh.call_count == 2  # the cache lives in refresh_xet_connection_info, mocked here
+        _, kwargs = fake_session.new_download_stream_group.call_args
+        assert kwargs["endpoint"] == "https://cas"
+        assert kwargs["token"] == "tok"
+        assert kwargs["token_expiry_unix_secs"] == 999
+        assert kwargs["token_refresh_url"] == "https://hub/api/models/x/xet-read-token/main"
+        assert kwargs["token_refresh_headers"] == headers
+        assert "authorization" not in {k.lower() for k in kwargs["custom_headers"]}
+
+    def test_xet_download_stream_passes_range_to_group(self):
+        group = MagicMock()
+        group.download_stream.return_value = iter([b"ab", b"cd"])
+        with patch("hf_xet.XetFileInfo", create=True) as file_info_cls:
+            out = b"".join(xet_download_stream(group, "hash123", 4, start=1, end=3))
+        assert out == b"abcd"
+        file_info_cls.assert_called_once_with("hash123", 4)
+        _, kwargs = group.download_stream.call_args
+        assert kwargs == {"start": 1, "end": 3}
+
+    def test_xet_download_file_seeds_token_and_starts_download(self):
+        fake_session = MagicMock()
+        group = fake_session.new_file_download_group.return_value.__enter__.return_value
+        conn = XetConnectionInfo(access_token="tok", expiration_unix_epoch=999, endpoint="https://cas")
+        with (
+            patch.object(_xet_mod, "get_xet_session", return_value=fake_session),
+            patch.object(_xet_mod, "refresh_xet_connection_info", return_value=conn),
+            patch("hf_xet.XetFileInfo", create=True) as file_info_cls,
+        ):
+            xet_download_file(
+                file_data=XetFileData(file_hash="h", refresh_route="r"),
+                headers={"authorization": "a"},
+                size=42,
+                path="/tmp/out.bin",
+            )
+        _, kwargs = fake_session.new_file_download_group.call_args
+        assert kwargs["token"] == "tok"
+        assert kwargs["endpoint"] == "https://cas"
+        assert kwargs["token_refresh_url"] == "r"
+        assert "progress_callback" not in kwargs  # omitted when not provided
+        file_info_cls.assert_called_once_with("h", 42)
+        group.start_download_file.assert_called_once_with(file_info_cls.return_value, "/tmp/out.bin")
+
+    def test_xet_download_file_aborts_session_on_keyboard_interrupt(self):
+        fake_session = MagicMock()
+        fake_session.new_file_download_group.side_effect = KeyboardInterrupt
+        conn = XetConnectionInfo(access_token="t", expiration_unix_epoch=1, endpoint="e")
+        with (
+            patch.object(_xet_mod, "get_xet_session", return_value=fake_session),
+            patch.object(_xet_mod, "refresh_xet_connection_info", return_value=conn),
+            patch.object(_xet_mod, "abort_xet_session") as mock_abort,
+            patch("hf_xet.XetFileInfo", create=True),
+        ):
+            with pytest.raises(KeyboardInterrupt):
+                xet_download_file(
+                    file_data=XetFileData(file_hash="h", refresh_route="r"), headers={}, size=1, path="/tmp/x"
+                )
+        mock_abort.assert_called_once()
 
 
 @pytest.mark.parametrize(

@@ -27,10 +27,23 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import hf_hub_url, http_get
+from .file_download import get_hf_file_metadata, hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import (
+    HFValidationError,
+    XetFileData,
+    hf_raise_for_status,
+    http_backoff,
+    http_stream_backoff,
+    logging,
+    parse_hf_uri,
+)
+from .utils._runtime import is_xet_available
+from .utils._xet import open_xet_download_stream_group, xet_download_file, xet_download_stream
 from .utils.insecure_hashlib import md5
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -1105,27 +1118,66 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
             os.makedirs(os.path.dirname(lpath), exist_ok=True)
 
+        # Custom implementation of `get_file` to use `http_get`.
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        expected_size = self.info(rpath, revision=revision)["size"]
+        callback.set_size(expected_size)
+        headers = self._api._build_hf_headers()
+        download_url = self.url(resolve_remote_path.unresolve())
+        xet_file_data, _ = _try_get_xet_metadata(download_url, headers, self.endpoint)
+
+        # Fast path: a Xet-backed file written to a real local path. Hand the path to hf_xet
+        # so it writes the file directly from Rust (parallel) and populates the local chunk
+        # cache, instead of streaming chunks through Python. Only applies when we have a path
+        # (not a file-like object).
+        if xet_file_data is not None and outfile is None and isinstance(lpath, (str, Path)):
+            _prev = 0
+
+            def _on_progress(group_report, _):
+                nonlocal _prev
+                current = group_report.total_bytes_completed
+                callback.relative_update(max(0, current - _prev))
+                _prev = current
+
+            xet_download_file(
+                file_data=xet_file_data,
+                headers=headers,
+                size=expected_size,
+                path=str(Path(lpath).absolute()),
+                progress_callback=_on_progress if isinstance(callback, TqdmCallback) else None,
+            )
+            return
+
         # Open file if not already open
         close_file = False
         if outfile is None:
             outfile = open(lpath, "wb")
             close_file = True
         initial_pos = outfile.tell()
-
-        # Custom implementation of `get_file` to use `http_get`.
-        resolve_remote_path = self.resolve_path(rpath, revision=revision)
-        expected_size = self.info(rpath, revision=revision)["size"]
-        callback.set_size(expected_size)
         try:
-            http_get(
-                url=self.url(resolve_remote_path.unresolve()),
-                temp_file=outfile,  # type: ignore
-                displayed_filename=rpath,
-                expected_size=expected_size,
-                resume_size=0,
-                headers=self._api._build_hf_headers(),
-                _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
-            )
+            if xet_file_data is not None:
+                # Xet-backed file written to a file-like object (no path for hf_xet to write
+                # to) => reconstruct as a byte stream and write the chunks ourselves.
+                group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
+                try:
+                    for chunk in xet_download_stream(group, xet_file_data.file_hash, expected_size):
+                        outfile.write(chunk)
+                        callback.relative_update(len(chunk))
+                except KeyboardInterrupt:
+                    from .utils._xet import abort_xet_session
+
+                    abort_xet_session()
+                    raise
+            else:
+                http_get(
+                    url=download_url,
+                    temp_file=outfile,  # type: ignore
+                    displayed_filename=rpath,
+                    expected_size=expected_size,
+                    resume_size=0,
+                    headers=headers,
+                    _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+                )
             outfile.seek(initial_pos)
         finally:
             # Close file only if we opened it ourselves
@@ -1178,6 +1230,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             raise
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
+        self._xet_checked = False
+        self._xet_group = None
+        self._xet_file_hash: str | None = None
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -1185,7 +1240,30 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             return
         return super().__del__()
 
+    def _ensure_xet(self) -> None:
+        if self._xet_checked:
+            return
+        self._xet_checked = True
+        headers = self.fs._api._build_hf_headers()
+        xet_file_data, size = _try_get_xet_metadata(self.url(), headers, self.fs.endpoint)
+        if xet_file_data is not None:
+            self._xet_group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
+            self._xet_file_hash = xet_file_data.file_hash
+            if self.size is None and size is not None:
+                self.size = size
+
     def _fetch_range(self, start: int, end: int) -> bytes:
+        self._ensure_xet()
+        if self._xet_group is not None:
+            try:
+                return b"".join(
+                    xet_download_stream(self._xet_group, self._xet_file_hash, self.size, start=start, end=end)
+                )
+            except KeyboardInterrupt:
+                from .utils._xet import abort_xet_session
+
+                abort_xet_session()
+                raise
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
@@ -1276,6 +1354,8 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         # streaming state
         self._stream_iterator: Iterator[bytes] | None = None
         self._stream_buffer = bytearray()
+        self._stream_opened = False
+        self._xet_mode = False
 
     def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
@@ -1292,23 +1372,33 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
         If reading the stream fails, we retry with a new connection.
         """
-        if self.response is None:
+        # (Re)open when never opened, or when an HTTP stream's response was dropped
+        # (used to force a reconnect, e.g. after a mid-stream failure). In xet mode there
+        # is no response object, so the iterator alone drives the stream.
+        # Xet streams can only be force-reopened via the retry loop below.
+        if not self._stream_opened or (not self._xet_mode and self.response is None):
             self._open_connection()
 
         retried_once = False
         while True:
             try:
-                if self.response is None or self._stream_iterator is None:
+                if self._stream_iterator is None:
                     return b""  # Already read the entire file
                 out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
                 return out
+            except KeyboardInterrupt:
+                if self._xet_mode:
+                    from .utils._xet import abort_xet_session
+
+                    abort_xet_session()
+                raise
             except Exception:
                 if self.response is not None:
                     self.response.close()
                 if retried_once:  # Already retried once, give up
                     raise
-                # First failure, retry with range header
+                # First failure, retry with a fresh connection / stream from self.loc
                 self._open_connection()
                 retried_once = True
 
@@ -1360,13 +1450,33 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
 
     def _open_connection(self):
-        """Open a connection to the remote file."""
+        """Open a connection to the remote file (xet stream when Xet-backed, else HTTP)."""
         # reset streaming state
         self._stream_buffer.clear()
         self._stream_iterator = None
+        self._stream_opened = True
+        self._xet_mode = False
+
+        headers = self.fs._api._build_hf_headers()
+        xet_file_data, size = _try_get_xet_metadata(self.url(), headers, self.fs.endpoint)
+        if xet_file_data is not None:
+            self._xet_mode = True
+            if self.size is None and size is not None:
+                self.size = size
+            group = open_xet_download_stream_group(file_data=xet_file_data, headers=headers)
+            start = self.loc if self.loc > 0 else None
+            try:
+                self._stream_iterator = xet_download_stream(
+                    group, xet_file_data.file_hash, self.size, start=start, end=None
+                )
+            except KeyboardInterrupt:
+                from .utils._xet import abort_xet_session
+
+                abort_xet_session()
+                raise
+            return
 
         url = self.url()
-        headers = self.fs._api._build_hf_headers()
         if self.loc > 0:
             headers["Range"] = f"bytes={self.loc}-"
         self.response = self._exit_stack.enter_context(
@@ -1418,6 +1528,26 @@ def make_instance(cls, args, kwargs, instance_state):
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs
+
+
+def _try_get_xet_metadata(
+    url: str, headers: dict[str, str], endpoint: str | None
+) -> tuple["XetFileData | None", int | None]:
+    """Return ``(xet_file_data, size)`` for ``url`` when Xet is usable, else ``(None, None)``.
+
+    Performs a single HEAD via :func:`get_hf_file_metadata`. ``xet_file_data`` is ``None``
+    when the file is not Xet-backed, when Xet is unavailable, or when the metadata lookup
+    fails — in all cases the caller falls back to the HTTP read path (which has its own
+    retries), so Xet detection never breaks a read.
+    """
+    if not is_xet_available():
+        return None, None
+    try:
+        metadata = get_hf_file_metadata(url, headers=headers, endpoint=endpoint)
+    except Exception as e:
+        logger.warning(f"Could not fetch Xet metadata for {url}, falling back to HTTP: {e}")
+        return None, None
+    return metadata.xet_file_data, metadata.size
 
 
 hffs = HfFileSystem()
