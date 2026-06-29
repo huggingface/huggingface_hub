@@ -40,6 +40,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
 * `repos`: Manage repos on the Hub. [alias: repo]
+* `sandbox`: Run and manage sandboxes on Hugging Face...
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a...
@@ -3668,6 +3669,276 @@ $ hf repos tag list [OPTIONS] REPO_ID
 
 Examples
   $ hf repos tag list my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf sandbox`
+
+Run and manage sandboxes on Hugging Face Jobs.
+
+**Usage**:
+
+```console
+$ hf sandbox [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cp`: Copy a file between the local machine and...
+* `create`: Create a sandbox: a dedicated VM by...
+* `exec`: Run a command in a sandbox, streaming output.
+* `kill`: Terminate a sandbox, a whole shared host,...
+* `pool`: Warm pools of host VMs and spawn cheap...
+
+### `hf sandbox cp`
+
+Copy a file between the local machine and a sandbox (docker-style).
+
+**Usage**:
+
+```console
+$ hf sandbox cp [OPTIONS] SRC DST
+```
+
+**Arguments**:
+
+* `SRC`: Source: a local path or <sandbox_id>:<path>.  [required]
+* `DST`: Destination: a local path or <sandbox_id>:<path>.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox cp data.csv <sandbox_id>:/data/data.csv
+  $ hf sandbox cp <sandbox_id>:/app/result.json result.json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox create`
+
+Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
+
+Env and idle-timeout apply to the sandbox in both modes. With `--pool`, the image and
+flavor come from the pool, so passing them here is an error; `--secrets` is also
+rejected since pooled sandboxes have no encrypted-secrets channel (use `--env`). Define
+a pool first with `hf sandbox pool create`.
+
+**Usage**:
+
+```console
+$ hf sandbox create [OPTIONS] [IMAGE]
+```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image (needs /bin/sh).
+
+**Options**:
+
+* `--pool TEXT`: Spawn a cheap shared sandbox in this pool (from `hf sandbox pool create`).
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox create
+  $ hf sandbox create ubuntu:24.04
+  $ hf sandbox create --flavor a10g-small
+  $ hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox exec`
+
+Run a command in a sandbox, streaming output. Exits with the command's exit code.
+
+**Usage**:
+
+```console
+$ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `COMMAND...`: The command to run.  [required]
+
+**Options**:
+
+* `-w, --workdir TEXT`: Working directory.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--timeout FLOAT`: Kill the command after this many seconds.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox exec <sandbox_id> -- python -c "print(42)"
+  $ hf sandbox exec -w /app <sandbox_id> -- pytest -x
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox kill`
+
+Terminate a sandbox, a whole shared host, or everything (--all).
+
+**Usage**:
+
+```console
+$ hf sandbox kill [OPTIONS] [SANDBOX_ID]
+```
+
+**Arguments**:
+
+* `[SANDBOX_ID]`: The sandbox or host id to terminate.
+
+**Options**:
+
+* `--all`: Terminate every sandbox and host in the namespace.
+* `-y, --yes`: Answer Yes to prompts automatically.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox kill <sandbox_id>
+  $ hf sandbox kill <host_id>   # kills a whole shared host (all its sandboxes)
+  $ hf sandbox kill --all
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox pool`
+
+Warm pools of host VMs and spawn cheap shared sandboxes from them.
+
+**Usage**:
+
+```console
+$ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Warm a pool: boot one host VM now, tagged...
+* `delete`: Terminate every host VM of a pool (and... [alias: rm]
+* `ls`: List running sandbox pools (grouped from... [alias: list]
+
+#### `hf sandbox pool create`
+
+Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
+
+**Usage**:
+
+```console
+$ hf sandbox pool create [OPTIONS] [IMAGE]
+```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image for the hosts (needs /bin/sh).
+
+**Options**:
+
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--per-host INTEGER RANGE`: Sandboxes packed per host VM (default 50).  [default: 50; x>=1]
+* `--max-hosts INTEGER RANGE`: Optional cap on the number of host VMs.  [x>=1]
+* `--idle-timeout TEXT`: Shut a host down once it has had no sandboxes for this long (e.g. '10m'). Defaults to 10m.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool create
+  $ hf sandbox pool create python:3.12 --flavor cpu-basic
+  $ hf sandbox pool create --per-host 50 --idle-timeout 30m
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool delete`
+
+Terminate every host VM of a pool (and therefore all its sandboxes). [alias: rm]
+
+**Usage**:
+
+```console
+$ hf sandbox pool delete [OPTIONS] POOL_ID
+```
+
+**Arguments**:
+
+* `POOL_ID`: Pool id to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompts automatically.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool delete <pool_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool ls`
+
+List running sandbox pools (grouped from their host VMs). [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox pool ls [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool ls
 
 Learn more
   Use `hf <command> --help` for more information about a command.

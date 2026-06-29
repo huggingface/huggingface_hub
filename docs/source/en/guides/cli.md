@@ -2140,6 +2140,29 @@ Manage scheduled jobs using
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```
 
+## hf sandbox
+
+`hf sandbox` spins up isolated cloud machines built on Jobs: create one, run commands with live-streamed output, and copy files in and out. Any Docker image with `/bin/sh` works. See the [Sandboxes guide](./sandbox) for the Python API, and the [conceptual guide](../concepts/sandbox) for how it works under the hood.
+
+```bash
+# Create a sandbox (waits until it is ready, prints its id)
+>>> hf sandbox create
+✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
+
+# Run commands inside it (output is streamed, exit code is propagated)
+>>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
+hi
+
+# Copy files in and out (docker-style)
+>>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
+>>> hf sandbox cp 687f911eaea852de79c4a50a:/app/results.json results.json
+
+# Terminate a sandbox
+>>> hf sandbox kill 687f911eaea852de79c4a50a
+```
+
+Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+
 ## hf webhooks
 
 `hf webhooks` lets you manage webhooks on the Hugging Face Hub directly from the terminal. Webhooks allow you to listen for events (pushes, discussions, etc.) on repos, users, or organizations and trigger actions — either by pinging a remote URL or by running a Job on Hugging Face infrastructure.
