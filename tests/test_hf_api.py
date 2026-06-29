@@ -2644,23 +2644,21 @@ class TestHfApiPrivate:
 
 
 @pytest.mark.xet
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestUploadFolderMocked:
     api = HfApi()
-    cache_dir: Path
 
     @pytest.fixture(autouse=True)
-    def _setup(self, fx_cache_dir, mocker) -> None:
-        (self.cache_dir / "file.txt").write_text("content")
-        (self.cache_dir / "lfs.bin").write_text("content")
+    def _setup(self, tmp_path, mocker) -> None:
+        (tmp_path / "file.txt").write_text("content")
+        (tmp_path / "lfs.bin").write_text("content")
 
-        (self.cache_dir / "sub").mkdir()
-        (self.cache_dir / "sub" / "file.txt").write_text("content")
-        (self.cache_dir / "sub" / "lfs_in_sub.bin").write_text("content")
+        (tmp_path / "sub").mkdir()
+        (tmp_path / "sub" / "file.txt").write_text("content")
+        (tmp_path / "sub" / "lfs_in_sub.bin").write_text("content")
 
-        (self.cache_dir / "subdir").mkdir()
-        (self.cache_dir / "subdir" / "file.txt").write_text("content")
-        (self.cache_dir / "subdir" / "lfs_in_subdir.bin").write_text("content")
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "subdir" / "file.txt").write_text("content")
+        (tmp_path / "subdir" / "lfs_in_subdir.bin").write_text("content")
 
         self.all_local_files = {
             "lfs.bin",
@@ -2692,23 +2690,23 @@ class TestUploadFolderMocked:
         mocker.patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
         mocker.patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
 
-    def _upload_folder_alias(self, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
+    def _upload_folder_alias(self, tmp_path, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
         """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""
         if "folder_path" not in kwargs:
-            kwargs["folder_path"] = self.cache_dir
+            kwargs["folder_path"] = tmp_path
         self.api.upload_folder(repo_id="repo_id", **kwargs)
         call_kwargs = self.pipeline_mock.call_args_list[0][1]
         # `upload_folder` passes additions and deletions separately to the pipeline. Recombine them
         # (deletions first, as `create_commit` used to receive them) for the assertions below.
         return call_kwargs["delete_operations"] + call_kwargs["add_operations"]
 
-    def test_allow_everything(self):
-        operations = self._upload_folder_alias()
+    def test_allow_everything(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path)
         assert all(isinstance(op, CommitOperationAdd) for op in operations)
         assert {op.path_in_repo for op in operations} == self.all_local_files
 
-    def test_allow_everything_in_subdir_no_trailing_slash(self):
-        operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir")
+    def test_allow_everything_in_subdir_no_trailing_slash(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path, folder_path=tmp_path / "subdir", path_in_repo="subdir")
         assert all(isinstance(op, CommitOperationAdd) for op in operations)
         assert {op.path_in_repo for op in operations} == {
             # correct `path_in_repo`
@@ -2716,37 +2714,37 @@ class TestUploadFolderMocked:
             "subdir/lfs_in_subdir.bin",
         }
 
-    def test_allow_everything_in_subdir_with_trailing_slash(self):
-        operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir/")
+    def test_allow_everything_in_subdir_with_trailing_slash(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path, folder_path=tmp_path / "subdir", path_in_repo="subdir/")
         assert all(isinstance(op, CommitOperationAdd) for op in operations)
         assert {op.path_in_repo for op in operations} == {"subdir/file.txt", "subdir/lfs_in_subdir.bin"}
 
-    def test_allow_txt_ignore_subdir(self):
-        operations = self._upload_folder_alias(allow_patterns="*.txt", ignore_patterns="subdir/*")
+    def test_allow_txt_ignore_subdir(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path, allow_patterns="*.txt", ignore_patterns="subdir/*")
         assert all(isinstance(op, CommitOperationAdd) for op in operations)
         assert {op.path_in_repo for op in operations} == {"sub/file.txt", "file.txt"}  # only .txt files, not in subdir
 
-    def test_allow_txt_not_root_ignore_subdir(self):
-        operations = self._upload_folder_alias(allow_patterns="**/*.txt", ignore_patterns="subdir/*")
+    def test_allow_txt_not_root_ignore_subdir(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path, allow_patterns="**/*.txt", ignore_patterns="subdir/*")
         assert all(isinstance(op, CommitOperationAdd) for op in operations)
         assert {op.path_in_repo for op in operations} == {
             # only .txt files, not in subdir, not at root
             "sub/file.txt"
         }
 
-    def test_path_in_repo_dot(self):
+    def test_path_in_repo_dot(self, tmp_path):
         """Regression test for #1382 when using `path_in_repo="."`.
 
         Using `path_in_repo="."` or `path_in_repo=None` should be equivalent.
         See https://github.com/huggingface/huggingface_hub/pull/1382.
         """
-        operation_with_dot = self._upload_folder_alias(path_in_repo=".", allow_patterns=["file.txt"])[0]
-        operation_with_none = self._upload_folder_alias(path_in_repo=None, allow_patterns=["file.txt"])[0]
+        operation_with_dot = self._upload_folder_alias(tmp_path, path_in_repo=".", allow_patterns=["file.txt"])[0]
+        operation_with_none = self._upload_folder_alias(tmp_path, path_in_repo=None, allow_patterns=["file.txt"])[0]
         assert operation_with_dot.path_in_repo == "file.txt"
         assert operation_with_none.path_in_repo == "file.txt"
 
-    def test_delete_txt(self):
-        operations = self._upload_folder_alias(delete_patterns="*.txt")
+    def test_delete_txt(self, tmp_path):
+        operations = self._upload_folder_alias(tmp_path, delete_patterns="*.txt")
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
 
@@ -2757,9 +2755,9 @@ class TestUploadFolderMocked:
         assert "file.txt" in added_files
         assert "sub/file.txt" in added_files
 
-    def test_delete_txt_in_sub(self):
+    def test_delete_txt_in_sub(self, tmp_path):
         operations = self._upload_folder_alias(
-            path_in_repo="sub/", folder_path=self.cache_dir / "sub", delete_patterns="*.txt"
+            tmp_path, path_in_repo="sub/", folder_path=tmp_path / "sub", delete_patterns="*.txt"
         )
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
@@ -2767,9 +2765,13 @@ class TestUploadFolderMocked:
         assert added_files == {"sub/file.txt", "sub/lfs_in_sub.bin"}  # added only in sub/
         assert deleted_files == {"sub/file1.txt"}  # delete only in sub/
 
-    def test_delete_txt_in_sub_ignore_sub_file_txt(self):
+    def test_delete_txt_in_sub_ignore_sub_file_txt(self, tmp_path):
         operations = self._upload_folder_alias(
-            path_in_repo="sub", folder_path=self.cache_dir / "sub", ignore_patterns="file.txt", delete_patterns="*.txt"
+            tmp_path,
+            path_in_repo="sub",
+            folder_path=tmp_path / "sub",
+            ignore_patterns="file.txt",
+            delete_patterns="*.txt",
         )
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
@@ -2778,9 +2780,9 @@ class TestUploadFolderMocked:
         assert added_files == {"sub/lfs_in_sub.bin"}  # no "sub/file.txt"
         assert deleted_files == {"sub/file1.txt", "sub/file.txt"}
 
-    def test_delete_if_path_in_repo(self):
+    def test_delete_if_path_in_repo(self, tmp_path):
         # Regression test for https://github.com/huggingface/huggingface_hub/pull/2129
-        operations = self._upload_folder_alias(path_in_repo=".", folder_path=self.cache_dir, delete_patterns="*")
+        operations = self._upload_folder_alias(tmp_path, path_in_repo=".", folder_path=tmp_path, delete_patterns="*")
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
@@ -2789,43 +2791,40 @@ class TestUploadFolderMocked:
     # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
     reason="Skipping git clone test on CI."
 )
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestHfLargefiles:
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
     def _cleanup(self, api: HfApi):
         yield
         api.delete_repo(repo_id=self.repo_id)
 
-    def setup_local_clone(self) -> None:
+    def setup_local_clone(self, tmp_path) -> None:
         scheme = urlparse(self.repo_url).scheme
         repo_url_auth = self.repo_url.replace(f"{scheme}://", f"{scheme}://user:{TOKEN}@")
 
         subprocess.run(
-            ["git", "clone", repo_url_auth, str(self.cache_dir)],
+            ["git", "clone", repo_url_auth, str(tmp_path)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        subprocess.run(["git", "lfs", "track", "*.pdf"], check=True, cwd=self.cache_dir)
-        subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
+        subprocess.run(["git", "lfs", "track", "*.pdf"], check=True, cwd=tmp_path)
+        subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=tmp_path)
 
     @pytest.mark.git_lfs
-    def test_git_push_end_to_end(self, api: HfApi):
+    def test_git_push_end_to_end(self, api: HfApi, tmp_path):
         self.repo_url = api.create_repo(repo_id=repo_name())
         self.repo_id = self.repo_url.repo_id
-        self.setup_local_clone()
+        self.setup_local_clone(tmp_path)
 
         subprocess.run(
-            ["wget", LARGE_FILE_18MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cache_dir
+            ["wget", LARGE_FILE_18MB], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp_path
         )
-        subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir)
-        subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=self.cache_dir)
-        subprocess.run(["hf", "lfs-enable-largefiles", self.cache_dir], check=True)
+        subprocess.run(["git", "add", "*"], check=True, cwd=tmp_path)
+        subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=tmp_path)
+        subprocess.run(["hf", "lfs-enable-largefiles", tmp_path], check=True)
 
         start_time = time.time()
-        subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
+        subprocess.run(["git", "push"], check=True, cwd=tmp_path)
         print("took", time.time() - start_time)
 
         # To be 100% sure, let's download the resolved file
@@ -3319,15 +3318,12 @@ iface.launch()
         assert runtime_after_restart.stage != SpaceStage.PAUSED
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestCommitInBackground:
-    cache_dir: Path
-
-    def test_commit_to_repo_in_background(self, api: HfApi, repo_factory: RepoFactory) -> None:
+    def test_commit_to_repo_in_background(self, api: HfApi, repo_factory: RepoFactory, tmp_path) -> None:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
-        (self.cache_dir / "file.txt").write_text("content")
-        (self.cache_dir / "lfs.bin").write_text("content")
+        (tmp_path / "file.txt").write_text("content")
+        (tmp_path / "lfs.bin").write_text("content")
 
         t0 = time.time()
         upload_future_1 = api.upload_file(
@@ -3337,7 +3333,7 @@ class TestCommitInBackground:
             path_or_fileobj=b"2", path_in_repo="2.txt", repo_id=repo_id, commit_message="Upload 2", run_as_future=True
         )
         upload_future_3 = api.upload_folder(
-            repo_id=repo_id, folder_path=self.cache_dir, commit_message="Upload folder", run_as_future=True
+            repo_id=repo_id, folder_path=tmp_path, commit_message="Upload folder", run_as_future=True
         )
         t1 = time.time()
 

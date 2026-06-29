@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Optional, TypeVar
 from unittest.mock import Mock
 
-import pytest
 from pytest_mock import MockerFixture
 
 from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
@@ -135,23 +134,20 @@ else:
 
 
 @requires("torch")
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestPytorchHubMixin:
-    cache_dir: Path
-
-    def test_save_pretrained_basic(self):
-        DummyModel().save_pretrained(self.cache_dir)
-        files = os.listdir(self.cache_dir)
+    def test_save_pretrained_basic(self, tmp_path):
+        DummyModel().save_pretrained(tmp_path)
+        files = os.listdir(tmp_path)
         assert set(files) == {"README.md", "model.safetensors"}
 
-    def test_save_pretrained_with_config(self):
-        DummyModel().save_pretrained(self.cache_dir, config=CONFIG)
-        files = os.listdir(self.cache_dir)
+    def test_save_pretrained_with_config(self, tmp_path):
+        DummyModel().save_pretrained(tmp_path, config=CONFIG)
+        files = os.listdir(tmp_path)
         assert set(files) == {"README.md", "config.json", "model.safetensors"}
 
-    def test_save_as_safetensors(self):
-        DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
-        modelFile = self.cache_dir / "model.safetensors"
+    def test_save_as_safetensors(self, tmp_path):
+        DummyModel().save_pretrained(tmp_path, config=TOKEN)
+        modelFile = tmp_path / "model.safetensors"
         # check for safetensors header to ensure we are saving the model in safetensors format
         # while an implementation detail, assert as this has safety implications
         # https://github.com/huggingface/safetensors?tab=readme-ov-file#format
@@ -159,9 +155,9 @@ class TestPytorchHubMixin:
             header_size = struct.unpack("<Q", f.read(8))[0]
             assert header_size == 128
 
-    def test_save_pretrained_with_push_to_hub(self):
+    def test_save_pretrained_with_push_to_hub(self, tmp_path):
         repo_id = repo_name("save")
-        save_directory = self.cache_dir / repo_id
+        save_directory = tmp_path / repo_id
 
         config = {"hello": "world"}
         mocked_model = DummyModel()
@@ -186,15 +182,15 @@ class TestPytorchHubMixin:
         from_pretrained_mock.assert_called_once()
         assert model is from_pretrained_mock.return_value
 
-    def pretend_file_download(self, **kwargs):
+    def pretend_file_download(self, cache_dir: Path, **kwargs):
         if kwargs.get("filename") == "config.json":
             raise RemoteEntryNotFoundError("no config", response=Mock())
-        DummyModel().save_pretrained(self.cache_dir)
-        return self.cache_dir / "model.safetensors"
+        DummyModel().save_pretrained(cache_dir)
+        return cache_dir / "model.safetensors"
 
-    def test_from_pretrained_model_from_hub_prefer_safetensor(self, mocker: MockerFixture) -> None:
+    def test_from_pretrained_model_from_hub_prefer_safetensor(self, mocker: MockerFixture, tmp_path) -> None:
         hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
-        hf_hub_download_mock.side_effect = self.pretend_file_download
+        hf_hub_download_mock.side_effect = lambda **kwargs: self.pretend_file_download(tmp_path, **kwargs)
         model = DummyModel.from_pretrained("namespace/repo_name")
         hf_hub_download_mock.assert_any_call(
             repo_id="namespace/repo_name",
@@ -207,7 +203,7 @@ class TestPytorchHubMixin:
         )
         assert model is not None
 
-    def pretend_file_download_fallback(self, **kwargs):
+    def pretend_file_download_fallback(self, cache_dir: Path, **kwargs):
         filename = kwargs.get("filename")
         if filename == "model.safetensors" or filename == "config.json":
             raise RemoteEntryNotFoundError("not found", response=Mock())
@@ -216,12 +212,12 @@ class TestPytorchHubMixin:
             def _save_pretrained(self, save_directory: Path) -> None:
                 torch.save(DummyModel().state_dict(), save_directory / constants.PYTORCH_WEIGHTS_NAME)
 
-        TestMixin().save_pretrained(self.cache_dir)
-        return self.cache_dir / constants.PYTORCH_WEIGHTS_NAME
+        TestMixin().save_pretrained(cache_dir)
+        return cache_dir / constants.PYTORCH_WEIGHTS_NAME
 
-    def test_from_pretrained_model_from_hub_fallback_pickle(self, mocker: MockerFixture) -> None:
+    def test_from_pretrained_model_from_hub_fallback_pickle(self, mocker: MockerFixture, tmp_path) -> None:
         hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
-        hf_hub_download_mock.side_effect = self.pretend_file_download_fallback
+        hf_hub_download_mock.side_effect = lambda **kwargs: self.pretend_file_download_fallback(tmp_path, **kwargs)
         model = DummyModel.from_pretrained("namespace/repo_name")
         hf_hub_download_mock.assert_any_call(
             repo_id="namespace/repo_name",
@@ -265,14 +261,14 @@ class TestPytorchHubMixin:
             model = DummyModel.from_pretrained(relative_save_directory)
             assert model._hub_mixin_config == CONFIG
 
-    def test_from_pretrained_to_absolute_path(self):
-        save_directory = self.cache_dir / "subfolder"
+    def test_from_pretrained_to_absolute_path(self, tmp_path):
+        save_directory = tmp_path / "subfolder"
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG
 
-    def test_from_pretrained_to_absolute_string_path(self):
-        save_directory = str(self.cache_dir / "subfolder")
+    def test_from_pretrained_to_absolute_string_path(self, tmp_path):
+        save_directory = str(tmp_path / "subfolder")
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG
@@ -289,7 +285,7 @@ class TestPytorchHubMixin:
             "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar bound by `ModelHubMixin`."
         )
 
-    def test_push_to_hub(self, api: HfApi):
+    def test_push_to_hub(self, api: HfApi, tmp_path):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
         DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
@@ -297,16 +293,14 @@ class TestPytorchHubMixin:
         assert api.model_info(repo_id).id == repo_id
 
         # Test config has been pushed to hub
-        tmp_config_path = hf_hub_download(
-            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
-        )
+        tmp_config_path = hf_hub_download(repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=tmp_path)
         with open(tmp_config_path) as f:
             assert json.load(f) == CONFIG
 
         # Delete repo
         api.delete_repo(repo_id=repo_id)
 
-    def test_generate_model_card(self):
+    def test_generate_model_card(self, tmp_path):
         model = DummyModelWithModelCard()
         card = model.generate_model_card()
         assert card.data.language == ["en", "zh"]
@@ -317,41 +311,41 @@ class TestPytorchHubMixin:
         # Model card template has been used
         assert "This is a dummy model card" in str(card)
 
-        model.save_pretrained(self.cache_dir)
-        card_reloaded = ModelCard.load(self.cache_dir / "README.md")
+        model.save_pretrained(tmp_path)
+        card_reloaded = ModelCard.load(tmp_path / "README.md")
 
         assert str(card) == str(card_reloaded)
         assert card.data == card_reloaded.data
 
-    def test_load_no_config(self):
-        config_file = self.cache_dir / "config.json"
+    def test_load_no_config(self, tmp_path):
+        config_file = tmp_path / "config.json"
 
         # Test creating model => auto-generated config
         model = DummyModelNoConfig(num_classes=50)
         assert model._hub_mixin_config == {"num_classes": 50, "state": "layernorm"}
 
         # Test saving model => auto-generated config is saved
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         assert config_file.exists()
         assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "layernorm"}
 
         # Reload model => config is reloaded
-        reloaded = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        reloaded = DummyModelNoConfig.from_pretrained(tmp_path)
         assert reloaded.num_classes == 50
         assert reloaded.state == "layernorm"
         assert reloaded._hub_mixin_config == {"num_classes": 50, "state": "layernorm"}
 
         # Reload model with custom config => custom config is used
-        reloaded_with_default = DummyModelNoConfig.from_pretrained(self.cache_dir, state="other")
+        reloaded_with_default = DummyModelNoConfig.from_pretrained(tmp_path, state="other")
         assert reloaded_with_default.num_classes == 50
         assert reloaded_with_default.state == "other"
         assert reloaded_with_default._hub_mixin_config == {"num_classes": 50, "state": "other"}
 
         config_file.unlink()  # Remove config file
-        reloaded_with_default.save_pretrained(self.cache_dir)
+        reloaded_with_default.save_pretrained(tmp_path)
         assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "other"}
 
-    def test_save_with_non_jsonable_config(self):
+    def test_save_with_non_jsonable_config(self, tmp_path):
         # Save with a non-jsonable value
         my_object = object()
         model = DummyModelNoConfig(not_jsonable=my_object)
@@ -359,22 +353,22 @@ class TestPytorchHubMixin:
         assert "not_jsonable" not in model._hub_mixin_config
 
         # Reload with default value
-        model.save_pretrained(self.cache_dir)
-        reloaded_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
+        reloaded_model = DummyModelNoConfig.from_pretrained(tmp_path)
         assert reloaded_model.not_jsonable is DUMMY_OBJECT
         assert "not_jsonable" not in model._hub_mixin_config
 
         # If jsonable value passed by user, it's saved in the config
-        (self.cache_dir / "config.json").unlink()
+        (tmp_path / "config.json").unlink()
         new_model = DummyModelNoConfig(not_jsonable=123)
-        new_model.save_pretrained(self.cache_dir)
+        new_model.save_pretrained(tmp_path)
         assert new_model._hub_mixin_config["not_jsonable"] == 123
 
-        reloaded_new_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        reloaded_new_model = DummyModelNoConfig.from_pretrained(tmp_path)
         assert reloaded_new_model.not_jsonable == 123
         assert reloaded_new_model._hub_mixin_config["not_jsonable"] == 123
 
-    def test_save_model_with_shared_tensors(self):
+    def test_save_model_with_shared_tensors(self, tmp_path):
         """
         Regression test for #2086. Shared tensors should be saved correctly.
 
@@ -392,8 +386,8 @@ class TestPytorchHubMixin:
 
         # Save and reload model
         model = ModelWithSharedTensors()
-        model.save_pretrained(self.cache_dir)
-        reloaded = ModelWithSharedTensors.from_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
+        reloaded = ModelWithSharedTensors.from_pretrained(tmp_path)
 
         # Linear layers should share weights and biases in memory
         state_dict = reloaded.state_dict()
@@ -404,16 +398,16 @@ class TestPytorchHubMixin:
         assert a_weight_ptr == b_weight_ptr
         assert a_bias_ptr == b_bias_ptr
 
-    def test_save_pretrained_when_config_and_kwargs_are_passed(self):
+    def test_save_pretrained_when_config_and_kwargs_are_passed(self, tmp_path):
         # Test creating model with config and kwargs => all values are saved together in config.json
         model = DummyModelWithConfigAndKwargs(num_classes=50, state="layernorm", config={"a": 1}, b=2, c=3)
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         assert model._hub_mixin_config == {"num_classes": 50, "state": "layernorm", "a": 1, "b": 2, "c": 3}
 
-        reloaded = DummyModelWithConfigAndKwargs.from_pretrained(self.cache_dir)
+        reloaded = DummyModelWithConfigAndKwargs.from_pretrained(tmp_path)
         assert reloaded._hub_mixin_config == model._hub_mixin_config
 
-    def test_model_card_with_custom_kwargs(self):
+    def test_model_card_with_custom_kwargs(self, tmp_path):
         model_card_kwargs = {"custom_data": "This is a model custom data: 42."}
 
         # Test creating model with custom kwargs => custom data is saved in model card
@@ -424,22 +418,22 @@ class TestPytorchHubMixin:
         assert "Paper: https://arxiv.org/abs/2304.12244" in str(card)
         assert "Docs: https://hf.co/docs/my-repo" in str(card)
         # Test saving card => model card is saved and restored with custom data
-        model.save_pretrained(self.cache_dir, model_card_kwargs=model_card_kwargs)
-        card_reloaded = ModelCard.load(self.cache_dir / "README.md")
+        model.save_pretrained(tmp_path, model_card_kwargs=model_card_kwargs)
+        card_reloaded = ModelCard.load(tmp_path / "README.md")
         assert str(card) == str(card_reloaded)
 
-    def test_config_with_custom_coders(self):
+    def test_config_with_custom_coders(self, tmp_path):
         """
         Regression test for #2334. When `config` is encoded with custom coders, it should be decoded correctly.
 
         See https://github.com/huggingface/huggingface_hub/issues/2334.
         """
         model = DummyModelWithEncodedConfig(Namespace(a=1, b=2))
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         assert model._hub_mixin_config["a"] == 1
         assert model._hub_mixin_config["b"] == 2
 
-        reloaded = DummyModelWithEncodedConfig.from_pretrained(self.cache_dir)
+        reloaded = DummyModelWithEncodedConfig.from_pretrained(tmp_path)
         assert isinstance(reloaded.config, Namespace)
         assert reloaded.config.a == 1
         assert reloaded.config.b == 2

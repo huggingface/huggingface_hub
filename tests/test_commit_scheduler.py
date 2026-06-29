@@ -12,10 +12,7 @@ from huggingface_hub._commit_scheduler import CommitScheduler, PartialFileIO
 from .testing_utils import repo_name
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestCommitScheduler:
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
     def _setup(self, api: HfApi):
         self.api = api
@@ -31,10 +28,10 @@ class TestCommitScheduler:
         except Exception:
             pass
 
-    def test_mocked_push_to_hub(self, mocker) -> None:
+    def test_mocked_push_to_hub(self, mocker, tmp_path: Path) -> None:
         push_to_hub_mock: MagicMock = mocker.patch("huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub")
         self.scheduler = CommitScheduler(
-            folder_path=self.cache_dir,
+            folder_path=tmp_path,
             repo_id=self.repo_name,
             every=1 / 60 / 10,  # every 0.1s
             hf_api=self.api,
@@ -47,16 +44,16 @@ class TestCommitScheduler:
         # Can get the last upload result
         assert self.scheduler.last_future.result() == push_to_hub_mock.return_value
 
-    def test_invalid_folder_path_is_a_file(self) -> None:
+    def test_invalid_folder_path_is_a_file(self, tmp_path: Path) -> None:
         """Test cannot scheduler upload of a single file."""
-        file_path = self.cache_dir / "file.txt"
+        file_path = tmp_path / "file.txt"
         file_path.write_text("something")
 
         with pytest.raises(ValueError):
             CommitScheduler(folder_path=file_path, repo_id=self.repo_name, hf_api=self.api)
 
-    def test_missing_folder_is_created(self) -> None:
-        folder_path = self.cache_dir / "folder" / "subfolder"
+    def test_missing_folder_is_created(self, tmp_path: Path) -> None:
+        folder_path = tmp_path / "folder" / "subfolder"
         self.scheduler = CommitScheduler(folder_path=folder_path, repo_id=self.repo_name, hf_api=self.api)
         assert folder_path.is_dir()
 
@@ -64,10 +61,10 @@ class TestCommitScheduler:
         sys.platform == "win32" and sys.version_info >= (3, 14),
         reason="Flaky on Windows Python 3.14 due to file lock on lfs.bin",
     )
-    def test_sync_local_folder(self) -> None:
+    def test_sync_local_folder(self, tmp_path: Path) -> None:
         """Test sync local folder to remote repo."""
-        watched_folder = self.cache_dir / "watched_folder"
-        hub_cache = self.cache_dir / "hub"  # to download hub files
+        watched_folder = tmp_path / "watched_folder"
+        hub_cache = tmp_path / "hub"  # to download hub files
 
         file_path = watched_folder / "file.txt"
         lfs_path = watched_folder / "lfs.bin"
@@ -137,9 +134,9 @@ class TestCommitScheduler:
         assert lfs_push2.read_text() == "binary content"
         assert lfs_push3.read_text() == "binary content updated"
 
-    def test_sync_and_squash_history(self) -> None:
+    def test_sync_and_squash_history(self, tmp_path: Path) -> None:
         """Test squash history when pushing to the Hub."""
-        watched_folder = self.cache_dir / "watched_folder"
+        watched_folder = tmp_path / "watched_folder"
         watched_folder.mkdir(exist_ok=True, parents=True)
         file_path = watched_folder / "file.txt"
         with file_path.open("a") as f:
@@ -163,8 +160,8 @@ class TestCommitScheduler:
         assert len(commits) == 1
         assert commits[0].title == "Super-squash branch 'main' using huggingface_hub"
 
-    def test_context_manager(self) -> None:
-        watched_folder = self.cache_dir / "watched_folder"
+    def test_context_manager(self, tmp_path: Path) -> None:
+        watched_folder = tmp_path / "watched_folder"
         watched_folder.mkdir(exist_ok=True, parents=True)
         file_path = watched_folder / "file.txt"
 
@@ -181,17 +178,13 @@ class TestCommitScheduler:
         assert scheduler._CommitScheduler__stopped  # means the scheduler has been stopped when exiting the context
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestPartialFileIO:
     """Test PartialFileIO object."""
 
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
-    def _setup(self, request) -> None:
+    def _setup(self, tmp_path) -> None:
         """Set up a test file."""
-        request.getfixturevalue("fx_cache_dir")
-        self.file_path = self.cache_dir / "file.txt"
+        self.file_path = tmp_path / "file.txt"
         self.file_path.write_text("123456789")  # file size: 9 bytes
 
     def test_read_partial_file_twice(self) -> None:

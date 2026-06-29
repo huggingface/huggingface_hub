@@ -29,54 +29,48 @@ REPO_B_MAIN_HASH = "f1cdcd4641b3ea2dfa8d4333dba1ea3b532735e1"
 REF_1_NAME = "refs/pr/1"
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestMissingCacheUtils:
-    cache_dir: Path
-
-    def test_cache_dir_is_missing(self) -> None:
+    def test_cache_dir_is_missing(self, tmp_path) -> None:
         """Directory to scan does not exist raises CacheNotFound."""
         with pytest.raises(CacheNotFound):
-            scan_cache_dir(self.cache_dir / "does_not_exist")
+            scan_cache_dir(tmp_path / "does_not_exist")
 
-    def test_cache_dir_is_a_file(self) -> None:
+    def test_cache_dir_is_a_file(self, tmp_path) -> None:
         """Directory to scan is a file raises ValueError."""
-        file_path = self.cache_dir / "file.txt"
+        file_path = tmp_path / "file.txt"
         file_path.touch()
         with pytest.raises(ValueError):
             scan_cache_dir(file_path)
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 @pytest.mark.production
 class TestValidCacheUtils:
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
-    def setup(self, fx_cache_dir) -> None:
+    def setup(self, tmp_path) -> None:
         """Set up a clean cache for tests that will remain valid in all tests."""
         # Download latest main
-        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=tmp_path)
 
         # Download latest commit which is same as `main`
-        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_MAIN_HASH, repo_type="model", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_MAIN_HASH, repo_type="model", cache_dir=tmp_path)
 
         # Download the first commit
-        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_OTHER_HASH, repo_type="model", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=MODEL_ID, revision=REPO_A_OTHER_HASH, repo_type="model", cache_dir=tmp_path)
 
         # Download from a PR
-        snapshot_download(repo_id=MODEL_ID, revision="refs/pr/1", repo_type="model", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=MODEL_ID, revision="refs/pr/1", repo_type="model", cache_dir=tmp_path)
 
         # Download a Dataset repo from "main"
-        snapshot_download(repo_id=DATASET_ID, revision="main", repo_type="dataset", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=DATASET_ID, revision="main", repo_type="dataset", cache_dir=tmp_path)
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows cache is tested separately")
-    def test_scan_cache_on_valid_cache_unix(self) -> None:
+    def test_scan_cache_on_valid_cache_unix(self, tmp_path) -> None:
         """Scan the cache dir without warnings (on unix-based platform).
 
         This test is duplicated and adapted for Windows in `test_scan_cache_on_valid_cache_windows`.
         Note: Please make sure to update both if any change is made.
         """
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         # Check general information about downloaded snapshots
         assert report.size_on_disk == 3766
@@ -86,7 +80,7 @@ class TestValidCacheUtils:
         repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
-        repo_a_path = self.cache_dir / MODEL_PATH
+        repo_a_path = tmp_path / MODEL_PATH
         assert repo_a.repo_id == MODEL_ID
         assert repo_a.repo_type == "model"
         assert repo_a.repo_path == repo_a_path
@@ -145,7 +139,7 @@ class TestValidCacheUtils:
         assert pr_1_readme_file.blob_path == main_readme_blob_path  # same
 
     @pytest.mark.skipif(os.name != "nt", reason="Windows cache is tested separately")
-    def test_scan_cache_on_valid_cache_windows(self) -> None:
+    def test_scan_cache_on_valid_cache_windows(self, tmp_path) -> None:
         """Scan the cache dir without warnings (on Windows).
 
         Windows tests do not use symlinks which leads to duplication in the cache.
@@ -153,7 +147,7 @@ class TestValidCacheUtils:
         tweaks specific to windows.
         Note: Please make sure to update both if any change is made.
         """
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         # Check general information about downloaded snapshots
         assert report.size_on_disk == 6728
@@ -163,7 +157,7 @@ class TestValidCacheUtils:
         repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
-        repo_a_path = self.cache_dir / MODEL_PATH
+        repo_a_path = tmp_path / MODEL_PATH
         assert repo_a.repo_id == MODEL_ID
         assert repo_a.repo_type == "model"
         assert repo_a.repo_path == repo_a_path
@@ -225,12 +219,9 @@ class TestValidCacheUtils:
         assert pr_1_readme_file.blob_path != main_readme_file.blob_path  # Windows-specific: different as well
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestIgnoredCacheFiles:
-    cache_dir: Path
-
-    def test_ignore_os_metadata_files_in_cache_structure(self) -> None:
-        repo_path = self.cache_dir / "models--foo--bar"
+    def test_ignore_os_metadata_files_in_cache_structure(self, tmp_path) -> None:
+        repo_path = tmp_path / "models--foo--bar"
         refs_path = repo_path / "refs"
         snapshots_path = repo_path / "snapshots"
         revision_path = snapshots_path / "123"
@@ -240,41 +231,39 @@ class TestIgnoredCacheFiles:
 
         ignored_files = [".DS_Store", "Thumbs.db", "desktop.ini"]
         for filename in ignored_files:
-            (self.cache_dir / filename).touch()
+            (tmp_path / filename).touch()
             (refs_path / filename).touch()
             (snapshots_path / filename).touch()
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         assert len(report.warnings) == 0
         assert len(report.repos) == 1
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 @pytest.mark.production
 class TestCorruptedCacheUtils:
-    cache_dir: Path
     repo_path: Path
     refs_path: Path
     snapshots_path: Path
 
     @pytest.fixture(autouse=True)
-    def setup(self, fx_cache_dir) -> None:
+    def setup(self, tmp_path) -> None:
         """Set up a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
-        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=self.cache_dir)
+        snapshot_download(repo_id=MODEL_ID, repo_type="model", cache_dir=tmp_path)
 
-        self.repo_path = self.cache_dir / MODEL_PATH
+        self.repo_path = tmp_path / MODEL_PATH
         self.refs_path = self.repo_path / "refs"
         self.snapshots_path = self.repo_path / "snapshots"
 
-    def test_repo_path_not_valid_dir(self) -> None:
+    def test_repo_path_not_valid_dir(self, tmp_path) -> None:
         """Test if found a not valid path in cache dir."""
         # Case 1: a file
-        repo_path = self.cache_dir / "a_file_that_should_not_be_there.txt"
+        repo_path = tmp_path / "a_file_that_should_not_be_there.txt"
         repo_path.touch()
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 1  # Scan still worked !
 
         assert len(report.warnings) == 1
@@ -282,10 +271,10 @@ class TestCorruptedCacheUtils:
 
         # Case 2: a folder with wrong naming
         os.remove(repo_path)
-        repo_path = self.cache_dir / "a_folder_that_should_not_be_there"
+        repo_path = tmp_path / "a_folder_that_should_not_be_there"
         repo_path.mkdir()
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 1  # Scan still worked !
 
         assert len(report.warnings) == 1
@@ -293,10 +282,10 @@ class TestCorruptedCacheUtils:
 
         # Case 3: good naming but not a dataset/model/space
         rmtree_with_retry(repo_path)
-        repo_path = self.cache_dir / "not-models--t5-small"
+        repo_path = tmp_path / "not-models--t5-small"
         repo_path.mkdir()
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 1  # Scan still worked !
 
         assert len(report.warnings) == 1
@@ -305,28 +294,28 @@ class TestCorruptedCacheUtils:
             == f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path})."
         )
 
-    def test_snapshots_path_not_found(self) -> None:
+    def test_snapshots_path_not_found(self, tmp_path) -> None:
         """Test if snapshots directory is missing in cached repo."""
         rmtree_with_retry(self.snapshots_path)
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 0  # Failed
 
         assert len(report.warnings) == 1
         assert str(report.warnings[0]) == f"Snapshots dir doesn't exist in cached repo: {self.snapshots_path}"
 
-    def test_file_in_snapshots_dir(self) -> None:
+    def test_file_in_snapshots_dir(self, tmp_path) -> None:
         """Test if snapshots directory contains a file."""
         wrong_file_path = self.snapshots_path / "should_not_be_there"
         wrong_file_path.touch()
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 0  # Failed
 
         assert len(report.warnings) == 1
         assert str(report.warnings[0]) == f"Snapshots folder corrupted. Found a file: {wrong_file_path}"
 
-    def test_snapshot_with_no_blob_files(self) -> None:
+    def test_snapshot_with_no_blob_files(self, tmp_path) -> None:
         """Test if a snapshot directory (e.g. a cached revision) is empty."""
         for revision_path in self.snapshots_path.glob("*"):
             # Delete content of the revision
@@ -334,7 +323,7 @@ class TestCorruptedCacheUtils:
             revision_path.mkdir()
 
         # Scan
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         # Get single repo
         assert len(report.warnings) == 0  # Did not fail
@@ -350,14 +339,14 @@ class TestCorruptedCacheUtils:
         assert revision_report.nb_files == 0
         assert revision_report.last_modified == revision_path.stat().st_mtime
 
-    def test_repo_with_no_snapshots(self) -> None:
+    def test_repo_with_no_snapshots(self, tmp_path) -> None:
         """Test if the snapshot directory exists but is empty."""
         rmtree_with_retry(self.refs_path)
         rmtree_with_retry(self.snapshots_path)
         self.snapshots_path.mkdir()
 
         # Scan
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         # Get single repo
         assert len(report.warnings) == 0  # Did not fail
@@ -370,13 +359,13 @@ class TestCorruptedCacheUtils:
         assert repo_report.last_modified == self.repo_path.stat().st_mtime
         assert repo_report.last_accessed == self.repo_path.stat().st_atime
 
-    def test_ref_to_missing_revision(self) -> None:
+    def test_ref_to_missing_revision(self, tmp_path) -> None:
         """Test if a `refs` points to a missing revision."""
         new_ref = self.repo_path / "refs" / "not_main"
         with new_ref.open("w") as f:
             f.write("revision_hash_that_does_not_exist")
 
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
         assert len(report.repos) == 0  # Failed
 
         assert len(report.warnings) == 1
@@ -387,12 +376,12 @@ class TestCorruptedCacheUtils:
         )
 
     @pytest.mark.skipif(os.name == "nt", reason="Last modified/last accessed work a bit differently on Windows.")
-    def test_scan_cache_last_modified_and_last_accessed(self) -> None:
+    def test_scan_cache_last_modified_and_last_accessed(self, tmp_path) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
         TIME_GAP = 0.1
 
         # Make a first scan
-        report_1 = scan_cache_dir(self.cache_dir)
+        report_1 = scan_cache_dir(tmp_path)
 
         # Values from first report
         repo_1 = list(report_1.repos)[0]
@@ -416,7 +405,7 @@ class TestCorruptedCacheUtils:
 
         # Sleep and re-scan
         time.sleep(TIME_GAP)
-        report_2 = scan_cache_dir(self.cache_dir)
+        report_2 = scan_cache_dir(tmp_path)
 
         # Values from second report
         repo_2 = list(report_2.repos)[0]
@@ -592,15 +581,12 @@ class TestDeleteRevisionsDryRun:
         assert records[0].message == "Revision(s) not found - cannot delete them: abcdef123456789"
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestDeleteStrategyExecute:
-    cache_dir: Path
-
-    def test_execute(self) -> None:
+    def test_execute(self, tmp_path) -> None:
         # Repo folders
-        repo_A_path = self.cache_dir / "repo_A"
+        repo_A_path = tmp_path / "repo_A"
         repo_A_path.mkdir()
-        repo_B_path = self.cache_dir / "repo_B"
+        repo_B_path = tmp_path / "repo_B"
         repo_B_path.mkdir()
 
         # Refs files in repo_B
@@ -655,20 +641,17 @@ class TestDeleteStrategyExecute:
         assert not snapshot_2.exists()
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestTryDeletePath:
-    cache_dir: Path
-
-    def test_delete_path_on_file_success(self) -> None:
+    def test_delete_path_on_file_success(self, tmp_path) -> None:
         """Successfully delete a local file."""
-        file_path = self.cache_dir / "file.txt"
+        file_path = tmp_path / "file.txt"
         file_path.touch()
         _try_delete_path(file_path, path_type="TYPE")
         assert not file_path.exists()
 
-    def test_delete_path_on_folder_success(self) -> None:
+    def test_delete_path_on_folder_success(self, tmp_path) -> None:
         """Successfully delete a local folder."""
-        dir_path = self.cache_dir / "something"
+        dir_path = tmp_path / "something"
         subdir_path = dir_path / "bar"
         subdir_path.mkdir(parents=True)  # subfolder
 
@@ -685,9 +668,9 @@ class TestTryDeletePath:
         assert not file_path_1.exists()
         assert not file_path_2.exists()
 
-    def test_delete_path_on_missing_file(self, caplog) -> None:
+    def test_delete_path_on_missing_file(self, caplog, tmp_path) -> None:
         """Try to delete a missing file."""
-        file_path = self.cache_dir / "file.txt"
+        file_path = tmp_path / "file.txt"
 
         with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             _try_delete_path(file_path, path_type="TYPE")
@@ -697,9 +680,9 @@ class TestTryDeletePath:
         assert len(output) > 0
         assert any(f"Couldn't delete TYPE: file not found ({file_path})" in log for log in output)
 
-    def test_delete_path_on_missing_folder(self, caplog) -> None:
+    def test_delete_path_on_missing_folder(self, caplog, tmp_path) -> None:
         """Try to delete a missing folder."""
-        dir_path = self.cache_dir / "folder"
+        dir_path = tmp_path / "folder"
 
         with caplog.at_level(logging.WARNING, logger="huggingface_hub"):
             _try_delete_path(dir_path, path_type="TYPE")
@@ -710,9 +693,9 @@ class TestTryDeletePath:
         assert any(f"Couldn't delete TYPE: file not found ({dir_path})" in log for log in output)
 
     @pytest.mark.skipif(os.name == "nt", reason="Permissions are handled differently on Windows.")
-    def test_delete_path_on_local_folder_with_wrong_permission(self, caplog) -> None:
+    def test_delete_path_on_local_folder_with_wrong_permission(self, caplog, tmp_path) -> None:
         """Try to delete a local folder that is protected."""
-        dir_path = self.cache_dir / "something"
+        dir_path = tmp_path / "something"
         dir_path.mkdir()
         file_path_1 = dir_path / "file.txt"  # file at root
         file_path_1.touch()

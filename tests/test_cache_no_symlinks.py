@@ -12,10 +12,7 @@ from .testing_utils import DUMMY_MODEL_ID
 
 
 @pytest.mark.production
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestCacheLayoutIfSymlinksNotSupported:
-    cache_dir: Path
-
     def test_are_symlinks_supported_default(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "huggingface_hub.file_download._are_symlinks_supported_in_dir",
@@ -50,14 +47,14 @@ class TestCacheLayoutIfSymlinksNotSupported:
             # Try with another directory: symlinks are supported, no warnings
             assert are_symlinks_supported()  # True
 
-    def test_download_no_symlink_new_file(self, mocker: MockerFixture) -> None:
+    def test_download_no_symlink_new_file(self, mocker: MockerFixture, tmp_path: Path) -> None:
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         mock_are_symlinks_supported.return_value = False
         filepath = Path(
             hf_hub_download(
                 DUMMY_MODEL_ID,
                 filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
+                cache_dir=tmp_path,
                 local_files_only=False,
             )
         )
@@ -68,14 +65,14 @@ class TestCacheLayoutIfSymlinksNotSupported:
         # Blobs directory is empty
         assert len(list((Path(filepath).parents[2] / "blobs").glob("*"))) == 0
 
-    def test_download_no_symlink_existing_file(self, mocker: MockerFixture) -> None:
+    def test_download_no_symlink_existing_file(self, mocker: MockerFixture, tmp_path: Path) -> None:
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         mock_are_symlinks_supported.return_value = True
         filepath = Path(
             hf_hub_download(
                 DUMMY_MODEL_ID,
                 filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
+                cache_dir=tmp_path,
                 local_files_only=False,
             )
         )
@@ -92,7 +89,7 @@ class TestCacheLayoutIfSymlinksNotSupported:
             hf_hub_download(
                 DUMMY_MODEL_ID,
                 filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
+                cache_dir=tmp_path,
                 local_files_only=False,
             )
         )
@@ -104,7 +101,7 @@ class TestCacheLayoutIfSymlinksNotSupported:
         # => duplicate file on disk
         assert blob_path.is_file()
 
-    def test_scan_and_delete_cache_no_symlinks(self, mocker: MockerFixture) -> None:
+    def test_scan_and_delete_cache_no_symlinks(self, mocker: MockerFixture, tmp_path: Path) -> None:
         """Test scan_cache_dir works as well when cache-system doesn't use symlinks."""
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         OLDER_REVISION = "44c70f043cfe8162efc274ff531575e224a0e6f0"
@@ -116,21 +113,21 @@ class TestCacheLayoutIfSymlinksNotSupported:
         hf_hub_download(
             DUMMY_MODEL_ID,
             filename=CONFIG_NAME,
-            cache_dir=self.cache_dir,
+            cache_dir=tmp_path,
         )
 
         # Download README.md from main
         hf_hub_download(
             DUMMY_MODEL_ID,
             filename="README.md",
-            cache_dir=self.cache_dir,
+            cache_dir=tmp_path,
         )
 
         # Download config.json from older revision
         hf_hub_download(
             DUMMY_MODEL_ID,
             filename=CONFIG_NAME,
-            cache_dir=self.cache_dir,
+            cache_dir=tmp_path,
             revision=OLDER_REVISION,
         )
 
@@ -141,12 +138,12 @@ class TestCacheLayoutIfSymlinksNotSupported:
         hf_hub_download(
             DUMMY_MODEL_ID,
             filename="merges.txt",
-            cache_dir=self.cache_dir,
+            cache_dir=tmp_path,
             revision=OLDER_REVISION,
         )
 
         # Scan cache directory
-        report = scan_cache_dir(self.cache_dir)
+        report = scan_cache_dir(tmp_path)
 
         # 1 repo found, no warnings
         assert len(report.repos) == 1

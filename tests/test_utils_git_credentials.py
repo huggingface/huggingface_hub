@@ -22,48 +22,45 @@ STORE_AND_CACHE_HELPERS_CONFIG = """
 """
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestGitCredentials:
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
-    def setup(self, fx_cache_dir):
+    def setup(self, tmp_path):
         """Initialize and configure a local repo.
 
         Avoid to configure git helpers globally on a contributor's machine.
         """
-        run_subprocess("git init", folder=self.cache_dir)
-        with (self.cache_dir / ".git" / "config").open("w") as f:
+        run_subprocess("git init", folder=tmp_path)
+        with (tmp_path / ".git" / "config").open("w") as f:
             f.write(STORE_AND_CACHE_HELPERS_CONFIG)
         yield
 
-    def test_list_credential_helpers(self) -> None:
-        helpers = list_credential_helpers(folder=self.cache_dir)
+    def test_list_credential_helpers(self, tmp_path: Path) -> None:
+        helpers = list_credential_helpers(folder=tmp_path)
         assert "cache" in helpers
         assert "store" in helpers
         assert "git-credential-manager" in helpers
         assert "/usr/libexec/git-core/git-credential-libsecret" in helpers
 
-    def test_set_and_unset_git_credential(self) -> None:
+    def test_set_and_unset_git_credential(self, tmp_path: Path) -> None:
         username = "hf_test_user_" + str(round(time.time()))  # make username unique
 
         # Set credentials
-        set_git_credential(token="hf_test_token", username=username, folder=self.cache_dir)
+        set_git_credential(token="hf_test_token", username=username, folder=tmp_path)
 
         # Check credentials are stored
-        with run_interactive_subprocess("git credential fill", folder=self.cache_dir) as (stdin, stdout):
+        with run_interactive_subprocess("git credential fill", folder=tmp_path) as (stdin, stdout):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
         assert "password=hf_test_token" in output
 
         # Unset credentials
-        unset_git_credential(username=username, folder=self.cache_dir)
+        unset_git_credential(username=username, folder=tmp_path)
 
         # Check credentials are NOT stored
         # Cannot check with `git credential fill` as it would hang forever: only
         # checking `store` helper instead.
-        with run_interactive_subprocess("git credential-store get", folder=self.cache_dir) as (stdin, stdout):
+        with run_interactive_subprocess("git credential-store get", folder=tmp_path) as (stdin, stdout):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()

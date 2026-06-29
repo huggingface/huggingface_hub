@@ -185,11 +185,9 @@ require_jinja = pytest.mark.skipif(not is_jinja_available(), reason="test requir
 
 
 class TestRepocardMetadata:
-    cache_dir: Path
-
     @pytest.fixture(autouse=True)
-    def _setup(self, fx_cache_dir) -> None:
-        self.filepath = self.cache_dir / constants.REPOCARD_NAME
+    def _setup(self, tmp_path) -> None:
+        self.filepath = tmp_path / constants.REPOCARD_NAME
 
     def test_metadata_load(self):
         self.filepath.write_text(DUMMY_MODELCARD)

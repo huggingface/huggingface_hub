@@ -624,14 +624,16 @@ class TestCachedDownload:
             )
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestHfHubDownloadToLocalDir:
     # `cache_dir` is a temporary directory
     # `local_dir` is a subdirectory in which files will be downloaded
     # `hub_cache_dir` is a subdirectory in which files will be cached ("HF cache")
-    cache_dir: Path
     file_name: str = "file.txt"
     lfs_name: str = "lfs.bin"
+
+    @pytest.fixture(autouse=True)
+    def _setup_cache_dir(self, tmp_path: Path):
+        self.cache_dir = tmp_path
 
     @property
     def local_dir(self) -> Path:
@@ -945,7 +947,6 @@ class TestFileDownloadDryRun:
             assert dry_run_info.will_download
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestStagingCachedDownloadOnAwfulFilenames:
     """Implement regression tests for #1161.
 
@@ -954,7 +955,6 @@ class TestStagingCachedDownloadOnAwfulFilenames:
     See https://github.com/huggingface/huggingface_hub/issues/1161
     """
 
-    cache_dir: Path
     subfolder = "subfolder/to?"
     filename = "awful?filename%you:should,never.give"
     filepath = f"subfolder/to?/{filename}"
@@ -982,24 +982,23 @@ class TestStagingCachedDownloadOnAwfulFilenames:
         assert hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder) == self.expected_resolve_url
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain a '?'.")
-    def test_hf_hub_download_on_awful_filepath(self):
-        local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir)
+    def test_hf_hub_download_on_awful_filepath(self, tmp_path: Path):
+        local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=tmp_path)
         # Local path is not url-encoded
         assert local_path.endswith(self.filepath)
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain a '?'.")
-    def test_hf_hub_download_on_awful_subfolder_and_filename(self):
+    def test_hf_hub_download_on_awful_subfolder_and_filename(self, tmp_path: Path):
         local_path = hf_hub_download(
             self.repo_url.repo_id,
             self.filename,
             subfolder=self.subfolder,
-            cache_dir=self.cache_dir,
+            cache_dir=tmp_path,
         )
         # Local path is not url-encoded
         assert local_path.endswith(self.filepath)
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestHfHubDownloadRelativePaths:
     """Regression test for HackerOne report 1928845.
 
@@ -1008,8 +1007,6 @@ class TestHfHubDownloadRelativePaths:
     In the end, multiple protections have been added to prevent this (..\\ in filename forbidden on Windows, always check
     the filepath is in local_dir/snapshot_dir).
     """
-
-    cache_dir: Path
 
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, request):
@@ -1023,13 +1020,13 @@ class TestHfHubDownloadRelativePaths:
         api.delete_repo(repo_id=request.cls.repo_id)
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
-    def test_download_folder_file_in_cache_dir(self) -> None:
-        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir)
+    def test_download_folder_file_in_cache_dir(self, tmp_path: Path) -> None:
+        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path)
 
     @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
-    def test_download_folder_file_to_local_dir(self) -> None:
+    def test_download_folder_file_to_local_dir(self, tmp_path: Path) -> None:
         with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)
+            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path, local_dir=local_dir)
 
     def test_get_pointer_path_and_valid_relative_filename(self) -> None:
         # Cannot happen because of other protections, but just in case.

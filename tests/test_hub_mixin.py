@@ -7,7 +7,6 @@ from typing import Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
 
 import jedi
-import pytest
 from pytest_mock import MockerFixture
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -195,78 +194,75 @@ class DummyWithDataclassInputs(ModelHubMixin):
         return
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class TestHubMixin:
-    cache_dir: Path
-
-    def assert_valid_config_json(self) -> None:
+    def assert_valid_config_json(self, cache_dir: Path) -> None:
         # config.json saved correctly
-        with open(self.cache_dir / "config.json") as f:
+        with open(cache_dir / "config.json") as f:
             assert json.load(f) == CONFIG_AS_DICT
 
-    def assert_no_config_json(self) -> None:
+    def assert_no_config_json(self, cache_dir: Path) -> None:
         # config.json not saved
-        files = os.listdir(self.cache_dir)
+        files = os.listdir(cache_dir)
         assert "config.json" not in files
 
-    def test_save_pretrained_no_config(self):
+    def test_save_pretrained_no_config(self, tmp_path):
         model = DummyModelNoConfig()
-        model.save_pretrained(self.cache_dir)
-        self.assert_no_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_no_config_json(tmp_path)
 
-    def test_save_pretrained_as_dataclass_basic(self):
+    def test_save_pretrained_as_dataclass_basic(self, tmp_path):
         model = DummyModelConfigAsDataclass(CONFIG_AS_DATACLASS)
-        model.save_pretrained(self.cache_dir)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_save_pretrained_as_dict_basic(self):
+    def test_save_pretrained_as_dict_basic(self, tmp_path):
         model = DummyModelConfigAsDict(CONFIG_AS_DICT)
-        model.save_pretrained(self.cache_dir)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_save_pretrained_optional_dataclass(self):
+    def test_save_pretrained_optional_dataclass(self, tmp_path):
         model = DummyModelConfigAsOptionalDataclass()
-        model.save_pretrained(self.cache_dir)
-        self.assert_no_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_no_config_json(tmp_path)
 
         model = DummyModelConfigAsOptionalDataclass(CONFIG_AS_DATACLASS)
-        model.save_pretrained(self.cache_dir)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_save_pretrained_optional_dict(self):
+    def test_save_pretrained_optional_dict(self, tmp_path):
         model = DummyModelConfigAsOptionalDict()
-        model.save_pretrained(self.cache_dir)
-        self.assert_no_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_no_config_json(tmp_path)
 
         model = DummyModelConfigAsOptionalDict(CONFIG_AS_DICT)
-        model.save_pretrained(self.cache_dir)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_save_pretrained_with_dataclass_config(self):
+    def test_save_pretrained_with_dataclass_config(self, tmp_path):
         model = DummyModelConfigAsOptionalDataclass()
-        model.save_pretrained(self.cache_dir, config=CONFIG_AS_DATACLASS)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path, config=CONFIG_AS_DATACLASS)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_save_pretrained_with_dict_config(self):
+    def test_save_pretrained_with_dict_config(self, tmp_path):
         model = DummyModelConfigAsOptionalDict()
-        model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
-        self.assert_valid_config_json()
+        model.save_pretrained(tmp_path, config=CONFIG_AS_DICT)
+        self.assert_valid_config_json(tmp_path)
 
-    def test_init_accepts_kwargs_no_config(self):
+    def test_init_accepts_kwargs_no_config(self, tmp_path):
         """
         Test that if `__init__` accepts **kwargs and config file doesn't exist then no 'config' kwargs is passed.
 
         Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
         """
         model = DummyModelWithKwargs()
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         with patch.object(
             DummyModelWithKwargs, "_from_pretrained", return_value=DummyModelWithKwargs()
         ) as from_pretrained_mock:
-            model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
+            model = DummyModelWithKwargs.from_pretrained(tmp_path)
             assert "config" not in from_pretrained_mock.call_args_list[0].kwargs
 
-    def test_init_accepts_kwargs_with_config(self):
+    def test_init_accepts_kwargs_with_config(self, tmp_path):
         """
         Test that if `config_inject_mode="as_kwargs"` and config file exists then the 'config' kwarg is passed.
 
@@ -275,30 +271,30 @@ class TestHubMixin:
         And https://github.com/huggingface/huggingface_hub/pull/2099.
         """
         model = DummyModelFromPretrainedExpectsConfig()
-        model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
+        model.save_pretrained(tmp_path, config=CONFIG_AS_DICT)
         with patch.object(
             DummyModelFromPretrainedExpectsConfig,
             "_from_pretrained",
             return_value=DummyModelFromPretrainedExpectsConfig(),
         ) as from_pretrained_mock:
-            DummyModelFromPretrainedExpectsConfig.from_pretrained(self.cache_dir)
+            DummyModelFromPretrainedExpectsConfig.from_pretrained(tmp_path)
         assert "config" in from_pretrained_mock.call_args_list[0].kwargs
 
-    def test_init_accepts_kwargs_save_and_load(self):
+    def test_init_accepts_kwargs_save_and_load(self, tmp_path):
         model = DummyModelWithKwargs(something="else")
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         assert model._hub_mixin_config == {"something": "else"}
 
         with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
-            DummyModelWithKwargs.from_pretrained(self.cache_dir)
+            DummyModelWithKwargs.from_pretrained(tmp_path)
 
         # 'something' is passed to __init__ both as kwarg and in config.
         init_kwargs = init_call_mock.call_args_list[0].kwargs
         assert init_kwargs["something"] == "else"
 
-    def test_save_pretrained_with_push_to_hub(self):
+    def test_save_pretrained_with_push_to_hub(self, tmp_path):
         repo_id = repo_name("save")
-        save_directory = self.cache_dir / repo_id
+        save_directory = tmp_path / repo_id
 
         mocked_model = DummyModelConfigAsDataclass(CONFIG_AS_DATACLASS)
         mocked_model.push_to_hub = Mock()
@@ -344,19 +340,19 @@ class TestHubMixin:
             model = DummyModelConfigAsDataclass.from_pretrained(relative_save_directory)
             assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
-    def test_from_pretrained_from_absolute_path(self):
-        save_directory = self.cache_dir / "subfolder"
+    def test_from_pretrained_from_absolute_path(self, tmp_path):
+        save_directory = tmp_path / "subfolder"
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
-    def test_from_pretrained_from_absolute_string_path(self):
-        save_directory = str(self.cache_dir / "subfolder")
+    def test_from_pretrained_from_absolute_string_path(self, tmp_path):
+        save_directory = str(tmp_path / "subfolder")
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
-    def test_push_to_hub(self, api: HfApi):
+    def test_push_to_hub(self, api: HfApi, tmp_path):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
         DummyModelConfigAsDataclass(CONFIG_AS_DATACLASS).push_to_hub(repo_id=repo_id, token=TOKEN)
 
@@ -364,16 +360,14 @@ class TestHubMixin:
         api.model_info(repo_id)
 
         # Test config has been pushed to hub
-        tmp_config_path = hf_hub_download(
-            repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=self.cache_dir
-        )
+        tmp_config_path = hf_hub_download(repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=tmp_path)
         with open(tmp_config_path) as f:
             assert json.load(f) == CONFIG_AS_DICT
 
         # from_pretrained with correct serialization
         from_pretrained_kwargs = {
             "pretrained_model_name_or_path": repo_id,
-            "cache_dir": self.cache_dir,
+            "cache_dir": tmp_path,
             "api_endpoint": ENDPOINT_STAGING,
             "token": TOKEN,
         }
@@ -386,34 +380,34 @@ class TestHubMixin:
         # Delete repo
         api.delete_repo(repo_id=repo_id)
 
-    def test_save_pretrained_do_not_overwrite_new_config(self):
+    def test_save_pretrained_do_not_overwrite_new_config(self, tmp_path):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102.
 
         If `_from_pretrained` does save a config file, we should not overwrite it.
         """
         model = DummyModelSavingConfig()
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
         # config.json is not overwritten
-        with open(self.cache_dir / "config.json") as f:
+        with open(tmp_path / "config.json") as f:
             assert json.load(f) == {"custom_config": "custom_config"}
 
-    def test_save_pretrained_does_overwrite_legacy_config(self):
+    def test_save_pretrained_does_overwrite_legacy_config(self, tmp_path):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/2142.
 
         If a previously existing config file exists, it should be overwritten.
         """
         # Something existing in the cache dir
-        (self.cache_dir / "config.json").write_text(json.dumps({"something_legacy": 123}))
+        (tmp_path / "config.json").write_text(json.dumps({"something_legacy": 123}))
 
         # Save model
         model = DummyModelWithKwargs(a=1, b=2)
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
 
         # config.json IS overwritten
-        with open(self.cache_dir / "config.json") as f:
+        with open(tmp_path / "config.json") as f:
             assert json.load(f) == {"a": 1, "b": 2}
 
-    def test_from_pretrained_when_cls_is_a_dataclass(self):
+    def test_from_pretrained_when_cls_is_a_dataclass(self, tmp_path):
         """Regression test for #2157.
 
         When the ModelHubMixin class happens to be a dataclass, `__init__` method will accept `**kwargs` when
@@ -422,13 +416,13 @@ class TestHubMixin:
 
         See https://github.com/huggingface/huggingface_hub/issues/2157.
         """
-        (self.cache_dir / "config.json").write_text('{"foo": 42, "bar": "baz", "other": "value"}')
-        model = DummyModelThatIsAlsoADataclass.from_pretrained(self.cache_dir)
+        (tmp_path / "config.json").write_text('{"foo": 42, "bar": "baz", "other": "value"}')
+        model = DummyModelThatIsAlsoADataclass.from_pretrained(tmp_path)
         assert model.foo == 42
         assert model.bar == "baz"
         assert not hasattr(model, "other")
 
-    def test_from_cls_with_custom_type(self):
+    def test_from_cls_with_custom_type(self, tmp_path):
         model = DummyModelWithCustomTypes(
             1,
             bar="bar",
@@ -437,9 +431,9 @@ class TestHubMixin:
             optional_custom_1=CustomType("optional"),
             optional_custom_2=None,
         )
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
 
-        config = json.loads((self.cache_dir / "config.json").read_text())
+        config = json.loads((tmp_path / "config.json").read_text())
         assert config == {
             "foo": 1,
             "bar": "bar",
@@ -450,7 +444,7 @@ class TestHubMixin:
             "custom_default": {"value": "default"},
         }
 
-        model_reloaded = DummyModelWithCustomTypes.from_pretrained(self.cache_dir)
+        model_reloaded = DummyModelWithCustomTypes.from_pretrained(tmp_path)
         assert model_reloaded.foo == 1
         assert model_reloaded.bar == "bar"
         assert model_reloaded.baz == 1.0
@@ -508,20 +502,20 @@ a.dum""".strip()
         model = ModelWithHints()
         assert get_type_hints(model.method_with_hints) == {"x": int, "return": str}
 
-    def test_with_dataclass_inputs(self):
+    def test_with_dataclass_inputs(self, tmp_path):
         model = DummyWithDataclassInputs(
             arg1=DummyDataclass(foo=1, bar="1"),
             arg2=DummyDataclass(foo=2, bar="2"),
         )
-        model.save_pretrained(self.cache_dir)
+        model.save_pretrained(tmp_path)
 
-        config = json.loads((self.cache_dir / "config.json").read_text())
+        config = json.loads((tmp_path / "config.json").read_text())
         assert config == {
             "arg1": {"foo": 1, "bar": "1"},
             "arg2": {"foo": 2, "bar": "2"},
         }
 
-        model_reloaded = DummyWithDataclassInputs.from_pretrained(self.cache_dir)
+        model_reloaded = DummyWithDataclassInputs.from_pretrained(tmp_path)
         assert model_reloaded.arg1.foo == 1
         assert model_reloaded.arg1.bar == "1"
         assert model_reloaded.arg2.foo == 2
