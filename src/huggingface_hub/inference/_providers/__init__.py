@@ -34,6 +34,7 @@ from .hf_inference import (
     HFInferenceTask,
 )
 from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
+from .latitude import LatitudeConversationalTask, LatitudeTextGenerationTask
 from .nebius import (
     NebiusConversationalTask,
     NebiusFeatureExtractionTask,
@@ -89,6 +90,7 @@ PROVIDER_T = Literal[
     "groq",
     "hf-inference",
     "hyperbolic",
+    "latitude-sh",
     "nebius",
     "novita",
     "nscale",
@@ -177,6 +179,10 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-image": HyperbolicTextToImageTask(),
         "conversational": HyperbolicTextGenerationTask("conversational"),
         "text-generation": HyperbolicTextGenerationTask("text-generation"),
+    },
+    "latitude-sh": {
+        "conversational": LatitudeConversationalTask(),
+        "text-generation": LatitudeTextGenerationTask(),
     },
     "nebius": {
         "text-to-image": NebiusTextToImageTask(),
