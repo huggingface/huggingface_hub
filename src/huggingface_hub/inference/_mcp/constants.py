@@ -11,7 +11,7 @@ PROMPT_FILENAMES = ("PROMPT.md", "AGENTS.md")
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
+    "provider": "novita",
     "servers": [
         {
             "type": "stdio",

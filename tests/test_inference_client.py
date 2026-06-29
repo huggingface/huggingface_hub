@@ -63,9 +63,6 @@ pytestmark = pytest.mark.inference
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
-    "black-forest-labs": {
-        "text-to-image": "black-forest-labs/FLUX.1-dev",
-    },
     "cerebras": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
@@ -106,16 +103,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
-    "hyperbolic": {
-        "text-generation": "meta-llama/Llama-3.1-405B",
-        "conversational": "meta-llama/Llama-3.2-3B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-2",
-    },
-    "nebius": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
-    },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
@@ -125,9 +112,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
-    },
-    "sambanova": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
 }
 
