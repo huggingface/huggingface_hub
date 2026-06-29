@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.21.0.dev0"
+__version__ = "1.22.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -101,6 +101,11 @@ _SUBMOD_ATTRS = {
         "OAuthUserInfo",
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
+    ],
+    "_sandbox": [
+        "Sandbox",
+        "SandboxCommandResult",
+        "SandboxPool",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -339,6 +344,7 @@ _SUBMOD_ATTRS = {
         "super_squash_history",
         "suspend_scheduled_job",
         "sync_bucket",
+        "sync_job_volume",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -809,6 +815,9 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
+    "Sandbox",
+    "SandboxCommandResult",
+    "SandboxPool",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1100,6 +1109,7 @@ __all__ = [
     "super_squash_history",
     "suspend_scheduled_job",
     "sync_bucket",
+    "sync_job_volume",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1269,6 +1279,11 @@ if TYPE_CHECKING:  # pragma: no cover
         OAuthUserInfo,  # noqa: F401
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
+    )
+    from ._sandbox import (
+        Sandbox,  # noqa: F401
+        SandboxCommandResult,  # noqa: F401
+        SandboxPool,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
@@ -1503,6 +1518,7 @@ if TYPE_CHECKING:  # pragma: no cover
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401
+        sync_job_volume,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

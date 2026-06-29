@@ -80,6 +80,7 @@ from ._jobs_api import (
     JobStage,
     ScheduledJobInfo,
     _create_job_spec,
+    _derive_job_volume_name,
 )
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -6113,6 +6114,10 @@ class HfApi:
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
+        > [!WARNING]
+        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
+        > by default and resilient to interruptions so it is the recommended way to upload large folders.
+
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
         At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
@@ -6199,6 +6204,18 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
+        warnings.warn(
+            "\n"
+            "================================================================================\n"
+            "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
+            "\n"
+            "Use `upload_folder` instead:\n"
+            "\n"
+            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
+            "================================================================================\n",
+            FutureWarning,
+            stacklevel=2,
+        )
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
@@ -12023,7 +12040,7 @@ class HfApi:
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> list[JobInfo]:
+    ) -> Iterable[JobInfo]:
         """
         List compute Jobs on Hugging Face infrastructure.
 
@@ -12045,6 +12062,9 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
             namespace = whoami(token=token)["name"]
@@ -12054,14 +12074,11 @@ class HfApi:
             params.extend(("stage", (s.value if isinstance(s, JobStage) else str(s)).upper()) for s in statuses)
         if labels is not None:
             params.extend(("label", f"{key}={value}") for key, value in labels.items())
-        response = get_session().get(
-            f"{self.endpoint}/api/jobs/{namespace}",
-            headers=self._build_hf_headers(token=token),
-            params=params or None,
-            timeout=timeout,
-        )
-        hf_raise_for_status(response)
-        return [JobInfo(**job_info, endpoint=self.endpoint) for job_info in response.json()]
+
+        path = f"{self.endpoint}/api/jobs/{namespace}"
+        headers = self._build_hf_headers(token=token)
+        for job_info in paginate(path, params=params, headers=headers, timeout=timeout):
+            yield JobInfo(**job_info, endpoint=self.endpoint)
 
     def list_jobs_hardware(self, token: bool | str | None = None) -> list[JobHardwareInfo]:
         """
@@ -13090,6 +13107,99 @@ class HfApi:
             read_only=False,
         )
         return [volume]
+
+    def sync_job_volume(
+        self,
+        source: str | Path,
+        mount_path: str,
+        *,
+        remote_name: str | None = None,
+        read_only: bool = True,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> Volume:
+        """Sync a local directory to a bucket and return a [`Volume`] ready to mount in a Job.
+
+        Files are uploaded to a subfolder of the `{namespace}/jobs-artifacts` bucket (auto-created as
+        private; a warning is emitted if it already exists and is public) using the same sync logic
+        as [`sync_bucket`]: re-syncing the same directory only
+        uploads new or modified files. By default the subfolder name is derived from the directory
+        path and the machine's hostname, so repeated calls from the same directory reuse the same
+        remote folder. Pass `remote_name` to use a fixed name instead.
+
+        Note that the data is *copied* to the bucket, not mounted live: changes made locally after
+        the sync are not visible to the Job (re-run `sync_job_volume` to update), and the volume is
+        mounted read-only by default. To retrieve data written by a Job to a read-write volume, sync
+        the bucket folder back with [`sync_bucket`]. If the source directory is empty (e.g. an output
+        directory), a placeholder `.keep` file is uploaded so the volume can still be mounted.
+
+        Args:
+            source (`str` or `Path`):
+                Path to a local directory to sync.
+            mount_path (`str`):
+                Mount path inside the Job container, e.g. `"/inputs"`. Must start with `/`.
+            remote_name (`str`, *optional*):
+                Name of the bucket subfolder to sync to. Defaults to a `{dirname}-{hash}` name derived
+                from the source path and the machine's hostname.
+            read_only (`bool`, *optional*, defaults to `True`):
+                Mount the volume read-only in the Job. Pass `False` to let the Job write back to the
+                bucket folder (e.g. to retrieve outputs with [`sync_bucket`] afterwards).
+            namespace (`str`, *optional*):
+                The namespace owning the `jobs-artifacts` bucket. Defaults to the current user's
+                namespace. Use the same namespace as the Job that will mount the volume.
+            token (`Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`Volume`]: A bucket volume scoped to the synced subfolder, to pass in the `volumes` list
+            of [`run_job`], [`run_uv_job`], [`create_scheduled_job`] or [`create_scheduled_uv_job`].
+
+        Example:
+            ```python
+            >>> from huggingface_hub import run_uv_job, sync_job_volume
+
+            # Upload ./training-data once, then run multiple jobs against it
+            >>> volume = sync_job_volume("./training-data", "/data")
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+
+            # Read-write volume to retrieve outputs after the job completes
+            >>> volume = sync_job_volume("./outputs", "/outputs", read_only=False)
+            >>> job = run_uv_job("process.py", volumes=[volume])
+            ```
+        """
+        if not mount_path.startswith("/"):
+            raise ValueError(
+                f"Mount path must be an absolute path inside the container (e.g. '/data'), got {mount_path!r}."
+            )
+        source_path = Path(source).expanduser()
+        if not source_path.is_dir():
+            raise ValueError(f"Source must be an existing local directory: '{source}'.")
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        folder = remote_name or _derive_job_volume_name(source_path)
+
+        # The jobs-artifacts bucket holds user scripts and data, so it must be private. A new bucket
+        # is created private here; if it already exists we cannot change its visibility, so warn when
+        # it is public instead of silently uploading the data to a publicly accessible bucket.
+        self.create_bucket(bucket_id=bucket_id, exist_ok=True, private=True, token=token)
+        if not self.bucket_info(bucket_id=bucket_id, token=token).private:
+            warnings.warn(
+                f"Bucket '{bucket_id}' already exists and is public: data synced for the Job will be "
+                f"publicly accessible. Make it private from {self.endpoint}/buckets/{bucket_id}.",
+                UserWarning,
+            )
+        self.sync_bucket(str(source_path), f"hf://buckets/{bucket_id}/{folder}", token=token)
+        if not any(path.is_file() for path in source_path.rglob("*")):
+            # A folder cannot be empty in a bucket, and mounting a non-existent folder fails the Job.
+            # Upload a placeholder file so an empty directory (e.g. an output dir) can still be mounted.
+            self.batch_bucket_files(bucket_id, add=[(b"", f"{folder}/.keep")], token=token)
+
+        return Volume(type="bucket", source=bucket_id, mount_path=mount_path, path=folder, read_only=read_only)
 
     @validate_hf_hub_args
     def create_bucket(
@@ -14724,6 +14834,7 @@ suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
+sync_job_volume = api.sync_job_volume
 
 # Buckets API
 create_bucket = api.create_bucket

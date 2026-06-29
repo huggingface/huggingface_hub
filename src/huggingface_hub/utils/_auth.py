@@ -135,12 +135,7 @@ def _get_token_from_google_colab() -> str | None:
             _GOOGLE_COLAB_SECRET = None
         except ColabError as e:
             # Something happen but we don't know what => recommend to open a GitHub issue
-            warnings.warn(
-                f"\nError while fetching `HF_TOKEN` secret value from your vault: '{str(e)}'."
-                "\nYou are not authenticated with the Hugging Face Hub in this notebook."
-                "\nIf the error persists, please let us know by opening an issue on GitHub "
-                "(https://github.com/huggingface/huggingface_hub/issues/new)."
-            )
+            warnings.warn(f"\nError while fetching `HF_TOKEN` secret value from your vault: '{str(e)}'.")
             _GOOGLE_COLAB_SECRET = None
 
         _IS_GOOGLE_COLAB_CHECKED = True
