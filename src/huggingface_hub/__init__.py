@@ -106,6 +106,9 @@ _SUBMOD_ATTRS = {
         "Sandbox",
         "SandboxCommandResult",
         "SandboxPool",
+        "SandboxProcess",
+        "SandboxProcessInfo",
+        "SandboxService",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -818,6 +821,9 @@ __all__ = [
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
+    "SandboxProcess",
+    "SandboxProcessInfo",
+    "SandboxService",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1284,6 +1290,9 @@ if TYPE_CHECKING:  # pragma: no cover
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401
         SandboxPool,  # noqa: F401
+        SandboxProcess,  # noqa: F401
+        SandboxProcessInfo,  # noqa: F401
+        SandboxService,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (

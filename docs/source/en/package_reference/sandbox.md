@@ -20,6 +20,18 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 [[autodoc]] SandboxCommandResult
 
+### SandboxProcess
+
+[[autodoc]] SandboxProcess
+
+### SandboxProcessInfo
+
+[[autodoc]] SandboxProcessInfo
+
+### SandboxService
+
+[[autodoc]] SandboxService
+
 ### FileEntry
 
 [[autodoc]] huggingface_hub._sandbox.FileEntry

@@ -78,6 +78,52 @@ A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `st
 1
 ```
 
+### Background processes and services
+
+Pass `background=True` to start a long-running process and get a [`SandboxProcess`] handle back immediately:
+
+```python
+>>> proc = sbx.run("python -m http.server 8000 --bind 127.0.0.1", background=True, tag="web")
+>>> proc.pid
+123
+>>> proc.logs()
+SandboxCommandResult(exit_code=None, stdout='...', duration_ms=0)
+>>> proc.kill()
+```
+
+If the background process serves HTTP, WebSocket, SSE, or another protocol over one HTTP connection, expose it through the sandbox proxy:
+
+```python
+>>> service = sbx.serve("python -m http.server $SBX_SERVICE_PORT --bind 127.0.0.1", port=8000)
+>>> service.url
+'https://...hf.jobs/v1/proxy/8000/'
+>>> service.ws_url_for("/ws")
+'wss://...hf.jobs/v1/proxy/8000/ws'
+```
+
+`service.headers` contains the required auth headers for clients such as `httpx` or `websockets`:
+
+```python
+>>> import httpx
+>>> httpx.get(service.url, headers=service.headers)
+```
+
+Use [`Sandbox.expose`] when the server is already running and you only need a proxy URL:
+
+```python
+>>> proc = sbx.run("uvicorn app:app --host 127.0.0.1 --port 8000", background=True)
+>>> service = sbx.expose(8000, "/health")
+```
+
+The same proxy works for pooled sandboxes, with one difference: pooled sandboxes cannot bind TCP ports, so the inner server must listen on a unix socket at `$SBX_PROXY_DIR/<port>.sock`:
+
+```python
+>>> with SandboxPool(image="python:3.12") as pool:
+...     service = pool.serve("uvicorn app:app --uds $SBX_PROXY_DIR/$SBX_SERVICE_PORT.sock", port=8000)
+...     service.url
+'https://...hf.jobs/v1/sandboxes/.../proxy/8000/'
+```
+
 ## Files
 
 ```python

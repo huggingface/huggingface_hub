@@ -15,6 +15,8 @@ from huggingface_hub._sandbox import (
     SANDBOX_LABEL,
     Sandbox,
     SandboxPool,
+    SandboxProcess,
+    SandboxService,
     _SandboxServer,
 )
 from huggingface_hub._sandbox_cache import CachedHost, read_pool_cache, save_pool_cache
@@ -78,7 +80,12 @@ class _FakeServer(BaseHTTPRequestHandler):
     sandboxes: set = set()
     capacity = None  # None == unlimited; set per-subclass to test the full handshake
     seq = 0  # monotonic id source (survives deletes)
+    last_create: dict | None = None
     last_exec: dict | None = None  # body of the most recent /exec call (for assertions)
+    last_kill: dict | None = None
+    last_stdin: bytes | None = None
+    procs: dict = {}
+    next_pid = 42
 
     def log_message(self, *args) -> None:
         pass
@@ -101,6 +108,21 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def _exec(self, body) -> None:
         type(self).last_exec = body
+        if body.get("background"):
+            cls = type(self)
+            pid = cls.next_pid
+            cls.next_pid += 1
+            cls.procs[pid] = {
+                "tag": body.get("tag"),
+                "cmd": body["cmd"] if isinstance(body["cmd"], str) else " ".join(body["cmd"]),
+                "events": [
+                    {"event": "stdout", "data": "bg-out"},
+                    {"event": "stderr", "data": "bg-err"},
+                    {"event": "exit", "exit_code": 0, "duration_ms": 7},
+                ],
+            }
+            self._json({"pid": pid, "tag": body.get("tag")})
+            return
         self._ndjson(
             [
                 {"event": "start", "pid": 42},
@@ -113,11 +135,22 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        path = self.path.split("?", 1)[0]
+        raw_body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
-        if self.path == "/v1/exec" or (self.path.startswith("/v1/sandboxes/") and self.path.endswith("/exec")):
+        if path == "/v1/exec" or (path.startswith("/v1/sandboxes/") and path.endswith("/exec")):
+            body = json.loads(raw_body or b"{}")
             self._exec(body)
-        elif self.path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
+        elif "/procs/" in path and path.endswith("/kill"):
+            body = json.loads(raw_body or b"{}")
+            type(self).last_kill = {"path": path, "body": body}
+            self._json({"pid": int(path.split("/")[-2]), "signal": body.get("signal", "KILL")})
+        elif "/procs/" in path and path.endswith("/stdin"):
+            type(self).last_stdin = raw_body
+            self._json({"written": len(raw_body), "eof": "eof=1" in self.path})
+        elif path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
+            body = json.loads(raw_body or b"{}")
+            type(self).last_create = body
             cls = type(self)
             count = int(body.get("count", 1))
             created = []
@@ -134,21 +167,39 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
-        sid = self.path.rsplit("/", 1)[-1]
+        sid = self.path.split("?", 1)[0].rsplit("/", 1)[-1]
         type(self).sandboxes.discard(sid)
         self._json({"id": sid, "deleted": True})
 
     def do_GET(self) -> None:
         cls = type(self)
-        if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
+        path = self.path.split("?", 1)[0]
+        if path.startswith("/v1/files/stat") or "/files/stat" in path:
             self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
-        elif self.path.startswith("/v1/files/read") or "/files/read" in self.path:
+        elif path.startswith("/v1/files/read") or "/files/read" in path:
             self.send_response(200)
             self.send_header("Content-Length", "5")
             self.end_headers()
             self.wfile.write(b"hello")
-        elif self.path == "/v1/sandboxes":
+        elif path == "/v1/sandboxes":
             self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
+        elif path == "/v1/procs" or (path.startswith("/v1/sandboxes/") and path.endswith("/procs")):
+            self._json(
+                [
+                    {
+                        "pid": pid,
+                        "tag": proc["tag"],
+                        "cmd": proc["cmd"],
+                        "started_at_ms": 1,
+                        "running": False,
+                        "exit_code": 0,
+                    }
+                    for pid, proc in sorted(cls.procs.items())
+                ]
+            )
+        elif "/procs/" in path and (path.endswith("/logs") or path.endswith("/wait")):
+            pid = int(path.split("/procs/", 1)[1].split("/", 1)[0])
+            self._ndjson(cls.procs[pid]["events"])
 
 
 @pytest.fixture()
@@ -156,7 +207,12 @@ def fake_server():
     _FakeServer.sandboxes = set()
     _FakeServer.seq = 0
     _FakeServer.capacity = None
+    _FakeServer.last_create = None
     _FakeServer.last_exec = None
+    _FakeServer.last_kill = None
+    _FakeServer.last_stdin = None
+    _FakeServer.procs = {}
+    _FakeServer.next_pid = 42
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -256,6 +312,66 @@ class TestSandboxClient:
         sandbox._server._api.cancel_job.assert_not_called()
         assert sandbox._server._client.is_closed
 
+    def test_background_run_returns_process_handle(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox.run("python server.py", background=True, tag="web")
+
+        assert isinstance(process, SandboxProcess)
+        assert process.pid == 42
+        assert process.tag == "web"
+        assert _FakeServer.last_exec == {"cmd": "python server.py", "background": True, "tag": "web"}
+
+        logs = process.logs()
+        assert logs.exit_code == 0
+        assert logs.stdout == "bg-out"
+        assert logs.stderr == "bg-err"
+
+        process.kill(signal="TERM")
+        assert _FakeServer.last_kill == {"path": "/v1/procs/42/kill", "body": {"signal": "TERM"}}
+
+        process.send_stdin("ping", eof=True)
+        assert _FakeServer.last_stdin == b"ping"
+
+    def test_list_processes(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox.run(["python", "server.py"], background=True, tag="web")
+
+        processes = sandbox.list_processes()
+
+        assert len(processes) == 1
+        assert processes[0].pid == 42
+        assert processes[0].tag == "web"
+        assert processes[0].cmd == "python server.py"
+        assert processes[0].running is False
+        assert processes[0].exit_code == 0
+
+    def test_expose_returns_service_handle(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+
+        service = sandbox.expose(8000, "/ws")
+
+        assert isinstance(service, SandboxService)
+        assert service.url == f"{fake_server}/v1/proxy/8000/ws"
+        assert service.ws_url == f"{fake_server.replace('http://', 'ws://')}/v1/proxy/8000/ws"
+        assert service.url_for("/health") == f"{fake_server}/v1/proxy/8000/health"
+        assert service.ws_url_for("/events") == f"{fake_server.replace('http://', 'ws://')}/v1/proxy/8000/events"
+        assert service.headers == {"Authorization": "Bearer hf_test", "X-Sandbox-Token": "secret"}
+
+    def test_serve_starts_background_process_and_returns_service(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+
+        service = sandbox.serve("uvicorn app:app --host 127.0.0.1 --port $SBX_SERVICE_PORT", 8000, path="/ws")
+
+        assert service.url == f"{fake_server}/v1/proxy/8000/ws"
+        assert isinstance(service.process, SandboxProcess)
+        assert service.process.pid == 42
+        assert _FakeServer.last_exec == {
+            "cmd": "uvicorn app:app --host 127.0.0.1 --port $SBX_SERVICE_PORT",
+            "env": {"SBX_SERVICE_PORT": "8000"},
+            "background": True,
+            "tag": "serve:8000",
+        }
+
 
 class TestSharedSandbox:
     """A shared sandbox routes operations under /v1/sandboxes/<local_id>/ and is
@@ -278,6 +394,14 @@ class TestSharedSandbox:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
         assert "local1" not in _FakeServer.sandboxes
+
+    def test_proxy_url_is_scoped_to_shared_sandbox(self, fake_server: str) -> None:
+        sandbox = self._make_shared(fake_server)
+
+        service = sandbox.expose(8000, "/ws")
+
+        assert service.url == f"{fake_server}/v1/sandboxes/local1/proxy/8000/ws"
+        assert service.ws_url == f"{fake_server.replace('http://', 'ws://')}/v1/sandboxes/local1/proxy/8000/ws"
 
 
 class TestSandboxPool:
@@ -346,6 +470,34 @@ class TestSandboxPool:
         assert pool.num_hosts == 0
         with pytest.raises(SandboxError, match="closed"):
             pool.create()
+
+    def test_serve_creates_sandbox_and_starts_service(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+
+        service = pool.serve(
+            "uvicorn app:app --uds $SBX_PROXY_DIR/$SBX_SERVICE_PORT.sock",
+            8000,
+            path="/ws",
+            env={"TASK": "book-flight"},
+        )
+
+        assert service.sandbox.host_id == "job123"
+        assert service.url.startswith(f"{fake_server}/v1/sandboxes/")
+        assert service.url.endswith("/proxy/8000/ws")
+        assert isinstance(service.process, SandboxProcess)
+        assert service.process.pid == 42
+        assert pool.num_sandboxes == 1
+        assert _FakeServer.last_create == {
+            "count": 1,
+            "idle_timeout_secs": 600,
+            "env": {"TASK": "book-flight"},
+        }
+        assert _FakeServer.last_exec == {
+            "cmd": "uvicorn app:app --uds $SBX_PROXY_DIR/$SBX_SERVICE_PORT.sock",
+            "env": {"SBX_SERVICE_PORT": "8000"},
+            "background": True,
+            "tag": "serve:8000",
+        }
 
     def test_full_host_triggers_duplicate(self, monkeypatch) -> None:
         # First host fills at 1 sandbox (server-authoritative); the duplicate has room.

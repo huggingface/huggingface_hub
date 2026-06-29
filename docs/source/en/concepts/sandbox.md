@@ -114,6 +114,14 @@ flowchart TB
 
 A pooled sandbox's public id is `<host_job_id>.<local_id>`, so `connect`/`exec`/`kill` work statelessly just like dedicated ones. `kill()` on a pooled sandbox sends a `DELETE` to its host (freeing a slot); the host keeps running.
 
+### Serving HTTP and WebSocket from a pool
+
+OpenEnv-style workloads often need a long-running HTTP/WebSocket server per environment, not only command execution. [`Sandbox.serve`] starts a background process and returns an authenticated proxy URL for that process; [`SandboxPool.serve`] creates one pooled sandbox first, then starts and exposes the service inside it.
+
+The proxy deliberately goes through the same `sbx-server` port (`49983`) that every sandbox job already exposes. Dedicated sandboxes route `/v1/proxy/<port>/...` to `127.0.0.1:<port>` inside the job. Pooled sandboxes route `/v1/sandboxes/<id>/proxy/<port>/...` to a unix socket in that sandbox's private home, `$SBX_PROXY_DIR/<port>.sock`. This keeps host-mode isolation intact: sandboxes do not bind host TCP ports, so they do not collide with or reach each other's localhost services.
+
+The proxy is protocol-agnostic. It forwards the request to the inner server and then splices bytes in both directions, so WebSocket upgrades, server-sent events, chunked responses, and plain HTTP use the same URL/headers surface.
+
 ### Isolation in a pool: uid + Landlock
 
 This is the crux of the pool design, so it is worth being precise about what is and isn't isolated.

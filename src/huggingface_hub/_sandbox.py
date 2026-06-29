@@ -107,6 +107,15 @@ def _duration_to_secs(duration: int | float | str) -> int:
     return parse_duration(duration)
 
 
+def _http_url_to_ws_url(url: str) -> str:
+    """Switch an HTTP(S) URL to the matching WebSocket scheme."""
+    if url.startswith("https://"):
+        return "wss://" + url[len("https://") :]
+    if url.startswith("http://"):
+        return "ws://" + url[len("http://") :]
+    return url
+
+
 @dataclass
 class SandboxCommandResult:
     """Result of a command executed in a sandbox with [`Sandbox.run`]."""
@@ -125,6 +134,171 @@ class SandboxCommandResult:
     def __repr__(self) -> str:
         out = self.stdout if len(self.stdout) <= 80 else self.stdout[:77] + "..."
         return f"SandboxCommandResult(exit_code={self.exit_code}, stdout={out!r}, duration_ms={self.duration_ms})"
+
+
+@dataclass
+class SandboxProcessInfo:
+    """Information about a background process running in a sandbox."""
+
+    pid: int
+    cmd: str
+    running: bool
+    tag: str | None = None
+    started_at_ms: int | None = None
+    exit_code: int | None = None
+
+
+class SandboxProcess:
+    """A background process started in a [`Sandbox`].
+
+    Returned by [`Sandbox.run`] when `background=True`. Use it to stream logs, wait
+    for completion, send stdin, or kill the process.
+    """
+
+    def __init__(self, sandbox: "Sandbox", *, pid: int, tag: str | None = None) -> None:
+        self._sandbox = sandbox
+        self.pid = pid
+        self.tag = tag
+
+    def logs(
+        self,
+        *,
+        follow: bool = False,
+        on_stdout: Callable[[str], None] | None = None,
+        on_stderr: Callable[[str], None] | None = None,
+    ) -> SandboxCommandResult:
+        """Return buffered process logs, optionally following until the process exits.
+
+        Args:
+            follow (`bool`, *optional*, defaults to `False`):
+                If True, keep streaming logs until the process exits.
+            on_stdout (`Callable[[str], None]`, *optional*):
+                Callback invoked with stdout chunks as they arrive.
+            on_stderr (`Callable[[str], None]`, *optional*):
+                Callback invoked with stderr chunks as they arrive.
+        """
+        return self._collect_events(
+            "GET",
+            f"/procs/{self.pid}/logs",
+            params={"follow": "1"} if follow else None,
+            on_stdout=on_stdout,
+            on_stderr=on_stderr,
+        )
+
+    def wait(
+        self,
+        *,
+        on_stdout: Callable[[str], None] | None = None,
+        on_stderr: Callable[[str], None] | None = None,
+    ) -> SandboxCommandResult:
+        """Wait for the process to exit and return its final result."""
+        return self._collect_events(
+            "GET",
+            f"/procs/{self.pid}/wait",
+            on_stdout=on_stdout,
+            on_stderr=on_stderr,
+        )
+
+    def kill(self, signal: str | int = "KILL") -> None:
+        """Send a signal to the process group."""
+        self._sandbox._request("POST", f"/procs/{self.pid}/kill", json={"signal": signal})
+
+    def send_stdin(self, data: str | bytes, *, eof: bool = False) -> None:
+        """Write to the process' stdin.
+
+        Args:
+            data (`str` or `bytes`):
+                Bytes to write. Strings are UTF-8 encoded.
+            eof (`bool`, *optional*, defaults to `False`):
+                If True, close stdin after writing.
+        """
+        payload = data.encode("utf-8") if isinstance(data, str) else data
+        params = {"eof": "1"} if eof else None
+        self._sandbox._request("POST", f"/procs/{self.pid}/stdin", params=params, content=payload)
+
+    def _collect_events(
+        self,
+        method: str,
+        resource: str,
+        *,
+        on_stdout: Callable[[str], None] | None = None,
+        on_stderr: Callable[[str], None] | None = None,
+        **kwargs,
+    ) -> SandboxCommandResult:
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+        result: SandboxCommandResult | None = None
+        with self._sandbox._stream(method, resource, **kwargs) as response:
+            for event in _iter_events(response):
+                if event["event"] == "stdout":
+                    stdout_parts.append(event["data"])
+                    if on_stdout is not None:
+                        on_stdout(event["data"])
+                elif event["event"] == "stderr":
+                    stderr_parts.append(event["data"])
+                    if on_stderr is not None:
+                        on_stderr(event["data"])
+                elif event["event"] == "exit":
+                    result = SandboxCommandResult(
+                        exit_code=event["exit_code"],
+                        stdout="".join(stdout_parts),
+                        stderr="".join(stderr_parts),
+                        signal=event.get("signal"),
+                        timed_out=event.get("timed_out", False),
+                        duration_ms=event.get("duration_ms", 0),
+                    )
+        if result is None:
+            # A non-following logs request can return only the currently buffered output.
+            return SandboxCommandResult(
+                exit_code=None,
+                stdout="".join(stdout_parts),
+                stderr="".join(stderr_parts),
+            )
+        return result
+
+    def __repr__(self) -> str:
+        return f"SandboxProcess(pid={self.pid!r}, tag={self.tag!r})"
+
+
+class SandboxService:
+    """A sandbox process exposed through the sandbox-server HTTP/WebSocket proxy."""
+
+    def __init__(
+        self,
+        *,
+        sandbox: "Sandbox",
+        port: int | str,
+        process: SandboxProcess | None = None,
+        path: str = "/",
+    ) -> None:
+        self.sandbox = sandbox
+        self.port = port
+        self.process = process
+        self.path = path
+        self.headers = dict(sandbox.proxy_headers)
+        self.url = sandbox.proxy_url(port, path)
+
+    @property
+    def ws_url(self) -> str:
+        """WebSocket URL for the service path."""
+        return _http_url_to_ws_url(self.url)
+
+    def url_for(self, path: str = "/") -> str:
+        """Return an HTTP URL for another path on the same exposed port."""
+        return self.sandbox.proxy_url(self.port, path)
+
+    def ws_url_for(self, path: str = "/") -> str:
+        """Return a WebSocket URL for another path on the same exposed port."""
+        return _http_url_to_ws_url(self.url_for(path))
+
+    def kill(self, signal: str | int = "KILL") -> None:
+        """Kill the background process, if this service was created with [`Sandbox.serve`]."""
+        if self.process is None:
+            raise SandboxError("This service does not own a background process.")
+        self.process.kill(signal=signal)
+
+    def __repr__(self) -> str:
+        return f"SandboxService(url={self.url!r}, process={self.process!r})"
 
 
 @dataclass
@@ -671,6 +845,7 @@ class Sandbox:
 
     # ------------------------------------------------------------------ exec
 
+    @overload
     def run(
         self,
         cmd: str | List[str],
@@ -683,7 +858,42 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
-    ) -> SandboxCommandResult:
+        background: Literal[False] = False,
+        tag: str | None = None,
+    ) -> SandboxCommandResult: ...
+
+    @overload
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = None,
+        env: dict[str, Any] | None = None,
+        cwd: str | None = None,
+        timeout: float | None = None,
+        stdin: str | None = None,
+        on_stdout: Callable[[str], None] | None = None,
+        on_stderr: Callable[[str], None] | None = None,
+        check: bool = True,
+        background: Literal[True],
+        tag: str | None = None,
+    ) -> SandboxProcess: ...
+
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = None,
+        env: dict[str, Any] | None = None,
+        cwd: str | None = None,
+        timeout: float | None = None,
+        stdin: str | None = None,
+        on_stdout: Callable[[str], None] | None = None,
+        on_stderr: Callable[[str], None] | None = None,
+        check: bool = True,
+        background: bool = False,
+        tag: str | None = None,
+    ) -> SandboxCommandResult | SandboxProcess:
         """Run a command in the sandbox and wait for it, streaming output live.
 
         Args:
@@ -709,8 +919,15 @@ class Sandbox:
                 Callback invoked with stderr chunks as they arrive.
             check (`bool`, *optional*, defaults to `True`):
                 If True, raise [`SandboxCommandError`] on non-zero exit.
+            background (`bool`, *optional*, defaults to `False`):
+                If True, start the command in the background and return a [`SandboxProcess`]
+                immediately instead of waiting for completion.
+            tag (`str`, *optional*):
+                Label to attach to the background process.
 
-        Returns: [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
+        Returns:
+            [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`,
+            or [`SandboxProcess`] when `background=True`.
         """
         payload = _exec_payload(cmd, shell)
         if env:
@@ -721,6 +938,15 @@ class Sandbox:
             payload["timeout"] = timeout
         if stdin is not None:
             payload["stdin"] = stdin
+        if background:
+            payload["background"] = True
+        if tag is not None:
+            payload["tag"] = tag
+
+        if background:
+            response = self._request("POST", "/exec", json=payload)
+            data = response.json()
+            return SandboxProcess(self, pid=int(data["pid"]), tag=data.get("tag"))
 
         stdout_parts: list[str] = []
         stderr_parts: list[str] = []
@@ -750,6 +976,14 @@ class Sandbox:
             raise SandboxCommandError(cmd=cmd, result=result)
         return result
 
+    def process(self, pid: int) -> SandboxProcess:
+        """Return a handle to an existing background process by pid."""
+        return SandboxProcess(self, pid=pid)
+
+    def list_processes(self) -> List[SandboxProcessInfo]:
+        """List background processes started in this sandbox."""
+        return [SandboxProcessInfo(**item) for item in self._request("GET", "/procs").json()]
+
     # ------------------------------------------------------------------ misc
 
     @property
@@ -762,6 +996,71 @@ class Sandbox:
         return self._server.job_id if self._local_id is not None else None
 
     # ------------------------------------------------------------------ port proxy
+
+    def serve(
+        self,
+        cmd: str | List[str],
+        port: int | str,
+        *,
+        path: str = "/",
+        shell: bool | None = None,
+        env: dict[str, Any] | None = None,
+        cwd: str | None = None,
+        timeout: float | None = None,
+        tag: str | None = None,
+    ) -> SandboxService:
+        """Start a background service and expose it through the sandbox proxy.
+
+        The command is started with `background=True` and the returned [`SandboxService`]
+        contains the public HTTP URL, matching WebSocket URL, auth headers, and process
+        handle.
+
+        The server process must listen where the sandbox proxy expects it:
+
+        - **Dedicated sandbox**: TCP on `127.0.0.1:<port>`.
+        - **Pool / shared sandbox**: unix socket at `$SBX_PROXY_DIR/<port>.sock`.
+
+        The process receives `SBX_SERVICE_PORT=<port>` in its environment in addition
+        to any `env` passed by the caller.
+
+        Args:
+            cmd (`str` or `List[str]`):
+                Service command to start.
+            port (`int` or `str`):
+                Public proxy port name. In pool mode this maps to
+                `$SBX_PROXY_DIR/<port>.sock`.
+            path (`str`, *optional*, defaults to `"/"`):
+                Initial path for the returned `service.url` / `service.ws_url`.
+            shell (`bool`, *optional*):
+                Force shell vs argv execution, like [`Sandbox.run`].
+            env (`dict[str, Any]`, *optional*):
+                Additional process environment.
+            cwd (`str`, *optional*):
+                Working directory for the process.
+            timeout (`float`, *optional*):
+                Optional maximum runtime for the background process.
+            tag (`str`, *optional*):
+                Label for the background process. Defaults to `"serve:<port>"`.
+        """
+        service_env = {"SBX_SERVICE_PORT": str(port), **(env or {})}
+        process = self.run(
+            cmd,
+            shell=shell,
+            env=service_env,
+            cwd=cwd,
+            timeout=timeout,
+            background=True,
+            tag=tag if tag is not None else f"serve:{port}",
+        )
+        return SandboxService(sandbox=self, port=port, process=process, path=path)
+
+    def expose(self, port: int | str, path: str = "/") -> SandboxService:
+        """Return a service handle for an already-running in-sandbox server.
+
+        Use this when you start the server yourself (for example with
+        [`Sandbox.run(background=True)`]) and only need the authenticated proxy URL.
+        """
+        return SandboxService(sandbox=self, port=port, path=path)
 
     def proxy_url(self, port: int | str, path: str = "/") -> str:
         """Public URL that proxies through to a server running *inside* this sandbox.
@@ -1139,6 +1438,65 @@ class SandboxPool:
                     pass
                 finally:
                     host.close()
+            raise
+
+    def serve(
+        self,
+        cmd: str | List[str],
+        port: int | str,
+        *,
+        path: str = "/",
+        shell: bool | None = None,
+        env: dict[str, Any] | None = None,
+        cwd: str | None = None,
+        timeout: float | None = None,
+        tag: str | None = None,
+        idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
+        forward_hf_token: bool = False,
+    ) -> SandboxService:
+        """Create a pooled sandbox, start a background service in it, and return its proxy URL.
+
+        This is a convenience wrapper around [`SandboxPool.create`] plus [`Sandbox.serve`].
+        The returned [`SandboxService`] keeps a reference to the created sandbox as
+        `service.sandbox`; kill it when you no longer need the service, or close the pool to
+        terminate all owned hosts.
+
+        Args:
+            cmd (`str` or `List[str]`):
+                Service command to start.
+            port (`int` or `str`):
+                Public proxy port name. In pool mode this maps to
+                `$SBX_PROXY_DIR/<port>.sock`.
+            path (`str`, *optional*, defaults to `"/"`):
+                Initial path for the returned `service.url` / `service.ws_url`.
+            shell (`bool`, *optional*):
+                Force shell vs argv execution, like [`Sandbox.run`].
+            env (`dict[str, Any]`, *optional*):
+                Environment variables for the pooled sandbox and its service process.
+            cwd (`str`, *optional*):
+                Working directory for the service process.
+            timeout (`float`, *optional*):
+                Optional maximum runtime for the background process.
+            tag (`str`, *optional*):
+                Label for the background process. Defaults to `"serve:<port>"`.
+            idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
+                Per-sandbox idle timeout.
+            forward_hf_token (`bool`, *optional*, defaults to `False`):
+                If True, inject your HF token as `HF_TOKEN` in the pooled sandbox.
+        """
+        sandbox = self.create(env=env, idle_timeout=idle_timeout, forward_hf_token=forward_hf_token)
+        try:
+            return sandbox.serve(
+                cmd,
+                port,
+                path=path,
+                shell=shell,
+                cwd=cwd,
+                timeout=timeout,
+                tag=tag,
+            )
+        except Exception:
+            sandbox.kill()
             raise
 
     @property
