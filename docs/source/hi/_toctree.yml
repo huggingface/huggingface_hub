@@ -1,4 +1,4 @@
-- title: "शुरू हो जाओ"
+- title: "शुरुआत करें"
   sections:
     - local: index
       title: होम
@@ -11,3 +11,5 @@
   sections:
     - local: guides/overview
       title: उपयोग मार्गदर्शिकाएँ
+    - local: guides/download
+      title: फ़ाइलें डाउनलोड करें
