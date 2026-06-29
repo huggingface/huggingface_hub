@@ -95,6 +95,42 @@ class TestPathsUtils(unittest.TestCase):
             allow_patterns=["path/to/"],
         )
 
+    def test_filter_object_with_empty_pattern(self) -> None:
+        # An empty pattern must not raise: `_add_wildcard_to_directories("")` indexed `pattern[-1]`.
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=[],
+            allow_patterns=[""],
+        )
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=["file.txt", "lfs.bin"],
+            ignore_patterns=[""],
+        )
+
+    def test_filter_is_case_sensitive(self) -> None:
+        """Pattern matching is case-sensitive.
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
+        """
+        # Uppercase pattern matches only the uppercase path, not the lowercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["notes.MD"],
+            allow_patterns=["*.MD"],
+        )
+        # Lowercase pattern matches only the lowercase path, not the uppercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["README.md"],
+            allow_patterns=["*.md"],
+        )
+        # Case-sensitivity also applies to the ignore list.
+        self._check(
+            items=["keep.txt", "drop.LOG", "keep.log"],
+            expected_items=["keep.txt", "keep.log"],
+            ignore_patterns=["*.LOG"],
+        )
+
     def _check(
         self,
         items: list[Any],

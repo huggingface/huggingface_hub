@@ -13,14 +13,14 @@ from typer.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_namespace_from_job_id
+from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -3234,7 +3234,7 @@ class TestJobsCommand:
         assert "streaming line" in result.output
 
     def _make_mock_jobs(self):
-        """Create mock JobInfo objects for testing ps output."""
+        """Create mock JobInfo objects for testing ls output."""
         from huggingface_hub._jobs_api import JobInfo
 
         return [
@@ -3345,8 +3345,8 @@ class TestJobsCommand:
         assert job.durations.running_secs is None
         assert job.durations.total_secs == 9861
 
-    def test_ps_table_shows_runtime_column(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps -a` table includes a RUNTIME column with formatted values and `--` placeholders."""
+    def test_ls_table_shows_runtime_column(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ls -a` table includes a RUNTIME column with formatted values and `--` placeholders."""
         from huggingface_hub._jobs_api import JobInfo
 
         jobs = [
@@ -3384,21 +3384,33 @@ class TestJobsCommand:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a"])
+            result = runner.invoke(app, ["jobs", "ls", "-a"])
         assert result.exit_code == 0
         assert "RUNTIME" in result.output
         assert "3m 7s" in result.output  # 187s running_secs formatted
         assert "--" in result.output  # SCHEDULING job has no running_secs yet
 
-    def test_ps_format_json(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps -a --format json` outputs valid JSON with all fields."""
+    def test_ls_forwards_status_and_label_filters_server_side(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(
+                app, ["jobs", "ls", "--status", "completed,scheduling", "--label", "model=Qwen3-06B"]
+            )
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["status"] == ["completed", "scheduling"]
+        assert kwargs["labels"] == {"model": "Qwen3-06B"}
+
+    def test_ls_format_json(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ls -a --format json` outputs valid JSON with all fields."""
         import json
 
         jobs = self._make_mock_jobs()
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "json"])
+            result = runner.invoke(app, ["jobs", "ls", "-a", "--format", "json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data) == 2
@@ -3410,25 +3422,25 @@ class TestJobsCommand:
         assert "owner" in data[0]
 
     def test_ps_json_hidden_alias(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps -a --json` works as alias for `--format json`."""
+        """Test that `hf jobs ls -a --json` works as alias for `--format json`."""
         import json
 
         jobs = self._make_mock_jobs()
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--json"])
+            result = runner.invoke(app, ["jobs", "ls", "-a", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data) == 2
 
-    def test_ps_quiet(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps -a -q` outputs only IDs, one per line."""
+    def test_ls_quiet(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ls -a -q` outputs only IDs, one per line."""
         jobs = self._make_mock_jobs()
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "-q"])
+            result = runner.invoke(app, ["jobs", "ls", "-a", "-q"])
         assert result.exit_code == 0
         lines = result.output.strip().split("\n")
         assert lines == ["abc123def456", "xyz789ghi012"]
@@ -3439,31 +3451,31 @@ class TestJobsCommand:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a"])
+            result = runner.invoke(app, ["jobs", "ls", "-a"])
         assert result.exit_code == 0
         assert "abc123def456" in result.output
         assert "xyz789ghi012" in result.output
 
-    def test_ps_empty_json(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps --format json` outputs `[]` when no jobs match."""
+    def test_ls_empty_json(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ls --format json` outputs `[]` when no jobs match."""
         import json
 
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = []
-            result = runner.invoke(app, ["jobs", "ps", "--format", "json"])
+            result = runner.invoke(app, ["jobs", "ls", "--format", "json"])
         assert result.exit_code == 0
         # Parse stdout only: the empty-state hint goes to stderr (like agent mode), so it
         # never pollutes the JSON on stdout. Mirrors the other `json.loads(result.stdout)` tests.
         data = json.loads(result.stdout)
         assert data == []
 
-    def test_ps_empty_quiet(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps -q` outputs nothing when no jobs match."""
+    def test_ls_empty_quiet(self, runner: CliRunner) -> None:
+        """Test that `hf jobs ls -q` outputs nothing when no jobs match."""
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_jobs.return_value = []
-            result = runner.invoke(app, ["jobs", "ps", "-q"])
+            result = runner.invoke(app, ["jobs", "ls", "-q"])
         assert result.exit_code == 0
         assert result.output.strip() == ""
 
@@ -3866,6 +3878,73 @@ class TestParseVolumes:
             Volume(type="dataset", source="org/ds", mount_path="/data", revision=None, read_only=True, path=None),
             Volume(type="bucket", source="org/b", mount_path="/output", revision=None, read_only=None, path=None),
         ]
+
+
+class TestParseAndSyncJobVolumes:
+    """Unit tests for _parse_and_sync_job_volumes (local directory sources in `-v` for jobs commands)."""
+
+    def test_none_and_empty(self) -> None:
+        api = Mock()
+        assert _parse_and_sync_job_volumes(None, api=api, namespace=None) is None
+        assert _parse_and_sync_job_volumes([], api=api, namespace=None) is None
+
+    def test_hf_uri_passthrough(self) -> None:
+        api = Mock()
+        vols = _parse_and_sync_job_volumes(["hf://datasets/org/ds:/data:ro"], api=api, namespace=None)
+        assert vols == [Volume(type="dataset", source="org/ds", mount_path="/data", read_only=True)]
+        api.sync_job_volume.assert_not_called()
+
+    def test_local_dir_is_synced(self, tmp_path: Path) -> None:
+        api = Mock()
+        api.sync_job_volume.return_value = Volume(
+            type="bucket", source="user/jobs-artifacts", mount_path="/inputs", path="data-12345678", read_only=True
+        )
+        vols = _parse_and_sync_job_volumes([f"{tmp_path}:/inputs"], api=api, namespace=None)
+        api.sync_job_volume.assert_called_once_with(str(tmp_path), "/inputs", read_only=True, namespace=None)
+        assert vols == [api.sync_job_volume.return_value]
+
+    def test_local_dir_read_write_suffix(self, tmp_path: Path) -> None:
+        api = Mock()
+        api.sync_job_volume.return_value = Volume(
+            type="bucket", source="user/jobs-artifacts", mount_path="/out", path="out-12345678", read_only=False
+        )
+        _parse_and_sync_job_volumes([f"{tmp_path}:/out:rw"], api=api, namespace="my-org")
+        api.sync_job_volume.assert_called_once_with(str(tmp_path), "/out", read_only=False, namespace="my-org")
+
+    def test_nonexistent_local_path(self) -> None:
+        with pytest.raises(CLIError, match="not an existing local directory"):
+            _parse_and_sync_job_volumes(["./nonexistent:/data"], api=Mock(), namespace=None)
+
+    def test_local_file_not_a_dir(self, tmp_path: Path) -> None:
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("content")
+        with pytest.raises(CLIError, match="not an existing local directory"):
+            _parse_and_sync_job_volumes([f"{file_path}:/data"], api=Mock(), namespace=None)
+
+    def test_missing_mount_path(self, tmp_path: Path) -> None:
+        with pytest.raises(CLIError, match="Missing mount path"):
+            _parse_and_sync_job_volumes([str(tmp_path)], api=Mock(), namespace=None)
+
+
+class TestDeriveJobVolumeName:
+    """Unit tests for _derive_job_volume_name."""
+
+    def test_stable_across_calls(self, tmp_path: Path) -> None:
+        assert _derive_job_volume_name(tmp_path) == _derive_job_volume_name(tmp_path)
+
+    def test_relative_and_absolute_paths_match(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "data").mkdir()
+        assert _derive_job_volume_name("./data") == _derive_job_volume_name(tmp_path / "data")
+
+    def test_different_paths_differ(self, tmp_path: Path) -> None:
+        # Same dirname, different parents
+        (tmp_path / "a" / "data").mkdir(parents=True)
+        (tmp_path / "b" / "data").mkdir(parents=True)
+        name_a = _derive_job_volume_name(tmp_path / "a" / "data")
+        name_b = _derive_job_volume_name(tmp_path / "b" / "data")
+        assert name_a != name_b
+        assert name_a.startswith("data-") and name_b.startswith("data-")
 
 
 class TestVolume:

@@ -44,6 +44,9 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 Now the rest of this guide will show you the python API.
 If you would like to view all the available `hf jobs` commands and options instead, check out the [guide on the `hf jobs` command line interface](./cli#hf-jobs).
 
+> [!TIP]
+> Need an *interactive* machine instead of a fire-and-forget job — e.g. to run AI-generated code, with command execution and file transfer? Check out [Sandboxes](./sandbox), built on top of Jobs.
+
 ## Run a Job
 
 Run compute Jobs defined with a command and a Docker Image on Hugging Face infrastructure (including GPUs and TPUs).
@@ -109,14 +112,20 @@ Jobs run in the background. The next section guides you through [`inspect_job`] 
 ## Check Job status
 
 ```python
-# List your jobs
+# List your jobs (results are paginated and returned as an iterator)
 >>> from huggingface_hub import list_jobs
 >>> jobs = list_jobs()
->>> jobs[0]
+>>> next(iter(jobs))
 JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22, 13, 24, 46, 909000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='COMPLETED', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a')
 
+# Materialize the iterator into a list
+>>> all_jobs = [job for job in list_jobs()]
+
 # List your running jobs
->>> running_jobs = [job for job in list_jobs() if job.status.stage == "RUNNING"]
+>>> running_jobs = list_jobs(status="RUNNING")
+
+# Filter by one or more statuses and/or labels
+>>> list_jobs(status=["RUNNING", "SCHEDULING"], labels={"env": "prod"})
 
 # Inspect the status of a job
 >>> from huggingface_hub import inspect_job
@@ -171,7 +180,7 @@ The same is available in the CLI with `hf jobs wait`, which exits with code 0 on
 hf jobs wait <job_id> && hf jobs run --detach python:3.12 python eval.py
 
 # Wait for all currently running jobs
-hf jobs ps -q | xargs hf jobs wait
+hf jobs ls -q | xargs hf jobs wait
 ```
 
 Note that a non-detached `hf jobs run` (or `hf jobs uv run`) also exits with a non-zero code if the Job fails, so `hf jobs run ... && next-step` chains correctly without an explicit wait.
@@ -304,6 +313,41 @@ By default, mounted storage buckets have read+write abilities.
 This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
 
 Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
+
+### Mount local data
+
+To run a Job against data on your machine, use [`sync_job_volume`]: it syncs a local directory to your `jobs-artifacts` [Storage Bucket](https://huggingface.co/docs/hub/storage-buckets) (created automatically if needed) and returns a ready-to-mount [`Volume`]:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_job_volume
+
+# Upload ./training-data once...
+>>> volume = sync_job_volume("./training-data", "/data")
+
+# ...then run as many Jobs as you want against it
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+```
+
+Each directory gets its own stable folder in the bucket: re-running [`sync_job_volume`] on the same directory only uploads new or modified files. The volume is mounted read-only by default.
+
+To retrieve files written by a Job, mount a read-write volume (an empty output directory works too) and sync it back once the Job is over:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_bucket, sync_job_volume
+
+>>> outputs = sync_job_volume("./outputs", "/outputs", read_only=False)
+>>> job = run_uv_job("process.py", volumes=[outputs])
+
+# ...once the Job completes, pull back the data:
+>>> sync_bucket(f"hf://buckets/{outputs.source}/{outputs.path}", "./outputs")
+```
+
+In the CLI, simply pass a local directory as the source side of `-v`:
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+```
 
 ## SSH into a Job
 

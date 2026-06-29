@@ -173,7 +173,7 @@ class HFCliTyperGroup(TyperGroup):
                 matches = difflib.get_close_matches(cmd_name, visible_names)
                 if matches:
                     suggestions = ", ".join(f"'{m}'" for m in matches)
-                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                    setattr(e, "message", f"{e.message.rstrip('.')}. Did you mean {suggestions}?")
                 items = [
                     (name, sub.get_short_help_str(limit=80))
                     for name in self.list_commands(ctx)
@@ -379,7 +379,7 @@ def _has_local_formatting_option(cmd: click.Command) -> bool:
     """Return True if the command defines its own --format, --json or --quiet / -q.
 
     Used to skip the global formatting flag pre-processor and the duplicated "Formatting options" help section for
-    legacy commands like 'hf jobs ps' that have their own format/quiet options.
+    legacy commands like 'hf jobs ls' that have their own format/quiet options.
     """
     for param in cmd.params:
         if not isinstance(param, click.Option):
@@ -398,7 +398,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     * **Pass-through commands** (ignore_unknown_options=True, e.g. 'hf extensions exec'):
       args are forwarded verbatim to an external binary; we don't touch them.
 
-    * **Legacy commands with a local --format option** (e.g. 'hf jobs ps' whose '--format' accepts Go templates):
+    * **Legacy commands with a local --format option** (e.g. 'hf jobs ls' whose '--format' accepts Go templates):
       the global flags are rewritten in-place to the legacy form ('--json' → '--format json', '--quiet'/'-q' → '--format quiet'
       when the cmd has no own '--quiet') so click can parse them locally. This preserves backwards compatibility with the previous shorthand behavior.
 
@@ -500,7 +500,7 @@ def _consume_no_truncate_flags(args: list[str]) -> bool:
 def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
     """Rewrite --json / -q / --quiet to --format ... for legacy commands.
 
-    Used for commands like 'hf jobs ps' that still own their '--format' option.
+    Used for commands like 'hf jobs ls' that still own their '--format' option.
     The rewrite lets users keep using the global shorthand while click parses
     '--format <value>' locally.
     """
@@ -541,8 +541,8 @@ def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[s
     lines.append(f"\nRun '{cmd_path} --help' for full details.")
     if isinstance(error, click.NoSuchOption) and error.possibilities:
         lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
-        error.possibilities = []
-    error.message += "\n".join(lines)
+        setattr(error, "possibilities", [])
+    setattr(error, "message", error.message + "\n".join(lines))
 
 
 def fallback_typer_group_factory(
