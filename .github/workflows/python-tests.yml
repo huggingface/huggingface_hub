@@ -130,7 +130,7 @@ jobs:
             ;;
 
             lfs)
-              eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
+              eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'Largefiles'"
             ;;
 
             gradio)
