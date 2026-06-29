@@ -182,11 +182,11 @@ class TestPytorchHubMixin:
         from_pretrained_mock.assert_called_once()
         assert model is from_pretrained_mock.return_value
 
-    def pretend_file_download(self, cache_dir: Path, **kwargs):
+    def pretend_file_download(self, tmp_dir: Path, **kwargs):
         if kwargs.get("filename") == "config.json":
             raise RemoteEntryNotFoundError("no config", response=Mock())
-        DummyModel().save_pretrained(cache_dir)
-        return cache_dir / "model.safetensors"
+        DummyModel().save_pretrained(tmp_dir)
+        return tmp_dir / "model.safetensors"
 
     def test_from_pretrained_model_from_hub_prefer_safetensor(self, mocker: MockerFixture, tmp_path) -> None:
         hf_hub_download_mock = mocker.patch("huggingface_hub.hub_mixin.hf_hub_download")
