@@ -344,15 +344,6 @@ class CachedIncompleteFileInfo:
     file_path: Path
     size_on_disk: int
 
-    @property
-    def size_on_disk_str(self) -> str:
-        """
-        (property) Size of the partially-downloaded file as a human-readable string.
-
-        Example: "42.2K".
-        """
-        return _format_size(self.size_on_disk)
-
 
 @dataclass(frozen=True)
 class HFCacheInfo:
