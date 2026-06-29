@@ -4534,6 +4534,7 @@ class TestLargeUpload:
             with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
                 api.upload_large_folder(
                     repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4
+                )
 
         # Check all files have been uploaded
         uploaded_files = api.list_repo_files(repo_url.repo_id, repo_type=repo_url.repo_type)
