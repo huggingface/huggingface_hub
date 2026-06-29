@@ -110,7 +110,6 @@ class TestPathsUtils(unittest.TestCase):
 
     def test_filter_is_case_sensitive(self) -> None:
         """Pattern matching is case-sensitive.
-        
         Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
         """
         # Uppercase pattern matches only the uppercase path, not the lowercase one.
