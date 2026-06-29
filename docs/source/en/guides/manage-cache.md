@@ -605,20 +605,26 @@ Dry run: no files were deleted.
 When working outside the default cache location, pair the command with
 `--cache-dir PATH`.
 
-To clean up detached snapshots in bulk, run `hf cache prune`. It automatically selects
-revisions that are no longer referenced by a branch or tag:
+To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes both
+revisions that are no longer referenced by a branch or tag and any leftover `.incomplete`
+files from interrupted downloads:
 
 ```text
 ➜ hf cache prune
-About to delete 3 unreferenced revision(s) (2.4G total).
+About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
   - model/t5-small:
       1c610f6b [refs/pr/1] 820.1M
       d4ec9b72 [(detached)] 640.5M
   - dataset/google/fleurs:
       2b91c8dd [(detached)] 937.6M
 Proceed? [y/N]: y
-Deleted 3 unreferenced revision(s); freed 2.4G.
+Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
 ```
+
+`.incomplete` files are partial blobs left behind when a download is interrupted. They are
+not tracked by the revision-based scan, so `hf cache ls` only flags them with a hint
+(`Found X incomplete download(s) ...`) while `hf cache prune` is the command that actually
+removes them. `hf cache rm` never touches them, except when it deletes an entire repo.
 
 Both commands support `--dry-run`, `--yes`, and `--cache-dir` so you can preview, automate,
 and target alternate cache directories as needed.

@@ -595,6 +595,7 @@ _SUBMOD_ATTRS = {
         "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
+        "CachedIncompleteFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
         "CorruptedCacheException",
@@ -652,6 +653,7 @@ __all__ = [
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
+    "CachedIncompleteFileInfo",
     "CachedRepoInfo",
     "CachedRevisionInfo",
     "CardData",
@@ -1762,6 +1764,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ASYNC_CLIENT_FACTORY_T,  # noqa: F401
         CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
+        CachedIncompleteFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
         CacheNotFound,  # noqa: F401

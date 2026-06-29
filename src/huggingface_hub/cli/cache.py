@@ -108,6 +108,16 @@ def summarize_deletions(
     return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions)
 
 
+def _prune_summary(revision_count: int, incomplete_count: int) -> str:
+    """Build the human-readable summary of what `hf cache prune` is about to delete."""
+    parts: list[str] = []
+    if revision_count:
+        parts.append(f"{revision_count} unreferenced revision(s)")
+    if incomplete_count:
+        parts.append(f"{incomplete_count} incomplete download(s)")
+    return " and ".join(parts)
+
+
 def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
     """Pretty-print selected cache revisions during confirmation prompts."""
     for repo in sorted(selected_by_repo.keys(), key=lambda repo: (repo.repo_type, repo.repo_id.lower())):
@@ -497,6 +507,14 @@ def ls(
             )
         )
 
+    incomplete_files = hf_cache_info.incomplete_files
+    if incomplete_files:
+        out.hint(
+            f"Found {len(incomplete_files)} incomplete download(s) totalling "
+            f"{_format_size(hf_cache_info.incomplete_size_on_disk)}. "
+            "Remove them with 'hf cache prune'."
+        )
+
 
 @cache_cli.command(
     examples=[
@@ -612,7 +630,7 @@ def prune(
         ),
     ] = False,
 ) -> None:
-    """Remove detached revisions from the cache."""
+    """Remove detached revisions and incomplete downloads from the cache."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -627,21 +645,18 @@ def prune(
         selected[repo] = detached
         revisions.update(revision.commit_hash for revision in detached)
 
-    if len(revisions) == 0:
-        out.text("No unreferenced revisions found. Nothing to prune.")
+    incomplete_files = hf_cache_info.incomplete_files
+
+    if len(revisions) == 0 and not incomplete_files:
+        out.text("No unreferenced revisions or incomplete downloads found. Nothing to prune.")
         return
 
-    resolution = _DeletionResolution(
-        revisions=frozenset(revisions),
-        selected=selected,
-        missing=(),
-    )
-    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    strategy = hf_cache_info.delete_revisions(*sorted(revisions))
     counts = summarize_deletions(selected)
+    total_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
 
-    out.text(
-        f"About to delete {counts.total_revision_count} unreferenced revision(s) ({strategy.expected_freed_size_str} total)."
-    )
+    summary = _prune_summary(counts.total_revision_count, len(incomplete_files))
+    out.text(f"About to delete {summary} ({_format_size(total_freed)} total).")
     print_cache_selected_revisions(selected)
 
     if dry_run:
@@ -649,17 +664,26 @@ def prune(
             "Dry run: no files were deleted.",
             dry_run=True,
             revisions=counts.total_revision_count,
-            size=strategy.expected_freed_size_str,
+            incomplete=len(incomplete_files),  # might be overstated but it's fine
+            size=_format_size(total_freed),
         )
         return
 
     out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
+    for incomplete_file in incomplete_files:
+        try:
+            incomplete_file.file_path.unlink()
+        except FileNotFoundError:
+            pass  # already removed (e.g. by a full-repo deletion above)
+        except OSError as exc:
+            out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
     out.result(
-        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.",
+        f"Deleted {summary}; freed {_format_size(total_freed)}.",
         revisions_deleted=counts.total_revision_count,
-        freed=strategy.expected_freed_size_str,
+        incomplete_deleted=len(incomplete_files),
+        freed=_format_size(total_freed),
     )
 
 
