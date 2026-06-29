@@ -418,6 +418,7 @@ def jobs_run(
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
         return
     _stream_logs_and_check_status(api, job)
 
@@ -988,6 +989,7 @@ def jobs_uv_run(
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
         return
     _stream_logs_and_check_status(api, job)
 

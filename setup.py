@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+from setuptools import find_namespace_packages, setup
 
 
 def get_version() -> str:
@@ -111,7 +111,7 @@ setup(
     license="Apache-2.0",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
-    packages=find_packages("src"),
+    packages=find_namespace_packages("src"),
     extras_require=extras,
     entry_points={
         "console_scripts": [
