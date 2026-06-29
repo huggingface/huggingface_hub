@@ -26,9 +26,11 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
-import click
 import typer
-from typer.core import TyperCommand, TyperGroup
+from typer import _click as click
+from typer._click.exceptions import BadParameter, NoSuchOption, UsageError
+from typer._types import TyperChoice
+from typer.core import TyperArgument, TyperCommand, TyperGroup, TyperOption
 
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
@@ -130,10 +132,10 @@ class HFCliTyperGroup(TyperGroup):
         """
         try:
             return super().invoke(ctx)
-        except click.NoSuchOption as e:
+        except NoSuchOption as e:
             if e.ctx is not None and e.ctx.command is not None:
                 cmd = e.ctx.command
-                if isinstance(cmd, click.Group):
+                if isinstance(cmd, TyperGroup):
                     # Group has no user-facing options -> show subcommands instead
                     items = [
                         (name, sub.get_short_help_str(limit=80))
@@ -146,7 +148,7 @@ class HFCliTyperGroup(TyperGroup):
                     items = [
                         record
                         for p in cmd.get_params(e.ctx)
-                        if isinstance(p, click.Option) and not p.hidden and (record := p.get_help_record(e.ctx))
+                        if isinstance(p, TyperOption) and not p.hidden and (record := p.get_help_record(e.ctx))
                     ]
                     _enrich_usage_error(e, "options", items)
             raise
@@ -160,7 +162,7 @@ class HFCliTyperGroup(TyperGroup):
 
         try:
             name, resolved_cmd, sub_args = super().resolve_command(ctx, args)
-        except click.UsageError as e:
+        except UsageError as e:
             # Unknown subcommand -> add fuzzy suggestions and list available commands.
             if cmd is None and cmd_name is not None:
                 # Expand aliases ("list | ls" → ["list", "ls"]) for accurate fuzzy matching.
@@ -185,7 +187,7 @@ class HFCliTyperGroup(TyperGroup):
         # If we just resolved a leaf command, eagerly consume any global formatting
         # flags (--format / --json / -q / --quiet / --no-truncate) from its args before click parses
         # them.  Group resolution is recursive — leaves (and only leaves) need this.
-        if resolved_cmd is not None and not isinstance(resolved_cmd, click.Group):
+        if resolved_cmd is not None and not isinstance(resolved_cmd, TyperGroup):
             _consume_format_flags_for_leaf(resolved_cmd, sub_args)
 
         return name, resolved_cmd, sub_args
@@ -195,7 +197,7 @@ class HFCliTyperGroup(TyperGroup):
         """Rewrite prefixed repo IDs (e.g. ``spaces/user/repo``) to ``user/repo --type space``.
 
         Only applies to commands that have a ``--type`` / ``--repo-type`` option and
-        at least one repo-ID positional argument (any ``click.Argument`` whose name
+        at least one repo-ID positional argument (any ``TyperArgument`` whose name
         ends with ``_id``, e.g. ``repo_id``, ``from_id``, ``to_id``).  When the
         token that maps to such an argument matches ``{prefix}/org/repo`` (where
         *prefix* is one of ``spaces``, ``datasets``, or ``models``), the prefix is
@@ -207,7 +209,7 @@ class HFCliTyperGroup(TyperGroup):
         arguments (filenames, local paths, patterns …) are never misinterpreted as
         prefixed repo IDs.
         """
-        has_type_option = any(isinstance(param, click.Option) and "--type" in param.opts for param in cmd.params)
+        has_type_option = any(isinstance(param, TyperOption) and "--type" in param.opts for param in cmd.params)
         if not has_type_option:
             return
 
@@ -215,7 +217,7 @@ class HFCliTyperGroup(TyperGroup):
         repo_id_positions: set[int] = set()
         arg_idx = 0
         for param in cmd.params:
-            if isinstance(param, click.Argument):
+            if isinstance(param, TyperArgument):
                 if param.name in ("repo_id", "from_id", "to_id"):
                     repo_id_positions.add(arg_idx)
                 arg_idx += 1
@@ -226,7 +228,7 @@ class HFCliTyperGroup(TyperGroup):
         # Build a set of option names that consume a following value token.
         value_options: set[str] = set()
         for param in cmd.params:
-            if isinstance(param, click.Option) and not param.is_flag:
+            if isinstance(param, TyperOption) and not param.is_flag:
                 for opt in (*param.opts, *param.secondary_opts):
                     value_options.add(opt)
 
@@ -265,7 +267,7 @@ class HFCliTyperGroup(TyperGroup):
             prefix = parts[0]
             mapped_type = constants.REPO_TYPES_MAPPING[prefix]
             if inferred_type is not None and mapped_type != inferred_type:
-                raise click.UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
+                raise UsageError(f"Conflicting repo type prefixes: '{first_prefix}/' and '{prefix}/'.")
             inferred_type = mapped_type
             first_prefix = prefix
             rewrites.append((arg_index, f"{parts[1]}/{parts[2]}"))
@@ -278,7 +280,7 @@ class HFCliTyperGroup(TyperGroup):
             arg == "--type" or arg.startswith("--type=") or arg == "--repo-type" or arg.startswith("--repo-type=")
             for arg in args
         ):
-            raise click.UsageError(
+            raise UsageError(
                 f"Ambiguous repo type: got prefix '{first_prefix}/' in repo ID and explicit --type. Use one or the other."
             )
 
@@ -382,7 +384,7 @@ def _has_local_formatting_option(cmd: click.Command) -> bool:
     legacy commands like 'hf jobs ls' that have their own format/quiet options.
     """
     for param in cmd.params:
-        if not isinstance(param, click.Option):
+        if not isinstance(param, TyperOption):
             continue
         opts = (*param.opts, *param.secondary_opts)
         if "--format" in opts or "--json" in opts or "--quiet" in opts or "-q" in opts:
@@ -406,7 +408,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
 
     '--no-truncate' is stripped for all non-pass-through commands; when present, human table cells are not truncated.
 
-    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
+    Raises UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
     """
     if cmd.context_settings.get("ignore_unknown_options"):
         return
@@ -418,7 +420,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     has_local_quiet = False
     has_local_json = False
     for param in cmd.params:
-        if not isinstance(param, click.Option):
+        if not isinstance(param, TyperOption):
             continue
         opts = (*param.opts, *param.secondary_opts)
         if "--format" in opts:
@@ -441,7 +443,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         # a "mutually exclusive" error rather than e.g. an "invalid value" error
         # from the second flag's argument.
         if chosen_flag is not None:
-            raise click.UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
+            raise UsageError(f"'{chosen_flag}' and '{new_flag}' are mutually exclusive.")
 
     i = 0
     while i < len(args):
@@ -451,7 +453,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         if arg == "--format":
             _check_conflict("--format")
             if i + 1 >= len(args):
-                raise click.UsageError("Option '--format' requires a value.")
+                raise UsageError("Option '--format' requires a value.")
             chosen_mode = _parse_format_value(args[i + 1])
             chosen_flag = "--format"
             del args[i : i + 2]  # --format value => 2 args removed
@@ -492,7 +494,7 @@ def _consume_no_truncate_flags(args: list[str]) -> bool:
             del args[i : i + 1]
             continue
         if arg.startswith("--no-truncate="):
-            raise click.UsageError("Option '--no-truncate' does not take a value.")
+            raise UsageError("Option '--no-truncate' does not take a value.")
         i += 1
     return no_truncate
 
@@ -508,7 +510,7 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
 
     if rewrite_json and "--json" in args:
         if has_format_in_args:
-            raise click.UsageError("'--json' and '--format' are mutually exclusive.")
+            raise UsageError("'--json' and '--format' are mutually exclusive.")
         idx = args.index("--json")
         args[idx : idx + 1] = ["--format", "json"]
         has_format_in_args = True
@@ -517,7 +519,7 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
         flag = "-q" if "-q" in args else ("--quiet" if "--quiet" in args else None)
         if flag is not None:
             if has_format_in_args:
-                raise click.UsageError(f"'{flag}' and '--format' are mutually exclusive.")
+                raise UsageError(f"'{flag}' and '--format' are mutually exclusive.")
             idx = args.index(flag)
             args[idx : idx + 1] = ["--format", "quiet"]
 
@@ -527,10 +529,10 @@ def _parse_format_value(value: str) -> "OutputFormat":
         return OutputFormat(value)
     except ValueError:
         valid = ", ".join(m.value for m in OutputFormat)
-        raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
+        raise UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
 
 
-def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[str, str]]) -> None:
+def _enrich_usage_error(error: UsageError, label: str, items: list[tuple[str, str]]) -> None:
     """Append a list of available options or commands to a usage error message."""
     if not items or error.ctx is None or f"Available {label} for" in error.message:
         return
@@ -539,7 +541,7 @@ def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[s
     for name, help_text in items:
         lines.append(f"  {name:30s} {help_text}")
     lines.append(f"\nRun '{cmd_path} --help' for full details.")
-    if isinstance(error, click.NoSuchOption) and error.possibilities:
+    if isinstance(error, NoSuchOption) and error.possibilities:
         lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
         setattr(error, "possibilities", [])
     setattr(error, "message", error.message + "\n".join(lines))
@@ -587,7 +589,7 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
         # Show help when a command with required arguments is invoked without any args
         # (mirrors group behavior: `hf jobs` prints help, so `hf download` should too).
         if not args and not ctx.resilient_parsing:
-            if any(isinstance(p, click.Argument) and p.required for p in self.params):
+            if any(isinstance(p, TyperArgument) and p.required for p in self.params):
                 click.echo(ctx.get_help(), color=ctx.color)
                 ctx.exit()
         return TyperCommand.parse_args(self, ctx, args)
@@ -684,10 +686,10 @@ def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | 
     )
 
 
-class SoftChoice(click.Choice):
-    """A click Choice that suggests choices for autocompletion/docs but accepts any string.
+class SoftChoice(TyperChoice):
+    """A Choice that suggests choices for autocompletion/docs but accepts any string.
 
-    Unlike `click.Choice`, unknown values are passed through as-is instead of raising an error.
+    Unlike `TyperChoice`, unknown values are passed through as-is instead of raising an error.
     This makes CLI options future-compatible when new server-side values are added.
 
     Accepts either a sequence of strings or an Enum class:
@@ -706,7 +708,7 @@ class SoftChoice(click.Choice):
     def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
         try:
             return super().convert(value, param, ctx)
-        except click.exceptions.BadParameter:
+        except BadParameter:
             return str(value)
 
 

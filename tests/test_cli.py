@@ -4408,7 +4408,8 @@ class TestSkillGeneration:
         assert "`--revision`" in md
 
     def test_collect_leaf_commands_finds_deeply_nested(self) -> None:
-        from click import Context, Group
+        from typer._click import Context
+        from typer.core import TyperGroup as Group
         from typer.main import get_command
 
         from huggingface_hub.cli.hf import app

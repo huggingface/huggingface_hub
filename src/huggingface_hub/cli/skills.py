@@ -37,7 +37,8 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from click import Command, Context, Group
+from typer._click import Command, Context
+from typer.core import TyperGroup as Group
 from typer.main import get_command
 
 from huggingface_hub.errors import CLIError

@@ -15,7 +15,7 @@
 
 from collections.abc import Iterable
 
-import click
+from typer import _click as click
 
 from huggingface_hub.utils import ANSI
 
