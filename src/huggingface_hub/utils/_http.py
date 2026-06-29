@@ -527,7 +527,7 @@ def http_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
@@ -608,7 +608,7 @@ def http_stream_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
