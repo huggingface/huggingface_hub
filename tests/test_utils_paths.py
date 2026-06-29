@@ -109,11 +109,9 @@ class TestPathsUtils(unittest.TestCase):
         )
 
     def test_filter_is_case_sensitive(self) -> None:
-        """Pattern matching must be case-sensitive on every platform (see #4434).
-
-        `fnmatch.fnmatch` applies `os.path.normcase`, which made matching case-insensitive
-        on Windows but case-sensitive on Linux/macOS. Repo paths are case-sensitive, so the
-        result must not depend on the client OS.
+        """Pattern matching is case-sensitive.
+        
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
         """
         # Uppercase pattern matches only the uppercase path, not the lowercase one.
         self._check(
