@@ -281,10 +281,14 @@ class TestCacheCommand:
         hf_cache_info.repos = frozenset({repo})
 
         strategy = Mock()
+        strategy.expected_freed_size = 0
         strategy.expected_freed_size_str = "0B"
         hf_cache_info.delete_revisions.return_value = strategy
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+
+        hf_cache_info.incomplete_files = frozenset()
+        hf_cache_info.incomplete_size_on_disk = 0
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
@@ -300,6 +304,39 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(detached.commit_hash)
         strategy.execute.assert_not_called()
         print_mock.assert_called_once()
+
+    def test_prune_deletes_incomplete_files(self, runner: CliRunner) -> None:
+        # Build a minimal cache dir with an orphaned `.incomplete` file and no revisions.
+        with SoftTemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            repo_dir = cache_dir / "models--user--model"
+            (repo_dir / "snapshots").mkdir(parents=True)
+            (repo_dir / "refs").mkdir()
+            blobs_dir = repo_dir / "blobs"
+            blobs_dir.mkdir()
+            incomplete = blobs_dir / ("a" * 64 + ".incomplete")
+            incomplete.write_bytes(b"partial download")
+
+            result = runner.invoke(app, ["cache", "prune", "--cache-dir", str(cache_dir), "--yes"])
+
+            assert result.exit_code == 0
+            assert "1 incomplete download(s)" in result.output
+            assert not incomplete.exists()
+
+    def test_ls_hints_incomplete_files(self, runner: CliRunner) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            repo_dir = cache_dir / "models--user--model"
+            (repo_dir / "snapshots").mkdir(parents=True)
+            blobs_dir = repo_dir / "blobs"
+            blobs_dir.mkdir()
+            (blobs_dir / ("a" * 64 + ".incomplete")).write_bytes(b"partial download")
+
+            result = runner.invoke(app, ["cache", "ls", "--cache-dir", str(cache_dir)])
+
+            assert result.exit_code == 0
+            assert "1 incomplete download(s)" in result.output
+            assert "hf cache prune" in result.output
 
     def test_verify_success(self, runner: CliRunner) -> None:
         repo_id = "user/model"
@@ -401,6 +438,7 @@ class TestCacheCommand:
             hf_cache_info = HFCacheInfo(
                 size_on_disk=blob_path.stat().st_size,
                 repos=frozenset({repo}),
+                incomplete_files=frozenset(),
                 warnings=[],
             )
 
