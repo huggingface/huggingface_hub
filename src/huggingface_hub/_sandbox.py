@@ -761,6 +761,51 @@ class Sandbox:
         """For a shared/pool sandbox, the job id of the host running it (else None)."""
         return self._server.job_id if self._local_id is not None else None
 
+    # ------------------------------------------------------------------ port proxy
+
+    def proxy_url(self, port: int | str, path: str = "/") -> str:
+        """Public URL that proxies through to a server running *inside* this sandbox.
+
+        Requests to the returned URL are forwarded by the in-job sandbox server to a
+        server you started in the sandbox on `port`, including WebSocket (`ws(s)://`)
+        upgrades and streamed responses. Pair it with [`proxy_headers`] for auth.
+
+        How the sandbox must listen on `port`:
+
+        - **Pool / shared sandbox**: it cannot bind a TCP port (Landlock), so bind a
+          **unix socket** at `$SBX_PROXY_DIR/<port>.sock` (the `SBX_PROXY_DIR` env var
+          is set in every sandbox). E.g. `uvicorn app:app --uds $SBX_PROXY_DIR/8000.sock`.
+        - **Dedicated sandbox**: bind a normal TCP port on `127.0.0.1:<port>`. (You can
+          also expose the port directly via the job proxy without going through here.)
+
+        Args:
+            port (`int` or `str`):
+                The port (pool: the `<port>` of the unix socket) the inner server listens on.
+            path (`str`, *optional*, defaults to `"/"`):
+                Path on the inner server to point at, e.g. `"/ws"`.
+
+        Returns:
+            `str`: a URL like `https://<job_id>--49983.hf.jobs/v1/.../proxy/8000/ws`.
+            Switch the scheme to `wss` for WebSocket clients.
+
+        Example:
+            ```python
+            >>> url = sandbox.proxy_url(8000, "/ws").replace("https://", "wss://")
+            >>> import websockets
+            >>> async with websockets.connect(url, additional_headers=sandbox.proxy_headers) as ws:
+            ...     await ws.send("hello")
+            ```
+        """
+        return f"{self._server.base_url}{self._base_path}/proxy/{port}{path if path.startswith('/') else '/' + path}"
+
+    @property
+    def proxy_headers(self) -> dict[str, str]:
+        """Auth headers to send with [`proxy_url`] requests (HF token + sandbox token)."""
+        return {
+            "Authorization": f"Bearer {self._server._auth_token}",
+            "X-Sandbox-Token": self._server._sandbox_token,
+        }
+
     def __repr__(self) -> str:
         return f"Sandbox(id={self.id!r}, image={self.image!r})"
 
