@@ -33,8 +33,8 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
-from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, repo_name, with_production_testing
+from .testing_constants import DUMMY_MODEL_ID, TOKEN
+from .testing_utils import repo_name
 
 
 @pytest.fixture
@@ -281,10 +281,14 @@ class TestCacheCommand:
         hf_cache_info.repos = frozenset({repo})
 
         strategy = Mock()
+        strategy.expected_freed_size = 0
         strategy.expected_freed_size_str = "0B"
         hf_cache_info.delete_revisions.return_value = strategy
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
+
+        hf_cache_info.incomplete_files = frozenset()
+        hf_cache_info.incomplete_size_on_disk = 0
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
@@ -300,6 +304,39 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(detached.commit_hash)
         strategy.execute.assert_not_called()
         print_mock.assert_called_once()
+
+    def test_prune_deletes_incomplete_files(self, runner: CliRunner) -> None:
+        # Build a minimal cache dir with an orphaned `.incomplete` file and no revisions.
+        with SoftTemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            repo_dir = cache_dir / "models--user--model"
+            (repo_dir / "snapshots").mkdir(parents=True)
+            (repo_dir / "refs").mkdir()
+            blobs_dir = repo_dir / "blobs"
+            blobs_dir.mkdir()
+            incomplete = blobs_dir / ("a" * 64 + ".incomplete")
+            incomplete.write_bytes(b"partial download")
+
+            result = runner.invoke(app, ["cache", "prune", "--cache-dir", str(cache_dir), "--yes"])
+
+            assert result.exit_code == 0
+            assert "1 incomplete download(s)" in result.output
+            assert not incomplete.exists()
+
+    def test_ls_hints_incomplete_files(self, runner: CliRunner) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            repo_dir = cache_dir / "models--user--model"
+            (repo_dir / "snapshots").mkdir(parents=True)
+            blobs_dir = repo_dir / "blobs"
+            blobs_dir.mkdir()
+            (blobs_dir / ("a" * 64 + ".incomplete")).write_bytes(b"partial download")
+
+            result = runner.invoke(app, ["cache", "ls", "--cache-dir", str(cache_dir)])
+
+            assert result.exit_code == 0
+            assert "1 incomplete download(s)" in result.output
+            assert "hf cache prune" in result.output
 
     def test_verify_success(self, runner: CliRunner) -> None:
         repo_id = "user/model"
@@ -401,6 +438,7 @@ class TestCacheCommand:
             hf_cache_info = HFCacheInfo(
                 size_on_disk=blob_path.stat().st_size,
                 repos=frozenset({repo}),
+                incomplete_files=frozenset(),
                 warnings=[],
             )
 
@@ -2047,7 +2085,7 @@ class TestModelsLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
-    @with_production_testing
+    @pytest.mark.production
     def test_models_ls_files_json(self, runner: CliRunner) -> None:
         """List files from a real model repo on the Hub (JSON output)."""
         result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "json"])
@@ -2057,7 +2095,7 @@ class TestModelsLsCommand:
         assert "config.json" in paths
         assert "tokenizer.json" in paths
 
-    @with_production_testing
+    @pytest.mark.production
     def test_models_ls_files_quiet(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "t5-small", "--format", "quiet"])
         assert result.exit_code == 0
@@ -2065,14 +2103,14 @@ class TestModelsLsCommand:
         assert "config.json" in lines
         assert "onnx/" in lines
 
-    @with_production_testing
+    @pytest.mark.production
     def test_models_ls_files_tree(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "t5-small", "--tree"])
         assert result.exit_code == 0
         assert "├──" in result.stdout or "└──" in result.stdout
         assert "config.json" in result.stdout
 
-    @with_production_testing
+    @pytest.mark.production
     def test_models_ls_files_recursive(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "t5-small", "-R", "--format", "quiet"])
         assert result.exit_code == 0
@@ -2096,7 +2134,7 @@ class TestDatasetsLsCommand:
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
 
-    @with_production_testing
+    @pytest.mark.production
     def test_datasets_ls_files(self, runner: CliRunner) -> None:
         """List files from a real dataset repo on the Hub."""
         result = runner.invoke(app, ["datasets", "ls", "rajpurkar/squad", "--format", "json"])
@@ -2107,7 +2145,7 @@ class TestDatasetsLsCommand:
 
 
 class TestModelsCardCommand:
-    @with_production_testing
+    @pytest.mark.production
     def test_card_full(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "card", "Qwen/Qwen3-0.6B"])
         assert "library_name: transformers" in result.stdout
@@ -2115,7 +2153,7 @@ class TestModelsCardCommand:
 
 
 class TestDatasetsCardCommand:
-    @with_production_testing
+    @pytest.mark.production
     def test_card_full(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["datasets", "card", "HuggingFaceFW/fineweb"])
         assert "license: odc-by" in result.stdout
@@ -2123,7 +2161,7 @@ class TestDatasetsCardCommand:
 
 
 class TestSpacesCardCommand:
-    @with_production_testing
+    @pytest.mark.production
     def test_card_full(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["spaces", "card", "mteb/leaderboard"])
         assert "license: mit" in result.stdout
@@ -2354,7 +2392,7 @@ class TestDatasetsSqlCommand:
     # https://huggingface.co/datasets/openai/gdpval
     SQL_QUERY = "SELECT sector, COUNT(*) AS count FROM read_parquet('https://huggingface.co/api/datasets/openai/gdpval/parquet/default/train/0.parquet') GROUP BY sector ORDER BY count DESC"
 
-    @with_production_testing
+    @pytest.mark.production
     def test_datasets_sql_table(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY])
 
@@ -2362,7 +2400,7 @@ class TestDatasetsSqlCommand:
         assert "Health Care" in result.stdout
         assert "25" in result.stdout
 
-    @with_production_testing
+    @pytest.mark.production
     def test_datasets_sql_json(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["datasets", "sql", self.SQL_QUERY, "--format", "json"])
 
@@ -2389,7 +2427,7 @@ class TestSpacesLsCommand:
         assert result.exit_code == 2
         assert "Invalid value" in result.output
 
-    @with_production_testing
+    @pytest.mark.production
     def test_spaces_ls_files(self, runner: CliRunner) -> None:
         """List files from a real space repo on the Hub."""
         result = runner.invoke(app, ["spaces", "ls", "gradio/theme_builder", "--format", "json"])
@@ -2431,7 +2469,7 @@ class TestSpacesLogsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
-@with_production_testing
+@pytest.mark.production
 class TestSpacesHardwareCommand:
     def test_list_hardware(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["spaces", "hardware", "--format", "json"])
@@ -4258,7 +4296,7 @@ class TestGlobalFormattingFlags:
 class TestJsonShorthand:
     """Test the hidden --json shorthand that rewrites to --format json."""
 
-    @with_production_testing
+    @pytest.mark.production
     def test_json_flag_produces_json_output(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
         assert result.exit_code == 0, result.output
@@ -4266,7 +4304,7 @@ class TestJsonShorthand:
         assert isinstance(output, list)
         assert len(output) <= 3
 
-    @with_production_testing
+    @pytest.mark.production
     def test_json_flag_equivalent_to_format_json(self, runner: CliRunner) -> None:
         result_json_flag = runner.invoke(app, ["models", "ls", "--json", "--limit", "3"])
         result_format_json = runner.invoke(app, ["models", "ls", "--format", "json", "--limit", "3"])
@@ -4493,7 +4531,7 @@ class TestSkillGeneration:
 
 @pytest.mark.xet
 class TestSkillsMarketplaceCLI:
-    @with_production_testing
+    @pytest.mark.production
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
 
@@ -4505,7 +4543,7 @@ class TestSkillsMarketplaceCLI:
         assert skill_dir.joinpath("SKILL.md").is_file()
         assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
 
-    @with_production_testing
+    @pytest.mark.production
     def test_update_checks_remote_revision_for_installed_skill(self, runner: CliRunner, tmp_path: Path) -> None:
         dest = tmp_path / "managed-skills"
         add_result = runner.invoke(app, ["skills", "add", "huggingface-gradio", "--dest", str(dest)])

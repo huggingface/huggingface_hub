@@ -55,7 +55,7 @@ from huggingface_hub.inference._common import (
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import with_production_testing
+from .testing_constants import ENDPOINT_PRODUCTION
 
 
 pytestmark = pytest.mark.inference
@@ -253,7 +253,6 @@ def list_clients(task: str) -> list[pytest.param]:
 
 
 @pytest.fixture()
-@with_production_testing
 def client(request):
     """
     Fixture to create client with proper skip handling.
@@ -277,21 +276,24 @@ def client(request):
 
 # Define fixtures for the files
 @pytest.fixture(scope="module")
-@with_production_testing
 def audio_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def image_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def document_file():
-    return hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
+    return hf_hub_download(
+        repo_id="impira/docquery", repo_type="space", filename="contract.jpeg", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 class TestBase:
@@ -309,7 +311,7 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for InferenceClient")
 class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
@@ -920,7 +922,7 @@ class TestHeadersAndCookies(TestBase):
         assert headers["Accept"] == "image/png"
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for TestOpenAICompatibility")
 class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):

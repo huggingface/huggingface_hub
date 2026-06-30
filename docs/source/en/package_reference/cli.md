@@ -556,7 +556,7 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List cached repositories or revisions. [alias: ls]
-* `prune`: Remove detached revisions from the cache.
+* `prune`: Remove detached revisions and incomplete...
 * `rm`: Remove cached repositories or revisions.
 * `verify`: Verify checksums for a single repo...
 
@@ -592,7 +592,7 @@ Learn more
 
 ### `hf cache prune`
 
-Remove detached revisions from the cache.
+Remove detached revisions and incomplete downloads from the cache.
 
 **Usage**:
 

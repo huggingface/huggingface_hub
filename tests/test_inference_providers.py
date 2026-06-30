@@ -76,8 +76,6 @@ from huggingface_hub.inference._providers.wavespeed import (
 from huggingface_hub.inference._providers.zai_org import _POLLING_INTERVAL as ZAI_POLLING_INTERVAL
 from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
-from .testing_utils import assert_in_logs
-
 
 pytestmark = pytest.mark.inference
 
@@ -149,8 +147,9 @@ class TestBasicTaskProviderHelper:
         )
         assert helper._prepare_mapping_info("test-model").provider_id == "mapped-id"
 
-        assert_in_logs(
-            caplog, "Model test-model is in staging mode for provider provider-name. Meant for test purposes only."
+        log_text = "\n".join(record.message for record in caplog.records)
+        assert (
+            "Model test-model is in staging mode for provider provider-name. Meant for test purposes only." in log_text
         )
 
         # Test successful mapping

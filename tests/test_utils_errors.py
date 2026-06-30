@@ -1,4 +1,3 @@
-import unittest
 from unittest.mock import Mock
 
 import pytest
@@ -15,15 +14,15 @@ from huggingface_hub.errors import (
 from huggingface_hub.utils._http import REPO_API_REGEX, X_AMZN_TRACE_ID, X_REQUEST_ID, _format, hf_raise_for_status
 
 
-class TestErrorUtils(unittest.TestCase):
+class TestErrorUtils:
     def test_hf_raise_for_status_repo_not_found(self) -> None:
         response = Response(status_code=404, headers={"X-Error-Code": "RepoNotFound", X_REQUEST_ID: "123"})
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
+        with pytest.raises(RepositoryNotFoundError, match="Repository Not Found") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 404
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 404
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_disabled_repo(self) -> None:
         response = Response(
@@ -31,20 +30,20 @@ class TestErrorUtils(unittest.TestCase):
         )
         response.request = Request(method="GET", url="https://huggingface.co/fake")
 
-        with self.assertRaises(DisabledRepoError) as context:
+        with pytest.raises(DisabledRepoError) as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 403
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 403
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_401_repo_url_not_invalid_token(self) -> None:
         response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
         response.request = Request(method="GET", url="https://huggingface.co/api/models/username/reponame")
-        with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
+        with pytest.raises(RepositoryNotFoundError, match="Repository Not Found") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 401
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 401
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_401_repo_url_invalid_token(self) -> None:
         response = Response(
@@ -52,11 +51,11 @@ class TestErrorUtils(unittest.TestCase):
             headers={X_REQUEST_ID: "123", "X-Error-Message": "Invalid credentials in Authorization header"},
         )
         response.request = Request(method="GET", url="https://huggingface.co/api/models/username/reponame")
-        with self.assertRaisesRegex(HfHubHTTPError, "Invalid credentials in Authorization header") as context:
+        with pytest.raises(HfHubHTTPError, match="Invalid credentials in Authorization header") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 401
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 401
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_403_wrong_token_scope(self) -> None:
         response = Response(
@@ -64,70 +63,71 @@ class TestErrorUtils(unittest.TestCase):
         )
         response.request = Request(method="GET", url="https://huggingface.co/api/repos/create")
         expected_message_part = "403 Forbidden: specific error message"
-        with self.assertRaisesRegex(HfHubHTTPError, expected_message_part) as context:
+        with pytest.raises(HfHubHTTPError, match=expected_message_part) as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 403
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 403
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_401_not_repo_url(self) -> None:
         response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
         response.request = Request(method="GET", url="https://huggingface.co/api/collections")
-        with self.assertRaises(HfHubHTTPError) as context:
+        with pytest.raises(HfHubHTTPError) as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 401
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 401
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_revision_not_found(self) -> None:
         response = Response(status_code=404, headers={"X-Error-Code": "RevisionNotFound", X_REQUEST_ID: "123"})
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(RevisionNotFoundError, "Revision Not Found") as context:
+        with pytest.raises(RevisionNotFoundError, match="Revision Not Found") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 404
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 404
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_entry_not_found(self) -> None:
         response = Response(status_code=404, headers={"X-Error-Code": "EntryNotFound", X_REQUEST_ID: "123"})
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(EntryNotFoundError, "Entry Not Found") as context:
+        with pytest.raises(EntryNotFoundError, match="Entry Not Found") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 404
-        assert "Request ID: 123" in str(context.exception)
+        assert context.value.response.status_code == 404
+        assert "Request ID: 123" in str(context.value)
 
     def test_hf_raise_for_status_bad_request_no_endpoint_name(self) -> None:
         """Test HTTPError converted to BadRequestError if error 400."""
         response = Response(status_code=400)
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(BadRequestError, "Bad request:") as context:
+        with pytest.raises(BadRequestError, match="Bad request:") as context:
             hf_raise_for_status(response)
-        assert context.exception.response.status_code == 400
+        assert context.value.response.status_code == 400
 
     def test_hf_raise_for_status_bad_request_with_endpoint_name(self) -> None:
         """Test endpoint name is added to BadRequestError message."""
         response = Response(status_code=400)
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(BadRequestError, "Bad request for preupload endpoint:") as context:
+        with pytest.raises(BadRequestError, match="Bad request for preupload endpoint:") as context:
             hf_raise_for_status(response, endpoint_name="preupload")
-        assert context.exception.response.status_code == 400
+        assert context.value.response.status_code == 400
 
     def test_hf_raise_for_status_fallback(self) -> None:
         """Test HTTPError is converted to HfHubHTTPError."""
         response = Response(status_code=404, headers={X_REQUEST_ID: "test-id"})
         response.request = Request(method="GET", url="https://huggingface.co/fake")
-        with self.assertRaisesRegex(HfHubHTTPError, "Request ID: test-id") as context:
+        with pytest.raises(HfHubHTTPError, match="Request ID: test-id") as context:
             hf_raise_for_status(response)
 
-        assert context.exception.response.status_code == 404
-        assert context.exception.response.url == "https://huggingface.co/fake"
+        assert context.value.response.status_code == 404
+        assert context.value.response.url == "https://huggingface.co/fake"
 
 
-class TestHfHubHTTPError(unittest.TestCase):
+class TestHfHubHTTPError:
     response: Response
 
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         """Setup with a default response."""
         self.response = Response(status_code=404, request=Request(method="GET", url="https://huggingface.co/fake"))
 

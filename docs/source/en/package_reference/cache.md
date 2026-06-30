@@ -47,6 +47,10 @@ All structures are built and returned by [`scan_cache_dir`] and are immutable.
 [[autodoc]] huggingface_hub.CachedFileInfo
     - size_on_disk_str
 
+### CachedIncompleteFileInfo
+
+[[autodoc]] huggingface_hub.CachedIncompleteFileInfo
+
 ### DeleteCacheStrategy
 
 [[autodoc]] huggingface_hub.DeleteCacheStrategy
