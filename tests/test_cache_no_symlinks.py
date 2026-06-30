@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download, scan_cache_dir
 from huggingface_hub.constants import CONFIG_NAME, HF_HUB_CACHE
 from huggingface_hub.file_download import are_symlinks_supported
 
-from .testing_utils import DUMMY_MODEL_ID
+from .testing_constants import DUMMY_MODEL_ID
 
 
 @pytest.mark.production

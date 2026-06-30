@@ -85,24 +85,22 @@ from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
 from .conftest import RepoFactory
 from .testing_constants import (
+    DUMMY_DATASET_ID,
+    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    DUMMY_MODEL_ID,
+    DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    ENDPOINT_PRODUCTION,
     ENDPOINT_STAGING,
     ENTERPRISE_ORG,
     ENTERPRISE_TOKEN,
     FULL_NAME,
     OTHER_TOKEN,
     OTHER_USER,
+    SAMPLE_DATASET_IDENTIFIER,
     TOKEN,
     USER,
 )
-from .testing_utils import (
-    DUMMY_DATASET_ID,
-    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    DUMMY_MODEL_ID,
-    DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    ENDPOINT_PRODUCTION,
-    SAMPLE_DATASET_IDENTIFIER,
-    repo_name,
-)
+from .testing_utils import repo_name
 
 
 logger = logging.get_logger(__name__)
