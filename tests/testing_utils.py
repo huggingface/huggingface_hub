@@ -11,14 +11,6 @@ from unittest.mock import Mock, patch
 
 import httpx
 
-from huggingface_hub.utils import logging
-
-
-logger = logging.get_logger(__name__)
-
-YES = ("y", "yes", "t", "true", "on", "1")
-NO = ("n", "no", "f", "false", "off", "0")
-
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     """
@@ -36,23 +28,6 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
         id = uuid.uuid4().hex[:6]
     ts = int(time.time() * 10e3)
     return f"{prefix}-{id}-{ts}"
-
-
-def parse_flag_from_env(key: str, default: bool = False) -> bool:
-    try:
-        value = os.environ[key]
-    except KeyError:
-        # KEY isn't set, default to `default`.
-        return default
-
-    # KEY is set, convert it to True or False.
-    if value.lower() in YES:
-        return True
-    elif value.lower() in NO:
-        return False
-    else:
-        # More values are supported, but let's keep the message simple.
-        raise ValueError(f"If set, '{key}' must be one of {YES + NO}. Got '{value}'.")
 
 
 class RequestWouldHangIndefinitelyError(Exception):
