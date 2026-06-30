@@ -1,5 +1,4 @@
 import os
-import shutil
 from contextlib import ExitStack
 from typing import Generator, Protocol
 
@@ -18,7 +17,7 @@ from .testing_constants import (
     ENDPOINT_STAGING,
     TOKEN,
 )
-from .testing_utils import parse_flag_from_env, repo_name, set_write_permission_and_retry
+from .testing_utils import repo_name
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -89,28 +88,6 @@ def _clean_cli_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 logger = logging.get_logger(__name__)
-
-
-@pytest.fixture
-def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
-    """Add a `cache_dir` attribute pointing to a temporary directory in tests.
-
-    Example:
-    ```py
-    @pytest.mark.usefixtures("fx_cache_dir")
-    class TestWithCache(unittest.TestCase):
-        cache_dir: Path
-
-        def test_cache_dir(self) -> None:
-            self.assertTrue(self.cache_dir.is_dir())
-    ```
-    """
-    with SoftTemporaryDirectory() as cache_dir:
-        request.cls.cache_dir = cache_dir
-        yield
-        # TemporaryDirectory is not super robust on Windows when a git repository is
-        # cloned in it. See https://www.scivision.dev/python-tempfile-permission-error-windows/.
-        shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
 
 
 @pytest.fixture(autouse=True)
@@ -194,7 +171,7 @@ def expect_deprecation_marker(request: SubRequest) -> Generator[None, None, None
 @pytest.fixture(autouse=True)
 def git_lfs_marker(request: SubRequest) -> None:
     """Skip tests marked `@pytest.mark.git_lfs` unless `RUN_GIT_LFS_TESTS` is truthy (git-lfs needed)."""
-    if request.node.get_closest_marker("git_lfs") is not None and not parse_flag_from_env("RUN_GIT_LFS_TESTS"):
+    if request.node.get_closest_marker("git_lfs") is not None and os.environ.get("RUN_GIT_LFS_TESTS") != "1":
         pytest.skip("git-lfs test (set RUN_GIT_LFS_TESTS=1 to run)")
 
 
