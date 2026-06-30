@@ -79,6 +79,8 @@ class _FakeServer(BaseHTTPRequestHandler):
     capacity = None  # None == unlimited; set per-subclass to test the full handshake
     seq = 0  # monotonic id source (survives deletes)
     last_exec: dict | None = None  # body of the most recent /exec call (for assertions)
+    processes: list = []  # background processes started via /processes
+    proc_seq = 0  # monotonic process id source
 
     def log_message(self, *args) -> None:
         pass
@@ -114,11 +116,17 @@ class _FakeServer(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        cls = type(self)
         # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
         if self.path == "/v1/exec" or (self.path.startswith("/v1/sandboxes/") and self.path.endswith("/exec")):
             self._exec(body)
+        elif self.path.endswith("/processes"):  # spawn a background process
+            type(self).last_exec = body
+            proc = {"id": f"proc{cls.proc_seq}", "pid": 9000 + cls.proc_seq, "cmd": body["cmd"]}
+            cls.proc_seq += 1
+            cls.processes.append(proc)
+            self._json(proc)
         elif self.path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
-            cls = type(self)
             count = int(body.get("count", 1))
             created = []
             rejected = 0
@@ -134,9 +142,13 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         assert self.headers["X-Sandbox-Token"] == "secret"
-        sid = self.path.rsplit("/", 1)[-1]
-        type(self).sandboxes.discard(sid)
-        self._json({"id": sid, "deleted": True})
+        last = self.path.rsplit("/", 1)[-1]
+        if "/processes/" in self.path:  # kill a background process
+            type(self).processes = [p for p in type(self).processes if p["id"] != last]
+            self._json({"id": last, "killed": True})
+            return
+        type(self).sandboxes.discard(last)
+        self._json({"id": last, "deleted": True})
 
     def do_GET(self) -> None:
         cls = type(self)
@@ -147,6 +159,8 @@ class _FakeServer(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "5")
             self.end_headers()
             self.wfile.write(b"hello")
+        elif self.path.endswith("/processes"):  # list background processes
+            self._json(cls.processes)
         elif self.path == "/v1/sandboxes":
             self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
 
@@ -157,6 +171,8 @@ def fake_server():
     _FakeServer.seq = 0
     _FakeServer.capacity = None
     _FakeServer.last_exec = None
+    _FakeServer.processes = []
+    _FakeServer.proc_seq = 0
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -170,6 +186,8 @@ def _spawn_fake(capacity=None):
     class _Fake(_FakeServer):
         sandboxes: set = set()
         seq = 0
+        processes: list = []
+        proc_seq = 0
 
     _Fake.capacity = capacity
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Fake)
@@ -224,6 +242,36 @@ class TestSandboxClient:
     def test_files_read(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
         assert sandbox.files.read_text("/x") == "hello"
+
+    def test_run_background_returns_process(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox.run("python -m http.server 8000", background=True)
+        assert isinstance(process, sandbox_mod.SandboxProcess)
+        assert process.id == "proc0"
+        assert process.cmd == "python -m http.server 8000"
+        # background spawn doesn't stream/wait: the cmd/shell payload is POSTed as-is.
+        assert _FakeServer.last_exec == {"cmd": "python -m http.server 8000"}
+
+    def test_processes_list_and_kill(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox.run(["sleep", "100"], background=True)
+        sandbox.run("sleep 200", background=True)
+        processes = sandbox.processes()
+        assert [p.id for p in processes] == ["proc0", "proc1"]
+        assert processes[0].cmd == ["sleep", "100"]
+        processes[0].kill()
+        assert [p.id for p in sandbox.processes()] == ["proc1"]
+
+    def test_proxy_url_for(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        host = fake_server.split("://", 1)[-1]
+        # default scheme is https; the in-sandbox port and path are appended under /v1/proxy.
+        assert sandbox.proxy_url_for(8000, "/hello") == f"https://{host}/v1/proxy/8000/hello"
+        # a path without a leading slash is normalized.
+        assert sandbox.proxy_url_for(8000, "ws").endswith("/v1/proxy/8000/ws")
+        # the scheme is swapped in for WebSocket clients (host/path unchanged).
+        assert sandbox.proxy_url_for(8000, "/ws", scheme="wss://") == f"wss://{host}/v1/proxy/8000/ws"
+        assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
 
     def test_kill_is_idempotent(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)

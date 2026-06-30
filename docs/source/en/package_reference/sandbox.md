@@ -20,6 +20,10 @@ Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 [[autodoc]] SandboxCommandResult
 
+### SandboxProcess
+
+[[autodoc]] SandboxProcess
+
 ### FileEntry
 
 [[autodoc]] huggingface_hub._sandbox.FileEntry

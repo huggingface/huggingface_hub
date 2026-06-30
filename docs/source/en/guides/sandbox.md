@@ -78,6 +78,26 @@ A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `st
 1
 ```
 
+### Background processes
+
+Pass `background=True` to start a long-running process (a server, a watcher, a training run) without waiting for it. `run` returns a [`SandboxProcess`] right away instead of a [`SandboxCommandResult`]:
+
+```python
+>>> proc = sbx.run("python -m http.server 8000", background=True)
+>>> proc
+SandboxProcess(id='p-3f2a', pid=1234, cmd='python -m http.server 8000')
+```
+
+List the processes running in a sandbox and stop one when you're done:
+
+```python
+>>> sbx.processes()
+[SandboxProcess(id='p-3f2a', pid=1234, cmd='python -m http.server 8000')]
+>>> proc.kill()
+```
+
+The streaming/wait-only options (`timeout`, `stdin`, `on_stdout`, `on_stderr`, `check`) don't apply in background mode — only `env`, `cwd` and `shell` are honored.
+
 ## Files
 
 ```python
@@ -91,6 +111,26 @@ A command that exits non-zero raises [`SandboxCommandError`] (with `stdout`, `st
 ```
 
 Other helpers: `stat`, `exists`, `mkdir`, `delete`.
+
+## Reaching a server inside a sandbox
+
+Start a server in the sandbox (in the background), then reach it from the outside with [`Sandbox.proxy_url_for`] — the request is forwarded by the in-job sandbox server to your inner server, so there's no extra public port to expose. It works for plain HTTP, Server-Sent Events and WebSocket. Pair the URL with [`Sandbox.proxy_headers`] for auth (your WebSocket/HTTP client must send them):
+
+```python
+>>> import httpx
+>>> with Sandbox.create() as sbx:
+...     sbx.files.write("app.py", "...")  # a server exposing e.g. /hello and /ws
+...     sbx.run("uvicorn app:app --host 127.0.0.1 --port 8000", background=True)
+...     # plain HTTP
+...     r = httpx.get(sbx.proxy_url_for(8000, "/hello"), headers=sbx.proxy_headers)
+...     # WebSocket: ask for a wss:// URL
+...     ws_url = sbx.proxy_url_for(8000, "/ws", scheme="wss://")
+```
+
+How the inner server must listen depends on the sandbox kind:
+
+- **Dedicated** ([`Sandbox.create`]): bind a normal TCP port on `127.0.0.1:<port>`.
+- **Pool / shared** ([`SandboxPool`]): pooled sandboxes can't bind a TCP port (Landlock), so listen on a **unix socket** at `$SBX_PROXY_DIR/<port>.sock` (that env var is set in every sandbox), e.g. `uvicorn app:app --uds $SBX_PROXY_DIR/8000.sock`. The client side (`proxy_url_for` / `proxy_headers`) is identical either way.
 
 ## Lifecycle
 
@@ -198,6 +238,16 @@ hi
 
 ```bash
 hf sandbox exec $ID -- pytest && echo "tests passed"
+```
+
+Start a long-running process in the background with `hf sandbox spawn` (prints a process id), then list or stop processes:
+
+```bash
+>>> hf sandbox spawn $ID -- python -m http.server 8000
+✓ Process started sandbox=687f... process=p-3f2a pid=1234
+
+>>> hf sandbox process ls $ID
+>>> hf sandbox process kill $ID p-3f2a
 ```
 
 For many cheap shared sandboxes, warm a pool once and then create into it on demand:

@@ -19,7 +19,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
@@ -125,6 +125,25 @@ class SandboxCommandResult:
     def __repr__(self) -> str:
         out = self.stdout if len(self.stdout) <= 80 else self.stdout[:77] + "..."
         return f"SandboxCommandResult(exit_code={self.exit_code}, stdout={out!r}, duration_ms={self.duration_ms})"
+
+
+@dataclass
+class SandboxProcess:
+    """A background process started in a sandbox with [`Sandbox.run`]`(..., background=True)`.
+
+    List a sandbox's running processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
+    """
+
+    id: str
+    pid: int
+    cmd: str | List[str]
+    # Back-reference to the sandbox, used by `kill()`. Excluded from repr/eq so a process
+    # stays a plain data object (and two with the same id compare equal).
+    _sandbox: "Sandbox" = field(repr=False, compare=False)
+
+    def kill(self) -> None:
+        """Terminate the background process (idempotent server-side)."""
+        self._sandbox._request("DELETE", f"/processes/{self.id}")
 
 
 @dataclass
@@ -671,6 +690,33 @@ class Sandbox:
 
     # ------------------------------------------------------------------ exec
 
+    @overload
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = ...,
+        env: dict[str, Any] | None = ...,
+        cwd: str | None = ...,
+        timeout: float | None = ...,
+        stdin: str | None = ...,
+        on_stdout: Callable[[str], None] | None = ...,
+        on_stderr: Callable[[str], None] | None = ...,
+        check: bool = ...,
+        background: Literal[False] = ...,
+    ) -> SandboxCommandResult: ...
+
+    @overload
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = ...,
+        env: dict[str, Any] | None = ...,
+        cwd: str | None = ...,
+        background: Literal[True],
+    ) -> SandboxProcess: ...
+
     def run(
         self,
         cmd: str | List[str],
@@ -683,8 +729,15 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
-    ) -> SandboxCommandResult:
+        background: bool = False,
+    ) -> SandboxCommandResult | SandboxProcess:
         """Run a command in the sandbox and wait for it, streaming output live.
+
+        With `background=True` the command is started detached and `run` returns a
+        [`SandboxProcess`] immediately, without waiting for it to finish — handy for
+        servers and other long-running processes. List them later with [`Sandbox.processes`]
+        and stop one with [`SandboxProcess.kill`]. The streaming/wait-only options
+        (`timeout`, `stdin`, `on_stdout`, `on_stderr`, `check`) don't apply in that mode.
 
         Args:
             cmd (`str` or `List[str]`):
@@ -709,14 +762,21 @@ class Sandbox:
                 Callback invoked with stderr chunks as they arrive.
             check (`bool`, *optional*, defaults to `True`):
                 If True, raise [`SandboxCommandError`] on non-zero exit.
+            background (`bool`, *optional*, defaults to `False`):
+                If True, start the command detached and return a [`SandboxProcess`] right
+                away instead of waiting for it and returning a [`SandboxCommandResult`].
 
-        Returns: [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
+        Returns: a [`SandboxCommandResult`] (with `exit_code`, `stdout`, `stderr`,
+        `duration_ms`), or a [`SandboxProcess`] when `background=True`.
         """
         payload = _exec_payload(cmd, shell)
         if env:
             payload["env"] = env
         if cwd:
             payload["cwd"] = cwd
+        if background:
+            data = self._request("POST", "/processes", json=payload).json()
+            return SandboxProcess(id=data["id"], pid=data["pid"], cmd=cmd, _sandbox=self)
         if timeout is not None:
             payload["timeout"] = timeout
         if stdin is not None:
@@ -750,6 +810,15 @@ class Sandbox:
             raise SandboxCommandError(cmd=cmd, result=result)
         return result
 
+    def processes(self) -> List[SandboxProcess]:
+        """List the background processes currently running in this sandbox.
+
+        Returns the processes started with [`Sandbox.run`]`(..., background=True)`; stop one
+        with [`SandboxProcess.kill`].
+        """
+        data = self._request("GET", "/processes").json()
+        return [SandboxProcess(id=p["id"], pid=p["pid"], cmd=p["cmd"], _sandbox=self) for p in data]
+
     # ------------------------------------------------------------------ misc
 
     @property
@@ -763,7 +832,7 @@ class Sandbox:
 
     # ------------------------------------------------------------------ port proxy
 
-    def proxy_url(self, port: int | str, path: str = "/") -> str:
+    def proxy_url_for(self, port: int | str, path: str = "/", *, scheme: str = "https://") -> str:
         """Public URL that proxies through to a server running *inside* this sandbox.
 
         Requests to the returned URL are forwarded by the in-job sandbox server to a
@@ -783,20 +852,27 @@ class Sandbox:
                 The port (pool: the `<port>` of the unix socket) the inner server listens on.
             path (`str`, *optional*, defaults to `"/"`):
                 Path on the inner server to point at, e.g. `"/ws"`.
+            scheme (`str`, *optional*, defaults to `"https://"`):
+                URL scheme to build the link with. Defaults to `"https://"`; pass
+                `"wss://"` for a WebSocket client (the proxy is protocol-agnostic, so only
+                the client-side scheme changes).
 
         Returns:
-            `str`: a URL like `https://<job_id>--49983.hf.jobs/v1/.../proxy/8000/ws`.
-            Switch the scheme to `wss` for WebSocket clients.
+            `str`: a URL like `https://<job_id>--49983.hf.jobs/v1/.../proxy/8000/ws` (or
+            `wss://...` with `scheme="wss://"`).
 
         Example:
             ```python
-            >>> url = sandbox.proxy_url(8000, "/ws").replace("https://", "wss://")
+            >>> url = sandbox.proxy_url_for(8000, "/ws", scheme="wss://")
             >>> import websockets
             >>> async with websockets.connect(url, additional_headers=sandbox.proxy_headers) as ws:
             ...     await ws.send("hello")
             ```
         """
-        return f"{self._server.base_url}{self._base_path}/proxy/{port}{path if path.startswith('/') else '/' + path}"
+        # base_url is always https://...; swap in the requested scheme (e.g. wss://) for the client.
+        host_and_rest = self._server.base_url.split("://", 1)[-1]
+        path = path if path.startswith("/") else "/" + path
+        return f"{scheme}{host_and_rest}{self._base_path}/proxy/{port}{path}"
 
     @property
     def proxy_headers(self) -> dict[str, str]:
