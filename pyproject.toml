@@ -44,6 +44,9 @@ markers = [
     "xet: test requires the `hf_xet` package; Xet is force-enabled (skipped if `hf_xet` is not installed)",
     "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
     "inference: inference test (client, providers, types); runs in the dedicated 'Inference only' CI job",
+    "production: test runs against the production Hub endpoint (patches `ENDPOINT` and the download URL template, like the former `with_production_testing` decorator)",
+    "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('duplicate_space')`",
+    "git_lfs: test requires git-lfs; skipped unless the `RUN_GIT_LFS_TESTS` environment variable is truthy",
 ]
 # The defined variables will be added to the environment before any tests are
 # run, part of pytest-env plugin

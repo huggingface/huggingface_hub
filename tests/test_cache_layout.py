@@ -1,14 +1,14 @@
 import os
 import time
-import unittest
 from io import BytesIO
+
+import pytest
 
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import repo_name, skip_on_windows, with_production_testing
+from .testing_utils import repo_name
 
 
 logger = logging.get_logger(__name__)
@@ -22,15 +22,15 @@ def get_file_contents(path):
     return content
 
 
-@with_production_testing
-class CacheFileLayoutHfHubDownload(unittest.TestCase):
-    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
+@pytest.mark.production
+class TestCacheFileLayoutHfHubDownload:
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache(self):
         for revision, expected_reference in (
             (None, "main"),
             ("file-2", "file-2"),
         ):
-            with self.subTest(revision), SoftTemporaryDirectory() as cache:
+            with SoftTemporaryDirectory() as cache:
                 hf_hub_download(
                     MODEL_IDENTIFIER,
                     "file_0.txt",
@@ -45,24 +45,24 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                 snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
 
                 # Only reference should be the expected one.
-                self.assertListEqual(refs, [expected_reference])
+                assert refs == [expected_reference]
 
                 with open(os.path.join(expected_path, "refs", expected_reference)) as f:
                     snapshot_name = f.readline().strip()
 
                 # The `main` reference should point to the only snapshot we have downloaded
-                self.assertListEqual(snapshots, [snapshot_name])
+                assert snapshots == [snapshot_name]
 
                 snapshot_path = os.path.join(expected_path, "snapshots", snapshot_name)
                 snapshot_content = os.listdir(snapshot_path)
 
                 # Only a single file in the snapshot
-                self.assertEqual(len(snapshot_content), 1)
+                assert len(snapshot_content) == 1
 
                 snapshot_content_path = os.path.join(snapshot_path, snapshot_content[0])
 
                 # The snapshot content should link to a blob
-                self.assertTrue(os.path.islink(snapshot_content_path))
+                assert os.path.islink(snapshot_content_path)
 
                 resolved_blob_relative = os.readlink(snapshot_content_path)
                 resolved_blob_absolute = os.path.normpath(os.path.join(snapshot_path, resolved_blob_relative))
@@ -71,15 +71,15 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                     blob_contents = f.readline().strip()
 
                 # The contents of the file should be 'File 0'.
-                self.assertEqual(blob_contents, "File 0")
+                assert blob_contents == "File 0"
 
     def test_no_exist_file_is_cached(self):
         revisions = [None, "file-2"]
         expected_references = ["main", "file-2"]
         for revision, expected_reference in zip(revisions, expected_references):
-            with self.subTest(revision), SoftTemporaryDirectory() as cache:
+            with SoftTemporaryDirectory() as cache:
                 filename = "this_does_not_exist.txt"
-                with self.assertRaises(EntryNotFoundError):
+                with pytest.raises(EntryNotFoundError):
                     # The file does not exist, so we get an exception.
                     hf_hub_download(MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision)
 
@@ -90,28 +90,28 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                 no_exist_snapshots = os.listdir(os.path.join(expected_path, ".no_exist"))
 
                 # Only reference should be `main`.
-                self.assertListEqual(refs, [expected_reference])
+                assert refs == [expected_reference]
 
                 with open(os.path.join(expected_path, "refs", expected_reference)) as f:
                     snapshot_name = f.readline().strip()
 
                 # The `main` reference should point to the only snapshot we have downloaded
-                self.assertListEqual(no_exist_snapshots, [snapshot_name])
+                assert no_exist_snapshots == [snapshot_name]
 
                 no_exist_path = os.path.join(expected_path, ".no_exist", snapshot_name)
                 no_exist_content = os.listdir(no_exist_path)
 
                 # Only a single file in the no_exist snapshot
-                self.assertEqual(len(no_exist_content), 1)
+                assert len(no_exist_content) == 1
 
                 # The no_exist content should be our file
-                self.assertEqual(no_exist_content[0], filename)
+                assert no_exist_content[0] == filename
 
                 with open(os.path.join(no_exist_path, filename)) as f:
                     content = f.read().strip()
 
                 # The contents of the file should be empty.
-                self.assertEqual(content, "")
+                assert content == ""
 
     def test_file_download_happens_once(self):
         # Tests that a file is only downloaded once if it's not updated.
@@ -124,9 +124,9 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             creation_time_1 = os.path.getmtime(path)
 
-            self.assertEqual(creation_time_0, creation_time_1)
+            assert creation_time_0 == creation_time_1
 
-    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks are deactivated in Windows tests.")
     def test_file_download_happens_once_intra_revision(self):
         # Tests that a file is only downloaded once if it's not updated, even across different revisions.
 
@@ -139,9 +139,9 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2")
             creation_time_1 = os.path.getmtime(path)
 
-            self.assertEqual(creation_time_0, creation_time_1)
+            assert creation_time_0 == creation_time_1
 
-    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks are deactivated in Windows tests.")
     def test_multiple_refs_for_same_file(self):
         with SoftTemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
@@ -157,25 +157,25 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             snapshots.sort()
 
             # Directory should contain two revisions
-            self.assertListEqual(refs, ["file-2", "main"])
+            assert refs == ["file-2", "main"]
 
             refs_contents = [get_file_contents(os.path.join(expected_path, "refs", f)) for f in refs]
             refs_contents.sort()
 
             # snapshots directory should contain two snapshots
-            self.assertListEqual(refs_contents, snapshots)
+            assert refs_contents == snapshots
 
             snapshot_links = [
                 os.readlink(os.path.join(expected_path, "snapshots", filename, "file_0.txt")) for filename in snapshots
             ]
 
             # All snapshot links should point to the same file.
-            self.assertEqual(*snapshot_links)
+            assert snapshot_links[0] == snapshot_links[1]
 
 
-@with_production_testing
-class CacheFileLayoutSnapshotDownload(unittest.TestCase):
-    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
+@pytest.mark.production
+class TestCacheFileLayoutSnapshotDownload:
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache(self):
         with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache)
@@ -189,12 +189,12 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             snapshots.sort()
 
             # Directory should contain two revisions
-            self.assertListEqual(refs, ["main"])
+            assert refs == ["main"]
 
             ref_content = get_file_contents(os.path.join(expected_path, "refs", refs[0]))
 
             # snapshots directory should contain two snapshots
-            self.assertListEqual([ref_content], snapshots)
+            assert [ref_content] == snapshots
 
             snapshot_path = os.path.join(expected_path, "snapshots", snapshots[0])
 
@@ -204,9 +204,9 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 
             resolved_snapshot_links = [os.path.normpath(os.path.join(snapshot_path, link)) for link in snapshot_links]
 
-            self.assertTrue(all([os.path.isfile(link) for link in resolved_snapshot_links]))
+            assert all([os.path.isfile(link) for link in resolved_snapshot_links])
 
-    @skip_on_windows(reason="Symlinks are deactivated in Windows tests.")
+    @pytest.mark.skipif(os.name == "nt", reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache_several_revisions(self):
         with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-3")
@@ -222,13 +222,13 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             snapshots.sort()
 
             # Directory should contain two revisions
-            self.assertListEqual(refs, ["file-2", "file-3"])
+            assert refs == ["file-2", "file-3"]
 
             refs_content = [get_file_contents(os.path.join(expected_path, "refs", ref)) for ref in refs]
             refs_content.sort()
 
             # snapshots directory should contain two snapshots
-            self.assertListEqual(refs_content, snapshots)
+            assert refs_content == snapshots
 
             snapshots_paths = [os.path.join(expected_path, "snapshots", s) for s in snapshots]
 
@@ -267,20 +267,18 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             #         └── [  52]  .gitattributes -> ../../blobs/ac481c8eb05e4d2496fbe076a38a7b4835dd733d
 
             # Across the two revisions, there should be 8 total links
-            self.assertEqual(len(all_links), 8)
+            assert len(all_links) == 8
 
             # Across the two revisions, there should only be 5 unique files.
-            self.assertEqual(len(all_unique_links), 5)
+            assert len(all_unique_links) == 5
 
 
-class ReferenceUpdates(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    def test_update_reference(self):
-        repo_id = self._api.create_repo(repo_name(), exist_ok=True).repo_id
+class TestReferenceUpdates:
+    def test_update_reference(self, api: HfApi):
+        repo_id = api.create_repo(repo_name(), exist_ok=True).repo_id
 
         try:
-            self._api.upload_file(path_or_fileobj=BytesIO(b"Some string"), path_in_repo="file.txt", repo_id=repo_id)
+            api.upload_file(path_or_fileobj=BytesIO(b"Some string"), path_in_repo="file.txt", repo_id=repo_id)
 
             with SoftTemporaryDirectory() as cache:
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
@@ -291,12 +289,12 @@ class ReferenceUpdates(unittest.TestCase):
                 refs = os.listdir(os.path.join(expected_path, "refs"))
 
                 # Directory should contain two revisions
-                self.assertListEqual(refs, ["main"])
+                assert refs == ["main"]
 
                 initial_ref_content = get_file_contents(os.path.join(expected_path, "refs", refs[0]))
 
                 # Upload a new file on the same branch
-                self._api.upload_file(
+                api.upload_file(
                     path_or_fileobj=BytesIO(b"Some new string"),
                     path_in_repo="file.txt",
                     repo_id=repo_id,
@@ -308,16 +306,12 @@ class ReferenceUpdates(unittest.TestCase):
 
                 # The `main` reference should point to two different, but existing snapshots which contain
                 # a 'file.txt'
-                self.assertNotEqual(initial_ref_content, final_ref_content)
-                self.assertTrue(os.path.isdir(os.path.join(expected_path, "snapshots", initial_ref_content)))
-                self.assertTrue(
-                    os.path.isfile(os.path.join(expected_path, "snapshots", initial_ref_content, "file.txt"))
-                )
-                self.assertTrue(os.path.isdir(os.path.join(expected_path, "snapshots", final_ref_content)))
-                self.assertTrue(
-                    os.path.isfile(os.path.join(expected_path, "snapshots", final_ref_content, "file.txt"))
-                )
+                assert initial_ref_content != final_ref_content
+                assert os.path.isdir(os.path.join(expected_path, "snapshots", initial_ref_content))
+                assert os.path.isfile(os.path.join(expected_path, "snapshots", initial_ref_content, "file.txt"))
+                assert os.path.isdir(os.path.join(expected_path, "snapshots", final_ref_content))
+                assert os.path.isfile(os.path.join(expected_path, "snapshots", final_ref_content, "file.txt"))
         except Exception:
             raise
         finally:
-            self._api.delete_repo(repo_id)
+            api.delete_repo(repo_id)

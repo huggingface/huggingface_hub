@@ -14,6 +14,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 - List Jobs: [`list_jobs`]
 - Cancel Job: [`cancel_job`]
 - Run a UV Job: [`run_uv_job`]
+- Sync a local directory to mount it in a Job: [`sync_job_volume`]
 
 ## Data structures
 

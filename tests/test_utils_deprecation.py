@@ -1,4 +1,3 @@
-import unittest
 import warnings
 
 import pytest
@@ -10,7 +9,7 @@ from huggingface_hub.utils._deprecation import (
 )
 
 
-class TestDeprecationUtils(unittest.TestCase):
+class TestDeprecationUtils:
     def test_deprecate_positional_args(self):
         """Test warnings are triggered when using deprecated positional args."""
 
@@ -83,11 +82,10 @@ class TestDeprecationUtils(unittest.TestCase):
         # Default message
         with pytest.warns(FutureWarning) as record:
             dummy_deprecated_default_message(a="A")
-        self.assertEqual(len(record), 1)
-        self.assertEqual(
-            record[0].message.args[0],
+        assert len(record) == 1
+        assert record[0].message.args[0] == (
             "Deprecated argument(s) used in 'dummy_deprecated_default_message': a."
-            " Will not be supported from version 'xxx'.",
+            " Will not be supported from version 'xxx'."
         )
 
     def test_deprecate_arguments_with_custom_warning_message(self) -> None:
@@ -104,12 +102,11 @@ class TestDeprecationUtils(unittest.TestCase):
         # Custom message
         with pytest.warns(FutureWarning) as record:
             dummy_deprecated_custom_message(a="A")
-        self.assertEqual(len(record), 1)
-        self.assertEqual(
-            record[0].message.args[0],
+        assert len(record) == 1
+        assert record[0].message.args[0] == (
             "Deprecated argument(s) used in 'dummy_deprecated_custom_message': a."
             " Will not be supported from version 'xxx'.\n\nThis is a custom"
-            " message.",
+            " message."
         )
 
     def test_deprecated_method(self) -> None:
@@ -122,9 +119,8 @@ class TestDeprecationUtils(unittest.TestCase):
         # Custom message
         with pytest.warns(FutureWarning) as record:
             dummy_deprecated()
-        self.assertEqual(len(record), 1)
-        self.assertEqual(
-            record[0].message.args[0],
+        assert len(record) == 1
+        assert record[0].message.args[0] == (
             "'dummy_deprecated' (from 'tests.test_utils_deprecation') is deprecated"
-            " and will be removed from version 'xxx'. This is a custom message.",
+            " and will be removed from version 'xxx'. This is a custom message."
         )

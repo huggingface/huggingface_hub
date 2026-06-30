@@ -14,7 +14,7 @@
 """Contains utilities to handle paths in Huggingface Hub."""
 
 from collections.abc import Callable, Generator, Iterable
-from fnmatch import fnmatch
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import TypeVar
 
@@ -50,8 +50,9 @@ def filter_repo_objects(
     that is used to extract a path from each element in iterable.
 
     Patterns are Standard Wildcards (globbing patterns), NOT regular expressions.
-    The pattern matching is based on Python's `fnmatch`. Note that `fnmatch` matches
-    `*` across path boundaries, unlike traditional Unix shell globbing. For example,
+    The pattern matching is based on Python's `fnmatch.fnmatchcase`, so it is
+    case-sensitive on every platform. Note that it matches `*` across path
+    boundaries, unlike traditional Unix shell globbing. For example,
     `"data/*.json"` will match both `data/file.json` and `data/subdir/file.json`.
     See https://docs.python.org/3/library/fnmatch.html for more details.
 
@@ -79,7 +80,7 @@ def filter_repo_objects(
     ```python
     >>> # Filter only PDFs that are not hidden.
     >>> list(filter_repo_objects(
-    ...     ["aaa.PDF", "bbb.jpg", ".ccc.pdf", ".ddd.png"],
+    ...     ["aaa.pdf", "bbb.jpg", ".ccc.pdf", ".ddd.png"],
     ...     allow_patterns=["*.pdf"],
     ...     ignore_patterns=[".*"],
     ... ))
@@ -97,7 +98,7 @@ def filter_repo_objects(
     ... ],
     ... allow_patterns=["*.pdf"],
     ... ignore_patterns=[".*"],
-    ... key=lambda x: x.repo_in_path
+    ... key=lambda x: x.path_in_repo
     ... ))
     [CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")]
     ```
@@ -128,11 +129,11 @@ def filter_repo_objects(
         path = key(item)
 
         # Skip if there's an allowlist and path doesn't match any
-        if allow_patterns is not None and not any(fnmatch(path, r) for r in allow_patterns):
+        if allow_patterns is not None and not any(fnmatchcase(path, r) for r in allow_patterns):
             continue
 
         # Skip if there's a denylist and path matches any
-        if ignore_patterns is not None and any(fnmatch(path, r) for r in ignore_patterns):
+        if ignore_patterns is not None and any(fnmatchcase(path, r) for r in ignore_patterns):
             continue
 
         yield item
