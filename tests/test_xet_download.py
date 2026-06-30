@@ -19,17 +19,16 @@ from huggingface_hub.utils import (
     refresh_xet_connection_info,
 )
 
-from .testing_utils import (
+from .testing_constants import (
     DUMMY_XET_FILE,
     DUMMY_XET_MODEL_ID,
-    with_production_testing,
 )
 
 
 pytestmark = pytest.mark.xet
 
 
-@with_production_testing
+@pytest.mark.production
 class TestXetFileDownload:
     @contextmanager
     def _patch_xet_file_metadata(self, with_xet_data: bool):
@@ -268,7 +267,7 @@ class TestXetFileDownload:
         assert "authorization" in kwargs["token_refresh_headers"]
 
 
-@with_production_testing
+@pytest.mark.production
 class TestXetSnapshotDownload:
     def test_download_model(self, tmp_path):
         """Test that snapshot_download works with Xet storage."""

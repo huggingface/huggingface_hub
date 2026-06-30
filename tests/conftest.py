@@ -223,7 +223,7 @@ class RepoFactory(Protocol):
 def repo_factory(api: HfApi) -> Generator[RepoFactory, None, None]:
     """Create temporary repos on staging and delete them automatically when the test ends.
 
-    Replaces the former `@use_tmp_repo` decorator. Example:
+    Example:
     ```py
     def test_something(api: HfApi, repo_factory):
         repo_url = repo_factory()              # a model repo

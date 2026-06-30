@@ -46,7 +46,6 @@ from huggingface_hub.inference._common import ValidationError as TextGenerationV
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
-from .testing_utils import with_production_testing
 
 
 pytestmark = pytest.mark.inference
@@ -63,7 +62,7 @@ def tgi_client() -> AsyncInferenceClient:
 
 
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping this test")
 async def test_async_generate_no_details(tgi_client: AsyncInferenceClient) -> None:
     response = await tgi_client.text_generation("test", details=False, max_new_tokens=1)
@@ -72,7 +71,7 @@ async def test_async_generate_no_details(tgi_client: AsyncInferenceClient) -> No
 
 
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping this test")
 async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> None:
     response = await tgi_client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
@@ -90,7 +89,7 @@ async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> 
 
 
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping this test")
 async def test_async_generate_best_of(tgi_client: AsyncInferenceClient) -> None:
     response = await tgi_client.text_generation(
@@ -104,7 +103,7 @@ async def test_async_generate_best_of(tgi_client: AsyncInferenceClient) -> None:
 
 
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping this test")
 async def test_async_generate_validation_error(tgi_client: AsyncInferenceClient) -> None:
     with pytest.raises(TextGenerationValidationError):
@@ -134,7 +133,7 @@ async def test_async_generate_non_tgi_endpoint(tgi_client: AsyncInferenceClient)
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_generate_stream_no_details(tgi_client: AsyncInferenceClient) -> None:
     responses = [
         response async for response in await tgi_client.text_generation("test", max_new_tokens=1, stream=True)
@@ -149,7 +148,7 @@ async def test_async_generate_stream_no_details(tgi_client: AsyncInferenceClient
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClient) -> None:
     responses = [
         response
@@ -167,7 +166,7 @@ async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClie
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_chat_completion_no_stream() -> None:
     async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
@@ -193,7 +192,7 @@ async def test_async_chat_completion_no_stream() -> None:
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_chat_completion_not_tgi_no_stream() -> None:
     async_client = AsyncInferenceClient(model=CHAT_COMPLETE_NON_TGI_MODEL)
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
@@ -219,7 +218,7 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_chat_completion_with_stream() -> None:
     async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10, stream=True)
@@ -240,7 +239,7 @@ async def test_async_chat_completion_with_stream() -> None:
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_async_sentence_similarity() -> None:
     async_client = AsyncInferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
     scores = await async_client.sentence_similarity(
@@ -342,7 +341,7 @@ class CustomException(Exception):
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_openai_compatibility_base_url_and_api_key():
     client = AsyncInferenceClient(
         base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
@@ -362,7 +361,7 @@ async def test_openai_compatibility_base_url_and_api_key():
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_openai_compatibility_without_base_url():
     client = AsyncInferenceClient()
     output = await client.chat.completions.create(
@@ -379,7 +378,7 @@ async def test_openai_compatibility_without_base_url():
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_openai_compatibility_with_stream_true():
     client = AsyncInferenceClient()
     output = await client.chat.completions.create(
@@ -402,7 +401,7 @@ async def test_openai_compatibility_with_stream_true():
 
 @pytest.mark.skip("Temporary skipping this test")
 @pytest.mark.asyncio
-@with_production_testing
+@pytest.mark.production
 async def test_http_session_correctly_closed() -> None:
     """
     Regression test for #2493.
