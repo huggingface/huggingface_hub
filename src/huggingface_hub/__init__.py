@@ -335,7 +335,6 @@ _SUBMOD_ATTRS = {
         "revision_exists",
         "run_as_future",
         "run_job",
-        "run_scheduled_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "search_spaces",
@@ -346,6 +345,7 @@ _SUBMOD_ATTRS = {
         "suspend_scheduled_job",
         "sync_bucket",
         "sync_job_volume",
+        "trigger_scheduled_job",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -1095,7 +1095,6 @@ __all__ = [
     "revision_exists",
     "run_as_future",
     "run_job",
-    "run_scheduled_job",
     "run_uv_job",
     "save_torch_model",
     "save_torch_state_dict",
@@ -1114,6 +1113,7 @@ __all__ = [
     "suspend_scheduled_job",
     "sync_bucket",
     "sync_job_volume",
+    "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1513,7 +1513,6 @@ if TYPE_CHECKING:  # pragma: no cover
         revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         run_job,  # noqa: F401
-        run_scheduled_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         search_spaces,  # noqa: F401
@@ -1524,6 +1523,7 @@ if TYPE_CHECKING:  # pragma: no cover
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401
         sync_job_volume,  # noqa: F401
+        trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

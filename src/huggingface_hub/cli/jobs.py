@@ -1201,7 +1201,7 @@ def scheduled_trigger(
     """Trigger a scheduled Job to run immediately (does not change the schedule)."""
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
-    job = api.run_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    job = api.trigger_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
     out.result("Scheduled Job triggered", id=job.id, url=job.url)
     out.hint(f"Use `hf jobs logs -f {job.owner.name}/{job.id}` to stream logs.")
 

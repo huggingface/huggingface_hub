@@ -12792,7 +12792,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-    def run_scheduled_job(
+    def trigger_scheduled_job(
         self,
         *,
         scheduled_job_id: str,
@@ -14874,7 +14874,7 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
-run_scheduled_job = api.run_scheduled_job
+trigger_scheduled_job = api.trigger_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume

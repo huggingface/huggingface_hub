@@ -3060,10 +3060,10 @@ class TestJobsCommand:
         job.owner = Mock(name="me")
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.run_scheduled_job.return_value = job
+            api.trigger_scheduled_job.return_value = job
             result = runner.invoke(app, ["jobs", "scheduled", "trigger", "sched-456"])
         assert result.exit_code == 0
-        api.run_scheduled_job.assert_called_once_with(scheduled_job_id="sched-456", namespace=None)
+        api.trigger_scheduled_job.assert_called_once_with(scheduled_job_id="sched-456", namespace=None)
 
     def test_uv_command(self, runner: CliRunner) -> None:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")

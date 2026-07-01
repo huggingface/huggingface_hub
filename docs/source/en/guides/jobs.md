@@ -631,7 +631,7 @@ Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
 
-Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`run_scheduled_job`], and [`delete_scheduled_job`]:
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
 
 ```python
 # List your active scheduled jobs
@@ -651,8 +651,8 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 >>> resume_scheduled_job(scheduled_job_id)
 
 # Trigger a scheduled job to run right now (does not change the schedule)
->>> from huggingface_hub import run_scheduled_job
->>> job = run_scheduled_job(scheduled_job_id)
+>>> from huggingface_hub import trigger_scheduled_job
+>>> job = trigger_scheduled_job(scheduled_job_id)
 >>> job.url
 
 # Delete a scheduled job
