@@ -6,7 +6,7 @@
   </picture>
   <br/>
   <br/>
-</p> 
+</p>
 
 <p align="center">
     <i>The official Python client for the Huggingface Hub.</i>
