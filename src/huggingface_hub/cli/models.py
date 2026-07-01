@@ -27,7 +27,7 @@ Usage:
 import enum
 from typing import Annotated, get_args
 
-import typer
+import click
 
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
@@ -46,6 +46,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -56,7 +57,7 @@ ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 ExpandOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
@@ -80,32 +81,32 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
 def models_ls(
     repo_id: Annotated[
         str | None,
-        typer.Argument(help="Model ID (e.g. `username/repo-name`) to list files from. If omitted, lists models."),
+        Argument(help="Model ID (e.g. `username/repo-name`) to list files from. If omitted, lists models."),
     ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     num_parameters: Annotated[
         str | None,
-        typer.Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
+        Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
     ] = None,
     sort: Annotated[
         ModelSortEnum | None,
-        typer.Option(help="Sort results."),
+        Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
-        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+        Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
     ] = False,
     as_tree: Annotated[
         bool,
-        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+        Option("--tree", help="List files in tree format (only for listing files)."),
     ] = False,
     recursive: Annotated[
         bool,
-        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+        Option("--recursive", "-R", help="List files recursively (only for listing files)."),
     ] = False,
     revision: RevisionOpt = None,
     token: TokenOpt = None,
@@ -117,19 +118,19 @@ def models_ls(
     """
     if repo_id is not None:
         if search is not None:
-            raise typer.BadParameter("Cannot use --search when listing files.")
+            raise click.BadParameter("Cannot use --search when listing files.")
         if author is not None:
-            raise typer.BadParameter("Cannot use --author when listing files.")
+            raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
-            raise typer.BadParameter("Cannot use --filter when listing files.")
+            raise click.BadParameter("Cannot use --filter when listing files.")
         if num_parameters is not None:
-            raise typer.BadParameter("Cannot use --num-parameters when listing files.")
+            raise click.BadParameter("Cannot use --num-parameters when listing files.")
         if sort is not None:
-            raise typer.BadParameter("Cannot use --sort when listing files.")
+            raise click.BadParameter("Cannot use --sort when listing files.")
         if limit != REPO_LIST_DEFAULT_LIMIT:
-            raise typer.BadParameter("Cannot use --limit when listing files.")
+            raise click.BadParameter("Cannot use --limit when listing files.")
         if expand is not None:
-            raise typer.BadParameter("Cannot use --expand when listing files.")
+            raise click.BadParameter("Cannot use --expand when listing files.")
         return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="model",
@@ -141,13 +142,13 @@ def models_ls(
         )
 
     if as_tree:
-        raise typer.BadParameter("Cannot use --tree when listing models.")
+        raise click.BadParameter("Cannot use --tree when listing models.")
     if recursive:
-        raise typer.BadParameter("Cannot use --recursive when listing models.")
+        raise click.BadParameter("Cannot use --recursive when listing models.")
     if human_readable:
-        raise typer.BadParameter("Cannot use --human-readable when listing models.")
+        raise click.BadParameter("Cannot use --human-readable when listing models.")
     if revision is not None:
-        raise typer.BadParameter("Cannot use --revision when listing models.")
+        raise click.BadParameter("Cannot use --revision when listing models.")
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -173,7 +174,7 @@ def models_ls(
     ],
 )
 def models_info(
-    model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
+    model_id: Annotated[str, Argument(help="The model ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -199,9 +200,9 @@ def models_info(
     ],
 )
 def models_card(
-    model_id: Annotated[str, typer.Argument(help="The model ID (e.g. `username/repo-name`).")],
-    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
-    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    model_id: Annotated[str, Argument(help="The model ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, Option("--text", help="Output only the text body (no metadata).")] = False,
     token: TokenOpt = None,
 ) -> None:
     """Get the model card (README) for a model on the Hub."""

@@ -44,8 +44,6 @@ Usage:
 import warnings
 from typing import Annotated
 
-import typer
-
 from huggingface_hub import constants
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
@@ -53,6 +51,7 @@ from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, parse_hf_uri
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -70,7 +69,7 @@ def download(
     repo_id: RepoIdArg,
     filenames: Annotated[
         list[str] | None,
-        typer.Argument(
+        Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
@@ -78,44 +77,44 @@ def download(
     revision: RevisionOpt = None,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to include from files to download. eg: *.json",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to exclude from files to download.",
         ),
     ] = None,
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Directory where to save files.",
         ),
     ] = None,
     local_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.",
         ),
     ] = None,
     force_download: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If True, the files will be downloaded even if they are already cached.",
         ),
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If True, perform a dry run without actually downloading the file.",
         ),
     ] = False,
     token: TokenOpt = None,
     max_workers: Annotated[
         int,
-        typer.Option(
+        Option(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,

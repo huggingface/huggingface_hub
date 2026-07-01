@@ -22,7 +22,7 @@ as `hf repos cp` and `hf buckets cp`).
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner, Result
+from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
 from huggingface_hub._commit_api import CommitOperationCopy

@@ -53,7 +53,7 @@ import time
 import warnings
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import constants, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
@@ -69,6 +69,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -88,13 +89,13 @@ def upload(
     repo_id: RepoIdArg,
     local_path: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         ),
     ] = None,
     path_in_repo: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
@@ -103,43 +104,43 @@ def upload(
     private: PrivateOpt = None,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
     ] = None,
     commit_message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to upload content as a new Pull Request.",
         ),
     ] = False,
     every: Annotated[
         float | None,
-        typer.Option(
+        Option(
             help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
@@ -148,7 +149,7 @@ def upload(
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
     if every is not None and every <= 0:
-        raise typer.BadParameter("--every must be a positive value", param_hint="every")
+        raise click.BadParameter("--every must be a positive value", param_hint="every")
 
     # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
     # When a URI is provided, it is authoritative for the repo type, revision and (optionally) path in repo,

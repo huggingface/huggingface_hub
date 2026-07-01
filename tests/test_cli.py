@@ -7,9 +7,9 @@ from types import SimpleNamespace
 from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
+import click
 import pytest
-import typer
-from typer.testing import CliRunner
+from click.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
@@ -585,18 +585,18 @@ class TestUploadCommand:
         scheduler.stop.assert_called_once_with()
 
     def test_every_must_be_positive(self) -> None:
-        class _PatchedBadParameter(typer.BadParameter):
+        class _PatchedBadParameter(click.BadParameter):
             def __init__(self, message: str, *, param_name: Optional[str] = None, **kwargs: object) -> None:
                 super().__init__(message, **kwargs)
 
         with (
-            patch("huggingface_hub.cli.upload.typer.BadParameter", _PatchedBadParameter),
+            patch("huggingface_hub.cli.upload.click.BadParameter", _PatchedBadParameter),
             patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
         ):
-            with pytest.raises(typer.BadParameter, match="--every must be a positive value"):
+            with pytest.raises(click.BadParameter, match="--every must be a positive value"):
                 upload(repo_id=DUMMY_MODEL_ID, every=0)
 
-            with pytest.raises(typer.BadParameter, match="--every must be a positive value"):
+            with pytest.raises(click.BadParameter, match="--every must be a positive value"):
                 upload(repo_id=DUMMY_MODEL_ID, every=-10)
         api_cls.assert_not_called()
 
@@ -4514,12 +4514,11 @@ class TestSkillGeneration:
 
     def test_collect_leaf_commands_finds_deeply_nested(self) -> None:
         from click import Context, Group
-        from typer.main import get_command
 
         from huggingface_hub.cli.hf import app
         from huggingface_hub.cli.skills import _collect_leaf_commands
 
-        click_app = get_command(app)
+        click_app = app
         ctx = Context(click_app, info_name="hf")
         jobs_group = click_app.get_command(ctx, "jobs")
         assert isinstance(jobs_group, Group)

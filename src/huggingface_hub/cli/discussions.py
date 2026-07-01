@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import constants
 
@@ -32,6 +32,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -58,7 +59,7 @@ _CLIENT_SIDE_STATUSES = {"merged", "draft"}
 
 DiscussionNumArg = Annotated[
     int,
-    typer.Argument(
+    Argument(
         help="The discussion or pull request number.",
         min=1,
     ),
@@ -68,7 +69,7 @@ DiscussionNumArg = Annotated[
 def _read_body(body: str | None, body_file: Path | None) -> str | None:
     """Resolve body text from --body or --body-file (supports '-' for stdin)."""
     if body is not None and body_file is not None:
-        raise typer.BadParameter("Cannot use both --body and --body-file.")
+        raise click.BadParameter("Cannot use both --body and --body-file.")
     if body_file is not None:
         if str(body_file) == "-":
             return sys.stdin.read()
@@ -92,7 +93,7 @@ def discussion_list(
     repo_id: RepoIdArg,
     status: Annotated[
         DiscussionStatus,
-        typer.Option(
+        Option(
             "-s",
             "--status",
             help="Filter by status (open, closed, merged, draft, all).",
@@ -100,7 +101,7 @@ def discussion_list(
     ] = DiscussionStatus.open,
     kind: Annotated[
         DiscussionKind,
-        typer.Option(
+        Option(
             "-k",
             "--kind",
             help="Filter by kind (discussion, pull_request, all).",
@@ -186,28 +187,28 @@ def discussion_create(
     repo_id: RepoIdArg,
     title: Annotated[
         str,
-        typer.Option(
+        Option(
             "--title",
             help="The title of the discussion or pull request.",
         ),
     ],
     body: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--body",
             help="The description (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             "--body-file",
             help="Read the description from a file. Use '-' for stdin.",
         ),
     ] = None,
     pull_request: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--pull-request",
             "--pr",
             help="Create a pull request instead of a discussion.",
@@ -243,14 +244,14 @@ def discussion_comment(
     num: DiscussionNumArg,
     body: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--body",
             help="The comment text (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             "--body-file",
             help="Read the comment from a file. Use '-' for stdin.",
         ),
@@ -261,7 +262,7 @@ def discussion_comment(
     """Comment on a discussion or pull request."""
     comment = _read_body(body, body_file)
     if comment is None:
-        raise typer.BadParameter("Either --body or --body-file is required.")
+        raise click.BadParameter("Either --body or --body-file is required.")
     api = get_hf_api(token=token)
     api.comment_discussion(
         repo_id=repo_id,
@@ -284,20 +285,20 @@ def discussion_edit(
     num: DiscussionNumArg,
     comment_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The ID of the comment to edit (see 'hf discussions info ... --format json').",
         ),
     ],
     body: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--body",
             help="The new comment text (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             "--body-file",
             help="Read the new comment from a file. Use '-' for stdin.",
         ),
@@ -308,7 +309,7 @@ def discussion_edit(
     """Edit an existing comment on a discussion or pull request."""
     new_content = _read_body(body, body_file)
     if new_content is None:
-        raise typer.BadParameter("Either --body or --body-file is required.")
+        raise click.BadParameter("Either --body or --body-file is required.")
     api = get_hf_api(token=token)
     api.edit_discussion_comment(
         repo_id=repo_id,
@@ -332,14 +333,14 @@ def discussion_close(
     num: DiscussionNumArg,
     comment: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--comment",
             help="An optional comment to post when closing.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -373,14 +374,14 @@ def discussion_reopen(
     num: DiscussionNumArg,
     comment: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--comment",
             help="An optional comment to post when reopening.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -413,7 +414,7 @@ def discussion_rename(
     num: DiscussionNumArg,
     new_title: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The new title.",
         ),
     ],
@@ -443,14 +444,14 @@ def discussion_merge(
     num: DiscussionNumArg,
     comment: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--comment",
             help="An optional comment to post when merging.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",

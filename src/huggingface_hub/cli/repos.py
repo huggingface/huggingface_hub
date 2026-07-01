@@ -27,7 +27,7 @@ Usage:
 import enum
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import SpaceHardware, SpaceStorage
 from huggingface_hub.cli._cli_utils import SoftChoice
@@ -58,14 +58,15 @@ from ._cli_utils import (
 )
 from ._cp import make_cp
 from ._file_listing import format_size
+from ._framework import Argument, Option
 from ._output import OutputFormat, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
 
 
-@repos_cli.callback(invoke_without_command=True)
-def _repos_callback(ctx: typer.Context) -> None:
+@repos_cli.group_callback(invoke_without_command=True)
+def _repos_callback(ctx: click.Context) -> None:
     if ctx.info_name == "repo":
         out.warning("`hf repo` is deprecated in favor of `hf repos`.")
 
@@ -85,7 +86,7 @@ class GatedChoices(str, enum.Enum):
 
 PublicOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         "--public",
         help="Whether to make the repo public. Ignored if the repo already exists.",
     ),
@@ -93,14 +94,14 @@ PublicOpt = Annotated[
 
 ProtectedOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         "--protected",
         help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
     ),
 ]
 SpaceHardwareOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
         click_type=SoftChoice(SpaceHardware),
@@ -109,7 +110,7 @@ SpaceHardwareOpt = Annotated[
 
 SpaceStorageOpt = Annotated[
     SpaceStorage | None,
-    typer.Option(
+    Option(
         "--storage",
         help="(Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
     ),
@@ -117,7 +118,7 @@ SpaceStorageOpt = Annotated[
 
 SpaceSleepTimeOpt = Annotated[
     int | None,
-    typer.Option(
+    Option(
         "--sleep-time",
         help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
     ),
@@ -126,8 +127,8 @@ SpaceSleepTimeOpt = Annotated[
 
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-repos_cli.add_typer(tag_cli, name="tag")
-repos_cli.add_typer(branch_cli, name="branch")
+repos_cli.add_group(tag_cli, name="tag")
+repos_cli.add_group(branch_cli, name="branch")
 
 
 @repos_cli.command(
@@ -141,13 +142,13 @@ repos_cli.add_typer(branch_cli, name="branch")
 def repo_list(
     namespace: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Organization name. If not provided, lists repos for the authenticated user.",
         ),
     ] = None,
     repo_type: Annotated[
         RepoTypeAll | None,
-        typer.Option(
+        Option(
             "--type",
             "--repo-type",
             help="Filter by repository type (model, dataset, space, or bucket).",
@@ -157,7 +158,7 @@ def repo_list(
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     explore: Annotated[
         bool,
-        typer.Option("--explore", help="Explore your repos as an interactive 3D city."),
+        Option("--explore", help="Explore your repos as an interactive 3D city."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -210,7 +211,7 @@ def repo_create(
     repo_type: RepoTypeOpt = RepoType.model,
     space_sdk: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
@@ -220,19 +221,19 @@ def repo_create(
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
     resource_group_id: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
     ] = None,
     region: Annotated[
         REPO_REGIONS | None,
-        typer.Option(
+        Option(
             "--region",
             help="Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.",
         ),
@@ -279,7 +280,7 @@ def repo_duplicate(
     from_id: RepoIdArg,
     to_id: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.",
         ),
     ] = None,
@@ -290,7 +291,7 @@ def repo_duplicate(
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
@@ -329,13 +330,13 @@ def repo_delete(
     token: TokenOpt = None,
     missing_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If set to True, do not raise an error if repo does not exist.",
         ),
     ] = False,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically.",
@@ -382,7 +383,7 @@ def repo_settings(
     repo_id: RepoIdArg,
     gated: Annotated[
         GatedChoices | None,
-        typer.Option(
+        Option(
             help="The gated status for the repository.",
         ),
     ] = None,
@@ -415,7 +416,7 @@ def repo_delete_files(
     repo_id: RepoIdArg,
     patterns: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
         ),
     ],
@@ -423,19 +424,19 @@ def repo_delete_files(
     revision: RevisionOpt = None,
     commit_message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,
@@ -486,7 +487,7 @@ def branch_create(
     repo_id: RepoIdArg,
     branch: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the branch to create.",
         ),
     ],
@@ -495,7 +496,7 @@ def branch_create(
     repo_type: RepoTypeOpt = RepoType.model,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If set to True, do not raise an error if branch already exists.",
         ),
     ] = False,
@@ -517,7 +518,7 @@ def branch_delete(
     repo_id: RepoIdArg,
     branch: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the branch to delete.",
         ),
     ],
@@ -545,13 +546,13 @@ def tag_create(
     repo_id: RepoIdArg,
     tag: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the tag to create.",
         ),
     ],
     message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "-m",
             "--message",
             help="The description of the tag to create.",
@@ -599,13 +600,13 @@ def tag_delete(
     repo_id: RepoIdArg,
     tag: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the tag to delete.",
         ),
     ],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically",

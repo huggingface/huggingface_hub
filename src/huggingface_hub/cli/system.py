@@ -13,7 +13,7 @@
 # limitations under the License.
 """Contains commands to print information about the environment and version."""
 
-import typer
+import click
 
 from huggingface_hub import __version__
 
@@ -43,7 +43,7 @@ def update() -> None:
 
     returncode = run_update()
     if returncode != 0:
-        raise typer.Exit(code=returncode)
+        raise click.exceptions.Exit(code=returncode)
     out.hint(
         "You may also want to run `hf skills update` to refresh any installed skills "
         "so your AI agent sees the latest command surface."
