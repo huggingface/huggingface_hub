@@ -13,6 +13,10 @@ from huggingface_hub.utils._parsing import format_duration, format_timesince, pa
         ("5M", 5_000_000),
         ("2G", 2_000_000_000),
         ("1T", 1_000_000_000_000),
+        ("3KB", 3_000),
+        ("10MB", 10_000_000),
+        ("1GB", 1_000_000_000),
+        ("2TB", 2_000_000_000_000),
         ("0", 0),
     ],
 )
@@ -24,7 +28,6 @@ def test_parse_size_valid(value, expected):
     "value",
     [
         "1.5G",
-        "3KB",
         "-5M",
         "10X",
         "abc",
