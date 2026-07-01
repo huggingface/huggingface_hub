@@ -621,7 +621,7 @@ def _upload_xet_files(
         xet_connection_info_refresh_url,
         xet_headers_without_auth,
     )
-    from .utils._xet_progress_reporting import XetProgressReporter
+    from .utils._xet_progress_reporting import XetUploadProgressReporter
 
     refresh_url = xet_connection_info_refresh_url(
         token_type=XetTokenType.WRITE,
@@ -647,7 +647,7 @@ def _upload_xet_files(
 
     try:
         if not are_progress_bars_disabled():
-            progress = XetProgressReporter()
+            progress = XetUploadProgressReporter()
             progress_callback = progress.update_progress
         else:
             progress_callback = None

@@ -391,6 +391,8 @@ def http_get(
                 # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
                 # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
                 _tqdm_bar.update(-resume_size)
+                if callable(update_transfer := getattr(_tqdm_bar, "update_transfer", None)):
+                    update_transfer(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
@@ -435,6 +437,8 @@ def http_get(
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                     if chunk:  # filter out keep-alive new chunks
                         progress.update(len(chunk))
+                        if callable(update_transfer := getattr(progress, "update_transfer", None)):
+                            update_transfer(len(chunk))
                         temp_file.write(chunk)
                         new_resume_size += len(chunk)
                         # Some data has been downloaded from the server so we reset the number of retries.
@@ -539,37 +543,28 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    progress_cm = _get_progress_bar_context(
-        desc=displayed_filename,
-        log_level=logger.getEffectiveLevel(),
-        total=expected_size,
-        initial=0,
-        name="huggingface_hub.xet_get",
-        tqdm_class=tqdm_class,
-        _tqdm_bar=_tqdm_bar,
-    )
-
     from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+    from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
 
     session = get_xet_session()
 
-    with progress_cm as progress:
-        _prev = 0
-
-        def _on_progress(group_report, _):
-            nonlocal _prev
-            current = group_report.total_bytes_completed
-            progress.update(max(0, current - _prev))
-            _prev = current
-
+    with XetDownloadProgressReporter(
+        reconstruction_desc=f"{displayed_filename}: reconstructing file",
+        transfer_desc=f"{displayed_filename}: downloading bytes",
+        total=expected_size,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.xet_get",
+        tqdm_class=tqdm_class,
+        external_reconstruction_bar=_tqdm_bar,
+    ) as progress:
         try:
             with session.new_file_download_group(
                 token_refresh_url=xet_file_data.refresh_route,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
-                progress_callback=_on_progress,
+                progress_callback=progress.update_progress,
             ) as group:
                 group.start_download_file(
                     XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())

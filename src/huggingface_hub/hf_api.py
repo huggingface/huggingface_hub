@@ -150,13 +150,12 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
-from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
-    from .utils._xet_progress_reporting import XetProgressReporter
+    from .utils._xet_progress_reporting import XetUploadProgressReporter
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
@@ -14050,10 +14049,10 @@ class HfApi:
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         if add and not are_progress_bars_disabled():
-            progress = XetProgressReporter(total_files=len(add))
+            progress = XetUploadProgressReporter(total_files=len(add))
         else:
             progress = None
 
@@ -14080,7 +14079,7 @@ class HfApi:
         copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
         delete: list[str | _BucketDeleteFile] | None = None,
         token: str | bool | None = None,
-        _progress: XetProgressReporter | None = None,
+        _progress: XetUploadProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
@@ -14125,7 +14124,7 @@ class HfApi:
             xet_connection_info_refresh_url,
             xet_headers_without_auth,
         )
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         headers = self._build_hf_headers(token=token)
 
@@ -14149,7 +14148,7 @@ class HfApi:
                 progress.reset_for_next_commit()
                 progress_callback = progress.update_progress
             elif not are_progress_bars_disabled():
-                progress = XetProgressReporter()
+                progress = XetUploadProgressReporter()
                 progress_callback = progress.update_progress
             else:
                 progress, progress_callback = None, None
@@ -14384,31 +14383,23 @@ class HfApi:
         xet_headers = xet_headers_without_auth(headers)
 
         # Download files
-        progress_cm = _get_progress_bar_context(
-            desc="Downloading bucket files",
-            log_level=logger.getEffectiveLevel(),
-            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
-            initial=0,
-            name="huggingface_hub.download_bucket_files",
-        )
+        from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
         session = get_xet_session()
 
-        with progress_cm as progress:
-            prev = 0
-
-            def _on_progress(group_report, _):
-                nonlocal prev
-                current = group_report.total_bytes_completed
-                progress.update(max(0, current - prev))
-                prev = current
-
+        with XetDownloadProgressReporter(
+            reconstruction_desc="Downloading bucket files",
+            transfer_desc="Downloading bytes",
+            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
+            log_level=logger.getEffectiveLevel(),
+            name="huggingface_hub.download_bucket_files",
+        ) as progress:
             try:
                 with session.new_file_download_group(
                     token_refresh_url=metadata.xet_file_data.refresh_route,
                     token_refresh_headers=headers,
                     custom_headers=xet_headers,
-                    progress_callback=_on_progress,
+                    progress_callback=progress.update_progress,
                 ) as group:
                     for xet_info, dest in non_zero_download_items:
                         group.start_download_file(xet_info, dest)
