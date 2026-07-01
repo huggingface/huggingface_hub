@@ -1,8 +1,6 @@
 import threading
 import time
 import weakref
-from datetime import datetime, timedelta, timezone
-from email.utils import format_datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch

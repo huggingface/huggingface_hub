@@ -24,8 +24,6 @@ import uuid
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from shlex import quote
 from typing import Any, TypeVar
 from urllib.parse import urlparse
@@ -486,10 +484,11 @@ def _http_backoff_base(
                     # user ask for retry on a status code that doesn't raise_for_status.
                     return False  # Don't retry, return/yield response
 
-                # Get the server-requested wait time from headers.
-                # `parse_ratelimit_headers` takes precedence over the standard `Retry-After` header.
-                ratelimit_info = parse_ratelimit_headers(response.headers)
-                if ratelimit_info is not None:
+                # Check 'ratelimit' and `Retry-After` headers.
+                if (
+                    response.status_code == 429
+                    and (ratelimit_info := parse_ratelimit_headers(response.headers)) is not None
+                ):
                     ratelimit_reset = ratelimit_info.reset_in_seconds
                 elif (retry_after := _parse_retry_after(response.headers)) is not None:
                     ratelimit_reset = retry_after
