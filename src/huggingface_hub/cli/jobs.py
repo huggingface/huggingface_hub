@@ -59,6 +59,9 @@ Usage:
     # Resume a scheduled job
     hf jobs scheduled resume <scheduled_job_id>
 
+    # Trigger a scheduled job to run now
+    hf jobs scheduled trigger <scheduled_job_id>
+
     # Delete a scheduled job
     hf jobs scheduled delete <scheduled_job_id>
 
@@ -1187,6 +1190,20 @@ def scheduled_resume(
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
     out.result("Scheduled Job resumed", id=scheduled_job_id)
+
+
+@scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])
+def scheduled_trigger(
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Trigger a scheduled Job to run immediately (does not change the schedule)."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.run_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    out.result("Scheduled Job triggered", id=job.id, url=job.url)
+    out.hint(f"Use `hf jobs logs -f {job.owner.name}/{job.id}` to stream logs.")
 
 
 @scheduled_app.command(

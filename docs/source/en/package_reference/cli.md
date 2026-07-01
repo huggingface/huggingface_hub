@@ -2423,6 +2423,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
+* `trigger`: Trigger a scheduled Job to run immediately...
 * `uv`: Schedule UV scripts on HF infrastructure.
 
 #### `hf jobs scheduled delete`
@@ -2629,6 +2630,34 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 Examples
   $ hf jobs scheduled suspend <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled trigger`
+
+Trigger a scheduled Job to run immediately (does not change the schedule).
+
+**Usage**:
+
+```console
+$ hf jobs scheduled trigger [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled trigger <id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.

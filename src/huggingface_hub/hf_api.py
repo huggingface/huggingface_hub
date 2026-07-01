@@ -12792,6 +12792,48 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def run_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Trigger a scheduled Job to run immediately.
+
+        This triggers one immediate run of the scheduled job's spec. It does **not** modify the schedule
+        and does **not** affect the next scheduled run. If an instance is already running and the scheduled
+        job does not allow concurrent runs, the request is rejected (HTTP 409).
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: Info about the triggered run.
+
+        Raises:
+            [`~utils.HfHubHTTPError`]:
+                HTTP 409 if another instance is already running and `concurrency` is disabled on the scheduled job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/run",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def update_scheduled_job_labels(
         self,
         *,
@@ -14832,6 +14874,7 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
+run_scheduled_job = api.run_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume

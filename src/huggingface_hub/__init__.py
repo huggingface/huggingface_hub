@@ -335,6 +335,7 @@ _SUBMOD_ATTRS = {
         "revision_exists",
         "run_as_future",
         "run_job",
+        "run_scheduled_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
         "search_spaces",
@@ -1094,6 +1095,7 @@ __all__ = [
     "revision_exists",
     "run_as_future",
     "run_job",
+    "run_scheduled_job",
     "run_uv_job",
     "save_torch_model",
     "save_torch_state_dict",
@@ -1511,6 +1513,7 @@ if TYPE_CHECKING:  # pragma: no cover
         revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         run_job,  # noqa: F401
+        run_scheduled_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         search_spaces,  # noqa: F401
