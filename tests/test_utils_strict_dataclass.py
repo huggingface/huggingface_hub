@@ -871,38 +871,40 @@ def test_typed_dict_to_dataclass_is_cached():
     assert strict_cls is strict_cls_bis  # "is" because dataclass is built only once
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
-class TestConfigDictNotRequired:
-    def __init__(self):
-        # cannot be defined at class level because of Python<3.11
-        self.ConfigDictNotRequired = TypedDict(
-            "ConfigDictNotRequired",
-            {"required_value": Required[int], "not_required_value": NotRequired[int]},
-            total=False,
-        )
-
-    @pytest.mark.parametrize(
-        "data",
-        [
-            {"required_value": 1, "not_required_value": 2},
-            {"required_value": 1},  # not required value is not validated
-        ],
+@pytest.fixture
+def typed_dict_not_required():
+    if sys.version_info < (3, 11):
+        pytest.skip("Requires Python 3.11+")
+    return TypedDict(
+        "ConfigDictNotRequired",
+        {"required_value": Required[int], "not_required_value": NotRequired[int]},
+        total=False,
     )
-    def test_typed_dict_not_required_valid_data(self, data: dict):
-        validate_typed_dict(self.ConfigDictNotRequired, data)
 
-    @pytest.mark.parametrize(
-        "data",
-        [
-            # Missing required value
-            {"not_required_value": 2},
-            # If exists, the value is validated
-            {"required_value": 1, "not_required_value": "2"},
-        ],
-    )
-    def test_typed_dict_not_required_invalid_data(self, data: dict):
-        with pytest.raises(StrictDataclassFieldValidationError):
-            validate_typed_dict(self.ConfigDictNotRequired, data)
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"required_value": 1, "not_required_value": 2},
+        {"required_value": 1},  # not required value is not validated
+    ],
+)
+def test_typed_dict_not_required_valid_data(typed_dict_not_required, data: dict):
+    validate_typed_dict(typed_dict_not_required, data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # Missing required value
+        {"not_required_value": 2},
+        # If exists, the value is validated
+        {"required_value": 1, "not_required_value": "2"},
+    ],
+)
+def test_typed_dict_not_required_invalid_data(typed_dict_not_required, data: dict):
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(typed_dict_not_required, data)
 
 
 def test_typed_dict_total_true():
