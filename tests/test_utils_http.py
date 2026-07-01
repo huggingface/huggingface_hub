@@ -24,6 +24,7 @@ from huggingface_hub.utils._http import (
     _adjust_range_header,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
+    _parse_retry_after,
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -524,6 +525,23 @@ class TestParseRatelimitHeaders:
         info = parse_ratelimit_headers(headers)
         assert info is not None
         assert info.remaining == 10
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Retry-After": "120"}, 120),
+        ({"Retry-After": "0"}, 0),
+        ({"retry-after": "42"}, 42),
+        ({}, None),
+        ({"Retry-After": "not-a-date"}, None),
+        ({"Retry-After": ""}, None),
+        ({"Retry-After": "-5"}, None),
+    ],
+)
+def test_parse_delay_seconds(headers, expected):
+    """Test parsing the delay-seconds form (e.g. 'Retry-After: 120')."""
+    assert _parse_retry_after(headers) == expected
 
 
 class TestBucketNotFoundError:

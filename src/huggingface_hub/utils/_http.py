@@ -139,6 +139,31 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> RateLimitInfo | None:
     )
 
 
+def _parse_retry_after(headers: Mapping[str, str]) -> int | None:
+    """Parse the standard `Retry-After` HTTP header into a number of seconds to wait.
+
+    The `Retry-After` header can be either a non-negative number of seconds (delay-seconds)
+    or an HTTP-date after which to retry. We handle only the delay-seconds case.
+
+    See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After.
+    """
+    value: str | None = None
+    for key in headers:
+        if key.lower() == "retry-after":
+            value = headers[key]
+            break
+
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+
+    if value.isdigit():
+        return int(value)  # e.g. "Retry-After: 120"
+    return None  #  e.g. "Retry-After: Wed, 21 Oct 2015 07:28:00 GMT" - not supported
+
+
 # When raising an error, we include the request id in the error message for easier debugging.
 # Request ID is sourced from headers in order of precedence: "X-Request-Id", "X-Amzn-Trace-Id", "X-Amz-Cf-Id".
 X_REQUEST_ID = "x-request-id"
@@ -459,11 +484,14 @@ def _http_backoff_base(
                     # user ask for retry on a status code that doesn't raise_for_status.
                     return False  # Don't retry, return/yield response
 
-                # get rate limit reset time from headers if 429 response
-                if response.status_code == 429:
-                    ratelimit_info = parse_ratelimit_headers(response.headers)
-                    if ratelimit_info is not None:
-                        ratelimit_reset = ratelimit_info.reset_in_seconds
+                # Check 'ratelimit' and `Retry-After` headers.
+                if (
+                    response.status_code == 429
+                    and (ratelimit_info := parse_ratelimit_headers(response.headers)) is not None
+                ):
+                    ratelimit_reset = ratelimit_info.reset_in_seconds
+                elif (retry_after := _parse_retry_after(response.headers)) is not None:
+                    ratelimit_reset = retry_after
 
                 return True  # Should retry
 
