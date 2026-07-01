@@ -145,10 +145,9 @@ def _parse_retry_after(headers: Mapping[str, str]) -> int | None:
     """Parse the standard `Retry-After` HTTP header into a number of seconds to wait.
 
     The `Retry-After` header can be either a non-negative number of seconds (delay-seconds)
-    or an HTTP-date after which to retry.
-    See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After.
+    or an HTTP-date after which to retry. We handle only the delay-seconds case.
 
-    Returns the delay in seconds (never negative), or `None` if the header is absent or invalid.
+    See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After.
     """
     value: str | None = None
     for key in headers:
@@ -162,21 +161,9 @@ def _parse_retry_after(headers: Mapping[str, str]) -> int | None:
     if not value:
         return None
 
-    # delay-seconds form, e.g. "Retry-After: 120"
     if value.isdigit():
-        return int(value)
-
-    # HTTP-date form, e.g. "Retry-After: Wed, 21 Oct 2015 07:28:00 GMT"
-    try:
-        retry_date = parsedate_to_datetime(value)
-    except (TypeError, ValueError):
-        return None
-    if retry_date is None:  # some Python versions return None on failure
-        return None
-    if retry_date.tzinfo is None:
-        retry_date = retry_date.replace(tzinfo=timezone.utc)
-    delta = (retry_date - datetime.now(timezone.utc)).total_seconds()
-    return max(0, int(delta))
+        return int(value)  # e.g. "Retry-After: 120"
+    return None  #  e.g. "Retry-After: Wed, 21 Oct 2015 07:28:00 GMT" - not supported
 
 
 # When raising an error, we include the request id in the error message for easier debugging.
@@ -500,7 +487,7 @@ def _http_backoff_base(
                     return False  # Don't retry, return/yield response
 
                 # Get the server-requested wait time from headers.
-                # `parse_ratelimit_headers` (429) takes precedence over the standard `Retry-After` header.
+                # `parse_ratelimit_headers` takes precedence over the standard `Retry-After` header.
                 ratelimit_info = parse_ratelimit_headers(response.headers)
                 if ratelimit_info is not None:
                     ratelimit_reset = ratelimit_info.reset_in_seconds
@@ -531,7 +518,7 @@ def _http_backoff_base(
 
         if ratelimit_reset is not None:
             actual_sleep = float(ratelimit_reset) + 1  # +1s to avoid rounding issues
-            logger.warning(f"Server requested to wait {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
+            logger.warning(f"Rate limited. Waiting {actual_sleep}s before retry [Retry {nb_tries}/{max_retries}].")
         else:
             actual_sleep = sleep_time
             logger.warning(f"Retrying in {actual_sleep}s [Retry {nb_tries}/{max_retries}].")
