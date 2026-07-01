@@ -1,6 +1,8 @@
 import threading
 import time
 import weakref
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
@@ -24,6 +26,7 @@ from huggingface_hub.utils._http import (
     _adjust_range_header,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
+    _parse_retry_after,
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -185,6 +188,61 @@ class TestHttpBackoff:
 
         assert self.mock_request.call_count == 2
         assert sleep_times == [2.0]
+        assert response.status_code == 200
+
+    def test_backoff_uses_retry_after_header(self) -> None:
+        """Test that wait time uses the `Retry-After` header when no ratelimit header is present."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_503 = Mock()
+            mock_503.status_code = 503
+            mock_503.headers = {"Retry-After": "1"}  # Server says wait 1s
+            yield mock_503
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=503
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]  # 1s from Retry-After + 1s to avoid rounding issues
+        assert response.status_code == 200
+
+    def test_backoff_ratelimit_header_takes_precedence_over_retry_after(self) -> None:
+        """Test that the ratelimit header takes precedence over `Retry-After` when both are present."""
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator:
+            t0 = time.time()
+            mock_429 = Mock()
+            mock_429.status_code = 429
+            # ratelimit says 1s, Retry-After says 10s => ratelimit wins
+            mock_429.headers = {"ratelimit": '"api";r=0;t=1', "Retry-After": "10"}
+            yield mock_429
+            t1 = time.time()
+            sleep_times.append(round(t1 - t0, 1))
+            t0 = t1
+            mock_200 = Mock()
+            mock_200.status_code = 200
+            yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff(
+            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
+        )
+
+        assert self.mock_request.call_count == 2
+        assert sleep_times == [2.0]  # 1s from ratelimit header (not 10s from Retry-After) + 1s
         assert response.status_code == 200
 
 
@@ -524,6 +582,42 @@ class TestParseRatelimitHeaders:
         info = parse_ratelimit_headers(headers)
         assert info is not None
         assert info.remaining == 10
+
+
+class TestParseRetryAfter:
+    def test_parse_delay_seconds(self):
+        """Test parsing the delay-seconds form (e.g. 'Retry-After: 120')."""
+        assert _parse_retry_after({"Retry-After": "120"}) == 120
+        assert _parse_retry_after({"Retry-After": "0"}) == 0
+
+    def test_parse_http_date_in_future(self):
+        """Test parsing the HTTP-date form returns the number of seconds until that date."""
+        future = datetime.now(timezone.utc) + timedelta(seconds=120)
+        headers = {"Retry-After": format_datetime(future, usegmt=True)}
+        delay = _parse_retry_after(headers)
+        assert delay is not None
+        # Allow a small margin for the time elapsed between construction and parsing.
+        assert 115 <= delay <= 120
+
+    def test_parse_http_date_in_past(self):
+        """Test parsing an HTTP-date in the past is clamped to 0 (never negative)."""
+        past = datetime.now(timezone.utc) - timedelta(seconds=120)
+        headers = {"Retry-After": format_datetime(past, usegmt=True)}
+        assert _parse_retry_after(headers) == 0
+
+    def test_parse_case_insensitive(self):
+        """Test header lookup is case-insensitive."""
+        assert _parse_retry_after({"retry-after": "42"}) == 42
+
+    def test_parse_missing_header(self):
+        """Test returns None when the header is absent."""
+        assert _parse_retry_after({}) is None
+
+    def test_parse_malformed_header(self):
+        """Test returns None when the header value is invalid."""
+        assert _parse_retry_after({"Retry-After": "not-a-date"}) is None
+        assert _parse_retry_after({"Retry-After": ""}) is None
+        assert _parse_retry_after({"Retry-After": "-5"}) is None
 
 
 class TestBucketNotFoundError:
