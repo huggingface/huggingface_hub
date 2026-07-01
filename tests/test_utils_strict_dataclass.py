@@ -873,6 +873,8 @@ def test_typed_dict_to_dataclass_is_cached():
 
 @pytest.fixture
 def typed_dict_not_required():
+    if sys.version_info < (3, 11):
+        pytest.skip("Requires Python 3.11+")
     return TypedDict(
         "ConfigDictNotRequired",
         {"required_value": Required[int], "not_required_value": NotRequired[int]},
@@ -880,7 +882,6 @@ def typed_dict_not_required():
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 @pytest.mark.parametrize(
     "data",
     [
@@ -892,7 +893,6 @@ def test_typed_dict_not_required_valid_data(typed_dict_not_required, data: dict)
     validate_typed_dict(typed_dict_not_required, data)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 @pytest.mark.parametrize(
     "data",
     [
