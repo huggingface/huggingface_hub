@@ -2423,6 +2423,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
+* `trigger`: Trigger a scheduled Job to run immediately...
 * `uv`: Schedule UV scripts on HF infrastructure.
 
 #### `hf jobs scheduled delete`
@@ -2629,6 +2630,34 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 Examples
   $ hf jobs scheduled suspend <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled trigger`
+
+Trigger a scheduled Job to run immediately (does not change the schedule).
+
+**Usage**:
+
+```console
+$ hf jobs scheduled trigger [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled trigger <id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3696,6 +3725,8 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 * `exec`: Run a command in a sandbox, streaming output.
 * `kill`: Terminate a sandbox, a whole shared host,...
 * `pool`: Warm pools of host VMs and spawn cheap...
+* `process`: List and stop background processes running...
+* `spawn`: Start a long-running command in the...
 
 ### `hf sandbox cp`
 
@@ -3775,6 +3806,9 @@ Learn more
 ### `hf sandbox exec`
 
 Run a command in a sandbox, streaming output. Exits with the command's exit code.
+
+To start a long-running command in the background instead of waiting for it, use
+`hf sandbox spawn`.
 
 **Usage**:
 
@@ -3939,6 +3973,118 @@ $ hf sandbox pool ls [OPTIONS]
 
 Examples
   $ hf sandbox pool ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox process`
+
+List and stop background processes running in a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox process [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `kill`: Stop a background process running in a...
+* `ls`: List the background processes running in a... [alias: list]
+
+#### `hf sandbox process kill`
+
+Stop a background process running in a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox process kill [OPTIONS] SANDBOX_ID PID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `PID`: The pid as printed by `hf sandbox process ls`.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox process kill <sandbox_id> <pid>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox process ls`
+
+List the background processes running in a sandbox (started with `hf sandbox spawn`). [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox process ls [OPTIONS] SANDBOX_ID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox process ls <sandbox_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox spawn`
+
+Start a long-running command in the background and return its pid (don't wait).
+
+List a sandbox's processes with `hf sandbox process ls` and stop one with
+`hf sandbox process kill`.
+
+**Usage**:
+
+```console
+$ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `COMMAND...`: The command to run in the background.  [required]
+
+**Options**:
+
+* `-w, --workdir TEXT`: Working directory.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox spawn <sandbox_id> -- python -m http.server 8000
+  $ hf sandbox spawn -w /app <sandbox_id> -- uvicorn app:app
 
 Learn more
   Use `hf <command> --help` for more information about a command.

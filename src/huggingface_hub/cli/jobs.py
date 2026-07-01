@@ -11,58 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with jobs on the Hugging Face Hub.
-
-Usage:
-    # run a job
-    hf jobs run <image> <command>
-
-    # List running or completed jobs
-    hf jobs ls [-a] [-f key=value]
-
-    # Print logs from a job (non-blocking)
-    hf jobs logs <job-id>
-
-    # Stream logs from a job (blocking, like `docker logs -f`)
-    hf jobs logs -f <job-id>
-
-    # Stream resources usage stats and metrics from a job
-    hf jobs stats <job-id>
-
-    # Inspect detailed information about a job
-    hf jobs inspect <job-id>
-
-    # Cancel a running job
-    hf jobs cancel <job-id>
-
-    # Wait until one or more jobs finish
-    hf jobs wait <job-id> [<job-id>...]
-
-    # List available hardware options
-    hf jobs hardware
-
-    # Run a UV script
-    hf jobs uv run <script>
-
-    # Schedule a job
-    hf jobs scheduled run <schedule> <image> <command>
-
-    # List scheduled jobs
-    hf jobs scheduled ls [-a] [-f key=value]
-
-    # Inspect a scheduled job
-    hf jobs scheduled inspect <scheduled_job_id>
-
-    # Suspend a scheduled job
-    hf jobs scheduled suspend <scheduled_job_id>
-
-    # Resume a scheduled job
-    hf jobs scheduled resume <scheduled_job_id>
-
-    # Delete a scheduled job
-    hf jobs scheduled delete <scheduled_job_id>
-
-"""
+"""Contains commands to interact with jobs on the Hugging Face Hub."""
 
 import itertools
 import multiprocessing
@@ -1122,6 +1071,10 @@ def scheduled_ps(
     if not items and filters:
         filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
         out.text(f"No scheduled jobs matched filters: {filters_msg}")
+    if items:
+        first_item_id = items[0]["id"]
+        out.hint(f"Use `hf jobs scheduled inspect {first_item_id}` to view details about a scheduled job.")
+        out.hint(f"Use `hf jobs scheduled trigger {first_item_id}` to trigger a scheduled job immediately.")
 
 
 @scheduled_app.command("inspect", examples=["hf jobs scheduled inspect <id>"])
@@ -1187,6 +1140,20 @@ def scheduled_resume(
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
     out.result("Scheduled Job resumed", id=scheduled_job_id)
+
+
+@scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])
+def scheduled_trigger(
+    scheduled_job_id: ScheduledJobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Trigger a scheduled Job to run immediately (does not change the schedule)."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.trigger_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
+    out.result("Scheduled Job triggered", id=job.id, url=job.url)
+    out.hint(f"Use `hf jobs logs -f {job.owner.name}/{job.id}` to stream logs.")
 
 
 @scheduled_app.command(

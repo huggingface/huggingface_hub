@@ -106,6 +106,7 @@ _SUBMOD_ATTRS = {
         "Sandbox",
         "SandboxCommandResult",
         "SandboxPool",
+        "SandboxProcess",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -345,6 +346,7 @@ _SUBMOD_ATTRS = {
         "suspend_scheduled_job",
         "sync_bucket",
         "sync_job_volume",
+        "trigger_scheduled_job",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
@@ -820,6 +822,7 @@ __all__ = [
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
+    "SandboxProcess",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1112,6 +1115,7 @@ __all__ = [
     "suspend_scheduled_job",
     "sync_bucket",
     "sync_job_volume",
+    "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
@@ -1286,6 +1290,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401
         SandboxPool,  # noqa: F401
+        SandboxProcess,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
@@ -1521,6 +1526,7 @@ if TYPE_CHECKING:  # pragma: no cover
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401
         sync_job_volume,  # noqa: F401
+        trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

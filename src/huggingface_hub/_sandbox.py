@@ -19,7 +19,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
@@ -125,6 +125,30 @@ class SandboxCommandResult:
     def __repr__(self) -> str:
         out = self.stdout if len(self.stdout) <= 80 else self.stdout[:77] + "..."
         return f"SandboxCommandResult(exit_code={self.exit_code}, stdout={out!r}, duration_ms={self.duration_ms})"
+
+
+@dataclass
+class SandboxProcess:
+    """A background process started in a sandbox with [`Sandbox.run`]`(..., background=True)`.
+
+    List a sandbox's processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
+    Completed processes stay in the listing until the sandbox is deleted, so `running` and
+    `exit_code` tell whether a process is still alive or already exited (as of when it was listed).
+    """
+
+    pid: int
+    cmd: str | List[str]
+    # Back-reference to the sandbox, used by `kill()`. Excluded from repr/eq so a process
+    # stays a plain data object (and two with the same pid compare equal).
+    _sandbox: "Sandbox" = field(repr=False, compare=False)
+    tag: str | None = None
+    started_at_ms: int | None = None
+    running: bool = True
+    exit_code: int | None = None
+
+    def kill(self) -> None:
+        """Terminate the background process (idempotent server-side)."""
+        self._sandbox._request("DELETE", f"/processes/{self.pid}")
 
 
 @dataclass
@@ -671,6 +695,33 @@ class Sandbox:
 
     # ------------------------------------------------------------------ exec
 
+    @overload
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = ...,
+        env: dict[str, Any] | None = ...,
+        cwd: str | None = ...,
+        timeout: float | None = ...,
+        stdin: str | None = ...,
+        on_stdout: Callable[[str], None] | None = ...,
+        on_stderr: Callable[[str], None] | None = ...,
+        check: bool = ...,
+        background: Literal[False] = ...,
+    ) -> SandboxCommandResult: ...
+
+    @overload
+    def run(
+        self,
+        cmd: str | List[str],
+        *,
+        shell: bool | None = ...,
+        env: dict[str, Any] | None = ...,
+        cwd: str | None = ...,
+        background: Literal[True],
+    ) -> SandboxProcess: ...
+
     def run(
         self,
         cmd: str | List[str],
@@ -683,8 +734,15 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
-    ) -> SandboxCommandResult:
+        background: bool = False,
+    ) -> SandboxCommandResult | SandboxProcess:
         """Run a command in the sandbox and wait for it, streaming output live.
+
+        With `background=True` the command is started detached and `run` returns a
+        [`SandboxProcess`] immediately, without waiting for it to finish — handy for
+        servers and other long-running processes. List them later with [`Sandbox.processes`]
+        and stop one with [`SandboxProcess.kill`]. The streaming/wait-only options
+        (`timeout`, `stdin`, `on_stdout`, `on_stderr`, `check`) don't apply in that mode.
 
         Args:
             cmd (`str` or `List[str]`):
@@ -709,14 +767,21 @@ class Sandbox:
                 Callback invoked with stderr chunks as they arrive.
             check (`bool`, *optional*, defaults to `True`):
                 If True, raise [`SandboxCommandError`] on non-zero exit.
+            background (`bool`, *optional*, defaults to `False`):
+                If True, start the command detached and return a [`SandboxProcess`] right
+                away instead of waiting for it and returning a [`SandboxCommandResult`].
 
-        Returns: [`SandboxCommandResult`] with `exit_code`, `stdout`, `stderr`, `duration_ms`.
+        Returns: a [`SandboxCommandResult`] (with `exit_code`, `stdout`, `stderr`,
+        `duration_ms`), or a [`SandboxProcess`] when `background=True`.
         """
         payload = _exec_payload(cmd, shell)
         if env:
             payload["env"] = env
         if cwd:
             payload["cwd"] = cwd
+        if background:
+            data = self._request("POST", "/processes", json=payload).json()
+            return SandboxProcess(pid=data["pid"], cmd=cmd, tag=data.get("tag"), _sandbox=self)
         if timeout is not None:
             payload["timeout"] = timeout
         if stdin is not None:
@@ -750,6 +815,27 @@ class Sandbox:
             raise SandboxCommandError(cmd=cmd, result=result)
         return result
 
+    def processes(self) -> List[SandboxProcess]:
+        """List the background processes of this sandbox.
+
+        Returns the processes started with [`Sandbox.run`]`(..., background=True)`; stop one
+        with [`SandboxProcess.kill`]. Completed processes stay listed (with `running=False` and
+        their `exit_code`) until the sandbox is deleted.
+        """
+        data = self._request("GET", "/processes").json()
+        return [
+            SandboxProcess(
+                pid=p["pid"],
+                cmd=p["cmd"],
+                tag=p.get("tag"),
+                started_at_ms=p.get("started_at_ms"),
+                running=p["running"],
+                exit_code=p.get("exit_code"),
+                _sandbox=self,
+            )
+            for p in data
+        ]
+
     # ------------------------------------------------------------------ misc
 
     @property
@@ -760,6 +846,58 @@ class Sandbox:
     def host_id(self) -> str | None:
         """For a shared/pool sandbox, the job id of the host running it (else None)."""
         return self._server.job_id if self._local_id is not None else None
+
+    # ------------------------------------------------------------------ port proxy
+
+    def proxy_url_for(self, port: int | str, path: str = "/", *, scheme: str = "https://") -> str:
+        """Public URL that proxies through to a server running *inside* this sandbox.
+
+        Requests to the returned URL are forwarded by the in-job sandbox server to a
+        server you started in the sandbox on `port`, including WebSocket (`ws(s)://`)
+        upgrades and streamed responses. Pair it with [`proxy_headers`] for auth.
+
+        How the sandbox must listen on `port`:
+
+        - **Pool / shared sandbox**: it cannot bind a TCP port (Landlock), so bind a
+          **unix socket** at `$SBX_PROXY_DIR/<port>.sock` (the `SBX_PROXY_DIR` env var
+          is set in every sandbox). E.g. `uvicorn app:app --uds $SBX_PROXY_DIR/8000.sock`.
+        - **Dedicated sandbox**: bind a normal TCP port on `127.0.0.1:<port>`. (You can
+          also expose the port directly via the job proxy without going through here.)
+
+        Args:
+            port (`int` or `str`):
+                The port (pool: the `<port>` of the unix socket) the inner server listens on.
+            path (`str`, *optional*, defaults to `"/"`):
+                Path on the inner server to point at, e.g. `"/ws"`.
+            scheme (`str`, *optional*, defaults to `"https://"`):
+                URL scheme to build the link with. Defaults to `"https://"`; pass
+                `"wss://"` for a WebSocket client (the proxy is protocol-agnostic, so only
+                the client-side scheme changes).
+
+        Returns:
+            `str`: a URL like `https://<job_id>--49983.hf.jobs/v1/.../proxy/8000/ws` (or
+            `wss://...` with `scheme="wss://"`).
+
+        Example:
+            ```python
+            >>> url = sandbox.proxy_url_for(8000, "/ws", scheme="wss://")
+            >>> import websockets
+            >>> async with websockets.connect(url, additional_headers=sandbox.proxy_headers) as ws:
+            ...     await ws.send("hello")
+            ```
+        """
+        # base_url is always https://...; swap in the requested scheme (e.g. wss://) for the client.
+        host_and_rest = self._server.base_url.split("://", 1)[-1]
+        path = path if path.startswith("/") else "/" + path
+        return f"{scheme}{host_and_rest}{self._base_path}/proxy/{port}{path}"
+
+    @property
+    def proxy_headers(self) -> dict[str, str]:
+        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token)."""
+        return {
+            "Authorization": f"Bearer {self._server._auth_token}",
+            "X-Sandbox-Token": self._server._sandbox_token,
+        }
 
     def __repr__(self) -> str:
         return f"Sandbox(id={self.id!r}, image={self.image!r})"
