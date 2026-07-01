@@ -3976,13 +3976,13 @@ Stop a background process running in a sandbox.
 **Usage**:
 
 ```console
-$ hf sandbox process kill [OPTIONS] SANDBOX_ID PROCESS_ID
+$ hf sandbox process kill [OPTIONS] SANDBOX_ID PID
 ```
 
 **Arguments**:
 
 * `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
-* `PROCESS_ID`: The process id as printed by `hf sandbox process ls`.  [required]
+* `PID`: The pid as printed by `hf sandbox process ls`.  [required]
 
 **Options**:
 
@@ -3991,7 +3991,7 @@ $ hf sandbox process kill [OPTIONS] SANDBOX_ID PROCESS_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf sandbox process kill <sandbox_id> <process_id>
+  $ hf sandbox process kill <sandbox_id> <pid>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4028,7 +4028,7 @@ Learn more
 
 ### `hf sandbox spawn`
 
-Start a long-running command in the background and return its process id (don't wait).
+Start a long-running command in the background and return its pid (don't wait).
 
 List a sandbox's processes with `hf sandbox process ls` and stop one with
 `hf sandbox process kill`.

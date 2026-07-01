@@ -31,6 +31,7 @@ from huggingface_hub._sandbox import (
     SHARED_ID_SEP,
     Sandbox,
     SandboxPool,
+    SandboxProcess,
     _split_sandbox_id,
 )
 from huggingface_hub._sandbox_cache import delete_pool_cache
@@ -213,16 +214,16 @@ def sandbox_spawn(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Start a long-running command in the background and return its process id (don't wait).
+    """Start a long-running command in the background and return its pid (don't wait).
 
     List a sandbox's processes with `hf sandbox process ls` and stop one with
     `hf sandbox process kill`.
     """
     with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
         process = sandbox.run(list(command), env=parse_env_map(env, env_file), cwd=workdir, background=True)
-    out.result("Process started", sandbox=sandbox_id, process=process.id, pid=process.pid)
+    out.result("Process started", sandbox=sandbox_id, pid=process.pid)
     out.hint(f"List processes with `hf sandbox process ls {sandbox_id}`.")
-    out.hint(f"Stop it with `hf sandbox process kill {sandbox_id} {process.id}`.")
+    out.hint(f"Stop it with `hf sandbox process kill {sandbox_id} {process.pid}`.")
 
 
 @sandbox_cli.command(
@@ -443,6 +444,12 @@ def _fmt_cmd(cmd: str | list[str]) -> str:
     return cmd if isinstance(cmd, str) else " ".join(cmd)
 
 
+def _fmt_status(process: SandboxProcess) -> str:
+    if process.running:
+        return "running"
+    return "exited" if process.exit_code is None else f"exited ({process.exit_code})"
+
+
 @process_cli.command("ls | list", examples=["hf sandbox process ls <sandbox_id>"])
 def process_ls(
     sandbox_id: SandboxIdArg,
@@ -452,25 +459,25 @@ def process_ls(
     """List the background processes running in a sandbox (started with `hf sandbox spawn`)."""
     with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
         processes = sandbox.processes()
-    rows = [{"id": p.id, "pid": p.pid, "cmd": _fmt_cmd(p.cmd)} for p in processes]
-    out.table(rows, id_key="id")
+    rows = [{"pid": p.pid, "status": _fmt_status(p), "cmd": _fmt_cmd(p.cmd)} for p in processes]
+    out.table(rows, id_key="pid")
     if not rows:
         out.hint(f"Start one with `hf sandbox spawn {sandbox_id} -- <cmd>`.")
     else:
-        out.hint(f"Stop one with `hf sandbox process kill {sandbox_id} <process_id>`.")
+        out.hint(f"Stop one with `hf sandbox process kill {sandbox_id} <pid>`.")
 
 
-@process_cli.command("kill", examples=["hf sandbox process kill <sandbox_id> <process_id>"])
+@process_cli.command("kill", examples=["hf sandbox process kill <sandbox_id> <pid>"])
 def process_kill(
     sandbox_id: SandboxIdArg,
-    process_id: Annotated[str, typer.Argument(help="The process id as printed by `hf sandbox process ls`.")],
+    pid: Annotated[int, typer.Argument(help="The pid as printed by `hf sandbox process ls`.")],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Stop a background process running in a sandbox."""
     with _connect(sandbox_id, namespace=namespace, token=token) as sandbox:
-        process = next((p for p in sandbox.processes() if p.id == process_id), None)
+        process = next((p for p in sandbox.processes() if p.pid == pid), None)
         if process is None:
-            raise CLIError(f"No process '{process_id}' running in sandbox {sandbox_id}.")
+            raise CLIError(f"No process with pid {pid} in sandbox {sandbox_id}.")
         process.kill()
-    out.result("Process stopped", sandbox=sandbox_id, process=process_id)
+    out.result("Process stopped", sandbox=sandbox_id, pid=pid)

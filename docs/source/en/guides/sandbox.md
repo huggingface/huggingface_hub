@@ -85,14 +85,14 @@ Pass `background=True` to start a long-running process (a server, a watcher, a t
 ```python
 >>> proc = sbx.run("python -m http.server 8000", background=True)
 >>> proc
-SandboxProcess(id='p-3f2a', pid=1234, cmd='python -m http.server 8000')
+SandboxProcess(pid=1234, cmd='python -m http.server 8000', tag=None, started_at_ms=1700000000000, running=True, exit_code=None)
 ```
 
-List the processes running in a sandbox and stop one when you're done:
+List a sandbox's processes and stop one when you're done. Completed processes stay listed (with `running=False` and their `exit_code`) until the sandbox is deleted, so you can tell whether a process is still alive or already exited:
 
 ```python
 >>> sbx.processes()
-[SandboxProcess(id='p-3f2a', pid=1234, cmd='python -m http.server 8000')]
+[SandboxProcess(pid=1234, cmd='python -m http.server 8000', tag=None, started_at_ms=1700000000000, running=True, exit_code=None)]
 >>> proc.kill()
 ```
 
@@ -240,14 +240,17 @@ hi
 hf sandbox exec $ID -- pytest && echo "tests passed"
 ```
 
-Start a long-running process in the background with `hf sandbox spawn` (prints a process id), then list or stop processes:
+Start a long-running process in the background with `hf sandbox spawn` (prints its pid), then list or stop processes. The listing shows each process's status (`running` or `exited (<code>)`):
 
 ```bash
 >>> hf sandbox spawn $ID -- python -m http.server 8000
-✓ Process started sandbox=687f... process=p-3f2a pid=1234
+✓ Process started sandbox=687f... pid=1234
 
 >>> hf sandbox process ls $ID
->>> hf sandbox process kill $ID p-3f2a
+pid   status   cmd
+1234  running  python -m http.server 8000
+
+>>> hf sandbox process kill $ID 1234
 ```
 
 For many cheap shared sandboxes, warm a pool once and then create into it on demand:

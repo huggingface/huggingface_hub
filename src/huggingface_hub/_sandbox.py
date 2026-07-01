@@ -131,19 +131,24 @@ class SandboxCommandResult:
 class SandboxProcess:
     """A background process started in a sandbox with [`Sandbox.run`]`(..., background=True)`.
 
-    List a sandbox's running processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
+    List a sandbox's processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
+    Completed processes stay in the listing until the sandbox is deleted, so `running` and
+    `exit_code` tell whether a process is still alive or already exited (as of when it was listed).
     """
 
-    id: str
     pid: int
     cmd: str | List[str]
     # Back-reference to the sandbox, used by `kill()`. Excluded from repr/eq so a process
-    # stays a plain data object (and two with the same id compare equal).
+    # stays a plain data object (and two with the same pid compare equal).
     _sandbox: "Sandbox" = field(repr=False, compare=False)
+    tag: str | None = None
+    started_at_ms: int | None = None
+    running: bool = True
+    exit_code: int | None = None
 
     def kill(self) -> None:
         """Terminate the background process (idempotent server-side)."""
-        self._sandbox._request("DELETE", f"/processes/{self.id}")
+        self._sandbox._request("DELETE", f"/processes/{self.pid}")
 
 
 @dataclass
@@ -776,7 +781,7 @@ class Sandbox:
             payload["cwd"] = cwd
         if background:
             data = self._request("POST", "/processes", json=payload).json()
-            return SandboxProcess(id=data["id"], pid=data["pid"], cmd=cmd, _sandbox=self)
+            return SandboxProcess(pid=data["pid"], cmd=cmd, tag=data.get("tag"), _sandbox=self)
         if timeout is not None:
             payload["timeout"] = timeout
         if stdin is not None:
@@ -811,13 +816,25 @@ class Sandbox:
         return result
 
     def processes(self) -> List[SandboxProcess]:
-        """List the background processes currently running in this sandbox.
+        """List the background processes of this sandbox.
 
         Returns the processes started with [`Sandbox.run`]`(..., background=True)`; stop one
-        with [`SandboxProcess.kill`].
+        with [`SandboxProcess.kill`]. Completed processes stay listed (with `running=False` and
+        their `exit_code`) until the sandbox is deleted.
         """
         data = self._request("GET", "/processes").json()
-        return [SandboxProcess(id=p["id"], pid=p["pid"], cmd=p["cmd"], _sandbox=self) for p in data]
+        return [
+            SandboxProcess(
+                pid=p["pid"],
+                cmd=p["cmd"],
+                tag=p.get("tag"),
+                started_at_ms=p.get("started_at_ms"),
+                running=p["running"],
+                exit_code=p.get("exit_code"),
+                _sandbox=self,
+            )
+            for p in data
+        ]
 
     # ------------------------------------------------------------------ misc
 

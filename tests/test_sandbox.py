@@ -122,10 +122,17 @@ class _FakeServer(BaseHTTPRequestHandler):
             self._exec(body)
         elif self.path.endswith("/processes"):  # spawn a background process
             type(self).last_exec = body
-            proc = {"id": f"proc{cls.proc_seq}", "pid": 9000 + cls.proc_seq, "cmd": body["cmd"]}
+            proc = {
+                "pid": 9000 + cls.proc_seq,
+                "tag": body.get("tag"),
+                "cmd": body["cmd"],
+                "started_at_ms": 1_700_000_000_000 + cls.proc_seq,
+                "running": True,
+                "exit_code": None,
+            }
             cls.proc_seq += 1
             cls.processes.append(proc)
-            self._json(proc)
+            self._json({"pid": proc["pid"], "tag": proc["tag"]})
         elif self.path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
             count = int(body.get("count", 1))
             created = []
@@ -144,8 +151,8 @@ class _FakeServer(BaseHTTPRequestHandler):
         assert self.headers["X-Sandbox-Token"] == "secret"
         last = self.path.rsplit("/", 1)[-1]
         if "/processes/" in self.path:  # kill a background process
-            type(self).processes = [p for p in type(self).processes if p["id"] != last]
-            self._json({"id": last, "killed": True})
+            type(self).processes = [p for p in type(self).processes if str(p["pid"]) != last]
+            self._json({"pid": last, "killed": True})
             return
         type(self).sandboxes.discard(last)
         self._json({"id": last, "deleted": True})
@@ -247,8 +254,9 @@ class TestSandboxClient:
         sandbox = _make_sandbox(fake_server)
         process = sandbox.run("python -m http.server 8000", background=True)
         assert isinstance(process, sandbox_mod.SandboxProcess)
-        assert process.id == "proc0"
+        assert process.pid == 9000
         assert process.cmd == "python -m http.server 8000"
+        assert process.running is True
         # background spawn doesn't stream/wait: the cmd/shell payload is POSTed as-is.
         assert _FakeServer.last_exec == {"cmd": "python -m http.server 8000"}
 
@@ -257,10 +265,14 @@ class TestSandboxClient:
         sandbox.run(["sleep", "100"], background=True)
         sandbox.run("sleep 200", background=True)
         processes = sandbox.processes()
-        assert [p.id for p in processes] == ["proc0", "proc1"]
+        assert [p.pid for p in processes] == [9000, 9001]
         assert processes[0].cmd == ["sleep", "100"]
+        # status fields from the listing are carried through.
+        assert processes[0].running is True
+        assert processes[0].exit_code is None
+        assert processes[0].started_at_ms == 1_700_000_000_000
         processes[0].kill()
-        assert [p.id for p in sandbox.processes()] == ["proc1"]
+        assert [p.pid for p in sandbox.processes()] == [9001]
 
     def test_proxy_url_for(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
