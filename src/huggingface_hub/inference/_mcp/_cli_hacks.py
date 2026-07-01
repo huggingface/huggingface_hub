@@ -2,7 +2,7 @@ import asyncio
 import sys
 from functools import partial
 
-import typer
+import click
 
 
 def _patch_anyio_open_process():
@@ -58,7 +58,7 @@ async def _async_prompt(exit_event: asyncio.Event, prompt: str = "» ") -> str:
     if sys.platform == "win32":
         # Windows: Use run_in_executor to avoid blocking the event loop
         # Degraded solution: this is not ideal as user will have to CTRL+C once more to stop the prompt (and it'll not be graceful)
-        return await loop.run_in_executor(None, partial(typer.prompt, prompt, prompt_suffix=" "))
+        return await loop.run_in_executor(None, partial(click.prompt, prompt, prompt_suffix=" "))
     else:
         # UNIX-like: Use loop.add_reader for non-blocking stdin read
         future = loop.create_future()

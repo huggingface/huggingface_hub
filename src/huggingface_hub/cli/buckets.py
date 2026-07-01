@@ -15,7 +15,7 @@
 
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import logging
 from huggingface_hub._buckets import (
@@ -34,6 +34,7 @@ from ._cli_utils import (
 )
 from ._cp import make_cp
 from ._file_listing import format_size, print_file_listing
+from ._framework import Argument, Option
 from ._output import OutputFormat, out
 
 
@@ -57,27 +58,27 @@ buckets_cli = typer_factory(help="Commands to interact with buckets.")
 def create(
     bucket_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name",
         ),
     ],
     private: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--private",
             help="Create a private bucket.",
         ),
     ] = False,
     region: Annotated[
         REPO_REGIONS | None,
-        typer.Option(
+        Option(
             "--region",
             help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
         ),
     ] = None,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--exist-ok",
             help="Do not raise an error if the bucket already exists.",
         ),
@@ -90,7 +91,7 @@ def create(
     if bucket_id.startswith(BUCKET_PREFIX):
         parsed = _parse_bucket_uri(bucket_id)
         if parsed.path_in_repo:
-            raise typer.BadParameter(
+            raise click.BadParameter(
                 f"Cannot specify a prefix for bucket creation: {bucket_id}."
                 f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
             )
@@ -132,7 +133,7 @@ def _is_bucket_id(argument: str) -> bool:
 def list_cmd(
     argument: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help=(
                 "Namespace (user or org) to list buckets, or bucket ID"
                 " (namespace/bucket_name(/prefix) or hf://buckets/...) to list files."
@@ -141,7 +142,7 @@ def list_cmd(
     ] = None,
     human_readable: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--human-readable",
             "-h",
             help="Show sizes in human readable format.",
@@ -149,14 +150,14 @@ def list_cmd(
     ] = False,
     as_tree: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--tree",
             help="List files in tree format (only for listing files).",
         ),
     ] = False,
     recursive: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--recursive",
             "-R",
             help="List files recursively (only for listing files).",
@@ -175,7 +176,7 @@ def list_cmd(
 
     if is_file_mode:
         if search is not None:
-            raise typer.BadParameter("Cannot use --search when listing files.")
+            raise click.BadParameter("Cannot use --search when listing files.")
         _list_files(
             argument=argument,  # type: ignore
             human_readable=human_readable,
@@ -205,9 +206,9 @@ def _list_buckets(
     """List buckets in a namespace."""
     # Validate incompatible flags
     if as_tree:
-        raise typer.BadParameter("Cannot use --tree when listing buckets.")
+        raise click.BadParameter("Cannot use --tree when listing buckets.")
     if recursive:
-        raise typer.BadParameter("Cannot use --recursive when listing buckets.")
+        raise click.BadParameter("Cannot use --recursive when listing buckets.")
 
     # Handle hf://buckets/namespace format
     if namespace is not None and namespace.startswith(BUCKET_PREFIX):
@@ -238,7 +239,7 @@ def _list_files(
 ) -> None:
     """List files in a bucket."""
     if as_tree and out.mode == OutputFormat.json:
-        raise typer.BadParameter("Cannot use --tree with --format json.")
+        raise click.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
     parsed = _parse_bucket_uri(argument)
@@ -263,7 +264,7 @@ def _list_files(
 def info(
     bucket_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
@@ -288,13 +289,13 @@ def info(
 def delete(
     bucket_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -302,7 +303,7 @@ def delete(
     ] = False,
     missing_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--missing-ok",
             help="Do not raise an error if the bucket does not exist.",
         ),
@@ -316,13 +317,13 @@ def delete(
     if bucket_id.startswith(BUCKET_PREFIX):
         parsed = _parse_bucket_uri(bucket_id)
         if parsed.path_in_repo:
-            raise typer.BadParameter(
+            raise click.BadParameter(
                 f"Cannot specify a prefix for bucket deletion: {bucket_id}."
                 f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
             )
         bucket_id = parsed.id
     elif "/" not in bucket_id:
-        raise typer.BadParameter(
+        raise click.BadParameter(
             f"Invalid bucket ID: {bucket_id}."
             f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
@@ -347,7 +348,7 @@ def delete(
 def remove(
     argument: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help=(
                 "Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path."
                 " With --recursive, namespace/bucket_name is also accepted to target all files."
@@ -356,7 +357,7 @@ def remove(
     ],
     recursive: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--recursive",
             "-R",
             help="Remove files recursively under the given prefix.",
@@ -364,7 +365,7 @@ def remove(
     ] = False,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -372,20 +373,20 @@ def remove(
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--dry-run",
             help="Preview what would be deleted without actually deleting.",
         ),
     ] = False,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Include only files matching pattern (can specify multiple). Requires --recursive.",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Exclude files matching pattern (can specify multiple). Requires --recursive.",
         ),
     ] = None,
@@ -400,14 +401,14 @@ def remove(
     prefix = parsed.path_in_repo
 
     if prefix == "" and not recursive:
-        raise typer.BadParameter(
+        raise click.BadParameter(
             f"No file path specified. To remove files, provide a path"
             f" (e.g. '{bucket_id}/FILE') or use --recursive to remove all files."
             f" To delete the entire bucket, use `hf buckets delete {bucket_id}`."
         )
 
     if (include or exclude) and not recursive:
-        raise typer.BadParameter("--include and --exclude require --recursive.")
+        raise click.BadParameter("--include and --exclude require --recursive.")
 
     api = get_hf_api(token=token)
 
@@ -461,7 +462,7 @@ def remove(
     else:
         file_path = prefix
         if not file_path:
-            raise typer.BadParameter("File path cannot be empty.")
+            raise click.BadParameter("File path cannot be empty.")
 
         if dry_run:
             out.text(f"delete: {BUCKET_PREFIX}{bucket_id}/{file_path}")
@@ -485,13 +486,13 @@ def remove(
 def move(
     from_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
     to_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
         ),
     ],
@@ -501,7 +502,7 @@ def move(
     # Parse from_id
     parsed_from = _parse_bucket_uri(from_id)
     if parsed_from.path_in_repo:
-        raise typer.BadParameter(
+        raise click.BadParameter(
             f"Cannot specify a prefix for bucket move: {from_id}."
             f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
@@ -509,7 +510,7 @@ def move(
     # Parse to_id
     parsed_to = _parse_bucket_uri(to_id)
     if parsed_to.path_in_repo:
-        raise typer.BadParameter(
+        raise click.BadParameter(
             f"Cannot specify a prefix for bucket move: {to_id}."
             f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
         )
@@ -540,90 +541,90 @@ def move(
 def sync(
     source: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
     dest: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)",
         ),
     ] = None,
     delete: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Delete destination files not present in source.",
         ),
     ] = False,
     ignore_times: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--ignore-times",
             help="Skip files only based on size, ignoring modification times.",
         ),
     ] = False,
     ignore_sizes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--ignore-sizes",
             help="Skip files only based on modification times, ignoring sizes.",
         ),
     ] = False,
     plan: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Save sync plan to JSONL file for review instead of executing.",
         ),
     ] = None,
     apply: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Apply a previously saved plan file.",
         ),
     ] = None,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--dry-run",
             help="Print sync plan to stdout as JSONL without executing.",
         ),
     ] = False,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Include files matching pattern (can specify multiple).",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Exclude files matching pattern (can specify multiple).",
         ),
     ] = None,
     filter_from: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Read include/exclude patterns from file.",
         ),
     ] = None,
     existing: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--existing",
             help="Skip creating new files on receiver (only update existing files).",
         ),
     ] = False,
     ignore_existing: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--ignore-existing",
             help="Skip updating files that exist on receiver (only create new files).",
         ),
     ] = False,
     verbose: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--verbose",
             "-v",
             help="Show detailed logging with reasoning.",

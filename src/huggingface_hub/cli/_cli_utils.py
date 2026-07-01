@@ -27,8 +27,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
 import click
-import typer
-from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
@@ -41,6 +39,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._dotenv import load_dotenv
 
+from ._framework import Argument, HfCommand, HfGroup, Option
 from ._help_formatter import StyledContext
 from ._output import OutputFormat, out
 
@@ -104,9 +103,9 @@ def _format_epilog_no_indent(epilog: str | None, ctx: click.Context, formatter: 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-class HFCliTyperGroup(TyperGroup):
+class HFCliTyperGroup(HfGroup):
     """
-    Typer Group that:
+    CLI Group that:
     - lists commands alphabetically within sections.
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
@@ -358,6 +357,21 @@ class HFCliTyperGroup(TyperGroup):
             primary_names.append(primary)
         return sorted(primary_names)
 
+    def command(  # type: ignore  # adds topic/examples on top of HfGroup.command
+        self,
+        name: str | None = None,
+        *,
+        topic: TOPIC_T = "main",
+        examples: list[str] | None = None,
+        epilog: str | None = None,
+        **kwargs: Any,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Generate the epilog from examples when not provided explicitly, then build the
+        # command with a topic/examples-aware command class.
+        if epilog is None and examples:
+            epilog = generate_epilog(examples)
+        return super().command(name, cls=HFCliCommand(topic, examples), epilog=epilog, **kwargs)
+
 
 _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
     (
@@ -569,12 +583,12 @@ def fallback_typer_group_factory(
     return FallbackTyperGroup
 
 
-def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[TyperCommand]:
+def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[HfCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
-    def format_options(self: TyperCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        TyperCommand.format_options(self, ctx, formatter)
+    def format_options(self: HfCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        HfCommand.format_options(self, ctx, formatter)
         # Skip the section for commands that define their own --format / --quiet / --json,
         # or for pass-through commands that forward args to an external binary.
         if _has_local_formatting_option(self):
@@ -590,11 +604,11 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
             if any(isinstance(p, click.Argument) and p.required for p in self.params):
                 click.echo(ctx.get_help(), color=ctx.color)
                 ctx.exit()
-        return TyperCommand.parse_args(self, ctx, args)
+        return HfCommand.parse_args(self, ctx, args)
 
     return type(
-        f"TyperCommand{topic.capitalize()}",
-        (TyperCommand,),
+        f"HfCommand{topic.capitalize()}",
+        (HfCommand,),
         {
             "context_class": StyledContext,
             "topic": topic,
@@ -606,76 +620,27 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
     )
 
 
-class HFCliApp(typer.Typer):
-    """Custom Typer app for Hugging Face CLI."""
+def typer_factory(help: str, epilog: str | None = None, cls: type[HFCliTyperGroup] | None = None) -> "HFCliTyperGroup":
+    """Create a CLI command group with consistent settings.
 
-    def command(  # type: ignore
-        self,
-        name: str | None = None,
-        *,
-        topic: TOPIC_T = "main",
-        examples: list[str] | None = None,
-        context_settings: dict[str, Any] | None = None,
-        help: str | None = None,
-        epilog: str | None = None,
-        short_help: str | None = None,
-        options_metavar: str = "[OPTIONS]",
-        add_help_option: bool = True,
-        no_args_is_help: bool = False,
-        hidden: bool = False,
-        deprecated: bool = False,
-        rich_help_panel: str | None = None,
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        # Generate epilog from examples if not explicitly provided
-        if epilog is None and examples:
-            epilog = generate_epilog(examples)
-
-        def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
-            return super(HFCliApp, self).command(
-                name,
-                cls=HFCliCommand(topic, examples),
-                context_settings=context_settings,
-                help=help,
-                epilog=epilog,
-                short_help=short_help,
-                options_metavar=options_metavar,
-                add_help_option=add_help_option,
-                no_args_is_help=no_args_is_help,
-                hidden=hidden,
-                deprecated=deprecated,
-                rich_help_panel=rich_help_panel,
-            )(func)
-
-        return _inner
-
-
-def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | None = None) -> "HFCliApp":
-    """Create a Typer app with consistent settings.
+    The returned group is the app: register commands with ``@group.command(...)``,
+    subgroups with ``group.add_group(sub, name=...)``, and a group-level callback
+    with ``@group.callback(...)``.
 
     Args:
-        help: Help text for the app.
+        help: Help text for the group.
         epilog: Optional epilog text (use `generate_epilog` to create one).
-        cls: Optional Click group class to use (defaults to `HFCliTyperGroup`).
+        cls: Optional group class to use (defaults to `HFCliTyperGroup`).
 
     Returns:
-        A configured Typer app.
+        A configured `HFCliTyperGroup` instance.
     """
     if cls is None:
         cls = HFCliTyperGroup
-    return HFCliApp(
+    return cls(
         help=help,
         epilog=epilog,
-        add_completion=True,
         no_args_is_help=True,
-        cls=cls,
-        # Disable rich completely for consistent experience
-        rich_markup_mode=None,
-        rich_help_panel=None,
-        pretty_exceptions_enable=False,
-        # Disable TyperGroup's suggest_commands, it matches against raw aliased
-        # keys ("list | ls") leaking pipe syntax into user-facing messages.
-        # HFCliTyperGroup.resolve_command() handles suggestions with expanded names.
-        suggest_commands=False,
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
@@ -718,7 +683,7 @@ class RepoType(str, Enum):
 
 RepoIdArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
@@ -726,7 +691,7 @@ RepoIdArg = Annotated[
 
 RepoTypeOpt = Annotated[
     RepoType,
-    typer.Option(
+    Option(
         "--type",
         "--repo-type",
         help="The type of repository (model, dataset, or space).",
@@ -738,7 +703,7 @@ RepoTypeOpt = Annotated[
 # from "user explicitly passed --repo-type model", which is required to detect conflicts with the URI.
 RepoTypeOptionalOpt = Annotated[
     RepoType | None,
-    typer.Option(
+    Option(
         "--type",
         "--repo-type",
         help="The type of repository (model, dataset, or space).",
@@ -748,21 +713,21 @@ RepoTypeOptionalOpt = Annotated[
 
 TokenOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="A User Access Token generated from https://huggingface.co/settings/tokens.",
     ),
 ]
 
 PrivateOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
     ),
 ]
 
 RevisionOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
 ]
@@ -770,22 +735,22 @@ RevisionOpt = Annotated[
 
 LimitOpt = Annotated[
     int,
-    typer.Option(help="Limit the number of results."),
+    Option(help="Limit the number of results."),
 ]
 
 AuthorOpt = Annotated[
     str | None,
-    typer.Option(help="Filter by author or organization."),
+    Option(help="Filter by author or organization."),
 ]
 
 FilterOpt = Annotated[
     list[str] | None,
-    typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
 ]
 
 SearchOpt = Annotated[
     str | None,
-    typer.Option(help="Search query."),
+    Option(help="Search query."),
 ]
 
 
@@ -793,7 +758,7 @@ SearchOpt = Annotated[
 
 EnvOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-e",
         "--env",
         help="Set environment variables. E.g. --env ENV=value",
@@ -802,7 +767,7 @@ EnvOpt = Annotated[
 
 SecretsOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-s",
         "--secrets",
         help=(
@@ -814,7 +779,7 @@ SecretsOpt = Annotated[
 
 EnvFileOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         "--env-file",
         help="Read in a file of environment variables.",
     ),
@@ -822,7 +787,7 @@ EnvFileOpt = Annotated[
 
 SecretsFileOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Read in a file of secret environment variables.",
     ),
 ]
@@ -865,7 +830,7 @@ def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, 
 
 VolumesOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-v",
         "--volume",
         help="Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
@@ -924,7 +889,7 @@ def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
         properties = [p.strip() for p in value.split(",")]
         for prop in properties:
             if prop not in valid_properties:
-                raise typer.BadParameter(
+                raise click.BadParameter(
                     f"Invalid expand property: '{prop}'. Valid values are: {', '.join(valid_properties)}"
                 )
         return [cast(ExpandPropertyT, prop) for prop in properties]
@@ -937,12 +902,12 @@ def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
 
 SshIdentityFileOpt = Annotated[
     Path | None,
-    typer.Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
+    Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
 ]
 
 SshDryRunOpt = Annotated[
     bool,
-    typer.Option("--dry-run", help="Print the SSH command instead of running it."),
+    Option("--dry-run", help="Print the SSH command instead of running it."),
 ]
 
 
@@ -964,7 +929,7 @@ def exec_ssh(
         return
     out.text(f"Running `{shlex.join(cmd)}`")
     result = subprocess.run(cmd)
-    raise typer.Exit(code=result.returncode)
+    raise click.exceptions.Exit(code=result.returncode)
 
 
 ### PyPI VERSION CHECKER

@@ -16,7 +16,7 @@ import sys
 import traceback
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import __version__, constants
 from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
@@ -51,6 +51,9 @@ from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES
 from huggingface_hub.cli.webhooks import webhooks_cli
 from huggingface_hub.utils import logging
 
+from ._completion import InstallCompletionOpt, ShowCompletionOpt
+from ._framework import Option
+
 
 app = typer_factory(
     help="Hugging Face Hub CLI",
@@ -64,14 +67,16 @@ app = typer_factory(
 def _version_callback(value: bool) -> None:
     if value:
         print(__version__)
-        raise typer.Exit()
+        raise click.exceptions.Exit()
 
 
-@app.callback(invoke_without_command=True)
+@app.group_callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
-        bool | None, typer.Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
+        bool | None, Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    install_completion: InstallCompletionOpt = False,
+    show_completion: ShowCompletionOpt = False,
 ) -> None:
     pass
 
@@ -91,23 +96,23 @@ app.command(hidden=True)(lfs_enable_largefiles)
 app.command(hidden=True)(lfs_multipart_upload)
 
 # command groups
-app.add_typer(auth_cli, name="auth")
-app.add_typer(buckets_cli, name="buckets")
-app.add_typer(cache_cli, name="cache")
-app.add_typer(collections_cli, name="collections")
-app.add_typer(datasets_cli, name="datasets")
-app.add_typer(discussions_cli, name="discussions")
-app.add_typer(jobs_cli, name="jobs")
-app.add_typer(models_cli, name="models")
-app.add_typer(papers_cli, name="papers")
-app.add_typer(repos_cli, name="repos | repo")
-app.add_typer(repo_files_cli, name="repo-files", hidden=True)
-app.add_typer(sandbox_cli, name="sandbox")
-app.add_typer(skills_cli, name="skills")
-app.add_typer(spaces_cli, name="spaces")
-app.add_typer(webhooks_cli, name="webhooks")
-app.add_typer(ie_cli, name="endpoints")
-app.add_typer(extensions_cli, name="extensions | ext")
+app.add_group(auth_cli, name="auth")
+app.add_group(buckets_cli, name="buckets")
+app.add_group(cache_cli, name="cache")
+app.add_group(collections_cli, name="collections")
+app.add_group(datasets_cli, name="datasets")
+app.add_group(discussions_cli, name="discussions")
+app.add_group(jobs_cli, name="jobs")
+app.add_group(models_cli, name="models")
+app.add_group(papers_cli, name="papers")
+app.add_group(repos_cli, name="repos | repo")
+app.add_group(repo_files_cli, name="repo-files", hidden=True)
+app.add_group(sandbox_cli, name="sandbox")
+app.add_group(skills_cli, name="skills")
+app.add_group(spaces_cli, name="spaces")
+app.add_group(webhooks_cli, name="webhooks")
+app.add_group(ie_cli, name="endpoints")
+app.add_group(extensions_cli, name="extensions | ext")
 
 
 def main():

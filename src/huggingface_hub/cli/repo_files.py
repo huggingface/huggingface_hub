@@ -18,8 +18,6 @@ Kept for backward compatibility. Users are nudged to use `hf repos delete-files`
 
 from typing import Annotated
 
-import typer
-
 from ._cli_utils import (
     RepoIdArg,
     RepoType,
@@ -29,6 +27,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -44,7 +43,7 @@ def repo_files_delete(
     repo_id: RepoIdArg,
     patterns: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
         ),
     ],
@@ -52,19 +51,19 @@ def repo_files_delete(
     revision: RevisionOpt = None,
     commit_message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,

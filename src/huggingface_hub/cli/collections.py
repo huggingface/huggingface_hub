@@ -36,11 +36,10 @@ Usage:
 import enum
 from typing import Annotated, get_args
 
-import typer
-
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
 from ._cli_utils import LimitOpt, TokenOpt, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -66,17 +65,17 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 def collections_ls(
     owner: Annotated[
         str | None,
-        typer.Option(help="Filter by owner username or organization."),
+        Option(help="Filter by owner username or organization."),
     ] = None,
     item: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help='Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").'
         ),
     ] = None,
     sort: Annotated[
         CollectionSort | None,
-        typer.Option(help="Sort results by last modified, trending, or upvotes."),
+        Option(help="Sort results by last modified, trending, or upvotes."),
     ] = None,
     limit: LimitOpt = 10,
     token: TokenOpt = None,
@@ -103,7 +102,7 @@ def collections_ls(
     ],
 )
 def collections_info(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     token: TokenOpt = None,
 ) -> None:
     """Get info about a collection on the Hub."""
@@ -121,22 +120,22 @@ def collections_info(
     ],
 )
 def collections_create(
-    title: Annotated[str, typer.Argument(help="The title of the collection.")],
+    title: Annotated[str, Argument(help="The title of the collection.")],
     namespace: Annotated[
         str | None,
-        typer.Option(help="The namespace (username or organization). Defaults to the authenticated user."),
+        Option(help="The namespace (username or organization). Defaults to the authenticated user."),
     ] = None,
     description: Annotated[
         str | None,
-        typer.Option(help="A description for the collection."),
+        Option(help="A description for the collection."),
     ] = None,
     private: Annotated[
         bool,
-        typer.Option(help="Create a private collection."),
+        Option(help="Create a private collection."),
     ] = False,
     exists_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the collection already exists."),
+        Option(help="Do not raise an error if the collection already exists."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -161,26 +160,26 @@ def collections_create(
     ],
 )
 def collections_update(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     title: Annotated[
         str | None,
-        typer.Option(help="The new title for the collection."),
+        Option(help="The new title for the collection."),
     ] = None,
     description: Annotated[
         str | None,
-        typer.Option(help="The new description for the collection."),
+        Option(help="The new description for the collection."),
     ] = None,
     position: Annotated[
         int | None,
-        typer.Option(help="The new position of the collection in the owner's list."),
+        Option(help="The new position of the collection in the owner's list."),
     ] = None,
     private: Annotated[
         bool | None,
-        typer.Option(help="Whether the collection should be private."),
+        Option(help="Whether the collection should be private."),
     ] = None,
     theme: Annotated[
         str | None,
-        typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
+        Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -205,10 +204,10 @@ def collections_update(
     ],
 )
 def collections_delete(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     missing_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the collection doesn't exist."),
+        Option(help="Do not raise an error if the collection doesn't exist."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -227,21 +226,19 @@ def collections_delete(
     ],
 )
 def collections_add_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
-    item_id: Annotated[
-        str, typer.Argument(help="The ID of the item to add (repo_id for repos, paper ID for papers).")
-    ],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    item_id: Annotated[str, Argument(help="The ID of the item to add (repo_id for repos, paper ID for papers).")],
     item_type: Annotated[
         CollectionItemType,
-        typer.Argument(help="The type of item (model, dataset, space, paper, collection, or bucket)."),
+        Argument(help="The type of item (model, dataset, space, paper, collection, or bucket)."),
     ],
     note: Annotated[
         str | None,
-        typer.Option(help="A note to attach to the item (max 500 characters)."),
+        Option(help="A note to attach to the item (max 500 characters)."),
     ] = None,
     exists_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the item is already in the collection."),
+        Option(help="Do not raise an error if the item is already in the collection."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -265,18 +262,18 @@ def collections_add_item(
     ],
 )
 def collections_update_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     item_object_id: Annotated[
         str,
-        typer.Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
+        Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
     ],
     note: Annotated[
         str | None,
-        typer.Option(help="A new note for the item (max 500 characters)."),
+        Option(help="A new note for the item (max 500 characters)."),
     ] = None,
     position: Annotated[
         int | None,
-        typer.Option(help="The new position of the item in the collection."),
+        Option(help="The new position of the item in the collection."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -293,16 +290,16 @@ def collections_update_item(
 
 @collections_cli.command("delete-item")
 def collections_delete_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     item_object_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The ID of the item in the collection (retrieved from `item_object_id` field returned by 'hf collections info'."
         ),
     ],
     missing_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the item doesn't exist."),
+        Option(help="Do not raise an error if the item doesn't exist."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:

@@ -4,7 +4,7 @@ import signal
 import traceback
 from typing import Optional
 
-import typer
+import click
 
 from ...utils import ANSI
 from ._cli_hacks import _async_prompt, _patch_anyio_open_process
@@ -12,17 +12,11 @@ from .agent import Agent
 from .utils import _load_agent_config
 
 
-app = typer.Typer(
-    rich_markup_mode="rich",
-    help="A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack.",
+@click.group(
+    help="A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack."
 )
-
-run_cli = typer.Typer(
-    name="run",
-    help="Run the Agent in the CLI",
-    invoke_without_command=True,
-)
-app.add_typer(run_cli, name="run")
+def app() -> None:
+    pass
 
 
 async def run_agent(
@@ -229,23 +223,19 @@ async def run_agent(
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
-@run_cli.callback()
-def run(
-    path: Optional[str] = typer.Argument(
-        None,
-        help=(
-            "Path to a local folder containing an agent.json file or a built-in agent "
-            "stored in the 'tiny-agents/tiny-agents' Hugging Face dataset "
-            "(https://huggingface.co/datasets/tiny-agents/tiny-agents)"
-        ),
-        show_default=False,
-    ),
-):
+@app.command("run", help="Run the Agent in the CLI")
+@click.argument("path", required=False)
+def run(path: Optional[str]) -> None:
+    """
+    Run the agent from PATH: a local folder containing an agent.json file or a built-in agent
+    stored in the 'tiny-agents/tiny-agents' Hugging Face dataset
+    (https://huggingface.co/datasets/tiny-agents/tiny-agents).
+    """
     try:
         asyncio.run(run_agent(path))
     except KeyboardInterrupt:
         print(ANSI.red("\nApplication terminated by KeyboardInterrupt."), flush=True)
-        raise typer.Exit(code=130)
+        raise click.exceptions.Exit(code=130)
     except Exception as e:
         print(ANSI.red(f"\nAn unexpected error occurred: {e}"), flush=True)
         raise e
