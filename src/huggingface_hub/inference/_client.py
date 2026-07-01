@@ -301,7 +301,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: str | None = None,
-        top_k: int | None = None,
+        top_k: Optional[int] = None,
         function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
     ) -> list[AudioClassificationOutputElement]:
         """
@@ -940,14 +940,14 @@ class InferenceClient:
         question: str,
         *,
         model: str | None = None,
-        doc_stride: int | None = None,
-        handle_impossible_answer: bool | None = None,
-        lang: str | None = None,
-        max_answer_len: int | None = None,
-        max_question_len: int | None = None,
-        max_seq_len: int | None = None,
-        top_k: int | None = None,
-        word_boxes: list[list[float] | str] | None = None,
+        doc_stride: Optional[int] = None,
+        handle_impossible_answer: Optional[bool] = None,
+        lang: Optional[str] = None,
+        max_answer_len: Optional[int] = None,
+        max_question_len: Optional[int] = None,
+        max_seq_len: Optional[int] = None,
+        top_k: Optional[int] = None,
+        word_boxes: Optional[list[Union[list[float], str]]] = None,
     ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
@@ -979,6 +979,16 @@ class InferenceClient:
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
             word_boxes (`list[Union[list[float], str`, *optional*):
+                A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
+                step and use the provided bounding boxes instead.
+            handle_impossible_answer (`bool`, *optional*):
+                Whether to accept impossible as an answer
+            max_answer_len (`int`, *optional*):
+                The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
+            max_seq_len (`int`, *optional*):
+                The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
+                model. The context will be split in several chunks (using doc_stride as overlap) if needed.
+            word_boxes (`list[Union[list[float], str]]`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
         Returns:
@@ -1109,8 +1119,8 @@ class InferenceClient:
         text: str,
         *,
         model: str | None = None,
-        targets: list[str] | None = None,
-        top_k: int | None = None,
+        targets: Optional[list[str]] = None,
+        top_k: Optional[int] = None,
     ) -> list[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
@@ -1121,10 +1131,12 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`list[str`, *optional*):
+            targets (`list[str]`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
+            top_k (`int`, *optional*):
+                When passed, overrides the number of predictions to return.
             top_k (`int`, *optional*):
                 When passed, overrides the number of predictions to return.
         Returns:
@@ -1166,7 +1178,7 @@ class InferenceClient:
         *,
         model: str | None = None,
         function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
-        top_k: int | None = None,
+        top_k: Optional[int] = None,
     ) -> list[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
@@ -1215,10 +1227,10 @@ class InferenceClient:
         image: ContentT,
         *,
         model: str | None = None,
-        mask_threshold: float | None = None,
-        overlap_mask_area_threshold: float | None = None,
+        mask_threshold: Optional[float] = None,
+        overlap_mask_area_threshold: Optional[float] = None,
         subtask: Optional["ImageSegmentationSubtask"] = None,
-        threshold: float | None = None,
+        threshold: Optional[float] = None,
     ) -> list[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
@@ -1240,6 +1252,8 @@ class InferenceClient:
                 Segmentation task to be performed, depending on model capabilities.
             threshold (`float`, *optional*):
                 Probability threshold to filter out predicted masks.
+            overlap_mask_area_threshold (`float`, *optional*):
+                Mask overlap threshold to eliminate small, disconnected segments.
         Returns:
             `list[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
@@ -1283,11 +1297,11 @@ class InferenceClient:
         image: ContentT,
         prompt: str | None = None,
         *,
-        negative_prompt: str | None = None,
-        num_inference_steps: int | None = None,
-        guidance_scale: float | None = None,
+        negative_prompt: Optional[str] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
         model: str | None = None,
-        target_size: ImageToImageTargetSize | None = None,
+        target_size: Optional[ImageToImageTargetSize] = None,
         **kwargs,
     ) -> "Image":
         """
@@ -1315,6 +1329,9 @@ class InferenceClient:
             target_size (`ImageToImageTargetSize`, *optional*):
                 The size in pixels of the output image. This parameter is only supported by some providers and for
                 specific models. It will be ignored when unsupported.
+            num_inference_steps (`int`, *optional*):
+                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
+                quality image at the expense of slower inference.
 
         Returns:
             `Image`: The translated image.
@@ -1360,12 +1377,12 @@ class InferenceClient:
         *,
         model: str | None = None,
         prompt: str | None = None,
-        negative_prompt: str | None = None,
-        num_frames: float | None = None,
-        num_inference_steps: int | None = None,
-        guidance_scale: float | None = None,
-        seed: int | None = None,
-        target_size: ImageToVideoTargetSize | None = None,
+        negative_prompt: Optional[str] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
+        target_size: Optional[ImageToVideoTargetSize] = None,
         **kwargs,
     ) -> bytes:
         """
@@ -1384,13 +1401,13 @@ class InferenceClient:
             num_frames (`float`, *optional*):
                 The num_frames parameter determines how many video frames are generated.
             num_inference_steps (`int`, *optional*):
-                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
-                quality image at the expense of slower inference.
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
+                expense of slower inference.
             guidance_scale (`float`, *optional*):
                 For diffusion models. A higher guidance scale value encourages the model to generate videos closely
                 linked to the text prompt at the expense of lower image quality.
             seed (`int`, *optional*):
-                The seed to use for the video generation.
+                Seed for the random number generator.
             target_size (`ImageToVideoTargetSize`, *optional*):
                 The size in pixel of the output video frames.
             num_inference_steps (`int`, *optional*):
@@ -1398,6 +1415,13 @@ class InferenceClient:
                 expense of slower inference.
             seed (`int`, *optional*):
                 Seed for the random number generator.
+            guidance_scale (`float`, *optional*):
+                For diffusion models. A higher guidance scale value encourages the model to generate videos closely
+                linked to the text prompt at the expense of lower image quality.
+            num_frames (`float`, *optional*):
+                The num_frames parameter determines how many video frames are generated.
+            target_size (`ImageToVideoTargetSize`, *optional*):
+                The size in pixel of the output video frames.
 
         Returns:
             `bytes`: The generated video.
@@ -1480,7 +1504,7 @@ class InferenceClient:
         return output_list[0]
 
     def object_detection(
-        self, image: ContentT, *, model: str | None = None, threshold: float | None = None
+        self, image: ContentT, *, model: str | None = None, threshold: Optional[float] = None
     ) -> list[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
@@ -1533,13 +1557,13 @@ class InferenceClient:
         context: str,
         *,
         model: str | None = None,
-        align_to_words: bool | None = None,
-        doc_stride: int | None = None,
-        handle_impossible_answer: bool | None = None,
-        max_answer_len: int | None = None,
-        max_question_len: int | None = None,
-        max_seq_len: int | None = None,
-        top_k: int | None = None,
+        align_to_words: Optional[bool] = None,
+        doc_stride: Optional[int] = None,
+        handle_impossible_answer: Optional[bool] = None,
+        max_answer_len: Optional[int] = None,
+        max_question_len: Optional[int] = None,
+        max_seq_len: Optional[int] = None,
+        top_k: Optional[int] = None,
     ) -> QuestionAnsweringOutputElement | list[QuestionAnsweringOutputElement]:
         """
         Retrieve the answer to a question from a given text.
@@ -1570,6 +1594,14 @@ class InferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
+            doc_stride (`int`, *optional*):
+                If the context is too long to fit with the question for the model, it will be split in several chunks
+                with some overlap. This argument controls the size of that overlap.
+            max_answer_len (`int`, *optional*):
+                The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
+            max_seq_len (`int`, *optional*):
+                The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
+                model. The context will be split in several chunks (using docStride as overlap) if needed.
 
         Returns:
             Union[`QuestionAnsweringOutputElement`, list[`QuestionAnsweringOutputElement`]]:
@@ -1669,8 +1701,8 @@ class InferenceClient:
         text: str,
         *,
         model: str | None = None,
-        clean_up_tokenization_spaces: bool | None = None,
-        generate_parameters: dict[str, Any] | None = None,
+        clean_up_tokenization_spaces: Optional[bool] = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1688,6 +1720,8 @@ class InferenceClient:
                 Additional parametrization of the text generation algorithm.
             truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
+            generate_parameters (`dict[str, Any]`, *optional*):
+                Additional parametrization of the text generation algorithm.
         Returns:
             [`SummarizationOutput`]: The generated summary text.
 
@@ -1729,8 +1763,8 @@ class InferenceClient:
         *,
         model: str | None = None,
         padding: Optional["Padding"] = None,
-        sequential: bool | None = None,
-        truncation: bool | None = None,
+        sequential: Optional[bool] = None,
+        truncation: Optional[bool] = None,
     ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
@@ -1750,6 +1784,8 @@ class InferenceClient:
                 Whether to do inference sequentially or as a batch. Batching is faster, but models like SQA require the
                 inference to be done sequentially to extract relations within sequences, given their conversational
                 nature.
+            truncation (`bool`, *optional*):
+                Activates and controls truncation.
             truncation (`bool`, *optional*):
                 Activates and controls truncation.
 
@@ -1894,7 +1930,7 @@ class InferenceClient:
         text: str,
         *,
         model: str | None = None,
-        top_k: int | None = None,
+        top_k: Optional[int] = None,
         function_to_apply: Optional["TextClassificationOutputTransform"] = None,
     ) -> list[TextClassificationOutputElement]:
         """
@@ -2440,14 +2476,14 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        negative_prompt: str | None = None,
-        height: int | None = None,
-        width: int | None = None,
-        num_inference_steps: int | None = None,
-        guidance_scale: float | None = None,
+        negative_prompt: Optional[str] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[float] = None,
         model: str | None = None,
-        scheduler: str | None = None,
-        seed: int | None = None,
+        scheduler: Optional[str] = None,
+        seed: Optional[int] = None,
         extra_body: dict[str, Any] | None = None,
     ) -> "Image":
         """
@@ -2485,6 +2521,13 @@ class InferenceClient:
             extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
+            height (`int`, *optional*):
+                The height in pixels of the output image
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                expense of slower inference.
+            seed (`int`, *optional*):
+                Seed for the random number generator.
 
         Returns:
             `Image`: The generated image.
@@ -2581,11 +2624,11 @@ class InferenceClient:
         prompt: str,
         *,
         model: str | None = None,
-        guidance_scale: float | None = None,
-        negative_prompt: list[str] | None = None,
-        num_frames: float | None = None,
-        num_inference_steps: int | None = None,
-        seed: int | None = None,
+        guidance_scale: Optional[float] = None,
+        negative_prompt: Optional[list[str]] = None,
+        num_frames: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
+        seed: Optional[int] = None,
         extra_body: dict[str, Any] | None = None,
     ) -> bytes:
         """
@@ -2616,6 +2659,11 @@ class InferenceClient:
             extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
+            negative_prompt (`list[str]`, *optional*):
+                One or several prompt to guide what NOT to include in video generation.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality video at the
+                expense of slower inference.
 
         Returns:
             `bytes`: The generated video.
@@ -2678,22 +2726,22 @@ class InferenceClient:
         text: str,
         *,
         model: str | None = None,
-        do_sample: bool | None = None,
-        early_stopping: Union[bool, "TextToSpeechEarlyStoppingEnum"] | None = None,
-        epsilon_cutoff: float | None = None,
-        eta_cutoff: float | None = None,
-        max_length: int | None = None,
-        max_new_tokens: int | None = None,
-        min_length: int | None = None,
-        min_new_tokens: int | None = None,
-        num_beam_groups: int | None = None,
-        num_beams: int | None = None,
-        penalty_alpha: float | None = None,
-        temperature: float | None = None,
-        top_k: int | None = None,
-        top_p: float | None = None,
-        typical_p: float | None = None,
-        use_cache: bool | None = None,
+        do_sample: Optional[bool] = None,
+        early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
+        epsilon_cutoff: Optional[float] = None,
+        eta_cutoff: Optional[float] = None,
+        max_length: Optional[int] = None,
+        max_new_tokens: Optional[int] = None,
+        min_length: Optional[int] = None,
+        min_new_tokens: Optional[int] = None,
+        num_beam_groups: Optional[int] = None,
+        num_beams: Optional[int] = None,
+        penalty_alpha: Optional[float] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        typical_p: Optional[float] = None,
+        use_cache: Optional[bool] = None,
         extra_body: dict[str, Any] | None = None,
     ) -> bytes:
         """
@@ -2758,6 +2806,28 @@ class InferenceClient:
             extra_body (`dict[str, Any]`, *optional*):
                 Additional provider-specific parameters to pass to the model. Refer to the provider's documentation
                 for supported parameters.
+            early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"]`, *optional*):
+                Controls the stopping condition for beam-based methods.
+            eta_cutoff (`float`, *optional*):
+                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
+                between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
+                * exp(-entropy(softmax(next_token_logits))). The latter term is intuitively the expected next token
+                probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
+                depending on the size of the model. See [Truncation Sampling as Language Model
+                Desmoothing](https://hf.co/papers/2210.15191) for more details.
+            max_new_tokens (`int`, *optional*):
+                The maximum number of tokens to generate. Takes precedence over max_length.
+            min_new_tokens (`int`, *optional*):
+                The minimum number of tokens to generate. Takes precedence over min_length.
+            num_beams (`int`, *optional*):
+                Number of beams to use for beam search.
+            temperature (`float`, *optional*):
+                The value used to modulate the next token probabilities.
+            top_p (`float`, *optional*):
+                If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to
+                top_p or higher are kept for generation.
+            use_cache (`bool`, *optional*):
+                Whether the model should use the past last key/values attentions to speed up decoding
         Returns:
             `bytes`: The generated audio.
 
@@ -2887,8 +2957,8 @@ class InferenceClient:
         *,
         model: str | None = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: list[str] | None = None,
-        stride: int | None = None,
+        ignore_labels: Optional[list[str]] = None,
+        stride: Optional[int] = None,
     ) -> list[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
@@ -2903,8 +2973,10 @@ class InferenceClient:
                 Defaults to None.
             aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
                 The strategy used to fuse tokens based on model predictions
-            ignore_labels (`list[str`, *optional*):
+            ignore_labels (`list[str]`, *optional*):
                 A list of labels to ignore
+            stride (`int`, *optional*):
+                The number of overlapping tokens between chunks when splitting the input text.
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
 
@@ -2961,11 +3033,11 @@ class InferenceClient:
         text: str,
         *,
         model: str | None = None,
-        src_lang: str | None = None,
-        tgt_lang: str | None = None,
-        clean_up_tokenization_spaces: bool | None = None,
+        src_lang: Optional[str] = None,
+        tgt_lang: Optional[str] = None,
+        clean_up_tokenization_spaces: Optional[bool] = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: dict[str, Any] | None = None,
+        generate_parameters: Optional[dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -2992,6 +3064,8 @@ class InferenceClient:
                 The truncation strategy to use.
             generate_parameters (`dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
+            tgt_lang (`str`, *optional*):
+                Target language to translate to. Required for models that can translate to multiple languages.
 
         Returns:
             [`TranslationOutput`]: The generated translated text.
@@ -3051,7 +3125,7 @@ class InferenceClient:
         question: str,
         *,
         model: str | None = None,
-        top_k: int | None = None,
+        top_k: Optional[int] = None,
     ) -> list[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
@@ -3109,8 +3183,8 @@ class InferenceClient:
         text: str,
         candidate_labels: list[str],
         *,
-        multi_label: bool | None = False,
-        hypothesis_template: str | None = None,
+        multi_label: Optional[bool] = False,
+        hypothesis_template: Optional[str] = None,
         model: str | None = None,
     ) -> list[ZeroShotClassificationOutputElement]:
         """
@@ -3133,6 +3207,9 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot classification model will be used.
+            hypothesis_template (`str`, *optional*):
+                The sentence used in conjunction with `candidate_labels` to attempt the text classification by
+                replacing the placeholder with the candidate labels.
 
 
         Returns:
@@ -3213,7 +3290,7 @@ class InferenceClient:
         candidate_labels: list[str],
         *,
         model: str | None = None,
-        hypothesis_template: str | None = None,
+        hypothesis_template: Optional[str] = None,
         # deprecated argument
         labels: list[str] = None,  # type: ignore
     ) -> list[ZeroShotImageClassificationOutputElement]:
