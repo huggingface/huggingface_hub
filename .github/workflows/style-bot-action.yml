@@ -102,7 +102,7 @@ jobs:
             });
         
       - name: Check out PR branch
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           repository: ${{ steps.pr_info.outputs.headRepoFullName }}
           ref: ${{ steps.pr_info.outputs.headSha }}
@@ -181,7 +181,7 @@ jobs:
             }
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: ${{ inputs.python_version }}
 
@@ -275,7 +275,7 @@ jobs:
             }
 
       - name: Check out reviewed PR SHA
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           repository: ${{ needs.run-style-bot.outputs.headRepoFullName }}
           ref: ${{ needs.run-style-bot.outputs.headSha }}

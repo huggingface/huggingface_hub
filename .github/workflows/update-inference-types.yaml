@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Setup Python
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
            repository: huggingface/huggingface_hub
            path: ./huggingface_hub
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.10"
       - name: Setup uv
@@ -30,7 +30,7 @@ jobs:
         working-directory: ./huggingface_hub
 
       # Setup JS
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
             repository: huggingface/huggingface.js
             path: huggingface.js
@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: "20"
       - name: Install pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093  # v6.0.8
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6.0.9
         with:
           package_json_file: ./huggingface.js/packages/tasks-gen/package.json
       - name: Install dependencies
