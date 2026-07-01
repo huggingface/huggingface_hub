@@ -11,3 +11,5 @@
   sections:
     - local: guides/overview
       title: उपयोग मार्गदर्शिकाएँ
+    - local: guides/repository
+      title: रिपॉजिटरी
