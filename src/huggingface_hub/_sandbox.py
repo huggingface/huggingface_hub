@@ -893,7 +893,7 @@ class Sandbox:
 
     @property
     def proxy_headers(self) -> dict[str, str]:
-        """Auth headers to send with [`proxy_url`] requests (HF token + sandbox token)."""
+        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token)."""
         return {
             "Authorization": f"Bearer {self._server._auth_token}",
             "X-Sandbox-Token": self._server._sandbox_token,
