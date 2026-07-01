@@ -1,8 +1,13 @@
+import time
 from collections import OrderedDict
 from typing import Any
 
 from . import is_google_colab, is_notebook
 from .tqdm import tqdm
+
+
+# Braille spinner frames cycled while the upload is finalizing (uploading metadata).
+_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
 class XetProgressReporter:
@@ -49,6 +54,12 @@ class XetProgressReporter:
         self.item_state: OrderedDict[str, Any] = OrderedDict()
         self.current_bars: list = [None] * self.n_lines
 
+        # Finalization indicator: shown once all data is uploaded and hf_xet is uploading
+        # shards/metadata (the "stuck at 100%" window). Created lazily on first detection.
+        self._finalize_bar: tqdm | None = None
+        self._finalize_start: float | None = None
+        self._spinner_idx: int = 0
+
     def format_desc(self, name: str, indent: bool) -> str:
         """
         if name is longer than width characters, prints ... at the start and then the last width-3 characters of the name, otherwise
@@ -74,6 +85,12 @@ class XetProgressReporter:
         self.known_items.clear()
         self.completed_items.clear()
         self.item_state.clear()
+
+        if self._finalize_bar is not None:
+            self._finalize_bar.close()
+            self._finalize_bar = None
+        self._finalize_start = None
+        self._spinner_idx = 0
 
     def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
@@ -169,7 +186,49 @@ class XetProgressReporter:
         self.upload_bar.set_postfix_str(postfix(group_report.total_transfer_bytes_completion_rate), refresh=False)
         self.upload_bar.update(transfer_inc)
 
+        self._update_finalizing(group_report)
+
+    def _finalize_position(self) -> int:
+        # Sit below the summary bars (and below the per-file bar slots in console mode).
+        return 2 + self.n_lines if self.per_file_progress else 2
+
+    def _update_finalizing(self, group_report) -> None:
+        """Show/animate the 'uploading metadata' line during hf_xet's post-transfer finalization.
+
+        All data is uploaded once processing is complete and every unique (post-dedup) byte has
+        been transferred. The progress callback keeps firing during finalization with static byte
+        counts, so we animate a spinner to make clear the upload is finalizing, not stuck.
+        """
+        finalizing = (
+            group_report.total_bytes > 0
+            and group_report.total_bytes_completed >= group_report.total_bytes
+            and group_report.total_transfer_bytes_completed >= group_report.total_transfer_bytes
+        )
+        if not finalizing:
+            return
+
+        if self._finalize_bar is None:
+            self._finalize_start = time.monotonic()
+            self._finalize_bar = tqdm(
+                total=0, position=self._finalize_position(), bar_format="{desc}", leave=self.tqdm_settings["leave"]
+            )
+        else:
+            self._spinner_idx += 1
+
+        start = self._finalize_start if self._finalize_start is not None else time.monotonic()
+        spinner = _SPINNER_FRAMES[self._spinner_idx % len(_SPINNER_FRAMES)]
+        elapsed = int(time.monotonic() - start)
+        prefix = self.format_desc("Finalizing", False)
+        self._finalize_bar.set_description_str(f"{prefix}  {spinner} uploading metadata… ({elapsed}s)", refresh=True)
+
     def close(self):
+        if self._finalize_bar is not None:
+            if self._finalize_start is not None:
+                elapsed = int(time.monotonic() - self._finalize_start)
+                prefix = self.format_desc("Finalizing", False)
+                self._finalize_bar.set_description_str(f"{prefix}  ✓ metadata uploaded ({elapsed}s)", refresh=True)
+            self._finalize_bar.close()
+
         self.data_processing_bar.close()
         self.upload_bar.close()
 
