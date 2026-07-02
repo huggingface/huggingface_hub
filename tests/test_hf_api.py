@@ -2257,6 +2257,20 @@ class TestHfApiPublicProduction:
         assert entry.notes is None or isinstance(entry.notes, str)
 
     @pytest.mark.production
+    def test_get_dataset_leaderboard_base_model_filter(self):
+        # By default, the leaderboard only includes models with no declared base_model relation.
+        # Passing base_model=False must return at least as many entries, since it lifts that filter.
+        api = HfApi()
+        default_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0")
+        explicit_true_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model=True)
+        full_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model=False)
+        assert len(default_leaderboard) == len(explicit_true_leaderboard)
+        assert len(full_leaderboard) >= len(default_leaderboard)
+        default_model_ids = {entry.model_id for entry in default_leaderboard}
+        full_model_ids = {entry.model_id for entry in full_leaderboard}
+        assert default_model_ids.issubset(full_model_ids)
+
+    @pytest.mark.production
     def test_get_dataset_leaderboard_not_found(self):
         with pytest.raises(RepositoryNotFoundError):
             HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
