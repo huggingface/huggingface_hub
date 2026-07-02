@@ -47,9 +47,6 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 import click
 
 
-__all__ = ["Argument", "HfCommand", "HfGroup", "Option", "build_command", "get_command_name"]
-
-
 def get_command_name(name: str) -> str:
     """Normalize a Python identifier to a CLI name (``force_download`` -> ``force-download``)."""
     return name.lower().replace("_", "-")
