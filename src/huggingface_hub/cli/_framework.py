@@ -352,6 +352,21 @@ def _default_string(
     return str(default_value)
 
 
+def _describe_number_range(param_type: "click.IntRange | click.FloatRange") -> str:
+    """Human-readable range hint like ``x>=1`` or ``1<=x<10``.
+
+    Reproduces click's private ``_NumberRangeBase._describe_range()`` using the public
+    ``IntRange``/``FloatRange`` attributes, so the framework stays on Click's public API.
+    """
+    if param_type.min is None:
+        return f"x{'<' if param_type.max_open else '<='}{param_type.max}"
+    if param_type.max is None:
+        return f"x{'>' if param_type.min_open else '>='}{param_type.min}"
+    left = "<" if param_type.min_open else "<="
+    right = "<" if param_type.max_open else "<="
+    return f"{param_type.min}{left}x{right}{param_type.max}"
+
+
 def _build_help_extra(param: "HfArgument | HfOption", ctx: click.Context, base_help: str) -> str:
     """Append the ``[default: ...; required]`` suffix to a help string (shared by arg/option)."""
     extra: list[str] = []
@@ -362,8 +377,8 @@ def _build_help_extra(param: "HfArgument | HfOption", ctx: click.Context, base_h
         if default_string:
             extra.append(f"default: {default_string}")
     # Numeric range hints are shown for options only (matches Typer; arguments omit them).
-    if isinstance(param, HfOption) and isinstance(param.type, click.types._NumberRangeBase):
-        range_str = param.type._describe_range()  # ty: ignore[invalid-argument-type]
+    if isinstance(param, HfOption) and isinstance(param.type, (click.IntRange, click.FloatRange)):
+        range_str = _describe_number_range(param.type)
         if range_str:
             extra.append(range_str)
     if param.required:
