@@ -23,8 +23,7 @@ install_requires = [
     "packaging>=20.9",
     "pyyaml>=5.1",
     "tqdm>=4.42.1",
-    # Unused by the `hf` CLI since 1.22 but kept while `transformers` still relies on it arriving
-    # transitively. TODO: remove once transformers has migrated and pins huggingface_hub>=1.22.0.
+    # TODO: remove once transformers has migrated and pins huggingface_hub>=1.22.0.
     "typer>=0.20.0,<0.26.0",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
