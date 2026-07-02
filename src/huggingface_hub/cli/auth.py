@@ -11,27 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories.
-
-Usage:
-    # login with a browser (OAuth device flow)
-    hf auth login
-
-    # login with an explicit token
-    hf auth login --token=hf_*** --add-to-git-credential
-
-    # switch between tokens
-    hf auth switch
-
-    # list all tokens
-    hf auth list
-
-    # logout from all tokens
-    hf auth logout
-
-    # check which account you are logged in as
-    hf auth whoami
-"""
+"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories."""
 
 from typing import Annotated
 

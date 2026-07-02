@@ -11,36 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with papers on the Hugging Face Hub.
-
-Usage:
-    # list daily papers (most recently submitted)
-    hf papers ls
-
-    # list trending papers
-    hf papers ls --sort=trending
-
-    # list papers from a specific date, ordered by upvotes
-    hf papers ls --date=2025-01-23
-
-    # list today's papers, ordered by upvotes
-    hf papers ls --date=today
-
-    # list papers from a specific week
-    hf papers ls --week=2025-W09
-
-    # list papers by a specific submitter
-    hf papers ls --submitter=someuser
-
-    # search papers
-    hf papers search "vision language"
-
-    # get info about a paper
-    hf papers info 2502.08025
-
-    # read a paper as markdown
-    hf papers read 2502.08025
-"""
+"""Contains commands to interact with papers on the Hugging Face Hub."""
 
 import datetime
 import enum
