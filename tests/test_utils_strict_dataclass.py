@@ -873,9 +873,11 @@ def test_typed_dict_to_dataclass_is_cached():
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 class TestConfigDictNotRequired:
-    def __init__(self):
-        # cannot be defined at class level because of Python<3.11
-        self.ConfigDictNotRequired = TypedDict(
+    @pytest.fixture
+    def config_dict_not_required(self):
+        # cannot be defined at class level because of Python<3.11; a fixture keeps
+        # the class collectible (an __init__ makes pytest skip it with a warning).
+        return TypedDict(
             "ConfigDictNotRequired",
             {"required_value": Required[int], "not_required_value": NotRequired[int]},
             total=False,
@@ -888,8 +890,8 @@ class TestConfigDictNotRequired:
             {"required_value": 1},  # not required value is not validated
         ],
     )
-    def test_typed_dict_not_required_valid_data(self, data: dict):
-        validate_typed_dict(self.ConfigDictNotRequired, data)
+    def test_typed_dict_not_required_valid_data(self, config_dict_not_required, data: dict):
+        validate_typed_dict(config_dict_not_required, data)
 
     @pytest.mark.parametrize(
         "data",
@@ -900,9 +902,9 @@ class TestConfigDictNotRequired:
             {"required_value": 1, "not_required_value": "2"},
         ],
     )
-    def test_typed_dict_not_required_invalid_data(self, data: dict):
+    def test_typed_dict_not_required_invalid_data(self, config_dict_not_required, data: dict):
         with pytest.raises(StrictDataclassFieldValidationError):
-            validate_typed_dict(self.ConfigDictNotRequired, data)
+            validate_typed_dict(config_dict_not_required, data)
 
 
 def test_typed_dict_total_true():
