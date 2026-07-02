@@ -2261,6 +2261,20 @@ class TestHfApiPublicProduction:
         with pytest.raises(RepositoryNotFoundError):
             HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
 
+    def test_dataset_leaderboard_entry_missing_source(self):
+        # Some leaderboard entries returned by the server omit the "source" key entirely
+        # (e.g. https://huggingface.co/api/datasets/Idavidrein/gpqa/leaderboard). This should
+        # not raise a KeyError.
+        entry = DatasetLeaderboardEntry(
+            rank=1,
+            modelId="some-org/some-model",
+            value=42.0,
+            filename="results.yaml",
+            verified=False,
+            author={"type": "org", "name": "some-org"},
+        )
+        assert entry.source is None
+
     def test_space_info(self, api: HfApi) -> None:
         space = api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
         assert space.id == "HuggingFaceH4/zephyr-chat"

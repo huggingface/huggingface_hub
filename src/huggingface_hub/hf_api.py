@@ -2060,9 +2060,9 @@ class DatasetLeaderboardEntry:
             Name of the result file containing the evaluation data.
         verified (`bool`):
             Whether the result has been verified.
-        source (`dict[str, Any]`):
+        source (`dict[str, Any]`, *optional*):
             Information about the source of the evaluation result. Contains keys like
-            `"url"`, `"name"`, and `"isExternal"`.
+            `"url"`, `"name"`, and `"isExternal"`. Not all entries have a source.
         author (`User` or `Organization`):
             The model author, parsed based on the `"type"` field in the API response.
         pull_request (`int`, *optional*):
@@ -2076,7 +2076,7 @@ class DatasetLeaderboardEntry:
     value: float
     filename: str
     verified: bool
-    source: dict[str, Any]
+    source: dict[str, Any] | None
     author: User | Organization
     pull_request: int | None = None
     notes: str | None = None
@@ -2087,7 +2087,7 @@ class DatasetLeaderboardEntry:
         self.value = kwargs.pop("value")
         self.filename = kwargs.pop("filename")
         self.verified = kwargs.pop("verified")
-        self.source = kwargs.pop("source")
+        self.source = kwargs.pop("source", None)
         author_data = dict(kwargs.pop("author"))
         author_type = author_data.get("type")
         if author_type == "org":
