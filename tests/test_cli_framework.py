@@ -86,6 +86,27 @@ class TestParameterBuilding:
         param = _params(f)["workers"]
         assert isinstance(param.type, click.IntRange) and param.type.min == 1
 
+    def test_float_option_with_min_is_floatrange(self):
+        def f(rate: Annotated[float, Option(min=1)] = 2.0): ...
+
+        param = _params(f)["rate"]
+        assert isinstance(param.type, click.FloatRange) and param.type.min == 1
+
+    def test_argument_forwards_is_eager(self):
+        def f(repo_id: Annotated[str, Argument(is_eager=True)]): ...
+
+        assert _params(f)["repo_id"].is_eager
+
+    def test_non_str_enum_raises_at_build_time(self):
+        class Number(enum.Enum):
+            one = 1
+            two = 2
+
+        def f(n: Annotated[Number, Option("--n")] = Number.one): ...
+
+        with pytest.raises(TypeError, match="only str-valued enums"):
+            build_command(f, name="x")
+
     def test_enum_option_builds_choice_from_values(self):
         def f(color: Annotated[Color, Option("--color")] = Color.red): ...
 

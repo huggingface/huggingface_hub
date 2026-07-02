@@ -11,42 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to upload a repo or file with the CLI.
-
-Usage:
-    # Upload file (implicit)
-    hf upload my-cool-model ./my-cool-model.safetensors
-
-    # Upload file (explicit)
-    hf upload my-cool-model ./my-cool-model.safetensors  model.safetensors
-
-    # Upload directory (implicit). If `my-cool-model/` is a directory it will be uploaded, otherwise an exception is raised.
-    hf upload my-cool-model
-
-    # Upload directory (explicit)
-    hf upload my-cool-model ./models/my-cool-model .
-
-    # Upload filtered directory (example: tensorboard logs except for the last run)
-    hf upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
-
-    # Upload with wildcard
-    hf upload my-cool-model "./model/training/*.safetensors"
-
-    # Upload private dataset
-    hf upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
-
-    # Upload with token
-    hf upload Wauplin/my-cool-model --token=hf_****
-
-    # Sync local Space with Hub (upload new files, delete removed files)
-    hf upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
-
-    # Schedule commits every 30 minutes
-    hf upload Wauplin/my-cool-model --every=30
-
-    # Upload using an hf:// URI (repo type, revision and path in repo are read from the URI)
-    hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
-"""
+"""Contains command to upload a repo or file with the CLI."""
 
 import os
 import time

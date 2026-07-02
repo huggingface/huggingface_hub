@@ -63,7 +63,12 @@ def get_command_name(name: str) -> str:
 
 
 class ParameterInfo:
-    """Base marker holding the (tiny) set of Click knobs the CLI actually sets."""
+    """Base marker holding the (tiny) set of Click knobs the CLI actually sets.
+
+    ``callback`` is a Typer-style value parser ``fn(value) -> parsed`` — it does NOT
+    receive Click's ``(ctx, param, value)``. It consumes the enum/list convertors, so
+    ``value`` is already converted when it runs.
+    """
 
     def __init__(
         self,
@@ -110,13 +115,18 @@ def _get_click_type(annotation: Any, info: ParameterInfo) -> click.ParamType:
     if annotation is int:
         return click.IntRange(min=info.min) if info.min is not None else click.INT
     if annotation is float:
-        return click.FLOAT
+        return click.FloatRange(min=info.min) if info.min is not None else click.FLOAT
     if annotation is Path:
         return click.Path(path_type=Path)
     if annotation is datetime:
         return click.DateTime()
     if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
-        return click.Choice([item.value for item in annotation])
+        values = [item.value for item in annotation]
+        if not all(isinstance(value, str) for value in values):
+            # A non-str member default would fail Choice validation at parse time with a
+            # cryptic error; fail at build time with a clear one instead.
+            raise TypeError(f"Unsupported enum {annotation.__name__!r}: only str-valued enums are supported.")
+        return click.Choice(values)
     if get_origin(annotation) is Literal:
         return click.Choice([str(value) for value in get_args(annotation)])
     raise TypeError(f"Unsupported CLI annotation {annotation!r}. Add a case in `_framework._get_click_type()`.")
@@ -273,6 +283,7 @@ def _build_click_param(
             required=required,
             default=default_value,
             nargs=-1 if is_list else 1,
+            is_eager=info.is_eager,
             callback=param_callback,
             help=info.help,
             show_default=info.show_default,
@@ -406,6 +417,21 @@ def _default_string(
     return str(default_value)
 
 
+def _describe_number_range(param_type: "click.IntRange | click.FloatRange") -> str:
+    """Human-readable range hint like ``x>=1`` or ``1<=x<10``.
+
+    Reproduces click's private ``_NumberRangeBase._describe_range()`` using the public
+    ``IntRange``/``FloatRange`` attributes, so the framework stays on Click's public API.
+    """
+    if param_type.min is None:
+        return f"x{'<' if param_type.max_open else '<='}{param_type.max}"
+    if param_type.max is None:
+        return f"x{'>' if param_type.min_open else '>='}{param_type.min}"
+    left = "<" if param_type.min_open else "<="
+    right = "<" if param_type.max_open else "<="
+    return f"{param_type.min}{left}x{right}{param_type.max}"
+
+
 def _build_help_extra(param: "HfArgument | HfOption", ctx: click.Context, base_help: str) -> str:
     """Append the ``[default: ...; required]`` suffix to a help string (shared by arg/option)."""
     extra: list[str] = []
@@ -416,8 +442,8 @@ def _build_help_extra(param: "HfArgument | HfOption", ctx: click.Context, base_h
         if default_string:
             extra.append(f"default: {default_string}")
     # Numeric range hints are shown for options only (matches Typer; arguments omit them).
-    if isinstance(param, HfOption) and isinstance(param.type, click.types._NumberRangeBase):
-        range_str = param.type._describe_range()  # ty: ignore[invalid-argument-type]
+    if isinstance(param, HfOption) and isinstance(param.type, (click.IntRange, click.FloatRange)):
+        range_str = _describe_number_range(param.type)
         if range_str:
             extra.append(range_str)
     if param.required:

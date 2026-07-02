@@ -11,18 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with models on the Hugging Face Hub.
-
-Usage:
-    # list models on the Hub
-    hf models ls
-
-    # list models with a search query
-    hf models ls --search "llama"
-
-    # get info about a model
-    hf models info Lightricks/LTX-2
-"""
+"""Contains commands to interact with models on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated, get_args
