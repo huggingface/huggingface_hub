@@ -339,6 +339,52 @@ class TestCorruptedCacheUtils:
         assert revision_report.nb_files == 0
         assert revision_report.last_modified == revision_path.stat().st_mtime
 
+    def test_snapshot_with_partially_downloaded_files(self, tmp_path) -> None:
+        """A partial download (some snapshot symlinks point to not-yet-downloaded blobs).
+
+        Regression test for #4419 / #4420. `hf download` (or `snapshot_download` with
+        `allow_patterns`) resolves the full file list for a revision but only materializes
+        the requested files, leaving the un-downloaded ones as broken symlinks. Such a repo
+        must still be listed by `scan_cache_dir` (with its present files), instead of being
+        silently dropped as a `CorruptedCacheException`.
+        """
+        # Gather the files of the (single) cached revision.
+        revision_path = next(self.snapshots_path.glob("*"))
+        snapshot_files = sorted(p for p in revision_path.glob("**/*") if not p.is_dir())
+        assert len(snapshot_files) >= 2, "fixture repo is expected to have at least 2 files"
+
+        # Simulate a partial download: point the first file's symlink at a blob that was
+        # never downloaded (broken symlink), while keeping the remaining files intact.
+        missing_file = snapshot_files[0]
+        present_files = snapshot_files[1:]
+        missing_blob = missing_file.resolve()
+        missing_file.unlink()
+        os.remove(missing_blob)  # the blob was never materialized
+        missing_file.symlink_to(missing_blob)  # dangling symlink, as left by a partial download
+        assert not missing_file.exists()  # sanity: broken symlink
+
+        # Scan
+        report = scan_cache_dir(tmp_path)
+
+        # The repo is still reported (not dropped) and produced no warning.
+        assert len(report.warnings) == 0
+        assert len(report.repos) == 1
+        repo_report = list(report.repos)[0]
+
+        # Only the present files are reported; the missing one is skipped.
+        assert len(repo_report.revisions) == 1
+        revision_report = list(repo_report.revisions)[0]
+        reported_names = {file.file_name for file in revision_report.files}
+        assert missing_file.name not in reported_names
+        assert reported_names == {p.name for p in present_files}
+
+        # The reported size accounts for the present blobs only, and is non-zero so the repo
+        # contributes to the `hf cache list` total (the core of #4420).
+        expected_size = sum(p.resolve().stat().st_size for p in present_files)
+        assert repo_report.size_on_disk == expected_size
+        assert repo_report.size_on_disk > 0
+        assert repo_report.nb_files == len(present_files)
+
     def test_repo_with_no_snapshots(self, tmp_path) -> None:
         """Test if the snapshot directory exists but is empty."""
         rmtree_with_retry(self.refs_path)

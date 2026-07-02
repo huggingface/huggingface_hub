@@ -789,7 +789,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             blob_path = Path(file_path).resolve()
             if not blob_path.exists():
-                raise CorruptedCacheException(f"Blob missing (broken symlink): {blob_path}")
+                # The snapshot references a blob that is not present on disk. This is expected
+                # for a *partial* download: `hf download` (or `snapshot_download` with
+                # `allow_patterns`) resolves the full file list for a revision but only
+                # materializes the requested files, leaving the un-downloaded ones as broken
+                # symlinks. Treat such a file as simply "not cached yet" and skip it, rather
+                # than raising a CorruptedCacheException that would drop the *entire* repo from
+                # `scan_cache_dir` (and thus from `hf cache list` and the reported total size).
+                # The present files of the repo are still reported. See issues #4419 and #4420.
+                continue
 
             if blob_path not in blob_stats:
                 blob_stats[blob_path] = blob_path.stat()
