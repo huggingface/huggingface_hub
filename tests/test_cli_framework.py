@@ -213,3 +213,54 @@ class TestGroup:
         def _callback(): ...
 
         assert group.invoke_without_command and group.subcommand_metavar == "[COMMAND] [ARGS]..."
+
+
+def _fake_typer_marker(kind: str, default=..., *param_decls, **fields):
+    """Build an object mimicking typer.models.OptionInfo/ArgumentInfo storage without importing typer.
+
+    Real typer stores the first positional in ``default`` (the flag name in ``Annotated`` usage,
+    the default value in old-style usage) and the rest in ``param_decls``.
+    """
+    cls = type(kind, (), {})
+    cls.__module__ = "typer.models"
+    marker = cls()
+    marker.default = default
+    marker.param_decls = param_decls
+    for key, value in fields.items():
+        setattr(marker, key, value)
+    return marker
+
+
+class TestTyperMarkerShim:
+    """Transition shim: `typer_factory` consumers (e.g. transformers) still use typer markers."""
+
+    def test_annotated_option_with_flags(self):
+        # Mimics `Annotated[str, typer.Option("--log-level", "-l", help="lvl")] = "info"`.
+        def f(
+            log_level: Annotated[str, _fake_typer_marker("OptionInfo", "--log-level", "-l", help="lvl")] = "info",
+        ): ...
+
+        param = _params(f)["log_level"]
+        assert isinstance(param, click.Option)
+        assert "--log-level" in param.opts and "-l" in param.opts
+        assert param.default == "info" and param.help == "lvl"
+
+    def test_annotated_argument(self):
+        def f(model_id: Annotated[str, _fake_typer_marker("ArgumentInfo", help="the id")]): ...
+
+        param = _params(f)["model_id"]
+        assert isinstance(param, click.Argument) and param.required and param.help == "the id"
+
+    def test_annotated_bool_builds_toggle(self):
+        def f(force: Annotated[bool, _fake_typer_marker("OptionInfo", help="force it")] = False): ...
+
+        param = _params(f)["force"]
+        assert param.is_flag and param.opts == ["--force"] and param.secondary_opts == ["--no-force"]
+
+    def test_old_style_marker_as_default(self):
+        # Mimics `text: str = typer.Option("hello", "--text")` (marker carries the default value).
+        def f(text: str = _fake_typer_marker("OptionInfo", "hello", "--text")): ...
+
+        param = _params(f)["text"]
+        assert isinstance(param, click.Option)
+        assert param.opts == ["--text"] and not param.required and param.default == "hello"
