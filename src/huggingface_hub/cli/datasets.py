@@ -11,18 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with datasets on the Hugging Face Hub.
-
-Usage:
-    # list datasets on the Hub
-    hf datasets ls
-
-    # list datasets with a search query
-    hf datasets ls --search "code"
-
-    # get info about a dataset
-    hf datasets info HuggingFaceFW/fineweb
-"""
+"""Contains commands to interact with datasets on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated, get_args

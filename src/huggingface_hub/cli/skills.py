@@ -11,25 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage skills for AI assistants.
-
-Usage:
-    # install the hf-cli skill in common .agents/skills directory (either in current directory or user-level)
-    hf skills add
-    hf skills add --global
-
-    # install the hf-cli skill for Claude (project-level, in current directory)
-    hf skills add --claude
-
-    # install globally (user-level)
-    hf skills add --claude --global
-
-    # install to a custom directory
-    hf skills add --dest=~/my-skills
-
-    # overwrite an existing skill
-    hf skills add --claude --force
-"""
+"""Contains commands to manage skills for AI assistants."""
 
 import os
 import shutil

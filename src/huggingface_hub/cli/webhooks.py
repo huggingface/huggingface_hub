@@ -11,31 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage webhooks on the Hugging Face Hub.
-
-Usage:
-    # list all webhooks
-    hf webhooks ls
-
-    # show details of a single webhook
-    hf webhooks info <webhook_id>
-
-    # create a new webhook
-    hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
-
-    # create a webhook watching multiple items and domains
-    hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
-
-    # update a webhook
-    hf webhooks update <webhook_id> --url https://new-url.com/hook
-
-    # enable / disable a webhook
-    hf webhooks enable <webhook_id>
-    hf webhooks disable <webhook_id>
-
-    # delete a webhook
-    hf webhooks delete <webhook_id>
-"""
+"""Contains commands to manage webhooks on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated, get_args, get_type_hints

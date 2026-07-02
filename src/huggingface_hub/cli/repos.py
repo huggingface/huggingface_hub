@@ -11,18 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with repositories on the Hugging Face Hub.
-
-Usage:
-    # create a new dataset repo on the Hub
-    hf repos create my-cool-dataset --repo-type=dataset
-
-    # create a private model repo on the Hub
-    hf repos create my-cool-model --private
-
-    # delete files from a repo on the Hub
-    hf repos delete-files my-model file.txt
-"""
+"""Contains commands to interact with repositories on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated
