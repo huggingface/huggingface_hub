@@ -15,7 +15,7 @@ def get_version() -> str:
 HF_XET_VERSION = "hf-xet>=1.5.1,<2.0.0"
 
 install_requires = [
-    "click>=8.4.0",
+    "click>=8.4.2",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",

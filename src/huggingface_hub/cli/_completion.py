@@ -31,12 +31,15 @@ from ._framework import Option
 
 _COMPLETE_VAR = "_HF_COMPLETE"
 
-# Per supported shell: the rc file to append to and the line that activates completion.
-_SHELL_ACTIVATION: dict[str, tuple[Path, str]] = {
+# Shells with a shared rc file: the line that activates completion (appended once).
+_RC_ACTIVATION: dict[str, tuple[Path, str]] = {
     "bash": (Path.home() / ".bashrc", f'eval "$({_COMPLETE_VAR}=bash_source hf)"'),
     "zsh": (Path.home() / ".zshrc", f'eval "$({_COMPLETE_VAR}=zsh_source hf)"'),
-    "fish": (Path.home() / ".config" / "fish" / "completions" / "hf.fish", f"{_COMPLETE_VAR}=fish_source hf | source"),
 }
+# Fish auto-loads per-command files from its completions directory. The file is dedicated
+# to `hf`, so the full script is written there directly (overwriting any stale version)
+# instead of re-generating it via `hf` on every shell startup.
+_FISH_COMPLETION_PATH = Path.home() / ".config" / "fish" / "completions" / "hf.fish"
 
 
 def _detect_shell() -> str:
@@ -64,15 +67,20 @@ def _install_completion(value: bool) -> None:
     if not value:
         return
     shell = _detect_shell()
-    if shell not in _SHELL_ACTIVATION:
+    if shell == "fish":
+        path = _FISH_COMPLETION_PATH
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_completion_script("fish"))
+    elif shell in _RC_ACTIVATION:
+        path, activation = _RC_ACTIVATION[shell]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = path.read_text() if path.exists() else ""
+        if activation not in existing:
+            with path.open("a") as file:
+                file.write(f"\n{activation}\n")
+    else:
         raise click.ClickException(f"Shell '{shell}' is not supported for completion.")
-    rc_path, activation = _SHELL_ACTIVATION[shell]
-    rc_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = rc_path.read_text() if rc_path.exists() else ""
-    if activation not in existing:
-        with rc_path.open("a") as file:
-            file.write(f"\n{activation}\n")
-    click.echo(f"{shell} completion installed in {rc_path}. Restart your shell for it to take effect.")
+    click.echo(f"{shell} completion installed in {path}. Restart your shell for it to take effect.")
     raise click.exceptions.Exit()
 
 

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import traceback
 from typing import Annotated
@@ -51,7 +52,7 @@ from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES
 from huggingface_hub.cli.webhooks import webhooks_cli
 from huggingface_hub.utils import logging
 
-from ._completion import InstallCompletionOpt, ShowCompletionOpt
+from ._completion import _COMPLETE_VAR, InstallCompletionOpt, ShowCompletionOpt
 from ._framework import Option
 
 
@@ -116,9 +117,12 @@ app.add_group(extensions_cli, name="extensions | ext")
 
 
 def main():
-    if not constants.HF_DEBUG:
-        logging.set_verbosity_info()
-    check_cli_update("huggingface_hub")
+    # Shell-completion requests must stay fast and emit nothing but candidates:
+    # skip the startup work and let click handle the env var inside `app()`.
+    if _COMPLETE_VAR not in os.environ:
+        if not constants.HF_DEBUG:
+            logging.set_verbosity_info()
+        check_cli_update("huggingface_hub")
 
     try:
         app()
