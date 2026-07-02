@@ -11,18 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with spaces on the Hugging Face Hub.
-
-Usage:
-    # list spaces on the Hub
-    hf spaces ls
-
-    # list spaces with a search query
-    hf spaces ls --search "chatbot"
-
-    # get info about a space
-    hf spaces info enzostvs/deepsite
-"""
+"""Contains commands to interact with spaces on the Hugging Face Hub."""
 
 import enum
 import functools
