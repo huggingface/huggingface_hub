@@ -11,27 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with collections on the Hugging Face Hub.
-
-Usage:
-    # list collections on the Hub
-    hf collections ls
-
-    # list collections for a specific user
-    hf collections ls --owner username
-
-    # get info about a collection
-    hf collections info username/collection-slug
-
-    # create a new collection
-    hf collections create "My Collection" --description "A collection of models"
-
-    # add an item to a collection
-    hf collections add-item username/collection-slug username/model-name model
-
-    # delete a collection
-    hf collections delete username/collection-slug
-"""
+"""Contains commands to interact with collections on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated, get_args

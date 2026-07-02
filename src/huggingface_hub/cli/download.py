@@ -11,35 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to download files from the Hub with the CLI.
-
-Usage:
-    hf download --help
-
-    # Download file
-    hf download gpt2 config.json
-
-    # Download entire repo
-    hf download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
-
-    # Download repo with filters
-    hf download gpt2 --include="*.safetensors"
-
-    # Download with token
-    hf download Wauplin/private-model --token=hf_***
-
-    # Download quietly (no progress bar, no warnings, only the returned path)
-    hf download gpt2 config.json --quiet
-
-    # Download to local dir
-    hf download gpt2 --local-dir=./models/gpt2
-
-    # Download a subfolder
-    hf download HuggingFaceM4/FineVision art/ --repo-type=dataset
-
-    # Download using an hf:// URI (repo type, revision and file path are read from the URI)
-    hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
-"""
+"""Contains command to download files from the Hub with the CLI."""
 
 import warnings
 from typing import Annotated

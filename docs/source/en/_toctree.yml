@@ -32,6 +32,8 @@
       title: Inference Endpoints
     - local: guides/jobs
       title: Jobs
+    - local: guides/sandbox
+      title: Sandboxes
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -50,6 +52,8 @@
   sections:
     - local: concepts/git_vs_http
       title: Git vs HTTP paradigm
+    - local: concepts/sandbox
+      title: Sandboxes under the hood
     - local: concepts/migration
       title: Migrating to huggingface_hub v1.0
 - title: 'Reference'
@@ -104,3 +108,5 @@
       title: OAuth
     - local: package_reference/jobs
       title: Jobs
+    - local: package_reference/sandbox
+      title: Sandboxes

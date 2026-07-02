@@ -332,12 +332,9 @@ def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> No
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
     Use [`get_async_client`] to get a correctly configured `httpx.AsyncClient`.
 
-    <Tip warning={true}>
-
-    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
-    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
-
-    </Tip>
+    > [!WARNING]
+    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     global _GLOBAL_ASYNC_CLIENT_FACTORY
     _GLOBAL_ASYNC_CLIENT_FACTORY = async_client_factory
@@ -364,12 +361,9 @@ def get_async_session() -> httpx.AsyncClient:
 
     Use [`set_async_client_factory`] to customize the `httpx.AsyncClient`.
 
-    <Tip warning={true}>
-
-    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
-    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
-
-    </Tip>
+    > [!WARNING]
+    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     return _GLOBAL_ASYNC_CLIENT_FACTORY()
 
@@ -533,7 +527,7 @@ def http_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
@@ -614,7 +608,7 @@ def http_stream_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
@@ -644,17 +638,14 @@ def http_stream_backoff(
     ...     response.raise_for_status()
     ```
 
-    <Tip warning={true}>
-
-    When using `httpx` it is possible to stream data by passing an iterator to the
-    `data` argument. On http backoff this is a problem as the iterator is not reset
-    after a failed call. This issue is mitigated for file objects or any IO streams
-    by saving the initial position of the cursor (with `data.tell()`) and resetting the
-    cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
-    will fail. If this is a hard constraint for you, please let us know by opening an
-    issue on [Github](https://github.com/huggingface/huggingface_hub).
-
-    </Tip>
+    > [!WARNING]
+    > When using `httpx` it is possible to stream data by passing an iterator to the
+    > `data` argument. On http backoff this is a problem as the iterator is not reset
+    > after a failed call. This issue is mitigated for file objects or any IO streams
+    > by saving the initial position of the cursor (with `data.tell()`) and resetting the
+    > cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
+    > will fail. If this is a hard constraint for you, please let us know by opening an
+    > issue on [Github](https://github.com/huggingface/huggingface_hub).
     """
     yield from _http_backoff_base(
         method=method,

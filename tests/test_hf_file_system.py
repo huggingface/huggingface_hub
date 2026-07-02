@@ -6,7 +6,6 @@ import multiprocessing.pool
 import os
 import pickle
 import tempfile
-import unittest
 from pathlib import Path
 from typing import Iterable, Optional, Type
 from unittest.mock import Mock, patch
@@ -25,10 +24,10 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
-from .testing_utils import OfflineSimulationMode, offline, repo_name, with_production_testing
+from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 
-class _HfFileSystemBaseTests(unittest.TestCase):
+class _HfFileSystemBaseTests:
     __test__ = False
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
     http_url_path_prefix: str
@@ -39,108 +38,96 @@ class _HfFileSystemBaseTests(unittest.TestCase):
     text_file_path: str
     text_file: str
 
-    @classmethod
-    def setUpClass(cls):
+    @pytest.fixture(scope="class", autouse=True)
+    def _register_hf_file_system(self):
         """Register `HfFileSystem` as a `fsspec` filesystem if not already registered."""
         if HfFileSystem.protocol not in fsspec.available_protocols():
             fsspec.register_implementation(HfFileSystem.protocol, HfFileSystem)
 
-    def assertInfoIsNotExpanded(self, info):
+    def _check_info_not_expanded(self, info):
         raise NotImplementedError
 
-    def assertInfoIsExpanded(self, info):
+    def _check_info_expanded(self, info):
         raise NotImplementedError
 
-    def assertInfoFields(self, info):
+    def _check_info_fields(self, info):
         raise NotImplementedError
 
 
 class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
     def test_info(self):
         root_dir = self.hffs.info(self.hf_path)
-        self.assertEqual(root_dir["type"], "directory")
-        self.assertEqual(root_dir["size"], 0)
-        self.assertEqual(root_dir["name"], self.hf_path)
-        self.assertInfoIsNotExpanded(root_dir)
-        self.assertInfoFields(root_dir)
+        assert root_dir["type"] == "directory"
+        assert root_dir["size"] == 0
+        assert root_dir["name"] == self.hf_path
+        self._check_info_not_expanded(root_dir)
+        self._check_info_fields(root_dir)
 
         data_dir = self.hffs.info(self.hf_path + "/data")
-        self.assertEqual(data_dir["type"], "directory")
-        self.assertEqual(data_dir["size"], 0)
-        self.assertTrue(data_dir["name"].endswith("/data"))
-        self.assertInfoIsNotExpanded(data_dir)
-        self.assertInfoFields(data_dir)
+        assert data_dir["type"] == "directory"
+        assert data_dir["size"] == 0
+        assert data_dir["name"].endswith("/data")
+        self._check_info_not_expanded(data_dir)
+        self._check_info_fields(data_dir)
 
         text_data_file = self.hffs.info(self.text_file)
-        self.assertEqual(text_data_file["type"], "file")
-        self.assertTrue(text_data_file["name"].endswith("/data/text_data.txt"))
-        self.assertInfoIsNotExpanded(text_data_file)
-        self.assertInfoFields(text_data_file)
+        assert text_data_file["type"] == "file"
+        assert text_data_file["name"].endswith("/data/text_data.txt")
+        self._check_info_not_expanded(text_data_file)
+        self._check_info_fields(text_data_file)
 
         # cached info
-        self.assertEqual(self.hffs.info(self.text_file), text_data_file)
+        assert self.hffs.info(self.text_file) == text_data_file
 
     def test_glob(self):
-        self.assertEqual(
-            self.hffs.glob(self.readme_file),
-            [self.readme_file],
-        )
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "/*")),
-            sorted([self.readme_file, self.hf_path + "/data"]),
-        )
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "/doesnt-exist/*")),
-            [],
-        )
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "/doesnt/exist/at/all/*")),
-            [],
-        )
+        assert self.hffs.glob(self.readme_file) == [self.readme_file]
+        assert sorted(self.hffs.glob(self.hf_path + "/*")) == sorted([self.readme_file, self.hf_path + "/data"])
+        assert sorted(self.hffs.glob(self.hf_path + "/doesnt-exist/*")) == []
+        assert sorted(self.hffs.glob(self.hf_path + "/doesnt/exist/at/all/*")) == []
 
     def test_url(self):
-        self.assertEqual(
-            self.hffs.url(self.text_file),
-            f"{ENDPOINT_STAGING}/{self.hf_path}/resolve/{self.http_url_path_prefix}data/text_data.txt",
+        assert (
+            self.hffs.url(self.text_file)
+            == f"{ENDPOINT_STAGING}/{self.hf_path}/resolve/{self.http_url_path_prefix}data/text_data.txt"
         )
-        self.assertEqual(
-            self.hffs.url(self.hf_path + "/data"),
-            f"{ENDPOINT_STAGING}/{self.hf_path}/tree/{self.http_url_path_prefix}data",
+        assert (
+            self.hffs.url(self.hf_path + "/data")
+            == f"{ENDPOINT_STAGING}/{self.hf_path}/tree/{self.http_url_path_prefix}data"
         )
 
     def test_file_type(self):
-        self.assertTrue(self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.readme_file))
-        self.assertTrue(self.hffs.isfile(self.text_file) and not self.hffs.isfile(self.hf_path + "/data"))
+        assert self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.readme_file)
+        assert self.hffs.isfile(self.text_file) and not self.hffs.isfile(self.hf_path + "/data")
 
     def test_read_file(self):
         with self.hffs.open(self.text_file, "r") as f:
-            self.assertIsInstance(f, io.TextIOWrapper)
-            self.assertIsInstance(f.buffer, HfFileSystemFile)
-            self.assertEqual(f.read(), "dummy text data")
-            self.assertEqual(f.read(), "")
+            assert isinstance(f, io.TextIOWrapper)
+            assert isinstance(f.buffer, HfFileSystemFile)
+            assert f.read() == "dummy text data"
+            assert f.read() == ""
 
     def test_stream_file(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
-            self.assertIsInstance(f, HfFileSystemStreamFile)
-            self.assertEqual(f.read(), b"dummy binary data")
-            self.assertEqual(f.read(), b"")
+            assert isinstance(f, HfFileSystemStreamFile)
+            assert f.read() == b"dummy binary data"
+            assert f.read() == b""
 
     def test_stream_file_retry(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
-            self.assertIsInstance(f, HfFileSystemStreamFile)
-            self.assertEqual(f.read(6), b"dummy ")
+            assert isinstance(f, HfFileSystemStreamFile)
+            assert f.read(6) == b"dummy "
             # Simulate that streaming fails mid-way
             f.response = None
-            self.assertEqual(f.read(6), b"binary")
-            self.assertIsNotNone(f.response)  # a new connection has been created
+            assert f.read(6) == b"binary"
+            assert f.response is not None  # a new connection has been created
 
     def test_stream_file_reuse_response(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
-            self.assertIsInstance(f, HfFileSystemStreamFile)
-            self.assertEqual(f.read(6), b"dummy ")
+            assert isinstance(f, HfFileSystemStreamFile)
+            assert f.read(6) == b"dummy "
             first_response = f.response
-            self.assertEqual(f.read(6), b"binary")
-            self.assertEqual(f.response, first_response)
+            assert f.read(6) == b"binary"
+            assert f.response == first_response
 
     def _make_stream_file_with_fake_response(self, chunks: Iterable[bytes]):
         """Helper: create iterator from specified chunks to simulate a stream response."""
@@ -160,60 +147,60 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
     def test_stream_buffer_overflow_leftover_is_buffered(self):
         # When chunk-1 is larger than read(length), the leftover should be buffered
         f = self._make_stream_file_with_fake_response([b"dummy binary", b" data"])
-        self.assertEqual(f.read(6), b"dummy ")
-        self.assertEqual(f.loc, 6)
-        self.assertEqual(bytes(f._stream_buffer), b"binary")
-        self.assertEqual(f.read(), b"binary data")
-        self.assertEqual(f.loc, 17)
-        self.assertEqual(bytes(f._stream_buffer), b"")
+        assert f.read(6) == b"dummy "
+        assert f.loc == 6
+        assert bytes(f._stream_buffer) == b"binary"
+        assert f.read() == b"binary data"
+        assert f.loc == 17
+        assert bytes(f._stream_buffer) == b""
 
     def test_stream_read_spans_buffer_and_chunks(self):
         # When there is already a buffer, read() spans the buffer and the chunks
         f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
         f._stream_buffer.extend(b"12")
-        self.assertEqual(f.read(7), b"12dummy")
-        self.assertEqual(f.read(), b"binary")
+        assert f.read(7) == b"12dummy"
+        assert f.read() == b"binary"
 
     def test_stream_read_all_clears_buffer(self):
         # When read(-1) is called, it returns the buffer + all chunks and clears the buffer
         f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
         f._stream_buffer.extend(b"12")
-        self.assertEqual(f.read(-1), b"12dummybinary")
-        self.assertEqual(bytes(f._stream_buffer), b"")
+        assert f.read(-1) == b"12dummybinary"
+        assert bytes(f._stream_buffer) == b""
 
     def test_stream_read_negative_length_reads_all(self):
         # When length < 0, it reads all
         f = self._make_stream_file_with_fake_response([b"dummy"])
-        self.assertEqual(f.read(-2), b"dummy")
+        assert f.read(-2) == b"dummy"
 
     def test_stream_read_partially_consumes_buffer(self):
         # When read() is called with a length shorter than the buffer,
         # it returns the shorter length and the buffer is partially consumed
         f = self._make_stream_file_with_fake_response([])
         f._stream_buffer.extend(b"dummy binary")
-        self.assertEqual(f.read(6), b"dummy ")
-        self.assertEqual(bytes(f._stream_buffer), b"binary")
+        assert f.read(6) == b"dummy "
+        assert bytes(f._stream_buffer) == b"binary"
 
     def test_stream_read_past_eof_returns_shorter_then_empty(self):
         # When read() is called with a length longer than the file, it returns the shorter length and the buffer is empty
         f = self._make_stream_file_with_fake_response([b"dummy", b"binary"])
-        self.assertEqual(f.read(100), b"dummybinary")
-        self.assertEqual(f.read(1), b"")
+        assert f.read(100) == b"dummybinary"
+        assert f.read(1) == b""
 
     def test_modified_time(self):
-        self.assertIsInstance(self.hffs.modified(self.text_file), datetime.datetime)
-        self.assertIsInstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
+        assert isinstance(self.hffs.modified(self.text_file), datetime.datetime)
+        assert isinstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
         # should fail on a non-existing file
-        with self.assertRaises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError):
             self.hffs.modified(self.hf_path + "/data/not_existing_file.txt")
 
     def test_open_if_not_found(self):
         # Regression test: opening a missing file should raise a FileNotFoundError. This was not the case before when
         # opening a file in read mode.
-        with self.assertRaises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError):
             self.hffs.open("hf://missing/repo/not_existing_file.txt", mode="r")
 
-        with self.assertRaises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError):
             self.hffs.open("hf://missing/repo/not_existing_file.txt", mode="w")
 
     def test_initialize_from_fsspec(self):
@@ -224,128 +211,121 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
                 "token": TOKEN,
             },
         )
-        self.assertIsInstance(fs, HfFileSystem)
-        self.assertEqual(fs._api.endpoint, ENDPOINT_STAGING)
-        self.assertEqual(fs.token, TOKEN)
-        self.assertEqual(paths, [self.text_file])
+        assert isinstance(fs, HfFileSystem)
+        assert fs._api.endpoint == ENDPOINT_STAGING
+        assert fs.token == TOKEN
+        assert paths == [self.text_file]
 
         fs, _, paths = fsspec.get_fs_token_paths("hf://" + self.text_file)
-        self.assertIsInstance(fs, HfFileSystem)
-        self.assertEqual(paths, [self.text_file])
+        assert isinstance(fs, HfFileSystem)
+        assert paths == [self.text_file]
 
     def test_list_root_directory(self):
         files = sorted(self.hffs.ls(self.hf_path), key=lambda info: info["name"])
-        self.assertEqual(len(files), 2)
+        assert len(files) == 2
 
-        self.assertEqual(files[1]["type"], "directory")
-        self.assertEqual(files[1]["size"], 0)
-        self.assertTrue(files[1]["name"].endswith("/data"))
-        self.assertInfoIsNotExpanded(files[1])
-        self.assertInfoFields(files[1])
+        assert files[1]["type"] == "directory"
+        assert files[1]["size"] == 0
+        assert files[1]["name"].endswith("/data")
+        self._check_info_not_expanded(files[1])
+        self._check_info_fields(files[1])
 
-        self.assertEqual(files[0]["type"], "file")
-        self.assertTrue(files[0]["name"].endswith(self.readme_file_path))
-        self.assertInfoIsNotExpanded(files[0])
-        self.assertInfoFields(files[0])
+        assert files[0]["type"] == "file"
+        assert files[0]["name"].endswith(self.readme_file_path)
+        self._check_info_not_expanded(files[0])
+        self._check_info_fields(files[0])
 
     def test_list_data_directory(self):
         files = sorted(self.hffs.ls(self.hf_path + "/data"), key=lambda info: info["name"])
-        self.assertEqual(len(files), 2)
+        assert len(files) == 2
 
-        self.assertEqual(files[0]["type"], "file")
-        self.assertTrue(files[0]["name"].endswith("/data/binary_data.bin"))
-        self.assertInfoIsNotExpanded(files[0])
-        self.assertInfoFields(files[0])
+        assert files[0]["type"] == "file"
+        assert files[0]["name"].endswith("/data/binary_data.bin")
+        self._check_info_not_expanded(files[0])
+        self._check_info_fields(files[0])
 
-        self.assertEqual(files[1]["type"], "file")
-        self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
-        self.assertInfoIsNotExpanded(files[1])
-        self.assertInfoFields(files[1])
+        assert files[1]["type"] == "file"
+        assert files[1]["name"].endswith("/data/text_data.txt")
+        self._check_info_not_expanded(files[1])
+        self._check_info_fields(files[1])
 
     def test_list_data_file(self):
         files = self.hffs.ls(self.text_file)
-        self.assertEqual(len(files), 1)
+        assert len(files) == 1
 
-        self.assertEqual(files[0]["type"], "file")
-        self.assertTrue(files[0]["name"].endswith("/data/text_data.txt"))
-        self.assertInfoIsNotExpanded(files[0])
-        self.assertInfoFields(files[0])
+        assert files[0]["type"] == "file"
+        assert files[0]["name"].endswith("/data/text_data.txt")
+        self._check_info_not_expanded(files[0])
+        self._check_info_fields(files[0])
 
     def test_list_root_directory_no_detail_then_with_detail(self):
         files = sorted(self.hffs.ls(self.hf_path, detail=False))
-        self.assertEqual(len(files), 2)
-        self.assertTrue(files[1].endswith("/data") and files[0].endswith(self.readme_file_path))
-        self.assertInfoIsNotExpanded(self.hffs.dircache[self.hf_path][0])
+        assert len(files) == 2
+        assert files[1].endswith("/data") and files[0].endswith(self.readme_file_path)
+        self._check_info_not_expanded(self.hffs.dircache[self.hf_path][0])
 
         files = sorted(self.hffs.ls(self.hf_path, detail=True), key=lambda info: info["name"])
-        self.assertEqual(len(files), 2)
-        self.assertTrue(files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path))
-        self.assertInfoIsNotExpanded(self.hffs.dircache[self.hf_path][0])
+        assert len(files) == 2
+        assert files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path)
+        self._check_info_not_expanded(self.hffs.dircache[self.hf_path][0])
 
         files = sorted(self.hffs.ls(self.hf_path, detail=True, expand_info=True), key=lambda info: info["name"])
-        self.assertEqual(len(files), 2)
-        self.assertTrue(files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path))
-        self.assertInfoIsExpanded(self.hffs.dircache[self.hf_path][0])
+        assert len(files) == 2
+        assert files[1]["name"].endswith("/data") and files[0]["name"].endswith(self.readme_file_path)
+        self._check_info_expanded(self.hffs.dircache[self.hf_path][0])
 
     def test_find_root_directory(self):
         files = self.hffs.find(self.hf_path, detail=False)
-        self.assertEqual(
-            files,
+        assert files == (
             sorted(self.hffs.ls(self.hf_path, detail=False))[:1]
-            + sorted(self.hffs.ls(self.hf_path + "/data", detail=False)),
+            + sorted(self.hffs.ls(self.hf_path + "/data", detail=False))
         )
 
         files = self.hffs.find(self.hf_path, detail=True)
-        self.assertEqual(
-            files,
-            {
-                f["name"]: f
-                for f in sorted(self.hffs.ls(self.hf_path, detail=True), key=lambda info: info["name"])[:1]
-                + sorted(self.hffs.ls(self.hf_path + "/data", detail=True), key=lambda info: info["name"])
-            },
-        )
+        assert files == {
+            f["name"]: f
+            for f in sorted(self.hffs.ls(self.hf_path, detail=True), key=lambda info: info["name"])[:1]
+            + sorted(self.hffs.ls(self.hf_path + "/data", detail=True), key=lambda info: info["name"])
+        }
 
         files_with_dirs = self.hffs.find(self.hf_path, withdirs=True, detail=False)
-        self.assertEqual(
-            files_with_dirs,
-            sorted(
-                [self.hf_path]
-                + self.hffs.ls(self.hf_path, detail=False)
-                + self.hffs.ls(self.hf_path + "/data", detail=False)
-            ),
+        assert files_with_dirs == sorted(
+            [self.hf_path]
+            + self.hffs.ls(self.hf_path, detail=False)
+            + self.hffs.ls(self.hf_path + "/data", detail=False)
         )
 
     def test_find_data_file(self):
         files = self.hffs.find(self.text_file, detail=False)
-        self.assertEqual(files, [self.text_file])
+        assert files == [self.text_file]
 
     def test_find_maxdepth(self):
         text_file_depth = self.text_file_path.count("/") + 1
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
-        self.assertNotIn(self.text_file, files)
+        assert self.text_file not in files
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth)
-        self.assertIn(self.text_file, files)
+        assert self.text_file in files
         # we do it again once the cache is updated
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
-        self.assertNotIn(self.text_file, files)
+        assert self.text_file not in files
 
     def test_read_bytes(self):
         data = self.hffs.read_bytes(self.text_file)
-        self.assertEqual(data, b"dummy text data")
+        assert data == b"dummy text data"
 
     def test_read_text(self):
         data = self.hffs.read_text(self.text_file)
-        self.assertEqual(data, "dummy text data")
+        assert data == "dummy text data"
 
     def test_open_and_read(self):
         with self.hffs.open(self.text_file, "r") as f:
-            self.assertEqual(f.read(), "dummy text data")
+            assert f.read() == "dummy text data"
 
     def test_partial_read(self):
         # If partial read => should not download whole file
         with patch.object(self.hffs, "get_file") as mock:
             with self.hffs.open(self.text_file, "r") as f:
-                self.assertEqual(f.read(5), "dummy")
+                assert f.read(5) == "dummy"
             mock.assert_not_called()
 
     def test_get_file_with_temporary_file(self):
@@ -411,19 +391,19 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
 class _HfFileSystemBaseRWTests(_HfFileSystemBaseTests):
     def test_remove_file(self):
         self.hffs.rm_file(self.text_file)
-        self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
+        assert self.hffs.glob(self.hf_path + "/data/*") == [self.hf_path + "/data/binary_data.bin"]
 
     def test_remove_directory(self):
         self.hffs.rm(self.hf_path + "/data", recursive=True)
-        self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
+        assert self.hf_path + "/data" not in self.hffs.ls(self.hf_path)
 
     def test_write_file(self):
         data = "new text data"
         with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
             f.write(data)
-        self.assertIn(self.hf_path + "/data/new_text_data.txt", self.hffs.glob(self.hf_path + "/data/*"))
+        assert self.hf_path + "/data/new_text_data.txt" in self.hffs.glob(self.hf_path + "/data/*")
         with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
-            self.assertEqual(f.read(), data)
+            assert f.read() == data
 
     def test_write_file_multiple_chunks(self):
         data = "a" * (4 << 20)  # 4MB
@@ -431,181 +411,172 @@ class _HfFileSystemBaseRWTests(_HfFileSystemBaseTests):
             for _ in range(8):  # 32MB in total
                 f.write(data)
 
-        self.assertIn(self.hf_path + "/data/new_text_data_big.txt", self.hffs.glob(self.hf_path + "/data/*"))
+        assert self.hf_path + "/data/new_text_data_big.txt" in self.hffs.glob(self.hf_path + "/data/*")
         with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "r") as f:
             for _ in range(8):
-                self.assertEqual(f.read(len(data)), data)
+                assert f.read(len(data)) == data
 
-    @unittest.skip("Not implemented yet")
+    @pytest.mark.skip("Not implemented yet")
     def test_append_file(self):
         with self.hffs.open(self.text_file, "a") as f:
             f.write(" appended text")
 
         with self.hffs.open(self.text_file, "r") as f:
-            self.assertEqual(f.read(), "dummy text data appended text")
+            assert f.read() == "dummy text data appended text"
 
     def test_copy_file(self):
         # Non-LFS file
-        self.assertInfoFields(self.hffs.info(self.text_file))
+        self._check_info_fields(self.hffs.info(self.text_file))
         self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
         with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
-            self.assertEqual(f.read(), "dummy text data")
-        self.assertInfoFields(self.hffs.info(self.hf_path + "/data/text_data_copy.txt"))
+            assert f.read() == "dummy text data"
+        self._check_info_fields(self.hffs.info(self.hf_path + "/data/text_data_copy.txt"))
         # LFS file
-        self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data.bin"))
+        assert self.hffs.info(self.hf_path + "/data/binary_data.bin") is not None
         self.hffs.cp_file(self.hf_path + "/data/binary_data.bin", self.hf_path + "/data/binary_data_copy.bin")
         with self.hffs.open(self.hf_path + "/data/binary_data_copy.bin", "rb") as f:
-            self.assertEqual(f.read(), b"dummy binary data")
-        self.assertInfoFields(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin"))
+            assert f.read() == b"dummy binary data"
+        self._check_info_fields(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin"))
 
 
-class _HfFileSystemRepositoryChecks(unittest.TestCase):
+class _HfFileSystemRepositoryChecks:
     __test__ = False
     http_url_path_prefix = "main/"
 
-    def assertInfoIsNotExpanded(self, info):
-        self.assertIsNone(info["last_commit"])
+    def _check_info_not_expanded(self, info):
+        assert info["last_commit"] is None
 
-    def assertInfoIsExpanded(self, info):
-        self.assertIsNotNone(info["last_commit"])
+    def _check_info_expanded(self, info):
+        assert info["last_commit"] is not None
 
-    def assertInfoFields(self, info):
+    def _check_info_fields(self, info):
         if info["type"] == "file":
-            self.assertIsNotNone(info["blob_id"])
-            self.assertGreater(info["size"], 0)  # not empty
-            self.assertIn("security", info)  # the staging endpoint does not run security checks
+            assert info["blob_id"] is not None
+            assert info["size"] > 0  # not empty
+            assert "security" in info  # the staging endpoint does not run security checks
             if info["name"].endswith(".bin"):
-                self.assertIsNotNone(info["lfs"])
-                self.assertIn("sha256", info["lfs"])
-                self.assertIn("size", info["lfs"])
-                self.assertIn("pointer_size", info["lfs"])
+                assert info["lfs"] is not None
+                assert "sha256" in info["lfs"]
+                assert "size" in info["lfs"]
+                assert "pointer_size" in info["lfs"]
 
 
-class _HfFileSystemBucketChecks(unittest.TestCase):
+class _HfFileSystemBucketChecks:
     __test__ = False
     http_url_path_prefix = ""
 
-    def assertInfoIsNotExpanded(self, info):
+    def _check_info_not_expanded(self, info):
         pass
 
-    def assertInfoIsExpanded(self, info):
+    def _check_info_expanded(self, info):
         pass
 
-    def assertInfoFields(self, info):
+    def _check_info_fields(self, info):
         is_bucket_root = info["name"].count("/") == 2
         if not is_bucket_root:
-            self.assertIsNotNone(info["uploaded_at"])
+            assert info["uploaded_at"] is not None
         if info["type"] == "file":
-            self.assertIsNotNone(info["mtime"])
-            self.assertGreater(info["size"], 0)  # not empty
+            assert info["mtime"] is not None
+            assert info["size"] > 0  # not empty
 
 
-class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
+class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
-    @classmethod
-    def setUpClass(cls):
-        super(_HfFileSystemBaseROTests, cls).setUpClass()
+    @pytest.fixture(scope="class", autouse=True)
+    def _shared_repo(self, request):
+        api = self.api
 
         # Create dummy repo
-        repo_url = cls.api.create_repo(repo_name(), repo_type="dataset")
-        cls.repo_id = repo_url.repo_id
-        cls.hf_path = f"datasets/{cls.repo_id}"
+        repo_url = api.create_repo(repo_name(), repo_type="dataset")
+        repo_id = repo_url.repo_id
+        hf_path = f"datasets/{repo_id}"
+        request.cls.repo_id = repo_id
+        request.cls.hf_path = hf_path
 
         # Upload files
-        cls.api.upload_file(
+        api.upload_file(
             path_or_fileobj=b"dummy binary data on pr",
             path_in_repo="data/binary_data_for_pr.bin",
-            repo_id=cls.repo_id,
+            repo_id=repo_id,
             repo_type="dataset",
             create_pr=True,
         )
-        cls.api.upload_file(
+        api.upload_file(
             path_or_fileobj="dummy text data".encode("utf-8"),
             path_in_repo="data/text_data.txt",
-            repo_id=cls.repo_id,
+            repo_id=repo_id,
             repo_type="dataset",
         )
-        cls.api.upload_file(
+        api.upload_file(
             path_or_fileobj=b"dummy binary data",
             path_in_repo="data/binary_data.bin",
-            repo_id=cls.repo_id,
+            repo_id=repo_id,
             repo_type="dataset",
         )
-        cls.api.upload_file(
+        api.upload_file(
             path_or_fileobj="# Dataset card".encode("utf-8"),
             path_in_repo="README.md",
-            repo_id=cls.repo_id,
+            repo_id=repo_id,
             repo_type="dataset",
         )
-        cls.api.delete_file(
+        api.delete_file(
             path_in_repo=".gitattributes",
-            repo_id=cls.repo_id,
+            repo_id=repo_id,
             repo_type="dataset",
         )
 
-        cls.readme_file_path = "README.md"
-        cls.readme_file = cls.hf_path + "/" + cls.readme_file_path
-        cls.text_file_path = "data/text_data.txt"
-        cls.text_file = cls.hf_path + "/" + cls.text_file_path
+        request.cls.readme_file_path = "README.md"
+        request.cls.readme_file = hf_path + "/" + "README.md"
+        request.cls.text_file_path = "data/text_data.txt"
+        request.cls.text_file = hf_path + "/" + "data/text_data.txt"
+        yield
+        api.delete_repo(repo_id, repo_type="dataset")
 
-    @classmethod
-    def tearDownClass(cls):
-        super(_HfFileSystemBaseROTests, cls).tearDownClass()
-        cls.api.delete_repo(cls.repo_id, repo_type="dataset")
-
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def _new_hffs(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
     def test_glob_with_revision(self):
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "/*", revision="main")),
-            sorted([self.readme_file, self.hf_path + "/data"]),
+        assert sorted(self.hffs.glob(self.hf_path + "/*", revision="main")) == sorted(
+            [self.readme_file, self.hf_path + "/data"]
         )
-        self.assertEqual(
-            sorted(self.hffs.glob(self.hf_path + "@main" + "/*")),
-            sorted([self.hf_path + "@main/" + self.readme_file_path, self.hf_path + "@main" + "/data"]),
+        assert sorted(self.hffs.glob(self.hf_path + "@main" + "/*")) == sorted(
+            [self.hf_path + "@main/" + self.readme_file_path, self.hf_path + "@main" + "/data"]
         )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "@refs%2Fpr%2F1" + "/data/*"),
-            [self.hf_path + "@refs%2Fpr%2F1" + "/data/binary_data_for_pr.bin"],
-        )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"),
-            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
-        )
-        self.assertEqual(
-            self.hffs.glob(self.hf_path + "/data/*", revision="refs/pr/1"),
-            [self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"],
-        )
+        assert self.hffs.glob(self.hf_path + "@refs%2Fpr%2F1" + "/data/*") == [
+            self.hf_path + "@refs%2Fpr%2F1" + "/data/binary_data_for_pr.bin"
+        ]
+        assert self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*") == [
+            self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"
+        ]
+        assert self.hffs.glob(self.hf_path + "/data/*", revision="refs/pr/1") == [
+            self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin"
+        ]
 
-        self.assertInfoIsNotExpanded(
+        self._check_info_not_expanded(
             self.hffs.dircache[self.hf_path + "@main"][0]
         )  # no detail -> no last_commit in cache
 
         files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True, expand_info=False)
-        self.assertIsInstance(files, dict)
-        self.assertEqual(len(files), 2)
+        assert isinstance(files, dict)
+        assert len(files) == 2
         keys = sorted(files)
-        self.assertTrue(
-            files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
-        )
-        self.assertInfoIsNotExpanded(
+        assert files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
+        self._check_info_not_expanded(
             self.hffs.dircache[self.hf_path + "@main"][0]
         )  # detail but no expand info -> no last_commit in cache
 
         files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True)
-        self.assertIsInstance(files, dict)
-        self.assertEqual(len(files), 2)
+        assert isinstance(files, dict)
+        assert len(files) == 2
         keys = sorted(files)
-        self.assertTrue(
-            files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
-        )
-        self.assertInfoIsNotExpanded(files[keys[0]])
+        assert files[keys[0]]["name"].endswith(self.readme_file_path) and files[keys[1]]["name"].endswith("/data")
+        self._check_info_not_expanded(files[keys[0]])
 
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
-            self.assertEqual(f.read(), b"dummy binary data on pr")
+            assert f.read() == b"dummy binary data on pr"
 
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
@@ -618,20 +589,20 @@ class HfFileSystemRepositoryROTests(_HfFileSystemRepositoryChecks, _HfFileSystem
                 self.hf_path + "@refs%2Fpr%2F1" + "/data", revision="refs/pr/1"
             ),
         }.items():
-            with self.subTest(test_name):
-                self.assertEqual(len(files), 1)  # only one file in PR
-                self.assertEqual(files[0]["type"], "file")
-                self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
-                if "quoted_rev_in_path" in test_name:
-                    self.assertIn("@refs%2Fpr%2F1", files[0]["name"])
-                elif "rev_in_path" in test_name:
-                    self.assertIn("@refs/pr/1", files[0]["name"])
+            assert len(files) == 1  # only one file in PR
+            assert files[0]["type"] == "file"
+            assert files[0]["name"].endswith("/data/binary_data_for_pr.bin")  # PR file
+            if "quoted_rev_in_path" in test_name:
+                assert "@refs%2Fpr%2F1" in files[0]["name"]
+            elif "rev_in_path" in test_name:
+                assert "@refs/pr/1" in files[0]["name"]
 
 
-class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
+class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def _repo(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
         # Create dummy repo
@@ -675,19 +646,18 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
         self.readme_file = self.hf_path + "/" + self.readme_file_path
         self.text_file_path = "data/text_data.txt"
         self.text_file = self.hf_path + "/" + self.text_file_path
-
-    def tearDown(self):
+        yield
         self.api.delete_repo(self.repo_id, repo_type="dataset")
 
     def test_remove_file_with_revision(self):
         self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
-        self.assertEqual(self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"), [])
+        assert self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*") == []
 
     def test_remove_directory_with_revision(self):
         self.hffs.rm(self.hf_path + "/data", recursive=True)
-        self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
+        assert self.hf_path + "/data" not in self.hffs.ls(self.hf_path)
         self.hffs.rm(self.hf_path + "@refs/pr/1" + "/data", recursive=True)
-        self.assertNotIn(self.hf_path + "@refs/pr/1" + "/data", self.hffs.ls(self.hf_path))
+        assert self.hf_path + "@refs/pr/1" + "/data" not in self.hffs.ls(self.hf_path)
 
     def test_find_root_directory_with_incomplete_cache(self):
         self.api.upload_file(
@@ -714,7 +684,7 @@ class HfFileSystemRepositoryRWTests(_HfFileSystemRepositoryChecks, _HfFileSystem
         # some files not expanded
         self.hffs.dircache[self.hf_path + "/data"][1]["last_commit"] = None
         out = self.hffs.find(self.hf_path, detail=True)
-        self.assertEqual(out, files)
+        assert out == files
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
@@ -920,7 +890,7 @@ def test_cache():
         assert fs_token != fs._fs_token  # use a different instance for thread safety
 
 
-@with_production_testing
+@pytest.mark.production
 def test_hf_file_system_file_can_handle_gzipped_file():
     """Test that HfFileSystemStreamFile.read() can handle gzipped files."""
     fs = HfFileSystem(endpoint=constants.ENDPOINT)

@@ -31,7 +31,7 @@ Python client library for the Hugging Face Hub. Source code is in `src/huggingfa
 - `_snapshot_download.py` — `snapshot_download` (download an entire repo).
 - `_commit_api.py` — Low-level commit operations (`CommitOperationAdd`, `CommitOperationDelete`, `CommitOperationCopy`), LFS upload handling.
 - `_commit_scheduler.py` — Background scheduled commits.
-- `_upload_large_folder.py` — Chunked upload for very large folders.
+- `_upload_large_folder.py` — Chunked upload for very large folders (deprecated; `upload_folder` now handles large/resumable uploads).
 - `hf_file_system.py` — `HfFileSystem` (fsspec-based POSIX-like filesystem for Hub repos).
 - `hub_mixin.py` — `ModelHubMixin` base class for ML framework integration (save/load to Hub).
 - `repocard.py` / `repocard_data.py` — `RepoCard`, `ModelCard`, `DatasetCard` and their metadata.

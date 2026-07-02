@@ -337,3 +337,6 @@ HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
 default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
+
+# Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
+SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"

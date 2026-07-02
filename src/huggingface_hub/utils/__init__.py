@@ -39,6 +39,7 @@ from ._auth import get_stored_tokens, get_token
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
+    CachedIncompleteFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
     DeleteCacheStrategy,

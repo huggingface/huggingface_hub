@@ -19,8 +19,7 @@ from huggingface_hub.serialization import (
 )
 from huggingface_hub.serialization._base import parse_size_to_int
 from huggingface_hub.serialization._torch import _load_sharded_checkpoint
-
-from .testing_utils import requires
+from huggingface_hub.utils import is_torch_available
 
 
 if TYPE_CHECKING:
@@ -265,7 +264,7 @@ def test_single_shard_skips_string_tensors():
     assert state_dict_split.metadata == {"total_size": 16}
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_get_torch_storage_size():
     import torch  # type: ignore[import]
 
@@ -273,7 +272,7 @@ def test_get_torch_storage_size():
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_dtensor_available(), reason="requires torch with dtensor available")
 def test_get_torch_storage_size_dtensor():
     # testing distributed sharded tensors isn't very easy, would need to subprocess call torchrun, so this should be good enough
@@ -300,7 +299,7 @@ def test_get_torch_storage_size_dtensor():
         dist.destroy_process_group()
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch  # type: ignore[import]
@@ -625,7 +624,7 @@ def test_save_torch_state_dict_not_main_process(
     assert (tmp_path / "model.safetensors.index.json").is_file()
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]):
     """Test saving and loading a state dict with both safetensors and pickle formats."""
     import torch  # type: ignore[import]
@@ -647,7 +646,7 @@ def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "
         assert torch.equal(loaded_dict[key], torch_state_dict[key])
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_sharded_state_dict(
     tmp_path: Path,
     torch_state_dict: dict[str, "torch.Tensor"],
@@ -677,7 +676,7 @@ def test_load_sharded_state_dict(
         assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_from_directory_not_sharded(
     tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"], dummy_model: "torch.nn.Module"
 ):
@@ -823,7 +822,7 @@ def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dumm
         ),  # custom filename pattern and safe=False -> load custom file index
     ],
 )
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_torch_model_index_selection(
     tmp_path: Path,
     filename_pattern,

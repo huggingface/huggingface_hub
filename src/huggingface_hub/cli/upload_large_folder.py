@@ -14,6 +14,7 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
+import warnings
 from typing import Annotated
 
 import typer
@@ -85,45 +86,47 @@ def upload_large_folder(
         ),
     ] = False,
 ) -> None:
-    """Upload a large folder to the Hub. Recommended for resumable uploads."""
+    """[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead."""
     if not os.path.isdir(local_path):
         raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
+    # Build the equivalent `hf upload` command to recommend to the user.
+    equivalent = [f"hf upload {repo_id} '{local_path}' --repo-type {repo_type.value}"]
+    if revision is not None:
+        equivalent.append(f"--revision '{revision}'")
+    if private:
+        equivalent.append("--private")
+    for pattern in include or []:
+        equivalent.append(f"--include '{pattern}'")
+    for pattern in exclude or []:
+        equivalent.append(f"--exclude '{pattern}'")
+
     out.warning(
-        "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
-        "This is a new feature so feedback is very welcome!\n"
         "\n"
-        "A few things to keep in mind:\n"
-        "  - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
-        "  - Do not start several processes in parallel.\n"
-        "  - You can interrupt and resume the process at any time. "
-        "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
-        "  - Do not upload the same folder to several repositories. If you need to do so, you must delete the `./.cache/huggingface/` folder first.\n"
+        "================================================================================\n"
+        "`hf upload-large-folder` is DEPRECATED and will be removed in a future release.\n"
         "\n"
-        f"Some temporary metadata will be stored under `{local_path}/.cache/huggingface`.\n"
-        "  - You must not modify those files manually.\n"
-        "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
-        "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
+        "Use `hf upload` instead:\n"
         "\n"
-        "If the process output is too verbose, you can disable the progress bars with `--no-bars`. "
-        "You can also entirely disable the status report with `--no-report`.\n"
-        "\n"
-        "For more details, run `hf upload-large-folder --help` or check the documentation at "
-        "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
+        f"    {' '.join(equivalent)}\n"
+        "================================================================================"
     )
 
     if no_bars:
         disable_progress_bars()
 
     api = get_hf_api(token=token)
-    api.upload_large_folder(
-        repo_id=repo_id,
-        folder_path=local_path,
-        repo_type=repo_type.value,
-        revision=revision,
-        private=private,
-        allow_patterns=include,
-        ignore_patterns=exclude,
-        num_workers=num_workers,
-        print_report=not no_report,
-    )
+    with warnings.catch_warnings():
+        # Avoid printing the API-level deprecation warning on top of the CLI one above.
+        warnings.simplefilter("ignore", FutureWarning)
+        api.upload_large_folder(
+            repo_id=repo_id,
+            folder_path=local_path,
+            repo_type=repo_type.value,
+            revision=revision,
+            private=private,
+            allow_patterns=include,
+            ignore_patterns=exclude,
+            num_workers=num_workers,
+            print_report=not no_report,
+        )

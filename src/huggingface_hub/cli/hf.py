@@ -42,6 +42,7 @@ from huggingface_hub.cli.models import models_cli
 from huggingface_hub.cli.papers import papers_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.repos import repos_cli
+from huggingface_hub.cli.sandbox import sandbox_cli
 from huggingface_hub.cli.skills import skills_cli
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, update, version
@@ -101,6 +102,7 @@ app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
 app.add_typer(repos_cli, name="repos | repo")
 app.add_typer(repo_files_cli, name="repo-files", hidden=True)
+app.add_typer(sandbox_cli, name="sandbox")
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
 app.add_typer(webhooks_cli, name="webhooks")

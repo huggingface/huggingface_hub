@@ -340,6 +340,23 @@ def test_hint(check):
     )
 
 
+def test_log(check):
+    check(
+        lambda out: out.log("Set HF_DEBUG=1 for full traceback."),
+        stderr=True,
+        human="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        agent="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        json="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        quiet="",
+    )
+
+
 # =============================================================================
 # out.confirm()
 # =============================================================================
