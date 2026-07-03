@@ -164,7 +164,7 @@ LabelsOpt = Annotated[
 TimeoutOpt = Annotated[
     str | None,
     Option(
-        help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+        help="Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
 ]
 
@@ -753,7 +753,7 @@ def jobs_wait(
     timeout: Annotated[
         str | None,
         Option(
-            help="Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
+            help="Max time to wait: int with s (seconds, default), m (minutes), h (hours) or d (days).",
         ),
     ] = None,
     namespace: NamespaceOpt = None,

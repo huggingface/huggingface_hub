@@ -11775,7 +11775,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12408,7 +12408,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12562,7 +12562,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12951,7 +12951,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
