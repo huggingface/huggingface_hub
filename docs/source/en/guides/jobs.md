@@ -19,7 +19,7 @@ If you want to run and manage a job on the Hub, your machine must be logged in. 
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with a positive [credit balance](https://huggingface.co/settings/billing). See [Jobs pricing and billing](https://huggingface.co/docs/hub/jobs-pricing) for details.
 
 ## Jobs Command Line Interface
 
