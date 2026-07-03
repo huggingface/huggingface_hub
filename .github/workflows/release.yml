@@ -871,10 +871,6 @@ jobs:
 
           git checkout -b "$BRANCH_NAME"
 
-          allow_prereleases_in_workflows() {
-            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
-          }
-
           # Update setup.py if exists
           if [ -f "setup.py" ]; then
             sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
@@ -914,7 +910,7 @@ jobs:
           # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
           # the latest transformers and cause spurious CI failures.
           if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
-            allow_prereleases_in_workflows
+            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
             git add .github/workflows/
           fi
 
