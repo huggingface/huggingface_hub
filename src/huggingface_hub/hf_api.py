@@ -37,10 +37,6 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
-from huggingface_hub.utils._xet import (
-    reset_xet_connection_info_cache_for_repo,
-)
-
 from . import constants
 from ._buckets import (
     BucketFile,
@@ -4690,7 +4686,6 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         r = get_session().request("DELETE", path, headers=headers, json=json)
-        reset_xet_connection_info_cache_for_repo(repo_type, repo_id)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -13486,7 +13481,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
 
-        reset_xet_connection_info_cache_for_repo("bucket", bucket_id)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:

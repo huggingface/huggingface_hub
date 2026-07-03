@@ -27,7 +27,7 @@ from huggingface_hub.file_download import (
     hf_hub_download,
     hf_hub_url,
 )
-from huggingface_hub.utils import build_hf_headers, refresh_xet_connection_info
+from huggingface_hub.utils import build_hf_headers
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
@@ -154,8 +154,7 @@ class TestXetUpload:
         )
         metadata = get_hf_file_metadata(url)
         assert metadata.xet_file_data is not None
-        xet_connection = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers={})
-        assert xet_connection is not None
+        assert metadata.xet_file_data.refresh_route is not None
 
     def test_upload_file_with_bytesio(self, api, tmp_path, repo_url):
         repo_id = repo_url.repo_id
