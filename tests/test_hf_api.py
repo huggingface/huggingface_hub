@@ -2263,7 +2263,7 @@ class TestHfApiPublicProduction:
         explicit_true_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model_only=True)
         full_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model_only=False)
         assert len(default_leaderboard) == len(explicit_true_leaderboard)
-        assert len(full_leaderboard) >= len(default_leaderboard)
+        assert len(full_leaderboard) > len(default_leaderboard)
         default_model_ids = {entry.model_id for entry in default_leaderboard}
         full_model_ids = {entry.model_id for entry in full_leaderboard}
         assert default_model_ids.issubset(full_model_ids)
