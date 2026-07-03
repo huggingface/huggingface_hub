@@ -88,8 +88,10 @@ class TestHttpBackoff:
         """Test `http_backoff` until max limit is reached with status codes."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         mock_504 = Mock()
         mock_504.status_code = 504
+        mock_504.headers = {}
         mock_504.raise_for_status.side_effect = HTTPError("HTTP Error")
         self.mock_request.side_effect = (mock_503, mock_504, mock_503, mock_504)
 
@@ -108,6 +110,7 @@ class TestHttpBackoff:
         """Test `http_backoff` until max limit with status codes and exceptions."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         self.mock_request.side_effect = (mock_503, ConnectTimeout("Connection timeout"))
 
         with pytest.raises(ConnectTimeout):
@@ -124,6 +127,7 @@ class TestHttpBackoff:
         """
         mock_200 = Mock()
         mock_200.status_code = 200
+        mock_200.headers = {}
         self.mock_request.side_effect = (mock_200, mock_200, mock_200, mock_200)
 
         response = http_backoff("GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200)
