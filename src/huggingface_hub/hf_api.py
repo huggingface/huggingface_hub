@@ -3390,7 +3390,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        base_model: bool = True,
+        base_model_only: bool | None = None,
         token: bool | str | None = None,
         timeout: float | None = None,
     ) -> list[DatasetLeaderboardEntry]:
@@ -3405,12 +3405,11 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`. For example: `"allenai/olmOCR-bench"`.
-            base_model (`bool`, *optional*):
-                By default (`True`), the leaderboard only includes models that have no declared
-                `base_model` relation (i.e. canonical/root repos), matching the Hub's default
-                leaderboard view. Fine-tuned or derivative repos that declare a parent model are
-                excluded. Pass `False` to disable this filter and include every submitted result,
-                regardless of whether the model declares a base model relation.
+            base_model_only (`bool` or `None`, *optional*):
+                By default, the leaderboard only includes models that have no declared `base_model` relation
+                (i.e. canonical/root repos), matching the Hub's default leaderboard view. Fine-tuned or derivative
+                repos that declare a parent model are excluded. Pass `base_model_only=False` to disable this filter and
+                include every submitted result, regardless of whether the model declares a base model relation.
             token (`bool` or `str`, *optional*):
                 A valid user access token. Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3442,13 +3441,15 @@ class HfApi:
             >>> leaderboard[0].rank
             1
 
-            >>> # Include fine-tuned / derivative models too
-            >>> full_leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench", base_model=False)
+            # Include fine-tuned / derivative models too
+            >>> full_leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench", base_model_only=False)
             ```
         """
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
-        params = {"base_model": "true" if base_model else "false"}
+        params = {}
+        if base_model_only is not None:
+            params["base_model_only"] = base_model_only
         r = get_session().get(path, headers=headers, params=params, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
