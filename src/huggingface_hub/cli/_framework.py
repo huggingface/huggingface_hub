@@ -189,8 +189,50 @@ def _split_annotated(annotation: Any) -> tuple[Any, ParameterInfo | None]:
     if get_origin(annotation) is Annotated:
         args = get_args(annotation)
         marker = next((meta for meta in args[1:] if isinstance(meta, ParameterInfo)), None)
+        if marker is None and (typer_marker := next((meta for meta in args[1:] if _is_typer_marker(meta)), None)):
+            marker = _from_typer_marker(typer_marker, from_annotated=True)
         return args[0], marker
     return annotation, None
+
+
+# ---------------------------------------------------------------------------
+# Typer-marker compatibility shim (transition helper).
+#
+# ``typer_factory`` is exposed publicly and downstream CLIs (e.g. `transformers`)
+# still register commands whose parameters carry ``typer.Option`` /
+# ``typer.Argument`` markers. Recognize those markers structurally (no typer
+# import required) and translate the fields this framework supports, so such
+# commands keep working while downstream migrates.
+# TODO: remove once transformers pins huggingface_hub>=1.22.0.
+# ---------------------------------------------------------------------------
+
+
+def _is_typer_marker(obj: Any) -> bool:
+    return type(obj).__module__.partition(".")[0] == "typer" and type(obj).__name__ in ("OptionInfo", "ArgumentInfo")
+
+
+def _from_typer_marker(meta: Any, *, from_annotated: bool) -> ParameterInfo:
+    """Translate a ``typer.models.OptionInfo`` / ``ArgumentInfo`` into our marker."""
+    param_decls = list(getattr(meta, "param_decls", None) or ())
+    if type(meta).__name__ == "OptionInfo":
+        # In ``Annotated[...]`` usage typer stores the first flag name in ``default``
+        # (``Option("--flag", "-f")`` -> ``default="--flag"``, ``param_decls=("-f",)``).
+        default = getattr(meta, "default", ...)
+        if from_annotated and isinstance(default, str):
+            param_decls = [default, *param_decls]
+        cls: type[ParameterInfo] = Option
+    else:
+        cls = Argument
+    return cls(
+        *param_decls,
+        help=getattr(meta, "help", None),
+        show_default=getattr(meta, "show_default", True),
+        hidden=getattr(meta, "hidden", False),
+        is_eager=getattr(meta, "is_eager", False),
+        callback=getattr(meta, "callback", None),
+        min=getattr(meta, "min", None),
+        click_type=getattr(meta, "click_type", None),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -285,10 +327,22 @@ def _build_params(
         # get_type_hints mangles ``Annotated[X | None, ...]`` on Python 3.10 (drops the origin).
         annotation = sig_param.annotation if sig_param.annotation is not inspect.Parameter.empty else str
         base_type, info = _split_annotated(annotation)
-        if isinstance(base_type, type) and issubclass(base_type, click.Context):
+        if isinstance(base_type, type) and (
+            issubclass(base_type, click.Context)
+            # typer.Context subclasses typer's *vendored* click since typer 0.26, so an
+            # issubclass check against real click misses it. Match it structurally.
+            or (base_type.__module__.partition(".")[0] == "typer" and base_type.__name__ == "Context")
+        ):
             context_param_name = name
             continue
-        click_param, convertor = _build_click_param(name, base_type, info, sig_param.default)
+        signature_default = sig_param.default
+        if _is_typer_marker(signature_default):
+            # Old typer style: the marker *is* the signature default and carries the value.
+            if info is None:
+                info = _from_typer_marker(signature_default, from_annotated=False)
+            marker_default = getattr(signature_default, "default", ...)
+            signature_default = inspect.Parameter.empty if marker_default is ... else marker_default
+        click_param, convertor = _build_click_param(name, base_type, info, signature_default)
         if convertor is not None and click_param.name is not None:
             convertors[click_param.name] = convertor
         params.append(click_param)

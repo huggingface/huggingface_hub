@@ -3,7 +3,7 @@
 import shlex
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric, InferenceEndpointType
 from huggingface_hub.errors import CLIError, HfHubHTTPError
@@ -20,6 +20,7 @@ from ._cli_utils import (
     parse_env_map,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -30,16 +31,16 @@ catalog_app = typer_factory(help="Interact with the Inference Endpoints catalog.
 
 NameArg = Annotated[
     str,
-    typer.Argument(help="Endpoint name."),
+    Argument(help="Endpoint name."),
 ]
 NameOpt = Annotated[
     str | None,
-    typer.Option(help="Endpoint name."),
+    Option(help="Endpoint name."),
 ]
 
 NamespaceOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.",
     ),
 ]
@@ -56,7 +57,7 @@ def ls(
         endpoints = api.list_inference_endpoints(namespace=namespace, token=token)
     except HfHubHTTPError as error:
         out.error(f"Listing failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     results = []
     for endpoint in endpoints:
@@ -85,43 +86,43 @@ def deploy(
     name: NameArg,
     repo: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ],
     framework: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The machine learning framework used for the model (e.g. 'vllm').",
         ),
     ],
     accelerator: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The hardware accelerator to be used for inference (e.g. 'cpu').",
         ),
     ],
     instance_size: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
         ),
     ],
     instance_type: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
         ),
     ],
     region: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').",
         ),
     ],
     vendor: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').",
         ),
     ],
@@ -129,64 +130,64 @@ def deploy(
     namespace: NamespaceOpt = None,
     task: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
     token: TokenOpt = None,
     min_replica: Annotated[
         int,
-        typer.Option(
+        Option(
             help="The minimum number of replicas (instances) to keep running for the Inference Endpoint.",
         ),
     ] = 1,
     max_replica: Annotated[
         int,
-        typer.Option(
+        Option(
             help="The maximum number of replicas (instances) to scale to for the Inference Endpoint.",
         ),
     ] = 1,
     scale_to_zero_timeout: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
     scaling_metric: Annotated[
         InferenceEndpointScalingMetric | None,
-        typer.Option(
+        Option(
             help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[
         float | None,
-        typer.Option(
+        Option(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
     ] = None,
     revision: RevisionOpt = None,
     custom_image: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--custom-image",
             help="Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
         ),
     ] = None,
     health_route: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.",
         ),
     ] = None,
     port: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="Port the custom container listens on (e.g. 30000). Requires --custom-image.",
         ),
     ] = None,
     container_command: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--container-command",
             help=(
                 "Override the container entrypoint, as a quoted string split into tokens "
@@ -196,7 +197,7 @@ def deploy(
     ] = None,
     container_args: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--container-args",
             help=(
                 "Arguments appended to the container entrypoint, as a quoted string split into tokens "
@@ -210,7 +211,7 @@ def deploy(
     secrets_file: SecretsFileOpt = None,
     endpoint_type: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--type",
             click_type=SoftChoice(InferenceEndpointType),
             help="Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).",
@@ -276,14 +277,14 @@ def deploy(
 def deploy_from_catalog(
     repo: Annotated[
         str,
-        typer.Option(
+        Option(
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ],
     name: NameOpt = None,
     accelerator: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').",
         ),
     ] = None,
@@ -302,7 +303,7 @@ def deploy_from_catalog(
         )
     except HfHubHTTPError as error:
         out.error(f"Deployment failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
 
@@ -316,7 +317,7 @@ def list_catalog(
         models = api.list_inference_catalog(token=token)
     except HfHubHTTPError as error:
         out.error(f"Catalog fetch failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict({"models": models})
 
@@ -325,7 +326,7 @@ catalog_app.command(name="list | ls", examples=["hf endpoints catalog ls"])(list
 ie_cli.command(name="list-catalog", hidden=True)(list_catalog)
 
 
-ie_cli.add_typer(catalog_app, name="catalog")
+ie_cli.add_group(catalog_app, name="catalog")
 
 
 @ie_cli.command(examples=["hf endpoints describe my-endpoint"])
@@ -340,7 +341,7 @@ def describe(
         endpoint = api.get_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
         out.error(f"Fetch failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
 
@@ -351,73 +352,73 @@ def update(
     namespace: NamespaceOpt = None,
     repo: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
         ),
     ] = None,
     accelerator: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The hardware accelerator to be used for inference (e.g. 'cpu').",
         ),
     ] = None,
     instance_size: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The size or type of the instance to be used for hosting the model (e.g. 'x4').",
         ),
     ] = None,
     instance_type: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').",
         ),
     ] = None,
     framework: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The machine learning framework used for the model (e.g. 'custom').",
         ),
     ] = None,
     revision: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').",
         ),
     ] = None,
     task: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
     min_replica: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="The minimum number of replicas (instances) to keep running for the Inference Endpoint.",
         ),
     ] = None,
     max_replica: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="The maximum number of replicas (instances) to scale to for the Inference Endpoint.",
         ),
     ] = None,
     scale_to_zero_timeout: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="The duration in minutes before an inactive endpoint is scaled to zero.",
         ),
     ] = None,
     scaling_metric: Annotated[
         InferenceEndpointScalingMetric | None,
-        typer.Option(
+        Option(
             help="The metric reference for scaling.",
         ),
     ] = None,
     scaling_threshold: Annotated[
         float | None,
-        typer.Option(
+        Option(
             help="The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.",
         ),
     ] = None,
@@ -445,7 +446,7 @@ def update(
         )
     except HfHubHTTPError as error:
         out.error(f"Update failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
     out.dict(endpoint.raw)
 
 
@@ -455,7 +456,7 @@ def delete(
     namespace: NamespaceOpt = None,
     yes: Annotated[
         bool,
-        typer.Option("--yes", help="Skip confirmation prompts."),
+        Option("--yes", help="Skip confirmation prompts."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -467,7 +468,7 @@ def delete(
         api.delete_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
         out.error(f"Delete failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.result(f"Deleted '{name}'.", name=name)
 
@@ -484,7 +485,7 @@ def pause(
         endpoint = api.pause_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
         out.error(f"Pause failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
 
@@ -495,7 +496,7 @@ def resume(
     namespace: NamespaceOpt = None,
     fail_if_already_running: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--fail-if-already-running",
             help="If `True`, the method will raise an error if the Inference Endpoint is already running.",
         ),
@@ -513,7 +514,7 @@ def resume(
         )
     except HfHubHTTPError as error:
         out.error(f"Resume failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
     out.dict(endpoint.raw)
 
 
@@ -529,6 +530,6 @@ def scale_to_zero(
         endpoint = api.scale_to_zero_inference_endpoint(name=name, namespace=namespace, token=token)
     except HfHubHTTPError as error:
         out.error(f"Scale To Zero failed: {error}")
-        raise typer.Exit(code=error.response.status_code) from error
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)

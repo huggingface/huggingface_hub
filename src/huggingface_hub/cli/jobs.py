@@ -25,8 +25,6 @@ from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
-import typer
-
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
 from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
 from huggingface_hub.errors import CLIError
@@ -50,6 +48,7 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -133,21 +132,21 @@ STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update
 # Common job-related options
 ImageArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="The Docker image to use.",
     ),
 ]
 
 ImageOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Use a custom Docker image with `uv` installed.",
     ),
 ]
 
 FlavorOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.",
         click_type=SoftChoice(JobHardware),
     ),
@@ -155,7 +154,7 @@ FlavorOpt = Annotated[
 
 LabelsOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-l",
         "--label",
         help="Set labels. E.g. --label KEY=VALUE or --label LABEL",
@@ -164,14 +163,14 @@ LabelsOpt = Annotated[
 
 TimeoutOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Max duration: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
 ]
 
 DetachOpt = Annotated[
     bool,
-    typer.Option(
+    Option(
         "-d",
         "--detach",
         help="Run the Job in the background and print the Job ID.",
@@ -180,14 +179,14 @@ DetachOpt = Annotated[
 
 NamespaceOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
     ),
 ]
 
 ExposeOpt = Annotated[
     list[int] | None,
-    typer.Option(
+    Option(
         "--expose",
         help="Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
     ),
@@ -195,7 +194,7 @@ ExposeOpt = Annotated[
 
 SshEnabledOpt = Annotated[
     bool,
-    typer.Option(
+    Option(
         "--ssh",
         help="Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.",
     ),
@@ -203,7 +202,7 @@ SshEnabledOpt = Annotated[
 
 WithOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "--with",
         help="Run with the given packages installed",
     ),
@@ -211,7 +210,7 @@ WithOpt = Annotated[
 
 PythonOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         "-p",
         "--python",
         help="The Python interpreter to use for the run environment",
@@ -220,35 +219,35 @@ PythonOpt = Annotated[
 
 SuspendOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         help="Suspend (pause) the scheduled Job",
     ),
 ]
 
 ConcurrencyOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         help="Allow multiple instances of this Job to run concurrently",
     ),
 ]
 
 ScheduleArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
     ),
 ]
 
 ScriptArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="UV script to run (local file or URL)",
     ),
 ]
 
 ScriptArgsArg = Annotated[
     list[str] | None,
-    typer.Argument(
+    Argument(
         help="Arguments for the script",
     ),
 ]
@@ -256,35 +255,35 @@ ScriptArgsArg = Annotated[
 
 CommandArg = Annotated[
     list[str],
-    typer.Argument(
+    Argument(
         help="The command to run.",
     ),
 ]
 
 JobIdArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="Job ID (or 'namespace/job_id')",
     ),
 ]
 
 JobIdsArg = Annotated[
     list[str] | None,
-    typer.Argument(
+    Argument(
         help="Job IDs (or 'namespace/job_id')",
     ),
 ]
 
 ScheduledJobIdArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="Scheduled Job ID (or 'namespace/scheduled_job_id')",
     ),
 ]
 
 JobVolumesOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-v",
         "--volume",
         help="Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. "
@@ -385,7 +384,7 @@ def jobs_logs(
     job_id: JobIdArg,
     follow: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-f",
             "--follow",
             help="Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.",
@@ -393,7 +392,7 @@ def jobs_logs(
     ] = False,
     tail: Annotated[
         int | None,
-        typer.Option(
+        Option(
             "-n",
             "--tail",
             help="Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.",
@@ -553,7 +552,7 @@ def jobs_stats(
 def jobs_ps(
     all: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-a",
             "--all",
             help="Show all Jobs (default shows running and scheduling). Cannot be combined with --status.",
@@ -561,7 +560,7 @@ def jobs_ps(
     ] = False,
     status: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "--status",
             click_type=SoftChoice(JobStage),
             help="Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.",
@@ -569,7 +568,7 @@ def jobs_ps(
     ] = None,
     label: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "-l",
             "--label",
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
@@ -577,7 +576,7 @@ def jobs_ps(
     ] = None,
     limit: Annotated[
         int,
-        typer.Option(
+        Option(
             "--limit",
             help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
         ),
@@ -586,7 +585,7 @@ def jobs_ps(
     token: TokenOpt = None,
     filter: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "-f",
             "--filter",
             help="(Deprecated) Use `--status` and `--label` instead.",
@@ -705,7 +704,7 @@ def jobs_hardware() -> None:
 def jobs_inspect(
     job_ids: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Job IDs to inspect (or 'namespace/job_id')",
         ),
     ],
@@ -747,13 +746,13 @@ def jobs_cancel(
 def jobs_wait(
     job_ids: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Job IDs to wait for (or 'namespace/job_id').",
         ),
     ],
     timeout: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Max time to wait: int/float with s (seconds, default), m (minutes), h (hours) or d (days).",
         ),
     ] = None,
@@ -809,7 +808,7 @@ def jobs_wait(
 def jobs_labels(
     job_id: JobIdArg,
     label: LabelsOpt = None,
-    clear: Annotated[bool, typer.Option("--clear", help="Remove all labels from the job.")] = False,
+    clear: Annotated[bool, Option("--clear", help="Remove all labels from the job.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -874,7 +873,7 @@ def jobs_ssh(
 
 
 uv_app = typer_factory(help="Run UV scripts (Python with inline dependencies) on HF infrastructure.")
-jobs_cli.add_typer(uv_app, name="uv")
+jobs_cli.add_group(uv_app, name="uv")
 
 
 @uv_app.command(
@@ -944,7 +943,7 @@ def jobs_uv_run(
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
-jobs_cli.add_typer(scheduled_app, name="scheduled")
+jobs_cli.add_group(scheduled_app, name="scheduled")
 
 
 @scheduled_app.command(
@@ -998,7 +997,7 @@ def scheduled_run(
 def scheduled_ps(
     all: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-a",
             "--all",
             help="Show all scheduled Jobs (default hides suspended)",
@@ -1008,7 +1007,7 @@ def scheduled_ps(
     token: TokenOpt = None,
     filter: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "-f",
             "--filter",
             help="Filter output based on conditions provided (format: key=value)",
@@ -1081,7 +1080,7 @@ def scheduled_ps(
 def scheduled_inspect(
     scheduled_job_ids: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')",
         ),
     ],
@@ -1166,7 +1165,7 @@ def scheduled_trigger(
 def scheduled_labels(
     scheduled_job_id: ScheduledJobIdArg,
     label: LabelsOpt = None,
-    clear: Annotated[bool, typer.Option("--clear", help="Remove all labels from the scheduled job.")] = False,
+    clear: Annotated[bool, Option("--clear", help="Remove all labels from the scheduled job.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -1187,7 +1186,7 @@ def scheduled_labels(
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
-scheduled_app.add_typer(scheduled_uv_app, name="uv")
+scheduled_app.add_group(scheduled_uv_app, name="uv")
 
 
 @scheduled_uv_app.command(

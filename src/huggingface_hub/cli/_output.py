@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from enum import Enum
 from typing import Any, cast
 
-import typer
+import click
 
 from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
@@ -189,7 +189,7 @@ class Output:
             return
         if self.mode != OutputFormat.human:
             raise ConfirmationError(f"{message} Use {confirm_param} to skip confirmation.")
-        typer.confirm(message, default=default, abort=True)
+        click.confirm(message, default=default, abort=True)
 
     def status(self, message: str | None = None) -> StatusLine:
         """Return a status line that emits only in human mode (no-op otherwise)."""

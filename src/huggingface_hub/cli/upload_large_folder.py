@@ -17,7 +17,7 @@ import os
 import warnings
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import logging
 from huggingface_hub.utils import disable_progress_bars
@@ -31,6 +31,7 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -47,7 +48,7 @@ def upload_large_folder(
     repo_id: RepoIdArg,
     local_path: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Local path to the folder to upload.",
         ),
     ],
@@ -56,39 +57,39 @@ def upload_large_folder(
     private: PrivateOpt = None,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     token: TokenOpt = None,
     num_workers: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="Number of workers to use to hash, upload and commit files.",
         ),
     ] = None,
     no_report: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to disable regular status report.",
         ),
     ] = False,
     no_bars: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to disable progress bars.",
         ),
     ] = False,
 ) -> None:
     """[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead."""
     if not os.path.isdir(local_path):
-        raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
+        raise click.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
     # Build the equivalent `hf upload` command to recommend to the user.
     equivalent = [f"hf upload {repo_id} '{local_path}' --repo-type {repo_type.value}"]

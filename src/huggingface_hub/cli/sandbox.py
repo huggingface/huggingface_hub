@@ -18,7 +18,7 @@ import time
 from contextlib import contextmanager
 from typing import Annotated, Any, Iterator
 
-import typer
+import click
 
 from huggingface_hub._sandbox import (
     DEFAULT_IDLE_TIMEOUT,
@@ -49,17 +49,18 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import out
 from .jobs import FlavorOpt, NamespaceOpt
 
 
 sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
 pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
-sandbox_cli.add_typer(pool_cli, name="pool")
+sandbox_cli.add_group(pool_cli, name="pool")
 process_cli = typer_factory(help="List and stop background processes running in a sandbox.")
-sandbox_cli.add_typer(process_cli, name="process")
+sandbox_cli.add_group(process_cli, name="process")
 
-SandboxIdArg = Annotated[str, typer.Argument(help="The sandbox id as printed by `hf sandbox create`.")]
+SandboxIdArg = Annotated[str, Argument(help="The sandbox id as printed by `hf sandbox create`.")]
 
 
 @contextmanager
@@ -82,15 +83,15 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
     ],
 )
 def sandbox_create(
-    image: Annotated[str | None, typer.Argument(help="Docker image (needs /bin/sh).")] = None,
+    image: Annotated[str | None, Argument(help="Docker image (needs /bin/sh).")] = None,
     pool: Annotated[
         str | None,
-        typer.Option("--pool", help="Spawn a cheap shared sandbox in this pool (from `hf sandbox pool create`)."),
+        Option("--pool", help="Spawn a cheap shared sandbox in this pool (from `hf sandbox pool create`)."),
     ] = None,
     flavor: FlavorOpt = None,
     idle_timeout: Annotated[
         str | None,
-        typer.Option(help="Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m."),
+        Option(help="Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m."),
     ] = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
@@ -99,7 +100,7 @@ def sandbox_create(
     volume: VolumesOpt = None,
     namespace: NamespaceOpt = None,
     forward_hf_token: Annotated[
-        bool, typer.Option("--forward-hf-token", help="Inject your HF token as HF_TOKEN in the sandbox.")
+        bool, Option("--forward-hf-token", help="Inject your HF token as HF_TOKEN in the sandbox.")
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -156,12 +157,12 @@ def sandbox_create(
 )
 def sandbox_exec(
     sandbox_id: SandboxIdArg,
-    command: Annotated[list[str], typer.Argument(help="The command to run.")],
-    workdir: Annotated[str | None, typer.Option("-w", "--workdir", help="Working directory.")] = None,
+    command: Annotated[list[str], Argument(help="The command to run.")],
+    workdir: Annotated[str | None, Option("-w", "--workdir", help="Working directory.")] = None,
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     exec_timeout: Annotated[
-        float | None, typer.Option("--timeout", help="Kill the command after this many seconds.")
+        float | None, Option("--timeout", help="Kill the command after this many seconds.")
     ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -192,9 +193,9 @@ def sandbox_exec(
         )
     if result.timed_out:
         out.error(f"Command timed out after {exec_timeout}s.")
-        raise typer.Exit(code=result.exit_code or 124)  # 124: conventional timeout exit code
+        raise click.exceptions.Exit(code=result.exit_code or 124)  # 124: conventional timeout exit code
     if result.exit_code != 0:
-        raise typer.Exit(code=result.exit_code if result.exit_code is not None else 1)
+        raise click.exceptions.Exit(code=result.exit_code if result.exit_code is not None else 1)
 
 
 @sandbox_cli.command(
@@ -207,8 +208,8 @@ def sandbox_exec(
 )
 def sandbox_spawn(
     sandbox_id: SandboxIdArg,
-    command: Annotated[list[str], typer.Argument(help="The command to run in the background.")],
-    workdir: Annotated[str | None, typer.Option("-w", "--workdir", help="Working directory.")] = None,
+    command: Annotated[list[str], Argument(help="The command to run in the background.")],
+    workdir: Annotated[str | None, Option("-w", "--workdir", help="Working directory.")] = None,
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     namespace: NamespaceOpt = None,
@@ -234,8 +235,8 @@ def sandbox_spawn(
     ],
 )
 def sandbox_cp(
-    src: Annotated[str, typer.Argument(help="Source: a local path or <sandbox_id>:<path>.")],
-    dst: Annotated[str, typer.Argument(help="Destination: a local path or <sandbox_id>:<path>.")],
+    src: Annotated[str, Argument(help="Source: a local path or <sandbox_id>:<path>.")],
+    dst: Annotated[str, Argument(help="Destination: a local path or <sandbox_id>:<path>.")],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -274,9 +275,9 @@ def sandbox_cp(
     ],
 )
 def sandbox_kill(
-    sandbox_id: Annotated[str | None, typer.Argument(help="The sandbox or host id to terminate.")] = None,
-    all_: Annotated[bool, typer.Option("--all", help="Terminate every sandbox and host in the namespace.")] = False,
-    yes: Annotated[bool, typer.Option("-y", "--yes", help="Answer Yes to prompts automatically.")] = False,
+    sandbox_id: Annotated[str | None, Argument(help="The sandbox or host id to terminate.")] = None,
+    all_: Annotated[bool, Option("--all", help="Terminate every sandbox and host in the namespace.")] = False,
+    yes: Annotated[bool, Option("-y", "--yes", help="Answer Yes to prompts automatically.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -332,22 +333,18 @@ def sandbox_kill(
     ],
 )
 def pool_create(
-    image: Annotated[str | None, typer.Argument(help="Docker image for the hosts (needs /bin/sh).")] = None,
+    image: Annotated[str | None, Argument(help="Docker image for the hosts (needs /bin/sh).")] = None,
     flavor: FlavorOpt = None,
     per_host: Annotated[
         int,
-        typer.Option(
-            "--per-host", min=1, help=f"Sandboxes packed per host VM (default {DEFAULT_SANDBOXES_PER_HOST})."
-        ),
+        Option("--per-host", min=1, help=f"Sandboxes packed per host VM (default {DEFAULT_SANDBOXES_PER_HOST})."),
     ] = DEFAULT_SANDBOXES_PER_HOST,
     max_hosts: Annotated[
-        int | None, typer.Option("--max-hosts", min=1, help="Optional cap on the number of host VMs.")
+        int | None, Option("--max-hosts", min=1, help="Optional cap on the number of host VMs.")
     ] = None,
     idle_timeout: Annotated[
         str | None,
-        typer.Option(
-            help="Shut a host down once it has had no sandboxes for this long (e.g. '10m'). Defaults to 10m."
-        ),
+        Option(help="Shut a host down once it has had no sandboxes for this long (e.g. '10m'). Defaults to 10m."),
     ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -415,8 +412,8 @@ def pool_ls(
     examples=["hf sandbox pool delete <pool_id>"],
 )
 def pool_delete(
-    pool_id: Annotated[str, typer.Argument(help="Pool id to delete.")],
-    yes: Annotated[bool, typer.Option("-y", "--yes", help="Answer Yes to prompts automatically.")] = False,
+    pool_id: Annotated[str, Argument(help="Pool id to delete.")],
+    yes: Annotated[bool, Option("-y", "--yes", help="Answer Yes to prompts automatically.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -470,7 +467,7 @@ def process_ls(
 @process_cli.command("kill", examples=["hf sandbox process kill <sandbox_id> <pid>"])
 def process_kill(
     sandbox_id: SandboxIdArg,
-    pid: Annotated[int, typer.Argument(help="The pid as printed by `hf sandbox process ls`.")],
+    pid: Annotated[int, Argument(help="The pid as printed by `hf sandbox process ls`.")],
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
