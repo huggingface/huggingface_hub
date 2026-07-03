@@ -3449,7 +3449,7 @@ class HfApi:
         path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
         params = {}
         if base_model_only is not None:
-            params["base_model_only"] = base_model_only
+            params["base_model"] = base_model_only
         r = get_session().get(path, headers=headers, params=params, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
