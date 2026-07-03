@@ -871,6 +871,10 @@ jobs:
 
           git checkout -b "$BRANCH_NAME"
 
+          allow_prereleases_in_workflows() {
+            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
+          }
+
           # Update setup.py if exists
           if [ -f "setup.py" ]; then
             sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
@@ -881,6 +885,16 @@ jobs:
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
             sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
             git add src/transformers/dependency_versions_table.py
+
+            # The current Transformers PR CI delegates to reusable workflows from
+            # huggingface/transformers-test-ci. Copy those workflows into this test
+            # branch so the prerelease patch applies to the actual quality install.
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-test-ci/main/.github/workflows/pr-ci_dynamic_caller_example.yml \
+              -o .github/workflows/pr-ci_dynamic_caller_example.yml
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-test-ci/main/.github/workflows/pr-ci_reusable_test_job.yml \
+              -o .github/workflows/pr-ci_reusable_test_job.yml
+            sed -i -E "s|uses: huggingface/transformers-test-ci/\.github/workflows/pr-ci_dynamic_caller_example\.yml@[^[:space:]]+.*|uses: ./.github/workflows/pr-ci_dynamic_caller_example.yml # patched for hfh prerelease|" .github/workflows/pr-ci-caller.yml
+            git add .github/workflows/pr-ci-caller.yml .github/workflows/pr-ci_dynamic_caller_example.yml .github/workflows/pr-ci_reusable_test_job.yml
           fi
 
           # diffusers-specific
@@ -900,7 +914,7 @@ jobs:
           # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
           # the latest transformers and cause spurious CI failures.
           if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
-            find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+            allow_prereleases_in_workflows
             git add .github/workflows/
           fi
 
