@@ -9,6 +9,7 @@ import huggingface_hub.utils._verification as verification_module
 from huggingface_hub.hf_api import HfApi, RepoFile, RepoFolder
 from huggingface_hub.utils._verification import (
     HashAlgo,
+    _resolve_commit_hash_from_cache,
     collect_local_files,
     compute_file_hash,
     resolve_local_root,
@@ -186,3 +187,101 @@ def test_api_verify_repo_checksums_ignores_folders(tmp_path: Path) -> None:
         assert res.mismatches == []
         assert res.missing_paths == []
         assert res.extra_paths == []
+
+
+def test_compute_file_hash_rejects_unsupported_algorithm(tmp_path: Path) -> None:
+    fp = tmp_path / "a.txt"
+    _write(fp, b"hello")
+    with pytest.raises(ValueError, match="Unsupported hash algorithm"):
+        compute_file_hash(fp, "md5")  # type: ignore[arg-type]
+
+
+def test_verify_maps_uses_lfs_sha256_when_present(tmp_path: Path) -> None:
+    fp = tmp_path / "a.bin"
+    _write(fp, b"hello")
+    sha256 = hashlib.sha256(b"hello").hexdigest()
+    remote = {"a.bin": SimpleNamespace(lfs=SimpleNamespace(sha256=sha256), blob_id="unused")}
+
+    res = verify_maps(
+        remote_by_path=remote,
+        local_by_path={"a.bin": fp},
+        revision="main",
+        verified_path=tmp_path,
+    )
+    assert res.mismatches == []
+    assert res.checked_count == 1
+
+
+def test_verify_maps_reads_lfs_sha256_from_dict(tmp_path: Path) -> None:
+    # `lfs` may be exposed as a plain dict rather than an attribute holder.
+    fp = tmp_path / "a.bin"
+    _write(fp, b"hello")
+    sha256 = hashlib.sha256(b"hello").hexdigest()
+    remote = {"a.bin": SimpleNamespace(lfs={"sha256": sha256}, blob_id="unused")}
+
+    res = verify_maps(
+        remote_by_path=remote,
+        local_by_path={"a.bin": fp},
+        revision="main",
+        verified_path=tmp_path,
+    )
+    assert res.mismatches == []
+
+
+def test_verify_maps_reports_lfs_mismatch_with_sha256_algorithm(tmp_path: Path) -> None:
+    fp = tmp_path / "a.bin"
+    _write(fp, b"hello")
+    remote = {"a.bin": SimpleNamespace(lfs=SimpleNamespace(sha256="0" * 64), blob_id="unused")}
+
+    res = verify_maps(
+        remote_by_path=remote,
+        local_by_path={"a.bin": fp},
+        revision="main",
+        verified_path=tmp_path,
+    )
+    assert len(res.mismatches) == 1
+    assert res.mismatches[0]["algorithm"] == "sha256"
+    assert res.mismatches[0]["expected"] == "0" * 64
+
+
+def test_verify_maps_reports_missing_and_extra_paths(tmp_path: Path) -> None:
+    fp = tmp_path / "local_only.txt"
+    _write(fp, b"data")
+    remote = {"remote_only.txt": SimpleNamespace(lfs=None, blob_id="x")}
+
+    res = verify_maps(
+        remote_by_path=remote,
+        local_by_path={"local_only.txt": fp},
+        revision="main",
+        verified_path=tmp_path,
+    )
+    assert res.checked_count == 0
+    assert res.missing_paths == ["remote_only.txt"]
+    assert res.extra_paths == ["local_only.txt"]
+    assert res.mismatches == []
+
+
+def test_resolve_commit_hash_returns_full_hash_directly(tmp_path: Path) -> None:
+    commit = "a" * 40
+    assert _resolve_commit_hash_from_cache(tmp_path, commit) == commit
+
+
+def test_resolve_commit_hash_reads_ref_file(tmp_path: Path) -> None:
+    commit = "b" * 40
+    ref = tmp_path / "refs" / "my-branch"
+    ref.parent.mkdir(parents=True)
+    ref.write_text(commit, encoding="utf-8")
+    assert _resolve_commit_hash_from_cache(tmp_path, "my-branch") == commit
+
+
+def test_resolve_commit_hash_ambiguous_snapshots_raise(tmp_path: Path) -> None:
+    snapshots = tmp_path / "snapshots"
+    (snapshots / ("a" * 40)).mkdir(parents=True)
+    (snapshots / ("b" * 40)).mkdir(parents=True)
+    with pytest.raises(ValueError, match="Ambiguous cached revision"):
+        _resolve_commit_hash_from_cache(tmp_path, None)
+
+
+def test_resolve_commit_hash_missing_snapshots_raise(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="missing snapshots directory"):
+        _resolve_commit_hash_from_cache(tmp_path, None)
