@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional, TypeVar
 from unittest.mock import Mock
 
+import pytest
 from pytest_mock import MockerFixture
 
 from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
@@ -15,7 +16,7 @@ from huggingface_hub.serialization._torch import storage_ptr
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import TOKEN, USER
-from .testing_utils import repo_name, requires
+from .testing_utils import repo_name
 
 
 DUMMY_OBJECT = object()
@@ -133,7 +134,7 @@ else:
     DummyModelWithTag2 = None
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 class TestPytorchHubMixin:
     def test_save_pretrained_basic(self, tmp_path):
         DummyModel().save_pretrained(tmp_path)

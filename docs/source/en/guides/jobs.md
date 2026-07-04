@@ -19,7 +19,7 @@ If you want to run and manage a job on the Hub, your machine must be logged in. 
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with a positive [credit balance](https://huggingface.co/settings/billing). See [Jobs pricing and billing](https://huggingface.co/docs/hub/jobs-pricing) for details.
 
 ## Jobs Command Line Interface
 
@@ -631,7 +631,7 @@ Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
 
-Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
 
 ```python
 # List your active scheduled jobs
@@ -649,6 +649,11 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 # Resume a scheduled job
 >>> from huggingface_hub import resume_scheduled_job
 >>> resume_scheduled_job(scheduled_job_id)
+
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> from huggingface_hub import trigger_scheduled_job
+>>> job = trigger_scheduled_job(scheduled_job_id)
+>>> job.url
 
 # Delete a scheduled job
 >>> from huggingface_hub import delete_scheduled_job

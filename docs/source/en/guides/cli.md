@@ -2138,6 +2138,9 @@ Manage scheduled jobs using
 # Resume a scheduled job
 >>> hf jobs scheduled resume <scheduled_job_id>
 
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> hf jobs scheduled trigger <scheduled_job_id>
+
 # Delete a scheduled job
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```

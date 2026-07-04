@@ -2060,9 +2060,9 @@ class DatasetLeaderboardEntry:
             Name of the result file containing the evaluation data.
         verified (`bool`):
             Whether the result has been verified.
-        source (`dict[str, Any]`):
+        source (`dict[str, Any]`, *optional*):
             Information about the source of the evaluation result. Contains keys like
-            `"url"`, `"name"`, and `"isExternal"`.
+            `"url"`, `"name"`, and `"isExternal"`. Not all entries have a source.
         author (`User` or `Organization`):
             The model author, parsed based on the `"type"` field in the API response.
         pull_request (`int`, *optional*):
@@ -2076,7 +2076,7 @@ class DatasetLeaderboardEntry:
     value: float
     filename: str
     verified: bool
-    source: dict[str, Any]
+    source: dict[str, Any] | None
     author: User | Organization
     pull_request: int | None = None
     notes: str | None = None
@@ -2087,7 +2087,7 @@ class DatasetLeaderboardEntry:
         self.value = kwargs.pop("value")
         self.filename = kwargs.pop("filename")
         self.verified = kwargs.pop("verified")
-        self.source = kwargs.pop("source")
+        self.source = kwargs.pop("source", None)
         author_data = dict(kwargs.pop("author"))
         author_type = author_data.get("type")
         if author_type == "org":
@@ -3390,6 +3390,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
+        base_model_only: bool | None = None,
         token: bool | str | None = None,
         timeout: float | None = None,
     ) -> list[DatasetLeaderboardEntry]:
@@ -3404,6 +3405,11 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`. For example: `"allenai/olmOCR-bench"`.
+            base_model_only (`bool` or `None`, *optional*):
+                By default, the leaderboard only includes models that have no declared `base_model` relation
+                (i.e. canonical/root repos), matching the Hub's default leaderboard view. Fine-tuned or derivative
+                repos that declare a parent model are excluded. Pass `base_model_only=False` to disable this filter and
+                include every submitted result, regardless of whether the model declares a base model relation.
             token (`bool` or `str`, *optional*):
                 A valid user access token. Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3434,11 +3440,17 @@ class HfApi:
             'datalab-to/chandra-ocr-2'
             >>> leaderboard[0].rank
             1
+
+            # Include fine-tuned / derivative models too
+            >>> full_leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench", base_model_only=False)
             ```
         """
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
-        r = get_session().get(path, headers=headers, timeout=timeout)
+        params = {}
+        if base_model_only is not None:
+            params["base_model"] = base_model_only
+        r = get_session().get(path, headers=headers, params=params, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
         return [DatasetLeaderboardEntry(**entry) for entry in data]
@@ -11763,7 +11775,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12396,7 +12408,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12550,7 +12562,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12792,6 +12804,48 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def trigger_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Trigger a scheduled Job to run immediately.
+
+        This triggers one immediate run of the scheduled job's spec. It does **not** modify the schedule
+        and does **not** affect the next scheduled run. If an instance is already running and the scheduled
+        job does not allow concurrent runs, the request is rejected (HTTP 409).
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: Info about the triggered run.
+
+        Raises:
+            [`~utils.HfHubHTTPError`]:
+                HTTP 409 if another instance is already running and `concurrency` is disabled on the scheduled job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/run",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def update_scheduled_job_labels(
         self,
         *,
@@ -12897,7 +12951,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -14832,6 +14886,7 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
+trigger_scheduled_job = api.trigger_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume

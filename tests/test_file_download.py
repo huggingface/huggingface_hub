@@ -45,16 +45,17 @@ from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
 from .conftest import RepoFactory
-from .testing_constants import OTHER_TOKEN, TOKEN
-from .testing_utils import (
+from .testing_constants import (
     DUMMY_EXTRA_LARGE_FILE_MODEL_ID,
     DUMMY_EXTRA_LARGE_FILE_NAME,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_RENAMED_OLD_MODEL_ID,
+    OTHER_TOKEN,
     SAMPLE_DATASET_IDENTIFIER,
-    repo_name,
+    TOKEN,
 )
+from .testing_utils import repo_name
 
 
 REVISION_ID_DEFAULT = "main"

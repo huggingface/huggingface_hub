@@ -85,24 +85,22 @@ from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
 from .conftest import RepoFactory
 from .testing_constants import (
+    DUMMY_DATASET_ID,
+    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    DUMMY_MODEL_ID,
+    DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    ENDPOINT_PRODUCTION,
     ENDPOINT_STAGING,
     ENTERPRISE_ORG,
     ENTERPRISE_TOKEN,
     FULL_NAME,
     OTHER_TOKEN,
     OTHER_USER,
+    SAMPLE_DATASET_IDENTIFIER,
     TOKEN,
     USER,
 )
-from .testing_utils import (
-    DUMMY_DATASET_ID,
-    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    DUMMY_MODEL_ID,
-    DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    ENDPOINT_PRODUCTION,
-    SAMPLE_DATASET_IDENTIFIER,
-    repo_name,
-)
+from .testing_utils import repo_name
 
 
 logger = logging.get_logger(__name__)
@@ -2259,9 +2257,35 @@ class TestHfApiPublicProduction:
         assert entry.notes is None or isinstance(entry.notes, str)
 
     @pytest.mark.production
+    def test_get_dataset_leaderboard_base_model_filter(self):
+        api = HfApi()
+        default_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0")
+        explicit_true_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model_only=True)
+        full_leaderboard = api.get_dataset_leaderboard("LiquidAI/ifstruct-v1.0", base_model_only=False)
+        assert len(default_leaderboard) == len(explicit_true_leaderboard)
+        assert len(full_leaderboard) > len(default_leaderboard)
+        default_model_ids = {entry.model_id for entry in default_leaderboard}
+        full_model_ids = {entry.model_id for entry in full_leaderboard}
+        assert default_model_ids.issubset(full_model_ids)
+
+    @pytest.mark.production
     def test_get_dataset_leaderboard_not_found(self):
         with pytest.raises(RepositoryNotFoundError):
             HfApi().get_dataset_leaderboard("this-repo-does-not-exist/404")
+
+    def test_dataset_leaderboard_entry_missing_source(self):
+        # Some leaderboard entries returned by the server omit the "source" key entirely
+        # (e.g. https://huggingface.co/api/datasets/Idavidrein/gpqa/leaderboard). This should
+        # not raise a KeyError.
+        entry = DatasetLeaderboardEntry(
+            rank=1,
+            modelId="some-org/some-model",
+            value=42.0,
+            filename="results.yaml",
+            verified=False,
+            author={"type": "org", "name": "some-org"},
+        )
+        assert entry.source is None
 
     def test_space_info(self, api: HfApi) -> None:
         space = api.space_info(repo_id="HuggingFaceH4/zephyr-chat")

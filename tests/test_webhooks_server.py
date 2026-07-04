@@ -5,8 +5,6 @@ from fastapi import Request
 
 from huggingface_hub.utils import capture_output, is_gradio_available
 
-from .testing_utils import requires
-
 
 if is_gradio_available():
     import gradio as gr
@@ -110,7 +108,7 @@ WEBHOOK_PAYLOAD_WITH_UPDATED_REFS = {
 }
 
 
-@requires("gradio")
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
 class TestWebhookPayload:
     def test_deserialize_payload_example_with_comment(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
@@ -134,7 +132,7 @@ class TestWebhookPayload:
         assert payload.updatedRefs[0].newSha == "227c78346870a85e5de4fff8a585db68df975406"
 
 
-@requires("gradio")
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
 class TestWebhooksServerDontRun:
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
@@ -172,7 +170,7 @@ class TestWebhooksServerDontRun:
                 pass
 
 
-@requires("gradio")
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
 class TestWebhooksServerRun:
     HEADERS_VALID_SECRET = {"x-webhook-secret": "my_webhook_secret"}
     HEADERS_WRONG_SECRET = {"x-webhook-secret": "wrong_webhook_secret"}

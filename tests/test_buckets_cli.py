@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from typer.testing import CliRunner, Result
+from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
 from huggingface_hub._buckets import BUCKET_PREFIX

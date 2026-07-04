@@ -25,12 +25,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
-import typer
+import click
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
 
 from ._cli_utils import typer_factory
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -90,12 +91,12 @@ class ExtensionManifest:
     ],
 )
 def extension_install(
-    ctx: typer.Context,
+    ctx: click.Context,
     repo_id: Annotated[
         str,
-        typer.Argument(help="GitHub extension repository in `[OWNER/]hf-<name>` format."),
+        Argument(help="GitHub extension repository in `[OWNER/]hf-<name>` format."),
     ],
-    force: Annotated[bool, typer.Option("--force", help="Overwrite if already installed.")] = False,
+    force: Annotated[bool, Option("--force", help="Overwrite if already installed.")] = False,
 ) -> None:
     """Install an extension from a public GitHub repository.
 
@@ -146,10 +147,10 @@ def extension_install(
     ],
 )
 def extension_exec(
-    ctx: typer.Context,
+    ctx: click.Context,
     name: Annotated[
         str,
-        typer.Argument(help="Extension name (with or without `hf-` prefix)."),
+        Argument(help="Extension name (with or without `hf-` prefix)."),
     ],
 ) -> None:
     """Execute an installed extension."""
@@ -160,7 +161,7 @@ def extension_exec(
         raise CLIError(f"Extension '{short_name}' is not installed.")
 
     exit_code = _execute_extension_binary(executable_path=executable_path, args=list(ctx.args))
-    raise typer.Exit(code=exit_code)
+    raise click.exceptions.Exit(code=exit_code)
 
 
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
@@ -214,7 +215,7 @@ def extension_search() -> None:
 def extension_remove(
     name: Annotated[
         str,
-        typer.Argument(help="Extension name to remove (with or without `hf-` prefix)."),
+        Argument(help="Extension name to remove (with or without `hf-` prefix)."),
     ],
 ) -> None:
     """Remove an installed extension."""

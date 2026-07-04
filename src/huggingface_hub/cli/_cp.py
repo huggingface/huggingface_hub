@@ -25,13 +25,14 @@ import sys
 from dataclasses import replace
 from typing import Annotated, Literal
 
-import typer
+import click
 
 from huggingface_hub import HfApi
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import HfUri, SoftTemporaryDirectory, disable_progress_bars, is_hf_uri, parse_hf_uri
 
 from ._cli_utils import TokenOpt, get_hf_api
+from ._framework import Argument
 from ._output import out
 
 
@@ -66,11 +67,11 @@ def make_cp(context: CpContext | None = None):
     def cp(
         src: Annotated[
             str,
-            typer.Argument(help="Source: local file, hf:// URI (repo or bucket), or - for stdin."),
+            Argument(help="Source: local file, hf:// URI (repo or bucket), or - for stdin."),
         ],
         dst: Annotated[
             str | None,
-            typer.Argument(help="Destination: local path, hf:// URI (repo or bucket), or - for stdout."),
+            Argument(help="Destination: local path, hf:// URI (repo or bucket), or - for stdout."),
         ] = None,
         token: TokenOpt = None,
     ) -> None:
@@ -126,8 +127,8 @@ def _run_cp(src: str, dst: str | None, token: str | None) -> None:
     # --- At least one side must be a remote hf:// URI (rules out local->local, stdin->local, etc.) ---
     if not src_is_hf and not dst_is_hf:
         if dst is None:
-            raise typer.BadParameter("Missing destination. Provide a repo or bucket hf:// URI as DST.")
-        raise typer.BadParameter(
+            raise click.BadParameter("Missing destination. Provide a repo or bucket hf:// URI as DST.")
+        raise click.BadParameter(
             "One of SRC or DST must be a repo (hf://username/...) or bucket (hf://buckets/...) URI."
         )
 
@@ -201,7 +202,7 @@ def _download_single(api: HfApi, uri: HfUri, local_path: str) -> None:
 
 def _source_filename(uri: HfUri, src: str) -> str:
     if uri.path_in_repo == "" or src.endswith("/"):
-        raise typer.BadParameter(
+        raise click.BadParameter(
             "Source path must include a file name, not just a repo/bucket or directory path."
             " Use `hf download` or `hf buckets sync` to copy directories."
         )
@@ -213,18 +214,18 @@ def _upload_file_to_remote(api: HfApi, src: str, dst: str, *, src_is_stdin: bool
 
     if src_is_stdin:
         if uri.path_in_repo == "" or dst.endswith("/"):
-            raise typer.BadParameter("Stdin upload requires a full destination path including filename.")
+            raise click.BadParameter("Stdin upload requires a full destination path including filename.")
         data = sys.stdin.buffer.read()
         _upload_single(api, uri, data, uri.path_in_repo)
         out.result("Uploaded", src="stdin", dst=uri.to_uri())
         return
 
     if os.path.isdir(src):
-        raise typer.BadParameter(
+        raise click.BadParameter(
             "Source must be a file, not a directory. Use `hf upload` or `hf buckets sync` for directories."
         )
     if not os.path.isfile(src):
-        raise typer.BadParameter(f"Source file not found: {src}")
+        raise click.BadParameter(f"Source file not found: {src}")
 
     prefix = uri.path_in_repo
     if prefix == "":

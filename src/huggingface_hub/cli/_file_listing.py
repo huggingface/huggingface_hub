@@ -17,7 +17,7 @@ import json
 from datetime import datetime
 from typing import Sequence
 
-import typer
+import click
 
 from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub.hf_api import RepoFile, RepoFolder
@@ -174,7 +174,7 @@ def list_repo_files_cmd(
 ) -> None:
     """List files in a repo on the Hub. Used by models/datasets/spaces ls commands."""
     if as_tree and out.mode == OutputFormat.json:
-        raise typer.BadParameter("Cannot use --tree with --format json.")
+        raise click.BadParameter("Cannot use --tree with --format json.")
 
     api = get_hf_api(token=token)
     items = list(api.list_repo_tree(repo_id, recursive=recursive, revision=revision, repo_type=repo_type, expand=True))

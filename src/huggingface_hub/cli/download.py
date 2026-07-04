@@ -11,40 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to download files from the Hub with the CLI.
-
-Usage:
-    hf download --help
-
-    # Download file
-    hf download gpt2 config.json
-
-    # Download entire repo
-    hf download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
-
-    # Download repo with filters
-    hf download gpt2 --include="*.safetensors"
-
-    # Download with token
-    hf download Wauplin/private-model --token=hf_***
-
-    # Download quietly (no progress bar, no warnings, only the returned path)
-    hf download gpt2 config.json --quiet
-
-    # Download to local dir
-    hf download gpt2 --local-dir=./models/gpt2
-
-    # Download a subfolder
-    hf download HuggingFaceM4/FineVision art/ --repo-type=dataset
-
-    # Download using an hf:// URI (repo type, revision and file path are read from the URI)
-    hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
-"""
+"""Contains command to download files from the Hub with the CLI."""
 
 import warnings
 from typing import Annotated
-
-import typer
 
 from huggingface_hub import constants
 from huggingface_hub._snapshot_download import snapshot_download
@@ -53,6 +23,7 @@ from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, parse_hf_uri
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -70,7 +41,7 @@ def download(
     repo_id: RepoIdArg,
     filenames: Annotated[
         list[str] | None,
-        typer.Argument(
+        Argument(
             help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
         ),
     ] = None,
@@ -78,44 +49,44 @@ def download(
     revision: RevisionOpt = None,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to include from files to download. eg: *.json",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to exclude from files to download.",
         ),
     ] = None,
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Directory where to save files.",
         ),
     ] = None,
     local_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.",
         ),
     ] = None,
     force_download: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If True, the files will be downloaded even if they are already cached.",
         ),
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If True, perform a dry run without actually downloading the file.",
         ),
     ] = False,
     token: TokenOpt = None,
     max_workers: Annotated[
         int,
-        typer.Option(
+        Option(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,
