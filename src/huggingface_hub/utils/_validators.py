@@ -14,6 +14,7 @@
 """Contains utilities to validate argument values in `huggingface_hub`."""
 
 import inspect
+import os
 import re
 import warnings
 from functools import wraps
@@ -127,7 +128,11 @@ def validate_repo_id(repo_id: str | None) -> None:
     if not isinstance(repo_id, str):
         # Typically, a Path is not a repo_id
         raise HFValidationError(f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'.")
-
+    
+    if os.path.isdir(repo_id) or os.path.isfile(repo_id):
+        # It's an existing local path, not a Hub repo_id — skip Hub-specific validation
+        return
+    
     if repo_id.count("/") > 1:
         raise HFValidationError(
             "Repo id must be in the form 'repo_name' or 'namespace/repo_name':"

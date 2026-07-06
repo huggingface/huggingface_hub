@@ -60,3 +60,7 @@ class TestRepoIdValidator:
         for repo_id in self.NOT_VALID_VALUES:
             with pytest.raises(HFValidationError):
                 validate_repo_id(repo_id)
+
+    def test_valid_repo_id_when_local_path_exists(self, tmp_path) -> None:
+        """An existing local path should not be validated as a Hub repo id."""
+        validate_repo_id(str(tmp_path))
