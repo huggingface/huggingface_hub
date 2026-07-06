@@ -1143,6 +1143,40 @@ def _hf_hub_download_to_cache_dir(
                     if not force_download:
                         return pointer_path
 
+            # refs file missing (cache built without it, or revision was always a commit hash).
+            # Scan all snapshots for any version that has the file and fall back to the most
+            # recently downloaded one so offline / local_files_only callers are not broken.
+            if commit_hash is None:
+                snapshots_dir = os.path.join(storage_folder, "snapshots")
+                if os.path.isdir(snapshots_dir):
+                    candidates = [
+                        sha
+                        for sha in os.listdir(snapshots_dir)
+                        if os.path.exists(_get_pointer_path(storage_folder, sha, relative_filename))
+                    ]
+                    if candidates:
+                        best_sha = max(
+                            candidates,
+                            key=lambda sha: os.path.getmtime(os.path.join(snapshots_dir, sha)),
+                        )
+                        pointer_path = _get_pointer_path(storage_folder, best_sha, relative_filename)
+                        logger.warning(
+                            f"Couldn't resolve refs/{revision} from cache but found the file in snapshot"
+                            f" {best_sha[:8]}. Returning that version. To silence this warning, run"
+                            " hf_hub_download once with network access so the refs file is written."
+                        )
+                        if dry_run:
+                            return DryRunFileInfo(
+                                commit_hash=best_sha,
+                                file_size=os.path.getsize(pointer_path),
+                                filename=filename,
+                                is_cached=True,
+                                local_path=pointer_path,
+                                will_download=force_download,
+                            )
+                        if not force_download:
+                            return pointer_path
+
             if isinstance(head_call_error, _DEFAULT_RETRY_ON_EXCEPTIONS) or (
                 isinstance(head_call_error, HfHubHTTPError)
                 and head_call_error.response.status_code in _DEFAULT_RETRY_ON_STATUS_CODES

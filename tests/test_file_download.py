@@ -311,6 +311,44 @@ class TestCachedDownload:
                     cache_dir=cache_dir,
                 )
 
+    def test_hf_hub_download_offline_no_refs_file_cached(self):
+        """Regression test for #4487.
+
+        When the cache contains a snapshot for a file but the refs/{revision} pointer is
+        absent (e.g. cache built against a specific commit hash, or copied without the refs
+        directory), hf_hub_download should still return the cached file in offline /
+        local_files_only mode instead of raising LocalEntryNotFoundError.
+
+        See https://github.com/huggingface/huggingface_hub/issues/4487.
+        """
+        from huggingface_hub.file_download import repo_folder_name
+
+        fake_commit_hash = "a" * 40
+        repo_id = "dummy-org/dummy-model"
+
+        with SoftTemporaryDirectory() as cache_dir:
+            # Build the cache structure manually — snapshot exists, refs/main does NOT.
+            storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type="model"))
+            blob_path = os.path.join(storage_folder, "blobs", "fake_etag")
+            pointer_path = _get_pointer_path(storage_folder, fake_commit_hash, "config.json")
+
+            os.makedirs(os.path.dirname(blob_path), exist_ok=True)
+            os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+            Path(blob_path).write_text('{"model_type": "bert"}')
+            _create_symlink(blob_path, pointer_path, new_blob=True)
+
+            # No refs/main — simulates a cache built with revision=commit_hash or a partial copy.
+            assert not os.path.exists(os.path.join(storage_folder, "refs", "main"))
+
+            result = hf_hub_download(
+                repo_id,
+                filename="config.json",
+                local_files_only=True,
+                cache_dir=cache_dir,
+            )
+            assert result == pointer_path
+            assert os.path.isfile(result)
+
     def test_hf_hub_download_with_user_agent(self):
         """
         Check that user agent is correctly sent to the HEAD call when downloading a file.
