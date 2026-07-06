@@ -1,5 +1,3 @@
-import unittest
-
 import pytest
 
 from huggingface_hub.hf_file_system import HfFileSystem
@@ -12,21 +10,23 @@ from .testing_utils import repo_name
 pytestmark = pytest.mark.xet
 
 
-class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
+class TestHfFileSystemBucketRO(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
-    @classmethod
-    def setUpClass(cls):
-        super(_HfFileSystemBaseROTests, cls).setUpClass()
+    @pytest.fixture(scope="class", autouse=True)
+    def _shared_bucket(self, request):
+        api = type(self).api
 
         # Create dummy bucket
-        repo_url = cls.api.create_bucket(repo_name())
-        cls.bucket_id = repo_url.bucket_id
-        cls.hf_path = f"buckets/{cls.bucket_id}"
+        repo_url = api.create_bucket(repo_name())
+        bucket_id = repo_url.bucket_id
+        hf_path = f"buckets/{bucket_id}"
+        request.cls.bucket_id = bucket_id
+        request.cls.hf_path = hf_path
 
         # Upload files
-        cls.api.batch_bucket_files(
-            cls.bucket_id,
+        api.batch_bucket_files(
+            bucket_id,
             add=[
                 ("dummy text data".encode("utf-8"), "data/text_data.txt"),
                 (b"dummy binary data", "data/binary_data.bin"),
@@ -34,24 +34,23 @@ class HfFileSystemBucketROTests(_HfFileSystemBucketChecks, _HfFileSystemBaseROTe
             ],
         )
 
-        cls.readme_file_path = "README.md"
-        cls.readme_file = cls.hf_path + "/" + cls.readme_file_path
-        cls.text_file_path = "data/text_data.txt"
-        cls.text_file = cls.hf_path + "/" + cls.text_file_path
+        request.cls.readme_file_path = "README.md"
+        request.cls.readme_file = hf_path + "/" + "README.md"
+        request.cls.text_file_path = "data/text_data.txt"
+        request.cls.text_file = hf_path + "/" + "data/text_data.txt"
+        yield
+        api.delete_bucket(bucket_id)
 
-    @classmethod
-    def tearDownClass(cls):
-        super(_HfFileSystemBaseROTests, cls).tearDownClass()
-        cls.api.delete_bucket(cls.bucket_id)
-
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def _new_hffs(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
 
-class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
+class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def _bucket(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
         # Create dummy bucket
@@ -73,10 +72,9 @@ class HfFileSystemBucketRWTests(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTe
         self.readme_file = self.hf_path + "/" + self.readme_file_path
         self.text_file_path = "data/text_data.txt"
         self.text_file = self.hf_path + "/" + self.text_file_path
-
-    def tearDown(self):
+        yield
         self.api.delete_bucket(self.bucket_id)
 
-    @unittest.skip("Not implemented yet")
+    @pytest.mark.skip("Not implemented yet")
     def test_copy_file(self):
         pass

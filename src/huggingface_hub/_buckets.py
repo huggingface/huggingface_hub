@@ -1098,7 +1098,14 @@ def sync_bucket_internal(
     if token is not None:
         from .hf_api import HfApi
 
-        api = HfApi(token=token)
+        api = HfApi(
+            endpoint=api.endpoint,
+            token=token,
+            library_name=api.library_name,
+            library_version=api.library_version,
+            user_agent=api.user_agent,
+            headers=api.headers,
+        )
     # --- Apply mode ---
     if apply:
         if source or dest:

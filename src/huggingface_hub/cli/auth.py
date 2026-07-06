@@ -11,31 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories.
-
-Usage:
-    # login with a browser (OAuth device flow)
-    hf auth login
-
-    # login with an explicit token
-    hf auth login --token=hf_*** --add-to-git-credential
-
-    # switch between tokens
-    hf auth switch
-
-    # list all tokens
-    hf auth list
-
-    # logout from all tokens
-    hf auth logout
-
-    # check which account you are logged in as
-    hf auth whoami
-"""
+"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories."""
 
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
@@ -45,6 +25,7 @@ from ..errors import CLIError
 from ..utils import get_stored_tokens, get_token, logging, select_choice
 from ..utils._oauth_device import poll_device_token, request_device_code
 from ._cli_utils import TokenOpt, typer_factory
+from ._framework import Option
 from ._output import OutputFormat, out
 
 
@@ -67,13 +48,13 @@ def auth_login(
     token: TokenOpt = None,
     add_to_git_credential: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
     force: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Force re-login even if already logged in.",
         ),
     ] = False,
@@ -115,7 +96,7 @@ def auth_login(
 def auth_logout(
     token_name: Annotated[
         str | None,
-        typer.Option(help="Name of token to logout"),
+        Option(help="Name of token to logout"),
     ] = None,
 ) -> None:
     """Logout from a specific token."""
@@ -141,13 +122,13 @@ def _select_token_name() -> str | None:
 def auth_switch_cmd(
     token_name: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Name of the token to switch to",
         ),
     ] = None,
     add_to_git_credential: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Save to git credential helper. Useful only if you plan to run git commands directly.",
         ),
     ] = False,
@@ -157,7 +138,7 @@ def auth_switch_cmd(
         token_name = _select_token_name()
     if token_name is None:
         print("No token name provided. Aborting.")
-        raise typer.Exit()
+        raise click.exceptions.Exit()
     auth_switch(token_name, add_to_git_credential=add_to_git_credential)
 
 
@@ -173,7 +154,7 @@ def auth_token() -> None:
     token = get_token()
     if token is None:
         out.error("Not logged in. Run `hf auth login` first.")
-        raise typer.Exit(code=1)
+        raise click.exceptions.Exit(code=1)
     print(token)
     out.hint("Run `hf auth whoami` to see which account this token belongs to.")
 
@@ -185,7 +166,7 @@ def auth_whoami() -> None:
     token = get_token()
     if token is None:
         out.error("Not logged in")
-        raise typer.Exit(code=1)
+        raise click.exceptions.Exit(code=1)
 
     info = whoami(token)
     orgs = ",".join(org["name"] for org in info["orgs"]) or None

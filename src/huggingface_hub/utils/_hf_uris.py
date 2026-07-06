@@ -190,10 +190,12 @@ class HfUri:
         # Models live at the root ('hf.co/<id>'); other repos are namespaced by their plural prefix.
         url = f"{base}/{self.id}" if self.type == "model" else f"{base}/{_TYPE_TO_PREFIX[self.type]}/{self.id}"
         revision = self.revision
-        # Encode '/' in branch/tag names so the revision stays a single URL segment. Special refs
+        # Percent-encode the branch/tag name so it stays a single, URL-safe segment: a '/' would
+        # otherwise open a new path segment and '#'/'?' would be read as a fragment/query when the
+        # URL is opened or parsed back. This mirrors the decoding done when parsing. Special refs
         # ('refs/pr/N', 'refs/convert/<name>') are used verbatim by the Hub web routes.
-        if revision is not None and "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
-            revision = revision.replace("/", "%2F")
+        if revision is not None and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
+            revision = quote(revision, safe="")
         if path:
             url += f"/blob/{revision or constants.DEFAULT_REVISION}/{path}"
         elif revision is not None:

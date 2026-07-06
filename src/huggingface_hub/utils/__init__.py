@@ -39,6 +39,7 @@ from ._auth import get_stored_tokens, get_token
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
+    CachedIncompleteFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
     DeleteCacheStrategy,
@@ -117,12 +118,9 @@ from ._terminal import ANSI, StatusLine, select_choice, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
-    XetConnectionInfo,
     XetFileData,
     XetTokenType,
-    fetch_xet_connection_info_from_repo_info,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
 )
 from .tqdm import (
     are_progress_bars_disabled,

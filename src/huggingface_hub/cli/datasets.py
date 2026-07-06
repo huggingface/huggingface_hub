@@ -11,23 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with datasets on the Hugging Face Hub.
-
-Usage:
-    # list datasets on the Hub
-    hf datasets ls
-
-    # list datasets with a search query
-    hf datasets ls --search "code"
-
-    # get info about a dataset
-    hf datasets info HuggingFaceFW/fineweb
-"""
+"""Contains commands to interact with datasets on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated, get_args
 
-import typer
+import click
 
 from huggingface_hub._dataset_viewer import execute_raw_sql_query
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
@@ -47,6 +36,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -57,7 +47,7 @@ DatasetSortEnum = enum.Enum("DatasetSortEnum", {s: s for s in _SORT_OPTIONS}, ty
 
 ExpandOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
@@ -82,28 +72,28 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 def datasets_ls(
     repo_id: Annotated[
         str | None,
-        typer.Argument(help="Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets."),
+        Argument(help="Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets."),
     ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
         DatasetSortEnum | None,
-        typer.Option(help="Sort results."),
+        Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
-        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+        Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
     ] = False,
     as_tree: Annotated[
         bool,
-        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+        Option("--tree", help="List files in tree format (only for listing files)."),
     ] = False,
     recursive: Annotated[
         bool,
-        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+        Option("--recursive", "-R", help="List files recursively (only for listing files)."),
     ] = False,
     revision: RevisionOpt = None,
     token: TokenOpt = None,
@@ -115,17 +105,17 @@ def datasets_ls(
     """
     if repo_id is not None:
         if search is not None:
-            raise typer.BadParameter("Cannot use --search when listing files.")
+            raise click.BadParameter("Cannot use --search when listing files.")
         if author is not None:
-            raise typer.BadParameter("Cannot use --author when listing files.")
+            raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
-            raise typer.BadParameter("Cannot use --filter when listing files.")
+            raise click.BadParameter("Cannot use --filter when listing files.")
         if sort is not None:
-            raise typer.BadParameter("Cannot use --sort when listing files.")
+            raise click.BadParameter("Cannot use --sort when listing files.")
         if limit != REPO_LIST_DEFAULT_LIMIT:
-            raise typer.BadParameter("Cannot use --limit when listing files.")
+            raise click.BadParameter("Cannot use --limit when listing files.")
         if expand is not None:
-            raise typer.BadParameter("Cannot use --expand when listing files.")
+            raise click.BadParameter("Cannot use --expand when listing files.")
         return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="dataset",
@@ -137,13 +127,13 @@ def datasets_ls(
         )
 
     if as_tree:
-        raise typer.BadParameter("Cannot use --tree when listing datasets.")
+        raise click.BadParameter("Cannot use --tree when listing datasets.")
     if recursive:
-        raise typer.BadParameter("Cannot use --recursive when listing datasets.")
+        raise click.BadParameter("Cannot use --recursive when listing datasets.")
     if human_readable:
-        raise typer.BadParameter("Cannot use --human-readable when listing datasets.")
+        raise click.BadParameter("Cannot use --human-readable when listing datasets.")
     if revision is not None:
-        raise typer.BadParameter("Cannot use --revision when listing datasets.")
+        raise click.BadParameter("Cannot use --revision when listing datasets.")
 
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
@@ -170,7 +160,7 @@ def datasets_ls(
     ],
 )
 def datasets_leaderboard(
-    dataset_id: Annotated[str, typer.Argument(help="The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).")],
+    dataset_id: Annotated[str, Argument(help="The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).")],
     limit: LimitOpt = 20,
     token: TokenOpt = None,
 ) -> None:
@@ -196,7 +186,7 @@ def datasets_leaderboard(
     ],
 )
 def datasets_info(
-    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    dataset_id: Annotated[str, Argument(help="The dataset ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -222,9 +212,9 @@ def datasets_info(
     ],
 )
 def datasets_parquet(
-    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
-    subset: Annotated[str | None, typer.Option("--subset", help="Filter parquet entries by subset/config.")] = None,
-    split: Annotated[str | None, typer.Option(help="Filter parquet entries by split.")] = None,
+    dataset_id: Annotated[str, Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    subset: Annotated[str | None, Option("--subset", help="Filter parquet entries by subset/config.")] = None,
+    split: Annotated[str | None, Option(help="Filter parquet entries by split.")] = None,
     token: TokenOpt = None,
 ) -> None:
     """List parquet file URLs available for a dataset."""
@@ -245,7 +235,7 @@ def datasets_parquet(
     ],
 )
 def datasets_sql(
-    sql: Annotated[str, typer.Argument(help="Raw SQL query to execute.")],
+    sql: Annotated[str, Argument(help="Raw SQL query to execute.")],
     token: TokenOpt = None,
 ) -> None:
     """Execute a raw SQL query with DuckDB against dataset parquet URLs."""
@@ -266,9 +256,9 @@ def datasets_sql(
     ],
 )
 def datasets_card(
-    dataset_id: Annotated[str, typer.Argument(help="The dataset ID (e.g. `username/repo-name`).")],
-    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
-    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    dataset_id: Annotated[str, Argument(help="The dataset ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, Option("--text", help="Output only the text body (no metadata).")] = False,
     token: TokenOpt = None,
 ) -> None:
     """Get the dataset card (README) for a dataset on the Hub."""

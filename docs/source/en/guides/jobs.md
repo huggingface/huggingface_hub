@@ -19,7 +19,7 @@ If you want to run and manage a job on the Hub, your machine must be logged in. 
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with a positive [credit balance](https://huggingface.co/settings/billing). See [Jobs pricing and billing](https://huggingface.co/docs/hub/jobs-pricing) for details.
 
 ## Jobs Command Line Interface
 
@@ -43,6 +43,9 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 Now the rest of this guide will show you the python API.
 If you would like to view all the available `hf jobs` commands and options instead, check out the [guide on the `hf jobs` command line interface](./cli#hf-jobs).
+
+> [!TIP]
+> Need an *interactive* machine instead of a fire-and-forget job — e.g. to run AI-generated code, with command execution and file transfer? Check out [Sandboxes](./sandbox), built on top of Jobs.
 
 ## Run a Job
 
@@ -310,6 +313,41 @@ By default, mounted storage buckets have read+write abilities.
 This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
 
 Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
+
+### Mount local data
+
+To run a Job against data on your machine, use [`sync_job_volume`]: it syncs a local directory to your `jobs-artifacts` [Storage Bucket](https://huggingface.co/docs/hub/storage-buckets) (created automatically if needed) and returns a ready-to-mount [`Volume`]:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_job_volume
+
+# Upload ./training-data once...
+>>> volume = sync_job_volume("./training-data", "/data")
+
+# ...then run as many Jobs as you want against it
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+```
+
+Each directory gets its own stable folder in the bucket: re-running [`sync_job_volume`] on the same directory only uploads new or modified files. The volume is mounted read-only by default.
+
+To retrieve files written by a Job, mount a read-write volume (an empty output directory works too) and sync it back once the Job is over:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_bucket, sync_job_volume
+
+>>> outputs = sync_job_volume("./outputs", "/outputs", read_only=False)
+>>> job = run_uv_job("process.py", volumes=[outputs])
+
+# ...once the Job completes, pull back the data:
+>>> sync_bucket(f"hf://buckets/{outputs.source}/{outputs.path}", "./outputs")
+```
+
+In the CLI, simply pass a local directory as the source side of `-v`:
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+```
 
 ## SSH into a Job
 
@@ -593,7 +631,7 @@ Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
 
-Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
 
 ```python
 # List your active scheduled jobs
@@ -611,6 +649,11 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 # Resume a scheduled job
 >>> from huggingface_hub import resume_scheduled_job
 >>> resume_scheduled_job(scheduled_job_id)
+
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> from huggingface_hub import trigger_scheduled_job
+>>> job = trigger_scheduled_job(scheduled_job_id)
+>>> job.url
 
 # Delete a scheduled job
 >>> from huggingface_hub import delete_scheduled_job

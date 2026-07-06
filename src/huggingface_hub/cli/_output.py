@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from enum import Enum
 from typing import Any, cast
 
-import typer
+import click
 
 from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
@@ -189,7 +189,7 @@ class Output:
             return
         if self.mode != OutputFormat.human:
             raise ConfirmationError(f"{message} Use {confirm_param} to skip confirmation.")
-        typer.confirm(message, default=default, abort=True)
+        click.confirm(message, default=default, abort=True)
 
     def status(self, message: str | None = None) -> StatusLine:
         """Return a status line that emits only in human mode (no-op otherwise)."""
@@ -212,6 +212,20 @@ class Output:
         else:
             _print_flush(f"Error: {message}", file=sys.stderr)
 
+    def log(self, message: str) -> None:
+        """Print a text message to stderr (human: gray, json/agent: plain text).
+
+        Suppressed in quiet mode. Kept in json mode (like agent) since agents
+        commonly run with ``--format json`` and the message goes to stderr so
+        it never pollutes the parsed stdout.
+        """
+        if self.mode == OutputFormat.quiet:
+            return
+        if self.mode == OutputFormat.human:
+            _print_flush(ANSI.gray(message), file=sys.stderr)
+        else:
+            _print_flush(message, file=sys.stderr)
+
     def hint(self, message: str) -> None:
         """Print a helpful hint to stderr (human: gray, json/agent: plain text).
 
@@ -219,12 +233,7 @@ class Output:
         commonly run with ``--format json`` and the next-command hints are useful
         there; hints go to stderr so they never pollute the parsed stdout.
         """
-        if self.mode == OutputFormat.quiet:
-            return
-        if self.mode == OutputFormat.human:
-            _print_flush(ANSI.gray(f"Hint: {message}"), file=sys.stderr)
-        else:
-            _print_flush(f"Hint: {message}", file=sys.stderr)
+        self.log(f"Hint: {message}")
 
 
 # HELPERS

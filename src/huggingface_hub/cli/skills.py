@@ -11,40 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage skills for AI assistants.
-
-Usage:
-    # install the hf-cli skill in common .agents/skills directory (either in current directory or user-level)
-    hf skills add
-    hf skills add --global
-
-    # install the hf-cli skill for Claude (project-level, in current directory)
-    hf skills add --claude
-
-    # install globally (user-level)
-    hf skills add --claude --global
-
-    # install to a custom directory
-    hf skills add --dest=~/my-skills
-
-    # overwrite an existing skill
-    hf skills add --claude --force
-"""
+"""Contains commands to manage skills for AI assistants."""
 
 import os
 import shutil
 from pathlib import Path
 from typing import Annotated
 
-import typer
 from click import Command, Context, Group
-from typer.main import get_command
 
 from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
 from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -265,7 +246,7 @@ def build_skill_md() -> str:
     from huggingface_hub import __version__
     from huggingface_hub.cli.hf import app
 
-    click_app = get_command(app)
+    click_app = app  # the app is already a click.Group
     ctx = Context(click_app, info_name="hf")
 
     top_level: list[tuple[list[str], Command]] = []
@@ -436,12 +417,12 @@ def skills_list(
 def skills_add(
     name: Annotated[
         str,
-        typer.Argument(help="Marketplace skill name.", show_default=False),
+        Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Install for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Install globally (user-level) instead of in the current project directory.",
@@ -449,13 +430,13 @@ def skills_add(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Install into a custom destination (path to skills directory).",
         ),
     ] = None,
     force: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--force",
             help="Overwrite existing skills in the destination.",
         ),
@@ -496,12 +477,12 @@ def skills_add(
 def skills_update(
     name: Annotated[
         str | None,
-        typer.Argument(help="Optional installed skill name to update.", show_default=False),
+        Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Use global skills directories instead of the current project.",
@@ -509,7 +490,7 @@ def skills_update(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Update skills in a custom skills directory.",
         ),
     ] = None,

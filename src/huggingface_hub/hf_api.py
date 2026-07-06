@@ -37,10 +37,6 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
-from huggingface_hub.utils._xet import (
-    reset_xet_connection_info_cache_for_repo,
-)
-
 from . import constants
 from ._buckets import (
     BucketFile,
@@ -80,6 +76,7 @@ from ._jobs_api import (
     JobStage,
     ScheduledJobInfo,
     _create_job_spec,
+    _derive_job_volume_name,
 )
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -2059,9 +2056,9 @@ class DatasetLeaderboardEntry:
             Name of the result file containing the evaluation data.
         verified (`bool`):
             Whether the result has been verified.
-        source (`dict[str, Any]`):
+        source (`dict[str, Any]`, *optional*):
             Information about the source of the evaluation result. Contains keys like
-            `"url"`, `"name"`, and `"isExternal"`.
+            `"url"`, `"name"`, and `"isExternal"`. Not all entries have a source.
         author (`User` or `Organization`):
             The model author, parsed based on the `"type"` field in the API response.
         pull_request (`int`, *optional*):
@@ -2075,7 +2072,7 @@ class DatasetLeaderboardEntry:
     value: float
     filename: str
     verified: bool
-    source: dict[str, Any]
+    source: dict[str, Any] | None
     author: User | Organization
     pull_request: int | None = None
     notes: str | None = None
@@ -2086,7 +2083,7 @@ class DatasetLeaderboardEntry:
         self.value = kwargs.pop("value")
         self.filename = kwargs.pop("filename")
         self.verified = kwargs.pop("verified")
-        self.source = kwargs.pop("source")
+        self.source = kwargs.pop("source", None)
         author_data = dict(kwargs.pop("author"))
         author_type = author_data.get("type")
         if author_type == "org":
@@ -3389,6 +3386,7 @@ class HfApi:
         self,
         repo_id: str,
         *,
+        base_model_only: bool | None = None,
         token: bool | str | None = None,
         timeout: float | None = None,
     ) -> list[DatasetLeaderboardEntry]:
@@ -3403,6 +3401,11 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`. For example: `"allenai/olmOCR-bench"`.
+            base_model_only (`bool` or `None`, *optional*):
+                By default, the leaderboard only includes models that have no declared `base_model` relation
+                (i.e. canonical/root repos), matching the Hub's default leaderboard view. Fine-tuned or derivative
+                repos that declare a parent model are excluded. Pass `base_model_only=False` to disable this filter and
+                include every submitted result, regardless of whether the model declares a base model relation.
             token (`bool` or `str`, *optional*):
                 A valid user access token. Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3433,11 +3436,17 @@ class HfApi:
             'datalab-to/chandra-ocr-2'
             >>> leaderboard[0].rank
             1
+
+            # Include fine-tuned / derivative models too
+            >>> full_leaderboard = api.get_dataset_leaderboard("allenai/olmOCR-bench", base_model_only=False)
             ```
         """
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/datasets/{repo_id}/leaderboard"
-        r = get_session().get(path, headers=headers, timeout=timeout)
+        params = {}
+        if base_model_only is not None:
+            params["base_model"] = base_model_only
+        r = get_session().get(path, headers=headers, params=params, timeout=timeout)
         hf_raise_for_status(r)
         data = r.json()
         return [DatasetLeaderboardEntry(**entry) for entry in data]
@@ -4677,7 +4686,6 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         r = get_session().request("DELETE", path, headers=headers, json=json)
-        reset_xet_connection_info_cache_for_repo(repo_type, repo_id)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -6113,6 +6121,10 @@ class HfApi:
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
+        > [!WARNING]
+        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
+        > by default and resilient to interruptions so it is the recommended way to upload large folders.
+
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
         At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
@@ -6199,6 +6211,18 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
+        warnings.warn(
+            "\n"
+            "================================================================================\n"
+            "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
+            "\n"
+            "Use `upload_folder` instead:\n"
+            "\n"
+            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
+            "================================================================================\n",
+            FutureWarning,
+            stacklevel=2,
+        )
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
@@ -11746,7 +11770,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12379,7 +12403,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12533,7 +12557,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -12775,6 +12799,48 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def trigger_scheduled_job(
+        self,
+        *,
+        scheduled_job_id: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """
+        Trigger a scheduled Job to run immediately.
+
+        This triggers one immediate run of the scheduled job's spec. It does **not** modify the schedule
+        and does **not** affect the next scheduled run. If an instance is already running and the scheduled
+        job does not allow concurrent runs, the request is rejected (HTTP 409).
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`JobInfo`]: Info about the triggered run.
+
+        Raises:
+            [`~utils.HfHubHTTPError`]:
+                HTTP 409 if another instance is already running and `concurrency` is disabled on the scheduled job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/run",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def update_scheduled_job_labels(
         self,
         *,
@@ -12880,7 +12946,7 @@ class HfApi:
                 Defaults to `"cpu-basic"`.
 
             timeout (`Union[int, float, str]`, *optional*):
-                Max duration for the Job: int/float with s (seconds, default), m (minutes), h (hours) or d (days).
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
             labels (`dict[str, str]`, *optional*):
@@ -13090,6 +13156,99 @@ class HfApi:
             read_only=False,
         )
         return [volume]
+
+    def sync_job_volume(
+        self,
+        source: str | Path,
+        mount_path: str,
+        *,
+        remote_name: str | None = None,
+        read_only: bool = True,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> Volume:
+        """Sync a local directory to a bucket and return a [`Volume`] ready to mount in a Job.
+
+        Files are uploaded to a subfolder of the `{namespace}/jobs-artifacts` bucket (auto-created as
+        private; a warning is emitted if it already exists and is public) using the same sync logic
+        as [`sync_bucket`]: re-syncing the same directory only
+        uploads new or modified files. By default the subfolder name is derived from the directory
+        path and the machine's hostname, so repeated calls from the same directory reuse the same
+        remote folder. Pass `remote_name` to use a fixed name instead.
+
+        Note that the data is *copied* to the bucket, not mounted live: changes made locally after
+        the sync are not visible to the Job (re-run `sync_job_volume` to update), and the volume is
+        mounted read-only by default. To retrieve data written by a Job to a read-write volume, sync
+        the bucket folder back with [`sync_bucket`]. If the source directory is empty (e.g. an output
+        directory), a placeholder `.keep` file is uploaded so the volume can still be mounted.
+
+        Args:
+            source (`str` or `Path`):
+                Path to a local directory to sync.
+            mount_path (`str`):
+                Mount path inside the Job container, e.g. `"/inputs"`. Must start with `/`.
+            remote_name (`str`, *optional*):
+                Name of the bucket subfolder to sync to. Defaults to a `{dirname}-{hash}` name derived
+                from the source path and the machine's hostname.
+            read_only (`bool`, *optional*, defaults to `True`):
+                Mount the volume read-only in the Job. Pass `False` to let the Job write back to the
+                bucket folder (e.g. to retrieve outputs with [`sync_bucket`] afterwards).
+            namespace (`str`, *optional*):
+                The namespace owning the `jobs-artifacts` bucket. Defaults to the current user's
+                namespace. Use the same namespace as the Job that will mount the volume.
+            token (`Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`Volume`]: A bucket volume scoped to the synced subfolder, to pass in the `volumes` list
+            of [`run_job`], [`run_uv_job`], [`create_scheduled_job`] or [`create_scheduled_uv_job`].
+
+        Example:
+            ```python
+            >>> from huggingface_hub import run_uv_job, sync_job_volume
+
+            # Upload ./training-data once, then run multiple jobs against it
+            >>> volume = sync_job_volume("./training-data", "/data")
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+            >>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+
+            # Read-write volume to retrieve outputs after the job completes
+            >>> volume = sync_job_volume("./outputs", "/outputs", read_only=False)
+            >>> job = run_uv_job("process.py", volumes=[volume])
+            ```
+        """
+        if not mount_path.startswith("/"):
+            raise ValueError(
+                f"Mount path must be an absolute path inside the container (e.g. '/data'), got {mount_path!r}."
+            )
+        source_path = Path(source).expanduser()
+        if not source_path.is_dir():
+            raise ValueError(f"Source must be an existing local directory: '{source}'.")
+
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        bucket_id = f"{namespace}/{constants.HF_JOBS_ARTIFACTS_BUCKET_NAME}"
+        folder = remote_name or _derive_job_volume_name(source_path)
+
+        # The jobs-artifacts bucket holds user scripts and data, so it must be private. A new bucket
+        # is created private here; if it already exists we cannot change its visibility, so warn when
+        # it is public instead of silently uploading the data to a publicly accessible bucket.
+        self.create_bucket(bucket_id=bucket_id, exist_ok=True, private=True, token=token)
+        if not self.bucket_info(bucket_id=bucket_id, token=token).private:
+            warnings.warn(
+                f"Bucket '{bucket_id}' already exists and is public: data synced for the Job will be "
+                f"publicly accessible. Make it private from {self.endpoint}/buckets/{bucket_id}.",
+                UserWarning,
+            )
+        self.sync_bucket(str(source_path), f"hf://buckets/{bucket_id}/{folder}", token=token)
+        if not any(path.is_file() for path in source_path.rglob("*")):
+            # A folder cannot be empty in a bucket, and mounting a non-existent folder fails the Job.
+            # Upload a placeholder file so an empty directory (e.g. an output dir) can still be mounted.
+            self.batch_bucket_files(bucket_id, add=[(b"", f"{folder}/.keep")], token=token)
+
+        return Volume(type="bucket", source=bucket_id, mount_path=mount_path, path=folder, read_only=read_only)
 
     @validate_hf_hub_args
     def create_bucket(
@@ -13322,7 +13481,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
 
-        reset_xet_connection_info_cache_for_repo("bucket", bucket_id)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -14722,8 +14880,10 @@ inspect_scheduled_job = api.inspect_scheduled_job
 delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
+trigger_scheduled_job = api.trigger_scheduled_job
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
+sync_job_volume = api.sync_job_volume
 
 # Buckets API
 create_bucket = api.create_bucket

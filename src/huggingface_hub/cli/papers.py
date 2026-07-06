@@ -11,42 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with papers on the Hugging Face Hub.
-
-Usage:
-    # list daily papers (most recently submitted)
-    hf papers ls
-
-    # list trending papers
-    hf papers ls --sort=trending
-
-    # list papers from a specific date, ordered by upvotes
-    hf papers ls --date=2025-01-23
-
-    # list today's papers, ordered by upvotes
-    hf papers ls --date=today
-
-    # list papers from a specific week
-    hf papers ls --week=2025-W09
-
-    # list papers by a specific submitter
-    hf papers ls --submitter=someuser
-
-    # search papers
-    hf papers search "vision language"
-
-    # get info about a paper
-    hf papers info 2502.08025
-
-    # read a paper as markdown
-    hf papers read 2502.08025
-"""
+"""Contains commands to interact with papers on the Hugging Face Hub."""
 
 import datetime
 import enum
 from typing import Annotated, get_args
-
-import typer
 
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 from huggingface_hub.hf_api import DailyPapersSort_T
@@ -57,6 +26,7 @@ from ._cli_utils import (
     get_hf_api,
     typer_factory,
 )
+from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
 
 
@@ -90,26 +60,26 @@ papers_cli = typer_factory(help="Interact with papers on the Hub.")
 def papers_ls(
     date: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Date in ISO format (YYYY-MM-DD) or 'today'.",
             callback=_parse_date,
         ),
     ] = None,
     week: Annotated[
         str | None,
-        typer.Option(help="ISO week to filter by, e.g. '2025-W09'."),
+        Option(help="ISO week to filter by, e.g. '2025-W09'."),
     ] = None,
     month: Annotated[
         str | None,
-        typer.Option(help="Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'."),
+        Option(help="Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'."),
     ] = None,
     submitter: Annotated[
         str | None,
-        typer.Option(help="Filter by username of the submitter."),
+        Option(help="Filter by username of the submitter."),
     ] = None,
     sort: Annotated[
         PaperSortEnum | None,
-        typer.Option(help="Sort results."),
+        Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = 50,
     token: TokenOpt = None,
@@ -145,7 +115,7 @@ def papers_ls(
     ],
 )
 def papers_search(
-    query: Annotated[str, typer.Argument(help="Search query string.")],
+    query: Annotated[str, Argument(help="Search query string.")],
     limit: LimitOpt = 20,
     token: TokenOpt = None,
 ) -> None:
@@ -162,7 +132,7 @@ def papers_search(
     ],
 )
 def papers_info(
-    paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    paper_id: Annotated[str, Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
     token: TokenOpt = None,
 ) -> None:
     """Get info about a paper on the Hub."""
@@ -183,7 +153,7 @@ def papers_info(
     ],
 )
 def papers_read(
-    paper_id: Annotated[str, typer.Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    paper_id: Annotated[str, Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
     token: TokenOpt = None,
 ) -> None:
     """Read a paper as markdown."""

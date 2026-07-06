@@ -1,5 +1,4 @@
 import os
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal, overload
 
@@ -8,10 +7,12 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from . import constants
+from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     DryRunError,
     GatedRepoError,
     HfHubHTTPError,
+    IncompleteSnapshotError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -24,8 +25,6 @@ from .utils.tqdm import tqdm as hf_tqdm
 
 
 logger = logging.get_logger(__name__)
-
-LARGE_REPO_THRESHOLD = 1000  # After this limit, we don't consider `repo_info.siblings` to be reliable enough
 
 
 @overload
@@ -204,6 +203,9 @@ def snapshot_download(
             or because it is set to `private` and you do not have access.
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
+        [`~errors.IncompleteSnapshotError`]
+            If the Hub cannot be reached (offline, connection issue, or `local_files_only=True`) and the
+            cached snapshot is missing some of the requested files.
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             If `token=True` and the token cannot be found.
         [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
@@ -213,10 +215,11 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
+    cache_dir = str(Path(cache_dir).expanduser().resolve())
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
     if revision is None:
         revision = constants.DEFAULT_REVISION
-    if isinstance(cache_dir, Path):
-        cache_dir = str(cache_dir)
 
     if repo_type is None:
         repo_type = "model"
@@ -226,6 +229,9 @@ def snapshot_download(
         )
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # Folder under which the per-commit tree listing (`trees/<commit_hash>.json`) is cached on disk.
+    tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
 
     api = HfApi(
         library_name=library_name,
@@ -294,14 +300,35 @@ def snapshot_download(
         if commit_hash is not None and local_dir is None:
             snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
             if os.path.exists(snapshot_folder):
-                # Snapshot folder exists => let's return it
-                # (but we can't check if all the files are actually there)
+                # The folder exists, but may be partial (e.g. after an interrupted download): only return it
+                # if the cached tree listing confirms it is complete.
+                _raise_if_incomplete_snapshot(
+                    tree_cache_folder=tree_cache_folder,
+                    commit_hash=commit_hash,
+                    base_dir=snapshot_folder,
+                    allow_patterns=allow_patterns,
+                    ignore_patterns=ignore_patterns,
+                    repo_id=repo_id,
+                    revision=revision,
+                    api_call_error=api_call_error,
+                )
                 return snapshot_folder
 
-        # If local_dir is not None, return it if it exists and is not empty
+        # If local_dir is not None, return it if it exists and is complete
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
+                if commit_hash is not None:
+                    _raise_if_incomplete_snapshot(
+                        tree_cache_folder=tree_cache_folder,
+                        commit_hash=commit_hash,
+                        base_dir=str(local_dir),
+                        allow_patterns=allow_patterns,
+                        ignore_patterns=ignore_patterns,
+                        repo_id=repo_id,
+                        revision=revision,
+                        api_call_error=api_call_error,
+                    )
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
@@ -336,38 +363,36 @@ def snapshot_download(
     # At this stage, internet connection is up and running
     # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+    commit_hash = repo_info.sha
 
-    # Corner case: on very large repos, the siblings list in `repo_info` might not contain all files.
-    # In that case, we need to use the `list_repo_tree` method to prevent caching issues.
-    # Note: kernel repos don't expose siblings in their info response, so we always fall back to `list_repo_tree`.
-    siblings = getattr(repo_info, "siblings", None)
-    repo_files: Iterable[str] = [f.rfilename for f in siblings] if siblings is not None else []
-    unreliable_nb_files = siblings is None or len(siblings) == 0 or len(siblings) > LARGE_REPO_THRESHOLD
-    if unreliable_nb_files:
-        logger.info(
-            "Number of files in the repo is unreliable. Using `list_repo_tree` to ensure all files are listed."
-        )
-        repo_files = (
-            f.rfilename
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type)
+    # Retrieve /tree listing from cache or fetch it
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        tree_entries = {
+            f.path: TreeCacheEntry(
+                size=f.size,
+                blob_id=f.blob_id,
+                lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
+                lfs_size=f.lfs.size if f.lfs is not None else None,
+                xet_hash=f.xet_hash,
+            )
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
+        }
+        if not dry_run:
+            write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
+
+    filtered_repo_files = list(
+        filter_repo_objects(
+            items=tree_entries.keys(),
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
         )
-
-    filtered_repo_files: Iterable[str] = filter_repo_objects(
-        items=repo_files,
-        allow_patterns=allow_patterns,
-        ignore_patterns=ignore_patterns,
     )
-
-    if not unreliable_nb_files:
-        filtered_repo_files = list(filtered_repo_files)
-        tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
-    else:
-        tqdm_desc = "Fetching ... files"
+    tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc
 
-    commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
@@ -428,9 +453,9 @@ def snapshot_download(
         def update(self, n: int | float | None = 1) -> None:
             bytes_progress.update(n)
 
-    # we pass the commit_hash to hf_hub_download
-    # so no network call happens if we already
-    # have the file locally.
+    # Pass the commit_hash as revision to hf_hub_download to skip network call if:
+    # - file is cached
+    # - or xet file with metadata cached in /tree cache
     def _inner_hf_hub_download(repo_file: str) -> None:
         results.append(
             hf_hub_download(  # type: ignore
@@ -470,3 +495,55 @@ def snapshot_download(
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
+
+
+def _raise_if_incomplete_snapshot(
+    *,
+    tree_cache_folder: str,
+    commit_hash: str,
+    base_dir: str,
+    allow_patterns: list[str] | str | None,
+    ignore_patterns: list[str] | str | None,
+    repo_id: str,
+    revision: str,
+    api_call_error: Exception | None,
+) -> None:
+    """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
+
+    If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
+    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
+    """
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        return
+    expected = filter_repo_objects(
+        items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+    )
+    missing = [path for path in expected if not _local_file_exists(base_dir, path)]
+    if not missing:
+        return
+
+    sample = ", ".join(missing[:3])
+    if len(missing) > 3:
+        sample += f", ... ({len(missing) - 3} more)"
+    if api_call_error is not None:
+        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
+    else:
+        reason = "Outgoing traffic is disabled ('local_files_only=True')."
+    raise IncompleteSnapshotError(
+        f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
+        f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
+        "to complete the snapshot."
+    ) from api_call_error
+
+
+def _local_file_exists(base_dir: str, path: str) -> bool:
+    """Check whether a repo file (path relative to `base_dir`, '/'-separated) exists on disk.
+
+    On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path.isfile` reports an
+    existing file as missing.
+    """
+    full_path = os.path.join(base_dir, *path.split("/"))
+    if os.name == "nt" and len(os.path.abspath(full_path)) > 255 and not full_path.startswith("\\\\?\\"):
+        full_path = "\\\\?\\" + os.path.abspath(full_path)
+    return os.path.isfile(full_path)

@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import hashlib
+import platform
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from huggingface_hub import constants
@@ -491,6 +494,20 @@ class JobHardwareInfo:
         self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]
         self.unit_cost_usd = kwargs["unitCostUSD"]
         self.unit_label = kwargs["unitLabel"]
+
+
+def _derive_job_volume_name(source: str | Path) -> str:
+    """Derive a stable remote folder name for a local directory synced as a Job volume.
+
+    The name is `{dirname}-{hash}` where the hash fingerprints the absolute path and the machine's
+    hostname: re-syncing the same directory from the same machine reuses the same remote folder
+    (so only changed files are re-uploaded), while same-named directories from different paths or
+    machines don't collide.
+    """
+    resolved = Path(source).expanduser().resolve()
+    digest = hashlib.sha256(f"{platform.node()}:{resolved}".encode()).hexdigest()[:8]
+    dirname = resolved.name.replace(" ", "_") or "root"
+    return f"{dirname}-{digest}"
 
 
 def _create_job_spec(

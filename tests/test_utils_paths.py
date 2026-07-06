@@ -1,7 +1,8 @@
-import unittest
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
+
+import pytest
 
 from huggingface_hub.utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 
@@ -16,7 +17,7 @@ DUMMY_PATHS = [Path(path) for path in DUMMY_FILES]
 DUMMY_OBJECTS = [DummyObject(path=path) for path in DUMMY_FILES]
 
 
-class TestPathsUtils(unittest.TestCase):
+class TestPathsUtils:
     def test_get_all_pdfs(self) -> None:
         """Get all PDFs even hidden ones."""
         self._check(
@@ -72,7 +73,7 @@ class TestPathsUtils(unittest.TestCase):
 
     def test_filter_objects_key_not_provided(self) -> None:
         """Test ValueError is raised if filtering non-string objects."""
-        with self.assertRaisesRegex(ValueError, "Please provide `key` argument"):
+        with pytest.raises(ValueError, match="Please provide `key` argument"):
             list(
                 filter_repo_objects(
                     items=DUMMY_OBJECTS,
@@ -108,6 +109,29 @@ class TestPathsUtils(unittest.TestCase):
             ignore_patterns=[""],
         )
 
+    def test_filter_is_case_sensitive(self) -> None:
+        """Pattern matching is case-sensitive.
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
+        """
+        # Uppercase pattern matches only the uppercase path, not the lowercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["notes.MD"],
+            allow_patterns=["*.MD"],
+        )
+        # Lowercase pattern matches only the lowercase path, not the uppercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["README.md"],
+            allow_patterns=["*.md"],
+        )
+        # Case-sensitivity also applies to the ignore list.
+        self._check(
+            items=["keep.txt", "drop.LOG", "keep.log"],
+            expected_items=["keep.txt", "keep.log"],
+            ignore_patterns=["*.LOG"],
+        )
+
     def _check(
         self,
         items: list[Any],
@@ -117,7 +141,7 @@ class TestPathsUtils(unittest.TestCase):
         key: Optional[Callable[[Any], str]] = None,
     ) -> None:
         """Run `filter_repo_objects` and check output against expected result."""
-        self.assertListEqual(
+        assert (
             list(
                 filter_repo_objects(
                     items=items,
@@ -125,12 +149,12 @@ class TestPathsUtils(unittest.TestCase):
                     ignore_patterns=ignore_patterns,
                     key=key,
                 )
-            ),
-            expected_items,
+            )
+            == expected_items
         )
 
 
-class TestDefaultIgnorePatterns(unittest.TestCase):
+class TestDefaultIgnorePatterns:
     PATHS_TO_IGNORE = [
         ".git",
         ".git/file.txt",
@@ -160,4 +184,4 @@ class TestDefaultIgnorePatterns(unittest.TestCase):
         filtered_paths = filter_repo_objects(
             items=self.PATHS_TO_IGNORE + self.VALID_PATHS, ignore_patterns=DEFAULT_IGNORE_PATTERNS
         )
-        self.assertListEqual(list(filtered_paths), self.VALID_PATHS)
+        assert list(filtered_paths) == self.VALID_PATHS

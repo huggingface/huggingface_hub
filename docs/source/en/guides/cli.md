@@ -67,7 +67,7 @@ Main commands:
   spaces               Interact with spaces on the Hub.
   sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
-  upload-large-folder  Upload a large folder to the Hub.
+  upload-large-folder  [Deprecated] Use 'hf upload' instead.
 
 Help commands:
   env      Print information about the environment.
@@ -594,27 +594,16 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## hf upload-large-folder
 
-Use `hf upload-large-folder` to upload very large folders (hundreds of GBs or even TBs) to the Hub. This command is optimized for resumable uploads and handles failures gracefully.
+> [!WARNING]
+> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
 
 ```bash
 # Upload a large folder to a model repository
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
-
-# Upload to a specific revision
->>> hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+>>> hf upload Wauplin/my-cool-model ./large_model_dir
 
 # Upload a dataset
->>> hf upload-large-folder Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
+>>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
-
-The command automatically:
-
-- Splits large files into chunks for reliable uploads
-- Resumes interrupted uploads from where they left off
-- Handles network failures gracefully
-
-> [!TIP]
-> Use `hf upload-large-folder` when you have very large files or folders that may take a long time to upload. For smaller uploads, prefer `hf upload`.
 
 ## hf buckets
 
@@ -1321,6 +1310,15 @@ Add a comment to an existing discussion or PR by specifying its number. The comm
 >>> echo "LGTM" | hf discussions comment username/my-model 5 --body-file -
 ```
 
+### Edit a comment
+
+Edit an existing comment in place by passing the discussion number and the comment ID. Comment IDs can be retrieved with `hf discussions info`:
+
+```bash
+>>> hf discussions edit username/my-model 5 abc123 --body "Updated comment."
+>>> hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+```
+
 ### Close, reopen, and merge
 
 You can close a discussion or PR with `hf discussions close`. By default, you will be prompted for confirmation. Pass `--yes` to skip the prompt, and `--comment` to leave a closing message:
@@ -1474,11 +1472,8 @@ Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-coo
 
 Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
 
-<Tip warning={true}>
-
-Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
-
-</Tip>
+> [!WARNING]
+> Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
 
 ```bash
 >>> hf repos delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
@@ -1608,19 +1603,21 @@ When working outside the default cache location, pair the command with `--cache-
 
 ### hf cache prune
 
-`hf cache prune` is a convenience shortcut that deletes every detached (unreferenced) revision in your cache. This keeps only revisions that are still reachable through a branch or tag:
+`hf cache prune` is a convenience shortcut that reclaims space taken by cache garbage: every detached (unreferenced) revision (keeping only revisions still reachable through a branch or tag) and any leftover `.incomplete` files from interrupted downloads:
 
 ```bash
 >>> hf cache prune
-About to delete 3 unreferenced revision(s) (2.4G total).
+About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
   - model/t5-small:
       1c610f6b [refs/pr/1] 820.1M
       d4ec9b72 [(detached)] 640.5M
   - dataset/google/fleurs:
       2b91c8dd [(detached)] 937.6M
 Proceed? [y/N]: y
-Deleted 3 unreferenced revision(s); freed 2.4G.
+Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
 ```
+
+`.incomplete` files are partial downloads left behind when a download is interrupted. They are not tracked by `hf cache ls`/`rm` (which work at the revision level), so `hf cache ls` points them out with a hint and `hf cache prune` removes them automatically.
 
 As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
 
@@ -1995,6 +1992,23 @@ Use `:ro` to enable read-only:
 
 * mount a storage bucket in read-only: `-v hf://buckets/username/my-bucket:/mnt:ro`
 
+### Mount local data
+
+The source side of `-v` can also be a local directory. It is first synced to your `jobs-artifacts` [Storage Bucket](/docs/hub/storage-buckets) and the resulting bucket folder is mounted in the Job:
+
+```bash
+>>> hf jobs uv run -v ./my-data:/data process.py
+```
+
+Re-running the command only uploads new or modified files. Local directories are mounted read-only by default. Use `:rw` to let the Job write to the volume, e.g. to retrieve outputs after the Job completes (an empty local directory works too):
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+...
+Hint: Volume '/output' is mounted read-write. Once the job is over, pull back its data with:
+  hf buckets sync hf://buckets/username/jobs-artifacts/md-out-a1b2c3d4 ./md-out
+```
+
 ### Labels
 
 Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):
@@ -2031,11 +2045,9 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 >>> hf jobs ps -a --limit 0
 ```
 
-<Tip warning={true}>
+> [!WARNING]
+> `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
 
-`-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
-
-</Tip>
 
 ### SSH into a Job
 
@@ -2126,9 +2138,35 @@ Manage scheduled jobs using
 # Resume a scheduled job
 >>> hf jobs scheduled resume <scheduled_job_id>
 
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> hf jobs scheduled trigger <scheduled_job_id>
+
 # Delete a scheduled job
 >>> hf jobs scheduled delete <scheduled_job_id>
 ```
+
+## hf sandbox
+
+`hf sandbox` spins up isolated cloud machines built on Jobs: create one, run commands with live-streamed output, and copy files in and out. Any Docker image with `/bin/sh` works. See the [Sandboxes guide](./sandbox) for the Python API, and the [conceptual guide](../concepts/sandbox) for how it works under the hood.
+
+```bash
+# Create a sandbox (waits until it is ready, prints its id)
+>>> hf sandbox create
+✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
+
+# Run commands inside it (output is streamed, exit code is propagated)
+>>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
+hi
+
+# Copy files in and out (docker-style)
+>>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
+>>> hf sandbox cp 687f911eaea852de79c4a50a:/app/results.json results.json
+
+# Terminate a sandbox
+>>> hf sandbox kill 687f911eaea852de79c4a50a
+```
+
+Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
 
 ## hf webhooks
 

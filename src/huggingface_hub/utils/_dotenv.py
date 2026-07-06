@@ -2,6 +2,22 @@
 import re
 
 
+# Escape sequences expanded inside quoted values. Double-quoted values additionally
+# expand "\$" to "$"; single-quoted values keep it verbatim.
+_ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}
+_DOUBLE_QUOTE_ESCAPES = {**_ESCAPES, "$": "$"}
+
+
+def _unescape(value: str, escapes: dict[str, str]) -> str:
+    r"""Expand backslash escapes in a single left-to-right pass.
+
+    Processing in one pass (rather than chained `str.replace` calls) ensures an escaped
+    backslash (`\\`) is consumed as a unit and cannot merge with the following character,
+    e.g. `\\n` is a backslash followed by `n`, not a newline. Unknown escapes are kept as-is.
+    """
+    return re.sub(r"\\(.)", lambda match: escapes.get(match.group(1), match.group(0)), value)
+
+
 def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[str, str]:
     """
     Parse a DOTENV-format string and return a dictionary of key-value pairs.
@@ -40,10 +56,8 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
                 val = raw_val.strip()
                 # Remove surrounding quotes if quoted
                 if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                    val = val[1:-1]
-                    val = val.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\"", '"').replace(r"\\", "\\")
-                    if raw_val.startswith('"'):
-                        val = val.replace(r"\$", "$")  # only in double quotes
+                    escapes = _DOUBLE_QUOTE_ESCAPES if raw_val.startswith('"') else _ESCAPES
+                    val = _unescape(val[1:-1], escapes)
             elif environ is not None:
                 # Get it from the current environment
                 val = environ.get(key)
