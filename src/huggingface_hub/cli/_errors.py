@@ -94,8 +94,7 @@ def _format_local_entry_not_found(error: LocalEntryNotFoundError) -> str:
 
 def _format_incomplete_snapshot(error: IncompleteSnapshotError) -> str:
     msg = _format_local_entry_not_found(error)
-    if error.snapshot_path is not None:
-        msg += f"\nIncomplete snapshot available at: {error.snapshot_path}"
+    msg += f"\nIncomplete snapshot available at: {error.snapshot_path}"
     return msg
 
 

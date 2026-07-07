@@ -465,11 +465,11 @@ class IncompleteSnapshotError(LocalEntryNotFoundError):
 
     This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
 
-    The `snapshot_path` attribute holds the path to the (incomplete) local snapshot, so a downstream
-    library can still locate the latest cached files even though they are known to be incomplete.
+    The `snapshot_path` attribute holds the path to the incomplete local snapshot, so a downstream library can locate
+    the latest cached files even though they are known to be incomplete.
     """
 
-    def __init__(self, message: str, snapshot_path: Optional[str] = None):
+    def __init__(self, message: str, snapshot_path: str):
         super().__init__(message)
         self.snapshot_path = snapshot_path
 
