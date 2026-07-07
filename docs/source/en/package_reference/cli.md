@@ -3035,6 +3035,8 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
+* `--inference-provider [cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
+* `--warm`: Only list models currently served by at least one inference provider.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
@@ -3049,6 +3051,8 @@ Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
+  $ hf models ls --inference-provider fireworks-ai --sort downloads
+  $ hf models ls --warm --search llama
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct -R
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h

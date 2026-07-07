@@ -44,9 +44,8 @@ from ._output import _dataclass_to_dict, out
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
 _SORT_OPTIONS = get_args(ModelSort_T)
 ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
-_INFERENCE_PROVIDERS = sorted(get_args(PROVIDER_T))
 InferenceProviderEnum = enum.Enum(  # type: ignore[misc]
-    "InferenceProviderEnum", {p: p for p in _INFERENCE_PROVIDERS}, type=str
+    "InferenceProviderEnum", {p: p for p in sorted(get_args(PROVIDER_T))}, type=str
 )
 
 
@@ -92,7 +91,7 @@ def models_ls(
         Option(
             "--inference-provider",
             click_type=SoftChoice(InferenceProviderEnum),
-            help="Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'. Repeatable to match any of several providers.",
+            help="Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.",
         ),
     ] = None,
     warm: Annotated[
