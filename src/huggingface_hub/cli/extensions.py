@@ -346,7 +346,7 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
 
     try:
         repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
-    except Exception:  # 404 or unreachable -> do nothing
+    except Exception:
         return None
 
     try:
