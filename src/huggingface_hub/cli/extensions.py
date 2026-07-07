@@ -22,6 +22,7 @@ import subprocess
 import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -44,12 +45,17 @@ EXTENSIONS_HELP = (
     "Install only from sources you trust."
 )
 extensions_cli = typer_factory(help=EXTENSIONS_HELP)
-_EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
 _EXTENSIONS_GITHUB_TOPIC = "hf-extension"
 _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 
 logger = logging.get_logger(__name__)
+
+
+class _ExtensionUpdateStatus(str, Enum):
+    UPDATED = "updated"
+    UP_TO_DATE = "up_to_date"
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -146,23 +152,15 @@ def extension_update(
 ) -> None:
     """Update installed extension(s) to their latest version."""
     if name is not None:
-        short_name = _parse_update_target(name)
-        extension_dir = _get_extension_dir(short_name)
-        if not extension_dir.is_dir():
-            install_target = name if "/" in name else f"hf-{short_name}"
-            raise CLIError(
-                f"Extension '{short_name}' is not installed. Install it first with: "
-                f"hf extensions install {install_target}"
-            )
-        manifest = ExtensionManifest.load(extension_dir)
-        match _check_extension_update(manifest):
-            case None:
-                pass  # warning already emitted by _check_extension_update
-            case True:
-                _clean_install_extension(owner=manifest.owner, repo_name=manifest.repo, short_name=manifest.short_name)
-                out.result("Extension updated", name=short_name, source=manifest.repo_id)
-            case False:
-                out.result(f"Extension '{short_name}' is already up to date", name=short_name)
+        manifest = _load_installed_extension_for_update(name)
+        update_status = _update_installed_extension(manifest)
+        match update_status:
+            case _ExtensionUpdateStatus.UPDATED:
+                out.result("Extension updated", name=manifest.short_name, source=manifest.repo_id)
+            case _ExtensionUpdateStatus.UP_TO_DATE:
+                out.result(f"Extension '{manifest.short_name}' is already up to date", name=manifest.short_name)
+            case _ExtensionUpdateStatus.SKIPPED:
+                pass  # warning already emitted by _update_installed_extension
         return
 
     manifests = _list_installed_extensions()
@@ -175,14 +173,14 @@ def extension_update(
     up_to_date = []
     for manifest in manifests:
         out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
-        match _check_extension_update(manifest):
-            case None:
-                pass  # warning already emitted by _check_extension_update
-            case True:
-                _clean_install_extension(owner=manifest.owner, repo_name=manifest.repo, short_name=manifest.short_name)
+        update_status = _update_installed_extension(manifest)
+        match update_status:
+            case _ExtensionUpdateStatus.UPDATED:
                 updated.append(manifest.short_name)
-            case False:
+            case _ExtensionUpdateStatus.UP_TO_DATE:
                 up_to_date.append(manifest.short_name)
+            case _ExtensionUpdateStatus.SKIPPED:
+                pass  # warning already emitted by _update_installed_extension
     out.result(
         "Extensions update complete",
         updated=", ".join(updated) if updated else None,
@@ -354,8 +352,14 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
     except ConfirmationError:
         return None
     try:
+        branch, description = repo_info
         manifest = _install_extension_from_github(
-            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=repo_info[0]
+            owner=owner,
+            repo_name=repo_name,
+            short_name=short_name,
+            extension_dir=extension_dir,
+            branch=branch,
+            description=description,
         )
         return Path(manifest.executable_path).expanduser()
     except Exception:
@@ -363,30 +367,56 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         return None
 
 
-def _check_extension_update(manifest: ExtensionManifest) -> bool | None:
-    """Check whether an installed extension has a newer version on GitHub.
+def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
+    short_name = _parse_update_target(name)
+    extension_dir = _get_extension_dir(short_name)
+    if not extension_dir.is_dir():
+        install_target = name if "/" in name else f"hf-{short_name}"
+        raise CLIError(
+            f"Extension '{short_name}' is not installed. Install it first with: hf extensions install {install_target}"
+        )
+    return ExtensionManifest.load(extension_dir)
 
-    Returns:
-        - `True` if a newer commit is available (the extension should be reinstalled).
-        - `False` if the extension is already up to date.
-        - `None` if the check could not be performed (e.g. GitHub unreachable). The existing
-          install is left untouched and a warning is emitted.
-    """
+
+def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdateStatus:
     owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
 
-    repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
-    branch = repo_info[0] if repo_info is not None else _EXTENSIONS_DEFAULT_BRANCH
+    try:
+        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    except Exception as error:
+        out.warning(f"Could not check updates for '{short_name}' ({owner}/{repo_name}): {error}. Skipping.")
+        return _ExtensionUpdateStatus.SKIPPED
 
-    latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
+    latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch, warn=False)
     if latest_sha is None:
         out.warning(
             f"Could not check updates for '{short_name}' ({owner}/{repo_name}): GitHub is unreachable. Skipping."
         )
-        return None
-    return latest_sha != manifest.commit_sha
+        return _ExtensionUpdateStatus.SKIPPED
+
+    if latest_sha == manifest.commit_sha:
+        return _ExtensionUpdateStatus.UP_TO_DATE
+
+    _clean_install_extension(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        branch=branch,
+        description=description,
+        commit_sha=latest_sha,
+    )
+    return _ExtensionUpdateStatus.UPDATED
 
 
-def _clean_install_extension(*, owner: str, repo_name: str, short_name: str) -> ExtensionManifest:
+def _clean_install_extension(
+    *,
+    owner: str,
+    repo_name: str,
+    short_name: str,
+    branch: str | None = None,
+    description: str | None = None,
+    commit_sha: str | None = None,
+) -> ExtensionManifest:
     """Fetch, install (binary or Python), and persist an extension, overwriting any existing install.
 
     Used by `hf extensions install` (fresh install and `--force` reinstall) and `hf extensions update`.
@@ -394,8 +424,8 @@ def _clean_install_extension(*, owner: str, repo_name: str, short_name: str) -> 
     extension_dir = _get_extension_dir(short_name)
     if extension_dir.exists():
         shutil.rmtree(extension_dir)
-    repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
-    branch, description = repo_info if repo_info is not None else (_EXTENSIONS_DEFAULT_BRANCH, None)
+    if branch is None:
+        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
     return _install_extension_from_github(
         owner=owner,
         repo_name=repo_name,
@@ -403,10 +433,11 @@ def _clean_install_extension(*, owner: str, repo_name: str, short_name: str) -> 
         extension_dir=extension_dir,
         branch=branch,
         description=description,
+        commit_sha=commit_sha,
     )
 
 
-def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str) -> str | None:
+def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str, warn: bool = True) -> str | None:
     """Best-effort fetch of the latest commit SHA for a branch, used to detect available updates."""
     try:
         response = _github_get(
@@ -415,7 +446,8 @@ def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str) -> str 
         )
         return response.text.strip() or None
     except Exception as error:
-        out.warning(f"Could not fetch latest commit SHA for '{repo_name}' ({owner}/{repo_name}): {error}")
+        if warn:
+            out.warning(f"Could not fetch latest commit SHA for '{repo_name}' ({owner}/{repo_name}): {error}")
         return None
 
 
@@ -427,6 +459,7 @@ def _install_extension_from_github(
     extension_dir: Path,
     branch: str,
     description: str | None = None,
+    commit_sha: str | None = None,
 ) -> ExtensionManifest:
     """Fetch, install (binary or Python), and save manifest for a GitHub extension."""
     try:
@@ -444,7 +477,7 @@ def _install_extension_from_github(
     manifest.description = _try_fetch_remote_description(
         owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
     )
-    manifest.commit_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
+    manifest.commit_sha = commit_sha or _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
     manifest.save(extension_dir)
     return manifest
 
@@ -637,7 +670,7 @@ def _github_get(url: str, *, params: dict | None = None, headers: dict | None = 
     return response
 
 
-def _fetch_github_repo_info(*, owner: str, repo_name: str) -> tuple[str, str | None] | None:
+def _fetch_github_repo_info(*, owner: str, repo_name: str) -> tuple[str, str | None]:
     """Fetch `default_branch` + `description` for a GitHub repo from `GET /repos/{owner}/{repo}`."""
     response = _github_get(f"https://api.github.com/repos/{owner}/{repo_name}")
     data = response.json()
