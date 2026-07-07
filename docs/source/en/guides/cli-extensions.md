@@ -242,9 +242,7 @@ Once an extension is installed, you can update it to the latest version publishe
 >>> hf extensions update
 ```
 
-`hf extensions update` only updates extensions that are **already installed**. If the extension is not
-installed, an error is raised with the exact command to install it (extensions are never installed
-implicitly by `update`). Extensions already on the latest commit are skipped.
+`hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
 
 ## Naming rules
 
