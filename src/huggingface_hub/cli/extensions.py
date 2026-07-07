@@ -368,7 +368,7 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
 
 
 def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
-    short_name = _parse_update_target(name)
+    short_name = _normalize_extension_name(name)
     extension_dir = _get_extension_dir(short_name)
     if not extension_dir.is_dir():
         install_target = name if "/" in name else f"hf-{short_name}"
@@ -745,25 +745,9 @@ def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
     return owner, repo_name, short_name
 
 
-def _parse_update_target(name: str) -> str:
-    """Return the short name from an update target given as `<name>`, `hf-<name>`, or `[OWNER/]hf-<name>`.
-
-    Updates operate on already-installed extensions (identified by their short name), so the optional
-    owner prefix is accepted but ignored, both `alvarobartt/hf-mem` and `hf-mem` resolve to `mem`.
-    """
-    candidate = name.strip()
-    if not candidate:
-        raise CLIError("Extension name cannot be empty.")
-    repo_name = candidate.rsplit("/", 1)[-1]
-    normalized = repo_name[3:] if repo_name.startswith("hf-") else repo_name
-    return _validate_extension_short_name(normalized, original_input=name)
-
-
 def _normalize_extension_name(name: str) -> str:
-    candidate = name.strip()
-    if not candidate:
-        raise CLIError("Extension name cannot be empty.")
-    normalized = candidate[3:] if candidate.startswith("hf-") else candidate
+    repo_name = name.strip().rsplit("/", 1)[-1]
+    normalized = repo_name[3:] if repo_name.startswith("hf-") else repo_name
     return _validate_extension_short_name(normalized, original_input=name)
 
 
