@@ -2012,6 +2012,7 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 * `list`: List installed extension commands. [alias: ls]
 * `remove`: Remove an installed extension. [alias: rm]
 * `search`: Search extensions available on GitHub...
+* `update`: Update installed extension(s) to their...
 
 ### `hf extensions exec`
 
@@ -2136,6 +2137,34 @@ $ hf extensions search [OPTIONS]
 
 Examples
   $ hf extensions search
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions update`
+
+Update installed extension(s) to their latest version.
+
+**Usage**:
+
+```console
+$ hf extensions update [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Extension to update (with or without `hf-` prefix, optionally as `OWNER/hf-<name>`). If omitted, all installed extensions are checked and the outdated ones are updated.
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions update
+  $ hf extensions update hf-claude
+  $ hf extensions update alvarobartt/hf-mem
 
 Learn more
   Use `hf <command> --help` for more information about a command.

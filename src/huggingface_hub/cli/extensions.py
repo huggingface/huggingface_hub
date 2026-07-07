@@ -22,6 +22,7 @@ import subprocess
 import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -44,12 +45,17 @@ EXTENSIONS_HELP = (
     "Install only from sources you trust."
 )
 extensions_cli = typer_factory(help=EXTENSIONS_HELP)
-_EXTENSIONS_DEFAULT_BRANCH = "main"  # Fallback when the GitHub API is unreachable.
 _EXTENSIONS_GITHUB_TOPIC = "hf-extension"
 _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 
 logger = logging.get_logger(__name__)
+
+
+class _ExtensionUpdateStatus(str, Enum):
+    UPDATED = "updated"
+    UP_TO_DATE = "up_to_date"
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -58,12 +64,11 @@ class ExtensionManifest:
     repo: str
     repo_id: str
     short_name: str
-    executable_name: str
     executable_path: str
     type: Literal["binary", "python"]
     installed_at: datetime
-    source: str
     description: str | None = None
+    commit_sha: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "ExtensionManifest":
@@ -71,6 +76,8 @@ class ExtensionManifest:
         if not manifest_path.is_file():
             raise CLIError(f"Manifest file not found at {manifest_path}. Your extension may be corrupted.")
         data = json.loads(manifest_path.read_text())
+        # Ignore keys not in the dataclass (e.g. fields dropped since the manifest was written).
+        data = {key: value for key, value in data.items() if key in cls.__dataclass_fields__}
         data["installed_at"] = datetime.fromisoformat(data["installed_at"])
         return ExtensionManifest(**data)
 
@@ -112,22 +119,15 @@ def extension_install(
         )
 
     extension_dir = _get_extension_dir(short_name)
-    extension_exists = extension_dir.exists()
-    if extension_exists and not force:
+    if extension_dir.exists() and not force:
         raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
 
-    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
-
-    if extension_exists:
+    branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    if extension_dir.exists():
+        # --force reinstall: only remove the previous install once the repo metadata is resolved.
         shutil.rmtree(extension_dir)
-
-    manifest = _install_extension_from_github(
-        owner=owner,
-        repo_name=repo_name,
-        short_name=short_name,
-        extension_dir=extension_dir,
-        branch=branch,
-        description=description,
+    manifest = _install_extension(
+        owner=owner, repo_name=repo_name, short_name=short_name, branch=branch, description=description
     )
     ext_type = manifest.type.capitalize()
     out.result(
@@ -136,6 +136,68 @@ def extension_install(
         command=f"hf {short_name}",
     )
     out.hint(f"Run it with: hf {short_name}")
+
+
+@extensions_cli.command(
+    "update",
+    examples=[
+        "hf extensions update",
+        "hf extensions update hf-claude",
+        "hf extensions update alvarobartt/hf-mem",
+    ],
+)
+def extension_update(
+    name: Annotated[
+        str | None,
+        Argument(
+            help=(
+                "Extension to update (with or without `hf-` prefix, optionally as `OWNER/hf-<name>`). "
+                "If omitted, all installed extensions are checked and the outdated ones are updated."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Update installed extension(s) to their latest version."""
+    if name is not None:
+        manifest = _load_installed_extension_for_update(name)
+        update_status = _update_installed_extension(manifest)
+        match update_status:
+            case _ExtensionUpdateStatus.UPDATED:
+                out.result("Extension updated", name=manifest.short_name, source=manifest.repo_id)
+            case _ExtensionUpdateStatus.UP_TO_DATE:
+                out.result(f"Extension '{manifest.short_name}' is already up to date", name=manifest.short_name)
+            case _ExtensionUpdateStatus.SKIPPED:
+                pass  # warning already emitted by _update_installed_extension
+        return
+
+    manifests = _list_installed_extensions()
+    if not manifests:
+        out.warning("No extensions installed.")
+        out.hint("Install one with: hf extensions install <repo_id>")
+        return
+
+    updated = []
+    up_to_date = []
+    for manifest in manifests:
+        out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
+        try:
+            update_status = _update_installed_extension(manifest)
+        except Exception as error:
+            # Keep updating the other extensions even if one fails.
+            out.warning(f"Could not update '{manifest.short_name}' ({manifest.repo_id}): {error}. Skipping.")
+            continue
+        match update_status:
+            case _ExtensionUpdateStatus.UPDATED:
+                updated.append(manifest.short_name)
+            case _ExtensionUpdateStatus.UP_TO_DATE:
+                up_to_date.append(manifest.short_name)
+            case _ExtensionUpdateStatus.SKIPPED:
+                pass  # warning already emitted by _update_installed_extension
+    out.result(
+        "Extensions update complete",
+        updated=", ".join(updated) if updated else None,
+        up_to_date=", ".join(up_to_date) if up_to_date else None,
+    )
 
 
 @extensions_cli.command(
@@ -183,21 +245,17 @@ def extension_list() -> None:
 @extensions_cli.command("search", examples=["hf extensions search"])
 def extension_search() -> None:
     """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
-    response = get_session().get(
+    response = _github_get(
         "https://api.github.com/search/repositories",
         params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
-        follow_redirects=True,
-        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
     )
-    response.raise_for_status()
     data = response.json()
 
     installed = {m.short_name for m in _list_installed_extensions()}
 
     rows = []
     for repo in data.get("items", []):
-        repo_name = repo["name"]
-        short_name = repo_name[3:] if repo_name.startswith("hf-") else repo_name
+        short_name = repo["name"].removeprefix("hf-")
         rows.append(
             {
                 "name": short_name,
@@ -269,11 +327,12 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     if command_name in all_known:
         return None
 
-    short_name = command_name[3:] if command_name.startswith("hf-") else command_name
-    if not short_name:
+    try:
+        short_name = _validate_extension_short_name(command_name.removeprefix("hf-"), original_input=command_name)
+    except CLIError:
         return None
 
-    executable_path: Path | None = None
+    executable_path: Path | None
     try:
         executable_path = _resolve_installed_executable_path(short_name)
     except Exception:
@@ -288,154 +347,99 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
 def _auto_install_official_extension(short_name: str) -> Path | None:
     """Try to auto-install huggingface/hf-<name>. Returns executable path or None."""
     owner, repo_name = DEFAULT_EXTENSION_OWNER, f"hf-{short_name}"
+    if _get_extension_dir(short_name).exists():
+        return None
+
     try:
-        extension_dir = _get_extension_dir(short_name)
+        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
     except Exception:
         return None
-    if extension_dir.exists():
-        return None
-    try:
-        response = get_session().get(
-            f"https://api.github.com/repos/{owner}/{repo_name}",
-            follow_redirects=True,
-            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
-        )
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        branch = response.json()["default_branch"]
-    except Exception:
-        return None
+
     try:
         out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
     except ConfirmationError:
         return None
     try:
-        manifest = _install_extension_from_github(
-            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+        manifest = _install_extension(
+            owner=owner, repo_name=repo_name, short_name=short_name, branch=branch, description=description
         )
         return Path(manifest.executable_path).expanduser()
     except Exception:
-        shutil.rmtree(extension_dir, ignore_errors=True)
         return None
 
 
-def _install_extension_from_github(
+def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
+    short_name = _normalize_extension_name(name)
+    extension_dir = _get_extension_dir(short_name)
+    if not extension_dir.is_dir():
+        owner, _, _ = name.strip().rpartition("/")
+        install_target = f"{owner}/hf-{short_name}" if owner else f"hf-{short_name}"
+        raise CLIError(
+            f"Extension '{short_name}' is not installed. Install it first with: hf extensions install {install_target}"
+        )
+    return ExtensionManifest.load(extension_dir)
+
+
+def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdateStatus:
+    owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
+
+    try:
+        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    except Exception as error:
+        out.warning(f"Could not check updates for '{short_name}' ({owner}/{repo_name}): {error}. Skipping.")
+        return _ExtensionUpdateStatus.SKIPPED
+
+    latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch, warn=False)
+    if latest_sha is None:
+        out.warning(
+            f"Could not check updates for '{short_name}' ({owner}/{repo_name}): GitHub is unreachable. Skipping."
+        )
+        return _ExtensionUpdateStatus.SKIPPED
+
+    if latest_sha == manifest.commit_sha:
+        return _ExtensionUpdateStatus.UP_TO_DATE
+
+    _install_extension(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        branch=branch,
+        description=description,
+        commit_sha=latest_sha,
+    )
+    return _ExtensionUpdateStatus.UPDATED
+
+
+def _install_extension(
     *,
     owner: str,
     repo_name: str,
     short_name: str,
-    extension_dir: Path,
     branch: str,
     description: str | None = None,
+    commit_sha: str | None = None,
 ) -> ExtensionManifest:
-    """Fetch, install (binary or Python), and save manifest for a GitHub extension."""
-    try:
-        binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
-    except Exception:
-        binary = None
-    if binary is not None:
-        manifest = _install_binary_extension(
-            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, binary=binary
-        )
-    else:
-        manifest = _install_python_extension(
-            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
-        )
-    manifest.description = _try_fetch_remote_description(
-        owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
-    )
-    manifest.save(extension_dir)
-    return manifest
+    """Fetch and install an extension (binary or Python package), then persist its manifest.
 
-
-def _fetch_remote_binary(owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
-    executable_name = _get_executable_name(short_name)
-    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
-    response = get_session().get(raw_url, follow_redirects=True, timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT)
-    response.raise_for_status()
-    return response.content
-
-
-def _install_binary_extension(
-    *, owner: str, repo_name: str, short_name: str, extension_dir: Path, binary: bytes
-) -> ExtensionManifest:
-    # Save extension binary
-    executable_name = _get_executable_name(short_name)
-    extension_dir.mkdir(parents=True, exist_ok=False)
-    executable_path = extension_dir / executable_name
-    executable_path.write_bytes(binary)
-
-    # Make it executable
-    if os.name != "nt":
-        os.chmod(executable_path, 0o755)
-
-    # Create manifest
-    return ExtensionManifest(
-        owner=owner,
-        repo=repo_name,
-        repo_id=f"{owner}/{repo_name}",
-        short_name=short_name,
-        executable_name=executable_name,
-        executable_path=str(executable_path),
-        type="binary",
-        installed_at=datetime.now(timezone.utc),
-        source=f"https://github.com/{owner}/{repo_name}",
-    )
-
-
-def _install_python_extension(
-    *, owner: str, repo_name: str, short_name: str, extension_dir: Path, branch: str
-) -> ExtensionManifest:
-    source_url = f"https://github.com/{owner}/{repo_name}/archive/refs/heads/{branch}.zip"
-    venv_dir = extension_dir / "venv"
+    Installs in place: an existing install is overwritten without being removed first, so a failed
+    update keeps the previous version working. A failed fresh install is cleaned up entirely.
+    """
+    extension_dir = _get_extension_dir(short_name)
+    fresh_install = not extension_dir.exists()
     installed = False
-
-    status = out.status()
     try:
-        status.update(f"Creating virtual environment in {venv_dir}")
-        if extension_dir.exists():
-            shutil.rmtree(extension_dir, ignore_errors=True)
-        extension_dir.mkdir(parents=True, exist_ok=False)
+        try:
+            binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
+        except Exception:
+            binary = None
 
-        uv_path = shutil.which("uv")
-        venv_python = _get_venv_python_path(venv_dir)
-        if uv_path:
-            subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
-            status.done(f"Virtual environment created in {venv_dir}")
-
-            status.update(f"Installing package from {source_url}")
-            subprocess.run(
-                [uv_path, "pip", "install", "--python", str(venv_python), source_url],
-                check=True,
-                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
+        if binary is not None:
+            executable_path = _install_binary_extension(
+                extension_dir=extension_dir, short_name=short_name, binary=binary
             )
         else:
-            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
-            status.done(f"Virtual environment created in {venv_dir}")
-
-            status.update(f"Installing package from {source_url}")
-            subprocess.run(
-                [
-                    str(venv_python),
-                    "-m",
-                    "pip",
-                    "install",
-                    "--disable-pip-version-check",
-                    "--no-input",
-                    source_url,
-                ],
-                check=True,
-                timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT,
-            )
-        status.done(f"Package installed from {source_url}")
-
-        executable_name = _get_executable_name(short_name)
-        venv_executable = _get_venv_extension_executable_path(venv_dir, short_name)
-        if not venv_executable.is_file():
-            raise CLIError(
-                f"Installed package from '{owner}/{repo_name}' does not expose the required console script "
-                f"'{executable_name}'."
+            executable_path = _install_python_extension(
+                extension_dir=extension_dir, owner=owner, repo_name=repo_name, short_name=short_name, branch=branch
             )
 
         manifest = ExtensionManifest(
@@ -443,12 +447,15 @@ def _install_python_extension(
             repo=repo_name,
             repo_id=f"{owner}/{repo_name}",
             short_name=short_name,
-            executable_name=executable_name,
-            executable_path=str(venv_executable.resolve()),
-            type="python",
+            executable_path=str(executable_path),
+            type="binary" if binary is not None else "python",
             installed_at=datetime.now(timezone.utc),
-            source=f"https://github.com/{owner}/{repo_name}",
+            description=_try_fetch_remote_description(
+                owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
+            ),
+            commit_sha=commit_sha or _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch),
         )
+        manifest.save(extension_dir)
         installed = True
         return manifest
     except CLIError:
@@ -464,10 +471,88 @@ def _install_python_extension(
             "See pip output above for details."
         ) from e
     except Exception as e:
-        raise CLIExtensionInstallError(f"Failed to set up pip extension from '{owner}/{repo_name}': {e}") from e
+        raise CLIExtensionInstallError(f"Failed to install extension from '{owner}/{repo_name}': {e}") from e
     finally:
-        if not installed:
+        if not installed and fresh_install:
             shutil.rmtree(extension_dir, ignore_errors=True)
+
+
+def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str, warn: bool = True) -> str | None:
+    """Best-effort fetch of the latest commit SHA for a branch, used to detect available updates."""
+    try:
+        response = _github_get(
+            f"https://api.github.com/repos/{owner}/{repo_name}/commits/{branch}",
+            headers={"Accept": "application/vnd.github.sha"},
+        )
+        return response.text.strip() or None
+    except Exception as error:
+        if warn:
+            out.warning(f"Could not fetch latest commit SHA for '{repo_name}' ({owner}/{repo_name}): {error}")
+        return None
+
+
+def _fetch_remote_binary(*, owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
+    executable_name = _get_executable_name(short_name)
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
+    response = _github_get(raw_url)
+    return response.content
+
+
+def _install_binary_extension(*, extension_dir: Path, short_name: str, binary: bytes) -> Path:
+    extension_dir.mkdir(parents=True, exist_ok=True)
+    executable_path = extension_dir / _get_executable_name(short_name)
+    executable_path.write_bytes(binary)
+
+    if os.name != "nt":
+        os.chmod(executable_path, 0o755)
+
+    return executable_path
+
+
+def _install_python_extension(
+    *, extension_dir: Path, owner: str, repo_name: str, short_name: str, branch: str
+) -> Path:
+    source_url = f"https://github.com/{owner}/{repo_name}/archive/refs/heads/{branch}.zip"
+    venv_dir = extension_dir / "venv"
+    venv_python = _get_venv_bin_path(venv_dir, "python.exe" if os.name == "nt" else "python")
+    uv_path = shutil.which("uv")
+
+    status = out.status()
+    if not venv_python.is_file():
+        status.update(f"Creating virtual environment in {venv_dir}")
+        extension_dir.mkdir(parents=True, exist_ok=True)
+        if uv_path:
+            subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
+        else:
+            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
+        status.done(f"Virtual environment created in {venv_dir}")
+
+    status.update(f"Installing package from {source_url}")
+    if uv_path:
+        # --reinstall: the source URL is the same for every commit, so cached data must be refreshed.
+        install_cmd = [uv_path, "pip", "install", "--reinstall", "--python", str(venv_python), source_url]
+    else:
+        install_cmd = [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--no-input",
+            "--force-reinstall",
+            source_url,
+        ]
+    subprocess.run(install_cmd, check=True, timeout=_EXTENSIONS_PIP_INSTALL_TIMEOUT)
+    status.done(f"Package installed from {source_url}")
+
+    executable_name = _get_executable_name(short_name)
+    venv_executable = _get_venv_bin_path(venv_dir, executable_name)
+    if not venv_executable.is_file():
+        raise CLIError(
+            f"Installed package from '{owner}/{repo_name}' does not expose the required console script "
+            f"'{executable_name}'."
+        )
+    return venv_executable.resolve()
 
 
 def _try_fetch_remote_description(
@@ -479,15 +564,12 @@ def _try_fetch_remote_description(
 
     Only best effort, no error handling.
     """
+    base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}"
+
     # from manifest.json
     try:
-        response = get_session().get(
-            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{MANIFEST_FILENAME}",
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        data = response.json()
-        description = data.get("description")
+        response = _github_get(f"{base}/{MANIFEST_FILENAME}")
+        description = response.json().get("description")
         if isinstance(description, str):
             return description
     except Exception:
@@ -495,11 +577,7 @@ def _try_fetch_remote_description(
 
     # from pyproject.toml
     try:
-        response = get_session().get(
-            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/pyproject.toml",
-            follow_redirects=True,
-        )
-        response.raise_for_status()
+        response = _github_get(f"{base}/pyproject.toml")
 
         # Weak parser but ok for "best effort"
         for line in response.text.splitlines():
@@ -514,33 +592,34 @@ def _try_fetch_remote_description(
     return candidate_description
 
 
-def _get_extensions_root() -> Path:
-    root_dir = EXTENSIONS_ROOT.expanduser()
-    root_dir.mkdir(parents=True, exist_ok=True)
-    return root_dir
-
-
 def _get_extension_dir(short_name: str) -> Path:
-    safe_name = _validate_extension_short_name(short_name, original_input=short_name)
-    root = _get_extensions_root().resolve()
-    target = (root / f"hf-{safe_name}").resolve()
-    if root not in target.parents:
-        raise CLIError(f"Invalid extension name '{short_name}'.")
-    return target
+    # Callers validate at the parse boundary already; re-validate here as defense-in-depth since
+    # this path is rmtree'd on removal.
+    _validate_extension_short_name(short_name, original_input=short_name)
+    return EXTENSIONS_ROOT.expanduser() / f"hf-{short_name}"
 
 
-def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, str | None]:
-    try:
-        response = get_session().get(
-            f"https://api.github.com/repos/{owner}/{repo_name}",
-            follow_redirects=True,
-            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["default_branch"], data.get("description")
-    except Exception:
-        return _EXTENSIONS_DEFAULT_BRANCH, None
+def _github_get(url: str, *, params: dict | None = None, headers: dict | None = None):
+    """Perform a GitHub GET request.
+
+    Shared by every GitHub/Raw fetch in this module so the timeout and redirect policy are shared.
+    """
+    response = get_session().get(
+        url,
+        params=params,
+        headers=headers,
+        follow_redirects=True,
+        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+    )
+    response.raise_for_status()
+    return response
+
+
+def _fetch_github_repo_info(*, owner: str, repo_name: str) -> tuple[str, str | None]:
+    """Fetch `default_branch` + `description` for a GitHub repo from `GET /repos/{owner}/{repo}`."""
+    response = _github_get(f"https://api.github.com/repos/{owner}/{repo_name}")
+    data = response.json()
+    return data["default_branch"], data.get("description")
 
 
 def _get_executable_name(short_name: str) -> str:
@@ -556,14 +635,7 @@ def _resolve_installed_executable_path(short_name: str) -> Path:
     return Path(manifest.executable_path).expanduser()
 
 
-def _get_venv_python_path(venv_dir: Path) -> Path:
-    if os.name == "nt":
-        return venv_dir / "Scripts" / "python.exe"
-    return venv_dir / "bin" / "python"
-
-
-def _get_venv_extension_executable_path(venv_dir: Path, short_name: str) -> Path:
-    executable_name = _get_executable_name(short_name)
+def _get_venv_bin_path(venv_dir: Path, executable_name: str) -> Path:
     if os.name == "nt":
         return venv_dir / "Scripts" / executable_name
     return venv_dir / "bin" / executable_name
@@ -603,7 +675,7 @@ def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
     if not repo_name.startswith("hf-"):
         raise CLIError(f"Extension repository name must start with 'hf-', got '{repo_name}'.")
 
-    short_name = repo_name[3:]
+    short_name = repo_name.removeprefix("hf-")
     if not short_name:
         raise CLIError("Invalid extension repository name 'hf-'.")
     _validate_extension_short_name(short_name, original_input=repo_id)
@@ -612,11 +684,8 @@ def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
 
 
 def _normalize_extension_name(name: str) -> str:
-    candidate = name.strip()
-    if not candidate:
-        raise CLIError("Extension name cannot be empty.")
-    normalized = candidate[3:] if candidate.startswith("hf-") else candidate
-    return _validate_extension_short_name(normalized, original_input=name)
+    repo_name = name.strip().rsplit("/", 1)[-1]
+    return _validate_extension_short_name(repo_name.removeprefix("hf-"), original_input=name)
 
 
 def _execute_extension_binary(executable_path: Path, args: list[str]) -> int:
