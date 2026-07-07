@@ -119,12 +119,13 @@ def extension_install(
         )
 
     extension_dir = _get_extension_dir(short_name)
-    if extension_dir.exists():
-        if not force:
-            raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
-        shutil.rmtree(extension_dir)
+    if extension_dir.exists() and not force:
+        raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
 
     branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    if extension_dir.exists():
+        # --force reinstall: only remove the previous install once the repo metadata is resolved.
+        shutil.rmtree(extension_dir)
     manifest = _install_extension(
         owner=owner, repo_name=repo_name, short_name=short_name, branch=branch, description=description
     )
@@ -179,7 +180,12 @@ def extension_update(
     up_to_date = []
     for manifest in manifests:
         out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
-        update_status = _update_installed_extension(manifest)
+        try:
+            update_status = _update_installed_extension(manifest)
+        except Exception as error:
+            # Keep updating the other extensions even if one fails.
+            out.warning(f"Could not update '{manifest.short_name}' ({manifest.repo_id}): {error}. Skipping.")
+            continue
         match update_status:
             case _ExtensionUpdateStatus.UPDATED:
                 updated.append(manifest.short_name)
@@ -366,7 +372,8 @@ def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
     short_name = _normalize_extension_name(name)
     extension_dir = _get_extension_dir(short_name)
     if not extension_dir.is_dir():
-        install_target = name if "/" in name else f"hf-{short_name}"
+        owner, _, _ = name.strip().rpartition("/")
+        install_target = f"{owner}/hf-{short_name}" if owner else f"hf-{short_name}"
         raise CLIError(
             f"Extension '{short_name}' is not installed. Install it first with: hf extensions install {install_target}"
         )
