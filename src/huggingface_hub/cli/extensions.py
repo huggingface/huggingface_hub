@@ -112,24 +112,10 @@ def extension_install(
             f"Cannot install extension '{short_name}' because it conflicts with an existing `hf {short_name}` command."
         )
 
-    extension_dir = _get_extension_dir(short_name)
-    extension_exists = extension_dir.exists()
-    if extension_exists and not force:
+    if _get_extension_dir(short_name).exists() and not force:
         raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
 
-    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
-
-    if extension_exists:
-        shutil.rmtree(extension_dir)
-
-    manifest = _install_extension_from_github(
-        owner=owner,
-        repo_name=repo_name,
-        short_name=short_name,
-        extension_dir=extension_dir,
-        branch=branch,
-        description=description,
-    )
+    manifest = _clean_install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
     ext_type = manifest.type.capitalize()
     out.result(
         f"{ext_type} extension installed",
@@ -148,7 +134,6 @@ def extension_install(
     ],
 )
 def extension_update(
-    ctx: click.Context,
     name: Annotated[
         str | None,
         Argument(
@@ -178,7 +163,7 @@ def extension_update(
             case None:
                 pass  # warning already emitted by _check_extension_update
             case True:
-                ctx.invoke(extension_install, repo_id=manifest.repo_id, force=True)
+                _clean_install_extension(owner=manifest.owner, repo_name=manifest.repo, short_name=manifest.short_name)
                 out.result("Extension updated", name=short_name, source=manifest.repo_id)
             case False:
                 out.result(f"Extension '{short_name}' is already up to date", name=short_name)
@@ -198,7 +183,7 @@ def extension_update(
             case None:
                 pass  # warning already emitted by _check_extension_update
             case True:
-                ctx.invoke(extension_install, repo_id=manifest.repo_id, force=True)
+                _clean_install_extension(owner=manifest.owner, repo_name=manifest.repo, short_name=manifest.short_name)
                 updated.append(manifest.short_name)
             case False:
                 up_to_date.append(manifest.short_name)
@@ -254,13 +239,10 @@ def extension_list() -> None:
 @extensions_cli.command("search", examples=["hf extensions search"])
 def extension_search() -> None:
     """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
-    response = get_session().get(
+    response = _github_get(
         "https://api.github.com/search/repositories",
         params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
-        follow_redirects=True,
-        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
     )
-    response.raise_for_status()
     data = response.json()
 
     installed = {m.short_name for m in _list_installed_extensions()}
@@ -365,25 +347,19 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         return None
     if extension_dir.exists():
         return None
+
     try:
-        response = get_session().get(
-            f"https://api.github.com/repos/{owner}/{repo_name}",
-            follow_redirects=True,
-            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
-        )
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        branch = response.json()["default_branch"]
-    except Exception:
+        repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    except Exception:  # 404 or unreachable -> do nothing
         return None
+
     try:
         out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
     except ConfirmationError:
         return None
     try:
         manifest = _install_extension_from_github(
-            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=branch
+            owner=owner, repo_name=repo_name, short_name=short_name, extension_dir=extension_dir, branch=repo_info[0]
         )
         return Path(manifest.executable_path).expanduser()
     except Exception:
@@ -401,30 +377,49 @@ def _check_extension_update(manifest: ExtensionManifest) -> bool | None:
           install is left untouched and a warning is emitted.
     """
     owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
-    branch, _description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
+
+    repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    branch = repo_info[0] if repo_info is not None else _EXTENSIONS_DEFAULT_BRANCH
 
     latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
     if latest_sha is None:
         out.warning(
-            f"Could not check updates for '{short_name}' ({owner}/{repo_name}): "
-            "GitHub is unreachable. Skipping."
+            f"Could not check updates for '{short_name}' ({owner}/{repo_name}): GitHub is unreachable. Skipping."
         )
         return None
     return latest_sha != manifest.commit_sha
 
 
+def _clean_install_extension(*, owner: str, repo_name: str, short_name: str) -> ExtensionManifest:
+    """Fetch, install (binary or Python), and persist an extension, overwriting any existing install.
+
+    Used by `hf extensions install` (fresh install and `--force` reinstall) and `hf extensions update`.
+    """
+    extension_dir = _get_extension_dir(short_name)
+    if extension_dir.exists():
+        shutil.rmtree(extension_dir)
+    repo_info = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    branch, description = repo_info if repo_info is not None else (_EXTENSIONS_DEFAULT_BRANCH, None)
+    return _install_extension_from_github(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        extension_dir=extension_dir,
+        branch=branch,
+        description=description,
+    )
+
+
 def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str) -> str | None:
     """Best-effort fetch of the latest commit SHA for a branch, used to detect available updates."""
     try:
-        response = get_session().get(
+        response = _github_get(
             f"https://api.github.com/repos/{owner}/{repo_name}/commits/{branch}",
             headers={"Accept": "application/vnd.github.sha"},
-            follow_redirects=True,
-            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
         )
-        response.raise_for_status()
         return response.text.strip() or None
-    except Exception:
+    except Exception as error:
+        out.warning(f"Could not fetch latest commit SHA for '{repo_name}' ({owner}/{repo_name}): {error}")
         return None
 
 
@@ -461,8 +456,7 @@ def _install_extension_from_github(
 def _fetch_remote_binary(owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
     executable_name = _get_executable_name(short_name)
     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
-    response = get_session().get(raw_url, follow_redirects=True, timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT)
-    response.raise_for_status()
+    response = _github_get(raw_url)
     return response.content
 
 
@@ -588,15 +582,12 @@ def _try_fetch_remote_description(
 
     Only best effort, no error handling.
     """
+    base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}"
+
     # from manifest.json
     try:
-        response = get_session().get(
-            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{MANIFEST_FILENAME}",
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        data = response.json()
-        description = data.get("description")
+        response = _github_get(f"{base}/{MANIFEST_FILENAME}")
+        description = response.json().get("description")
         if isinstance(description, str):
             return description
     except Exception:
@@ -604,11 +595,7 @@ def _try_fetch_remote_description(
 
     # from pyproject.toml
     try:
-        response = get_session().get(
-            f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/pyproject.toml",
-            follow_redirects=True,
-        )
-        response.raise_for_status()
+        response = _github_get(f"{base}/pyproject.toml")
 
         # Weak parser but ok for "best effort"
         for line in response.text.splitlines():
@@ -638,18 +625,27 @@ def _get_extension_dir(short_name: str) -> Path:
     return target
 
 
-def _resolve_github_repo_info(owner: str, repo_name: str) -> tuple[str, str | None]:
-    try:
-        response = get_session().get(
-            f"https://api.github.com/repos/{owner}/{repo_name}",
-            follow_redirects=True,
-            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["default_branch"], data.get("description")
-    except Exception:
-        return _EXTENSIONS_DEFAULT_BRANCH, None
+def _github_get(url: str, *, params: dict | None = None, headers: dict | None = None):
+    """Perform a GitHub GET request.
+
+    Shared by every GitHub/Raw fetch in this module so the timeout and redirect policy are shared.
+    """
+    response = get_session().get(
+        url,
+        params=params,
+        headers=headers,
+        follow_redirects=True,
+        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+    )
+    response.raise_for_status()
+    return response
+
+
+def _fetch_github_repo_info(*, owner: str, repo_name: str) -> tuple[str, str | None] | None:
+    """Fetch `default_branch` + `description` for a GitHub repo from `GET /repos/{owner}/{repo}`."""
+    response = _github_get(f"https://api.github.com/repos/{owner}/{repo_name}")
+    data = response.json()
+    return data["default_branch"], data.get("description")
 
 
 def _get_executable_name(short_name: str) -> str:
