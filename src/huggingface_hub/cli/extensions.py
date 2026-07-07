@@ -64,6 +64,7 @@ class ExtensionManifest:
     installed_at: datetime
     source: str
     description: str | None = None
+    commit_sha: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "ExtensionManifest":
@@ -136,6 +137,67 @@ def extension_install(
         command=f"hf {short_name}",
     )
     out.hint(f"Run it with: hf {short_name}")
+
+
+@extensions_cli.command(
+    "update",
+    examples=[
+        "hf extensions update",
+        "hf extensions update hf-claude",
+        "hf extensions update alvarobartt/hf-mem",
+    ],
+)
+def extension_update(
+    name: Annotated[
+        str | None,
+        Argument(
+            help=(
+                "Extension to update (with or without `hf-` prefix, optionally as `OWNER/hf-<name>`). "
+                "If omitted, all installed extensions are checked and the outdated ones are updated."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Update installed extension(s) to their latest version.
+
+    Only extensions that are already installed are updated. An extension that is not installed
+    is never installed implicitly, an error is raised instead.
+    """
+    if name is not None:
+        short_name = _parse_update_target(name)
+        extension_dir = _get_extension_dir(short_name)
+        if not extension_dir.is_dir():
+            install_target = name if "/" in name else f"hf-{short_name}"
+            raise CLIError(
+                f"Extension '{short_name}' is not installed. Install it first with: "
+                f"hf extensions install {install_target}"
+            )
+        manifest = ExtensionManifest.load(extension_dir)
+        if _update_extension(manifest):
+            out.result("Extension updated", name=short_name, source=manifest.repo_id)
+        else:
+            out.result(f"Extension '{short_name}' is already up to date", name=short_name)
+        return
+
+    manifests = _list_installed_extensions()
+    if not manifests:
+        out.warning("No extensions installed.")
+        out.hint("Install one with: hf extensions install <repo_id>")
+        return
+
+    updated = []
+    up_to_date = []
+    for manifest in manifests:
+        out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
+        if _update_extension(manifest):
+            updated.append(manifest.short_name)
+        else:
+            up_to_date.append(manifest.short_name)
+    out.result(
+        "Extensions update complete",
+        updated=", ".join(updated) if updated else None,
+        up_to_date=", ".join(up_to_date) if up_to_date else None,
+    )
 
 
 @extensions_cli.command(
@@ -320,6 +382,46 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         return None
 
 
+def _update_extension(manifest: ExtensionManifest) -> bool:
+    """Reinstall an installed extension if a newer version is available on GitHub.
+
+    Returns True if the extension was updated, False if it was already up to date.
+    """
+    owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
+    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
+
+    latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
+    if latest_sha is not None and latest_sha == manifest.commit_sha:
+        return False
+
+    extension_dir = _get_extension_dir(short_name)
+    shutil.rmtree(extension_dir, ignore_errors=True)
+    _install_extension_from_github(
+        owner=owner,
+        repo_name=repo_name,
+        short_name=short_name,
+        extension_dir=extension_dir,
+        branch=branch,
+        description=description,
+    )
+    return True
+
+
+def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str) -> str | None:
+    """Best-effort fetch of the latest commit SHA for a branch, used to detect available updates."""
+    try:
+        response = get_session().get(
+            f"https://api.github.com/repos/{owner}/{repo_name}/commits/{branch}",
+            headers={"Accept": "application/vnd.github.sha"},
+            follow_redirects=True,
+            timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.text.strip() or None
+    except Exception:
+        return None
+
+
 def _install_extension_from_github(
     *,
     owner: str,
@@ -345,6 +447,7 @@ def _install_extension_from_github(
     manifest.description = _try_fetch_remote_description(
         owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
     )
+    manifest.commit_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
     manifest.save(extension_dir)
     return manifest
 
@@ -609,6 +712,20 @@ def _normalize_repo_id(repo_id: str) -> tuple[str, str, str]:
     _validate_extension_short_name(short_name, original_input=repo_id)
 
     return owner, repo_name, short_name
+
+
+def _parse_update_target(name: str) -> str:
+    """Return the short name from an update target given as `<name>`, `hf-<name>`, or `[OWNER/]hf-<name>`.
+
+    Updates operate on already-installed extensions (identified by their short name), so the optional
+    owner prefix is accepted but ignored, both `alvarobartt/hf-mem` and `hf-mem` resolve to `mem`.
+    """
+    candidate = name.strip()
+    if not candidate:
+        raise CLIError("Extension name cannot be empty.")
+    repo_name = candidate.rsplit("/", 1)[-1]
+    normalized = repo_name[3:] if repo_name.startswith("hf-") else repo_name
+    return _validate_extension_short_name(normalized, original_input=name)
 
 
 def _normalize_extension_name(name: str) -> str:
