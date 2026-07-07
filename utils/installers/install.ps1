@@ -376,7 +376,7 @@ function Test-Installation {
     if (Test-Path $hfExecutable) {
         try {
             # Test the CLI
-            $output = & $hfExecutable version 2>&1
+            $output = & $hfExecutable version --format quiet 2>&1
             if ($?) {
                 Write-Log "CLI location: $hfExecutable"
                 Write-Log "Installation directory: $HF_CLI_DIR"
