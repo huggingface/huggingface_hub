@@ -22,6 +22,7 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
+from ._shared_blobs import publish_blob_to_shared_store, shared_blobs_enabled, try_link_from_shared_store
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -1232,19 +1233,40 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
+    # Shared blob store (opt-in): identical Xet files across repos are stored on disk only
+    # once and hardlinked into each repo's `blobs/`. `xet_hash` is left set only when the
+    # store can be used for this download. See the `_shared_blobs` module for details.
+    xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
+    if xet_hash is not None and not shared_blobs_enabled(cache_dir):
+        xet_hash = None
+
     with WeakFileLock(lock_path):
-        _download_to_tmp_and_move(
-            incomplete_path=Path(blob_path + ".incomplete"),
-            destination_path=Path(blob_path),
-            url_to_download=url_to_download,
-            headers=headers,
-            expected_size=expected_size,
-            filename=filename,
-            force_download=force_download,
-            etag=etag,
-            xet_file_data=xet_file_data,
-            tqdm_class=tqdm_class,
+        blob_reused_from_store = (
+            xet_hash is not None
+            and not force_download
+            and not os.path.exists(blob_path)
+            and try_link_from_shared_store(
+                blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir, expected_size=expected_size
+            )
         )
+        if not blob_reused_from_store:
+            will_download = force_download or not os.path.exists(blob_path)
+            _download_to_tmp_and_move(
+                incomplete_path=Path(blob_path + ".incomplete"),
+                destination_path=Path(blob_path),
+                url_to_download=url_to_download,
+                headers=headers,
+                expected_size=expected_size,
+                filename=filename,
+                force_download=force_download,
+                etag=etag,
+                xet_file_data=xet_file_data,
+                tqdm_class=tqdm_class,
+            )
+            if xet_hash is not None and will_download and is_xet_available():
+                # Only content downloaded through the Xet-verified path is published to
+                # the store (never the plain HTTP fallback).
+                publish_blob_to_shared_store(blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir)
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
 

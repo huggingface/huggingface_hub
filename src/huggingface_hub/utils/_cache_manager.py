@@ -22,6 +22,7 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
+from .._shared_blobs import SHARED_BLOBS_DIR_NAME, shared_store_inodes, sweep_shared_blobs
 from ..constants import HF_HUB_CACHE
 from . import logging
 from ._parsing import format_timesince
@@ -274,6 +275,9 @@ class DeleteCacheStrategy:
             Set of entire repo paths to be deleted.
         snapshots (`frozenset[Path]`):
             Set of snapshots to be deleted (directory of symlinks).
+        cache_dir (`Path` or `None`):
+            Cache directory the strategy was computed from. Used to sweep shared blob
+            store entries orphaned by the deletion (see `_shared_blobs`).
     """
 
     expected_freed_size: int
@@ -281,6 +285,7 @@ class DeleteCacheStrategy:
     refs: frozenset[Path]
     repos: frozenset[Path]
     snapshots: frozenset[Path]
+    cache_dir: Path | None = None
 
     @property
     def expected_freed_size_str(self) -> str:
@@ -323,6 +328,11 @@ class DeleteCacheStrategy:
         for path in self.blobs:
             _try_delete_path(path, path_type="blob")
 
+        # Remove shared blob store entries orphaned by the deletion. For blobs
+        # deduplicated across repos, this is what actually frees the disk space.
+        if self.cache_dir is not None:
+            sweep_shared_blobs(self.cache_dir)
+
         logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
 
@@ -364,6 +374,8 @@ class HFCacheInfo:
             List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
             are skipped from the scan.
+        cache_dir (`Path` or `None`):
+            Cache directory that was scanned.
 
     > [!WARNING]
     > Here `size_on_disk` is equal to the sum of all repo sizes (only blobs). However if
@@ -374,6 +386,7 @@ class HFCacheInfo:
     repos: frozenset[CachedRepoInfo]
     incomplete_files: frozenset[CachedIncompleteFileInfo]
     warnings: list[CorruptedCacheException]
+    cache_dir: Path | None = None
 
     @property
     def size_on_disk_str(self) -> str:
@@ -444,6 +457,11 @@ class HFCacheInfo:
         delete_strategy_snapshots: set[Path] = set()
         delete_strategy_expected_freed_size = 0
 
+        # Blobs deduplicated across repos (hardlinked from the shared blob store) only
+        # free disk space once their last repo unlinks them -> take hardlinks into
+        # account when predicting freed sizes.
+        store_inodes = shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
+
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
             other_revisions = affected_repo.revisions - revisions_to_delete
 
@@ -451,7 +469,15 @@ class HFCacheInfo:
             # -> delete the entire cached repo
             if len(other_revisions) == 0:
                 delete_strategy_repos.add(affected_repo.repo_path)
-                delete_strategy_expected_freed_size += affected_repo.size_on_disk
+                repo_blobs = {
+                    file.blob_path: file.size_on_disk
+                    for revision in affected_repo.revisions
+                    for file in revision.files
+                }
+                delete_strategy_expected_freed_size += sum(
+                    _expected_blob_freed_size(blob_path, size_on_disk, store_inodes)
+                    for blob_path, size_on_disk in repo_blobs.items()
+                )
                 continue
 
             # Some revisions of the repo will be deleted but not all. We need to filter
@@ -479,7 +505,9 @@ class HFCacheInfo:
                         # Blob file not referenced by remaining revisions -> delete
                         if is_file_alone:
                             delete_strategy_blobs.add(file.blob_path)
-                            delete_strategy_expected_freed_size += file.size_on_disk
+                            delete_strategy_expected_freed_size += _expected_blob_freed_size(
+                                file.blob_path, file.size_on_disk, store_inodes
+                            )
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
@@ -488,6 +516,7 @@ class HFCacheInfo:
             repos=frozenset(delete_strategy_repos),
             snapshots=frozenset(delete_strategy_snapshots),
             expected_freed_size=delete_strategy_expected_freed_size,
+            cache_dir=self.cache_dir,
         )
 
     def export_as_table(self, *, verbosity: int = 0) -> str:
@@ -689,6 +718,8 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
             continue
         if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
+        if repo_path.name == SHARED_BLOBS_DIR_NAME:  # skip the shared blob store (see `_shared_blobs`)
+            continue
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
@@ -699,6 +730,7 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
         size_on_disk=sum(repo.size_on_disk for repo in repos),
         incomplete_files=_scan_incomplete_files(cache_dir),
         warnings=warnings,
+        cache_dir=cache_dir,
     )
 
 
@@ -865,6 +897,24 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
+
+
+def _expected_blob_freed_size(blob_path: Path, size_on_disk: int, store_inodes: set[int]) -> int:
+    """Expected number of bytes freed by unlinking a blob file.
+
+    A blob hardlinked from other repos frees no space until its last link is removed. A
+    blob whose only extra link is a shared blob store entry counts as freed: the
+    post-deletion sweep removes orphaned store entries (see `DeleteCacheStrategy.execute`).
+    """
+    try:
+        blob_stat = os.stat(blob_path)
+    except OSError:
+        return size_on_disk
+    if blob_stat.st_nlink <= 1:
+        return size_on_disk
+    if blob_stat.st_nlink == 2 and blob_stat.st_ino in store_inodes:
+        return size_on_disk
+    return 0
 
 
 def _try_delete_path(path: Path, path_type: str) -> None:

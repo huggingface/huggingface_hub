@@ -203,6 +203,32 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
+### Shared blobs across repos (experimental)
+
+By default, blobs are deduplicated within a repo (across its revisions) but not across
+repos: the exact same file cached for two different repos is downloaded and stored twice.
+Setting [`HF_HUB_ENABLE_SHARED_BLOBS`](../package_reference/environment_variables#hfhubenablesharedblobs)
+to `1` enables a cache-wide shared blob store that removes this limitation for
+Xet-backed files (in practice, all LFS files on the Hub).
+
+When enabled, each downloaded Xet file is hardlinked into a content-addressed store at
+`<CACHE_DIR>/blobs/<prefix>/<xet_hash>`, keyed by its Xet hash (verified server-side,
+unlike the sha256 etag). If a file with the same hash is later requested for another
+repo, the blob is hardlinked from the store instead of being downloaded: no bytes are
+transferred and no extra disk space is used.
+
+Because store entries are hardlinks (not symlinks), per-repo blobs remain regular files:
+older versions of `huggingface_hub` and external tools reading the cache keep working
+unchanged, and deleting a repo (with any version) can never corrupt another repo. Store
+entries that are no longer referenced by any repo are removed automatically whenever
+cached revisions are deleted (`hf cache rm`, `hf cache prune`): the cleanup sweeps the
+whole store, so it also reclaims entries orphaned by older versions or manual deletions.
+
+The store requires the symlink-based cache layout (it stays disabled in the degraded
+no-symlink mode described above) and hardlink support on the cache filesystem. New
+entries are only added by verified `hf_xet` downloads. When any of these is
+unavailable, downloads silently fall back to the regular behavior.
+
 ## Chunk-based caching (Xet)
 
 To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).

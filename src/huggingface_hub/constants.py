@@ -338,5 +338,11 @@ default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
 
+# Enable the cache-wide shared blob store (experimental, opt-in).
+# Xet-backed files are hardlinked into `<cache_dir>/blobs/<prefix>/<xet_hash>` so that
+# identical files are stored on disk only once across repos and reused on download
+# without re-fetching. See `huggingface_hub._shared_blobs`.
+HF_HUB_ENABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_ENABLE_SHARED_BLOBS"))
+
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"
