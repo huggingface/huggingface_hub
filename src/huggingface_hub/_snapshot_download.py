@@ -566,7 +566,8 @@ def _raise_if_incomplete_snapshot(
     raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
-        "to complete the snapshot."
+        "to complete the snapshot.",
+        snapshot_path=base_dir,
     ) from api_call_error
 
 

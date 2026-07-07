@@ -2,6 +2,7 @@
 
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 from httpx import HTTPError, Response
 
@@ -463,7 +464,14 @@ class IncompleteSnapshotError(LocalEntryNotFoundError):
     the repository's cached tree listing are missing from the local snapshot.
 
     This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
+
+    The `snapshot_path` attribute holds the path to the (incomplete) local snapshot, so a downstream
+    library can still locate the latest cached files even though they are known to be incomplete.
     """
+
+    def __init__(self, message: str, snapshot_path: Optional[str] = None):
+        super().__init__(message)
+        self.snapshot_path = snapshot_path
 
 
 # REQUEST ERROR
