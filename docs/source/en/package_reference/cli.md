@@ -2147,9 +2147,6 @@ Learn more
 
 Update installed extension(s) to their latest version.
 
-Only extensions that are already installed are updated. An extension that is not installed
-is never installed implicitly, an error is raised instead.
-
 **Usage**:
 
 ```console

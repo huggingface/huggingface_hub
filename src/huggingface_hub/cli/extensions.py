@@ -144,11 +144,7 @@ def extension_update(
         ),
     ] = None,
 ) -> None:
-    """Update installed extension(s) to their latest version.
-
-    Only extensions that are already installed are updated. An extension that is not installed
-    is never installed implicitly, an error is raised instead.
-    """
+    """Update installed extension(s) to their latest version."""
     if name is not None:
         short_name = _parse_update_target(name)
         extension_dir = _get_extension_dir(short_name)
