@@ -148,6 +148,7 @@ def extension_install(
     ],
 )
 def extension_update(
+    ctx: click.Context,
     name: Annotated[
         str | None,
         Argument(
@@ -173,10 +174,14 @@ def extension_update(
                 f"hf extensions install {install_target}"
             )
         manifest = ExtensionManifest.load(extension_dir)
-        if _update_extension(manifest):
-            out.result("Extension updated", name=short_name, source=manifest.repo_id)
-        else:
-            out.result(f"Extension '{short_name}' is already up to date", name=short_name)
+        match _check_extension_update(manifest):
+            case None:
+                pass  # warning already emitted by _check_extension_update
+            case True:
+                ctx.invoke(extension_install, repo_id=manifest.repo_id, force=True)
+                out.result("Extension updated", name=short_name, source=manifest.repo_id)
+            case False:
+                out.result(f"Extension '{short_name}' is already up to date", name=short_name)
         return
 
     manifests = _list_installed_extensions()
@@ -189,10 +194,14 @@ def extension_update(
     up_to_date = []
     for manifest in manifests:
         out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
-        if _update_extension(manifest):
-            updated.append(manifest.short_name)
-        else:
-            up_to_date.append(manifest.short_name)
+        match _check_extension_update(manifest):
+            case None:
+                pass  # warning already emitted by _check_extension_update
+            case True:
+                ctx.invoke(extension_install, repo_id=manifest.repo_id, force=True)
+                updated.append(manifest.short_name)
+            case False:
+                up_to_date.append(manifest.short_name)
     out.result(
         "Extensions update complete",
         updated=", ".join(updated) if updated else None,
@@ -382,29 +391,26 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         return None
 
 
-def _update_extension(manifest: ExtensionManifest) -> bool:
-    """Reinstall an installed extension if a newer version is available on GitHub.
+def _check_extension_update(manifest: ExtensionManifest) -> bool | None:
+    """Check whether an installed extension has a newer version on GitHub.
 
-    Returns True if the extension was updated, False if it was already up to date.
+    Returns:
+        - `True` if a newer commit is available (the extension should be reinstalled).
+        - `False` if the extension is already up to date.
+        - `None` if the check could not be performed (e.g. GitHub unreachable). The existing
+          install is left untouched and a warning is emitted.
     """
     owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
-    branch, description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
+    branch, _description = _resolve_github_repo_info(owner=owner, repo_name=repo_name)
 
     latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch)
-    if latest_sha is not None and latest_sha == manifest.commit_sha:
-        return False
-
-    extension_dir = _get_extension_dir(short_name)
-    shutil.rmtree(extension_dir, ignore_errors=True)
-    _install_extension_from_github(
-        owner=owner,
-        repo_name=repo_name,
-        short_name=short_name,
-        extension_dir=extension_dir,
-        branch=branch,
-        description=description,
-    )
-    return True
+    if latest_sha is None:
+        out.warning(
+            f"Could not check updates for '{short_name}' ({owner}/{repo_name}): "
+            "GitHub is unreachable. Skipping."
+        )
+        return None
+    return latest_sha != manifest.commit_sha
 
 
 def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str) -> str | None:
