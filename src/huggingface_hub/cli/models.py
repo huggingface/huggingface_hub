@@ -173,7 +173,7 @@ def models_ls(
             search=search,
             num_parameters=num_parameters,
             inference="warm" if warm else None,
-            inference_provider=inference_provider,  # type: ignore
+            inference_provider=inference_provider,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
