@@ -134,7 +134,8 @@ class TestPathsUtils:
 
     def test_backslashes_are_treated_as_path_separators(self) -> None:
         """Windows-style patterns (e.g. built with `os.path.join`) match `/`-separated repo paths.
-        Regression test for https://github.com/huggingface/huggingface_hub/pull/4435 fallout.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/4506.
         """
         # Backslash-separated pattern matches forward-slash paths.
         self._check(
