@@ -142,10 +142,11 @@ def filter_repo_objects(
         yield item
 
 
-def _normalize_separators(value: str) -> str:
+def _normalize_separators(value: str | Path) -> str:
     # Repo paths always use `/` and `\` is not an fnmatch escape character, so treating backslashes as path separators
     # (e.g. patterns built with `os.path.join` on Windows) is safe.
-    return value.replace("\\", "/")
+    # `value` can be a `Path` if a custom `key` returns one; coerce to `str` first.
+    return str(value).replace("\\", "/")
 
 
 def _add_wildcard_to_directories(pattern: str) -> str:

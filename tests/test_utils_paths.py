@@ -156,6 +156,15 @@ class TestPathsUtils:
             ignore_patterns=["unet\\*.json"],
         )
 
+    def test_key_returning_path_object(self) -> None:
+        """A custom `key` returning a `Path` (not `str`) must work."""
+        self._check(
+            items=[DummyObject(path=Path("unet/config.json")), DummyObject(path=Path("unet/model.bin"))],
+            expected_items=[DummyObject(path=Path("unet/config.json"))],
+            allow_patterns=["unet/*.json"],
+            key=lambda x: x.path,
+        )
+
     def _check(
         self,
         items: list[Any],
