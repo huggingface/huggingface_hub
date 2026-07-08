@@ -2,7 +2,7 @@ import collections.abc
 import inspect
 import types
 from collections.abc import Callable
-from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
+from dataclasses import MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
     Annotated,
@@ -382,8 +382,8 @@ def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
 
 def validated_field(
     validator: list[Validator_T] | Validator_T,
-    default: Any | _MISSING_TYPE = MISSING,
-    default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
+    default: Any = MISSING,
+    default_factory: Any = MISSING,
     init: bool = True,
     repr: bool = True,
     hash: bool | None = None,
@@ -433,8 +433,8 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Any | _MISSING_TYPE = MISSING,
-        default_factory: Callable[[], Any] | _MISSING_TYPE = MISSING,
+        default: Any = MISSING,
+        default_factory: Any = MISSING,
         init: bool = True,
         repr: bool = True,
         hash: bool | None = None,

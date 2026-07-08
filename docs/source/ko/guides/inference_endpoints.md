@@ -20,13 +20,13 @@
 ...     accelerator="cpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x2",
 ...     instance_type="intel-icl"
 ... )
 ```
 
-예시에서는 `"my-endpoint-name"`라는 `protected` 추론 엔드포인트를 생성하여 `text-generation`을 위한 [gpt2](https://huggingface.co/gpt2)를 제공합니다. `protected` 추론 엔드포인트 API에 액세스하려면 토큰이 필요합니다. 또한 벤더, 지역, 액셀러레이터, 인스턴스 유형, 크기와 같은 하드웨어 요구 사항을 구성하기 위한 추가 정보를 제공해야 합니다. 사용 가능한 리소스 목록은 [여기](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors)에서 확인할 수 있습니다. 또한 [웹 인터페이스](https://ui.endpoints.huggingface.co/new)를 사용하여 편리하게 수동으로 추론 엔드포인트를 생성할 수 있습니다. 고급 설정 및 사용법에 대한 자세한 내용은 [이 가이드](https://huggingface.co/docs/inference-endpoints/guides/advanced)를 참조하세요.
+예시에서는 `"my-endpoint-name"`라는 `authenticated` 추론 엔드포인트를 생성하여 `text-generation`을 위한 [gpt2](https://huggingface.co/gpt2)를 제공합니다. `authenticated` 추론 엔드포인트 API에 액세스하려면 토큰이 필요합니다. 또한 벤더, 지역, 액셀러레이터, 인스턴스 유형, 크기와 같은 하드웨어 요구 사항을 구성하기 위한 추가 정보를 제공해야 합니다. 사용 가능한 리소스 목록은 [여기](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors)에서 확인할 수 있습니다. 또한 [웹 인터페이스](https://ui.endpoints.huggingface.co/new)를 사용하여 편리하게 수동으로 추론 엔드포인트를 생성할 수 있습니다. 고급 설정 및 사용법에 대한 자세한 내용은 [이 가이드](https://huggingface.co/docs/inference-endpoints/guides/advanced)를 참조하세요.
 
 [`create_inference_endpoint`]에서 반환된 값은 [`InferenceEndpoint`] 개체입니다:
 
@@ -56,11 +56,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 ...     accelerator="gpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x1",
 ...     instance_type="nvidia-a10g",
 ...     custom_image={
-...         "health_route": "/health",
+...         "healthRoute": "/health",
 ...         "env": {
 ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
 ...             "MAX_INPUT_LENGTH": "1024",

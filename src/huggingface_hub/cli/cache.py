@@ -21,13 +21,23 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Any
 
-import typer
+import click
 
 from huggingface_hub.errors import CLIError
 
-from ..utils import ANSI, CachedRepoInfo, CachedRevisionInfo, CacheNotFound, HFCacheInfo, _format_size, scan_cache_dir
+from ..utils import (
+    ANSI,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    CacheNotFound,
+    HFCacheInfo,
+    _format_size,
+    parse_hf_uri,
+    scan_cache_dir,
+)
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -99,6 +109,16 @@ def summarize_deletions(
     return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions)
 
 
+def _prune_summary(revision_count: int, incomplete_count: int) -> str:
+    """Build the human-readable summary of what `hf cache prune` is about to delete."""
+    parts: list[str] = []
+    if revision_count:
+        parts.append(f"{revision_count} unreferenced revision(s)")
+    if incomplete_count:
+        parts.append(f"{incomplete_count} incomplete download(s)")
+    return " and ".join(parts)
+
+
 def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
     """Pretty-print selected cache revisions during confirmation prompts."""
     for repo in sorted(selected_by_repo.keys(), key=lambda repo: (repo.repo_type, repo.repo_id.lower())):
@@ -129,6 +149,19 @@ def build_cache_index(
         for revision in repo.revisions:
             revision_lookup[revision.commit_hash.lower()] = (repo, revision)
     return repo_lookup, revision_lookup
+
+
+def _repo_cache_id_from_target(target: str) -> str:
+    """Return the cache id matching a repo target passed to `hf cache rm`."""
+    if not target.startswith("hf://"):
+        return target
+
+    uri = parse_hf_uri(target)
+    if not uri.is_repo:
+        raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
+    if uri.revision is not None or uri.path_in_repo:
+        raise CLIError("Only repo-level hf:// URIs are supported by `hf cache rm` for now.")
+    return f"{uri.type}/{uri.id}"
 
 
 def collect_cache_entries(
@@ -320,7 +353,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             revisions.add(revision.commit_hash)
             continue
 
-        matched_repo = repo_lookup.get(lowered)
+        matched_repo = repo_lookup.get(_repo_cache_id_from_target(target).lower())
         if matched_repo is None:
             missing.append(raw_target)
             continue
@@ -352,19 +385,19 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 def ls(
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     revisions: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Include revisions in the output instead of aggregated repositories.",
         ),
     ] = False,
     filter: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "-f",
             "--filter",
             help="Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.",
@@ -372,7 +405,7 @@ def ls(
     ] = None,
     sort: Annotated[
         SortOptions | None,
-        typer.Option(
+        Option(
             help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
             "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
             "Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); "
@@ -381,7 +414,7 @@ def ls(
     ] = None,
     limit: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
     ] = None,
@@ -398,7 +431,7 @@ def ls(
     try:
         filter_fns = [compile_cache_filter(expr, repo_refs_map) for expr in filters]
     except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        raise click.BadParameter(str(exc)) from exc
 
     now = time.time()
     for fn in filter_fns:
@@ -410,12 +443,12 @@ def ls(
             sort_key_fn, reverse = compile_cache_sort(sort.value)
             entries.sort(key=sort_key_fn, reverse=reverse)
         except ValueError as exc:
-            raise typer.BadParameter(str(exc)) from exc
+            raise click.BadParameter(str(exc)) from exc
 
     # Apply limit if requested
     if limit is not None:
         if limit < 0:
-            raise typer.BadParameter(f"Limit must be a positive integer, got {limit}.")
+            raise click.BadParameter(f"Limit must be a positive integer, got {limit}.")
         entries = entries[:limit]
 
     if revisions:
@@ -475,10 +508,19 @@ def ls(
             )
         )
 
+    incomplete_files = hf_cache_info.incomplete_files
+    if incomplete_files:
+        out.hint(
+            f"Found {len(incomplete_files)} incomplete download(s) totalling "
+            f"{_format_size(hf_cache_info.incomplete_size_on_disk)}. "
+            "Remove them with 'hf cache prune'."
+        )
+
 
 @cache_cli.command(
     examples=[
         "hf cache rm model/gpt2",
+        "hf cache rm hf://models/openai-community/gpt2",
         "hf cache rm <revision_hash>",
         "hf cache rm model/gpt2 --dry-run",
         "hf cache rm model/gpt2 --yes",
@@ -487,19 +529,19 @@ def ls(
 def rm(
     targets: Annotated[
         list[str],
-        typer.Argument(
-            help="One or more repo IDs (e.g. model/bert-base-uncased) or revision hashes to delete.",
+        Argument(
+            help="One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.",
         ),
     ],
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Skip confirmation prompt.",
@@ -507,7 +549,7 @@ def rm(
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
@@ -526,7 +568,7 @@ def rm(
 
     if len(resolution.revisions) == 0:
         out.text("Nothing to delete.")
-        raise typer.Exit(code=0)
+        raise click.exceptions.Exit(code=0)
 
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
     counts = summarize_deletions(resolution.selected)
@@ -570,13 +612,13 @@ def rm(
 def prune(
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Skip confirmation prompt.",
@@ -584,12 +626,12 @@ def prune(
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
 ) -> None:
-    """Remove detached revisions from the cache."""
+    """Remove detached revisions and incomplete downloads from the cache."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -604,21 +646,18 @@ def prune(
         selected[repo] = detached
         revisions.update(revision.commit_hash for revision in detached)
 
-    if len(revisions) == 0:
-        out.text("No unreferenced revisions found. Nothing to prune.")
+    incomplete_files = hf_cache_info.incomplete_files
+
+    if len(revisions) == 0 and not incomplete_files:
+        out.text("No unreferenced revisions or incomplete downloads found. Nothing to prune.")
         return
 
-    resolution = _DeletionResolution(
-        revisions=frozenset(revisions),
-        selected=selected,
-        missing=(),
-    )
-    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    strategy = hf_cache_info.delete_revisions(*sorted(revisions))
     counts = summarize_deletions(selected)
+    total_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
 
-    out.text(
-        f"About to delete {counts.total_revision_count} unreferenced revision(s) ({strategy.expected_freed_size_str} total)."
-    )
+    summary = _prune_summary(counts.total_revision_count, len(incomplete_files))
+    out.text(f"About to delete {summary} ({_format_size(total_freed)} total).")
     print_cache_selected_revisions(selected)
 
     if dry_run:
@@ -626,17 +665,26 @@ def prune(
             "Dry run: no files were deleted.",
             dry_run=True,
             revisions=counts.total_revision_count,
-            size=strategy.expected_freed_size_str,
+            incomplete=len(incomplete_files),  # might be overstated but it's fine
+            size=_format_size(total_freed),
         )
         return
 
     out.confirm("Proceed?", yes=yes)
 
     strategy.execute()
+    for incomplete_file in incomplete_files:
+        try:
+            incomplete_file.file_path.unlink()
+        except FileNotFoundError:
+            pass  # already removed (e.g. by a full-repo deletion above)
+        except OSError as exc:
+            out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
     out.result(
-        f"Deleted {counts.total_revision_count} unreferenced revision(s); freed {strategy.expected_freed_size_str}.",
+        f"Deleted {summary}; freed {_format_size(total_freed)}.",
         revisions_deleted=counts.total_revision_count,
-        freed=strategy.expected_freed_size_str,
+        incomplete_deleted=len(incomplete_files),
+        freed=_format_size(total_freed),
     )
 
 
@@ -653,26 +701,26 @@ def verify(
     revision: RevisionOpt = None,
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
         ),
     ] = None,
     local_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="If set, verify files under this directory instead of the cache.",
         ),
     ] = None,
     fail_on_missing_files: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--fail-on-missing-files",
             help="Fail if some files exist on the remote but are missing locally.",
         ),
     ] = False,
     fail_on_extra_files: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--fail-on-extra-files",
             help="Fail if some files exist locally but are not present on the remote revision.",
         ),
@@ -690,7 +738,7 @@ def verify(
 
     if local_dir is not None and cache_dir is not None:
         out.error("Cannot pass both --local-dir and --cache-dir. Use one or the other.")
-        raise typer.Exit(code=2)
+        raise click.exceptions.Exit(code=2)
 
     api = get_hf_api(token=token)
 
@@ -741,7 +789,7 @@ def verify(
         out.error(
             f"Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.\n  Revision: {result.revision}"
         )
-        raise typer.Exit(code=exit_code)
+        raise click.exceptions.Exit(code=exit_code)
 
     out.result(
         f"Verified {result.checked_count} file(s) for {repo_type.value} '{repo_id}'. All checksums match.",

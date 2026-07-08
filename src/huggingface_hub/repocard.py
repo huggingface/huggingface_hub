@@ -305,6 +305,9 @@ class RepoCard:
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.repocard.RepoCard`]: A RepoCard instance with the specified card data and content from the
@@ -355,6 +358,9 @@ class ModelCard(RepoCard):
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.ModelCard`]: A ModelCard instance with the specified card data and content from the
@@ -436,6 +442,9 @@ class DatasetCard(RepoCard):
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.DatasetCard`]: A DatasetCard instance with the specified card data and content from the

@@ -26,7 +26,7 @@ from .testing_utils import repo_name
 
 
 KERNEL_TEST_REPO_ID = "kernels-community/relu"
-KERNEL_TEST_REPO_FILE = "build/torch-ext/torch_binding.cpp"
+KERNEL_TEST_REPO_FILE = "benchmarks/benchmark.py"
 
 
 def kernel_name() -> str:
@@ -139,9 +139,9 @@ def test_download_file_from_revision(api: HfApi, tmp_path) -> None:
 def test_snapshot_download_allow_patterns(api: HfApi, tmp_path) -> None:
     """Test partial downloading from kernel repo works."""
     path = api.snapshot_download(
-        KERNEL_TEST_REPO_ID, repo_type="kernel", cache_dir=tmp_path, allow_patterns="build/torch-ext/*"
+        KERNEL_TEST_REPO_ID, repo_type="kernel", cache_dir=tmp_path, allow_patterns="benchmarks/*"
     )
     assert os.path.isdir(path)
     assert "kernels--kernels-community--relu" in path  # kernel path
     assert "snapshots" in path
-    assert os.path.isfile(os.path.join(path, "build", "torch-ext", "torch_binding.cpp"))
+    assert os.path.isfile(os.path.join(path, "benchmarks", "benchmark.py"))

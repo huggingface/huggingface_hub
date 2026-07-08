@@ -1,11 +1,9 @@
-import unittest
 from unittest.mock import patch
 
+import pytest
 from fastapi import Request
 
 from huggingface_hub.utils import capture_output, is_gradio_available
-
-from .testing_utils import requires
 
 
 if is_gradio_available():
@@ -110,8 +108,8 @@ WEBHOOK_PAYLOAD_WITH_UPDATED_REFS = {
 }
 
 
-@requires("gradio")
-class TestWebhookPayload(unittest.TestCase):
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
+class TestWebhookPayload:
     def test_deserialize_payload_example_with_comment(self) -> None:
         """Confirm that the test stub can actually be deserialized."""
         payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
@@ -134,8 +132,8 @@ class TestWebhookPayload(unittest.TestCase):
         assert payload.updatedRefs[0].newSha == "227c78346870a85e5de4fff8a585db68df975406"
 
 
-@requires("gradio")
-class TestWebhooksServerDontRun(unittest.TestCase):
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
+class TestWebhooksServerDontRun:
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
         app = WebhooksServer()
@@ -144,7 +142,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
         async def handler():
             pass
 
-        self.assertIn("/webhooks/handler", app.registered_webhooks)
+        assert "/webhooks/handler" in app.registered_webhooks
 
     def test_add_webhook_explicit_path(self):
         # Test adding a webhook
@@ -154,7 +152,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
         async def handler():
             pass
 
-        self.assertIn("/webhooks/test_webhook", app.registered_webhooks)  # still registered under /webhooks
+        assert "/webhooks/test_webhook" in app.registered_webhooks  # still registered under /webhooks
 
     def test_add_webhook_twice_should_fail(self):
         # Test adding a webhook
@@ -165,19 +163,20 @@ class TestWebhooksServerDontRun(unittest.TestCase):
             pass
 
         # Registering twice the same webhook should raise an error
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
 
             @app.add_webhook("my_webhook")
             async def test_webhook_2():
                 pass
 
 
-@requires("gradio")
-class TestWebhooksServerRun(unittest.TestCase):
+@pytest.mark.skipif(not is_gradio_available(), reason="Test requires gradio")
+class TestWebhooksServerRun:
     HEADERS_VALID_SECRET = {"x-webhook-secret": "my_webhook_secret"}
     HEADERS_WRONG_SECRET = {"x-webhook-secret": "wrong_webhook_secret"}
 
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup(self):
         with gr.Blocks() as ui:
             gr.Markdown("Hello World!")
         app = WebhooksServer(ui=ui, webhook_secret="my_webhook_secret")
@@ -214,7 +213,8 @@ class TestWebhooksServerRun(unittest.TestCase):
         self.app = app
         self.client = self.mocked_run_app()
 
-    def tearDown(self) -> None:
+        yield
+
         self.ui.server.close()
 
     def mocked_run_app(self) -> "TestClient":
@@ -241,32 +241,29 @@ class TestWebhooksServerRun(unittest.TestCase):
         response = self.client.post(
             "/webhooks/test_webhook", headers=self.HEADERS_VALID_SECRET, json=WEBHOOK_PAYLOAD_CREATE_DISCUSSION
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"scope": "discussion"})
+        assert response.status_code == 200
+        assert response.json() == {"scope": "discussion"}
 
     def test_with_webhook_secret_should_succeed(self):
         """Test success if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
-            with self.subTest(path):
-                response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_VALID_SECRET)
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.json(), {"success": True})
+            response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_VALID_SECRET)
+            assert response.status_code == 200
+            assert response.json() == {"success": True}
 
     def test_no_webhook_secret_should_be_unauthorized(self):
         """Test failure if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
-            with self.subTest(path):
-                response = self.client.post(f"/webhooks/{path}")
-                self.assertEqual(response.status_code, 401)
+            response = self.client.post(f"/webhooks/{path}")
+            assert response.status_code == 401
 
     def test_wrong_webhook_secret_should_be_forbidden(self):
         """Test failure if valid secret is sent."""
         for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
-            with self.subTest(path):
-                response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_WRONG_SECRET)
-                self.assertEqual(response.status_code, 403)
+            response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_WRONG_SECRET)
+            assert response.status_code == 403
 
     def test_route_with_explicit_path(self):
         """Test that the route with an explicit path is correctly registered."""
         response = self.client.post("/webhooks/explicit_path", headers=self.HEADERS_VALID_SECRET)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200

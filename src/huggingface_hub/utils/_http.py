@@ -39,6 +39,7 @@ from ..errors import (
     DisabledRepoError,
     GatedRepoError,
     HfHubHTTPError,
+    JobNotFoundError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -138,6 +139,31 @@ def parse_ratelimit_headers(headers: Mapping[str, str]) -> RateLimitInfo | None:
     )
 
 
+def _parse_retry_after(headers: Mapping[str, str]) -> int | None:
+    """Parse the standard `Retry-After` HTTP header into a number of seconds to wait.
+
+    The `Retry-After` header can be either a non-negative number of seconds (delay-seconds)
+    or an HTTP-date after which to retry. We handle only the delay-seconds case.
+
+    See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After.
+    """
+    value: str | None = None
+    for key in headers:
+        if key.lower() == "retry-after":
+            value = headers[key]
+            break
+
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+
+    if value.isdigit():
+        return int(value)  # e.g. "Retry-After: 120"
+    return None  #  e.g. "Retry-After: Wed, 21 Oct 2015 07:28:00 GMT" - not supported
+
+
 # When raising an error, we include the request id in the error message for easier debugging.
 # Request ID is sourced from headers in order of precedence: "X-Request-Id", "X-Amzn-Trace-Id", "X-Amz-Cf-Id".
 X_REQUEST_ID = "x-request-id"
@@ -168,6 +194,10 @@ BUCKET_API_REGEX = re.compile(
     """,
     flags=re.VERBOSE,
 )
+
+# Regex to extract the job_id from a (scheduled) job API URL.
+# Matches /api/jobs/{namespace}/{job_id}[/...] and /api/scheduled-jobs/{namespace}/{job_id}[/...].
+_JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
 
 # Regex to extract repo_type and repo_id from API URLs.
 # Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
@@ -208,6 +238,12 @@ def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
 def _parse_bucket_id_from_url(url: str) -> str | None:
     """Extract bucket_id (namespace/name) from a bucket API URL."""
     match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    return match.group(1) if match else None
+
+
+def _parse_job_id_from_url(url: str) -> str | None:
+    """Extract the job_id from a (scheduled) job API URL, if present."""
+    match = _JOB_ID_FROM_URL_REGEX.search(url)
     return match.group(1) if match else None
 
 
@@ -321,12 +357,9 @@ def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> No
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
     Use [`get_async_client`] to get a correctly configured `httpx.AsyncClient`.
 
-    <Tip warning={true}>
-
-    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
-    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
-
-    </Tip>
+    > [!WARNING]
+    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     global _GLOBAL_ASYNC_CLIENT_FACTORY
     _GLOBAL_ASYNC_CLIENT_FACTORY = async_client_factory
@@ -353,12 +386,9 @@ def get_async_session() -> httpx.AsyncClient:
 
     Use [`set_async_client_factory`] to customize the `httpx.AsyncClient`.
 
-    <Tip warning={true}>
-
-    Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
-    It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
-
-    </Tip>
+    > [!WARNING]
+    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     return _GLOBAL_ASYNC_CLIENT_FACTORY()
 
@@ -390,8 +420,12 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=close_session)
 
 
-_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (httpx.TimeoutException, httpx.NetworkError)
-_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (429, 500, 502, 503, 504)
+_DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (
+    httpx.TimeoutException,
+    httpx.NetworkError,
+    httpx.RemoteProtocolError,
+)
+_DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
 
 def _http_backoff_base(
@@ -450,11 +484,14 @@ def _http_backoff_base(
                     # user ask for retry on a status code that doesn't raise_for_status.
                     return False  # Don't retry, return/yield response
 
-                # get rate limit reset time from headers if 429 response
-                if response.status_code == 429:
-                    ratelimit_info = parse_ratelimit_headers(response.headers)
-                    if ratelimit_info is not None:
-                        ratelimit_reset = ratelimit_info.reset_in_seconds
+                # Check 'ratelimit' and `Retry-After` headers.
+                if (
+                    response.status_code == 429
+                    and (ratelimit_info := parse_ratelimit_headers(response.headers)) is not None
+                ):
+                    ratelimit_reset = ratelimit_info.reset_in_seconds
+                elif (retry_after := _parse_retry_after(response.headers)) is not None:
+                    ratelimit_reset = retry_after
 
                 return True  # Should retry
 
@@ -518,7 +555,7 @@ def http_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
@@ -527,7 +564,7 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
@@ -599,7 +636,7 @@ def http_stream_backoff(
         url (`str`):
             The URL of the resource to fetch.
         max_retries (`int`, *optional*, defaults to `5`):
-            Maximum number of retries, defaults to 5 (no retries).
+            Maximum number of retries, defaults to 5. Set to `0` to disable retries.
         base_wait_time (`float`, *optional*, defaults to `1`):
             Duration (in seconds) to wait before retrying the first time.
             Wait time between retries then grows exponentially, capped by
@@ -608,7 +645,7 @@ def http_stream_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException` and `httpx.NetworkError`.
+            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
@@ -629,17 +666,14 @@ def http_stream_backoff(
     ...     response.raise_for_status()
     ```
 
-    <Tip warning={true}>
-
-    When using `httpx` it is possible to stream data by passing an iterator to the
-    `data` argument. On http backoff this is a problem as the iterator is not reset
-    after a failed call. This issue is mitigated for file objects or any IO streams
-    by saving the initial position of the cursor (with `data.tell()`) and resetting the
-    cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
-    will fail. If this is a hard constraint for you, please let us know by opening an
-    issue on [Github](https://github.com/huggingface/huggingface_hub).
-
-    </Tip>
+    > [!WARNING]
+    > When using `httpx` it is possible to stream data by passing an iterator to the
+    > `data` argument. On http backoff this is a problem as the iterator is not reset
+    > after a failed call. This issue is mitigated for file objects or any IO streams
+    > by saving the initial position of the cursor (with `data.tell()`) and resetting the
+    > cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
+    > will fail. If this is a hard constraint for you, please let us know by opening an
+    > issue on [Github](https://github.com/huggingface/huggingface_hub).
     """
     yield from _http_backoff_base(
         method=method,
@@ -812,6 +846,19 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
                 BucketNotFoundError, message, response, bucket_id=_parse_bucket_id_from_url(request_url)
             ) from e
 
+        elif (
+            response.status_code == 404
+            and request_url is not None
+            and (job_id := _parse_job_id_from_url(request_url)) is not None
+        ):
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Job Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct job ID and namespace."
+            )
+            raise _format(JobNotFoundError, message, response, job_id=job_id) from e
+
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
             and error_message != "Invalid credentials in Authorization header"
@@ -935,13 +982,20 @@ def _format(
                 data = {}
 
         error = data.get("error")
+        error_description = data.get("error_description")
         if error is not None:
             if isinstance(error, list):
                 # Case {'error': ['my error 1', 'my error 2']}
                 server_errors.extend(error)
+            elif error_description is not None:
+                # OAuth-style case {'error': 'invalid_grant', 'error_description': 'my description'}
+                server_errors.append(f"{error}: {error_description}")
             else:
                 # Case {'error': 'my error'}
                 server_errors.append(error)
+        elif error_description is not None:
+            # Case {'error_description': 'my description'} (no 'error' field)
+            server_errors.append(error_description)
 
         errors = data.get("errors")
         if errors is not None:
@@ -1005,6 +1059,25 @@ def _format(
     return err
 
 
+# Request-body fields that carry credentials; redacted from debug-log curl commands (HF_DEBUG).
+_SENSITIVE_BODY_KEYS = ("subject_token", "access_token", "refresh_token", "client_secret", "device_code")
+_SENSITIVE_BODY_PATTERNS = [
+    pattern
+    for key in _SENSITIVE_BODY_KEYS
+    for pattern in (
+        (re.compile(rf'("{key}"\s*:\s*")[^"]*(")'), r"\1<REDACTED>\2"),  # JSON
+        (re.compile(rf"(^|&)({key}=)[^&]*"), r"\1\2<REDACTED>"),  # application/x-www-form-urlencoded
+    )
+]
+
+
+def _redact_sensitive_body(body: str) -> str:
+    """Redact OAuth credential values from a JSON or form-urlencoded request body string."""
+    for pattern, replacement in _SENSITIVE_BODY_PATTERNS:
+        body = pattern.sub(replacement, body)
+    return body
+
+
 def _curlify(request: httpx.Request) -> str:
     """Convert a `httpx.Request` into a curl command (str).
 
@@ -1029,6 +1102,7 @@ def _curlify(request: httpx.Request) -> str:
             body = request.content.decode("utf-8", errors="ignore")
             if len(body) > 1000:
                 body = f"{body[:1000]} ... [truncated]"
+            body = _redact_sensitive_body(body)
     except httpx.RequestNotRead:
         body = "<streaming body>"
     if body is not None:

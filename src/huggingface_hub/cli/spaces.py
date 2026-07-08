@@ -11,18 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with spaces on the Hugging Face Hub.
-
-Usage:
-    # list spaces on the Hub
-    hf spaces ls
-
-    # list spaces with a search query
-    hf spaces ls --search "chatbot"
-
-    # get info about a space
-    hf spaces info enzostvs/deepsite
-"""
+"""Contains commands to interact with spaces on the Hugging Face Hub."""
 
 import enum
 import functools
@@ -38,18 +27,20 @@ from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, get_args
 
-import typer
+import click
 from packaging import version
 from typing_extensions import assert_never
 
 from huggingface_hub._hot_reload.client import multi_replica_reload_events
 from huggingface_hub._hot_reload.types import ApiGetReloadEventSourceData, ReloadRegion
 from huggingface_hub._space_api import SpaceHardware, SpaceStage
+from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, RemoteEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import disable_progress_bars
+from huggingface_hub.utils._parsing import parse_duration
 
 from ._cli_utils import (
     REPO_LIST_DEFAULT_LIMIT,
@@ -62,9 +53,11 @@ from ._cli_utils import (
     SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
+    SshDryRunOpt,
+    SshIdentityFileOpt,
     TokenOpt,
     VolumesOpt,
-    api_object_to_dict,
+    exec_ssh,
     get_hf_api,
     make_expand_properties_parser,
     parse_env_map,
@@ -72,7 +65,8 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._file_listing import list_repo_files_cmd
-from ._output import out
+from ._framework import Argument, Option
+from ._output import _dataclass_to_dict, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -85,7 +79,7 @@ SpaceSortEnum = enum.Enum("SpaceSortEnum", {s: s for s in _SORT_OPTIONS}, type=s
 
 ExpandOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help=f"Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: {', '.join(_EXPAND_PROPERTIES)}.",
         callback=make_expand_properties_parser(_EXPAND_PROPERTIES),
     ),
@@ -95,9 +89,9 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
 secrets_cli = typer_factory(help="Manage secrets for a Space on the Hub.")
 variables_cli = typer_factory(help="Manage environment variables for a Space on the Hub.")
-spaces_cli.add_typer(volumes_cli, name="volumes")
-spaces_cli.add_typer(secrets_cli, name="secrets")
-spaces_cli.add_typer(variables_cli, name="variables")
+spaces_cli.add_group(volumes_cli, name="volumes")
+spaces_cli.add_group(secrets_cli, name="secrets")
+spaces_cli.add_group(variables_cli, name="variables")
 
 
 @spaces_cli.command(
@@ -113,28 +107,28 @@ spaces_cli.add_typer(variables_cli, name="variables")
 def spaces_ls(
     repo_id: Annotated[
         str | None,
-        typer.Argument(help="Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces."),
+        Argument(help="Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces."),
     ] = None,
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
     sort: Annotated[
         SpaceSortEnum | None,
-        typer.Option(help="Sort results."),
+        Option(help="Sort results."),
     ] = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
     expand: ExpandOpt = None,
     human_readable: Annotated[
         bool,
-        typer.Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
+        Option("--human-readable", "-h", help="Show sizes in human readable format (only for listing files)."),
     ] = False,
     as_tree: Annotated[
         bool,
-        typer.Option("--tree", help="List files in tree format (only for listing files)."),
+        Option("--tree", help="List files in tree format (only for listing files)."),
     ] = False,
     recursive: Annotated[
         bool,
-        typer.Option("--recursive", "-R", help="List files recursively (only for listing files)."),
+        Option("--recursive", "-R", help="List files recursively (only for listing files)."),
     ] = False,
     revision: RevisionOpt = None,
     token: TokenOpt = None,
@@ -146,17 +140,17 @@ def spaces_ls(
     """
     if repo_id is not None:
         if search is not None:
-            raise typer.BadParameter("Cannot use --search when listing files.")
+            raise click.BadParameter("Cannot use --search when listing files.")
         if author is not None:
-            raise typer.BadParameter("Cannot use --author when listing files.")
+            raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
-            raise typer.BadParameter("Cannot use --filter when listing files.")
+            raise click.BadParameter("Cannot use --filter when listing files.")
         if sort is not None:
-            raise typer.BadParameter("Cannot use --sort when listing files.")
+            raise click.BadParameter("Cannot use --sort when listing files.")
         if limit != REPO_LIST_DEFAULT_LIMIT:
-            raise typer.BadParameter("Cannot use --limit when listing files.")
+            raise click.BadParameter("Cannot use --limit when listing files.")
         if expand is not None:
-            raise typer.BadParameter("Cannot use --expand when listing files.")
+            raise click.BadParameter("Cannot use --expand when listing files.")
         return list_repo_files_cmd(
             repo_id=repo_id,
             repo_type="space",
@@ -168,17 +162,17 @@ def spaces_ls(
         )
 
     if as_tree:
-        raise typer.BadParameter("Cannot use --tree when listing spaces.")
+        raise click.BadParameter("Cannot use --tree when listing spaces.")
     if recursive:
-        raise typer.BadParameter("Cannot use --recursive when listing spaces.")
+        raise click.BadParameter("Cannot use --recursive when listing spaces.")
     if human_readable:
-        raise typer.BadParameter("Cannot use --human-readable when listing spaces.")
+        raise click.BadParameter("Cannot use --human-readable when listing spaces.")
     if revision is not None:
-        raise typer.BadParameter("Cannot use --revision when listing spaces.")
+        raise click.BadParameter("Cannot use --revision when listing spaces.")
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(space_info)
+        _dataclass_to_dict(space_info)
         for space_info in api.list_spaces(
             filter=filter,
             author=author,
@@ -199,7 +193,7 @@ def spaces_ls(
     ],
 )
 def spaces_info(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     revision: RevisionOpt = None,
     expand: ExpandOpt = None,
     token: TokenOpt = None,
@@ -225,9 +219,9 @@ def spaces_info(
     ],
 )
 def spaces_card(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    metadata: Annotated[bool, typer.Option("--metadata", help="Output only the metadata from the card.")] = False,
-    text: Annotated[bool, typer.Option("--text", help="Output only the text body (no metadata).")] = False,
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    metadata: Annotated[bool, Option("--metadata", help="Output only the metadata from the card.")] = False,
+    text: Annotated[bool, Option("--text", help="Output only the text body (no metadata).")] = False,
     token: TokenOpt = None,
 ) -> None:
     """Get the Space card (README) for a Space on the Hub."""
@@ -252,11 +246,11 @@ def spaces_card(
     ],
 )
 def spaces_search(
-    query: Annotated[str, typer.Argument(help="Search query.")],
+    query: Annotated[str, Argument(help="Search query.")],
     filter: FilterOpt = None,
-    sdk: Annotated[list[str] | None, typer.Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
-    include_non_running: Annotated[bool, typer.Option(help="Include non-running spaces in results.")] = False,
-    description: Annotated[bool, typer.Option(help="Show AI-generated descriptions.")] = False,
+    sdk: Annotated[list[str] | None, Option(help="Filter by SDK (e.g. gradio, docker, static).")] = None,
+    include_non_running: Annotated[bool, Option(help="Include non-running spaces in results.")] = False,
+    description: Annotated[bool, Option(help="Show AI-generated descriptions.")] = False,
     limit: LimitOpt = 10,
     token: TokenOpt = None,
 ) -> None:
@@ -289,14 +283,52 @@ def spaces_search(
 
 
 @spaces_cli.command(
+    "wait",
+    examples=[
+        "hf spaces wait username/my-space",
+        "hf spaces wait username/my-space --timeout 5m",
+    ],
+)
+def spaces_wait(
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    timeout: Annotated[
+        str | None,
+        Option(
+            help="Max time to wait: int with s (seconds, default), m (minutes), h (hours) or d (days).",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Wait for a Space to finish building/starting.
+
+    Blocks until the Space leaves an intermediate stage (BUILDING, APP_STARTING, etc.)
+    and reaches a settled stage. Exits with code 0 if the Space is RUNNING,
+    or a non-zero exit code otherwise (e.g. BUILD_ERROR, RUNTIME_ERROR).
+    """
+    timeout_secs = parse_duration(timeout) if timeout is not None else None
+    api = get_hf_api(token=token)
+    status = out.status("Waiting for Space to be ready...")
+    try:
+        runtime = api.wait_for_space(space_id, timeout=timeout_secs)
+    except TimeoutError:
+        status.done("Timed out.")
+        raise CLIError(f"Timed out after {timeout} waiting for Space '{space_id}' to be ready.") from None
+    status.done(f"Space reached stage '{runtime.stage}'.")
+    if runtime.stage != SpaceStage.RUNNING:
+        raise CLIError(f"Space '{space_id}' is not running (stage='{runtime.stage}').")
+    out.result("Space ready", space_id=space_id, stage=str(runtime.stage))
+    out.hint(f"Use `hf spaces logs {space_id}` to view run logs.")
+
+
+@spaces_cli.command(
     "dev-mode",
     examples=[
         "hf spaces dev-mode my-user-name/deepsite",
     ],
 )
 def dev_mode(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    stop: Annotated[bool, typer.Option(help="Stop dev mode.")] = False,
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    stop: Annotated[bool, Option(help="Stop dev mode.")] = False,
     token: TokenOpt = None,
 ):
     """
@@ -314,30 +346,13 @@ def dev_mode(
         print(f"Dev mode disabled for '{space_id}'")
         return
     api.enable_space_dev_mode(space_id)
+    runtime = api.wait_for_space(space_id)
+    if runtime.stage != SpaceStage.RUNNING:
+        out.warning(f"Dev mode is not ready (stage='{runtime.stage}')")
+        return
     info = api.space_info(space_id)
     folder = getattr(info.card_data, "dev-mode-folder", "" if info.sdk == "docker" else "/home/user/app")
     folder_query_param = f"folder={folder}" if folder else ""
-    print(f"Dev mode is currently building, track the progress here: https://huggingface.co/spaces/{info.id}")
-    intermediate_statuses_and_messages = {
-        SpaceStage.BUILDING: "building...",
-        SpaceStage.RUNNING_BUILDING: "building...",
-        SpaceStage.APP_STARTING: "app starting...",
-        SpaceStage.RUNNING_APP_STARTING: "app starting...",
-    }
-    status = out.status()
-    while True:
-        info = api.space_info(space_id)
-        if info.runtime is None:
-            print("Runtime of the space unavailable")
-            return
-        if info.runtime.stage not in intermediate_statuses_and_messages:
-            break
-        status.update(intermediate_statuses_and_messages[info.runtime.stage])
-        time.sleep(1)
-    if info.runtime.stage != SpaceStage.RUNNING:
-        status.done(f"Dev mode is not ready (stage='{info.runtime.stage}')")
-        return
-    status.done("Dev mode ready!")
     print("Connect to dev environment:")
     print("")
     print("Web:")
@@ -349,12 +364,51 @@ def dev_mode(
     print("")
     print("Local:")
     print("1. Add your SSH key to https://huggingface.co/settings/keys")
-    print(f"2. SSH with `ssh -i <your_key> {ssh_host}`")
+    print(f"2. SSH with `hf spaces ssh {space_id}` (or `ssh -i <your_key> {ssh_host}`)")
     print("   Or open")
     print(f"  * VSCode: vscode://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print(f"  * Cursor: cursor://vscode-remote/ssh-remote+{ssh_host}{folder}")
     print("")
     print("PS: Dev mode stops after 48h of inactivity, don't forget to save your changes regularly.")
+
+
+@spaces_cli.command(
+    "ssh",
+    examples=[
+        "hf spaces ssh username/my-space",
+        "hf spaces ssh username/my-space --dry-run",
+        "hf spaces ssh username/my-space -i ~/.ssh/id_ed25519",
+        "hf spaces ssh username/my-space --auto",
+    ],
+)
+def spaces_ssh(
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    identity_file: SshIdentityFileOpt = None,
+    dry_run: SshDryRunOpt = False,
+    auto: Annotated[
+        bool,
+        Option("--auto", help="Enable Dev Mode without prompting if not already enabled."),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """SSH into a Space's Dev Mode container.
+
+    Requires Dev Mode to be running on the Space and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+    See: https://huggingface.co/docs/hub/spaces-dev-mode
+    """
+    api = get_hf_api(token=token)
+    info = api.space_info(space_id)
+    if info.runtime is None or not info.runtime.dev_mode:
+        out.confirm(
+            f"Dev Mode is disabled on '{space_id}'. Enable it now?", yes=auto, default=True, confirm_param="--auto"
+        )
+        api.enable_space_dev_mode(space_id)
+        runtime = api.wait_for_space(space_id)
+        if runtime.stage != SpaceStage.RUNNING:
+            raise CLIError(f"Space '{space_id}' is not running (stage='{runtime.stage}').")
+        info = api.space_info(space_id)
+    exec_ssh(f"{info.subdomain}@ssh.hf.space", identity_file=identity_file, dry_run=dry_run)
 
 
 @spaces_cli.command(
@@ -364,7 +418,7 @@ def dev_mode(
     ],
 )
 def spaces_pause(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     token: TokenOpt = None,
 ) -> None:
     """Pause a Space."""
@@ -385,10 +439,10 @@ def spaces_pause(
     ],
 )
 def spaces_restart(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     factory_reboot: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--factory-reboot",
             help="Rebuild the Space from scratch without using the build cache.",
         ),
@@ -404,7 +458,7 @@ def spaces_restart(
         stage=runtime.stage,
         factory_reboot=factory_reboot,
     )
-    out.hint(f"Use `hf spaces info {space_id}` to monitor the runtime stage.")
+    out.hint(f"Use `hf spaces wait {space_id}` to wait until the Space is ready.")
     out.hint(
         f"Mount a Volume or bucket to persist data across restarts: `hf spaces volumes set {space_id} -v hf://...`"
     )
@@ -450,19 +504,20 @@ def spaces_hardware(token: TokenOpt = None) -> None:
     ],
 )
 def spaces_settings(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     sleep_time: Annotated[
         int | None,
-        typer.Option(
+        Option(
             "--sleep-time",
             help="Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.",
         ),
     ] = None,
     hardware: Annotated[
-        SpaceHardware | None,
-        typer.Option(
+        str | None,
+        Option(
             "--hardware",
             help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.",
+            click_type=SoftChoice(SpaceHardware),
         ),
     ] = None,
     token: TokenOpt = None,
@@ -470,7 +525,7 @@ def spaces_settings(
     """Update the settings of a Space."""
     api = get_hf_api(token=token)
     if hardware is not None:
-        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)
+        runtime = api.request_space_hardware(space_id, hardware=hardware, sleep_time=sleep_time)  # type: ignore[arg-type]
     elif sleep_time is not None:
         runtime = api.set_space_sleep_time(space_id, sleep_time=sleep_time)
     else:
@@ -494,17 +549,17 @@ def spaces_settings(
     ],
 )
 def spaces_logs(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     build: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--build",
             help="Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.",
         ),
     ] = False,
     follow: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-f",
             "--follow",
             help="Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.",
@@ -512,7 +567,7 @@ def spaces_logs(
     ] = False,
     tail: Annotated[
         int | None,
-        typer.Option(
+        Option(
             "-n",
             "--tail",
             help="Number of lines to show from the end of the logs.",
@@ -557,26 +612,26 @@ def spaces_logs(
 def spaces_hot_reload(
     space_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The space ID (e.g. `username/repo-name`).",
         ),
     ],
     filename: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches."
         ),
     ] = None,
     local_file: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             "--local-file",
             "-f",
             help="Path of local file. Interactive editor mode if not specified",
         ),
     ] = None,
-    skip_checks: Annotated[bool, typer.Option(help="Skip hot-reload compatibility checks.")] = False,
-    skip_summary: Annotated[bool, typer.Option(help="Skip summary display after hot-reload is triggered")] = False,
+    skip_checks: Annotated[bool, Option(help="Skip hot-reload compatibility checks.")] = False,
+    skip_summary: Annotated[bool, Option(help="Skip summary display after hot-reload is triggered")] = False,
     token: TokenOpt = None,
 ) -> None:
     """
@@ -596,7 +651,7 @@ def spaces_hot_reload(
     to bring the commit back and keep your local git state in sync.
     """
 
-    typer.secho("This feature is experimental and subject to change", fg=typer.colors.BRIGHT_BLACK)
+    click.secho("This feature is experimental and subject to change", fg="bright_black")
 
     api = get_hf_api(token=token)
 
@@ -636,18 +691,16 @@ def spaces_hot_reload(
             try:
                 hf_hub_download(repo_type="space", repo_id=space_id, filename=filename, local_dir=temp_dir.name)
             except RemoteEntryNotFoundError:
-                typer.secho(
-                    f"{filename} not found in remote repository. Assuming new file", fg=typer.colors.BRIGHT_BLACK
-                )
+                click.secho(f"{filename} not found in remote repository. Assuming new file", fg="bright_black")
 
         editor_res = _editor_open(local_path)
         if editor_res == "no-tty":
             persistent_temp_dir = tempfile.mkdtemp()
             shutil.copytree(temp_dir.name, persistent_temp_dir, dirs_exist_ok=True)
             local_path = os.path.join(persistent_temp_dir, filename)
-            typer.secho("No TTY detected. Non-interactive fallback:")
-            typer.secho(f"- Edit {local_path}")
-            typer.secho(f"- Run `hf spaces hot-reload {space_id} {filename} -f {local_path}`")
+            click.secho("No TTY detected. Non-interactive fallback:")
+            click.secho(f"- Edit {local_path}")
+            click.secho(f"- Run `hf spaces hot-reload {space_id} {filename} -f {local_path}`")
             return
         if editor_res == "no-editor":
             raise CLIError("No editor found in local environment. Use -f flag to hot-reload from local path")
@@ -666,11 +719,11 @@ def spaces_hot_reload(
     )
 
     if local_file is not None and local_file.resolve().is_relative_to(Path.cwd()):
-        typer.secho(f"Created commit {commit_info.oid} in remote Space repository.")
-        typer.secho("Consider running `git pull --autostash` to stay synced if you are working from a local clone.")
+        click.secho(f"Created commit {commit_info.oid} in remote Space repository.")
+        click.secho("Consider running `git pull --autostash` to stay synced if you are working from a local clone.")
 
     if not skip_summary:
-        typer.secho("Hot-reload summary:")
+        click.secho("Hot-reload summary:")
         _spaces_hot_reload_summary(
             api=api,
             space_id=space_id,
@@ -694,7 +747,7 @@ def _spaces_hot_reload_summary(
     while (space_info := api.space_info(space_id)).sha == current_sha:
         if current_sha is None or current_sha == commit_sha:
             break
-        typer.secho("Waiting for up-to-date Space infos", fg=typer.colors.BRIGHT_BLACK, err=True)
+        click.secho("Waiting for up-to-date Space infos", fg="bright_black", err=True)
         time.sleep(2)
     if space_info.sha != commit_sha:
         raise CLIError(f"Expected SHA {commit_sha} after hot-reload but got {space_info.sha}")
@@ -703,7 +756,7 @@ def _spaces_hot_reload_summary(
     if (hot_reloading := runtime.hot_reloading) is None:
         raise CLIError(f"Space {space_id} current running version has not been hot-reloaded")
     if hot_reloading.status != "created":
-        typer.echo(f"Failed creating hot-reloaded commit. {hot_reloading.replica_statuses=}")
+        click.echo(f"Failed creating hot-reloaded commit. {hot_reloading.replica_statuses=}")
         return
 
     if (space_host := space_info.host) is None:
@@ -721,32 +774,32 @@ def _spaces_hot_reload_summary(
 
     def display_event(event: ApiGetReloadEventSourceData) -> None:
         if event["data"]["kind"] == "error":
-            typer.secho("✘ Unexpected hot-reloading error", bold=True)
-            typer.secho(event["data"]["traceback"], italic=True)
+            click.secho("✘ Unexpected hot-reloading error", bold=True)
+            click.secho(event["data"]["traceback"], italic=True)
         elif event["data"]["kind"] == "exception":
-            typer.secho(f"✘ Exception at {render_region(event['data']['region'])}", bold=True)
-            typer.secho(event["data"]["traceback"], italic=True)
+            click.secho(f"✘ Exception at {render_region(event['data']['region'])}", bold=True)
+            click.secho(event["data"]["traceback"], italic=True)
         elif event["data"]["kind"] == "add":
-            typer.secho(f"✔︎ Created {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+            click.secho(f"✔︎ Created {event['data']['objectName']} {event['data']['objectType']}", bold=True)
         elif event["data"]["kind"] == "delete":
-            typer.secho(f"∅ Deleted {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+            click.secho(f"∅ Deleted {event['data']['objectName']} {event['data']['objectType']}", bold=True)
         elif event["data"]["kind"] == "update":
-            typer.secho(f"✔︎ Updated {event['data']['objectName']} {event['data']['objectType']}", bold=True)
+            click.secho(f"✔︎ Updated {event['data']['objectName']} {event['data']['objectType']}", bold=True)
         elif event["data"]["kind"] == "run":
-            typer.secho(f"▶ Run {render_region(event['data']['region'])}", bold=True)
-            typer.secho(event["data"]["codeLines"], italic=True)
+            click.secho(f"▶ Run {render_region(event['data']['region'])}", bold=True)
+            click.secho(event["data"]["codeLines"], italic=True)
         elif event["data"]["kind"] == "ui":
             if event["data"]["updated"]:
-                typer.secho("⟳ UI updated", bold=True)
+                click.secho("⟳ UI updated", bold=True)
             else:
-                typer.secho("∅ UI untouched", bold=True)
+                click.secho("∅ UI untouched", bold=True)
         elif event["data"]["kind"] == "file":
             if event["data"]["created"]:
-                typer.secho(f"✔︎ {filename} created", bold=True)
+                click.secho(f"✔︎ {filename} created", bold=True)
             else:
-                typer.secho(f"✔︎ {filename} updated", bold=True)
+                click.secho(f"✔︎ {filename} updated", bold=True)
         else:
-            typer.secho(f"❓ Unknown update event: {event=}")
+            click.secho(f"❓ Unknown update event: {event=}")
             if TYPE_CHECKING:
                 assert_never(event["data"]["kind"])
 
@@ -760,11 +813,11 @@ def _spaces_hot_reload_summary(
         if replica_stream_event["kind"] == "event":
             display_event(replica_stream_event["event"])
         elif replica_stream_event["kind"] == "replicaHash":
-            typer.secho(f"---- Replica {replica_stream_event['hash']} ----")
+            click.secho(f"---- Replica {replica_stream_event['hash']} ----")
         elif replica_stream_event["kind"] == "fullMatch":
-            typer.echo("✔︎ Same as first replica")
+            click.echo("✔︎ Same as first replica")
         elif replica_stream_event["kind"] == "warning":
-            typer.secho(f"⚠ {replica_stream_event['message']}", fg=typer.colors.BRIGHT_BLACK)
+            click.secho(f"⚠ {replica_stream_event['message']}", fg="bright_black")
         else:
             assert_never(replica_stream_event)
 
@@ -806,7 +859,7 @@ def _editor_open(local_path: str) -> int | Literal["no-tty", "no-editor"]:
     ],
 )
 def volumes_ls(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     token: TokenOpt = None,
 ) -> None:
     """List volumes mounted in a Space."""
@@ -815,7 +868,7 @@ def volumes_ls(
     if info.runtime is None:
         raise CLIError(f"Runtime not available for Space '{space_id}'.")
     volumes = info.runtime.volumes or []
-    items = [api_object_to_dict(v) for v in volumes]
+    items = [_dataclass_to_dict(v) for v in volumes]
     out.table(items)
     out.hint(
         f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
@@ -830,7 +883,7 @@ def volumes_ls(
     ],
 )
 def volumes_set(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     volume: VolumesOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -840,7 +893,7 @@ def volumes_set(
         raise CLIError("At least one volume must be specified with -v/--volume.")
     api = get_hf_api(token=token)
     api.set_space_volumes(space_id, volumes=volumes)
-    out.result("Volumes set", space_id=space_id, volumes=[v.to_hf_handle() for v in volumes])
+    out.result("Volumes set", space_id=space_id, volumes=[v.to_uri() for v in volumes])
     out.hint(f"Use `hf spaces volumes ls {space_id}` to list volumes for a Space.")
 
 
@@ -852,10 +905,10 @@ def volumes_set(
     ],
 )
 def volumes_delete(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically.",
@@ -878,13 +931,13 @@ def volumes_delete(
     examples=["hf spaces secrets ls username/my-space"],
 )
 def secrets_ls(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     token: TokenOpt = None,
 ) -> None:
     """List secrets for a Space. Secret values are write-only and not returned."""
     api = get_hf_api(token=token)
     secrets = api.get_space_secrets(space_id)
-    items = [api_object_to_dict(s) for s in secrets.values()]
+    items = [_dataclass_to_dict(s) for s in secrets.values()]
     out.table(items)
     out.hint(f"Use `hf spaces secrets add {space_id} -s KEY=VALUE` to add secrets to a Space.")
 
@@ -898,7 +951,7 @@ def secrets_ls(
     ],
 )
 def secrets_add(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     secrets: SecretsOpt = None,
     secrets_file: SecretsFileOpt = None,
     token: TokenOpt = None,
@@ -922,11 +975,11 @@ def secrets_add(
     ],
 )
 def secrets_delete(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    key: Annotated[str, typer.Argument(help="Name of the secret to remove.")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    key: Annotated[str, Argument(help="Name of the secret to remove.")],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically.",
@@ -950,13 +1003,13 @@ def secrets_delete(
     examples=["hf spaces variables ls username/my-space"],
 )
 def variables_ls(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     token: TokenOpt = None,
 ) -> None:
     """List environment variables for a Space."""
     api = get_hf_api(token=token)
     variables = api.get_space_variables(space_id)
-    items = [api_object_to_dict(v) for v in variables.values()]
+    items = [_dataclass_to_dict(v) for v in variables.values()]
     out.table(items)
     out.hint(f"Use `hf spaces variables add {space_id} -e KEY=VALUE` to add variables to a Space.")
 
@@ -970,7 +1023,7 @@ def variables_ls(
     ],
 )
 def variables_add(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     token: TokenOpt = None,
@@ -994,11 +1047,11 @@ def variables_add(
     ],
 )
 def variables_delete(
-    space_id: Annotated[str, typer.Argument(help="The space ID (e.g. `username/repo-name`).")],
-    key: Annotated[str, typer.Argument(help="Name of the variable to remove.")],
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    key: Annotated[str, Argument(help="Name of the variable to remove.")],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically.",

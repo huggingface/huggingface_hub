@@ -2,6 +2,7 @@ import os
 import re
 import typing
 from typing import Literal
+from urllib.parse import urlsplit
 
 
 # Possible values for env variables
@@ -50,7 +51,7 @@ SAFETENSORS_SINGLE_FILE = "model.safetensors"
 SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
 SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 
-# Timeout of aquiring file lock and logging the attempt
+# Timeout of acquiring file lock and logging the attempt
 FILELOCK_LOG_EVERY_SECONDS = 10
 
 # Git-related constants
@@ -70,6 +71,22 @@ HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filenam
 if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
+
+# Hosts whose web URLs can be parsed into a ``hf://`` URI (see ``huggingface_hub/utils/_hf_uris.py``).
+# Includes the public Hub host and its ``hf.co`` short domain, the staging host, and the host of the
+# currently configured ``ENDPOINT`` so that self-hosted / staging endpoints work too.
+HF_URL_HOSTS: frozenset[str] = frozenset(
+    {"hf.co"}
+    | {
+        host.lower()
+        for host in (
+            urlsplit(_HF_DEFAULT_ENDPOINT).hostname,
+            urlsplit(_HF_DEFAULT_STAGING_ENDPOINT).hostname,
+            urlsplit(ENDPOINT).hostname,
+        )
+        if host
+    }
+)
 
 DATASETS_SERVER_ENDPOINT = "https://datasets-server.huggingface.co"
 
@@ -208,6 +225,10 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# File caching the AI agent harnesses registry fetched from `{ENDPOINT}/api/agent-harnesses`.
+# Refreshed once per 24 hours at most (see `utils/_detect_agent.py`).
+AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
+
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
 
@@ -301,6 +322,10 @@ OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
 OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
 OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
 
+# OAuth client ID of the Device Code login flow (RFC 8628) used by `hf auth login` / `login()`.
+# Overridable for Hub deployments (staging, Enterprise) where the default client ID is not provisioned.
+DEVICE_CODE_OAUTH_CLIENT_ID = os.environ.get("HF_DEVICE_CODE_OAUTH_CLIENT_ID", "26be6b09-91c5-47da-9861-d2d2bb7a7e36")
+
 # Xet constants
 HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
 HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
@@ -312,3 +337,6 @@ HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
 default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
+
+# Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
+SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"

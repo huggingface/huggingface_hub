@@ -86,7 +86,7 @@ Some methods and parameters have been removed in v1.0. The ones listed below hav
 
 ## CLI cache commands
 
-Cache management from the CLI has been redesigned to follow a Docker-inspired workflow. The deprecated `huggingface-cli` has been removed, `hf` (introduced in v0.34) replaces it with a clearer ressource-action CLI. 
+Cache management from the CLI has been redesigned to follow a Docker-inspired workflow. The deprecated `huggingface-cli` has been removed, `hf` (introduced in v0.34) replaces it with a clearer resource-action CLI.
 The legacy `hf cache scan` and `hf cache delete` commands are also removed in v1.0 and are replaced with the new trio below:
 
 - `hf cache ls` lists cache entries with concise table, JSON, or CSV output. Use `--revisions` to inspect individual revisions, add `--filter` expressions such as `size>1GB` or `accessed>30d`, and combine them with `--quiet` when you only need the identifiers.

@@ -204,6 +204,34 @@ it will go to sleep. Any visitor landing on your Space will start it back up. Yo
 Note: if you are using a 'cpu-basic' hardware, you cannot configure a custom sleep time. Your Space will automatically
 be paused after 48h of inactivity.
 
+**Bonus: set a sleep time while requesting hardware**
+
+Upgraded hardware will be automatically assigned to your Space once it's built.
+
+```py
+>>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
+```
+
+**Bonus: set a sleep time when creating or duplicating the Space!**
+
+```py
+>>> api.create_repo(
+...     repo_id=repo_id,
+...     repo_type="space",
+...     space_sdk="gradio"
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
+... )
+```
+```py
+>>> api.duplicate_repo(
+...     from_id=repo_id,
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
+... )
+```
+
 ### Debug a failing Space by reading its logs
 
 When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where opening a browser is not an option.
@@ -231,32 +259,30 @@ hf spaces logs username/my-space -f          # stream in real time
 hf spaces logs username/my-space -n 50       # last 50 lines only
 ```
 
-**Bonus: set a sleep time while requesting hardware**
+### SSH into a Space (Dev Mode)
 
-Upgraded hardware will be automatically assigned to your Space once it's built.
+[Dev Mode](https://huggingface.co/docs/hub/spaces-dev-mode) lets you SSH into a running Space container for live debugging and development. Use `hf spaces ssh` to open a session directly from the terminal. If Dev Mode is not yet enabled on the Space, the CLI will prompt you to enable it (or pass `--auto` to skip the prompt).
 
-```py
->>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
+Your SSH public key must be registered at [in your settings](https://huggingface.co/settings/keys).
+
+```bash
+# SSH into a Space (enables Dev Mode if needed)
+hf spaces ssh username/my-space
+
+# Auto-enable Dev Mode without prompting
+hf spaces ssh username/my-space --auto
+
+# Print the SSH command without running it
+hf spaces ssh username/my-space --dry-run
+
+# Use a specific SSH key
+hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
 ```
 
-**Bonus: set a sleep time when creating or duplicating the Space!**
+You can also enable Dev Mode without SSH using `hf spaces dev-mode`, which prints connection instructions for SSH, VS Code, Cursor, and Windsurf:
 
-```py
->>> api.create_repo(
-...     repo_id=repo_id,
-...     repo_type="space",
-...     space_sdk="gradio"
-...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
-... )
-```
-```py
->>> api.duplicate_repo(
-...     from_id=repo_id,
-...     repo_type="space",
-...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
-... )
+```bash
+hf spaces dev-mode username/my-space
 ```
 
 ### Mount volumes in your Space

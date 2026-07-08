@@ -7,11 +7,13 @@ from huggingface_hub.inference._providers.featherless_ai import (
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
-from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
-from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
-from .deepinfra import DeepInfraConversationalTask, DeepInfraTextGenerationTask
+from .deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraConversationalTask,
+    DeepInfraTextGenerationTask,
+)
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageSegmentationTask,
@@ -29,16 +31,8 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import (
-    NebiusConversationalTask,
-    NebiusFeatureExtractionTask,
-    NebiusTextGenerationTask,
-    NebiusTextToImageTask,
-)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
-from .nvidia import NvidiaConversationalTask
 from .openai import OpenAIConversationalTask
 from .ovhcloud import OVHcloudConversationalTask
 from .publicai import PublicAIConversationalTask
@@ -49,9 +43,17 @@ from .replicate import (
     ReplicateTextToImageTask,
     ReplicateTextToSpeechTask,
 )
-from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
-from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import (
+    TogetherConversationalTask,
+    TogetherFeatureExtractionTask,
+    TogetherImageToImageTask,
+    TogetherImageToVideoTask,
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+    TogetherTextToSpeechTask,
+    TogetherTextToVideoTask,
+)
 from .wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -65,9 +67,7 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
-    "black-forest-labs",
     "cerebras",
-    "clarifai",
     "cohere",
     "deepinfra",
     "fal-ai",
@@ -75,16 +75,12 @@ PROVIDER_T = Literal[
     "fireworks-ai",
     "groq",
     "hf-inference",
-    "hyperbolic",
-    "nebius",
     "novita",
     "nscale",
-    "nvidia",
     "openai",
     "ovhcloud",
     "publicai",
     "replicate",
-    "sambanova",
     "scaleway",
     "together",
     "wavespeed",
@@ -96,19 +92,14 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
-    "black-forest-labs": {
-        "text-to-image": BlackForestLabsTextToImageTask(),
-    },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
-    },
-    "clarifai": {
-        "conversational": ClarifaiConversationalTask(),
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
     },
     "deepinfra": {
+        "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
         "conversational": DeepInfraConversationalTask(),
         "text-generation": DeepInfraTextGenerationTask(),
     },
@@ -159,17 +150,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
-    "hyperbolic": {
-        "text-to-image": HyperbolicTextToImageTask(),
-        "conversational": HyperbolicTextGenerationTask("conversational"),
-        "text-generation": HyperbolicTextGenerationTask("text-generation"),
-    },
-    "nebius": {
-        "text-to-image": NebiusTextToImageTask(),
-        "conversational": NebiusConversationalTask(),
-        "text-generation": NebiusTextGenerationTask(),
-        "feature-extraction": NebiusFeatureExtractionTask(),
-    },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
@@ -178,9 +158,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "nscale": {
         "conversational": NscaleConversationalTask(),
         "text-to-image": NscaleTextToImageTask(),
-    },
-    "nvidia": {
-        "conversational": NvidiaConversationalTask(),
     },
     "openai": {
         "conversational": OpenAIConversationalTask(),
@@ -198,18 +175,19 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
-    "sambanova": {
-        "conversational": SambanovaConversationalTask(),
-        "feature-extraction": SambanovaFeatureExtractionTask(),
-    },
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
         "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
-        "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
+        "feature-extraction": TogetherFeatureExtractionTask(),
+        "image-to-image": TogetherImageToImageTask(),
+        "image-to-video": TogetherImageToVideoTask(),
         "text-generation": TogetherTextGenerationTask(),
+        "text-to-image": TogetherTextToImageTask(),
+        "text-to-speech": TogetherTextToSpeechTask(),
+        "text-to-video": TogetherTextToVideoTask(),
     },
     "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),

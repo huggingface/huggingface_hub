@@ -201,6 +201,11 @@ class CardData:
         Args:
             line_break (str, *optional*):
                 The line break to use when dumping to yaml.
+            original_order (`list[str]`, *optional*):
+                If provided, reorder the metadata fields to match this list before dumping.
+                Any keys not in `original_order` are appended after the listed keys, preserving
+                their existing relative order. Useful for round-tripping a YAML block without
+                shuffling its keys.
 
         Returns:
             `str`: CardData represented as a YAML block.

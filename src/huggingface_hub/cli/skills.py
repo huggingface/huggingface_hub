@@ -11,40 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage skills for AI assistants.
-
-Usage:
-    # install the hf-cli skill in common .agents/skills directory (either in current directory or user-level)
-    hf skills add
-    hf skills add --global
-
-    # install the hf-cli skill for Claude (project-level, in current directory)
-    hf skills add --claude
-
-    # install globally (user-level)
-    hf skills add --claude --global
-
-    # install to a custom directory
-    hf skills add --dest=~/my-skills
-
-    # overwrite an existing skill
-    hf skills add --claude --force
-"""
+"""Contains commands to manage skills for AI assistants."""
 
 import os
 import shutil
 from pathlib import Path
 from typing import Annotated
 
-import typer
 from click import Command, Context, Group
-from typer.main import get_command
 
 from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
 from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -125,13 +106,24 @@ _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
 # accept them. They aren't real click params on the command (they're consumed
 # globally — see ``_consume_format_flags_for_leaf`` in ``_cli_utils.py``) so we
 # add them synthetically here.
-_GLOBAL_FORMAT_INLINE_FLAGS = ["--format CHOICE"]
+_GLOBAL_FORMAT_INLINE_FLAGS = ["--format [auto|human|agent|json|quiet]"]
 _GLOBAL_COMMON_FLAGS: dict[str, tuple[str, str]] = {
     "--format": ("--format", "Output format."),
     "--quiet": ("-q / --quiet", "Quiet output (one ID per line)."),
 }
 
 skills_cli = typer_factory(help="Manage skills for AI assistants.")
+
+
+def _type_hint(param) -> str:
+    """Value hint for an option: enum choices inline as ``[a|b|c]``, otherwise the TYPE name.
+
+    e.g. `--sort [downloads|likes|trending_score]` instead of `--sort CHOICE`.
+    """
+    choices = getattr(param.type, "choices", None)
+    if choices:
+        return "[" + "|".join(str(c) for c in choices) + "]"
+    return getattr(param.type, "name", "").upper() or "VALUE"
 
 
 def _format_params(cmd: Command) -> str:
@@ -144,7 +136,7 @@ def _format_params(cmd: Command) -> str:
             continue
         long_name = next((o for o in getattr(p, "opts", []) if o.startswith("--")), None)
         if long_name is not None:
-            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            type_name = _type_hint(p)
             parts.append(f"{long_name} {type_name}")
         elif p.name:
             parts.append(p.human_readable_name)
@@ -205,7 +197,7 @@ def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[st
         if getattr(p, "is_flag", False):
             flags.append(long_name)
         else:
-            type_name = getattr(p.type, "name", "").upper() or "VALUE"
+            type_name = _type_hint(p)
             flags.append(f"{long_name} {type_name}")
     if _accepts_global_format_flags(cmd):
         flags.extend(flag for flag in _GLOBAL_FORMAT_INLINE_FLAGS if not (exclude and flag.split()[0] in exclude))
@@ -254,7 +246,7 @@ def build_skill_md() -> str:
     from huggingface_hub import __version__
     from huggingface_hub.cli.hf import app
 
-    click_app = get_command(app)
+    click_app = app  # the app is already a click.Group
     ctx = Context(click_app, info_name="hf")
 
     top_level: list[tuple[list[str], Command]] = []
@@ -427,12 +419,12 @@ def skills_list(
 def skills_add(
     name: Annotated[
         str,
-        typer.Argument(help="Marketplace skill name.", show_default=False),
+        Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Install for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Install globally (user-level) instead of in the current project directory.",
@@ -440,13 +432,13 @@ def skills_add(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Install into a custom destination (path to skills directory).",
         ),
     ] = None,
     force: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--force",
             help="Overwrite existing skills in the destination.",
         ),
@@ -487,12 +479,12 @@ def skills_add(
 def skills_update(
     name: Annotated[
         str | None,
-        typer.Argument(help="Optional installed skill name to update.", show_default=False),
+        Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Use global skills directories instead of the current project.",
@@ -500,7 +492,7 @@ def skills_update(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Update skills in a custom skills directory.",
         ),
     ] = None,

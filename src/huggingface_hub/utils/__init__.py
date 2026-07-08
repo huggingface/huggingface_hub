@@ -24,6 +24,7 @@ from huggingface_hub.errors import (
     GatedRepoError,
     HfHubHTTPError,
     HFValidationError,
+    JobNotFoundError,
     LocalEntryNotFoundError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
@@ -38,6 +39,7 @@ from ._auth import get_stored_tokens, get_token
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
+    CachedIncompleteFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
     DeleteCacheStrategy,
@@ -52,7 +54,7 @@ from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import build_hf_headers, get_token_to_send
-from ._hf_uris import HfMount, HfUri, parse_hf_mount, parse_hf_uri
+from ._hf_uris import HfMount, HfUri, is_hf_uri, parse_hf_mount, parse_hf_uri
 from ._http import (
     ASYNC_CLIENT_FACTORY_T,
     CLIENT_FACTORY_T,
@@ -112,16 +114,13 @@ from ._runtime import (
 from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
-from ._terminal import ANSI, StatusLine, tabulate
+from ._terminal import ANSI, StatusLine, select_choice, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
-    XetConnectionInfo,
     XetFileData,
     XetTokenType,
-    fetch_xet_connection_info_from_repo_info,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
 )
 from .tqdm import (
     are_progress_bars_disabled,

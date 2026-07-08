@@ -217,6 +217,9 @@ During development, you can install your extension directly from your GitHub rep
 # Reinstall after making changes (push to GitHub first)
 >>> hf extensions install <your-username>/hf-<name> --force
 
+# Update to the latest version (only if a newer commit is available)
+>>> hf extensions update <name>
+
 # List installed extensions
 >>> hf extensions list
 
@@ -226,6 +229,20 @@ During development, you can install your extension directly from your GitHub rep
 
 > [!TIP]
 > Use `--force` to overwrite a previously installed version when testing updates.
+
+## Update installed extensions
+
+Once an extension is installed, you can update it to the latest version published on GitHub:
+
+```bash
+# Update a single extension (accepts `<name>`, `hf-<name>` or `OWNER/hf-<name>`)
+>>> hf extensions update hf-claude
+
+# Check every installed extension and update the outdated ones
+>>> hf extensions update
+```
+
+`hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
 
 ## Naming rules
 

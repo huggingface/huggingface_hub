@@ -34,14 +34,17 @@ def _make_error(cls, **attrs):
 class TestFormatRepoNotFound:
     def test_with_repo_id_and_type(self):
         err = _make_error(RepositoryNotFoundError, repo_id="user/repo", repo_type="model")
-        assert (
-            _format_repo_not_found(err)
-            == "Model 'user/repo' not found. If the repo is private, make sure you are authenticated and your token has the required permissions."
-        )
+        msg = _format_repo_not_found(err)
+        assert "Model 'user/repo' not found." in msg
+        assert "authenticated" in msg
+        assert "hf repos create user/repo" in msg
+        assert "--type" not in msg
 
     def test_with_repo_id_dataset(self):
         err = _make_error(RepositoryNotFoundError, repo_id="user/data", repo_type="dataset")
-        assert "Dataset 'user/data' not found." in _format_repo_not_found(err)
+        msg = _format_repo_not_found(err)
+        assert "Dataset 'user/data' not found." in msg
+        assert "hf repos create user/data --type dataset" in msg
 
     def test_with_repo_id_no_type(self):
         err = _make_error(RepositoryNotFoundError, repo_id="user/repo", repo_type=None)
@@ -52,6 +55,7 @@ class TestFormatRepoNotFound:
         msg = _format_repo_not_found(err)
         assert "Repository not found." in msg
         assert "authenticated" in msg
+        assert "hf repos create <repo_id>" in msg
 
 
 class TestFormatGatedRepo:
@@ -70,12 +74,14 @@ class TestFormatBucketNotFound:
         msg = _format_bucket_not_found(err)
         assert "Bucket 'ns/bucket' not found." in msg
         assert "authenticated" in msg
+        assert "hf buckets create ns/bucket" in msg
 
     def test_without_bucket_id(self):
         err = _make_error(BucketNotFoundError, bucket_id=None)
         msg = _format_bucket_not_found(err)
         assert "Bucket not found." in msg
-        assert "namespace/name" in msg
+        assert "authenticated" in msg
+        assert "hf buckets create <bucket_id>" in msg
 
 
 class TestFormatEntryNotFound:

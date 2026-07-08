@@ -13,24 +13,20 @@
 # limitations under the License.
 """Contains CLI utilities (styling, helpers)."""
 
-import dataclasses
-import datetime
 import difflib
 import importlib.metadata
-import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
 import click
-import typer
-from typer.core import TyperCommand, TyperGroup
 
 from huggingface_hub import Volume, __version__, constants
 from huggingface_hub.errors import CLIError
@@ -39,18 +35,16 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     installation_method,
     logging,
-    tabulate,
+    parse_hf_mount,
 )
 from huggingface_hub.utils._dotenv import load_dotenv
 
+from ._framework import Argument, HfCommand, HfGroup, Option
 from ._help_formatter import StyledContext
-from ._output import OutputFormatWithAuto, out
+from ._output import OutputFormat, out
 
 
 logger = logging.get_logger()
-
-# Arbitrary maximum length of a cell in a table output
-_MAX_CELL_LENGTH = 35
 
 # Arbitrary default limit for models/datasets/spaces list commands.
 REPO_LIST_DEFAULT_LIMIT = 30
@@ -109,14 +103,14 @@ def _format_epilog_no_indent(epilog: str | None, ctx: click.Context, formatter: 
 _ALIAS_SPLIT = re.compile(r"\s*\|\s*")
 
 
-class HFCliTyperGroup(TyperGroup):
+class HFCliTyperGroup(HfGroup):
     """
-    Typer Group that:
+    CLI Group that:
     - lists commands alphabetically within sections.
     - separates commands by topic (main, help, etc.).
     - formats epilog without extra indentation.
     - supports aliases via pipe-separated names (e.g. ``name="list | ls"``).
-    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``)
+    - consumes the global formatting flags (``--format``, ``--json``, ``-q`` / ``--quiet``, ``--no-truncate``)
       anywhere in the args of a leaf command and applies them to ``out``, so leaf
       commands don't need to declare these options themselves.
     - rewrites ``spaces/user/repo`` to ``user/repo --type space`` for commands that accept ``--type``.
@@ -178,7 +172,7 @@ class HFCliTyperGroup(TyperGroup):
                 matches = difflib.get_close_matches(cmd_name, visible_names)
                 if matches:
                     suggestions = ", ".join(f"'{m}'" for m in matches)
-                    e.message = f"{e.message.rstrip('.')}. Did you mean {suggestions}?"
+                    setattr(e, "message", f"{e.message.rstrip('.')}. Did you mean {suggestions}?")
                 items = [
                     (name, sub.get_short_help_str(limit=80))
                     for name in self.list_commands(ctx)
@@ -188,7 +182,7 @@ class HFCliTyperGroup(TyperGroup):
             raise
 
         # If we just resolved a leaf command, eagerly consume any global formatting
-        # flags (--format / --json / -q / --quiet) from its args before click parses
+        # flags (--format / --json / -q / --quiet / --no-truncate) from its args before click parses
         # them.  Group resolution is recursive — leaves (and only leaves) need this.
         if resolved_cmd is not None and not isinstance(resolved_cmd, click.Group):
             _consume_format_flags_for_leaf(resolved_cmd, sub_args)
@@ -363,6 +357,21 @@ class HFCliTyperGroup(TyperGroup):
             primary_names.append(primary)
         return sorted(primary_names)
 
+    def command(  # type: ignore  # adds topic/examples on top of HfGroup.command
+        self,
+        name: str | None = None,
+        *,
+        topic: TOPIC_T = "main",
+        examples: list[str] | None = None,
+        epilog: str | None = None,
+        **kwargs: Any,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Generate the epilog from examples when not provided explicitly, then build the
+        # command with a topic/examples-aware command class.
+        if epilog is None and examples:
+            epilog = generate_epilog(examples)
+        return super().command(name, cls=HFCliCommand(topic, examples), epilog=epilog, **kwargs)
+
 
 _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
     (
@@ -371,6 +380,7 @@ _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
     ),
     ("--json", "JSON output. Equivalent to '--format json'."),
     ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+    ("--no-truncate", "Do not truncate scalar values in human tables (list/dict columns stay shortened)."),
 ]
 
 
@@ -383,7 +393,7 @@ def _has_local_formatting_option(cmd: click.Command) -> bool:
     """Return True if the command defines its own --format, --json or --quiet / -q.
 
     Used to skip the global formatting flag pre-processor and the duplicated "Formatting options" help section for
-    legacy commands like 'hf jobs ps' that have their own format/quiet options.
+    legacy commands like 'hf jobs ls' that have their own format/quiet options.
     """
     for param in cmd.params:
         if not isinstance(param, click.Option):
@@ -402,16 +412,21 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     * **Pass-through commands** (ignore_unknown_options=True, e.g. 'hf extensions exec'):
       args are forwarded verbatim to an external binary; we don't touch them.
 
-    * **Legacy commands with a local --format option** (e.g. 'hf jobs ps' whose '--format' accepts Go templates):
+    * **Legacy commands with a local --format option** (e.g. 'hf jobs ls' whose '--format' accepts Go templates):
       the global flags are rewritten in-place to the legacy form ('--json' → '--format json', '--quiet'/'-q' → '--format quiet'
       when the cmd has no own '--quiet') so click can parse them locally. This preserves backwards compatibility with the previous shorthand behavior.
 
     * **Modern commands** (no local format/quiet/json options): the flags '--format <value>' / '--json' / '--quiet' / '-q' are stripped from 'args' and applied to the singleton 'out'.
 
+    '--no-truncate' is stripped for all non-pass-through commands; when present, human table cells are not truncated.
+
     Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
     """
     if cmd.context_settings.get("ignore_unknown_options"):
         return
+
+    no_truncate = _consume_no_truncate_flags(args)
+    out.set_no_truncate(no_truncate)
 
     has_local_format = False
     has_local_quiet = False
@@ -432,7 +447,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
         return
 
     # Strip --format/--json/-q/--quiet from 'args' and apply to 'out'
-    chosen_mode: OutputFormatWithAuto = OutputFormatWithAuto.auto
+    chosen_mode: OutputFormat = OutputFormat.auto
     chosen_flag: str | None = None
 
     def _check_conflict(new_flag: str) -> None:
@@ -463,13 +478,13 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
             continue
         if arg == "--json":
             _check_conflict("--json")
-            chosen_mode = OutputFormatWithAuto.json
+            chosen_mode = OutputFormat.json
             chosen_flag = "--json"
             del args[i : i + 1]
             continue
         if arg in ("-q", "--quiet"):
             _check_conflict(arg)
-            chosen_mode = OutputFormatWithAuto.quiet
+            chosen_mode = OutputFormat.quiet
             chosen_flag = arg
             del args[i : i + 1]
             continue
@@ -478,10 +493,28 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
     out.set_mode(chosen_mode)
 
 
+def _consume_no_truncate_flags(args: list[str]) -> bool:
+    """Strip all global --no-truncate flags from args and return whether any was provided."""
+    no_truncate = False
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            break  # everything after '--' is a positional literal
+        if arg == "--no-truncate":
+            no_truncate = True
+            del args[i : i + 1]
+            continue
+        if arg.startswith("--no-truncate="):
+            raise click.UsageError("Option '--no-truncate' does not take a value.")
+        i += 1
+    return no_truncate
+
+
 def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_quiet: bool) -> None:
     """Rewrite --json / -q / --quiet to --format ... for legacy commands.
 
-    Used for commands like 'hf jobs ps' that still own their '--format' option.
+    Used for commands like 'hf jobs ls' that still own their '--format' option.
     The rewrite lets users keep using the global shorthand while click parses
     '--format <value>' locally.
     """
@@ -503,11 +536,11 @@ def _rewrite_legacy_shorthands(args: list[str], *, rewrite_json: bool, rewrite_q
             args[idx : idx + 1] = ["--format", "quiet"]
 
 
-def _parse_format_value(value: str) -> "OutputFormatWithAuto":
+def _parse_format_value(value: str) -> "OutputFormat":
     try:
-        return OutputFormatWithAuto(value)
+        return OutputFormat(value)
     except ValueError:
-        valid = ", ".join(m.value for m in OutputFormatWithAuto)
+        valid = ", ".join(m.value for m in OutputFormat)
         raise click.UsageError(f"Invalid value for '--format': '{value}'. Valid values: {valid}.") from None
 
 
@@ -522,8 +555,8 @@ def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[s
     lines.append(f"\nRun '{cmd_path} --help' for full details.")
     if isinstance(error, click.NoSuchOption) and error.possibilities:
         lines.append(f"\nDid you mean: {', '.join(sorted(error.possibilities))}?")
-        error.possibilities = []
-    error.message += "\n".join(lines)
+        setattr(error, "possibilities", [])
+    setattr(error, "message", error.message + "\n".join(lines))
 
 
 def fallback_typer_group_factory(
@@ -550,12 +583,12 @@ def fallback_typer_group_factory(
     return FallbackTyperGroup
 
 
-def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[TyperCommand]:
+def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[HfCommand]:
     def format_epilog(self: click.Command, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_epilog_no_indent(self.epilog, ctx, formatter)
 
-    def format_options(self: TyperCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        TyperCommand.format_options(self, ctx, formatter)
+    def format_options(self: HfCommand, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        HfCommand.format_options(self, ctx, formatter)
         # Skip the section for commands that define their own --format / --quiet / --json,
         # or for pass-through commands that forward args to an external binary.
         if _has_local_formatting_option(self):
@@ -571,11 +604,11 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
             if any(isinstance(p, click.Argument) and p.required for p in self.params):
                 click.echo(ctx.get_help(), color=ctx.color)
                 ctx.exit()
-        return TyperCommand.parse_args(self, ctx, args)
+        return HfCommand.parse_args(self, ctx, args)
 
     return type(
-        f"TyperCommand{topic.capitalize()}",
-        (TyperCommand,),
+        f"HfCommand{topic.capitalize()}",
+        (HfCommand,),
         {
             "context_class": StyledContext,
             "topic": topic,
@@ -587,82 +620,59 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[Type
     )
 
 
-class HFCliApp(typer.Typer):
-    """Custom Typer app for Hugging Face CLI."""
+def typer_factory(help: str, epilog: str | None = None, cls: type[HFCliTyperGroup] | None = None) -> "HFCliTyperGroup":
+    """Create a CLI command group with consistent settings.
 
-    def command(  # type: ignore
-        self,
-        name: str | None = None,
-        *,
-        topic: TOPIC_T = "main",
-        examples: list[str] | None = None,
-        context_settings: dict[str, Any] | None = None,
-        help: str | None = None,
-        epilog: str | None = None,
-        short_help: str | None = None,
-        options_metavar: str = "[OPTIONS]",
-        add_help_option: bool = True,
-        no_args_is_help: bool = False,
-        hidden: bool = False,
-        deprecated: bool = False,
-        rich_help_panel: str | None = None,
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        # Generate epilog from examples if not explicitly provided
-        if epilog is None and examples:
-            epilog = generate_epilog(examples)
-
-        def _inner(func: Callable[..., Any]) -> Callable[..., Any]:
-            return super(HFCliApp, self).command(
-                name,
-                cls=HFCliCommand(topic, examples),
-                context_settings=context_settings,
-                help=help,
-                epilog=epilog,
-                short_help=short_help,
-                options_metavar=options_metavar,
-                add_help_option=add_help_option,
-                no_args_is_help=no_args_is_help,
-                hidden=hidden,
-                deprecated=deprecated,
-                rich_help_panel=rich_help_panel,
-            )(func)
-
-        return _inner
-
-
-def typer_factory(help: str, epilog: str | None = None, cls: type[TyperGroup] | None = None) -> "HFCliApp":
-    """Create a Typer app with consistent settings.
+    The returned group is the app: register commands with ``@group.command(...)``,
+    subgroups with ``group.add_group(sub, name=...)``, and a group-level callback
+    with ``@group.callback(...)``.
 
     Args:
-        help: Help text for the app.
+        help: Help text for the group.
         epilog: Optional epilog text (use `generate_epilog` to create one).
-        cls: Optional Click group class to use (defaults to `HFCliTyperGroup`).
+        cls: Optional group class to use (defaults to `HFCliTyperGroup`).
 
     Returns:
-        A configured Typer app.
+        A configured `HFCliTyperGroup` instance.
     """
     if cls is None:
         cls = HFCliTyperGroup
-    return HFCliApp(
+    return cls(
         help=help,
         epilog=epilog,
-        add_completion=True,
         no_args_is_help=True,
-        cls=cls,
-        # Disable rich completely for consistent experience
-        rich_markup_mode=None,
-        rich_help_panel=None,
-        pretty_exceptions_enable=False,
-        # Disable TyperGroup's suggest_commands, it matches against raw aliased
-        # keys ("list | ls") leaking pipe syntax into user-facing messages.
-        # HFCliTyperGroup.resolve_command() handles suggestions with expanded names.
-        suggest_commands=False,
         # Increase max content width for better readability
         context_settings={
             "max_content_width": 120,
             "help_option_names": ["-h", "--help"],
         },
     )
+
+
+class SoftChoice(click.Choice):
+    """A click Choice that suggests choices for autocompletion/docs but accepts any string.
+
+    Unlike `click.Choice`, unknown values are passed through as-is instead of raising an error.
+    This makes CLI options future-compatible when new server-side values are added.
+
+    Accepts either a sequence of strings or an Enum class:
+    ```python
+    SoftChoice(SpaceHardware)        # from an enum
+    SoftChoice(["a", "b", "c"])      # from a list
+    ```
+    """
+
+    def __init__(self, choices: Sequence[str] | type[Enum]) -> None:
+        values = (
+            [m.value for m in choices] if isinstance(choices, type) and issubclass(choices, Enum) else list(choices)
+        )
+        super().__init__(values, case_sensitive=True)
+
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+        try:
+            return super().convert(value, param, ctx)
+        except click.exceptions.BadParameter:
+            return str(value)
 
 
 class RepoType(str, Enum):
@@ -673,7 +683,7 @@ class RepoType(str, Enum):
 
 RepoIdArg = Annotated[
     str,
-    typer.Argument(
+    Argument(
         help="The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).",
     ),
 ]
@@ -681,30 +691,43 @@ RepoIdArg = Annotated[
 
 RepoTypeOpt = Annotated[
     RepoType,
-    typer.Option(
+    Option(
         "--type",
         "--repo-type",
         help="The type of repository (model, dataset, or space).",
     ),
 ]
 
+# Same as `RepoTypeOpt` but optional (defaults to `None` rather than `model`). Used by commands that
+# accept an `hf://` URI as repo id: a `None` default lets us tell apart "user did not pass --repo-type"
+# from "user explicitly passed --repo-type model", which is required to detect conflicts with the URI.
+RepoTypeOptionalOpt = Annotated[
+    RepoType | None,
+    Option(
+        "--type",
+        "--repo-type",
+        help="The type of repository (model, dataset, or space).",
+        show_default="model",
+    ),
+]
+
 TokenOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="A User Access Token generated from https://huggingface.co/settings/tokens.",
     ),
 ]
 
 PrivateOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         help="Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.",
     ),
 ]
 
 RevisionOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Git revision id which can be a branch name, a tag, or a commit hash.",
     ),
 ]
@@ -712,22 +735,22 @@ RevisionOpt = Annotated[
 
 LimitOpt = Annotated[
     int,
-    typer.Option(help="Limit the number of results."),
+    Option(help="Limit the number of results."),
 ]
 
 AuthorOpt = Annotated[
     str | None,
-    typer.Option(help="Filter by author or organization."),
+    Option(help="Filter by author or organization."),
 ]
 
 FilterOpt = Annotated[
     list[str] | None,
-    typer.Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
+    Option(help="Filter by tags (e.g. 'text-classification'). Can be used multiple times."),
 ]
 
 SearchOpt = Annotated[
     str | None,
-    typer.Option(help="Search query."),
+    Option(help="Search query."),
 ]
 
 
@@ -735,7 +758,7 @@ SearchOpt = Annotated[
 
 EnvOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-e",
         "--env",
         help="Set environment variables. E.g. --env ENV=value",
@@ -744,7 +767,7 @@ EnvOpt = Annotated[
 
 SecretsOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-s",
         "--secrets",
         help=(
@@ -756,7 +779,7 @@ SecretsOpt = Annotated[
 
 EnvFileOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         "--env-file",
         help="Read in a file of environment variables.",
     ),
@@ -764,7 +787,7 @@ EnvFileOpt = Annotated[
 
 SecretsFileOpt = Annotated[
     str | None,
-    typer.Option(
+    Option(
         help="Read in a file of secret environment variables.",
     ),
 ]
@@ -807,7 +830,7 @@ def env_map_to_key_value_list(env_map: dict[str, str | None]) -> list[dict[str, 
 
 VolumesOpt = Annotated[
     list[str] | None,
-    typer.Option(
+    Option(
         "-v",
         "--volume",
         help="Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. "
@@ -817,14 +840,6 @@ VolumesOpt = Annotated[
         "E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro",
     ),
 ]
-
-_HF_PREFIX = "hf://"
-_HF_VOLUME_TYPES = {
-    "models": constants.REPO_TYPE_MODEL,
-    "datasets": constants.REPO_TYPE_DATASET,
-    "spaces": constants.REPO_TYPE_SPACE,
-    "buckets": "bucket",
-}
 
 
 def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
@@ -846,230 +861,23 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         hf://datasets/org/ds/train:/data          (with path inside repo)
         hf://buckets/org/b/sub/dir:/mnt           (with path inside bucket)
     """
-
     if not volumes:
         return None
 
     result: list[Volume] = []
     for raw_spec in volumes:
-        # Strip :ro/:rw suffix
-        spec = raw_spec
-        read_only = None
-        if spec.endswith(":ro"):
-            read_only = True
-            spec = spec[:-3]
-        elif spec.endswith(":rw"):
-            read_only = False
-            spec = spec[:-3]
-
-        # Validate hf:// prefix
-        if not spec.startswith(_HF_PREFIX):
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Source must start with 'hf://'. "
-                f"Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
-            )
-        spec = spec[len(_HF_PREFIX) :]
-
-        # Find the mount path: look for :/ pattern
-        colon_slash_idx = spec.find(":/")
-        if colon_slash_idx == -1:
-            raise CLIError(
-                f"Invalid volume format: '{raw_spec}'. Expected hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. E.g. hf://org/m:/data"
-            )
-        source_part = spec[:colon_slash_idx]
-        mount_path = spec[colon_slash_idx + 1 :]
-
-        # Parse type from source_part (first segment before /)
-        # Then split remaining into source (namespace/name or name) and optional path.
-        slash_idx = source_part.find("/")
-        if slash_idx == -1:
-            # No slash: bare source like "gpt2" -> model type
-            vol_type_str = constants.REPO_TYPE_MODEL
-            source = source_part
-            path = None
-        else:
-            first_segment = source_part[:slash_idx]
-            if first_segment in _HF_VOLUME_TYPES:
-                vol_type_str = _HF_VOLUME_TYPES[first_segment]
-                remaining = source_part[slash_idx + 1 :]
-            else:
-                # First segment isn't a known type -> model type
-                vol_type_str = constants.REPO_TYPE_MODEL
-                remaining = source_part
-
-            # Split remaining into source (namespace/name) and optional path.
-            # Repo/bucket IDs are "namespace/name" (2 segments) or "name" (1 segment).
-            # Any extra segments are the path inside the repo/bucket.
-            parts = remaining.split("/", 2)
-            if len(parts) >= 3:
-                source = parts[0] + "/" + parts[1]
-                path = parts[2]
-            else:
-                source = remaining
-                path = None
-
+        mount = parse_hf_mount(raw_spec)
         result.append(
             Volume(
-                type=vol_type_str,
-                source=source,
-                mount_path=mount_path,
-                read_only=read_only,
-                path=path,
+                type=mount.source.type,
+                source=mount.source.id,
+                mount_path=mount.mount_path,
+                read_only=mount.read_only,
+                path=mount.source.path_in_repo or None,
+                revision=mount.source.revision or None,
             )
         )
     return result
-
-
-class OutputFormat(str, Enum):
-    """Output format for CLI list commands."""
-
-    table = "table"
-    json = "json"
-
-
-FormatOpt = Annotated[
-    OutputFormat,
-    typer.Option(
-        help="Output format (table or json).",
-    ),
-]
-
-
-def _set_output_mode(value: OutputFormatWithAuto) -> OutputFormatWithAuto:
-    """Callback for the legacy FormatWithAutoOpt option type.
-
-    Most commands now rely on the global --format / --json / -q flags consumed by _consume_format_flags_for_leaf instead
-    of declaring FormatWithAutoOpt themselves.  This callback is kept for the rare cases where a command still wires
-    FormatWithAutoOpt explicitly.
-    """
-    out.set_mode(value)
-    return value
-
-
-FormatWithAutoOpt = Annotated[
-    OutputFormatWithAuto,
-    typer.Option(help="Output format.", callback=_set_output_mode),
-]
-
-QuietOpt = Annotated[
-    bool,
-    typer.Option("-q", "--quiet", help="Print only IDs (one per line)."),
-]
-
-
-def _to_header(name: str) -> str:
-    """Convert a camelCase or PascalCase string to SCREAMING_SNAKE_CASE to be used as table header."""
-    s = re.sub(r"([a-z])([A-Z])", r"\1_\2", name)
-    return s.upper()
-
-
-def _format_value(value: Any) -> str:
-    """Convert a value to string for terminal display."""
-    if not value:
-        return ""
-    if isinstance(value, bool):
-        return "✔" if value else ""
-    if isinstance(value, datetime.datetime):
-        return value.strftime("%Y-%m-%d")
-    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
-        return value[:10]
-    if isinstance(value, list):
-        return ", ".join(_format_value(v) for v in value)
-    elif isinstance(value, dict):
-        if "name" in value:  # Likely to be a user or org => print name
-            return str(value["name"])
-        # TODO: extend if needed
-        return json.dumps(value)
-    return str(value)
-
-
-def _format_cell(value: Any, max_len: int = _MAX_CELL_LENGTH) -> str:
-    """Format a value + truncate it for table display."""
-    cell = _format_value(value)
-    if len(cell) > max_len:
-        cell = cell[: max_len - 3] + "..."
-    return cell
-
-
-def print_as_table(
-    items: Sequence[dict[str, Any]],
-    headers: list[str],
-    row_fn: Callable[[dict[str, Any]], list[str]],
-    alignments: dict[str, str] | None = None,
-) -> None:
-    """Print items as a formatted table.
-
-    Args:
-        items: Sequence of dictionaries representing the items to display.
-        headers: List of column headers.
-        row_fn: Function that takes an item dict and returns a list of string values for each column.
-        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
-    """
-    if not items:
-        print("No results found.")
-        return
-    rows = cast(list[list[Union[str, int]]], [row_fn(item) for item in items])
-    screaming_headers = [_to_header(h) for h in headers]
-    # Remap alignments keys to screaming case to match tabulate headers
-    screaming_alignments = {_to_header(k): v for k, v in (alignments or {}).items()}
-    print(tabulate(rows, headers=screaming_headers, alignments=screaming_alignments))
-
-
-def print_list_output(
-    items: Sequence[dict[str, Any]],
-    format: OutputFormat,
-    quiet: bool,
-    id_key: str = "id",
-    headers: list[str] | None = None,
-    row_fn: Callable[[dict[str, Any]], list[str]] | None = None,
-    alignments: dict[str, str] | None = None,
-) -> None:
-    """Print list command output in the specified format.
-
-    Args:
-        items: Sequence of dictionaries representing the items to display.
-        format: Output format.
-        quiet: If True, print only IDs (one per line).
-        id_key: Key to use for extracting IDs in quiet mode.
-        headers: Optional list of column names for headers. If not provided, auto-detected from keys.
-        row_fn: Optional function to extract row values. If not provided, uses _format_cell on each column.
-        alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
-    """
-    if quiet:
-        for item in items:
-            print(item[id_key])
-        return
-
-    if format == OutputFormat.json:
-        print(json.dumps(list(items), indent=2, default=str))
-        return
-
-    if headers is None:
-        all_columns = list(items[0].keys()) if items else [id_key]
-        headers = [col for col in all_columns if any(_format_cell(item.get(col)) for item in items)]
-
-    if row_fn is None:
-
-        def row_fn(item: dict[str, Any]) -> list[str]:
-            return [_format_cell(item.get(col)) for col in headers]  # type: ignore[union-attr]
-
-    print_as_table(items, headers=headers, row_fn=row_fn, alignments=alignments)
-
-
-def _serialize_value(v: object) -> object:
-    """Recursively serialize a value to be JSON-compatible."""
-    if isinstance(v, datetime.datetime):
-        return v.isoformat()
-    elif isinstance(v, dict):
-        return {key: _serialize_value(val) for key, val in v.items() if val is not None}
-    elif isinstance(v, list):
-        return [_serialize_value(item) for item in v]
-    return v
-
-
-def api_object_to_dict(info: Any) -> dict[str, Any]:
-    """Convert repo info dataclasses to json-serializable dicts."""
-    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
 
 
 def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
@@ -1081,12 +889,47 @@ def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):
         properties = [p.strip() for p in value.split(",")]
         for prop in properties:
             if prop not in valid_properties:
-                raise typer.BadParameter(
+                raise click.BadParameter(
                     f"Invalid expand property: '{prop}'. Valid values are: {', '.join(valid_properties)}"
                 )
         return [cast(ExpandPropertyT, prop) for prop in properties]
 
     return _parse_expand_properties
+
+
+### SSH
+
+
+SshIdentityFileOpt = Annotated[
+    Path | None,
+    Option("-i", "--identity-file", help="Path to the SSH identity file (forwarded to `ssh -i`)."),
+]
+
+SshDryRunOpt = Annotated[
+    bool,
+    Option("--dry-run", help="Print the SSH command instead of running it."),
+]
+
+
+def exec_ssh(
+    destination: str, *, port: int | None = None, identity_file: Path | None = None, dry_run: bool = False
+) -> None:
+    """Run an interactive `ssh` command to `destination` (`user@host`) and exit with its return code.
+
+    With `dry_run`, print the command instead of running it.
+    """
+    cmd = ["ssh"]
+    if identity_file is not None:
+        cmd += ["-i", str(identity_file)]
+    if port is not None:
+        cmd += ["-p", str(port)]
+    cmd.append(destination)
+    if dry_run:
+        out.text(shlex.join(cmd))
+        return
+    out.text(f"Running `{shlex.join(cmd)}`")
+    result = subprocess.run(cmd)
+    raise click.exceptions.Exit(code=result.returncode)
 
 
 ### PyPI VERSION CHECKER

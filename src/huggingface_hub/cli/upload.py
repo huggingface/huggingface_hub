@@ -11,60 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to upload a repo or file with the CLI.
-
-Usage:
-    # Upload file (implicit)
-    hf upload my-cool-model ./my-cool-model.safetensors
-
-    # Upload file (explicit)
-    hf upload my-cool-model ./my-cool-model.safetensors  model.safetensors
-
-    # Upload directory (implicit). If `my-cool-model/` is a directory it will be uploaded, otherwise an exception is raised.
-    hf upload my-cool-model
-
-    # Upload directory (explicit)
-    hf upload my-cool-model ./models/my-cool-model .
-
-    # Upload filtered directory (example: tensorboard logs except for the last run)
-    hf upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
-
-    # Upload with wildcard
-    hf upload my-cool-model "./model/training/*.safetensors"
-
-    # Upload private dataset
-    hf upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
-
-    # Upload with token
-    hf upload Wauplin/my-cool-model --token=hf_****
-
-    # Sync local Space with Hub (upload new files, delete removed files)
-    hf upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
-
-    # Schedule commits every 30 minutes
-    hf upload Wauplin/my-cool-model --every=30
-"""
+"""Contains command to upload a repo or file with the CLI."""
 
 import os
 import time
 import warnings
 from typing import Annotated
 
-import typer
+import click
 
-from huggingface_hub import logging
+from huggingface_hub import constants, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
-from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.utils import parse_hf_uri
 
 from ._cli_utils import (
     PrivateOpt,
     RepoIdArg,
     RepoType,
-    RepoTypeOpt,
+    RepoTypeOptionalOpt,
     RevisionOpt,
     TokenOpt,
     get_hf_api,
 )
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -84,58 +54,58 @@ def upload(
     repo_id: RepoIdArg,
     local_path: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         ),
     ] = None,
     path_in_repo: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOptionalOpt = None,
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
     ] = None,
     commit_message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to upload content as a new Pull Request.",
         ),
     ] = False,
     every: Annotated[
         float | None,
-        typer.Option(
+        Option(
             help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
@@ -144,9 +114,31 @@ def upload(
     """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
 
     if every is not None and every <= 0:
-        raise typer.BadParameter("--every must be a positive value", param_hint="every")
+        raise click.BadParameter("--every must be a positive value", param_hint="every")
 
-    repo_type_str = repo_type.value
+    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
+    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) path in repo,
+    # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
+        if repo_type is not None:
+            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+        if revision is not None:
+            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+        uri = parse_hf_uri(repo_id)
+        if uri.is_bucket:
+            raise CLIError("Buckets are not supported by `hf upload`. Use `hf sync` instead.")
+        repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
+        if uri.path_in_repo:
+            if path_in_repo is not None:
+                raise CLIError(
+                    f"Cannot combine a path in the hf:// URI ('{uri.path_in_repo}') with the `path_in_repo` argument ('{path_in_repo}')."
+                )
+            path_in_repo = uri.path_in_repo
+    else:
+        repo_type_str = (repo_type or RepoType.model).value
 
     api = get_hf_api(token=token)
 

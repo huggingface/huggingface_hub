@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.15.0.dev0"
+__version__ = "1.23.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -78,8 +78,11 @@ _SUBMOD_ATTRS = {
     ],
     "_jobs_api": [
         "JobAccelerator",
+        "JobDurations",
         "JobHardware",
+        "JobHardwareInfo",
         "JobInfo",
+        "JobInitiator",
         "JobOwner",
         "JobStage",
         "JobStatus",
@@ -98,6 +101,12 @@ _SUBMOD_ATTRS = {
         "OAuthUserInfo",
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
+    ],
+    "_sandbox": [
+        "Sandbox",
+        "SandboxCommandResult",
+        "SandboxPool",
+        "SandboxProcess",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -188,6 +197,7 @@ _SUBMOD_ATTRS = {
         "Organization",
         "RepoFile",
         "RepoFolder",
+        "RepoStorageInfo",
         "RepoUrl",
         "SpaceInfo",
         "SpaceSearchResult",
@@ -299,6 +309,7 @@ _SUBMOD_ATTRS = {
         "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
+        "list_user_repos",
         "list_webhooks",
         "merge_pull_request",
         "model_info",
@@ -334,16 +345,22 @@ _SUBMOD_ATTRS = {
         "super_squash_history",
         "suspend_scheduled_job",
         "sync_bucket",
+        "sync_job_volume",
+        "trigger_scheduled_job",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
         "update_inference_endpoint",
+        "update_job_labels",
         "update_repo_settings",
+        "update_scheduled_job_labels",
         "update_webhook",
         "upload_file",
         "upload_folder",
         "upload_large_folder",
         "verify_repo_checksums",
+        "wait_for_job",
+        "wait_for_space",
         "whoami",
     ],
     "hf_file_system": [
@@ -580,6 +597,7 @@ _SUBMOD_ATTRS = {
         "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
+        "CachedIncompleteFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
         "CorruptedCacheException",
@@ -637,6 +655,7 @@ __all__ = [
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
+    "CachedIncompleteFileInfo",
     "CachedRepoInfo",
     "CachedRevisionInfo",
     "CardData",
@@ -763,8 +782,11 @@ __all__ = [
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "JobAccelerator",
+    "JobDurations",
     "JobHardware",
+    "JobHardwareInfo",
     "JobInfo",
+    "JobInitiator",
     "JobOwner",
     "JobStage",
     "JobStatus",
@@ -795,7 +817,12 @@ __all__ = [
     "RepoCard",
     "RepoFile",
     "RepoFolder",
+    "RepoStorageInfo",
     "RepoUrl",
+    "Sandbox",
+    "SandboxCommandResult",
+    "SandboxPool",
+    "SandboxProcess",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -1028,6 +1055,7 @@ __all__ = [
     "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
+    "list_user_repos",
     "list_webhooks",
     "load_state_dict_from_file",
     "load_torch_model",
@@ -1086,18 +1114,24 @@ __all__ = [
     "super_squash_history",
     "suspend_scheduled_job",
     "sync_bucket",
+    "sync_job_volume",
+    "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
     "update_inference_endpoint",
+    "update_job_labels",
     "update_repo_settings",
+    "update_scheduled_job_labels",
     "update_webhook",
     "upload_file",
     "upload_folder",
     "upload_large_folder",
     "verify_repo_checksums",
+    "wait_for_job",
+    "wait_for_space",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1228,8 +1262,11 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from ._jobs_api import (
         JobAccelerator,  # noqa: F401
+        JobDurations,  # noqa: F401
         JobHardware,  # noqa: F401
+        JobHardwareInfo,  # noqa: F401
         JobInfo,  # noqa: F401
+        JobInitiator,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
@@ -1248,6 +1285,12 @@ if TYPE_CHECKING:  # pragma: no cover
         OAuthUserInfo,  # noqa: F401
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
+    )
+    from ._sandbox import (
+        Sandbox,  # noqa: F401
+        SandboxCommandResult,  # noqa: F401
+        SandboxPool,  # noqa: F401
+        SandboxProcess,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
@@ -1334,6 +1377,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
         RepoFolder,  # noqa: F401
+        RepoStorageInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
@@ -1445,6 +1489,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
+        list_user_repos,  # noqa: F401
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
@@ -1480,16 +1525,22 @@ if TYPE_CHECKING:  # pragma: no cover
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401
+        sync_job_volume,  # noqa: F401
+        trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
+        update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401
+        update_scheduled_job_labels,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         upload_large_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401
+        wait_for_job,  # noqa: F401
+        wait_for_space,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (
@@ -1719,6 +1770,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ASYNC_CLIENT_FACTORY_T,  # noqa: F401
         CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
+        CachedIncompleteFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
         CacheNotFound,  # noqa: F401

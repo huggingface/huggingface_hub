@@ -1,5 +1,6 @@
 """Contains all custom errors."""
 
+from enum import Enum
 from pathlib import Path
 
 from httpx import HTTPError, Response
@@ -27,6 +28,49 @@ class CorruptedCacheException(Exception):
 
 class LocalTokenNotFoundError(EnvironmentError):
     """Raised if local token is required but not found."""
+
+
+# OIDC ERRORS
+
+
+class OIDCError(Exception):
+    """Raised when keyless CI/CD auth via OIDC token exchange ("Trusted Publishers") cannot proceed.
+
+    Typically because `HF_OIDC_RESOURCE` is set but no id token is available: not running in a
+    supported CI provider and `HF_OIDC_ID_TOKEN` is unset.
+
+    See https://huggingface.co/docs/hub/trusted-publishers.
+    """
+
+
+# DEVICE CODE OAUTH ERRORS
+
+
+class OAuthErrorCode(str, Enum):
+    """Known OAuth `error` codes returned by the Hub's token endpoint (RFC 6749 / RFC 8628)."""
+
+    AUTHORIZATION_PENDING = "authorization_pending"
+    SLOW_DOWN = "slow_down"
+    EXPIRED_TOKEN = "expired_token"
+    ACCESS_DENIED = "access_denied"
+    INVALID_GRANT = "invalid_grant"
+
+
+class DeviceCodeError(Exception):
+    """Raised when the Device Code OAuth login flow (RFC 8628) or an OAuth token refresh fails.
+
+    Covers failures at any step: requesting the device code, polling for the token,
+    authorization denied/expired, or unexpected server responses.
+
+    Attributes:
+        error_code (`str`, *optional*):
+            The OAuth `error` code returned by the server, if any. Known values are listed in
+            [`OAuthErrorCode`] but the server may return other codes.
+    """
+
+    def __init__(self, message: str, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code
 
 
 # HTTP ERRORS
@@ -229,6 +273,21 @@ class BucketNotFoundError(HfHubHTTPError):
     bucket_id: str | None = None
 
 
+# JOB ERRORS
+
+
+class JobNotFoundError(HfHubHTTPError):
+    """
+    Raised when trying to access a Job that does not exist.
+
+    Attributes:
+        job_id (`str`):
+            The job id that was not found.
+    """
+
+    job_id: str
+
+
 # REPOSITORY ERRORS
 
 
@@ -397,6 +456,16 @@ class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
         super().__init__(message)
 
 
+class IncompleteSnapshotError(LocalEntryNotFoundError):
+    """
+    Raised by [`snapshot_download`] when the Hub cannot be reached (offline, connection issue, or
+    `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
+    the repository's cached tree listing are missing from the local snapshot.
+
+    This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
+    """
+
+
 # REQUEST ERROR
 class BadRequestError(HfHubHTTPError, ValueError):
     """
@@ -463,20 +532,15 @@ class StrictDataclassClassValidationError(StrictDataclassError):
 # XET ERRORS
 
 
-class XetError(Exception):
-    """Base exception for errors related to Xet Storage."""
-
-
-class XetAuthorizationError(XetError):
-    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
-
-
-class XetRefreshTokenError(XetError):
-    """Exception thrown when the refresh token is invalid."""
-
-
 class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
+
+
+# LFS ERRORS
+
+
+class FileDuplicationError(Exception):
+    """Raised when duplicating files across repos fails."""
 
 
 # CLI ERRORS
@@ -492,3 +556,40 @@ class ConfirmationError(CLIError):
 
 class CLIExtensionInstallError(CLIError):
     """Error during CLI extension installation."""
+
+
+# SANDBOX ERRORS
+
+
+class SandboxError(Exception):
+    """Base exception for sandbox operations (see `huggingface_hub.Sandbox`).
+
+    Attributes:
+        status_code: The HTTP status returned by the in-sandbox server, if the error
+            originated from an API response (e.g. `404` for a missing file). `None` otherwise.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class SandboxCommandError(SandboxError):
+    """Raised when a command run in a sandbox exits with a non-zero code.
+
+    Attributes:
+        cmd: The command that failed.
+        result: The full `SandboxCommandResult` (exit_code, stdout, stderr, ...).
+    """
+
+    def __init__(self, cmd, result) -> None:
+        self.cmd = cmd
+        self.result = result
+        stderr_tail = result.stderr[-1000:] if result.stderr else "<empty>"
+        if result.timed_out:
+            reason = "timed out"
+        elif result.signal is not None:
+            reason = f"was killed by signal {result.signal}"
+        else:
+            reason = f"exited with code {result.exit_code}"
+        super().__init__(f"Command {cmd!r} {reason}. stderr:\n{stderr_tail}")

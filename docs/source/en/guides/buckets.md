@@ -24,7 +24,7 @@ Create a bucket with [`create_bucket`]. You need to provide a bucket name. If yo
 >>> url = create_bucket("my-bucket")
 >>> url.bucket_id
 'username/my-bucket'
->>> url.handle
+>>> url.uri.to_uri()
 'hf://buckets/username/my-bucket'
 
 # Create a private bucket
@@ -44,7 +44,9 @@ Or via CLI:
 
 ```bash
 >>> hf buckets create my-bucket
-Bucket created: https://huggingface.co/buckets/username/my-bucket (handle: hf://buckets/username/my-bucket)
+✓ Bucket created
+  uri: hf://buckets/Wauplin/my-bucket
+  url: https://huggingface.co/buckets/Wauplin/my-bucket
 
 # Create a private bucket
 >>> hf buckets create my-bucket --private
@@ -398,6 +400,9 @@ You can also delete files while uploading others.
 
 Use `hf buckets cp` to upload a single file:
 
+> [!TIP]
+> `hf buckets cp` is an alias for the unified `hf cp` command (also exposed as `hf repos cp`). All three are identical, so any `hf buckets cp` example below also works with `hf cp`.
+
 ```bash
 # Upload to bucket root (uses local filename as remote name)
 >>> hf buckets cp ./config.json hf://buckets/username/my-bucket
@@ -522,31 +527,33 @@ Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
 ... )
 ```
 
-The same is available from the CLI:
+The same is available from the CLI via the unified `hf cp` command (also exposed as `hf buckets cp` and `hf repos cp` — all three are identical):
 
 ```bash
 # Bucket to bucket
->>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/logs/
+>>> hf cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/logs/
 
 # Repo to bucket
->>> hf buckets cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
+>>> hf cp hf://username/my-model/config.json hf://buckets/username/my-bucket/models/config.json
 ```
 
 When copying folders, a trailing `/` on the source uses rsync-style semantics — only the *contents* of the folder are copied, without nesting the folder itself:
 
 ```bash
 # Without trailing slash: "logs" dir is nested => destination/logs/...
->>> hf buckets cp hf://buckets/username/source-bucket/logs hf://buckets/username/destination-bucket/
+>>> hf cp hf://buckets/username/source-bucket/logs hf://buckets/username/destination-bucket/
 
 # With trailing slash: only contents of "logs" are copied => destination/...
->>> hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/
+>>> hf cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/destination-bucket/
 ```
 
 Notes:
 
 - Bucket-to-repo copy is not yet supported.
+- Server-side copies only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
 - Files tracked with Xet (in buckets or repos) are copied server-side by hash — no data is downloaded or re-uploaded.
 - Small text files not tracked with Xet on repo sources are downloaded and re-uploaded to the destination bucket.
+- [`copy_files`] can also be used for repo-to-repo copies. See the [repository guide](./repository#copy-files) for more details.
 
 ## Sync directories
 

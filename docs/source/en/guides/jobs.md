@@ -19,7 +19,7 @@ If you want to run and manage a job on the Hub, your machine must be logged in. 
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with a positive [credit balance](https://huggingface.co/settings/billing). See [Jobs pricing and billing](https://huggingface.co/docs/hub/jobs-pricing) for details.
 
 ## Jobs Command Line Interface
 
@@ -43,6 +43,9 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 Now the rest of this guide will show you the python API.
 If you would like to view all the available `hf jobs` commands and options instead, check out the [guide on the `hf jobs` command line interface](./cli#hf-jobs).
+
+> [!TIP]
+> Need an *interactive* machine instead of a fire-and-forget job — e.g. to run AI-generated code, with command execution and file transfer? Check out [Sandboxes](./sandbox), built on top of Jobs.
 
 ## Run a Job
 
@@ -109,14 +112,20 @@ Jobs run in the background. The next section guides you through [`inspect_job`] 
 ## Check Job status
 
 ```python
-# List your jobs
+# List your jobs (results are paginated and returned as an iterator)
 >>> from huggingface_hub import list_jobs
 >>> jobs = list_jobs()
->>> jobs[0]
+>>> next(iter(jobs))
 JobInfo(id='687f911eaea852de79c4a50a', created_at=datetime.datetime(2025, 7, 22, 13, 24, 46, 909000, tzinfo=datetime.timezone.utc), docker_image='python:3.12', space_id=None, command=['python', '-c', "print('Hello from the cloud!')"], arguments=[], environment={}, secrets={}, flavor='cpu-basic', status=JobStatus(stage='COMPLETED', message=None), owner=JobOwner(id='5e9ecfc04957053f60648a3e', name='lhoestq'), endpoint='https://huggingface.co', url='https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a')
 
+# Materialize the iterator into a list
+>>> all_jobs = [job for job in list_jobs()]
+
 # List your running jobs
->>> running_jobs = [job for job in list_jobs() if job.status.stage == "RUNNING"]
+>>> running_jobs = list_jobs(status="RUNNING")
+
+# Filter by one or more statuses and/or labels
+>>> list_jobs(status=["RUNNING", "SCHEDULING"], labels={"env": "prod"})
 
 # Inspect the status of a job
 >>> from huggingface_hub import inspect_job
@@ -149,17 +158,32 @@ Hello from the cloud!
 >>> cancel_job(job_id=job_id)
 ```
 
-Check the status of multiple jobs to know when they're all finished using a loop and [`inspect_job`]:
+## Wait until Jobs finish
+
+Use [`wait_for_job`] to block until a Job reaches a terminal stage (`COMPLETED`, `CANCELED`, `ERROR` or `DELETED`). The final [`JobInfo`] is always returned — a failed Job does not raise an exception — so check `job.status.stage` to act on the outcome. Pass a list of Job IDs to wait on a whole batch at once.
 
 ```python
-# Run multiple jobs in parallel and wait for their completions
->>> import time
->>> from huggingface_hub import inspect_job, run_job
+>>> from huggingface_hub import run_job, wait_for_job
+>>> job = run_job(image="python:3.12", command=["python", "-c", "print('hello')"])
+>>> wait_for_job(job_id=job.id).status.stage
+'COMPLETED'
+
+# Run multiple jobs in parallel and wait for all of them to finish
 >>> jobs = [run_job(image=image, command=command) for command in commands]
->>> for job in jobs:
-...     while inspect_job(job_id=job.id).status.stage not in ("COMPLETED", "ERROR"):
-...         time.sleep(10)
+>>> finished_jobs = wait_for_job(job_id=[job.id for job in jobs], timeout=3600)
 ```
+
+The same is available in the CLI with `hf jobs wait`, which exits with code 0 only if all Jobs completed successfully — handy for chaining commands in shell scripts or CI:
+
+```bash
+# Chain on success
+hf jobs wait <job_id> && hf jobs run --detach python:3.12 python eval.py
+
+# Wait for all currently running jobs
+hf jobs ls -q | xargs hf jobs wait
+```
+
+Note that a non-detached `hf jobs run` (or `hf jobs uv run`) also exits with a non-zero code if the Job fails, so `hf jobs run ... && next-step` chains correctly without an explicit wait.
 
 ## Select the hardware
 
@@ -206,13 +230,51 @@ Use this to run a fine-tuning script like [trl/scripts/sft.py](https://github.co
 > [!TIP]
 > For comprehensive guidance on running model training jobs with TRL on Hugging Face infrastructure, check out the [TRL Jobs Training documentation](https://huggingface.co/docs/trl/main/en/jobs_training). It covers fine-tuning recipes, hardware selection, and best practices for training models efficiently.
 
-Available `flavor` options:
+Here is the full list of available hardware to run Jobs:
 
-- CPU: `cpu-basic`, `cpu-upgrade`
-- GPU: `t4-small`, `t4-medium`, `l4x1`, `l4x4`, `a10g-small`, `a10g-large`, `a10g-largex2`, `a10g-largex4`,`a100-large`
-- TPU: `v5e-1x1`, `v5e-2x2`, `v5e-2x4`
+<!-- HARDWARE_TABLE_START (auto-generated by utils/check_hardware_flavors.py — do not edit) -->
+| name | pretty name | cpu | ram | storage | accelerator | cost/min | cost/hour |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `cpu-basic` | CPU Basic | 2 vCPU | 16 GB | 50 GB | - | $0.0002 | $0.01 |
+| `cpu-upgrade` | CPU Upgrade | 8 vCPU | 32 GB | 50 GB | - | $0.0005 | $0.03 |
+| `cpu-performance` | CPU Performance | 32 vCPU | 256 GB | 1024 GB | - | $0.0317 | $1.90 |
+| `cpu-xl` | CPU XL | 16 vCPU | 124 GB | 1000 GB | - | $0.0167 | $1.00 |
+| `t4-small` | Nvidia T4 - small | 4 vCPU | 15 GB | 50 GB | 1x T4 (16 GB) | $0.0067 | $0.40 |
+| `t4-medium` | Nvidia T4 - medium | 8 vCPU | 30 GB | 100 GB | 1x T4 (16 GB) | $0.0100 | $0.60 |
+| `a10g-small` | Nvidia A10G - small | 4 vCPU | 15 GB | 110 GB | 1x A10G (24 GB) | $0.0167 | $1.00 |
+| `a10g-large` | Nvidia A10G - large | 12 vCPU | 46 GB | 200 GB | 1x A10G (24 GB) | $0.0250 | $1.50 |
+| `a10g-largex2` | 2x Nvidia A10G - large | 24 vCPU | 92 GB | 1000 GB | 2x A10G (48 GB) | $0.0500 | $3.00 |
+| `a10g-largex4` | 4x Nvidia A10G - large | 48 vCPU | 184 GB | 2000 GB | 4x A10G (96 GB) | $0.0833 | $5.00 |
+| `a100-large` | Nvidia A100 - large | 12 vCPU | 142 GB | 1000 GB | 1x A100 (80 GB) | $0.0417 | $2.50 |
+| `a100x4` | 4x Nvidia A100 | 48 vCPU | 568 GB | 4000 GB | 4x A100 (320 GB) | $0.1667 | $10.00 |
+| `a100x8` | 8x Nvidia A100 | 96 vCPU | 1136 GB | 8000 GB | 8x A100 (640 GB) | $0.3333 | $20.00 |
+| `h200` | Nvidia H200 | 23 vCPU | 256 GB | 3000 GB | 1x H200 (141 GB) | $0.0833 | $5.00 |
+| `h200x2` | Nvidia H200 | 46 vCPU | 512 GB | 6000 GB | 2x H200 (282 GB) | $0.1667 | $10.00 |
+| `h200x4` | Nvidia H200 | 92 vCPU | 1024 GB | 12000 GB | 4x H200 (564 GB) | $0.3333 | $20.00 |
+| `h200x8` | Nvidia H200 | 184 vCPU | 2048 GB | 24000 GB | 8x H200 (1128 GB) | $0.6667 | $40.00 |
+| `rtx-pro-6000` | Nvidia RTX PRO 6000 | 23 vCPU | 256 GB | 475 GB | 1x RTX PRO 6000 (96 GB) | $0.0458 | $2.75 |
+| `rtx-pro-6000x2` | Nvidia RTX PRO 6000 | 46 vCPU | 512 GB | 950 GB | 2x RTX PRO 6000 (192 GB) | $0.0917 | $5.50 |
+| `rtx-pro-6000x4` | Nvidia RTX PRO 6000 | 92 vCPU | 1024 GB | 1900 GB | 4x RTX PRO 6000 (384 GB) | $0.1833 | $11.00 |
+| `rtx-pro-6000x8` | Nvidia RTX PRO 6000 | 184 vCPU | 2048 GB | 3800 GB | 8x RTX PRO 6000 (768 GB) | $0.3667 | $22.00 |
+| `l4x1` | 1x Nvidia L4 | 8 vCPU | 30 GB | 400 GB | 1x L4 (24 GB) | $0.0133 | $0.80 |
+| `l4x4` | 4x Nvidia L4 | 48 vCPU | 186 GB | 3200 GB | 4x L4 (96 GB) | $0.0633 | $3.80 |
+| `l40sx1` | 1x Nvidia L40S | 8 vCPU | 62 GB | 380 GB | 1x L40S (48 GB) | $0.0300 | $1.80 |
+| `l40sx4` | 4x Nvidia L40S | 48 vCPU | 382 GB | 3200 GB | 4x L40S (192 GB) | $0.1383 | $8.30 |
+| `l40sx8` | 8x Nvidia L40S | 192 vCPU | 1534 GB | 6500 GB | 8x L40S (384 GB) | $0.3917 | $23.50 |
+<!-- HARDWARE_TABLE_END -->
 
-(updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
+You can get this list programmatically by running:
+
+```bash
+>>> hf jobs hardware
+```
+
+Or using the Python API:
+
+```python
+>>> from huggingface_hub import list_jobs_hardware
+>>> list_jobs_hardware()
+```
 
 That's it! You're now running code on Hugging Face's infrastructure.
 
@@ -251,6 +313,64 @@ By default, mounted storage buckets have read+write abilities.
 This is especially useful for storage buckets, which provide fast, mutable storage for data that changes frequently — files can be overwritten or deleted in place.
 
 Use `read_only=True` to enable read-only: `Volume(type="bucket", read_only=True, ...)`.
+
+### Mount local data
+
+To run a Job against data on your machine, use [`sync_job_volume`]: it syncs a local directory to your `jobs-artifacts` [Storage Bucket](https://huggingface.co/docs/hub/storage-buckets) (created automatically if needed) and returns a ready-to-mount [`Volume`]:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_job_volume
+
+# Upload ./training-data once...
+>>> volume = sync_job_volume("./training-data", "/data")
+
+# ...then run as many Jobs as you want against it
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.01"], volumes=[volume])
+>>> run_uv_job("train.py", script_args=["--learning-rate", "0.05"], volumes=[volume])
+```
+
+Each directory gets its own stable folder in the bucket: re-running [`sync_job_volume`] on the same directory only uploads new or modified files. The volume is mounted read-only by default.
+
+To retrieve files written by a Job, mount a read-write volume (an empty output directory works too) and sync it back once the Job is over:
+
+```python
+>>> from huggingface_hub import run_uv_job, sync_bucket, sync_job_volume
+
+>>> outputs = sync_job_volume("./outputs", "/outputs", read_only=False)
+>>> job = run_uv_job("process.py", volumes=[outputs])
+
+# ...once the Job completes, pull back the data:
+>>> sync_bucket(f"hf://buckets/{outputs.source}/{outputs.path}", "./outputs")
+```
+
+In the CLI, simply pass a local directory as the source side of `-v`:
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+```
+
+## SSH into a Job
+
+Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container reachable over SSH. The SSH endpoint is available in the Job status:
+
+```python
+>>> from huggingface_hub import run_job
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["sleep", "infinity"],
+...     ssh=True,
+... )
+>>> job.status.ssh_url
+'ssh://68498e23210b3a4f4e6e2a23@ssh.hf.jobs'
+```
+
+Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_id>@ssh.hf.jobs`):
+
+```bash
+>>> hf jobs ssh 68498e23210b3a4f4e6e2a23
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 
 ## Configure Job Timeout
 
@@ -385,7 +505,7 @@ These variables are useful when you need to create unique identifiers for output
 
 ## Labels
 
-Labels are a key=value pairs that applies metadata to a Job:
+Labels are key=value pairs that attach metadata to a Job:
 
 ```python
 # Pass extra metadata with Labels
@@ -395,6 +515,35 @@ Labels are a key=value pairs that applies metadata to a Job:
 ...     command=["python", "-c", "import os; print(os.environ['MY_SECRET'])"],
 ...     labels={"my-label": "my-value", "foo": "bar"},
 ... )
+```
+
+### Update labels
+
+Use [`update_job_labels`] to replace labels on an existing job. This replaces all existing user-provided labels:
+
+```python
+>>> from huggingface_hub import update_job_labels
+>>> update_job_labels(job_id, labels={"env": "prod", "team": "ml"})
+```
+
+This also works for scheduled jobs with [`update_scheduled_job_labels`]:
+
+```python
+>>> from huggingface_hub import update_scheduled_job_labels
+>>> update_scheduled_job_labels(scheduled_job_id, labels={"env": "staging"})
+```
+
+From the CLI:
+
+```bash
+>>> hf jobs labels <job_id> --label env=prod --label team=ml
+>>> hf jobs scheduled labels <scheduled_job_id> --label env=staging
+```
+
+To remove all labels, pass `--clear`:
+
+```bash
+>>> hf jobs labels <job_id> --clear
 ```
 
 ## UV Scripts (Experimental)
@@ -482,7 +631,7 @@ Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
 
-Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], and [`delete_scheduled_job`]:
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
 
 ```python
 # List your active scheduled jobs
@@ -500,6 +649,11 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 # Resume a scheduled job
 >>> from huggingface_hub import resume_scheduled_job
 >>> resume_scheduled_job(scheduled_job_id)
+
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> from huggingface_hub import trigger_scheduled_job
+>>> job = trigger_scheduled_job(scheduled_job_id)
+>>> job.url
 
 # Delete a scheduled job
 >>> from huggingface_hub import delete_scheduled_job

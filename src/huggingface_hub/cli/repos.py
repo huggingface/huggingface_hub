@@ -11,36 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with repositories on the Hugging Face Hub.
-
-Usage:
-    # create a new dataset repo on the Hub
-    hf repos create my-cool-dataset --repo-type=dataset
-
-    # create a private model repo on the Hub
-    hf repos create my-cool-model --private
-
-    # delete files from a repo on the Hub
-    hf repos delete-files my-model file.txt
-"""
+"""Contains commands to interact with repositories on the Hugging Face Hub."""
 
 import enum
 from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import SpaceHardware, SpaceStorage
+from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import REPO_REGIONS
 
+from ._city_game import run_city_game
 from ._cli_utils import (
+    REPO_LIST_DEFAULT_LIMIT,
     EnvFileOpt,
     EnvOpt,
+    LimitOpt,
     PrivateOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     RevisionOpt,
+    SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
     TokenOpt,
@@ -51,22 +45,26 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
-from ._output import out
+from ._cp import make_cp
+from ._file_listing import format_size
+from ._framework import Argument, Option
+from ._output import OutputFormat, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
 
 
-@repos_cli.callback(invoke_without_command=True)
-def _repos_callback(ctx: typer.Context) -> None:
+@repos_cli.group_callback(invoke_without_command=True)
+def _repos_callback(ctx: click.Context) -> None:
     if ctx.info_name == "repo":
         out.warning("`hf repo` is deprecated in favor of `hf repos`.")
 
 
-tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
-branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-repos_cli.add_typer(tag_cli, name="tag")
-repos_cli.add_typer(branch_cli, name="branch")
+class RepoTypeAll(str, enum.Enum):
+    model = "model"
+    dataset = "dataset"
+    space = "space"
+    bucket = "bucket"
 
 
 class GatedChoices(str, enum.Enum):
@@ -77,7 +75,7 @@ class GatedChoices(str, enum.Enum):
 
 PublicOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         "--public",
         help="Whether to make the repo public. Ignored if the repo already exists.",
     ),
@@ -85,22 +83,23 @@ PublicOpt = Annotated[
 
 ProtectedOpt = Annotated[
     bool | None,
-    typer.Option(
+    Option(
         "--protected",
         help="Whether to make the Space protected (Spaces only). Ignored if the repo already exists.",
     ),
 ]
 SpaceHardwareOpt = Annotated[
-    SpaceHardware | None,
-    typer.Option(
+    str | None,
+    Option(
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
+        click_type=SoftChoice(SpaceHardware),
     ),
 ]
 
 SpaceStorageOpt = Annotated[
     SpaceStorage | None,
-    typer.Option(
+    Option(
         "--storage",
         help="(Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
     ),
@@ -108,11 +107,82 @@ SpaceStorageOpt = Annotated[
 
 SpaceSleepTimeOpt = Annotated[
     int | None,
-    typer.Option(
+    Option(
         "--sleep-time",
         help="Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.",
     ),
 ]
+
+
+tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
+branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
+repos_cli.add_group(tag_cli, name="tag")
+repos_cli.add_group(branch_cli, name="branch")
+
+
+@repos_cli.command(
+    "list | ls",
+    examples=[
+        "hf repos ls",
+        "hf repos ls --explore",
+        "hf repos ls --namespace my-org --search bert",
+    ],
+)
+def repo_list(
+    namespace: Annotated[
+        str | None,
+        Option(
+            help="Organization name. If not provided, lists repos for the authenticated user.",
+        ),
+    ] = None,
+    repo_type: Annotated[
+        RepoTypeAll | None,
+        Option(
+            "--type",
+            "--repo-type",
+            help="Filter by repository type (model, dataset, space, or bucket).",
+        ),
+    ] = None,
+    search: SearchOpt = None,
+    limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
+    explore: Annotated[
+        bool,
+        Option("--explore", help="Explore your repos as an interactive 3D city."),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """List all repos (models, datasets, spaces, buckets) with storage info."""
+    api = get_hf_api(token=token)
+    repos = list(api.list_user_repos(namespace=namespace))
+    if repo_type is not None:
+        repos = [r for r in repos if r.type == repo_type.value]
+    if search is not None:
+        search_lower = search.lower()
+        repos = [r for r in repos if search_lower in r.id.lower()]
+    total = len(repos)
+
+    if explore:
+        if out.mode == OutputFormat.human:
+            run_city_game(repos)
+            return
+        raise CLIError("Repository exploration is only available in terminal.")
+
+    if limit > 0:
+        repos = repos[:limit]
+    items = [
+        {
+            "id": r.id,
+            "type": r.type,
+            "updated": r.updated_at.strftime("%Y-%m-%d"),
+            "visibility": r.visibility,
+            "storage": format_size(r.storage, human_readable=True),
+            "%_of_total": f"{r.storage_percent:.1f}%",
+        }
+        for r in repos
+    ]
+    out.table(items, id_key="id", alignments={"storage": "right", "%_of_total": "right"})
+    if limit > 0 and total > limit:
+        out.hint(f"Showing {limit} of {total} repos. Use `--limit 0` to list all.")
 
 
 @repos_cli.command(
@@ -121,7 +191,7 @@ SpaceSleepTimeOpt = Annotated[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
         "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
-        "hf repos create my-space --type space --space-sdk gradio -v hf://gpt2:/models -v hf://buckets/org/b:/data",
+        "hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
         "hf repos create my-model --region us",
     ],
 )
@@ -130,7 +200,7 @@ def repo_create(
     repo_type: RepoTypeOpt = RepoType.model,
     space_sdk: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
@@ -140,19 +210,19 @@ def repo_create(
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
     resource_group_id: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.",
         ),
     ] = None,
     region: Annotated[
         REPO_REGIONS | None,
-        typer.Option(
+        Option(
             "--region",
             help="Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.",
         ),
@@ -192,14 +262,14 @@ def repo_create(
     examples=[
         "hf repos duplicate openai/gdpval --type dataset",
         "hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private",
-        "hf repos duplicate org/my-space my-space --type space -v hf://gpt2:/models -v hf://buckets/org/b:/data",
+        "hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
     ],
 )
 def repo_duplicate(
     from_id: RepoIdArg,
     to_id: Annotated[
         str | None,
-        typer.Argument(
+        Argument(
             help="Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.",
         ),
     ] = None,
@@ -210,7 +280,7 @@ def repo_duplicate(
     token: TokenOpt = None,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
@@ -249,13 +319,13 @@ def repo_delete(
     token: TokenOpt = None,
     missing_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If set to True, do not raise an error if repo does not exist.",
         ),
     ] = False,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically.",
@@ -302,7 +372,7 @@ def repo_settings(
     repo_id: RepoIdArg,
     gated: Annotated[
         GatedChoices | None,
-        typer.Option(
+        Option(
             help="The gated status for the repository.",
         ),
     ] = None,
@@ -335,7 +405,7 @@ def repo_delete_files(
     repo_id: RepoIdArg,
     patterns: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
         ),
     ],
@@ -343,19 +413,19 @@ def repo_delete_files(
     revision: RevisionOpt = None,
     commit_message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,
@@ -375,6 +445,26 @@ def repo_delete_files(
     out.result("Files deleted", repo_id=repo_id, commit_url=url)
 
 
+# `hf repos cp` is an alias for the top-level `hf cp` command (see `cli/_cp.py`).
+repos_cli.command(
+    name="cp",
+    examples=[
+        # Download (repo or bucket -> local / stdout)
+        "hf repos cp hf://username/my-model/config.json config.json",
+        "hf repos cp hf://datasets/username/my-dataset/data.csv data/",
+        "hf repos cp hf://username/my-model/config.json -",
+        # Upload (local / stdin -> repo)
+        "hf repos cp model.safetensors hf://username/my-model/model.safetensors",
+        "hf repos cp config.json hf://username/my-model/logs/",
+        "hf repos cp - hf://username/my-model/config.json",
+        # Remote to remote (repo -> repo)
+        "hf repos cp hf://username/source-model/config.json hf://username/dest-model/config.json",
+        "hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/",
+        "hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/",
+    ],
+)(make_cp("repos"))
+
+
 @branch_cli.command(
     "create",
     examples=[
@@ -386,7 +476,7 @@ def branch_create(
     repo_id: RepoIdArg,
     branch: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the branch to create.",
         ),
     ],
@@ -395,7 +485,7 @@ def branch_create(
     repo_type: RepoTypeOpt = RepoType.model,
     exist_ok: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="If set to True, do not raise an error if branch already exists.",
         ),
     ] = False,
@@ -417,7 +507,7 @@ def branch_delete(
     repo_id: RepoIdArg,
     branch: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the branch to delete.",
         ),
     ],
@@ -445,13 +535,13 @@ def tag_create(
     repo_id: RepoIdArg,
     tag: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the tag to create.",
         ),
     ],
     message: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "-m",
             "--message",
             help="The description of the tag to create.",
@@ -499,13 +589,13 @@ def tag_delete(
     repo_id: RepoIdArg,
     tag: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The name of the tag to delete.",
         ),
     ],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Answer Yes to prompt automatically",

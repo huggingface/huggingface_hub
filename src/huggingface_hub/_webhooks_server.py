@@ -35,7 +35,7 @@ else:
     FastAPI = Request = JSONResponse = None  # type: ignore
 
 
-_global_app: Optional["WebhooksServer"] = None
+_global_app: Optional["WebhooksServer"] = None  # ty: ignore[invalid-type-form]
 _is_local = os.environ.get("SPACE_ID") is None
 
 
@@ -88,7 +88,7 @@ class WebhooksServer:
         ```
     """
 
-    def __new__(cls, *args, **kwargs) -> "WebhooksServer":
+    def __new__(cls, *args, **kwargs) -> "WebhooksServer":  # ty: ignore[invalid-type-form]
         if not is_gradio_available():
             raise ImportError(
                 "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio`"
@@ -301,7 +301,7 @@ def webhook_endpoint(path: str | None = None) -> Callable:
     return _inner
 
 
-def _get_global_app() -> WebhooksServer:
+def _get_global_app() -> WebhooksServer:  # ty: ignore[invalid-type-form]
     global _global_app
     if _global_app is None:
         _global_app = WebhooksServer()

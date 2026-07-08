@@ -1,6 +1,5 @@
 import threading
 import time
-import unittest
 import weakref
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
@@ -13,13 +12,19 @@ import pytest
 from httpx import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError, OfflineModeIsEnabled, RepositoryNotFoundError
+from huggingface_hub.errors import (
+    BucketNotFoundError,
+    HfHubHTTPError,
+    OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+)
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
+    _parse_retry_after,
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
@@ -35,15 +40,15 @@ from huggingface_hub.utils._http import (
 URL = "https://www.google.com"
 
 
-class TestHttpBackoff(unittest.TestCase):
-    def setUp(self) -> None:
+class TestHttpBackoff:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
         get_session_mock = Mock()
         self.mock_request = get_session_mock().request
 
         self.patcher = patch("huggingface_hub.utils._http.get_session", get_session_mock)
         self.patcher.start()
-
-    def tearDown(self) -> None:
+        yield
         self.patcher.stop()
 
     def test_backoff_no_errors(self) -> None:
@@ -51,7 +56,7 @@ class TestHttpBackoff(unittest.TestCase):
         data_mock = Mock()
         response = http_backoff("GET", URL, data=data_mock)
         self.mock_request.assert_called_once_with(method="GET", url=URL, data=data_mock)
-        self.assertIs(response, self.mock_request())
+        assert response is self.mock_request()
 
     def test_backoff_3_calls(self) -> None:
         """Test `http_backoff` with 2 fails."""
@@ -60,7 +65,7 @@ class TestHttpBackoff(unittest.TestCase):
         response = http_backoff(  # retry on ValueError, instant retry
             "GET", URL, retry_on_exceptions=ValueError, base_wait_time=0.0
         )
-        self.assertEqual(self.mock_request.call_count, 3)
+        assert self.mock_request.call_count == 3
         self.mock_request.assert_has_calls(
             calls=[
                 call(method="GET", url=URL),
@@ -68,27 +73,29 @@ class TestHttpBackoff(unittest.TestCase):
                 call(method="GET", url=URL),
             ]
         )
-        self.assertIs(response, response_mock)
+        assert response is response_mock
 
     def test_backoff_on_exception_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with exceptions."""
         self.mock_request.side_effect = ConnectTimeout("Connection timeout")
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=3)
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_status_code_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with status codes."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         mock_504 = Mock()
         mock_504.status_code = 504
+        mock_504.headers = {}
         mock_504.raise_for_status.side_effect = HTTPError("HTTP Error")
         self.mock_request.side_effect = (mock_503, mock_504, mock_503, mock_504)
 
-        with self.assertRaises(HTTPError):
+        with pytest.raises(HTTPError):
             http_backoff(
                 "GET",
                 URL,
@@ -97,18 +104,19 @@ class TestHttpBackoff(unittest.TestCase):
                 retry_on_status_codes=(503, 504),
             )
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_exceptions_and_status_codes(self) -> None:
         """Test `http_backoff` until max limit with status codes and exceptions."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         self.mock_request.side_effect = (mock_503, ConnectTimeout("Connection timeout"))
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=1)
 
-        self.assertEqual(self.mock_request.call_count, 2)
+        assert self.mock_request.call_count == 2
 
     def test_backoff_on_valid_status_code(self) -> None:
         """Test `http_backoff` until max limit with a valid status code.
@@ -119,12 +127,13 @@ class TestHttpBackoff(unittest.TestCase):
         """
         mock_200 = Mock()
         mock_200.status_code = 200
+        mock_200.headers = {}
         self.mock_request.side_effect = (mock_200, mock_200, mock_200, mock_200)
 
         response = http_backoff("GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200)
 
-        self.assertEqual(self.mock_request.call_count, 4)
-        self.assertIs(response, mock_200)
+        assert self.mock_request.call_count == 4
+        assert response is mock_200
 
     def test_backoff_sleep_time(self) -> None:
         """Test `http_backoff` sleep time goes exponential until max limit.
@@ -147,14 +156,14 @@ class TestHttpBackoff(unittest.TestCase):
 
         self.mock_request.side_effect = _side_effect_timer()
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
 
-        self.assertEqual(self.mock_request.call_count, 6)
+        assert self.mock_request.call_count == 6
 
         # Assert sleep times are exponential until plateau
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
-        self.assertListEqual(sleep_times, expected_sleep_times)
+        assert sleep_times == expected_sleep_times
 
     def test_backoff_on_429_uses_ratelimit_header(self) -> None:
         """Test that 429 wait time uses full reset time from ratelimit header."""
@@ -184,13 +193,12 @@ class TestHttpBackoff(unittest.TestCase):
         assert response.status_code == 200
 
 
-class TestConfigureSession(unittest.TestCase):
-    def setUp(self) -> None:
+class TestConfigureSession:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
         # Reconfigure + clear session cache between each test
         set_client_factory(default_client_factory)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
+        yield
         # Clear all sessions after tests
         set_client_factory(default_client_factory)
 
@@ -203,21 +211,21 @@ class TestConfigureSession(unittest.TestCase):
     def test_default_configuration(self) -> None:
         client = get_session()
         # Check httpx.Client default configuration
-        self.assertTrue(client.follow_redirects)
-        self.assertIsNotNone(client.timeout)
+        assert client.follow_redirects
+        assert client.timeout is not None
 
     def test_set_configuration(self) -> None:
         set_client_factory(self._factory)
 
         # Check headers have been set correctly
         client = get_session()
-        self.assertNotEqual(client.headers, {"x-test-header": "4"})
-        self.assertEqual(client.headers["x-test-header"], "4")
+        assert client.headers != {"x-test-header": "4"}
+        assert client.headers["x-test-header"] == "4"
 
     def test_get_session_twice(self):
         client_1 = get_session()
         client_2 = get_session()
-        self.assertIs(client_1, client_2)  # exact same instance
+        assert client_1 is client_2  # exact same instance
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
@@ -225,9 +233,9 @@ class TestConfigureSession(unittest.TestCase):
         set_client_factory(self._factory)
 
         client_2 = get_session()
-        self.assertIsNot(client_1, client_2)
-        self.assertIsNone(client_1.headers.get("x-test-header"))
-        self.assertEqual(client_2.headers["x-test-header"], "4")
+        assert client_1 is not client_2
+        assert client_1.headers.get("x-test-header") is None
+        assert client_2.headers["x-test-header"] == "4"
 
     def test_get_session_multiple_threads(self):
         N = 3
@@ -250,24 +258,21 @@ class TestConfigureSession(unittest.TestCase):
 
         # Check all clients are the same instance (httpx is thread-safe)
         for i in range(N):
-            self.assertIs(main_client, clients[i])
+            assert main_client is clients[i]
             for j in range(N):
-                self.assertIs(clients[i], clients[j])
+                assert clients[i] is clients[j]
 
 
-class OfflineModeSessionTest(unittest.TestCase):
-    def tearDown(self) -> None:
-        return super().tearDown()
-
-    @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)
+class TestOfflineModeSession:
     def test_offline_mode(self):
-        set_client_factory(default_client_factory)
-        client = get_session()
-        with self.assertRaises(OfflineModeIsEnabled):
-            client.get("https://huggingface.co")
+        with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
+            set_client_factory(default_client_factory)
+            client = get_session()
+            with pytest.raises(OfflineModeIsEnabled):
+                client.get("https://huggingface.co")
 
 
-class TestUniqueRequestId(unittest.TestCase):
+class TestUniqueRequestId:
     api_endpoint = ENDPOINT + "/api/tasks"  # any endpoint is fine
 
     def test_request_id_is_used_by_server(self):
@@ -275,8 +280,8 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id = response.request.headers.get("X-Amzn-Trace-Id")
         response_id = response.headers.get("x-request-id")
-        self.assertIn(request_id, response_id)
-        self.assertTrue(_is_uuid(request_id))
+        assert request_id in response_id
+        assert _is_uuid(request_id)
 
     def test_request_id_is_unique(self):
         response_1 = get_session().get(self.api_endpoint)
@@ -284,19 +289,19 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id_1 = response_1.request.headers["X-Amzn-Trace-Id"]
         request_id_2 = response_2.request.headers["X-Amzn-Trace-Id"]
-        self.assertNotEqual(request_id_1, request_id_2)
+        assert request_id_1 != request_id_2
 
-        self.assertTrue(_is_uuid(request_id_1))
-        self.assertTrue(_is_uuid(request_id_2))
+        assert _is_uuid(request_id_1)
+        assert _is_uuid(request_id_2)
 
     def test_request_id_not_overwritten(self):
         response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
 
         request_id = response.request.headers["x-request-id"]
-        self.assertEqual(request_id, "custom-id")
+        assert request_id == "custom-id"
 
         response_id = response.headers["x-request-id"]
-        self.assertEqual(response_id, "custom-id")
+        assert response_id == "custom-id"
 
 
 def _is_uuid(string: str) -> bool:
@@ -526,6 +531,23 @@ class TestParseRatelimitHeaders:
         assert info.remaining == 10
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Retry-After": "120"}, 120),
+        ({"Retry-After": "0"}, 0),
+        ({"retry-after": "42"}, 42),
+        ({}, None),
+        ({"Retry-After": "not-a-date"}, None),
+        ({"Retry-After": ""}, None),
+        ({"Retry-After": "-5"}, None),
+    ],
+)
+def test_parse_delay_seconds(headers, expected):
+    """Test parsing the delay-seconds form (e.g. 'Retry-After: 120')."""
+    assert _parse_retry_after(headers) == expected
+
+
 class TestBucketNotFoundError:
     def _make_response(self, url: str, error_code: str = "RepoNotFound"):
         request = Mock(spec=httpx.Request)
@@ -739,3 +761,25 @@ class TestNoReferenceCycleInRaise:
         # After exiting the except block, the exception should be freed by
         # refcount alone (no gc.collect() needed) if there is no cycle.
         assert ref() is None
+
+
+class TestRedactSensitiveBody:
+    def test_redacts_json_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = '{"grant_type": "refresh_token", "refresh_token": "hf_secret", "client_id": "abc"}'
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert '"refresh_token": "<REDACTED>"' in redacted
+        assert '"client_id": "abc"' in redacted
+
+    def test_redacts_form_urlencoded_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = "grant_type=refresh_token&refresh_token=hf_secret&device_code=dev_secret&client_id=abc"
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert "dev_secret" not in redacted
+        assert "refresh_token=<REDACTED>" in redacted
+        assert "device_code=<REDACTED>" in redacted
+        assert "client_id=abc" in redacted
