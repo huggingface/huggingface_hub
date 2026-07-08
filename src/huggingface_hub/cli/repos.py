@@ -201,6 +201,8 @@ def repo_create(
     sdk: Annotated[
         str | None,
         Option(
+            "--sdk",
+            "--space-sdk",
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
@@ -235,11 +237,9 @@ def repo_create(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
-    space_sdk: Annotated[str | None, Option(help="Deprecated. Use --sdk instead.")] = None,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
-    space_sdk = sdk or space_sdk
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
@@ -248,7 +248,7 @@ def repo_create(
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
         region=region,
-        space_sdk=space_sdk,
+        space_sdk=sdk,
         space_hardware=hardware,
         space_storage=storage,
         space_sleep_time=sleep_time,
