@@ -190,15 +190,15 @@ def repo_list(
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
-        "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
-        "hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
+        "hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
+        "hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
         "hf repos create my-model --region us",
     ],
 )
 def repo_create(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
-    space_sdk: Annotated[
+    sdk: Annotated[
         str | None,
         Option(
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
@@ -235,9 +235,11 @@ def repo_create(
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     volume: VolumesOpt = None,
+    space_sdk: Annotated[str | None, Option(help="Deprecated. Use --sdk instead.")] = None,
 ) -> None:
     """Create a new repo on the Hub."""
     api = get_hf_api(token=token)
+    space_sdk = sdk or space_sdk
     repo_url = api.create_repo(
         repo_id=repo_id,
         repo_type=repo_type.value,
