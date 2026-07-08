@@ -190,17 +190,19 @@ def repo_list(
     examples=[
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
-        "hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
-        "hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
+        "hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
+        "hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
         "hf repos create my-model --region us",
     ],
 )
 def repo_create(
     repo_id: RepoIdArg,
     repo_type: RepoTypeOpt = RepoType.model,
-    space_sdk: Annotated[
+    sdk: Annotated[
         str | None,
         Option(
+            "--sdk",
+            "--space-sdk",
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
         ),
     ] = None,
@@ -246,7 +248,7 @@ def repo_create(
         exist_ok=exist_ok,
         resource_group_id=resource_group_id,
         region=region,
-        space_sdk=space_sdk,
+        space_sdk=sdk,
         space_hardware=hardware,
         space_storage=storage,
         space_sleep_time=sleep_time,
