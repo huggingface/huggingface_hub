@@ -4136,15 +4136,17 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Download a Hugging Face skill and install...
+* `add`: Install a Hugging Face skill for an AI...
 * `list`: List available skills from the Hugging... [alias: ls]
 * `preview`: Print the generated `hf-cli` SKILL.md to...
 * `update`: Update installed Hugging Face marketplace...
 
 ### `hf skills add`
 
-Download a Hugging Face skill and install it for an AI assistant.
+Install a Hugging Face skill for an AI assistant.
 
+The default `hf-cli` skill is generated locally from the installed CLI version;
+other skills are downloaded from the Hugging Face marketplace.
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
 If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
 

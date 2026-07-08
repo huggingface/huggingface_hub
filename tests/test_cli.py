@@ -4528,6 +4528,37 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
+class TestSkillsHfCliCLI:
+    """The default `hf-cli` skill is generated locally from the installed CLI (no marketplace download)."""
+
+    def test_add_generates_skill_locally(self, runner: CliRunner, tmp_path: Path) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        dest = tmp_path / "managed-skills"
+
+        result = runner.invoke(app, ["skills", "add", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        skill_dir = dest / "hf-cli"
+        assert skill_dir.joinpath("SKILL.md").read_text(encoding="utf-8") == build_skill_md()
+        assert skill_dir.joinpath(".hf-skill-manifest.json").is_file()
+
+    def test_update_regenerates_skill_locally(self, runner: CliRunner, tmp_path: Path) -> None:
+        from huggingface_hub.cli.skills import build_skill_md
+
+        dest = tmp_path / "managed-skills"
+        add_result = runner.invoke(app, ["skills", "add", "--dest", str(dest)])
+        assert add_result.exit_code == 0, add_result.output
+        skill_file = dest / "hf-cli" / "SKILL.md"
+        skill_file.write_text("stale content", encoding="utf-8")
+
+        result = runner.invoke(app, ["skills", "update", "--dest", str(dest)])
+
+        assert result.exit_code == 0, result.output
+        assert "hf-cli: up_to_date" in result.stdout
+        assert skill_file.read_text(encoding="utf-8") == build_skill_md()
+
+
 @pytest.mark.xet
 class TestSkillsMarketplaceCLI:
     @pytest.mark.production
