@@ -4493,25 +4493,6 @@ class HfApi:
         hf_raise_for_status(r)
         return [SpaceTemplate(item) for item in r.json()["templates"]]
 
-    def _resolve_space_template(self, template: str, *, token: str | bool | None = None) -> SpaceTemplate:
-        """Resolve a `space_template` value (short name or repo id) to a [`SpaceTemplate`].
-
-        Raises a `ValueError` if template is unknown.
-        """
-        templates = self.list_space_templates(token=token)
-
-        for candidate in templates:
-            if candidate.repo_id == template:
-                return candidate
-            if candidate.name.lower() == template.lower():
-                return candidate
-
-        available = ", ".join(sorted(t.name for t in templates))
-        raise ValueError(
-            f"Unknown Space template '{template}'. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or "
-            f"one of the following names: {available}. Use `HfApi.list_space_templates()` to list templates."
-        )
-
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -4613,7 +4594,20 @@ class HfApi:
 
         resolved_space_template: str | None = None
         if repo_type == constants.REPO_TYPE_SPACE and space_template is not None:
-            template = self._resolve_space_template(space_template, token=token)
+            # space_template passed => resolve it
+            all_templates = self.list_space_templates(token=token)
+            for candidate in all_templates:
+                if candidate.repo_id == space_template:
+                    template = candidate
+                    break
+                if candidate.name.lower() == space_template.lower():
+                    template = candidate
+                    break
+            else:
+                raise ValueError(
+                    f"Unknown Space template '{space_template}'. Expected one of {', '.join(sorted(t.name for t in all_templates))}. Use `HfApi.list_space_templates()` to list templates."
+                )
+
             resolved_space_template = template.repo_id
             # If the chosen template is recommended to be private and the user did not explicitly set a
             # visibility, default to private (mirrors the recommendation shown in the web UI).
