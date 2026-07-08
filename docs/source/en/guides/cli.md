@@ -2045,6 +2045,16 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 >>> hf jobs ps -a --limit 0
 ```
 
+Use `--sort` to order Jobs by `created`, `status`, `runtime`, or `id`. Created time and runtime sort newest or longest first by default; pass `--reverse` to flip the order:
+
+```bash
+# Show the longest-running completed Jobs
+>>> hf jobs ps -a --status completed --sort runtime --limit 10
+
+# Show Jobs by ID in descending order
+>>> hf jobs ps -a --sort id --reverse
+```
+
 > [!WARNING]
 > `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
 

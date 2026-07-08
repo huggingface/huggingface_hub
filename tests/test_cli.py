@@ -3494,6 +3494,75 @@ class TestJobsCommand:
         assert "abc123def456" in result.output
         assert "xyz789ghi012" in result.output
 
+    def test_ls_sorts_before_limiting(self, runner: CliRunner) -> None:
+        from huggingface_hub._jobs_api import JobInfo
+
+        jobs = [
+            JobInfo(
+                id="z-job",
+                createdAt="2026-01-13T10:30:00.000Z",
+                dockerImage="python:3.12",
+                command=["echo", "z"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+            JobInfo(
+                id="a-job",
+                createdAt="2026-01-15T10:30:00.000Z",
+                dockerImage="python:3.12",
+                command=["echo", "a"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+            JobInfo(
+                id="m-job",
+                createdAt="2026-01-14T10:30:00.000Z",
+                dockerImage="python:3.12",
+                command=["echo", "m"],
+                arguments=[],
+                environment={},
+                secrets={},
+                flavor="cpu-basic",
+                labels={},
+                status={"stage": "COMPLETED"},
+                owner={"id": "u", "name": "test", "type": "user"},
+            ),
+        ]
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ls", "-a", "-q", "--sort", "id", "--limit", "1"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == "a-job"
+
+    def test_ls_sort_reverse(self, runner: CliRunner) -> None:
+        jobs = self._make_mock_jobs()
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = jobs
+            result = runner.invoke(app, ["jobs", "ls", "-a", "-q", "--sort", "id", "--reverse", "--limit", "1"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == "xyz789ghi012"
+
+    def test_ls_reverse_requires_sort(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = []
+            result = runner.invoke(app, ["jobs", "ls", "-a", "--reverse"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "`--reverse` can only be used together with `--sort`." in str(result.exception)
+
     def test_ls_empty_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ls --format json` outputs `[]` when no jobs match."""
         import json

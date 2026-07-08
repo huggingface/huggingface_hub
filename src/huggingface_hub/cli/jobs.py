@@ -19,6 +19,7 @@ import multiprocessing.pool
 import shutil
 import time
 from collections.abc import Callable, Iterable
+from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
 from queue import Empty, Queue
@@ -128,6 +129,39 @@ def _parse_and_sync_job_volumes(
 
 
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
+
+_JOB_SORT_OPTIONS = ("created", "status", "runtime", "id")
+JobSort = Enum("JobSort", {key: key for key in _JOB_SORT_OPTIONS}, type=str)  # type: ignore[misc]
+
+
+def _sort_jobs(jobs: list[JobInfo], sort: JobSort, reverse: bool) -> list[JobInfo]:
+    sort_key = sort.value
+    reverse_order = (sort_key in {"created", "runtime"}) != reverse
+
+    def sort_value(job: JobInfo) -> Any:
+        if sort_key == "created":
+            return job.created_at
+        if sort_key == "status":
+            return job.status.stage
+        if sort_key == "runtime":
+            return job.durations.running_secs if job.durations is not None else None
+        if sort_key == "id":
+            return job.id
+        raise ValueError(f"Unsupported Jobs sort key: {sort_key}")
+
+    jobs_with_values: list[tuple[Any, JobInfo]] = []
+    jobs_without_values: list[JobInfo] = []
+    for job in jobs:
+        value = sort_value(job)
+        if value is None:
+            jobs_without_values.append(job)
+        else:
+            jobs_with_values.append((value, job))
+
+    return [
+        job for _, job in sorted(jobs_with_values, key=lambda item: item[0], reverse=reverse_order)
+    ] + jobs_without_values
+
 
 # Common job-related options
 ImageArg = Annotated[
@@ -546,6 +580,7 @@ def jobs_stats(
         "hf jobs ls -a",
         "hf jobs ls --status running,scheduling",
         "hf jobs ls --label env=prod --label team=ml",
+        "hf jobs ls -a --sort runtime --limit 10",
         "hf jobs ls --all --label hf-sandbox=1",
     ],
 )
@@ -574,6 +609,17 @@ def jobs_ps(
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
         ),
     ] = None,
+    sort: Annotated[
+        JobSort | None,
+        Option(
+            "--sort",
+            help="Sort Jobs by created, status, runtime, or id. Created and runtime sort newest/longest first.",
+        ),
+    ] = None,
+    reverse: Annotated[
+        bool,
+        Option("-r", "--reverse", help="Reverse the Jobs sort order."),
+    ] = False,
     limit: Annotated[
         int,
         Option(
@@ -631,15 +677,22 @@ def jobs_ps(
 
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
-    # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
     truncated = False
-    if limit > 0:
-        jobs = list(itertools.islice(jobs_iter, limit + 1))
-        if len(jobs) > limit:
+    if sort is not None:
+        jobs = _sort_jobs(list(jobs_iter), sort=sort, reverse=reverse)
+        if limit > 0 and len(jobs) > limit:
             truncated = True
             jobs = jobs[:limit]
     else:
-        jobs = list(jobs_iter)
+        if reverse:
+            raise CLIError("`--reverse` can only be used together with `--sort`.")
+        if limit > 0:
+            jobs = list(itertools.islice(jobs_iter, limit + 1))
+            if len(jobs) > limit:
+                truncated = True
+                jobs = jobs[:limit]
+        else:
+            jobs = list(jobs_iter)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     job_items: list[dict[str, Any]] = []
