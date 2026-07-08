@@ -238,7 +238,7 @@ def spaces_card(
 
 
 @spaces_cli.command(
-    "templates | template",
+    "templates",
     examples=["hf spaces templates"],
 )
 def spaces_templates(

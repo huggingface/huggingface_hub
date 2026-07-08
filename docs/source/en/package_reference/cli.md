@@ -4279,7 +4279,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
 * `ssh`: SSH into a Space's Dev Mode container.
-* `templates`: List the available Space templates. [alias: template]
+* `templates`: List the available Space templates.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
@@ -4798,7 +4798,7 @@ Learn more
 
 ### `hf spaces templates`
 
-List the available Space templates. [alias: template]
+List the available Space templates.
 
 The `repo_id` (or `name`) of a template can be passed to `hf repos create --template ...` to
 create a new Space from that template.
