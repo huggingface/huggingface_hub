@@ -4493,23 +4493,19 @@ class HfApi:
         hf_raise_for_status(r)
         return [SpaceTemplate(item) for item in r.json()["templates"]]
 
-    def _resolve_space_template(self, template: str, *, token: str | bool | None = None) -> SpaceTemplate | None:
+    def _resolve_space_template(self, template: str, *, token: str | bool | None = None) -> SpaceTemplate:
         """Resolve a `space_template` value (short name or repo id) to a [`SpaceTemplate`].
 
-        Returns `None` if the value looks like a full repo id (contains a `/`) but is not part of the
-        official catalog, letting the server validate it. Raises a `ValueError` otherwise.
+        Raises a `ValueError` if template is unknown.
         """
         templates = self.list_space_templates(token=token)
-        # Match by repo id first, then by short name (case-insensitive).
+
         for candidate in templates:
             if candidate.repo_id == template:
                 return candidate
-        for candidate in templates:
             if candidate.name.lower() == template.lower():
                 return candidate
-        if "/" in template:
-            # Assume a full repo id and let the server validate it against its allowlist.
-            return None
+
         available = ", ".join(sorted(t.name for t in templates))
         raise ValueError(
             f"Unknown Space template '{template}'. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or "
@@ -4599,8 +4595,8 @@ class HfApi:
                 Seed the new Space from an official template. Can be either the template repo id
                 (e.g. `"SpacesExamples/jupyterlab"`) or its short name (e.g. `"JupyterLab"`). Use
                 [`HfApi.list_space_templates`] to list available templates. Only applicable if repo_type is
-                "space"; `space_sdk` is still required. If the template is recommended to be private and none of
-                `private`/`visibility` is explicitly set, the Space is created as private.
+                "space". If the template is recommended to be private and visibility is not explicitly set, the Space
+                is created as private.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4618,13 +4614,19 @@ class HfApi:
         resolved_space_template: str | None = None
         if repo_type == constants.REPO_TYPE_SPACE and space_template is not None:
             template = self._resolve_space_template(space_template, token=token)
-            resolved_space_template = template.repo_id if template is not None else space_template
+            resolved_space_template = template.repo_id
             # If the chosen template is recommended to be private and the user did not explicitly set a
             # visibility, default to private (mirrors the recommendation shown in the web UI).
-            if template is not None and template.preferred_private and private is None and visibility is None:
+            if template.preferred_private and private is None and visibility is None:
                 resolved_visibility = "private"
+            # space_sdk can be omitted by the user, we set it following server info
+            if space_sdk is not None and space_sdk != template.sdk:
+                raise ValueError(
+                    f"space_sdk must match the SDK of the chosen space_template. Got {space_sdk}, expected {template.sdk}."
+                )
+            space_sdk = template.sdk
         elif space_template is not None:
-            warnings.warn("Ignoring provided space_template because repo_type is not 'space'.")
+            raise ValueError(f"space_template can only be used with repo_type 'space'. Got repo_type={repo_type}.")
 
         payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
