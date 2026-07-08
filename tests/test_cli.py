@@ -4515,8 +4515,8 @@ class TestSkillGeneration:
     def test_collect_leaf_commands_finds_deeply_nested(self) -> None:
         from click import Context, Group
 
+        from huggingface_hub.cli._skills import _collect_leaf_commands
         from huggingface_hub.cli.hf import app
-        from huggingface_hub.cli.skills import _collect_leaf_commands
 
         click_app = app
         ctx = Context(click_app, info_name="hf")
