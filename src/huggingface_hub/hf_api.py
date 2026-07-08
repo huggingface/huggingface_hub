@@ -4483,17 +4483,13 @@ class HfApi:
 
         Example:
             ```py
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            >>> templates = api.list_space_templates()
+            >>> from huggingface_hub import list_space_templates
+            >>> templates = list_space_templates()
             >>> templates[0]
             SpaceTemplate(name='Streamlit', repo_id='streamlit/streamlit-template-space', sdk='docker', preferred_private=False)
             ```
         """
-        r = get_session().get(
-            f"{self.endpoint}/api/spaces/templates",
-            headers=self._build_hf_headers(token=token),
-        )
+        r = get_session().get(f"{self.endpoint}/api/spaces/templates", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
         return [SpaceTemplate(item) for item in r.json()["templates"]]
 
