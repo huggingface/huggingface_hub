@@ -1,6 +1,7 @@
 """Internal helpers for Hugging Face marketplace skill installation and upgrades."""
 
 import json
+import re
 import shutil
 import tempfile
 from collections.abc import Callable
@@ -135,6 +136,9 @@ def _install_generated_skill(destination_root: Path, force: bool = False) -> Pat
     return _install_skill(DEFAULT_SKILL_ID, destination_root, populate=populate, force=force)
 
 
+_VALID_SKILL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
 def _install_skill(
     name: str,
     destination_root: Path,
@@ -149,6 +153,10 @@ def _install_skill(
     atomically swapped in, so the existing install stays intact if ``populate``
     fails halfway through.
     """
+    # `name` may come from the remote marketplace payload and the install dir is removed on
+    # reinstall: validate it as defense-in-depth against path traversal.
+    if not _VALID_SKILL_NAME.fullmatch(name):
+        raise CLIError(f"Invalid skill name '{name}'.")
     destination_root = destination_root.expanduser().resolve()
     destination_root.mkdir(parents=True, exist_ok=True)
     install_dir = destination_root / name

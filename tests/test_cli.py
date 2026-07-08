@@ -4528,6 +4528,16 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
+class TestSkillsInstallValidation:
+    @pytest.mark.parametrize("name", ["../evil", "sub/dir", "..", ""])
+    def test_rejects_unsafe_skill_names(self, tmp_path: Path, name: str) -> None:
+        """Skill names come from the remote marketplace payload and the install dir is removed on reinstall."""
+        from huggingface_hub.cli._skills import _install_skill
+
+        with pytest.raises(CLIError):
+            _install_skill(name, tmp_path, populate=lambda p: None)
+
+
 class TestSkillsHfCliCLI:
     """The default `hf-cli` skill is generated locally from the installed CLI (no marketplace download)."""
 
