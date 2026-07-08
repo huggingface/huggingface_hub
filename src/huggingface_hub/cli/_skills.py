@@ -67,7 +67,7 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
 
 
 def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
-    """Re-sync managed skill installs (``hf-cli`` is regenerated locally, the rest re-downloaded from the bucket)."""
+    """Re-sync managed skill installs (`hf-cli` is regenerated locally, the rest re-downloaded from the bucket)."""
     skill_dirs = _iter_unique_skill_dirs(roots)
     if selector is not None:
         selector_lower = selector.strip().lower()
