@@ -205,29 +205,13 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 ### Shared blobs across repos (experimental)
 
-By default, blobs are deduplicated within a repo (across its revisions) but not across
-repos: the exact same file cached for two different repos is downloaded and stored twice.
-Setting [`HF_HUB_ENABLE_SHARED_BLOBS`](../package_reference/environment_variables#hfhubenablesharedblobs)
-to `1` enables a cache-wide shared blob store that removes this limitation for
-Xet-backed files (in practice, all LFS files on the Hub).
+By default, blobs are deduplicated within a repo but not across repos: the exact same file cached for two different repos is downloaded and stored twice. Set the [`HF_HUB_ENABLE_SHARED_BLOBS`](../package_reference/environment_variables#hfhubenablesharedblobs) environment variable to `1` to deduplicate Xet files (in practice, all large files on the Hub) across the entire cache.
 
-When enabled, each downloaded Xet file is hardlinked into a content-addressed store at
-`<CACHE_DIR>/blobs/<prefix>/<xet_hash>`, keyed by its Xet hash (verified server-side,
-unlike the sha256 etag). If a file with the same hash is later requested for another
-repo, the blob is hardlinked from the store instead of being downloaded: no bytes are
-transferred and no extra disk space is used.
+When enabled, downloaded Xet files are hardlinked into a content-addressed store at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`. If a file with the same Xet hash is later requested for another repo, it is hardlinked from the store instead of being downloaded: no bytes are transferred and no extra disk space is used.
 
-Because store entries are hardlinks (not symlinks), per-repo blobs remain regular files:
-older versions of `huggingface_hub` and external tools reading the cache keep working
-unchanged, and deleting a repo (with any version) can never corrupt another repo. Store
-entries that are no longer referenced by any repo are removed automatically whenever
-cached revisions are deleted (`hf cache rm`, `hf cache prune`): the cleanup sweeps the
-whole store, so it also reclaims entries orphaned by older versions or manual deletions.
+Since hardlinks are regular files, older versions of `huggingface_hub` and external tools reading the cache keep working unchanged, and deleting a repo can never corrupt another one. Store entries no longer referenced by any repo are cleaned up automatically by `hf cache rm` and `hf cache prune`.
 
-The store requires the symlink-based cache layout (it stays disabled in the degraded
-no-symlink mode described above) and hardlink support on the cache filesystem. New
-entries are only added by verified `hf_xet` downloads. When any of these is
-unavailable, downloads silently fall back to the regular behavior.
+The store requires the symlink-based cache layout (it stays disabled in the degraded no-symlink mode described above) and hardlink support on the cache filesystem. New entries are only added by verified `hf_xet` downloads. When any of these is unavailable, downloads silently fall back to the regular behavior.
 
 ## Chunk-based caching (Xet)
 
