@@ -1504,7 +1504,7 @@ class TestRepoCreateCommand:
                     "my-space",
                     "--type",
                     "space",
-                    "--space-sdk",
+                    "--sdk",
                     "gradio",
                     "--flavor",
                     "t4-medium",

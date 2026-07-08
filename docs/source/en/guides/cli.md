@@ -1411,7 +1411,7 @@ Create a private dataset or a Space:
 
 ```bash
 >>> hf repos create my-cool-dataset --repo-type dataset --private
->>> hf repos create my-gradio-space --repo-type space --space-sdk gradio
+>>> hf repos create my-gradio-space --repo-type space --sdk gradio
 ```
 
 Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
