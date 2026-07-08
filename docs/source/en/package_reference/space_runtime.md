@@ -35,3 +35,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 ### SpaceVariable
 
 [[autodoc]] SpaceVariable
+
+### SpaceTemplate
+
+[[autodoc]] SpaceTemplate

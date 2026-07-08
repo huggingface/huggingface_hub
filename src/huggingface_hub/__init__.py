@@ -201,6 +201,7 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "SpaceInfo",
         "SpaceSearchResult",
+        "SpaceTemplate",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -305,6 +306,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_space_templates",
         "list_spaces",
         "list_spaces_hardware",
         "list_user_followers",
@@ -834,6 +836,7 @@ __all__ = [
     "SpaceSecret",
     "SpaceStage",
     "SpaceStorage",
+    "SpaceTemplate",
     "SpaceVariable",
     "StateDictSplit",
     "SummarizationInput",
@@ -1051,6 +1054,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_space_templates",
     "list_spaces",
     "list_spaces_hardware",
     "list_user_followers",
@@ -1381,6 +1385,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
+        SpaceTemplate,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1485,6 +1490,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
         list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
