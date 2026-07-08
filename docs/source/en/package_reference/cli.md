@@ -3393,6 +3393,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
+* `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
@@ -3414,6 +3415,7 @@ Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --space-sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
+  $ hf repos create my-jupyterlab --type space --space-sdk docker --template SpacesExamples/jupyterlab
   $ hf repos create my-space --type space --space-sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
   $ hf repos create my-model --region us
 
@@ -4277,6 +4279,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
 * `ssh`: SSH into a Space's Dev Mode container.
+* `templates`: List the available Space templates. [alias: template]
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
@@ -4787,6 +4790,32 @@ Examples
   $ hf spaces ssh username/my-space --dry-run
   $ hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
   $ hf spaces ssh username/my-space --auto
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces templates`
+
+List the available Space templates. [alias: template]
+
+The `repo_id` (or `name`) of a template can be passed to `hf repos create --template ...` to
+create a new Space from that template.
+
+**Usage**:
+
+```console
+$ hf spaces templates [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces templates
 
 Learn more
   Use `hf <command> --help` for more information about a command.
