@@ -392,4 +392,4 @@ class SpaceTemplate:
         self.name = data["name"]
         self.repo_id = data["repoId"]
         self.sdk = data["sdk"]
-        self.preferred_private = data.get("preferredPrivate", False)
+        self.preferred_private = data["preferredPrivate"]
