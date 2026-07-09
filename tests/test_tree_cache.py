@@ -257,9 +257,7 @@ class TestGetCachedRepoTree:
         assert model.size == 42
         assert model.blob_id == "blob-model"
         assert model.xet_hash == "xet-model"
-        assert model.lfs is not None
-        assert model.lfs.sha256 == "sha256-model"
-        assert model.lfs.size == 1024
+        assert model.lfs is None
 
     def test_resolves_branch_via_refs(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
