@@ -137,7 +137,6 @@ def _add_imports(code: str) -> str:
         r"(\nimport .*?\n)",
         repl=(
             r"\1"
-            + "from .._common import _async_yield_from\n"
             + "from huggingface_hub.utils import get_async_session\n"
             + "from typing import AsyncIterable\n"
             + "from contextlib import AsyncExitStack\n"
@@ -177,7 +176,7 @@ ASYNC_INNER_POST_CODE = """
                     )
                 )
                 hf_raise_for_status(response)
-                return _async_yield_from(client, response)
+                return response
             else:
                 response = await client.post(
                     request_parameters.url,
@@ -365,6 +364,7 @@ def _use_async_streaming_util(code: str) -> str:
         "_async_stream_text_generation_response",
     )
     code = code.replace("_stream_chat_completion_response", "_async_stream_chat_completion_response")
+    code = code.replace("InferenceStream", "AsyncInferenceStream")
     return code
 
 

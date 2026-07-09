@@ -27,6 +27,7 @@ import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx
 import numpy as np
 import pytest
 
@@ -42,8 +43,12 @@ from huggingface_hub import (
     InferenceTimeoutError,
     TextGenerationOutputPrefillToken,
 )
+from huggingface_hub.inference._common import (
+    AsyncInferenceStream,
+    _async_stream_chat_completion_response,
+    _get_unsupported_text_generation_kwargs,
+)
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
-from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 
@@ -437,3 +442,75 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+CHAT_COMPLETION_STREAM_CHUNK = (
+    'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"",'
+    '"system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":'
+    '{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}'
+)
+
+
+@pytest.mark.asyncio
+async def test_async_stream_close_releases_underlying_response() -> None:
+    """The object returned by async streaming calls exposes `close()` to cancel the stream early.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/4224.
+    """
+
+    async def aiter_lines():
+        yield CHAT_COMPLETION_STREAM_CHUNK
+        yield "data: [DONE]"
+
+    response = MagicMock(spec=httpx.Response)
+    response.aiter_lines = aiter_lines
+    response.aclose = AsyncMock()
+
+    stream = _async_stream_chat_completion_response(response)
+    assert isinstance(stream, AsyncInferenceStream)
+
+    async for chunk in stream:
+        assert chunk.choices[0].delta.content == "Both"
+        break
+
+    await stream.close()
+    response.aclose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_async_stream_close_from_another_task() -> None:
+    """`close()` can be called from another task while the stream is being iterated.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/4224: closing the async
+    generator itself while it is being iterated raises `RuntimeError: aclose(): asynchronous generator
+    is already running`. Closing the underlying HTTP response must not.
+    """
+    blocked = asyncio.Event()
+
+    async def aiter_lines():
+        yield CHAT_COMPLETION_STREAM_CHUNK
+        blocked.set()
+        await asyncio.Event().wait()  # hang forever, as a stalled server would
+
+    response = MagicMock(spec=httpx.Response)
+    response.aiter_lines = aiter_lines
+    response.aclose = AsyncMock()
+
+    stream = _async_stream_chat_completion_response(response)
+    chunks = []
+
+    async def consume():
+        async for chunk in stream:
+            chunks.append(chunk)
+
+    consumer = asyncio.create_task(consume())
+    await blocked.wait()
+
+    # The stream is being iterated in `consumer`: closing it from here must not raise.
+    await stream.close()
+    response.aclose.assert_awaited_once()
+
+    consumer.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+    assert len(chunks) == 1

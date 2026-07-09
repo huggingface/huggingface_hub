@@ -36,15 +36,17 @@ import logging
 import os
 import re
 import warnings
-from collections.abc import Iterable
 from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
+
+import httpx
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
+    InferenceStream,
     RequestParameters,
     _b64_encode,
     _b64_to_image,
@@ -257,12 +259,14 @@ class InferenceClient:
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> Iterable[str]: ...
+    ) -> httpx.Response: ...
 
     @overload
-    def _inner_post(self, request_parameters: RequestParameters, *, stream: bool = False) -> bytes | Iterable[str]: ...
+    def _inner_post(
+        self, request_parameters: RequestParameters, *, stream: bool = False
+    ) -> bytes | httpx.Response: ...
 
-    def _inner_post(self, request_parameters: RequestParameters, *, stream: bool = False) -> bytes | Iterable[str]:
+    def _inner_post(self, request_parameters: RequestParameters, *, stream: bool = False) -> bytes | httpx.Response:
         """Make a request to the inference server."""
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
@@ -282,7 +286,7 @@ class InferenceClient:
             )
             hf_raise_for_status(response)
             if stream:
-                return response.iter_lines()
+                return response
             else:
                 return response.read()
         except TimeoutError as error:
@@ -504,7 +508,7 @@ class InferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> Iterable[ChatCompletionStreamOutput]: ...
+    ) -> InferenceStream[ChatCompletionStreamOutput]: ...
 
     @overload
     def chat_completion(
@@ -530,7 +534,7 @@ class InferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> ChatCompletionOutput | Iterable[ChatCompletionStreamOutput]: ...
+    ) -> ChatCompletionOutput | InferenceStream[ChatCompletionStreamOutput]: ...
 
     def chat_completion(
         self,
@@ -556,7 +560,7 @@ class InferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> ChatCompletionOutput | Iterable[ChatCompletionStreamOutput]:
+    ) -> ChatCompletionOutput | InferenceStream[ChatCompletionStreamOutput]:
         """
         A method for completing conversations using a specified language model.
 
@@ -629,6 +633,8 @@ class InferenceClient:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
+              The returned object also exposes a `close()` method to cancel the stream early and release the
+              underlying HTTP connection.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1975,7 +1981,7 @@ class InferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> Iterable[TextGenerationStreamOutput]: ...
+    ) -> InferenceStream[TextGenerationStreamOutput]: ...
 
     @overload
     def text_generation(
@@ -2035,7 +2041,7 @@ class InferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> Iterable[str]: ...
+    ) -> InferenceStream[str]: ...
 
     @overload
     def text_generation(
@@ -2095,7 +2101,7 @@ class InferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> str | TextGenerationOutput | Iterable[str] | Iterable[TextGenerationStreamOutput]: ...
+    ) -> str | TextGenerationOutput | InferenceStream[str] | InferenceStream[TextGenerationStreamOutput]: ...
 
     def text_generation(
         self,
@@ -2124,7 +2130,7 @@ class InferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> str | TextGenerationOutput | Iterable[str] | Iterable[TextGenerationStreamOutput]:
+    ) -> str | TextGenerationOutput | InferenceStream[str] | InferenceStream[TextGenerationStreamOutput]:
         """
         Given a prompt, generate the following text.
 
@@ -2198,6 +2204,9 @@ class InferenceClient:
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
+
+            When `stream=True`, the returned object also exposes a `close()` method to cancel the stream early and
+            release the underlying HTTP connection.
 
         Raises:
             `ValidationError`:

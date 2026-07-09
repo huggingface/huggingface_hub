@@ -24,7 +24,7 @@ import os
 import re
 import warnings
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 
 import httpx
 
@@ -32,6 +32,7 @@ from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
+    AsyncInferenceStream,
     ContentT,
     RequestParameters,
     _async_stream_chat_completion_response,
@@ -96,8 +97,6 @@ from huggingface_hub.utils import (
     validate_hf_hub_args,
 )
 from huggingface_hub.utils._auth import get_token
-
-from .._common import _async_yield_from
 
 
 if TYPE_CHECKING:
@@ -262,16 +261,16 @@ class AsyncInferenceClient:
     @overload
     async def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[True] = ...
-    ) -> AsyncIterable[str]: ...
+    ) -> httpx.Response: ...
 
     @overload
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> bytes | AsyncIterable[str]: ...
+    ) -> bytes | httpx.Response: ...
 
     async def _inner_post(
         self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> bytes | AsyncIterable[str]:
+    ) -> bytes | httpx.Response:
         """Make a request to the inference server."""
 
         # TODO: this should be handled in provider helpers directly
@@ -293,7 +292,7 @@ class AsyncInferenceClient:
                     )
                 )
                 hf_raise_for_status(response)
-                return _async_yield_from(client, response)
+                return response
             else:
                 response = await client.post(
                     request_parameters.url,
@@ -527,7 +526,7 @@ class AsyncInferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
+    ) -> AsyncInferenceStream[ChatCompletionStreamOutput]: ...
 
     @overload
     async def chat_completion(
@@ -553,7 +552,7 @@ class AsyncInferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> ChatCompletionOutput | AsyncIterable[ChatCompletionStreamOutput]: ...
+    ) -> ChatCompletionOutput | AsyncInferenceStream[ChatCompletionStreamOutput]: ...
 
     async def chat_completion(
         self,
@@ -579,7 +578,7 @@ class AsyncInferenceClient:
         top_logprobs: int | None = None,
         top_p: float | None = None,
         extra_body: dict | None = None,
-    ) -> ChatCompletionOutput | AsyncIterable[ChatCompletionStreamOutput]:
+    ) -> ChatCompletionOutput | AsyncInferenceStream[ChatCompletionStreamOutput]:
         """
         A method for completing conversations using a specified language model.
 
@@ -652,6 +651,8 @@ class AsyncInferenceClient:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
+              The returned object also exposes a `close()` method to cancel the stream early and release the
+              underlying HTTP connection.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -2020,7 +2021,7 @@ class AsyncInferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
+    ) -> AsyncInferenceStream[TextGenerationStreamOutput]: ...
 
     @overload
     async def text_generation(
@@ -2080,7 +2081,7 @@ class AsyncInferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> AsyncIterable[str]: ...
+    ) -> AsyncInferenceStream[str]: ...
 
     @overload
     async def text_generation(
@@ -2140,7 +2141,7 @@ class AsyncInferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> str | TextGenerationOutput | AsyncIterable[str] | AsyncIterable[TextGenerationStreamOutput]: ...
+    ) -> str | TextGenerationOutput | AsyncInferenceStream[str] | AsyncInferenceStream[TextGenerationStreamOutput]: ...
 
     async def text_generation(
         self,
@@ -2169,7 +2170,7 @@ class AsyncInferenceClient:
         truncate: int | None = None,
         typical_p: float | None = None,
         watermark: bool | None = None,
-    ) -> str | TextGenerationOutput | AsyncIterable[str] | AsyncIterable[TextGenerationStreamOutput]:
+    ) -> str | TextGenerationOutput | AsyncInferenceStream[str] | AsyncInferenceStream[TextGenerationStreamOutput]:
         """
         Given a prompt, generate the following text.
 
@@ -2243,6 +2244,9 @@ class AsyncInferenceClient:
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `AsyncIterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
+
+            When `stream=True`, the returned object also exposes a `close()` method to cancel the stream early and
+            release the underlying HTTP connection.
 
         Raises:
             `ValidationError`:

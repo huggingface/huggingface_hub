@@ -381,6 +381,10 @@ _SUBMOD_ATTRS = {
         "InferenceClient",
         "InferenceTimeoutError",
     ],
+    "inference._common": [
+        "AsyncInferenceStream",
+        "InferenceStream",
+    ],
     "inference._generated._async_client": [
         "AsyncInferenceClient",
     ],
@@ -637,6 +641,7 @@ __all__ = [
     "ASYNC_CLIENT_FACTORY_T",
     "Agent",
     "AsyncInferenceClient",
+    "AsyncInferenceStream",
     "AudioClassificationInput",
     "AudioClassificationOutputElement",
     "AudioClassificationOutputTransform",
@@ -783,6 +788,7 @@ __all__ = [
     "InferenceEndpointStatus",
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
+    "InferenceStream",
     "InferenceTimeoutError",
     "JobAccelerator",
     "JobDurations",
@@ -1568,6 +1574,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from .inference._client import (
         InferenceClient,  # noqa: F401
         InferenceTimeoutError,  # noqa: F401
+    )
+    from .inference._common import (
+        AsyncInferenceStream,  # noqa: F401
+        InferenceStream,  # noqa: F401
     )
     from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
     from .inference._generated.types import (

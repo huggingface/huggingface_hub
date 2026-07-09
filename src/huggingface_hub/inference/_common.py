@@ -18,10 +18,10 @@ import io
 import json
 import logging
 import mimetypes
-from collections.abc import AsyncIterable, Iterable
+from collections.abc import AsyncIterable, AsyncIterator, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, Union, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, TypeVar, Union, overload
 
 import httpx
 
@@ -255,33 +255,84 @@ def _as_dict(response: bytes | dict) -> dict:
 
 ## STREAMING UTILS
 
+_T = TypeVar("_T")
+
+
+class InferenceStream(Iterable[_T]):
+    """Iterable over outputs streamed by the inference server, with a handle on the underlying HTTP response.
+
+    Returned by [`InferenceClient.chat_completion`] and [`InferenceClient.text_generation`] when `stream=True`.
+    Iterate over it as over any iterable. Call [`~InferenceStream.close`] to cancel the stream before it is
+    exhausted and release the underlying HTTP connection.
+    """
+
+    def __init__(self, iterable: Iterable[_T], response: httpx.Response) -> None:
+        self._iterable = iterable
+        self._response = response
+
+    def __iter__(self) -> Iterator[_T]:
+        return iter(self._iterable)
+
+    def close(self) -> None:
+        """Cancel the stream and release the underlying HTTP connection."""
+        self._response.close()
+
+
+class AsyncInferenceStream(AsyncIterable[_T]):
+    """Async iterable over outputs streamed by the inference server, with a handle on the underlying HTTP response.
+
+    Returned by [`AsyncInferenceClient.chat_completion`] and [`AsyncInferenceClient.text_generation`] when
+    `stream=True`. Iterate over it with `async for`. Call [`~AsyncInferenceStream.close`] to cancel the stream
+    before it is exhausted and release the underlying HTTP connection. Contrary to closing the async iterator
+    itself, `close()` can safely be called from another task while the stream is being iterated.
+    """
+
+    def __init__(self, iterable: AsyncIterable[_T], response: httpx.Response) -> None:
+        self._iterable = iterable
+        self._response = response
+
+    def __aiter__(self) -> AsyncIterator[_T]:
+        return self._iterable.__aiter__()
+
+    async def close(self) -> None:
+        """Cancel the stream and release the underlying HTTP connection."""
+        await self._response.aclose()
+
 
 def _stream_text_generation_response(
-    output_lines: Iterable[str], details: bool
-) -> Iterable[str] | Iterable[TextGenerationStreamOutput]:
+    response: httpx.Response, details: bool
+) -> InferenceStream[str] | InferenceStream[TextGenerationStreamOutput]:
     """Used in `InferenceClient.text_generation`."""
-    # Parse ServerSentEvents
-    for line in output_lines:
-        try:
-            output = _format_text_generation_stream_output(line, details)
-        except StopIteration:
-            break
-        if output is not None:
-            yield output
+
+    def _iter() -> Iterator[Any]:
+        # Parse ServerSentEvents
+        for line in response.iter_lines():
+            try:
+                output = _format_text_generation_stream_output(line, details)
+            except StopIteration:
+                break
+            if output is not None:
+                yield output
+
+    return InferenceStream(_iter(), response)
 
 
-async def _async_stream_text_generation_response(
-    output_lines: AsyncIterable[str], details: bool
-) -> AsyncIterable[str] | AsyncIterable[TextGenerationStreamOutput]:
+def _async_stream_text_generation_response(
+    response: httpx.Response, details: bool
+) -> AsyncInferenceStream[str] | AsyncInferenceStream[TextGenerationStreamOutput]:
     """Used in `AsyncInferenceClient.text_generation`."""
-    # Parse ServerSentEvents
-    async for line in output_lines:
-        try:
-            output = _format_text_generation_stream_output(line, details)
-        except StopIteration:
-            break
-        if output is not None:
-            yield output
+
+    async def _aiter() -> AsyncIterator[Any]:
+        # Parse ServerSentEvents
+        async for line in response.aiter_lines():
+            try:
+                output = _format_text_generation_stream_output(line.strip(), details)
+            except StopIteration:
+                break
+            if output is not None:
+                yield output
+
+    return AsyncInferenceStream(_aiter(), response)
 
 
 def _format_text_generation_stream_output(line: str, details: bool) -> str | TextGenerationStreamOutput | None:
@@ -305,29 +356,37 @@ def _format_text_generation_stream_output(line: str, details: bool) -> str | Tex
 
 
 def _stream_chat_completion_response(
-    lines: Iterable[str],
-) -> Iterable[ChatCompletionStreamOutput]:
+    response: httpx.Response,
+) -> InferenceStream[ChatCompletionStreamOutput]:
     """Used in `InferenceClient.chat_completion` if model is served with TGI."""
-    for line in lines:
-        try:
-            output = _format_chat_completion_stream_output(line)
-        except StopIteration:
-            break
-        if output is not None:
-            yield output
+
+    def _iter() -> Iterator[ChatCompletionStreamOutput]:
+        for line in response.iter_lines():
+            try:
+                output = _format_chat_completion_stream_output(line)
+            except StopIteration:
+                break
+            if output is not None:
+                yield output
+
+    return InferenceStream(_iter(), response)
 
 
-async def _async_stream_chat_completion_response(
-    lines: AsyncIterable[str],
-) -> AsyncIterable[ChatCompletionStreamOutput]:
+def _async_stream_chat_completion_response(
+    response: httpx.Response,
+) -> AsyncInferenceStream[ChatCompletionStreamOutput]:
     """Used in `AsyncInferenceClient.chat_completion`."""
-    async for line in lines:
-        try:
-            output = _format_chat_completion_stream_output(line)
-        except StopIteration:
-            break
-        if output is not None:
-            yield output
+
+    async def _aiter() -> AsyncIterator[ChatCompletionStreamOutput]:
+        async for line in response.aiter_lines():
+            try:
+                output = _format_chat_completion_stream_output(line.strip())
+            except StopIteration:
+                break
+            if output is not None:
+                yield output
+
+    return AsyncInferenceStream(_aiter(), response)
 
 
 def _format_chat_completion_stream_output(
@@ -348,11 +407,6 @@ def _format_chat_completion_stream_output(
 
     # Or parse token payload
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
-
-
-async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterable[str]:
-    async for line in response.aiter_lines():
-        yield line.strip()
 
 
 # "TGI servers" are servers running with the `text-generation-inference` backend.

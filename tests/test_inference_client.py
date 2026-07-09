@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx
 import numpy as np
 import pytest
 from PIL import Image
@@ -46,6 +47,7 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._common import (
+    InferenceStream,
     MimeBytes,
     _as_url,
     _open_as_mime_bytes,
@@ -1016,7 +1018,9 @@ def test_stream_text_generation_response(stop_signal: bytes):
         # Won't parse after
         'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
-    output = list(_stream_text_generation_response(data, details=False))
+    response = MagicMock(spec=httpx.Response)
+    response.iter_lines.return_value = iter(data)
+    output = list(_stream_text_generation_response(response, details=False))
     assert len(output) == 2
     assert output == [" trying", " to"]
 
@@ -1039,7 +1043,9 @@ def test_stream_chat_completion_response(stop_signal: bytes):
         # Won't parse after
         'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
-    output = list(_stream_chat_completion_response(data))
+    response = MagicMock(spec=httpx.Response)
+    response.iter_lines.return_value = iter(data)
+    output = list(_stream_chat_completion_response(response))
     assert len(output) == 2
     assert output[0].choices[0].delta.content == "Both"
     assert output[1].choices[0].delta.content == " Rust"
@@ -1054,9 +1060,55 @@ def test_chat_completion_error_in_stream():
         'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
         'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
     ]
+    response = MagicMock(spec=httpx.Response)
+    response.iter_lines.return_value = iter(data)
     with pytest.raises(ValidationError):
-        for token in _stream_chat_completion_response(data):
+        for token in _stream_chat_completion_response(response):
             pass
+
+
+def test_stream_close_releases_underlying_response():
+    """The object returned by streaming calls exposes `close()` to cancel the stream early.
+
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/4224.
+    """
+    data = [
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+    ]
+    response = MagicMock(spec=httpx.Response)
+    response.iter_lines.return_value = iter(data)
+
+    stream = _stream_chat_completion_response(response)
+    assert isinstance(stream, InferenceStream)
+    assert next(iter(stream)).choices[0].delta.content == "Both"
+
+    stream.close()
+    response.close.assert_called_once()
+
+
+def test_chat_completion_stream_returns_closable_stream():
+    """`chat_completion(..., stream=True)` returns an `InferenceStream` wired to the HTTP response."""
+    data = [
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+    ]
+    response = MagicMock(spec=httpx.Response)
+    response.iter_lines.return_value = iter(data)
+
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct")
+
+    with (
+        patch("huggingface_hub.inference._client.get_provider_helper", return_value=helper),
+        patch.object(InferenceClient, "_inner_post", return_value=response),
+    ):
+        stream = client.chat_completion(CHAT_COMPLETION_MESSAGES, stream=True)
+
+    assert isinstance(stream, InferenceStream)
+    assert [chunk.choices[0].delta.content for chunk in stream] == ["Both"]
+    stream.close()
+    response.close.assert_called_once()
 
 
 INFERENCE_API_URL = "https://api-inference.huggingface.co/models"

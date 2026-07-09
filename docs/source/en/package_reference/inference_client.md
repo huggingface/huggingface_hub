@@ -27,3 +27,19 @@ An async version of the client is also provided, based on `asyncio` and `httpx`.
 ## InferenceTimeoutError
 
 [[autodoc]] InferenceTimeoutError
+
+## InferenceStream
+
+Object returned by [`InferenceClient.chat_completion`] and [`InferenceClient.text_generation`] when `stream=True`.
+In addition to being iterable, it exposes a `close()` method to cancel the stream early and release the underlying
+HTTP connection.
+
+[[autodoc]] InferenceStream
+
+## AsyncInferenceStream
+
+Async equivalent of [`InferenceStream`], returned by [`AsyncInferenceClient.chat_completion`] and
+[`AsyncInferenceClient.text_generation`] when `stream=True`. `close()` can safely be called from another task
+while the stream is being iterated.
+
+[[autodoc]] AsyncInferenceStream
