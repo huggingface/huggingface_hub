@@ -57,7 +57,7 @@ Instead of starting from an empty Space, you can seed a new Space from one of th
 
 # List available templates
 >>> for template in api.list_space_templates():
-...     print(f"{template.name} ({template.repo_id}))
+...     print(f"{template.name} ({template.repo_id})")
 Streamlit (streamlit/streamlit-template-space)
 JupyterLab (SpacesExamples/jupyterlab)
 chatbot (gradio-templates/chatbot)
