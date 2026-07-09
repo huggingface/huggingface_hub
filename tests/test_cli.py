@@ -4528,11 +4528,11 @@ class TestSkillsHfCliCLI:
         skill_file = dest / "hf-cli" / "SKILL.md"
 
         runner.invoke(app, ["skills", "add", "--dest", str(dest)])
-        assert skill_file.read_text() == build_skill_md()
+        assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
         skill_file.write_text("stale content")
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
-        assert skill_file.read_text() == build_skill_md()
+        assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
 
 @pytest.mark.xet
