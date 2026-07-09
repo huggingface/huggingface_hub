@@ -1539,6 +1539,7 @@ class TestRepoCreateCommand:
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
             space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
+            space_template=None,
         )
 
     def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
