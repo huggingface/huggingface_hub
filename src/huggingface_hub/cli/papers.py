@@ -188,7 +188,7 @@ def papers_submit(
         github_repo=github_repo,
         organization_id=organization_id,
     )
-    out.result(f"Paper submitted to Daily Papers", paper_id=paper_id, url=url)
+    out.result("Paper submitted to Daily Papers", paper_id=paper_id, url=url)
 
 
 @papers_cli.command(

@@ -11809,7 +11809,7 @@ class HfApi:
             path,
             json=payload,
             headers=self._build_hf_headers(token=token),
-            allow_redirects=False,
+            follow_redirects=False,
         )
         hf_raise_for_status(r)
         location = r.headers.get("Location")
@@ -14881,6 +14881,7 @@ list_papers = api.list_papers
 paper_info = api.paper_info
 read_paper = api.read_paper
 list_daily_papers = api.list_daily_papers
+submit_paper = api.submit_paper
 
 repo_exists = api.repo_exists
 revision_exists = api.revision_exists
