@@ -3419,7 +3419,7 @@ Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
-  $ hf repos create my-jupyterlab --type space --sdk docker --template SpacesExamples/jupyterlab
+  $ hf repos create my-jupyterlab --type space --template SpacesExamples/jupyterlab
   $ hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
   $ hf repos create my-model --region us
 
