@@ -4593,7 +4593,10 @@ class HfApi:
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
 
         resolved_space_template: str | None = None
-        if repo_type == constants.REPO_TYPE_SPACE and space_template is not None:
+        if space_template is not None:
+            if repo_type != constants.REPO_TYPE_SPACE:
+                raise ValueError(f"space_template can only be used with repo_type 'space'. Got repo_type={repo_type}.")
+
             # space_template passed => resolve it
             all_templates = self.list_space_templates(token=token)
             for candidate in all_templates:
