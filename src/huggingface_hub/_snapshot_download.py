@@ -578,6 +578,7 @@ def get_cached_repo_tree(
     repo_type: str | None = None,
     revision: str | None = None,
     cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
 ) -> list[RepoFile]:
     """Return the cached tree listing of a repo at a given revision, without any network call.
 
@@ -598,6 +599,10 @@ def get_cached_repo_tree(
             default branch. Branch/tag names are resolved to a commit hash using the local cache (`refs/`).
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
+        local_dir (`str` or `Path`, *optional*):
+            If provided, read the tree listing cached by a `local_dir` download (from
+            `local_dir/.cache/huggingface/`) instead of the main cache. Branch/tag revisions are still resolved
+            to a commit hash using the main cache (`cache_dir`).
 
     Returns:
         `list[RepoFile]`: The list of [`RepoFile`] objects cached for this revision.
@@ -617,6 +622,8 @@ def get_cached_repo_tree(
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
     if revision is None:
         revision = constants.DEFAULT_REVISION
     if repo_type is None:
@@ -627,6 +634,10 @@ def get_cached_repo_tree(
         )
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # For `local_dir` downloads the tree listing lives under `local_dir/.cache/huggingface/`; otherwise it lives
+    # in the per-repo `storage_folder`. Refs are always recorded in the main cache, so we resolve them there.
+    tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
 
     # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
     # or it's a branch/tag name recorded in `refs/` by a previous download.
@@ -643,11 +654,11 @@ def get_cached_repo_tree(
         with open(ref_path) as f:
             commit_hash = f.read()
 
-    tree_entries = read_tree_cache(storage_folder, commit_hash)
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         raise CachedRepoTreeNotFoundError(
             f"No cached tree listing found for '{repo_id}' (revision '{revision}', commit '{commit_hash}', "
-            f"repo_type '{repo_type}') in '{storage_folder}'. Download the repo (e.g. with `snapshot_download`) "
+            f"repo_type '{repo_type}') in '{tree_cache_folder}'. Download the repo (e.g. with `snapshot_download`) "
             "to populate the cache first."
         )
 
