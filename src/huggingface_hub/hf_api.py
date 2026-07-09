@@ -4622,8 +4622,6 @@ class HfApi:
                     f"space_sdk must match the SDK of the chosen space_template. Got {space_sdk}, expected {template.sdk}."
                 )
             space_sdk = template.sdk
-        elif space_template is not None:
-            raise ValueError(f"space_template can only be used with repo_type 'space'. Got repo_type={repo_type}.")
 
         payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
