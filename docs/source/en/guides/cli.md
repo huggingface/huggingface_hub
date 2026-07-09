@@ -882,17 +882,17 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 # Filter by author
 >>> hf models ls --author Qwen
 
-# Filter by pipeline tag (canonical task)
+# Filter by pipeline tag
 >>> hf models ls --pipeline-tag summarization
 
 # Filter by parameter count
 >>> hf models ls --num-parameters min:6B,max:128B
 
-# Only gated models
->>> hf models ls --gated --author meta-llama
+# Only non-gated models
+>>> hf models ls --no-gated --author meta-llama
 
 # Only models runnable by a given app
->>> hf models ls --apps ollama
+>>> hf models ls --apps llama.cpp
 
 # Sort by downloads
 >>> hf models ls --sort downloads --limit 10
