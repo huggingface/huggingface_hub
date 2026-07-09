@@ -3063,6 +3063,9 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--pipeline-tag TEXT`: Filter by pipeline tag (canonical task), e.g. 'summarization'.
+* `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
+* `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--inference-provider [cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
 * `--warm`: Only list models currently served by at least one inference provider.
@@ -3079,7 +3082,11 @@ $ hf models list [OPTIONS] [REPO_ID]
 Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
+  $ hf models ls --pipeline-tag summarization --sort downloads
+  $ hf models ls --pipeline-tag text-generation --warm
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
+  $ hf models ls --gated --author meta-llama
+  $ hf models ls --apps ollama --apps vllm
   $ hf models ls --inference-provider fireworks-ai --sort downloads
   $ hf models ls --warm --search llama
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct
