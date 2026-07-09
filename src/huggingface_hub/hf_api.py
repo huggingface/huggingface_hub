@@ -85,6 +85,7 @@ from ._space_api import (
     SpaceSearchResult,
     SpaceSecret,
     SpaceStorage,
+    SpaceTemplate,
     SpaceVariable,
     Volume,
 )
@@ -4464,6 +4465,34 @@ class HfApi:
             response = get_session().post(url, headers=headers, json=payload)
             hf_raise_for_status(response)
 
+    def list_space_templates(self, *, token: str | bool | None = None) -> list[SpaceTemplate]:
+        """List the official Space templates available on the Hub.
+
+        The `repo_id` of a returned template (or its short `name`) can be passed as `space_template`
+        to [`HfApi.create_repo`] to seed a new Space from that template.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[SpaceTemplate]`: The list of available Space templates.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import list_space_templates
+            >>> templates = list_space_templates()
+            >>> templates[0]
+            SpaceTemplate(name='Streamlit', repo_id='streamlit/streamlit-template-space', sdk='docker', preferred_private=False)
+            ```
+        """
+        r = get_session().get(f"{self.endpoint}/api/spaces/templates", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(r)
+        return [SpaceTemplate(item) for item in r.json()["templates"]]
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -4488,6 +4517,7 @@ class HfApi:
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
+        space_template: str | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4542,6 +4572,12 @@ class HfApi:
                 (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
                 (path inside the container), and optional `revision`, `read_only`, and `path` fields.
                 Only applicable if repo_type is "space".
+            space_template (`str`, *optional*):
+                Seed the new Space from an official template. Can be either the template repo id
+                (e.g. `"SpacesExamples/jupyterlab"`) or its short name (e.g. `"JupyterLab"`). Use
+                [`HfApi.list_space_templates`] to list available templates. Only applicable if repo_type is
+                "space". If the template is recommended to be private and visibility is not explicitly set, the Space
+                is created as private.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4555,6 +4591,37 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
+        resolved_space_template: str | None = None
+        if space_template is not None:
+            if repo_type != constants.REPO_TYPE_SPACE:
+                raise ValueError(f"space_template can only be used with repo_type 'space'. Got repo_type={repo_type}.")
+
+            # space_template passed => resolve it
+            all_templates = self.list_space_templates(token=token)
+            for candidate in all_templates:
+                if candidate.repo_id == space_template:
+                    template = candidate
+                    break
+                if candidate.name.lower() == space_template.lower():
+                    template = candidate
+                    break
+            else:
+                raise ValueError(
+                    f"Unknown Space template '{space_template}'. Expected one of {', '.join(sorted(t.name for t in all_templates))}. Use `HfApi.list_space_templates()` to list templates."
+                )
+
+            resolved_space_template = template.repo_id
+            # If the chosen template is recommended to be private and the user did not explicitly set a
+            # visibility, default to private (mirrors the recommendation shown in the web UI).
+            if template.preferred_private and private is None and visibility is None:
+                resolved_visibility = "private"
+            # space_sdk can be omitted by the user, we set it following server info
+            if space_sdk is not None and space_sdk != template.sdk:
+                raise ValueError(
+                    f"space_sdk must match the SDK of the chosen space_template. Got {space_sdk}, expected {template.sdk}."
+                )
+            space_sdk = template.sdk
 
         payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
@@ -4570,6 +4637,8 @@ class HfApi:
             if space_sdk not in constants.SPACES_SDK_TYPES:
                 raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
             payload["sdk"] = space_sdk
+            if resolved_space_template is not None:
+                payload["template"] = resolved_space_template
 
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
@@ -14709,6 +14778,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+list_space_templates = api.list_space_templates
 search_spaces = api.search_spaces
 space_info = api.space_info
 

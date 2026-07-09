@@ -47,6 +47,46 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
+### Create a Space from a template
+
+Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. Note that `space_sdk` is still required: the template seeds the files while the SDK sets the card metadata.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# List available templates
+>>> for template in api.list_space_templates():
+...     print(f"{template.name} ({template.repo_id})")
+Streamlit (streamlit/streamlit-template-space)
+JupyterLab (SpacesExamples/jupyterlab)
+chatbot (gradio-templates/chatbot)
+...
+
+# Create a Space from a template, by repo id or by short name
+>>> api.create_repo(repo_id=repo_id, repo_type="space", space_template="SpacesExamples/jupyterlab")
+>>> api.create_repo(repo_id=repo_id, repo_type="space", space_template="JupyterLab")
+```
+
+Some templates are recommended to be private (e.g. JupyterLab). If you don't explicitly set visibility, such Spaces are created as private automatically.
+
+From the CLI, the same is available through `hf spaces templates` and `hf repos create --template`:
+
+```bash
+# List available templates
+>>> hf spaces templates
+NAME            REPO_ID                                        SDK    PREFERRED_PRIVATE
+--------------- ---------------------------------------------- ------ -----------------
+Streamlit       streamlit/streamlit-template-space             docker
+JupyterLab      SpacesExamples/jupyterlab                      docker ✔
+Argilla         argilla/argilla-template-space                 docker
+Livebook        livebook-dev/livebook                          docker
+...
+
+# Create a Space from a template
+>>> hf repos create my-jupyterlab --type space --template jupyterlab
+```
+
 ### Duplicate a Space
 
 This can prove useful if you want to build up from an existing Space instead of starting from scratch.

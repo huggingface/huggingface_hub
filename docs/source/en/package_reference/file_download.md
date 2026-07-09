@@ -18,6 +18,10 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.snapshot_download
 
+## Read the cached repo tree
+
+[[autodoc]] huggingface_hub.get_cached_repo_tree
+
 ## Get metadata about a file
 
 ### get_hf_file_metadata

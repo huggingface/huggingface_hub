@@ -362,3 +362,34 @@ class SpaceSearchResult:
         self.ai_category = data.get("ai_category")
         self.semantic_relevancy_score = data.get("semanticRelevancyScore")
         self.trending_score = data.get("trendingScore")
+
+
+@dataclass
+class SpaceTemplate:
+    """
+    Contains information about a Space template available on the Hub.
+
+    Returned by [`HfApi.list_space_templates`]. The `repo_id` can be passed as `space_template`
+    to [`HfApi.create_repo`] to seed a new Space from that template.
+
+    Args:
+        name (`str`):
+            Human-friendly name of the template (e.g. `"JupyterLab"`, `"chatbot"`).
+        repo_id (`str`):
+            Repo id of the template Space (e.g. `"SpacesExamples/jupyterlab"`).
+        sdk (`str`):
+            SDK the template is built with (e.g. `"gradio"`, `"docker"`, `"static"`).
+        preferred_private (`bool`):
+            Whether Spaces created from this template are recommended to be private.
+    """
+
+    name: str
+    repo_id: str
+    sdk: str
+    preferred_private: bool
+
+    def __init__(self, data: dict) -> None:
+        self.name = data["name"]
+        self.repo_id = data["repoId"]
+        self.sdk = data["sdk"]
+        self.preferred_private = data["preferredPrivate"]

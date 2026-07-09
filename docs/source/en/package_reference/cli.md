@@ -3063,6 +3063,9 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--pipeline-tag TEXT`: Filter by pipeline tag (canonical task), e.g. 'summarization'.
+* `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
+* `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
 * `--inference-provider [cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
 * `--warm`: Only list models currently served by at least one inference provider.
@@ -3079,7 +3082,10 @@ $ hf models list [OPTIONS] [REPO_ID]
 Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
+  $ hf models ls --pipeline-tag text-generation --warm
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
+  $ hf models ls --no-gated --author google
+  $ hf models ls --apps llama.cpp --apps vllm
   $ hf models ls --inference-provider fireworks-ai --sort downloads
   $ hf models ls --warm --search llama
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct
@@ -3397,6 +3403,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 * `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
 * `--sdk, --space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
+* `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
@@ -3418,6 +3425,7 @@ Examples
   $ hf repos create my-model
   $ hf repos create my-dataset --repo-type dataset --private
   $ hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
+  $ hf repos create my-jupyterlab --type space --template SpacesExamples/jupyterlab
   $ hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
   $ hf repos create my-model --region us
 
@@ -4283,6 +4291,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
 * `ssh`: SSH into a Space's Dev Mode container.
+* `templates`: List the available Space templates.
 * `variables`: Manage environment variables for a Space...
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
@@ -4793,6 +4802,32 @@ Examples
   $ hf spaces ssh username/my-space --dry-run
   $ hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
   $ hf spaces ssh username/my-space --auto
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces templates`
+
+List the available Space templates.
+
+The `repo_id` (or `name`) of a template can be passed to `hf repos create --template ...` to
+create a new Space from that template.
+
+**Usage**:
+
+```console
+$ hf spaces templates [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces templates
 
 Learn more
   Use `hf <command> --help` for more information about a command.

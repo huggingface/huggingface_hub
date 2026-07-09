@@ -23,6 +23,13 @@ class CorruptedCacheException(Exception):
     """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
+class CachedRepoTreeNotFoundError(Exception):
+    """Raised by [`get_cached_repo_tree`] when no tree listing is cached for the requested revision.
+
+    The tree listing is populated as a side effect of [`snapshot_download`].
+    """
+
+
 # HEADERS ERRORS
 
 
@@ -463,7 +470,14 @@ class IncompleteSnapshotError(LocalEntryNotFoundError):
     the repository's cached tree listing are missing from the local snapshot.
 
     This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
+
+    The `snapshot_path` attribute holds the path to the incomplete local snapshot, so a downstream library can locate
+    the latest cached files even though they are known to be incomplete.
     """
+
+    def __init__(self, message: str, snapshot_path: str):
+        super().__init__(message)
+        self.snapshot_path = snapshot_path
 
 
 # REQUEST ERROR

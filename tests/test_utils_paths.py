@@ -132,6 +132,39 @@ class TestPathsUtils:
             ignore_patterns=["*.LOG"],
         )
 
+    def test_backslashes_are_treated_as_path_separators(self) -> None:
+        """Windows-style patterns (e.g. built with `os.path.join`) match `/`-separated repo paths.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/4506.
+        """
+        # Backslash-separated pattern matches forward-slash paths.
+        self._check(
+            items=["unet/config.json", "vae/config.json", "unet/model.bin"],
+            expected_items=["unet/config.json"],
+            allow_patterns=["unet\\config.json"],
+        )
+        # Backslash-separated paths (e.g. local Windows paths) match forward-slash patterns.
+        self._check(
+            items=["unet\\config.json", "unet\\model.bin"],
+            expected_items=["unet\\config.json"],
+            allow_patterns=["unet/*.json"],
+        )
+        # Also applies to the ignore list.
+        self._check(
+            items=["unet/config.json", "unet/model.bin"],
+            expected_items=["unet/model.bin"],
+            ignore_patterns=["unet\\*.json"],
+        )
+
+    def test_key_returning_path_object(self) -> None:
+        """A custom `key` returning a `Path` (not `str`) must work."""
+        self._check(
+            items=[DummyObject(path=Path("unet/config.json")), DummyObject(path=Path("unet/model.bin"))],
+            expected_items=[DummyObject(path=Path("unet/config.json"))],
+            allow_patterns=["unet/*.json"],
+            key=lambda x: x.path,
+        )
+
     def _check(
         self,
         items: list[Any],

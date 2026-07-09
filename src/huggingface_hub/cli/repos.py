@@ -191,6 +191,7 @@ def repo_list(
         "hf repos create my-model",
         "hf repos create my-dataset --repo-type dataset --private",
         "hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected",
+        "hf repos create my-jupyterlab --type space --template SpacesExamples/jupyterlab",
         "hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data",
         "hf repos create my-model --region us",
     ],
@@ -204,6 +205,17 @@ def repo_create(
             "--sdk",
             "--space-sdk",
             help="Hugging Face Spaces SDK type. Required when --type is set to 'space'.",
+        ),
+    ] = None,
+    template: Annotated[
+        str | None,
+        Option(
+            "--template",
+            help=(
+                "Create a Space from an official template. Pass a template repo id (e.g. "
+                "'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with "
+                "`hf spaces templates`. Spaces only."
+            ),
         ),
     ] = None,
     private: PrivateOpt = None,
@@ -255,6 +267,7 @@ def repo_create(
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
         space_volumes=parse_volumes(volume),
+        space_template=template,
     )
     out.result("Repo created", repo_id=repo_url.repo_id, url=str(repo_url))
 

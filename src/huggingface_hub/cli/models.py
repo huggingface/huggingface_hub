@@ -66,7 +66,10 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
     examples=[
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',
+        "hf models ls --pipeline-tag text-generation --warm",
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
+        "hf models ls --no-gated --author google",
+        "hf models ls --apps llama.cpp --apps vllm",
         "hf models ls --inference-provider fireworks-ai --sort downloads",
         "hf models ls --warm --search llama",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct",
@@ -82,6 +85,21 @@ def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    pipeline_tag: Annotated[
+        str | None,
+        Option("--pipeline-tag", help="Filter by pipeline tag (canonical task), e.g. 'summarization'."),
+    ] = None,
+    gated: Annotated[
+        bool | None,
+        Option(
+            "--gated/--no-gated",
+            help="Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.",
+        ),
+    ] = None,
+    apps: Annotated[
+        list[str] | None,
+        Option("--apps", help="Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'."),
+    ] = None,
     num_parameters: Annotated[
         str | None,
         Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
@@ -131,6 +149,12 @@ def models_ls(
             raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
             raise click.BadParameter("Cannot use --filter when listing files.")
+        if pipeline_tag is not None:
+            raise click.BadParameter("Cannot use --pipeline-tag when listing files.")
+        if gated is not None:
+            raise click.BadParameter("Cannot use --gated/--no-gated when listing files.")
+        if apps is not None:
+            raise click.BadParameter("Cannot use --apps when listing files.")
         if num_parameters is not None:
             raise click.BadParameter("Cannot use --num-parameters when listing files.")
         if inference_provider is not None:
@@ -171,6 +195,9 @@ def models_ls(
             filter=filter,
             author=author,
             search=search,
+            pipeline_tag=pipeline_tag,
+            gated=gated,
+            apps=apps,
             num_parameters=num_parameters,
             inference="warm" if warm else None,
             inference_provider=inference_provider,
