@@ -889,7 +889,7 @@ Use `hf models` to list models on the Hub and get detailed information about a s
 >>> hf models ls --num-parameters min:6B,max:128B
 
 # Only non-gated models
->>> hf models ls --no-gated --author meta-llama
+>>> hf models ls --no-gated --author google
 
 # Only models runnable by a given app
 >>> hf models ls --apps llama.cpp

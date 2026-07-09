@@ -68,7 +68,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
         'hf models ls --search "llama" --author meta-llama',
         "hf models ls --pipeline-tag text-generation --warm",
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
-        "hf models ls --no-gated --author meta-llama",
+        "hf models ls --no-gated --author google",
         "hf models ls --apps llama.cpp --apps vllm",
         "hf models ls --inference-provider fireworks-ai --sort downloads",
         "hf models ls --warm --search llama",
