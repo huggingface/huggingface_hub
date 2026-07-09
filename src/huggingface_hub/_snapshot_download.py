@@ -585,10 +585,7 @@ def get_cached_repo_tree(
     on disk as a side effect of [`snapshot_download`] (see the `trees/<commit_hash>.json` cache files) and is
     used to skip network calls on subsequent downloads. This function exposes that cache directly.
 
-    Unlike [`HfApi.list_repo_tree`], it never hits the Hub: it always returns the **full** list of files as
-    [`RepoFile`] objects (never [`RepoFolder`]), and does not support recursion/expand/path filtering options —
-    everything cached is returned. This is a power-user helper; if you need a fresh, filterable listing, use
-    [`HfApi.list_repo_tree`] instead.
+    If you need the current tree listing of a repo on the Hub, use [`list_repo_tree`] instead.
 
     Args:
         repo_id (`str`):
@@ -603,17 +600,16 @@ def get_cached_repo_tree(
             Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
 
     Returns:
-        `list[RepoFile]`: The list of files cached for this revision.
+        `list[RepoFile]`: The list of [`RepoFile`] objects cached for this revision.
 
     Raises:
         [`~errors.CachedRepoTreeNotFoundError`]
-            If no tree listing is cached for the requested revision (e.g. the repo was never downloaded at
-            this revision).
+            If no tree listing is cached for the requested revision (e.g. the repo was never downloaded at this revision).
 
     Example:
         ```py
         >>> from huggingface_hub import get_cached_repo_tree
-        >>> files = get_cached_repo_tree("gpt2")
+        >>> files = get_cached_repo_tree("openai-community/gpt2")
         >>> [f.path for f in files]
         ['.gitattributes', 'config.json', 'model.safetensors', ...]
         ```
@@ -624,7 +620,11 @@ def get_cached_repo_tree(
     if revision is None:
         revision = constants.DEFAULT_REVISION
     if repo_type is None:
-        repo_type = "model"
+        repo_type = constants.REPO_TYPE_MODEL
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
@@ -651,16 +651,10 @@ def get_cached_repo_tree(
             "to populate the cache first."
         )
 
-    return [_tree_cache_entry_to_repo_file(path, entry) for path, entry in tree_entries.items()]
-
-
-def _tree_cache_entry_to_repo_file(path: str, entry: TreeCacheEntry) -> RepoFile:
-    """Rebuild a [`RepoFile`] from a cached tree entry (only the fields stored in the cache are populated)."""
-    kwargs: dict = {"path": path, "size": entry.size, "oid": entry.blob_id, "xetHash": entry.xet_hash}
-    if entry.lfs_sha256 is not None:
-        # `pointerSize` is not stored in the tree cache, hence set to `None`.
-        kwargs["lfs"] = {"size": entry.lfs_size, "oid": entry.lfs_sha256, "pointerSize": None}
-    return RepoFile(**kwargs)
+    return [
+        RepoFile(path=path, size=entry.size, oid=entry.blob_id, xetHash=entry.xet_hash)
+        for path, entry in tree_entries.items()
+    ]
 
 
 def _local_file_exists(base_dir: str, path: str) -> bool:
