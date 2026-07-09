@@ -1562,6 +1562,7 @@ class TestRepoCreateCommand:
             space_secrets=None,
             space_variables=None,
             space_volumes=None,
+            space_template=None,
         )
 
 
