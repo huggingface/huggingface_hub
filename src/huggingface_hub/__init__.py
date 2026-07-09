@@ -345,6 +345,7 @@ _SUBMOD_ATTRS = {
         "set_space_sleep_time",
         "set_space_volumes",
         "space_info",
+        "submit_paper",
         "super_squash_history",
         "suspend_scheduled_job",
         "sync_bucket",
@@ -1117,6 +1118,7 @@ __all__ = [
     "space_info",
     "split_state_dict_into_shards_factory",
     "split_torch_state_dict_into_shards",
+    "submit_paper",
     "super_squash_history",
     "suspend_scheduled_job",
     "sync_bucket",
@@ -1533,6 +1535,7 @@ if TYPE_CHECKING:  # pragma: no cover
         set_space_sleep_time,  # noqa: F401
         set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
+        submit_paper,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
         sync_bucket,  # noqa: F401

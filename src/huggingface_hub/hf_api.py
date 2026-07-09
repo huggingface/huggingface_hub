@@ -11724,6 +11724,99 @@ class HfApi:
         for paper in r.json():
             yield PaperInfo(**paper)
 
+    @validate_hf_hub_args
+    def submit_paper(
+        self,
+        paper_id: str,
+        *,
+        comment: str | None = None,
+        media_urls: list[str] | None = None,
+        project_page: str | None = None,
+        github_repo: str | None = None,
+        organization_id: str | None = None,
+        token: bool | str | None = None,
+    ) -> str:
+        """
+        Submit a paper to the Daily Papers feed on the Hugging Face Hub.
+
+        The paper will be indexed from arXiv if it was not already indexed.
+
+        <Tip warning={true}>
+
+        A few limitations apply when submitting a paper to Daily Papers:
+        - You must have at least one paper linked to your Hugging Face profile.
+        - Papers cannot be submitted on weekends.
+        - The number of submissions per day is limited.
+        - Papers past their submission deadline can no longer be submitted.
+        - The same paper cannot be submitted twice.
+
+        The server raises an HTTP error when any of these conditions is not met.
+
+        </Tip>
+
+        Args:
+            paper_id (`str`):
+                The arXiv ID of the paper to submit (e.g. `"2501.12345"`).
+            comment (`str`, *optional*):
+                An optional comment to add to the paper's discussion.
+            media_urls (`list[str]`, *optional*):
+                An optional list of media URLs to attach to the submission.
+            project_page (`str`, *optional*):
+                An optional project page URL for the paper.
+            github_repo (`str`, *optional*):
+                An optional GitHub repository URL for the paper.
+            organization_id (`str`, *optional*):
+                An optional organization ID to associate the submission with.
+            token (Union[bool, str, None], *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `str`: The URL of the submitted daily paper.
+
+        Raises:
+            [`HfHubHTTPError`]:
+                If the submission criteria are not met (e.g. no existing paper on your
+                profile, weekend submission, daily limit reached, submission deadline
+                passed, or paper already submitted).
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+        >>> api.submit_paper("2501.12345", comment="Excited to share our work!")
+        'https://huggingface.co/papers/2501.12345'
+        ```
+        """
+        path = f"{self.endpoint}/api/papers/submit"
+        payload: dict[str, Any] = {"paperId": paper_id}
+        if comment is not None:
+            payload["comment"] = comment
+        if media_urls is not None:
+            payload["mediaUrls"] = media_urls
+        if project_page is not None:
+            payload["projectPage"] = project_page
+        if github_repo is not None:
+            payload["githubRepo"] = github_repo
+        if organization_id is not None:
+            payload["organizationId"] = organization_id
+
+        r = get_session().post(
+            path,
+            json=payload,
+            headers=self._build_hf_headers(token=token),
+            allow_redirects=False,
+        )
+        hf_raise_for_status(r)
+        location = r.headers.get("Location")
+        if location and location.startswith("/"):
+            location = f"{self.endpoint}{location}"
+        return location or f"{self.endpoint}/papers/{paper_id}"
+
     def auth_check(
         self,
         repo_id: str,

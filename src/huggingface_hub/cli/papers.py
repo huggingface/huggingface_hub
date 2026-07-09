@@ -147,6 +147,51 @@ def papers_info(
 
 
 @papers_cli.command(
+    "submit",
+    examples=[
+        "hf papers submit 2601.15621",
+        'hf papers submit 2601.15621 --comment "Excited to share our work!"',
+        "hf papers submit 2601.15621 --media-url https://example.com/figure.png",
+    ],
+)
+def papers_submit(
+    paper_id: Annotated[str, Argument(help="The arXiv paper ID (e.g. '2502.08025').")],
+    comment: Annotated[
+        str | None,
+        Option(help="An optional comment to add to the paper's discussion."),
+    ] = None,
+    media_url: Annotated[
+        list[str] | None,
+        Option("--media-url", help="Media URL to attach. Repeat to attach several."),
+    ] = None,
+    project_page: Annotated[
+        str | None,
+        Option(help="An optional project page URL for the paper."),
+    ] = None,
+    github_repo: Annotated[
+        str | None,
+        Option(help="An optional GitHub repository URL for the paper."),
+    ] = None,
+    organization_id: Annotated[
+        str | None,
+        Option(help="An optional organization ID to associate the submission with."),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Submit a paper to the Daily Papers feed on the Hub."""
+    api = get_hf_api(token=token)
+    url = api.submit_paper(
+        paper_id,
+        comment=comment,
+        media_urls=media_url,
+        project_page=project_page,
+        github_repo=github_repo,
+        organization_id=organization_id,
+    )
+    out.text(f"Paper '{paper_id}' submitted to Daily Papers: {url}")
+
+
+@papers_cli.command(
     "read",
     examples=[
         "hf papers read 2601.15621",
