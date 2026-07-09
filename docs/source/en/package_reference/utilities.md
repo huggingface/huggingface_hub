@@ -233,6 +233,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.IncompleteSnapshotError
 
+#### CachedRepoTreeNotFoundError
+
+[[autodoc]] huggingface_hub.errors.CachedRepoTreeNotFoundError
+
 #### OfflineModeIsEnabled
 
 [[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled

@@ -23,6 +23,14 @@ class CorruptedCacheException(Exception):
     """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
+class CachedRepoTreeNotFoundError(Exception):
+    """Raised by [`get_cached_repo_tree`] when no tree listing is cached for the requested revision.
+
+    The tree listing is populated as a side effect of [`snapshot_download`] (or [`hf_hub_download`]); if the
+    repository has never been downloaded at this revision, there is nothing to return from the cache.
+    """
+
+
 # HEADERS ERRORS
 
 

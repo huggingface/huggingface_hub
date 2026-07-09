@@ -109,6 +109,7 @@ _SUBMOD_ATTRS = {
         "SandboxProcess",
     ],
     "_snapshot_download": [
+        "get_cached_repo_tree",
         "snapshot_download",
     ],
     "_space_api": [
@@ -998,6 +999,7 @@ __all__ = [
     "get_async_session",
     "get_bucket_file_metadata",
     "get_bucket_paths_info",
+    "get_cached_repo_tree",
     "get_collection",
     "get_dataset_leaderboard",
     "get_dataset_tags",
@@ -1296,7 +1298,10 @@ if TYPE_CHECKING:  # pragma: no cover
         SandboxPool,  # noqa: F401
         SandboxProcess,  # noqa: F401
     )
-    from ._snapshot_download import snapshot_download  # noqa: F401
+    from ._snapshot_download import (
+        get_cached_repo_tree,  # noqa: F401
+        snapshot_download,  # noqa: F401
+    )
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
