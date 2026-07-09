@@ -151,7 +151,7 @@ def papers_info(
     examples=[
         "hf papers submit 2601.15621",
         'hf papers submit 2601.15621 --comment "Excited to share our work!"',
-        "hf papers submit 2601.15621 --media-url https://example.com/figure.png",
+        "hf papers submit 2601.15621 --github-repo https://github.com/my-paper-code",
     ],
 )
 def papers_submit(
