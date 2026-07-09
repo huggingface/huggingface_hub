@@ -320,7 +320,7 @@ def _remove_existing(path: Path, force: bool) -> None:
 def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     """Install a marketplace skill into a skills directory. Returns the installed path."""
     try:
-        if skill_name.strip().lower() == DEFAULT_SKILL_ID:
+        if skill_name.strip() == DEFAULT_SKILL_ID:
             return _skills.install_generated_skill(build_skill_md(), skills_dir, force=force)
         return _skills.add_skill(skill_name, skills_dir, force=force)
     except FileExistsError as exc:

@@ -78,9 +78,7 @@ def update_skills(roots: list[Path], selector: str | None = None, *, hf_cli_cont
             raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
 
     # `hf-cli` is regenerated locally, so only hit the marketplace when another managed skill needs it.
-    needs_marketplace = any(
-        d.name.lower() != DEFAULT_SKILL_ID and (d / MANAGED_MARKER_FILENAME).exists() for d in skill_dirs
-    )
+    needs_marketplace = any(d.name != DEFAULT_SKILL_ID and (d / MANAGED_MARKER_FILENAME).exists() for d in skill_dirs)
     api = None
     marketplace_skills: dict[str, MarketplaceSkill] = {}
     if needs_marketplace:
@@ -290,7 +288,7 @@ def _apply_single_update(
     if not (skill_dir / MANAGED_MARKER_FILENAME).exists():
         return base
 
-    if skill_dir.name.lower() == DEFAULT_SKILL_ID:
+    if skill_dir.name == DEFAULT_SKILL_ID:
         try:
             install_generated_skill(hf_cli_content, skill_dir.parent, force=True)
         except Exception as exc:
