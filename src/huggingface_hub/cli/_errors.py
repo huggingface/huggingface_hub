@@ -25,6 +25,7 @@ from huggingface_hub.errors import (
     GatedRepoError,
     HfHubHTTPError,
     HfUriError,
+    IncompleteSnapshotError,
     LocalEntryNotFoundError,
     LocalTokenNotFoundError,
     OfflineModeIsEnabled,
@@ -91,6 +92,12 @@ def _format_local_entry_not_found(error: LocalEntryNotFoundError) -> str:
     return f"Local entry not found. {error}"
 
 
+def _format_incomplete_snapshot(error: IncompleteSnapshotError) -> str:
+    msg = _format_local_entry_not_found(error)
+    msg += f"\nIncomplete snapshot available at: {error.snapshot_path}"
+    return msg
+
+
 def _format_revision_not_found(error: RevisionNotFoundError) -> str:
     label = error.repo_type if error.repo_type else "repository"
     if error.repo_id:
@@ -129,6 +136,8 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     OIDCError: lambda error: f"OIDC Exchange failed. {error}",
     DeviceCodeError: lambda error: f"Login failed: {error}",
     RemoteEntryNotFoundError: _format_entry_not_found,
+    # IncompleteSnapshotError must come before LocalEntryNotFoundError (it's a subclass).
+    IncompleteSnapshotError: _format_incomplete_snapshot,
     LocalEntryNotFoundError: _format_local_entry_not_found,
     EntryNotFoundError: lambda error: str(error),
     HfHubHTTPError: lambda error: str(error),

@@ -27,9 +27,8 @@ from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
 from ._framework import Argument, Option
 from ._output import out
+from ._skills import DEFAULT_SKILL_ID
 
-
-DEFAULT_SKILL_ID = "hf-cli"
 
 _SKILL_DESCRIPTION = (
     "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing"
@@ -321,6 +320,8 @@ def _remove_existing(path: Path, force: bool) -> None:
 def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     """Install a marketplace skill into a skills directory. Returns the installed path."""
     try:
+        if skill_name.strip() == DEFAULT_SKILL_ID:
+            return _skills.install_generated_skill(build_skill_md(), skills_dir, force=force)
         return _skills.add_skill(skill_name, skills_dir, force=force)
     except FileExistsError as exc:
         raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
@@ -442,8 +443,10 @@ def skills_add(
         ),
     ] = False,
 ) -> None:
-    """Download a Hugging Face skill and install it for an AI assistant.
+    """Install a Hugging Face skill for an AI assistant.
 
+    The default `hf-cli` skill is generated locally from the installed CLI version;
+    other skills are downloaded from the Hugging Face marketplace.
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
     If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
@@ -498,7 +501,7 @@ def skills_update(
     """Update installed Hugging Face marketplace skills."""
     roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
-    results = _skills.update_skills(roots, selector=name)
+    results = _skills.update_skills(roots, selector=name, hf_cli_content=build_skill_md())
     if not results:
         print("No installed skills found.")
         return

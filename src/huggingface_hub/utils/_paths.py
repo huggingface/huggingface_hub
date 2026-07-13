@@ -49,11 +49,14 @@ def filter_repo_objects(
     In the later case, `key` must be provided and specifies a function of one argument
     that is used to extract a path from each element in iterable.
 
-    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions.
-    The pattern matching is based on Python's `fnmatch.fnmatchcase`, so it is
-    case-sensitive on every platform. Note that it matches `*` across path
-    boundaries, unlike traditional Unix shell globbing. For example,
-    `"data/*.json"` will match both `data/file.json` and `data/subdir/file.json`.
+    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions. The pattern matching is based on
+    Python's `fnmatch.fnmatchcase`, so it is case-sensitive on every platform. Backslashes are treated as path separators
+    and normalized to forward slashes in both patterns and paths before matching, so patterns built with `os.path.join`
+    on Windows work as expected.
+
+    Note that it matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"`
+    will match both `data/file.json` and `data/subdir/file.json`.
+
     See https://docs.python.org/3/library/fnmatch.html for more details.
 
     Args:
@@ -110,9 +113,9 @@ def filter_repo_objects(
         ignore_patterns = [ignore_patterns]
 
     if allow_patterns is not None:
-        allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
+        allow_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in allow_patterns]
     if ignore_patterns is not None:
-        ignore_patterns = [_add_wildcard_to_directories(p) for p in ignore_patterns]
+        ignore_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in ignore_patterns]
 
     if key is None:
 
@@ -126,7 +129,7 @@ def filter_repo_objects(
         key = _identity  # Items must be `str` or `Path`, otherwise raise ValueError
 
     for item in items:
-        path = key(item)
+        path = _normalize_separators(key(item))
 
         # Skip if there's an allowlist and path doesn't match any
         if allow_patterns is not None and not any(fnmatchcase(path, r) for r in allow_patterns):
@@ -137,6 +140,13 @@ def filter_repo_objects(
             continue
 
         yield item
+
+
+def _normalize_separators(value: str | Path) -> str:
+    # Repo paths always use `/` and `\` is not an fnmatch escape character, so treating backslashes as path separators
+    # (e.g. patterns built with `os.path.join` on Windows) is safe.
+    # `value` can be a `Path` if a custom `key` returns one; coerce to `str` first.
+    return str(value).replace("\\", "/")
 
 
 def _add_wildcard_to_directories(pattern: str) -> str:

@@ -1,8 +1,10 @@
 """Internal helpers for Hugging Face marketplace skill installation and upgrades."""
 
 import json
+import re
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
@@ -14,6 +16,7 @@ from ..utils import disable_progress_bars
 from ._cli_utils import get_hf_api
 
 
+DEFAULT_SKILL_ID = "hf-cli"
 DEFAULT_SKILLS_BUCKET_ID = "huggingface/skills"
 MARKETPLACE_PATH = "marketplace.json"
 # Empty marker file dropped into managed skill installs so `hf skills update` knows
@@ -54,8 +57,19 @@ def add_skill(skill_name: str, destination_root: Path, force: bool = False) -> P
         return _install_marketplace_skill(api, skill, destination_root, force=force)
 
 
-def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillUpdateInfo]:
-    """Re-sync managed marketplace skill installs from the bucket."""
+def install_generated_skill(content: str, destination_root: Path, force: bool = False) -> Path:
+    """Install the `hf-cli` skill from locally generated SKILL.md content (no bucket download)."""
+
+    def populate(install_dir: Path) -> None:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        (install_dir / "SKILL.md").write_text(content, encoding="utf-8")
+        (install_dir / MANAGED_MARKER_FILENAME).touch()
+
+    return _install_skill(DEFAULT_SKILL_ID, destination_root, populate=populate, force=force)
+
+
+def update_skills(roots: list[Path], selector: str | None = None, *, hf_cli_content: str) -> list[SkillUpdateInfo]:
+    """Re-sync managed skill installs (`hf-cli` is rewritten from `hf_cli_content`, the rest from the bucket)."""
     skill_dirs = _iter_unique_skill_dirs(roots)
     if selector is not None:
         selector_lower = selector.strip().lower()
@@ -63,10 +77,16 @@ def update_skills(roots: list[Path], selector: str | None = None) -> list[SkillU
         if not skill_dirs:
             raise CLIError(f"No installed skill matches '{selector}'. Install it with `hf skills add {selector}`.")
 
-    api = get_hf_api()
-    with disable_progress_bars():
-        marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
-        return [_apply_single_update(api, skill_dir, marketplace_skills) for skill_dir in skill_dirs]
+    # `hf-cli` is regenerated locally, so only hit the marketplace when another managed skill needs it.
+    needs_marketplace = any(d.name != DEFAULT_SKILL_ID and (d / MANAGED_MARKER_FILENAME).exists() for d in skill_dirs)
+    api = None
+    marketplace_skills: dict[str, MarketplaceSkill] = {}
+    if needs_marketplace:
+        api = get_hf_api()
+        with disable_progress_bars():
+            marketplace_skills = {skill.name.lower(): skill for skill in _load_marketplace_skills(api)}
+
+    return [_apply_single_update(api, skill_dir, marketplace_skills, hf_cli_content) for skill_dir in skill_dirs]
 
 
 def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
@@ -96,25 +116,55 @@ def _load_marketplace_skills(api) -> list[MarketplaceSkill]:
 
 def _install_marketplace_skill(api, skill: MarketplaceSkill, destination_root: Path, force: bool = False) -> Path:
     """Install a marketplace skill into a local skills directory."""
+
+    def populate(install_dir: Path) -> None:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        bucket_files = _list_skill_files(api, skill)
+        _download_skill_files(api, skill, bucket_files, install_dir)
+        _validate_installed_skill_dir(install_dir)
+        (install_dir / MANAGED_MARKER_FILENAME).touch()
+
+    return _install_skill(skill.name, destination_root, populate=populate, force=force)
+
+
+_VALID_SKILL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _install_skill(
+    name: str,
+    destination_root: Path,
+    populate: Callable[[Path], None],
+    force: bool = False,
+) -> Path:
+    """Install a skill into ``destination_root`` by calling ``populate(install_dir)`` to fill it.
+
+    Used by both the marketplace install (populate = download from bucket) and the
+    locally-generated install (populate = write content). When the install already
+    exists and ``force`` is set, the new content is staged in a sibling tempdir and
+    atomically swapped in, so the existing install stays intact if ``populate``
+    fails halfway through.
+    """
+    # `name` may come from the remote marketplace payload and the install dir is removed on
+    # reinstall: validate it as defense-in-depth against path traversal.
+    if not _VALID_SKILL_NAME.fullmatch(name):
+        raise CLIError(f"Invalid skill name '{name}'.")
     destination_root = destination_root.expanduser().resolve()
     destination_root.mkdir(parents=True, exist_ok=True)
-    install_dir = destination_root / skill.name
+    install_dir = destination_root / name
     already_exists = install_dir.exists()
 
     if already_exists and not force:
         raise FileExistsError(f"Skill already exists: {install_dir}")
 
     if already_exists:
-        # Stage the new content in a sibling tempdir and atomically rename, so the
-        # existing install stays intact if the download fails halfway through.
         with tempfile.TemporaryDirectory(dir=destination_root, prefix=f".{install_dir.name}.install-") as tmp_dir_str:
             staged_dir = Path(tmp_dir_str) / install_dir.name
-            _populate_install_dir(api, skill=skill, install_dir=staged_dir)
+            populate(staged_dir)
             _atomic_replace_directory(existing_dir=install_dir, staged_dir=staged_dir)
         return install_dir
 
     try:
-        _populate_install_dir(api, skill=skill, install_dir=install_dir)
+        populate(install_dir)
     except Exception:
         if install_dir.exists():
             shutil.rmtree(install_dir)
@@ -153,14 +203,6 @@ def _normalize_repo_path(path: str) -> str:
     if not normalized:
         raise CLIError("Invalid marketplace entry: empty source path.")
     return normalized
-
-
-def _populate_install_dir(api, skill: MarketplaceSkill, install_dir: Path) -> None:
-    install_dir.mkdir(parents=True, exist_ok=True)
-    bucket_files = _list_skill_files(api, skill)
-    _download_skill_files(api, skill, bucket_files, install_dir)
-    _validate_installed_skill_dir(install_dir)
-    (install_dir / MANAGED_MARKER_FILENAME).touch()
 
 
 def _validate_installed_skill_dir(skill_dir: Path) -> None:
@@ -238,11 +280,20 @@ def _iter_unique_skill_dirs(roots: list[Path]) -> list[Path]:
     return discovered
 
 
-def _apply_single_update(api, skill_dir: Path, marketplace_skills: dict[str, MarketplaceSkill]) -> SkillUpdateInfo:
+def _apply_single_update(
+    api, skill_dir: Path, marketplace_skills: dict[str, MarketplaceSkill], hf_cli_content: str
+) -> SkillUpdateInfo:
     base = SkillUpdateInfo(name=skill_dir.name, skill_dir=skill_dir, status="unmanaged")
 
     if not (skill_dir / MANAGED_MARKER_FILENAME).exists():
         return base
+
+    if skill_dir.name == DEFAULT_SKILL_ID:
+        try:
+            install_generated_skill(hf_cli_content, skill_dir.parent, force=True)
+        except Exception as exc:
+            return replace(base, status="source_unreachable", detail=str(exc))
+        return replace(base, status="up_to_date")
 
     skill = marketplace_skills.get(skill_dir.name.lower())
     if skill is None:

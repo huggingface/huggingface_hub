@@ -144,6 +144,14 @@ upload_folder(
 
 For details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
 
+### Use the CLI
+
+The `huggingface_hub` package comes with a built-in CLI called [`hf`](https://huggingface.co/docs/huggingface_hub/en/guides/cli) to interact with the Hub directly from the terminal:
+
+```bash
+hf --help
+```
+
 ## Integrating to the Hub.
 
 We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).

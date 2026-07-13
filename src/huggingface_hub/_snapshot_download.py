@@ -9,6 +9,7 @@ from tqdm.contrib.concurrent import thread_map
 from . import constants
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
+    CachedRepoTreeNotFoundError,
     DryRunError,
     GatedRepoError,
     HfHubHTTPError,
@@ -566,8 +567,106 @@ def _raise_if_incomplete_snapshot(
     raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
-        "to complete the snapshot."
+        "to complete the snapshot.",
+        snapshot_path=base_dir,
     ) from api_call_error
+
+
+@validate_hf_hub_args
+def get_cached_repo_tree(
+    repo_id: str,
+    *,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+) -> list[RepoFile]:
+    """Return the cached tree listing of a repo at a given revision, without any network call.
+
+    The tree listing is the set of files (with their download metadata) of a repo at a commit. It is populated
+    on disk as a side effect of [`snapshot_download`] (see the `trees/<commit_hash>.json` cache files) and is
+    used to skip network calls on subsequent downloads. This function exposes that cache directly.
+
+    If you need the current tree listing of a repo on the Hub, use [`list_repo_tree`] instead.
+
+    Args:
+        repo_id (`str`):
+            A user or an organization name and a repo name separated by a `/`.
+        repo_type (`str`, *optional*):
+            Set to `"dataset"`, `"space"` or `"kernel"` if listing from a dataset, space or kernel repo,
+            `None` or `"model"` if listing from a model. Default is `None`.
+        revision (`str`, *optional*):
+            An optional Git revision id, which can be a branch name, a tag, or a commit hash. Defaults to the
+            default branch. Branch/tag names are resolved to a commit hash using the local cache (`refs/`).
+        cache_dir (`str`, `Path`, *optional*):
+            Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
+        local_dir (`str` or `Path`, *optional*):
+            If provided, read the tree listing cached by a `local_dir` download (from
+            `local_dir/.cache/huggingface/`) instead of the main cache. Branch/tag revisions are still resolved
+            to a commit hash using the main cache (`cache_dir`).
+
+    Returns:
+        `list[RepoFile]`: The list of [`RepoFile`] objects cached for this revision.
+
+    Raises:
+        [`~errors.CachedRepoTreeNotFoundError`]
+            If no tree listing is cached for the requested revision (e.g. the repo was never downloaded at this revision).
+
+    Example:
+        ```py
+        >>> from huggingface_hub import get_cached_repo_tree
+        >>> files = get_cached_repo_tree("openai-community/gpt2")
+        >>> [f.path for f in files]
+        ['.gitattributes', 'config.json', 'model.safetensors', ...]
+        ```
+    """
+    if cache_dir is None:
+        cache_dir = constants.HF_HUB_CACHE
+    cache_dir = str(Path(cache_dir).expanduser().resolve())
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
+    if revision is None:
+        revision = constants.DEFAULT_REVISION
+    if repo_type is None:
+        repo_type = constants.REPO_TYPE_MODEL
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
+
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # For `local_dir` downloads the tree listing lives under `local_dir/.cache/huggingface/`; otherwise it lives
+    # in the per-repo `storage_folder`. Refs are always recorded in the main cache, so we resolve them there.
+    tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
+
+    # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
+    # or it's a branch/tag name recorded in `refs/` by a previous download.
+    if REGEX_COMMIT_HASH.match(revision):
+        commit_hash = revision
+    else:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        if not os.path.isfile(ref_path):
+            raise CachedRepoTreeNotFoundError(
+                f"No cached tree listing found for '{repo_id}' (revision '{revision}', repo_type '{repo_type}'): "
+                f"the revision is not a commit hash and no matching ref is cached in '{storage_folder}'. "
+                "Download the repo (e.g. with `snapshot_download`) to populate the cache first."
+            )
+        with open(ref_path) as f:
+            commit_hash = f.read()
+
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        raise CachedRepoTreeNotFoundError(
+            f"No cached tree listing found for '{repo_id}' (revision '{revision}', commit '{commit_hash}', "
+            f"repo_type '{repo_type}') in '{tree_cache_folder}'. Download the repo (e.g. with `snapshot_download`) "
+            "to populate the cache first."
+        )
+
+    return [
+        RepoFile(path=path, size=entry.size, oid=entry.blob_id, xetHash=entry.xet_hash)
+        for path, entry in tree_entries.items()
+    ]
 
 
 def _local_file_exists(base_dir: str, path: str) -> bool:
