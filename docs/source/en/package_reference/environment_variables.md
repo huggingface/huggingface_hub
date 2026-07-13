@@ -202,9 +202,10 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 
 Set to `1` to enable the cache-wide shared blob store (experimental). Xet files are
 hardlinked into `<CACHE_DIR>/blobs/<prefix>/<xet_hash>` so that identical files are stored
-on disk only once across repos and reused on download without re-fetching. Requires the
-symlink-based cache layout and hardlink support on the cache filesystem; falls back
-silently to the regular download behavior otherwise. See the
+on disk only once across repos and reused on download without re-fetching. Requires Xet
+(`HF_HUB_DISABLE_XET` must not be set), the symlink-based cache layout, and hardlink
+support on the cache filesystem; falls back silently to the regular download behavior
+otherwise. See the
 [caching guide](../guides/manage-cache#shared-blobs-across-repos-experimental) for details.
 
 ### HF_XET_HIGH_PERFORMANCE

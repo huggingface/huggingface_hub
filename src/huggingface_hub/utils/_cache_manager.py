@@ -455,12 +455,13 @@ class HFCacheInfo:
         delete_strategy_refs: set[Path] = set()
         delete_strategy_repos: set[Path] = set()
         delete_strategy_snapshots: set[Path] = set()
-        delete_strategy_expected_freed_size = 0
 
-        # Blobs deduplicated across repos (hardlinked from the shared blob store) only
-        # free disk space once their last repo unlinks them -> take hardlinks into
-        # account when predicting freed sizes.
-        store_inodes = shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
+        # Blob directory entries the strategy will unlink (path -> scanned size). The
+        # freed size is predicted over the complete plan at the end: blobs deduplicated
+        # across repos (hardlinked from the shared blob store) share one inode, and disk
+        # space is only freed once the last link is removed - which can happen within a
+        # single strategy when several sharing repos are deleted together.
+        blobs_to_unlink: dict[Path, int] = {}
 
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
             other_revisions = affected_repo.revisions - revisions_to_delete
@@ -469,15 +470,9 @@ class HFCacheInfo:
             # -> delete the entire cached repo
             if len(other_revisions) == 0:
                 delete_strategy_repos.add(affected_repo.repo_path)
-                repo_blobs = {
-                    file.blob_path: file.size_on_disk
-                    for revision in affected_repo.revisions
-                    for file in revision.files
-                }
-                delete_strategy_expected_freed_size += sum(
-                    _expected_blob_freed_size(blob_path, size_on_disk, store_inodes)
-                    for blob_path, size_on_disk in repo_blobs.items()
-                )
+                for revision in affected_repo.revisions:
+                    for file in revision.files:
+                        blobs_to_unlink[file.blob_path] = file.size_on_disk
                 continue
 
             # Some revisions of the repo will be deleted but not all. We need to filter
@@ -505,9 +500,9 @@ class HFCacheInfo:
                         # Blob file not referenced by remaining revisions -> delete
                         if is_file_alone:
                             delete_strategy_blobs.add(file.blob_path)
-                            delete_strategy_expected_freed_size += _expected_blob_freed_size(
-                                file.blob_path, file.size_on_disk, store_inodes
-                            )
+                            blobs_to_unlink[file.blob_path] = file.size_on_disk
+
+        store_inodes = shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
@@ -515,7 +510,7 @@ class HFCacheInfo:
             refs=frozenset(delete_strategy_refs),
             repos=frozenset(delete_strategy_repos),
             snapshots=frozenset(delete_strategy_snapshots),
-            expected_freed_size=delete_strategy_expected_freed_size,
+            expected_freed_size=_expected_freed_size(blobs_to_unlink, store_inodes),
             cache_dir=self.cache_dir,
         )
 
@@ -899,22 +894,32 @@ def _format_size(num: int) -> str:
     return f"{num_f:.1f}Y"
 
 
-def _expected_blob_freed_size(blob_path: Path, size_on_disk: int, store_inodes: set[int]) -> int:
-    """Expected number of bytes freed by unlinking a blob file.
+def _expected_freed_size(blobs_to_unlink: dict[Path, int], store_inodes: set[tuple[int, int]]) -> int:
+    """Expected number of bytes freed by unlinking a set of blob files.
 
-    A blob hardlinked from other repos frees no space until its last link is removed. A
-    blob whose only extra link is a shared blob store entry counts as freed: the
-    post-deletion sweep removes orphaned store entries (see `DeleteCacheStrategy.execute`).
+    Blobs are grouped by `(st_dev, st_ino)` so hardlinks are handled correctly: an
+    inode's size counts once, when the plan removes its last link - or its last-but-one
+    when the only remaining link is a shared blob store entry, since the post-deletion
+    sweep removes orphaned store entries (see `DeleteCacheStrategy.execute`).
     """
-    try:
-        blob_stat = os.stat(blob_path)
-    except OSError:
-        return size_on_disk
-    if blob_stat.st_nlink <= 1:
-        return size_on_disk
-    if blob_stat.st_nlink == 2 and blob_stat.st_ino in store_inodes:
-        return size_on_disk
-    return 0
+    expected_freed_size = 0
+    links_to_remove: dict[tuple[int, int], int] = defaultdict(int)
+    inode_stats: dict[tuple[int, int], os.stat_result] = {}
+    for blob_path, size_on_disk in blobs_to_unlink.items():
+        try:
+            blob_stat = os.stat(blob_path)
+        except OSError:
+            expected_freed_size += size_on_disk  # missing file: fall back to the scanned size
+            continue
+        key = (blob_stat.st_dev, blob_stat.st_ino)
+        links_to_remove[key] += 1
+        inode_stats[key] = blob_stat
+    for key, removed_links in links_to_remove.items():
+        blob_stat = inode_stats[key]
+        remaining_links = blob_stat.st_nlink - removed_links
+        if remaining_links <= 0 or (remaining_links == 1 and key in store_inodes):
+            expected_freed_size += blob_stat.st_size
+    return expected_freed_size
 
 
 def _try_delete_path(path: Path, path_type: str) -> None:

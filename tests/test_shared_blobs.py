@@ -1,6 +1,7 @@
 """Tests for the cache-wide shared blob store (see `huggingface_hub._shared_blobs`)."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ import pytest
 from huggingface_hub import constants
 from huggingface_hub._shared_blobs import (
     are_hardlinks_supported,
+    has_shared_blob,
     publish_blob_to_shared_store,
     shared_blob_path,
     shared_blobs_dir,
@@ -92,6 +94,22 @@ class TestStoreHelpers:
         assert are_hardlinks_supported(tmp_path)
         assert are_hardlinks_supported(tmp_path)  # memoized second call
         assert list(tmp_path.iterdir()) == []  # probe files cleaned up
+
+    def test_has_shared_blob_is_read_only(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "HF_HUB_ENABLE_SHARED_BLOBS", True)
+        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=None)
+
+        entry = _make_store_entry(tmp_path, XET_HASH)
+        assert has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT))
+        assert has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=None)
+        assert not has_shared_blob(xet_hash="not-a-hash", cache_dir=tmp_path, expected_size=None)
+
+        # Unlike `try_link_from_shared_store`, a size mismatch does NOT evict the entry.
+        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=1)
+        assert entry.exists()
+
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
+        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT))
 
 
 class TestLinkAndPublish:
@@ -184,7 +202,8 @@ class TestSweep:
 
     def test_shared_store_inodes(self, tmp_path: Path) -> None:
         entry = _make_store_entry(tmp_path, XET_HASH)
-        assert shared_store_inodes(tmp_path) == {entry.stat().st_ino}
+        entry_stat = entry.stat()
+        assert shared_store_inodes(tmp_path) == {(entry_stat.st_dev, entry_stat.st_ino)}
         assert shared_store_inodes(tmp_path / "no-store") == set()
 
 
@@ -232,6 +251,21 @@ class TestScanAndDelete:
         # Regular (non-deduplicated) blob accounting is unchanged.
         strategy = scan_cache_dir(tmp_path).delete_revisions(rev_private)
         assert strategy.expected_freed_size == len(private_content)
+
+    def test_delete_all_sharing_repos_in_one_strategy(self, tmp_path: Path) -> None:
+        # Both repos share the store inode (nlink 3). Evaluated blob by blob, each side
+        # would predict 0 freed; over the whole plan, exactly one copy is freed (the
+        # post-deletion sweep removes the last, store-held link).
+        rev_a, rev_b = "a" * 40, "b" * 40
+        blob_a = _make_cached_file(tmp_path, "models--org--repoA", rev_a, "model.bin", "11" * 32, ref="main")
+        publish_blob_to_shared_store(blob_path=str(blob_a), xet_hash=XET_HASH, cache_dir=tmp_path)
+        _make_cached_file(tmp_path, "models--org--repoB", rev_b, "model.bin", "11" * 32, ref="main", link_to=blob_a)
+
+        strategy = scan_cache_dir(tmp_path).delete_revisions(rev_a, rev_b)
+        assert strategy.expected_freed_size == len(CONTENT)  # one copy: not zero, not double
+        strategy.execute()
+        assert not shared_blob_path(tmp_path, XET_HASH).exists()  # store orphan swept
+        assert not any(path.is_file() for path in tmp_path.rglob("*"))  # everything reclaimed
 
 
 class TestDownloadIntegration:
@@ -293,6 +327,79 @@ class TestDownloadIntegration:
         assert os.path.samestat(store_entry.stat(), blob_a.stat())
         assert store_entry.stat().st_nlink == 2
 
+    def test_force_download_replaces_directory_entry_not_inode(self, tmp_path: Path) -> None:
+        # `shutil.move` falls back to an in-place copy when its rename fails (e.g. on
+        # Windows, where renaming over an existing file raises). With the destination
+        # hardlinked by the store and other repos, that copy would rewrite them all ->
+        # replacing an existing blob must go through `os.replace` and never reach
+        # `shutil.move`.
+        xet_downloads: list[str] = []
+        self._download(tmp_path, "org/repoA", xet_downloads)
+        path_b = self._download(tmp_path, "org/repoB", xet_downloads)
+        old_inode = path_b.resolve().stat().st_ino
+
+        with patch("huggingface_hub.file_download.shutil.move") as move_mock:
+            path_a = self._download(tmp_path, "org/repoA", xet_downloads, force_download=True)
+
+        move_mock.assert_not_called()
+        store_entry = shared_blob_path(tmp_path, XET_HASH)
+        assert os.path.samestat(store_entry.stat(), path_a.resolve().stat())
+        assert store_entry.stat().st_ino != old_inode  # fresh inode for repoA + store
+        assert path_b.resolve().stat().st_ino == old_inode  # sibling repo untouched
+
+    def test_disable_xet_bypasses_prepopulated_store(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        # `HF_HUB_DISABLE_XET` is the escape hatch for a misbehaving `hf_xet`: it must
+        # also stop the store from serving entries published earlier, not only disable
+        # new publications.
+        xet_downloads: list[str] = []
+        self._download(tmp_path, "org/repoA", xet_downloads)
+        store_entry = shared_blob_path(tmp_path, XET_HASH)
+        assert store_entry.exists()
+
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
+        http_content = CONTENT[::-1]  # same size as the store entry, distinct bytes
+
+        def fake_http_get(url: str, temp_file, **kwargs) -> None:
+            temp_file.write(http_content)
+
+        metadata = (
+            "https://example.com/file.bin",
+            self.ETAG,
+            self.COMMIT,
+            len(http_content),
+            XetFileData(file_hash=XET_HASH, refresh_route="https://example.com/refresh"),
+            None,
+        )
+        with (
+            patch("huggingface_hub.file_download._get_metadata_or_catch_error", return_value=metadata),
+            patch("huggingface_hub.file_download.http_get", side_effect=fake_http_get),
+            patch("huggingface_hub.file_download.is_xet_available", return_value=False),
+        ):
+            path = Path(hf_hub_download("org/repoB", "file.bin", cache_dir=str(tmp_path)))
+
+        assert path.read_bytes() == http_content  # downloaded over HTTP, store ignored
+        assert not os.path.samestat(path.resolve().stat(), store_entry.stat())
+
+    def test_hardlinks_unsupported_disables_store(self, tmp_path: Path) -> None:
+        xet_downloads: list[str] = []
+        with patch("huggingface_hub._shared_blobs.os.link", side_effect=OSError("not supported")):
+            path = self._download(tmp_path, "org/repoA", xet_downloads)
+        assert path.read_bytes() == CONTENT  # regular download path, unaffected
+        assert xet_downloads == ["org/repoA"]
+        assert not shared_blobs_dir(tmp_path).exists()
+
+    def test_reuse_from_store_after_repo_deleted(self, tmp_path: Path) -> None:
+        # A repo removed without sweeping (old client's deletion, manual `rm -rf`)
+        # leaves the store entry behind: a later download of the same content must
+        # reuse it instead of re-fetching.
+        xet_downloads: list[str] = []
+        self._download(tmp_path, "org/repoA", xet_downloads)
+        shutil.rmtree(tmp_path / "models--org--repoA")
+
+        path = self._download(tmp_path, "org/repoA", xet_downloads)
+        assert path.read_bytes() == CONTENT
+        assert xet_downloads == ["org/repoA"]  # first call only: the second is a store hit
+
     def test_http_fallback_does_not_publish(self, tmp_path: Path) -> None:
         metadata = (
             "https://example.com/file.bin",
@@ -316,6 +423,49 @@ class TestDownloadIntegration:
         assert path.read_bytes() == CONTENT
         # Unverified content (plain HTTP download) is never published to the store.
         assert not shared_blob_path(tmp_path, XET_HASH).exists()
+
+    def _dry_run(self, cache_dir: Path, repo_id: str, **kwargs):
+        metadata = (
+            "https://example.com/file.bin",
+            self.ETAG,
+            self.COMMIT,
+            len(CONTENT),
+            XetFileData(file_hash=XET_HASH, refresh_route="https://example.com/refresh"),
+            None,
+        )
+        with patch("huggingface_hub.file_download._get_metadata_or_catch_error", return_value=metadata):
+            return hf_hub_download(repo_id, "file.bin", cache_dir=str(cache_dir), dry_run=True, **kwargs)
+
+    def test_dry_run_reports_store_hit(self, tmp_path: Path) -> None:
+        xet_downloads: list[str] = []
+        self._download(tmp_path, "org/repoA", xet_downloads)
+
+        # The real call hardlinks the store entry without a transfer -> report it as cached.
+        info = self._dry_run(tmp_path, "org/repoB")
+        assert info.is_cached
+        assert not info.will_download
+
+        # force_download always downloads, store hit or not.
+        assert self._dry_run(tmp_path, "org/repoB", force_download=True).will_download
+
+    def test_dry_run_does_not_evict_mismatched_entry(self, tmp_path: Path) -> None:
+        _make_store_entry(tmp_path, XET_HASH, b"truncated")
+
+        info = self._dry_run(tmp_path, "org/repoA")
+
+        assert not info.is_cached
+        assert info.will_download
+        # Unlike the real download path, a dry run must not mutate the store.
+        assert shared_blob_path(tmp_path, XET_HASH).exists()
+
+    def test_dry_run_ignores_store_when_xet_disabled(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        xet_downloads: list[str] = []
+        self._download(tmp_path, "org/repoA", xet_downloads)
+
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
+        info = self._dry_run(tmp_path, "org/repoB")
+        assert not info.is_cached
+        assert info.will_download
 
     def test_store_disabled_by_default(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(constants, "HF_HUB_ENABLE_SHARED_BLOBS", False)

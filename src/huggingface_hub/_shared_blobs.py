@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 # Xet file hashes are 64 lowercase hex characters (merkle root). Validating the format
 # also guarantees the server-provided value cannot be used for path traversal.
-_XET_HASH_REGEX = re.compile(r"^[0-9a-f]{64}$")
+_XET_HASH_REGEX = re.compile(r"[0-9a-f]{64}")
 
 # Name of the store directory, at the root of the cache dir (next to `models--*` folders).
 # Old versions of `huggingface_hub` report it as a single captured scan warning and
@@ -74,7 +74,7 @@ def shared_blob_path(cache_dir: str | Path, xet_hash: str) -> Path:
 
     Raises `ValueError` if `xet_hash` is not a valid Xet hash.
     """
-    if _XET_HASH_REGEX.match(xet_hash) is None:
+    if _XET_HASH_REGEX.fullmatch(xet_hash) is None:
         raise ValueError(f"Invalid Xet file hash: '{xet_hash}'.")
     return shared_blobs_dir(cache_dir) / xet_hash[:2] / xet_hash
 
@@ -112,13 +112,21 @@ def are_hardlinks_supported(cache_dir: str | Path) -> bool:
 def shared_blobs_enabled(cache_dir: str | Path) -> bool:
     """Return whether the shared blob store can be used for the given cache directory.
 
+    `HF_HUB_DISABLE_XET` disables the store entirely - reads included: it is the escape
+    hatch for a misbehaving `hf_xet`, and if a broken build ever published bad entries,
+    the flag must also stop the store from serving them back.
+
     The download path must ALSO require `are_symlinks_supported(cache_dir)` (checked at
     the call site in `file_download.py`, as this module cannot depend on it): in the
     degraded no-symlink mode, blobs are moved into `snapshots/` where users legitimately
     edit files in place - a shared inode there would propagate edits (and corruption)
     across repos, and there is no per-repo `blobs/<etag>` left to link anyway.
     """
-    return constants.HF_HUB_ENABLE_SHARED_BLOBS and are_hardlinks_supported(cache_dir)
+    return (
+        constants.HF_HUB_ENABLE_SHARED_BLOBS
+        and not constants.HF_HUB_DISABLE_XET
+        and are_hardlinks_supported(cache_dir)
+    )
 
 
 def try_link_from_shared_store(
@@ -130,7 +138,7 @@ def try_link_from_shared_store(
     with an unexpected size is treated as corrupted and evicted from the store (other
     repos hardlinking it are unaffected).
     """
-    if _XET_HASH_REGEX.match(xet_hash) is None:
+    if _XET_HASH_REGEX.fullmatch(xet_hash) is None:
         return False
     store_path = shared_blob_path(cache_dir, xet_hash)
     try:
@@ -151,6 +159,26 @@ def try_link_from_shared_store(
     return True
 
 
+def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int | None) -> bool:
+    """Return whether a valid store entry exists for this hash, without touching anything.
+
+    Read-only variant of `try_link_from_shared_store` for previews (`dry_run=True`): a
+    size-mismatched entry reports a miss but is NOT evicted, and no repo link is created.
+    Callers must not perform filesystem probes either (hardlink/symlink support), so on a
+    filesystem without them the preview is optimistic: it reports a store reuse that the
+    real call will turn into a download.
+    """
+    if not constants.HF_HUB_ENABLE_SHARED_BLOBS or constants.HF_HUB_DISABLE_XET:
+        return False
+    if _XET_HASH_REGEX.fullmatch(xet_hash) is None:
+        return False
+    try:
+        store_stat = shared_blob_path(cache_dir, xet_hash).stat()
+    except OSError:
+        return False
+    return expected_size is None or store_stat.st_size == expected_size
+
+
 def publish_blob_to_shared_store(*, blob_path: str, xet_hash: str, cache_dir: str | Path) -> None:
     """Hardlink a freshly downloaded (and Xet-verified) blob into the shared store.
 
@@ -161,7 +189,7 @@ def publish_blob_to_shared_store(*, blob_path: str, xet_hash: str, cache_dir: st
     process just verified always wins. Replacing a store entry never mutates other
     repos' blobs - existing hardlinks keep their inode.
     """
-    if _XET_HASH_REGEX.match(xet_hash) is None:
+    if _XET_HASH_REGEX.fullmatch(xet_hash) is None:
         return
     store_path = shared_blob_path(cache_dir, xet_hash)
     try:
@@ -213,14 +241,16 @@ def sweep_shared_blobs(cache_dir: str | Path) -> int:
     return freed_bytes
 
 
-def shared_store_inodes(cache_dir: str | Path) -> set[int]:
-    """Return the inodes of all store entries.
+def shared_store_inodes(cache_dir: str | Path) -> set[tuple[int, int]]:
+    """Return the `(st_dev, st_ino)` of all store entries.
 
     Used by `delete_revisions` to predict freed sizes: a blob whose only remaining
-    hardlink is a store entry will be freed by the post-deletion sweep.
+    hardlink is a store entry will be freed by the post-deletion sweep. Keying by
+    `(st_dev, st_ino)` makes the file identity explicit - inode numbers alone are only
+    unique within one filesystem.
     """
     store_dir = shared_blobs_dir(cache_dir)
-    inodes: set[int] = set()
+    inodes: set[tuple[int, int]] = set()
     if not store_dir.is_dir():
         return inodes
     for prefix_dir in store_dir.iterdir():
@@ -228,7 +258,8 @@ def shared_store_inodes(cache_dir: str | Path) -> set[int]:
             continue
         for entry in prefix_dir.iterdir():
             try:
-                inodes.add(entry.lstat().st_ino)
+                stat = entry.lstat()
             except OSError:
                 continue
+            inodes.add((stat.st_dev, stat.st_ino))
     return inodes

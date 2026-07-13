@@ -22,7 +22,12 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
-from ._shared_blobs import publish_blob_to_shared_store, shared_blobs_enabled, try_link_from_shared_store
+from ._shared_blobs import (
+    has_shared_blob,
+    publish_blob_to_shared_store,
+    shared_blobs_enabled,
+    try_link_from_shared_store,
+)
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -1174,7 +1179,19 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        is_cached = os.path.exists(pointer_path) or os.path.exists(blob_path)
+        # A valid shared blob store entry counts as cached: the real call hardlinks it
+        # into the repo without any transfer. `has_shared_blob` is read-only (no
+        # eviction, no repo link) and skips the hardlink/symlink filesystem probes so a
+        # dry run never writes to the cache - on a filesystem without hardlink support
+        # the preview is optimistic and the real call downloads instead.
+        is_cached = (
+            os.path.exists(pointer_path)
+            or os.path.exists(blob_path)
+            or (
+                xet_file_data is not None
+                and has_shared_blob(xet_hash=xet_file_data.file_hash, cache_dir=cache_dir, expected_size=expected_size)
+            )
+        )
         return DryRunFileInfo(
             commit_hash=commit_hash,
             file_size=expected_size,
@@ -2016,7 +2033,17 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+    if dst.exists():
+        # Only `force_download` reaches this with an existing destination. `shutil.move`
+        # falls back to an in-place copy when the rename fails (e.g. on Windows, where
+        # renaming over an existing file raises): with the shared blob store, `dst` can
+        # be an inode hardlinked by other repos and the store, and copying into it would
+        # rewrite them all. `os.replace` atomically swaps the directory entry instead,
+        # leaving other hardlinks on the old inode. Same-volume is guaranteed (see above)
+        # so raising on failure is safer than any copy fallback.
+        os.replace(src, dst)
+    else:
+        shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 
 
 def _copy_no_matter_what(src: str, dst: str) -> None:
