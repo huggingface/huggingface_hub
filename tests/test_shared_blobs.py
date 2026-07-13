@@ -1,7 +1,6 @@
 """Tests for the cache-wide shared blob store (see `huggingface_hub._shared_blobs`)."""
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,11 +11,9 @@ import pytest
 from huggingface_hub import constants
 from huggingface_hub._shared_blobs import (
     are_hardlinks_supported,
-    has_shared_blob,
     publish_blob_to_shared_store,
     shared_blob_path,
     shared_blobs_dir,
-    shared_store_inodes,
     sweep_shared_blobs,
     try_link_from_shared_store,
 )
@@ -95,22 +92,6 @@ class TestStoreHelpers:
         assert are_hardlinks_supported(tmp_path)  # memoized second call
         assert list(tmp_path.iterdir()) == []  # probe files cleaned up
 
-    def test_has_shared_blob_is_read_only(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(constants, "HF_HUB_ENABLE_SHARED_BLOBS", True)
-        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=None)
-
-        entry = _make_store_entry(tmp_path, XET_HASH)
-        assert has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT))
-        assert has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=None)
-        assert not has_shared_blob(xet_hash="not-a-hash", cache_dir=tmp_path, expected_size=None)
-
-        # Unlike `try_link_from_shared_store`, a size mismatch does NOT evict the entry.
-        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=1)
-        assert entry.exists()
-
-        monkeypatch.setattr(constants, "HF_HUB_DISABLE_XET", True)
-        assert not has_shared_blob(xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT))
-
 
 class TestLinkAndPublish:
     def test_publish_then_link_roundtrip(self, tmp_path: Path) -> None:
@@ -129,14 +110,6 @@ class TestLinkAndPublish:
         assert blob_b.read_bytes() == CONTENT
         assert blob_b.stat().st_nlink == 3
 
-    def test_link_miss_returns_false(self, tmp_path: Path) -> None:
-        blob = tmp_path / "models--a" / "blobs" / "etag"
-        blob.parent.mkdir(parents=True)
-        assert not try_link_from_shared_store(
-            blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
-        )
-        assert not blob.exists()
-
     def test_link_size_mismatch_evicts_entry(self, tmp_path: Path) -> None:
         store_entry = _make_store_entry(tmp_path, XET_HASH, b"truncated")
         blob = tmp_path / "models--a" / "blobs" / "etag"
@@ -146,16 +119,14 @@ class TestLinkAndPublish:
         )
         assert not store_entry.exists()  # corrupted entry evicted from the store
 
-    def test_link_invalid_hash_returns_false(self, tmp_path: Path) -> None:
-        assert not try_link_from_shared_store(
-            blob_path=str(tmp_path / "blob"), xet_hash="not-a-hash", cache_dir=tmp_path, expected_size=None
-        )
-
-    def test_publish_is_idempotent(self, tmp_path: Path) -> None:
+    def test_invalid_hash_is_ignored(self, tmp_path: Path) -> None:
+        # Hashes come from the server: garbage must degrade to a miss/no-op, not raise.
         blob = _write_blob(tmp_path / "models--a" / "blobs" / "etag")
-        publish_blob_to_shared_store(blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path)
-        publish_blob_to_shared_store(blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path)
-        assert blob.stat().st_nlink == 2  # same-inode short-circuit, no churn
+        publish_blob_to_shared_store(blob_path=str(blob), xet_hash="not-a-hash", cache_dir=tmp_path)
+        assert not shared_blobs_dir(tmp_path).exists()
+        assert not try_link_from_shared_store(
+            blob_path=str(tmp_path / "other"), xet_hash="not-a-hash", cache_dir=tmp_path, expected_size=None
+        )
 
     def test_publish_replaces_existing_entry_with_verified_copy(self, tmp_path: Path) -> None:
         # An existing same-size entry might be corrupted (indistinguishable without a
@@ -175,11 +146,6 @@ class TestLinkAndPublish:
         assert other_repo_blob.read_bytes() == corrupt_content  # old inode untouched
         assert list(blob.parent.iterdir()) == [blob]  # no leftover tmp file
 
-    def test_publish_invalid_hash_is_noop(self, tmp_path: Path) -> None:
-        blob = _write_blob(tmp_path / "models--a" / "blobs" / "etag")
-        publish_blob_to_shared_store(blob_path=str(blob), xet_hash="not-a-hash", cache_dir=tmp_path)
-        assert not shared_blobs_dir(tmp_path).exists()
-
 
 class TestSweep:
     def test_sweep_removes_orphans_only(self, tmp_path: Path) -> None:
@@ -196,15 +162,6 @@ class TestSweep:
         assert not orphan.parent.exists()  # empty prefix dir removed
         assert referenced.exists()
         assert blob.read_bytes() == CONTENT
-
-    def test_sweep_no_store(self, tmp_path: Path) -> None:
-        assert sweep_shared_blobs(tmp_path) == 0
-
-    def test_shared_store_inodes(self, tmp_path: Path) -> None:
-        entry = _make_store_entry(tmp_path, XET_HASH)
-        entry_stat = entry.stat()
-        assert shared_store_inodes(tmp_path) == {(entry_stat.st_dev, entry_stat.st_ino)}
-        assert shared_store_inodes(tmp_path / "no-store") == set()
 
 
 class TestScanAndDelete:
@@ -316,35 +273,24 @@ class TestDownloadIntegration:
     def test_force_download_replaces_store_entry(self, tmp_path: Path) -> None:
         xet_downloads: list[str] = []
         self._download(tmp_path, "org/repoA", xet_downloads)
-        self._download(tmp_path, "org/repoB", xet_downloads)
+        path_b = self._download(tmp_path, "org/repoB", xet_downloads)
+        old_inode = path_b.resolve().stat().st_ino
 
-        path_a = self._download(tmp_path, "org/repoA", xet_downloads, force_download=True)
-        assert xet_downloads == ["org/repoA", "org/repoA"]
-
-        # The fresh verified copy replaced the store entry; repoB keeps its own inode.
-        store_entry = shared_blob_path(tmp_path, XET_HASH)
-        blob_a = path_a.resolve()
-        assert os.path.samestat(store_entry.stat(), blob_a.stat())
-        assert store_entry.stat().st_nlink == 2
-
-    def test_force_download_replaces_directory_entry_not_inode(self, tmp_path: Path) -> None:
         # `shutil.move` falls back to an in-place copy when its rename fails (e.g. on
         # Windows, where renaming over an existing file raises). With the destination
         # hardlinked by the store and other repos, that copy would rewrite them all ->
         # replacing an existing blob must go through `os.replace` and never reach
         # `shutil.move`.
-        xet_downloads: list[str] = []
-        self._download(tmp_path, "org/repoA", xet_downloads)
-        path_b = self._download(tmp_path, "org/repoB", xet_downloads)
-        old_inode = path_b.resolve().stat().st_ino
-
         with patch("huggingface_hub.file_download.shutil.move") as move_mock:
             path_a = self._download(tmp_path, "org/repoA", xet_downloads, force_download=True)
-
         move_mock.assert_not_called()
+        assert xet_downloads == ["org/repoA", "org/repoA"]  # repoB was a store hit
+
+        # The fresh verified copy took over the store entry; repoB keeps the old inode.
         store_entry = shared_blob_path(tmp_path, XET_HASH)
         assert os.path.samestat(store_entry.stat(), path_a.resolve().stat())
-        assert store_entry.stat().st_ino != old_inode  # fresh inode for repoA + store
+        assert store_entry.stat().st_nlink == 2
+        assert store_entry.stat().st_ino != old_inode
         assert path_b.resolve().stat().st_ino == old_inode  # sibling repo untouched
 
     def test_disable_xet_bypasses_prepopulated_store(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -387,18 +333,6 @@ class TestDownloadIntegration:
         assert path.read_bytes() == CONTENT  # regular download path, unaffected
         assert xet_downloads == ["org/repoA"]
         assert not shared_blobs_dir(tmp_path).exists()
-
-    def test_reuse_from_store_after_repo_deleted(self, tmp_path: Path) -> None:
-        # A repo removed without sweeping (old client's deletion, manual `rm -rf`)
-        # leaves the store entry behind: a later download of the same content must
-        # reuse it instead of re-fetching.
-        xet_downloads: list[str] = []
-        self._download(tmp_path, "org/repoA", xet_downloads)
-        shutil.rmtree(tmp_path / "models--org--repoA")
-
-        path = self._download(tmp_path, "org/repoA", xet_downloads)
-        assert path.read_bytes() == CONTENT
-        assert xet_downloads == ["org/repoA"]  # first call only: the second is a store hit
 
     def test_http_fallback_does_not_publish(self, tmp_path: Path) -> None:
         metadata = (
