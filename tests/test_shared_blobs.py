@@ -26,6 +26,14 @@ XET_HASH = "cf" + "ab" * 31
 OTHER_XET_HASH = "0d" + "12" * 31
 CONTENT = b"shared-content" * 100
 
+# Downloads silently fall back to the regular path whenever a symlink or hardlink syscall
+# fails, and those fail intermittently on loaded Windows CI runners: tests asserting store
+# *activity* through the download flow would flake there. Store mechanics on NTFS are
+# covered by the unit tests, which do pass on Windows.
+requires_reliable_links = pytest.mark.skipif(
+    os.name == "nt", reason="symlink/hardlink syscalls are flaky on Windows CI runners"
+)
+
 
 def _write_blob(path: Path, content: bytes = CONTENT) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -257,6 +265,7 @@ class TestDownloadIntegration:
         ):
             return Path(hf_hub_download(repo_id, "file.bin", cache_dir=str(cache_dir), **kwargs))
 
+    @requires_reliable_links
     def test_second_repo_reuses_blob_without_download(self, tmp_path: Path) -> None:
         xet_downloads: list[str] = []
 
@@ -270,6 +279,7 @@ class TestDownloadIntegration:
         assert store_entry.stat().st_nlink == 3  # repoB blob hardlinked, not downloaded
         assert xet_downloads == ["org/repoA"]
 
+    @requires_reliable_links
     def test_force_download_replaces_store_entry(self, tmp_path: Path) -> None:
         xet_downloads: list[str] = []
         self._download(tmp_path, "org/repoA", xet_downloads)
@@ -293,6 +303,7 @@ class TestDownloadIntegration:
         assert store_entry.stat().st_ino != old_inode
         assert path_b.resolve().stat().st_ino == old_inode  # sibling repo untouched
 
+    @requires_reliable_links
     def test_disable_xet_bypasses_prepopulated_store(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         # `HF_HUB_DISABLE_XET` is the escape hatch for a misbehaving `hf_xet`: it must
         # also stop the store from serving entries published earlier, not only disable
@@ -370,6 +381,7 @@ class TestDownloadIntegration:
         with patch("huggingface_hub.file_download._get_metadata_or_catch_error", return_value=metadata):
             return hf_hub_download(repo_id, "file.bin", cache_dir=str(cache_dir), dry_run=True, **kwargs)
 
+    @requires_reliable_links
     def test_dry_run_reports_store_hit(self, tmp_path: Path) -> None:
         xet_downloads: list[str] = []
         self._download(tmp_path, "org/repoA", xet_downloads)
