@@ -1,6 +1,8 @@
 """Tests for the cache-wide shared blob store (see `huggingface_hub._shared_blobs`)."""
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -63,6 +65,18 @@ def _make_cached_file(
             blob.write_bytes(content)
     (snapshot / filename).symlink_to(Path("..") / ".." / "blobs" / etag)
     return blob
+
+
+def test_module_imports_standalone() -> None:
+    # Regression test: importing `_shared_blobs` before anything else used to crash with
+    # a circular import (`_shared_blobs` -> `utils` -> `_cache_manager` -> back into the
+    # partially initialized `_shared_blobs`). A fresh interpreter is required to catch it.
+    result = subprocess.run(
+        [sys.executable, "-c", "import huggingface_hub._shared_blobs"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 class TestStoreHelpers:

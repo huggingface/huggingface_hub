@@ -37,16 +37,20 @@ which is guaranteed by placing it inside the cache directory. On filesystems wit
 hardlink support, everything degrades gracefully to the regular download path.
 """
 
+import logging
 import os
 import re
 import uuid
 from pathlib import Path
 
 from . import constants
-from .utils import logging
 
 
-logger = logging.get_logger(__name__)
+# This module is imported by `utils/_cache_manager.py` while the `utils` package is
+# still initializing, so it must only depend on stdlib and `constants`. The stdlib
+# logger propagates to the `huggingface_hub` root logger configured in `utils.logging`,
+# so log behavior is identical to `logging.get_logger(__name__)`.
+logger = logging.getLogger(__name__)
 
 # Xet file hashes are 64 lowercase hex characters (merkle root). Validating the format
 # also guarantees the server-provided value cannot be used for path traversal.
@@ -108,16 +112,13 @@ def are_hardlinks_supported(cache_dir: str | Path) -> bool:
 def shared_blobs_enabled(cache_dir: str | Path) -> bool:
     """Return whether the shared blob store can be used for the given cache directory.
 
-    Requires the symlink-based cache layout on top of hardlink support: in the degraded
-    no-symlink mode, blobs are moved into `snapshots/` where users legitimately edit
-    files in place - a shared inode there would propagate edits (and corruption) across
-    repos, and there is no per-repo `blobs/<etag>` left to link anyway.
+    The download path must ALSO require `are_symlinks_supported(cache_dir)` (checked at
+    the call site in `file_download.py`, as this module cannot depend on it): in the
+    degraded no-symlink mode, blobs are moved into `snapshots/` where users legitimately
+    edit files in place - a shared inode there would propagate edits (and corruption)
+    across repos, and there is no per-repo `blobs/<etag>` left to link anyway.
     """
-    if not constants.HF_HUB_ENABLE_SHARED_BLOBS:
-        return False
-    from .file_download import are_symlinks_supported  # deferred import to avoid a circular dependency
-
-    return are_symlinks_supported(cache_dir) and are_hardlinks_supported(cache_dir)
+    return constants.HF_HUB_ENABLE_SHARED_BLOBS and are_hardlinks_supported(cache_dir)
 
 
 def try_link_from_shared_store(

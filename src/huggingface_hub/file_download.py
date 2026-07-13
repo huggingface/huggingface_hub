@@ -1235,9 +1235,12 @@ def _hf_hub_download_to_cache_dir(
 
     # Shared blob store (opt-in): identical Xet files across repos are stored on disk only
     # once and hardlinked into each repo's `blobs/`. `xet_hash` is left set only when the
-    # store can be used for this download. See the `_shared_blobs` module for details.
+    # store can be used for this download. The symlink-based layout is required: in the
+    # degraded no-symlink mode there is no per-repo blob to link, and snapshot files are
+    # user-editable so a shared inode would propagate edits across repos. See the
+    # `_shared_blobs` module for details.
     xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
-    if xet_hash is not None and not shared_blobs_enabled(cache_dir):
+    if xet_hash is not None and not (shared_blobs_enabled(cache_dir) and are_symlinks_supported(cache_dir)):
         xet_hash = None
 
     with WeakFileLock(lock_path):
