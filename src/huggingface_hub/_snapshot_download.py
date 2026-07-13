@@ -1,10 +1,10 @@
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Literal, overload
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
@@ -510,13 +510,11 @@ def snapshot_download(
             )
         )
 
-    thread_map(
-        _inner_hf_hub_download,
-        filtered_repo_files,
-        desc=tqdm_desc,
-        max_workers=max_workers,
-        tqdm_class=tqdm_class,
-    )
+    # Consume futures as they complete so one slow file cannot stall the file-count progress bar.
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_inner_hf_hub_download, repo_file) for repo_file in filtered_repo_files]
+        for future in tqdm_class(as_completed(futures), desc=tqdm_desc, total=len(futures)):
+            future.result()
 
     _finish_transfer_bar(transfer_progress)
     transfer_progress.set_description("Download complete")

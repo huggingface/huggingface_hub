@@ -1,16 +1,75 @@
 import os
+import threading
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import pytest
+from tqdm.auto import tqdm as base_tqdm
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
 from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError, RepositoryNotFoundError
 from huggingface_hub.file_download import repo_folder_name
+from huggingface_hub.hf_api import RepoFile
 from huggingface_hub.utils import SoftTemporaryDirectory, _http
 
 from .testing_constants import TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
+
+
+def test_file_progress_updates_as_each_download_completes(tmp_path, mocker):
+    slow_release = threading.Event()
+    fast_done = threading.Event()
+    file_progress_updated = threading.Event()
+
+    class RecordingTqdm(base_tqdm):
+        def __init__(self, *args, **kwargs):
+            kwargs["disable"] = True
+            self._tracks_files = kwargs.get("desc") == "Fetching 2 files"
+            super().__init__(*args, **kwargs)
+
+        def __iter__(self):
+            for item in self.iterable:
+                yield item
+                if self._tracks_files:
+                    file_progress_updated.set()
+
+    api = Mock()
+    api.repo_info.return_value = SimpleNamespace(sha="a" * 40)
+    api.list_repo_tree.return_value = [
+        RepoFile(path="slow.bin", size=1, oid="slow"),
+        RepoFile(path="fast.bin", size=1, oid="fast"),
+    ]
+    mocker.patch("huggingface_hub._snapshot_download.HfApi", return_value=api)
+
+    def fake_download(repo_id, *, filename, **kwargs):
+        if filename == "slow.bin":
+            slow_release.wait(timeout=5)
+        else:
+            fast_done.set()
+        return f"/fake/{filename}"
+
+    mocker.patch("huggingface_hub._snapshot_download.hf_hub_download", side_effect=fake_download)
+
+    errors = []
+
+    def run_download():
+        try:
+            snapshot_download("owner/repo", cache_dir=tmp_path, max_workers=2, tqdm_class=RecordingTqdm)
+        except BaseException as error:
+            errors.append(error)
+
+    worker = threading.Thread(target=run_download)
+    worker.start()
+    try:
+        assert fast_done.wait(timeout=2)
+        assert file_progress_updated.wait(timeout=2)
+    finally:
+        slow_release.set()
+        worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert not errors
 
 
 class TestSnapshotDownload:
