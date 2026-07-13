@@ -908,7 +908,7 @@ def hf_hub_download(
             the local cache.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `requests.request`.
+            data before giving up, which is passed to `httpx.request`.
         token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
