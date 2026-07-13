@@ -22,7 +22,11 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from .._shared_blobs import SHARED_BLOBS_DIR_NAME, shared_store_inodes, sweep_shared_blobs
+# Imported as a module (not names): `_shared_blobs` is only partially initialized when
+# this import runs from a direct `import huggingface_hub._shared_blobs` (its own imports
+# trigger the `utils` package init, which loads this module). Attribute access at call
+# time is safe; importing names here would crash on the partial module.
+from .. import _shared_blobs
 from ..constants import HF_HUB_CACHE
 from . import logging
 from ._parsing import format_timesince
@@ -331,7 +335,7 @@ class DeleteCacheStrategy:
         # Remove shared blob store entries orphaned by the deletion. For blobs
         # deduplicated across repos, this is what actually frees the disk space.
         if self.cache_dir is not None:
-            sweep_shared_blobs(self.cache_dir)
+            _shared_blobs.sweep_shared_blobs(self.cache_dir)
 
         logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
@@ -502,7 +506,7 @@ class HFCacheInfo:
                             delete_strategy_blobs.add(file.blob_path)
                             blobs_to_unlink[file.blob_path] = file.size_on_disk
 
-        store_inodes = shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
+        store_inodes = _shared_blobs.shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
@@ -713,7 +717,7 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
             continue
         if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
-        if repo_path.name == SHARED_BLOBS_DIR_NAME:  # skip the shared blob store (see `_shared_blobs`)
+        if repo_path.name == _shared_blobs.SHARED_BLOBS_DIR_NAME:  # skip the shared blob store
             continue
         try:
             repos.add(_scan_cached_repo(repo_path))

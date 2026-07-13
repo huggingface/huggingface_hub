@@ -37,20 +37,20 @@ which is guaranteed by placing it inside the cache directory. On filesystems wit
 hardlink support, everything degrades gracefully to the regular download path.
 """
 
-import logging
 import os
 import re
 import uuid
 from pathlib import Path
 
 from . import constants
+from .utils import logging
 
 
 # This module is imported by `utils/_cache_manager.py` while the `utils` package is
-# still initializing, so it must only depend on stdlib and `constants`. The stdlib
-# logger propagates to the `huggingface_hub` root logger configured in `utils.logging`,
-# so log behavior is identical to `logging.get_logger(__name__)`.
-logger = logging.getLogger(__name__)
+# still initializing. Importing `utils.logging` here is safe (it only depends on stdlib
+# and `constants`), but nothing else from `utils` may be imported at module scope - and
+# `_cache_manager` must keep binding this module as an object, not import names from it.
+logger = logging.get_logger(__name__)
 
 # Xet file hashes are 64 lowercase hex characters (merkle root). Validating the format
 # also guarantees the server-provided value cannot be used for path traversal.
