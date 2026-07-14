@@ -112,6 +112,32 @@ class TestDiskUsageWarning:
             assert len(w) == 0
 
 
+def test_cached_file_from_read_only_cache(tmp_path: Path, mocker) -> None:
+    commit_hash = "a" * 40
+    storage_folder = tmp_path / "models--org--repo"
+    pointer_path = Path(_get_pointer_path(str(storage_folder), commit_hash, "file.txt"))
+    pointer_path.parent.mkdir(parents=True)
+    pointer_path.write_text("already cached")
+
+    mocker.patch(
+        "huggingface_hub.file_download._get_metadata_or_catch_error",
+        return_value=(
+            "https://huggingface.co/org/repo/resolve/main/file.txt",
+            "etag",
+            commit_hash,
+            pointer_path.stat().st_size,
+            None,
+            None,
+        ),
+    )
+    makedirs = mocker.patch("huggingface_hub.file_download.os.makedirs", side_effect=OSError("read-only cache"))
+
+    result = hf_hub_download("org/repo", "file.txt", revision="main", cache_dir=tmp_path)
+
+    assert result == str(pointer_path)
+    makedirs.assert_not_called()
+
+
 class TestStagingDownload:
     def test_download_from_a_gated_repo_with_hf_hub_download(self, api: HfApi, repo_factory: RepoFactory) -> None:
         """Checks `hf_hub_download` outputs error on gated repo.
