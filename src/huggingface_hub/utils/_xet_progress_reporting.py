@@ -47,6 +47,16 @@ def _finish_transfer_bar(bar) -> None:
         bar.refresh()
 
 
+def _set_aggregate_rate_postfix(bar) -> None:
+    """Show a shared bar's own throughput as its rate.
+
+    When many files feed one bar (snapshot download), each file only knows its own per-item rate — a
+    fraction of the total. Deriving the rate from the shared bar's aggregated byte count reports the
+    true combined speed instead of whichever single file reported last.
+    """
+    bar.set_postfix_str(_format_speed_postfix(bar.format_dict.get("rate")), refresh=False)
+
+
 class XetDownloadProgressReporter:
     """Dual progress bars for Xet downloads: network transfer and file reconstruction.
 
