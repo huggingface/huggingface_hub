@@ -59,9 +59,15 @@ def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     if not stripped:
         raise ValueError("Value cannot be empty.")
     try:
-        return int(value)
+        number = int(value)
     except ValueError:
         pass
+    else:
+        # `int()` accepts a leading sign, so a bare negative like "-5" would slip through the
+        # plain-number path even though the unit path (RE_NUMBER_WITH_UNIT) only allows `\d+`.
+        if number < 0:
+            raise ValueError(f"Invalid value '{value}'. Value cannot be negative.")
+        return number
 
     match = RE_NUMBER_WITH_UNIT.fullmatch(stripped)
     if not match:

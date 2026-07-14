@@ -29,6 +29,7 @@ def test_parse_size_valid(value, expected):
     [
         "1.5G",
         "-5M",
+        "-5",
         "10X",
         "abc",
         "",
@@ -64,6 +65,7 @@ def test_parse_duration_valid(value, expected):
         "1.5h",
         "3month",
         "-5m",
+        "-5",
         "10X",
         "abc",
         "",
