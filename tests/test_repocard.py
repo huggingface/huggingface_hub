@@ -14,6 +14,7 @@
 import copy
 import os
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -729,6 +730,27 @@ class TestRegexYamlBlock:
 
     def test_does_not_match_with_leading_text(self):
         assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---") is None
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            # Valid `---` opener followed by a long newline run and no closing fence.
+            "---\n" + "\n" * 200_000,
+            # Same, but with a title line and trailing body so it resembles real card text.
+            "---\ntitle: x\n" + "\n" * 200_000 + "not a fence",
+            # CRLF variant.
+            "---\r\n" + "\r\n" * 200_000,
+        ],
+    )
+    def test_no_catastrophic_backtracking(self, payload):
+        # A YAML opener followed by a large newline run with no closing fence must not
+        # trigger catastrophic backtracking. These inputs cannot match, and the search
+        # must fail quickly instead of backtracking for tens of seconds.
+        start = time.perf_counter()
+        match = REGEX_YAML_BLOCK.search(payload)
+        elapsed = time.perf_counter() - start
+        assert match is None
+        assert elapsed < 1.0, f"REGEX_YAML_BLOCK.search took {elapsed:.2f}s (catastrophic backtracking)"
 
 
 class TestModelCard:

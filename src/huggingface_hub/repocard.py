@@ -29,9 +29,14 @@ logger = logging.get_logger(__name__)
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
 TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
 
-# exact same regex as in the Hub server. Please keep in sync.
-# See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
-REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
+# Based on the same regex as in the Hub server (moon-landing ViewMarkdown.ts#L18), with a
+# fix for catastrophic backtracking (ReDoS). The original `[\r\n]+` runs at both delimiters
+# let a long newline run be ambiguously redistributed between the opener tail, the lazy body
+# and the closer head, causing quadratic/cubic backtracking on inputs like a `---` opener
+# followed by many newlines and no closing fence. Reducing both delimiter runs to a single
+# newline token removes the ambiguity without changing which inputs match (match boundaries
+# and the parsed YAML block are unchanged). The server-side regex should be mirrored.
+REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n])([\S\s]*?)([\r\n]---[ \t]*(\r\n|\n|$))")
 
 
 class RepoCard:
