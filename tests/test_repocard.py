@@ -731,6 +731,38 @@ class TestRegexYamlBlock:
     def test_does_not_match_with_leading_text(self):
         assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---") is None
 
+    def test_crlf_card_parses_metadata_and_retains_body(self):
+        # A valid CRLF card must parse to the correct metadata and retain the body: the
+        # opener must consume the full `\r\n` (not just the `\r`), so the YAML block is
+        # clean and the match ends right after the closing fence line.
+        content = "---\r\nlanguage: en\r\n---\r\nSome body\r\n"
+        match = REGEX_YAML_BLOCK.search(content)
+        assert match is not None
+        assert yaml.safe_load(match.group(2)) == {"language": "en"}
+        assert content[match.end() :] == "Some body\r\n"
+
+        card = RepoCard(content)
+        assert card.data.to_dict() == {"language": "en"}
+        assert "Some body" in card.text
+
+    def test_crlf_empty_frontmatter_retains_trailing_content(self):
+        # An empty-frontmatter card must not silently drop the trailing content, and the
+        # CRLF form must behave like the LF form: no metadata, text retained.
+        for content in ("---\r\n---\r\ntrailing content\r\n", "---\n---\ntrailing content\n"):
+            card = RepoCard(content, ignore_metadata_errors=True)
+            assert card.data.to_dict() == {}
+            assert "trailing content" in card.text
+
+    def test_crlf_empty_frontmatter_followed_by_real_frontmatter(self):
+        # Regression test: with a single-char newline class at the delimiters, the opener of
+        # a CRLF card consumed only the `\r` and the leftover `\n---` faked an early closer,
+        # demoting the real YAML block between the 2nd and 3rd fences into the card text.
+        content = "---\r\n---\r\nlanguage: en\r\n---\r\nbody\r\n"
+        match = REGEX_YAML_BLOCK.search(content)
+        assert match is not None
+        assert yaml.safe_load(match.group(2)) == {"language": "en"}
+        assert content[match.end() :] == "body\r\n"
+
     @pytest.mark.parametrize(
         "payload",
         [

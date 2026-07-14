@@ -33,10 +33,12 @@ TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_t
 # fix for catastrophic backtracking (ReDoS). The original `[\r\n]+` runs at both delimiters
 # let a long newline run be ambiguously redistributed between the opener tail, the lazy body
 # and the closer head, causing quadratic/cubic backtracking on inputs like a `---` opener
-# followed by many newlines and no closing fence. Reducing both delimiter runs to a single
-# newline token removes the ambiguity without changing which inputs match (match boundaries
-# and the parsed YAML block are unchanged). The server-side regex should be mirrored.
-REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n])([\S\s]*?)([\r\n]---[ \t]*(\r\n|\n|$))")
+# followed by many newlines and no closing fence. Each delimiter now consumes exactly ONE
+# complete line ending via a bounded non-capturing alternation ordered `\r\n|\r|\n` (the
+# two-char CRLF sequence is tried first so a CRLF opener cannot strand a `\n` that fakes an
+# early closer). No unbounded repetition remains at either delimiter, so the ReDoS fix is
+# preserved. The server-side regex should be mirrored.
+REGEX_YAML_BLOCK = re.compile(r"^(\s*---(?:\r\n|\r|\n))([\S\s]*?)((?:\r\n|\r|\n)---[ \t]*(\r\n|\n|$))")
 
 
 class RepoCard:
