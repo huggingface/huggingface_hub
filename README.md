@@ -90,9 +90,9 @@ The `huggingface_hub` library allows you to interact with the [Hugging Face Hub]
 - [Engage with the community](https://huggingface.co/docs/huggingface_hub/en/guides/community) through PRs and comments.
 - Do all of the above from the terminal — as a human or an AI agent — with the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
 
-## For AI agents
+## Built for humans and AI agents
 
-The `hf` CLI is designed to work as well for coding agents as it does for humans: the same commands adapt their output when driven by an agent, and error messages name the fix. If you work with Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI — so your agent knows its way around the Hub without rediscovering every command via `--help`:
+The `hf` CLI is designed for people and coding agents alike: the same commands adapt their output when run by an agent, and error messages name the fix. If you use Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI:
 
 ```bash
 # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
