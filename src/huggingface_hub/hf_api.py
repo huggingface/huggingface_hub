@@ -11808,6 +11808,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -11840,6 +11841,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11906,6 +11911,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12434,6 +12440,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12473,6 +12480,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12566,6 +12577,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12586,6 +12598,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12627,6 +12640,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12685,6 +12702,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12968,6 +12986,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -13016,6 +13035,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13093,6 +13116,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
