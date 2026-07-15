@@ -26,7 +26,7 @@ jobs:
         run: |
           pip install --upgrade uv
       - name: Install dependencies
-        run: uv pip install --system "huggingface_hub[dev] @ ."
+        run: uv pip install --prerelease=allow --system "huggingface_hub[dev] @ ."
         working-directory: ./huggingface_hub
 
       # Setup JS
