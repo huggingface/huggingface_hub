@@ -22,7 +22,7 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from .. import _shared_blobs  # imported as a module to tolerate the circular import
+from .. import _shared_blobs
 from ..constants import HF_HUB_CACHE
 from . import logging
 from ._parsing import format_timesince
