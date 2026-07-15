@@ -28,13 +28,8 @@ from .utils import logging
 
 logger = logging.get_logger(__name__)
 
-# Xet file hashes are 64 lowercase hex characters (merkle root). Validating the format
-# also guarantees the server-provided value cannot be used for path traversal.
 _XET_HASH_REGEX = re.compile(r"[0-9a-f]{64}")
 
-# Name of the store directory, at the root of the cache dir (next to `models--*` folders).
-# Old versions of `huggingface_hub` report it as a single captured scan warning and
-# otherwise ignore it.
 SHARED_BLOBS_DIR_NAME = "blobs"
 
 _are_hardlinks_supported_in_dir: dict[str, bool] = {}
