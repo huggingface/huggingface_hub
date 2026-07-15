@@ -11,30 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Cache-wide shared blob store, deduplicating Xet-backed files across cached repos.
+"""Cache-wide shared blob store, deduplicating Xet files across cached repos.
 
-Layout: `<cache_dir>/blobs/<2-hex-prefix>/<xet_hash>`. The store is content-addressed by
-the Xet file hash, which is verified server-side on upload (unlike the sha256 etag, which
-is never checked). Entries are only ever created from files downloaded through the
-verified `hf_xet` path.
-
-Every store entry is a **hardlink** of a per-repo `blobs/<etag>` file (same inode, two
-directory entries). Hardlinks - rather than symlinks - are what make the store safe to
-introduce in an existing cache:
-
-- Old versions of `huggingface_hub` and external tools see regular files. Their deletion
-  code unlinks the per-repo entry only; the filesystem refcount keeps the data alive for
-  other repos. A symlink-based store would get corrupted by older `delete_revisions`
-  implementations, which remove the *resolved* blob path.
-- Deleting a store entry can never break a repo: at worst, a future download is not
-  deduplicated. This also makes every concurrency scenario benign, so no locking is
-  needed: `os.link` is atomic, and a garbage collection racing with a new link only
-  loses a deduplication opportunity.
-- Hardlinks work on Windows/NTFS without administrator rights or Developer Mode.
-
-The store requires the per-repo blobs and the store to live on the same filesystem,
-which is guaranteed by placing it inside the cache directory. On filesystems without
-hardlink support, everything degrades gracefully to the regular download path.
+Store entries at `<cache_dir>/blobs/<2-hex-prefix>/<xet_hash>` are hardlinks of per-repo
+`blobs/<etag>` files: one copy on disk, shared across repos, safe for older versions.
 """
 
 import os

@@ -456,11 +456,9 @@ class HFCacheInfo:
         delete_strategy_repos: set[Path] = set()
         delete_strategy_snapshots: set[Path] = set()
 
-        # Blob directory entries the strategy will unlink (path -> scanned size). The
-        # freed size is predicted over the complete plan at the end: blobs deduplicated
-        # across repos (hardlinked from the shared blob store) share one inode, and disk
-        # space is only freed once the last link is removed - which can happen within a
-        # single strategy when several sharing repos are deleted together.
+        # Blob entries the strategy will unlink (path -> scanned size). Freed size is
+        # predicted over the whole plan: hardlinked blobs only free disk space once
+        # their last link is removed.
         blobs_to_unlink: dict[Path, int] = {}
 
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
