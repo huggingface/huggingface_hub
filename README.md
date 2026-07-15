@@ -195,7 +195,7 @@ We're partnering with cool open source ML libraries to provide free model hostin
 The advantages are:
 
 - Free model or dataset hosting for libraries and their users.
-- Built-in file versioning, even with very large files, thanks to a git-based approach.
+- Built-in file versioning, even with very large files, made possible by [Xet](https://huggingface.co/docs/hub/xet/index), the Hub's chunk-deduplicated storage backend.
 - In-browser widgets to play with the uploaded models.
 - Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
 - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
