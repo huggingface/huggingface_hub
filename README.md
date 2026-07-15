@@ -10,6 +10,16 @@
 
 <p align="center">
     <i>The official CLI and Python client for the Hugging Face Hub.</i>
+    <br/>
+    <a href="#what-is-huggingface_hub">About</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub">Documentation</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub/en/installation">Install</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub/en/guides/cli">CLI Guide</a>
+    ·
+    <a href="https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -31,6 +41,8 @@
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_kn.md">ಕನ್ನಡ</a>
     </p>
 </h4>
+
+## Quick start
 
 Install the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli) with the standalone installer:
 
@@ -59,6 +71,9 @@ hf download Qwen/Qwen3-0.6B
 # Upload files to your own repo
 hf upload username/my-cool-model ./model.safetensors
 
+# Sync a local folder to a storage bucket
+hf buckets sync ./checkpoints hf://buckets/username/my-bucket
+
 # Run a job on Hugging Face infrastructure
 hf jobs run python:3.12 python -c "print('Hello from the cloud!')"
 
@@ -67,14 +82,6 @@ hf --help
 ```
 
 The Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). Check out the [CLI guide](https://huggingface.co/docs/huggingface_hub/en/guides/cli) for a tour of the main features.
-
----
-
-**Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
-
-**Source Code**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
-
----
 
 ## What is `huggingface_hub`?
 
@@ -88,11 +95,11 @@ The `huggingface_hub` library allows you to interact with the [Hugging Face Hub]
 - [Search](https://huggingface.co/docs/huggingface_hub/en/guides/search) for models, datasets and Spaces.
 - [Share Model Cards](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards) to document your models.
 - [Engage with the community](https://huggingface.co/docs/huggingface_hub/en/guides/community) through PRs and comments.
-- Do all of the above from the terminal — as a human or an AI agent — with the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
+- Do all of the above from the terminal with the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
 
 ## Built for humans and AI agents
 
-The `hf` CLI is designed for people and coding agents alike: the same commands adapt their output when run by an agent, and error messages name the fix. If you use Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI:
+The `hf` CLI is designed for people and coding agents alike: the same commands adapt their output when run by an agent. If you use Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI:
 
 ```bash
 # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
@@ -181,7 +188,7 @@ upload_folder(
 
 More details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
 
-## Integrating to the Hub.
+## Integrating with the Hub.
 
 We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).
 
