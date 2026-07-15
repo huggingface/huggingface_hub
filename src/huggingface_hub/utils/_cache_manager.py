@@ -22,11 +22,7 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-# Imported as a module (not names): `_shared_blobs` is only partially initialized when
-# this import runs from a direct `import huggingface_hub._shared_blobs` (its own imports
-# trigger the `utils` package init, which loads this module). Attribute access at call
-# time is safe; importing names here would crash on the partial module.
-from .. import _shared_blobs
+from .. import _shared_blobs  # imported as a module to tolerate the circular import
 from ..constants import HF_HUB_CACHE
 from . import logging
 from ._parsing import format_timesince

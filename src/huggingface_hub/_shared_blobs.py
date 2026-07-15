@@ -46,10 +46,6 @@ from . import constants
 from .utils import logging
 
 
-# This module is imported by `utils/_cache_manager.py` while the `utils` package is
-# still initializing. Importing `utils.logging` here is safe (it only depends on stdlib
-# and `constants`), but nothing else from `utils` may be imported at module scope - and
-# `_cache_manager` must keep binding this module as an object, not import names from it.
 logger = logging.get_logger(__name__)
 
 # Xet file hashes are 64 lowercase hex characters (merkle root). Validating the format
