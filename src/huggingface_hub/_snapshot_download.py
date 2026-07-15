@@ -25,6 +25,7 @@ from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
     _finish_transfer_bar,
+    _set_aggregate_rate_postfix,
     _update_transfer_bar,
 )
 from .utils.tqdm import _create_progress_bar
@@ -480,10 +481,11 @@ def snapshot_download(
             _update_transfer_bar(transfer_progress, int(n or 0))
 
         def set_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-            reconstruct_progress.set_postfix_str(postfix, refresh=refresh)
+            # Discard the caller's per-file rate; report the summed rate across all files instead.
+            _set_aggregate_rate_postfix(reconstruct_progress)
 
         def set_transfer_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-            transfer_progress.set_postfix_str(postfix, refresh=refresh)
+            _set_aggregate_rate_postfix(transfer_progress)
 
     # Pass the commit_hash as revision to hf_hub_download to skip network call if:
     # - file is cached

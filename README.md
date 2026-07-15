@@ -9,7 +9,17 @@
 </p> 
 
 <p align="center">
-    <i>The official Python client for the Huggingface Hub.</i>
+    <i>The official CLI and Python client for the Hugging Face Hub.</i>
+    <br/>
+    <a href="#what-is-huggingface_hub">About</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub">Documentation</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub/en/installation">Install</a>
+    ·
+    <a href="https://huggingface.co/docs/huggingface_hub/en/guides/cli">CLI Guide</a>
+    ·
+    <a href="https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -27,36 +37,82 @@
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_fr.md">Français</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_hi.md">हिंदी</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_ko.md">한국어</a> |
-        <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_cn.md">中文 (简体)</a>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_cn.md">中文 (简体)</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/i18n/README_kn.md">ಕನ್ನಡ</a>
-    <p>
+    </p>
 </h4>
 
----
+## Quick start
 
-**Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
+Install the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli) with the standalone installer:
 
-**Source Code**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
+```bash
+# On macOS and Linux.
+curl -LsSf https://hf.co/cli/install.sh | bash
+```
 
----
+```powershell
+# On Windows.
+powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
 
-## Welcome to the huggingface_hub library
+Log in, then start working with the Hub:
 
-The `huggingface_hub` library allows you to interact with the [Hugging Face Hub](https://huggingface.co/), a platform democratizing open-source Machine Learning for creators and collaborators. Discover pre-trained models and datasets for your projects or play with the thousands of machine learning apps hosted on the Hub. You can also create and share your own models, datasets and demos with the community. The `huggingface_hub` library provides a simple way to do all these things with Python.
+```bash
+# Log in (use --token $HF_TOKEN in non-interactive environments)
+hf auth login
 
-## Key features
+# Find models served by Inference Providers
+hf models ls --warm
+
+# Download a model
+hf download Qwen/Qwen3-0.6B
+
+# Upload files to your own repo
+hf upload username/my-cool-model ./model.safetensors
+
+# Sync a local folder to a storage bucket
+hf buckets sync ./checkpoints hf://buckets/username/my-bucket
+
+# Run a job on Hugging Face infrastructure
+hf jobs run python:3.12 python -c "print('Hello from the cloud!')"
+
+# Discover everything else
+hf --help
+```
+
+The Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). Check out the [CLI guide](https://huggingface.co/docs/huggingface_hub/en/guides/cli) for a tour of the main features.
+
+## What is `huggingface_hub`?
+
+The `huggingface_hub` library allows you to interact with the [Hugging Face Hub](https://huggingface.co/), a platform democratizing open-source Machine Learning for creators and collaborators. Discover pre-trained models and datasets for your projects, play with the thousands of machine learning apps hosted on the Hub, or create and share your own models, datasets and demos with the community. Everything ships in one package with two interfaces: the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli) for your terminal and the `huggingface_hub` library for Python — both designed to work well for humans and AI agents. Use them to:
 
 - [Download files](https://huggingface.co/docs/huggingface_hub/en/guides/download) from the Hub.
 - [Upload files](https://huggingface.co/docs/huggingface_hub/en/guides/upload) to the Hub.
 - [Manage your repositories](https://huggingface.co/docs/huggingface_hub/en/guides/repository).
 - [Run Inference](https://huggingface.co/docs/huggingface_hub/en/guides/inference) on deployed models.
+- [Run Jobs](https://huggingface.co/docs/huggingface_hub/en/guides/jobs) on Hugging Face infrastructure.
 - [Search](https://huggingface.co/docs/huggingface_hub/en/guides/search) for models, datasets and Spaces.
 - [Share Model Cards](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards) to document your models.
 - [Engage with the community](https://huggingface.co/docs/huggingface_hub/en/guides/community) through PRs and comments.
+- Do all of the above from the terminal with the [`hf` CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
 
-## Installation
+## Built for humans and AI agents
 
-Install the `huggingface_hub` package with [pip](https://pypi.org/project/huggingface-hub/):
+The `hf` CLI is designed for people and coding agents alike: the same commands adapt their output when run by an agent. If you use Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI:
+
+```bash
+# for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+hf skills add
+# includes the above + Claude Code
+hf skills add --claude
+```
+
+Learn more in the [Hugging Face CLI for AI agents guide](https://huggingface.co/docs/hub/agents-cli) and the [announcement blog post](https://huggingface.co/blog/hf-cli-for-agents).
+
+## Use the Python library
+
+Install the `huggingface_hub` package with [pip](https://pypi.org/project/huggingface-hub/) (this also installs the `hf` CLI):
 
 ```bash
 pip install huggingface_hub
@@ -76,8 +132,6 @@ pip install "huggingface_hub[mcp]"
 
 To learn more about installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/en/installation).
 
-## Quick start
-
 ### Download files
 
 Download a single file
@@ -85,7 +139,7 @@ Download a single file
 ```py
 from huggingface_hub import hf_hub_download
 
-hf_hub_download(repo_id="tiiuae/falcon-7b-instruct", filename="config.json")
+hf_hub_download(repo_id="zai-org/GLM-5.2", filename="config.json")
 ```
 
 Or an entire repository
@@ -93,20 +147,10 @@ Or an entire repository
 ```py
 from huggingface_hub import snapshot_download
 
-snapshot_download("stabilityai/stable-diffusion-2-1")
+snapshot_download("sentence-transformers/all-MiniLM-L6-v2")
 ```
 
 Files will be downloaded in a local cache folder. More details in [this guide](https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache).
-
-### Login
-
-The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:
-
-```bash
-hf auth login
-# or using an environment variable
-hf auth login --token $HUGGINGFACE_TOKEN
-```
 
 ### Create a repository
 
@@ -142,24 +186,16 @@ upload_folder(
 )
 ```
 
-For details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
+More details in the [upload guide](https://huggingface.co/docs/huggingface_hub/en/guides/upload).
 
-### Use the CLI
-
-The `huggingface_hub` package comes with a built-in CLI called [`hf`](https://huggingface.co/docs/huggingface_hub/en/guides/cli) to interact with the Hub directly from the terminal:
-
-```bash
-hf --help
-```
-
-## Integrating to the Hub.
+## Integrating with the Hub.
 
 We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).
 
 The advantages are:
 
 - Free model or dataset hosting for libraries and their users.
-- Built-in file versioning, even with very large files, thanks to a git-based approach.
+- Built-in file versioning, even with very large files, made possible by [Xet](https://huggingface.co/docs/hub/xet/index), the Hub's chunk-deduplicated storage backend.
 - In-browser widgets to play with the uploaded models.
 - Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
 - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
