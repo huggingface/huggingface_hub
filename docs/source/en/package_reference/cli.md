@@ -2280,7 +2280,7 @@ Learn more
 
 ### `hf jobs labels`
 
-Update labels on a Job. Replaces all existing labels.
+Update labels on a Job. Passing --label replaces all existing labels; passing --name alone keeps them.
 
 **Usage**:
 
@@ -2516,7 +2516,7 @@ Learn more
 
 #### `hf jobs scheduled labels`
 
-Update labels on a scheduled Job. Replaces all existing labels.
+Update labels on a scheduled Job. Passing --label replaces all existing labels; passing --name alone keeps them.
 
 **Usage**:
 

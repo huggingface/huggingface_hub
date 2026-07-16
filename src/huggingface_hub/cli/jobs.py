@@ -825,7 +825,7 @@ def jobs_labels(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update labels on a Job. Replaces all existing labels."""
+    """Update labels on a Job. Passing --label replaces all existing labels; passing --name alone keeps them."""
     if not label and name is None and not clear:
         raise CLIError(
             "Please set a name with --name or at least one label with --label. To remove all labels, pass --clear."
@@ -835,8 +835,13 @@ def jobs_labels(
             "Cannot set a name or labels and clear them at the same time. Please use --name/--label or --clear, not both."
         )
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-    labels = _parse_labels_map(label, name=name) or {}
     api = get_hf_api(token=token)
+    if name is not None and not label:
+        # Naming a Job should not wipe its existing labels: fetch them and merge the name in.
+        current_labels = api.inspect_job(job_id=job_id, namespace=namespace).labels or {}
+        labels = {**current_labels, "name": name}
+    else:
+        labels = _parse_labels_map(label, name=name) or {}
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
     out.result("Labels updated", id=job.id)
 
@@ -1010,8 +1015,10 @@ def scheduled_run(
     )
     out.result("Scheduled Job created", id=scheduled_job.id)
     if name is None:
-        out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {scheduled_job.id} --name NAME`.")
-    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
+        out.hint(
+            f"Name this scheduled Job with `hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME`."
+        )
+    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
 
 @scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
@@ -1192,7 +1199,7 @@ def scheduled_labels(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update labels on a scheduled Job. Replaces all existing labels."""
+    """Update labels on a scheduled Job. Passing --label replaces all existing labels; passing --name alone keeps them."""
     if not label and name is None and not clear:
         raise CLIError(
             "Please set a name with --name or at least one label with --label. To remove all labels, pass --clear."
@@ -1202,8 +1209,15 @@ def scheduled_labels(
             "Cannot set a name or labels and clear them at the same time. Please use --name/--label or --clear, not both."
         )
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
-    labels = _parse_labels_map(label, name=name) or {}
     api = get_hf_api(token=token)
+    if name is not None and not label:
+        # Naming a scheduled Job should not wipe its existing labels: fetch them and merge the name in.
+        current_labels = (
+            api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace).job_spec.labels or {}
+        )
+        labels = {**current_labels, "name": name}
+    else:
+        labels = _parse_labels_map(label, name=name) or {}
     scheduled_job = api.update_scheduled_job_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
@@ -1269,8 +1283,8 @@ def scheduled_uv_run(
     )
     out.result("Scheduled Job created", id=job.id)
     if name is None:
-        out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {job.id} --name NAME`.")
-    out.hint(f"Use `hf jobs scheduled inspect {job.id}` to view its details.")
+        out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME`.")
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to view its details.")
 
 
 ### UTILS
