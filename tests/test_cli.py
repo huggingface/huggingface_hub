@@ -690,6 +690,57 @@ class TestUploadCommand:
         with pytest.raises(CLIError, match="Cannot combine a path"):
             upload(repo_id="hf://datasets/foo/bar/data/train.csv", local_path="./train.csv", path_in_repo="other.csv")
 
+    def test_upload_to_existing_space_skips_create_repo(self, runner: CliRunner) -> None:
+        """Uploading to an existing Space must NOT call create_repo to avoid 402 on static Spaces."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir) / "my-folder"
+            folder.mkdir()
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(folder.as_posix(), ".", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
+            ):
+                api = api_cls.return_value
+                # Simulate that the Space already exists
+                api.repo_info.return_value = Mock(repo_id="user/my-space")
+                api.upload_folder.return_value = "uploaded"
+                result = runner.invoke(app, ["upload", "user/my-space", "my-folder", "--repo-type", "space"])
+        assert result.exit_code == 0, result.output
+        # create_repo must NOT be called when the Space already exists
+        api.create_repo.assert_not_called()
+        api.repo_info.assert_called_once_with(repo_id="user/my-space", repo_type="space")
+        api.upload_folder.assert_called_once()
+
+    def test_upload_to_new_space_creates_repo_with_gradio_sdk(self, runner: CliRunner) -> None:
+        """When Space does not exist, create_repo is called with space_sdk='gradio'."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            folder = Path(tmp_dir) / "my-folder"
+            folder.mkdir()
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(folder.as_posix(), ".", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
+            ):
+                api = api_cls.return_value
+                # Simulate that the Space does NOT exist
+                api.repo_info.side_effect = Exception("Repo not found")
+                api.create_repo.return_value = Mock(repo_id="user/new-space")
+                api.upload_folder.return_value = "uploaded"
+                result = runner.invoke(app, ["upload", "user/new-space", "my-folder", "--repo-type", "space"])
+        assert result.exit_code == 0, result.output
+        api.create_repo.assert_called_once_with(
+            repo_id="user/new-space",
+            repo_type="space",
+            exist_ok=True,
+            private=None,
+            space_sdk="gradio",
+        )
+        api.upload_folder.assert_called_once()
+
 
 class TestResolveUploadPaths:
     def test_upload_with_wildcard(self) -> None:

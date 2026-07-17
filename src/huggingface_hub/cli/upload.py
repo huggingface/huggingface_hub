@@ -201,15 +201,32 @@ def upload(
         # Otherwise, create repo and proceed with the upload
         if not os.path.isfile(resolved_local_path) and not os.path.isdir(resolved_local_path):
             raise FileNotFoundError(f"No such file or directory: '{resolved_local_path}'.")
-        created = api.create_repo(
-            repo_id=repo_id,
-            repo_type=repo_type_str,
-            exist_ok=True,
-            private=private,
-            space_sdk="gradio" if repo_type_str == "space" else None,
-            # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
-        ).repo_id
+
+        # Check if repo already exists to avoid sending space_sdk="gradio" to the server
+        # when uploading to an existing static Space (which would trigger a 402 payment
+        # check for Gradio Spaces on free cpu-basic hardware).
+        # See https://github.com/huggingface/huggingface_hub/issues/4535
+        existing_repo = None
+        if repo_type_str == "space":
+            try:
+                existing_repo = api.repo_info(repo_id=repo_id, repo_type=repo_type_str)
+            except Exception:
+                pass  # Repo doesn't exist yet, will be created below
+
+        if existing_repo is not None:
+            # Repo already exists — skip create_repo entirely to avoid overwriting
+            # Space SDK or triggering payment checks on the server side.
+            created = repo_id
+        else:
+            created = api.create_repo(
+                repo_id=repo_id,
+                repo_type=repo_type_str,
+                exist_ok=True,
+                private=private,
+                space_sdk="gradio" if repo_type_str == "space" else None,
+                # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
+                # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
+            ).repo_id
 
         # Check if branch already exists and if not, create it
         if revision is not None and not create_pr:
