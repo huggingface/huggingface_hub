@@ -704,13 +704,13 @@ class TestUploadCommand:
             ):
                 api = api_cls.return_value
                 # Simulate that the Space already exists
-                api.repo_info.return_value = Mock(repo_id="user/my-space")
+                api.repo_exists.return_value = True
                 api.upload_folder.return_value = "uploaded"
                 result = runner.invoke(app, ["upload", "user/my-space", "my-folder", "--repo-type", "space"])
         assert result.exit_code == 0, result.output
         # create_repo must NOT be called when the Space already exists
         api.create_repo.assert_not_called()
-        api.repo_info.assert_called_once_with(repo_id="user/my-space", repo_type="space")
+        api.repo_exists.assert_called_once_with(repo_id="user/my-space", repo_type="space")
         api.upload_folder.assert_called_once()
 
     def test_upload_to_new_space_creates_repo_with_gradio_sdk(self, runner: CliRunner) -> None:
@@ -727,7 +727,7 @@ class TestUploadCommand:
             ):
                 api = api_cls.return_value
                 # Simulate that the Space does NOT exist
-                api.repo_info.side_effect = Exception("Repo not found")
+                api.repo_exists.return_value = False
                 api.create_repo.return_value = Mock(repo_id="user/new-space")
                 api.upload_folder.return_value = "uploaded"
                 result = runner.invoke(app, ["upload", "user/new-space", "my-folder", "--repo-type", "space"])

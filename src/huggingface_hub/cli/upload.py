@@ -206,14 +206,11 @@ def upload(
         # when uploading to an existing static Space (which would trigger a 402 payment
         # check for Gradio Spaces on free cpu-basic hardware).
         # See https://github.com/huggingface/huggingface_hub/issues/4535
-        existing_repo = None
-        if repo_type_str == "space":
-            try:
-                existing_repo = api.repo_info(repo_id=repo_id, repo_type=repo_type_str)
-            except Exception:
-                pass  # Repo doesn't exist yet, will be created below
+        repo_already_exists = (
+            repo_type_str == "space" and api.repo_exists(repo_id=repo_id, repo_type=repo_type_str)
+        )
 
-        if existing_repo is not None:
+        if repo_already_exists:
             # Repo already exists — skip create_repo entirely to avoid overwriting
             # Space SDK or triggering payment checks on the server side.
             created = repo_id
