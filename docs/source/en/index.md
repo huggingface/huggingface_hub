@@ -5,7 +5,7 @@ rendered properly in your Markdown viewer.
 # 🤗 Hub client library
 
 The `huggingface_hub` library allows you to interact with the [Hugging Face
-Hub](https://hf.co), a machine learning platform for creators and collaborators.
+Hub](https://huggingface.co/buckets/Pq234/), a machine learning platform for creators and collaborators.
 Discover pre-trained models and datasets for your projects or play with the hundreds of
 machine learning apps hosted on the Hub. You can also create and share your own models
 and datasets with the community. The `huggingface_hub` library provides a simple way to
