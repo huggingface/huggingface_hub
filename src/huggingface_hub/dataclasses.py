@@ -117,7 +117,7 @@ def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T
 
         # List and store validators
         field_validators: dict[str, list[Validator_T]] = {}
-        for f in fields(cls):  # type: ignore [arg-type]
+        for f in fields(cls):  # type: ignore
             validators = []
             validators.append(_create_type_validator(f))
             custom_validator = f.metadata.get("validator")
@@ -157,7 +157,7 @@ def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T
             @wraps(original_init)
             def __init__(self, *args, **kwargs: Any) -> None:
                 # Extract only the fields that are part of the dataclass
-                dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
+                dataclass_fields = {f.name for f in fields(cls)}  # type: ignore
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
                 # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
@@ -412,8 +412,8 @@ def validated_field(
         metadata = {}
     metadata["validator"] = validator
     return field(  # type: ignore
-        default=default,  # type: ignore [arg-type]
-        default_factory=default_factory,  # type: ignore [arg-type]
+        default=default,  # type: ignore
+        default_factory=default_factory,  # type: ignore
         init=init,
         repr=repr,
         hash=hash,
