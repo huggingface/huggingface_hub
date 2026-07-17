@@ -18,6 +18,7 @@ from tqdm.auto import tqdm as base_tqdm
 from . import constants
 from ._local_folder import (
     _create_cachedir_tag,
+    _validate_relative_filename,
     get_local_download_paths,
     read_download_metadata,
     write_download_metadata,
@@ -1058,14 +1059,9 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    _validate_relative_filename(filename)
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
