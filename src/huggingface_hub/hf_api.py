@@ -4693,10 +4693,11 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code in (401, 403):
+            elif exist_ok and err.response.status_code in (401, 402, 403):
                 # 401 -> if JWT token without create repo scope
+                # 402 -> if payment required (e.g. if Gradio/Docker Space and free user)
                 # 403 -> if no write permission on the namespace
-                # In both cases, repo might already exist
+                # In all 3 cases, repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
