@@ -554,6 +554,9 @@ Use `hf datasets` to list datasets on the Hub and get detailed information about
 
 # Sort by downloads
 >>> hf datasets ls --sort downloads --limit 10
+
+# List official benchmark datasets
+>>> hf datasets ls --benchmark official
 ```
 
 ### Get dataset info
