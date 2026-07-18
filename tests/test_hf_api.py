@@ -4860,3 +4860,70 @@ def _to_snake_case(name: str) -> str:
     import re
 
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).replace("-", "_").lower()
+
+
+class TestSafetensorsMetadataTimeout:
+    """Regression tests for the timeout on safetensors metadata Range requests.
+
+    Before the fix, `parse_safetensors_file_metadata` and `get_safetensors_metadata`
+    issued Range GETs with no `timeout`, so a stalled/half-open CDN connection
+    could block the worker thread indefinitely and hang the whole call.
+    See https://github.com/huggingface/huggingface_hub/issues/4377.
+    """
+
+    @pytest.fixture
+    def api(self) -> HfApi:
+        return HfApi(endpoint="https://hf.co", token="token")
+
+    @staticmethod
+    def _mock_response(content: bytes):
+        response = Mock()
+        response.content = content
+        return response
+
+    def test_parse_safetensors_file_metadata_passes_default_timeout(self, api: HfApi) -> None:
+        """When timeout is None, the HF_HUB_DOWNLOAD_TIMEOUT default is applied."""
+        # Minimal valid safetensors header: 8-byte little-endian length + JSON body
+        # with only a __metadata__ block (no tensor keys).
+        header_json = b'{"__metadata__":{"format":"pt"}}'
+        content = len(header_json).to_bytes(8, "little") + header_json
+
+        with patch("huggingface_hub.hf_api.get_session") as get_session:
+            get_session().get.return_value = self._mock_response(content)
+            api.parse_safetensors_file_metadata("org/repo", "model.safetensors")
+
+        assert get_session().get.call_count == 1
+        _, kwargs = get_session().get.call_args
+        assert kwargs["timeout"] == constants.HF_HUB_DOWNLOAD_TIMEOUT
+
+    def test_parse_safetensors_file_metadata_explicit_timeout_is_forwarded(self, api: HfApi) -> None:
+        """A caller-supplied timeout overrides the default on both Range requests."""
+        # Header length > 100000 forces the second (full-metadata) Range request.
+        # Put the bulk in the __metadata__ block so there are no tensor keys to
+        # validate.
+        pad = "x" * 120000
+        header_json = ('{"__metadata__":{"format":"' + pad + '"}}').encode()
+        full_content = len(header_json).to_bytes(8, "little") + header_json
+        # The first GET returns the first 100kb (prefix + header preview); the
+        # second GET returns the bare metadata bytes (no prefix).
+        first_response = self._mock_response(full_content)
+        second_response = self._mock_response(header_json)
+
+        with patch("huggingface_hub.hf_api.get_session") as get_session:
+            get_session().get.side_effect = [first_response, second_response]
+            api.parse_safetensors_file_metadata("org/repo", "model.safetensors", timeout=42.0)
+
+        timeouts = [call.kwargs["timeout"] for call in get_session().get.call_args_list]
+        assert timeouts == [42.0, 42.0]
+
+    def test_get_safetensors_metadata_forwards_timeout_to_file_parse(self, api: HfApi) -> None:
+        """`get_safetensors_metadata` threads its timeout into the per-file parse call."""
+        with (
+            patch.object(HfApi, "file_exists", side_effect=lambda **kw: kw["filename"] == "model.safetensors"),
+            patch.object(HfApi, "parse_safetensors_file_metadata") as parse,
+        ):
+            parse.return_value = SafetensorsFileMetadata(metadata={"format": "pt"}, tensors={})
+            api.get_safetensors_metadata("org/repo", timeout=7.5)
+
+        _, kwargs = parse.call_args
+        assert kwargs["timeout"] == 7.5

@@ -6694,6 +6694,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = None,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6720,6 +6721,12 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float` or `None`, *optional*):
+                Timeout for each Range request, in seconds. If `None` (default), falls back to
+                [`~constants.HF_HUB_DOWNLOAD_TIMEOUT`] (defaults to 10s). Pass `0` to disable. Without a
+                bound, a stalled or half-open connection to a shard can block the worker indefinitely
+                and hang the whole call (and any caller). See
+                https://github.com/huggingface/huggingface_hub/issues/4377.
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -6771,6 +6778,7 @@ class HfApi:
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                timeout=timeout,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -6805,7 +6813,12 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    timeout=timeout,
                 )
 
             thread_map(
@@ -6835,6 +6848,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = None,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6859,6 +6873,11 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float` or `None`, *optional*):
+                Timeout for each Range request, in seconds. If `None` (default), falls back to
+                [`~constants.HF_HUB_DOWNLOAD_TIMEOUT`] (defaults to 10s). Pass `0` to disable. Without a
+                bound, a stalled or half-open connection can block the read indefinitely and hang the
+                caller. See https://github.com/huggingface/huggingface_hub/issues/4377.
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -6870,6 +6889,8 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
+        if timeout is None:
+            timeout = constants.HF_HUB_DOWNLOAD_TIMEOUT
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
         )
@@ -6882,7 +6903,7 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, timeout=timeout)
         hf_raise_for_status(response)
 
         # 2. Parse and validate metadata size using shared helper
@@ -6892,7 +6913,9 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            response = get_session().get(
+                url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"}, timeout=timeout
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
