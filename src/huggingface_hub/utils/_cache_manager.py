@@ -861,7 +861,10 @@ def _format_size(num: int) -> str:
     """
     num_f = float(num)
     for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
-        if abs(num_f) < 1000.0:
+        # Compare the rounded value so a number that would render as "1000.0"
+        # (e.g. 999_999 bytes -> 999.999 -> rounded "1000.0K") rolls over to the
+        # next unit ("1.0M") instead.
+        if round(abs(num_f), 1) < 1000.0:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"

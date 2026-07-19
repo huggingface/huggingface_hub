@@ -725,6 +725,11 @@ class TestStringFormatters:
         16.0: "16.0",
         1000.0: "1.0K",
         1024 * 1024 * 1024: "1.1G",  # not 1.0GiB
+        # A value that rounds up to 1000 of a unit must roll over to the next
+        # unit, not render as "1000.0K".
+        999_949: "999.9K",
+        999_950: "1.0M",
+        999_999: "1.0M",
     }
 
     SINCE = {
