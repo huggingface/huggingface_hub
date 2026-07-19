@@ -4927,3 +4927,17 @@ class TestSafetensorsMetadataTimeout:
 
         _, kwargs = parse.call_args
         assert kwargs["timeout"] == 7.5
+
+    def test_parse_safetensors_file_metadata_zero_disables_timeout(self, api: HfApi) -> None:
+        """Per the docstring, `timeout=0` disables the bound (rather than meaning a
+        zero-second/immediate-failure timeout, which is how httpx interprets `0`)."""
+        header_json = b'{"__metadata__":{"format":"pt"}}'
+        content = len(header_json).to_bytes(8, "little") + header_json
+
+        with patch("huggingface_hub.hf_api.get_session") as get_session:
+            get_session().get.return_value = self._mock_response(content)
+            api.parse_safetensors_file_metadata("org/repo", "model.safetensors", timeout=0)
+
+        assert get_session().get.call_count == 1
+        _, kwargs = get_session().get.call_args
+        assert kwargs["timeout"] is None

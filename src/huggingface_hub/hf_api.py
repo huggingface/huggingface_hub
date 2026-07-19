@@ -6889,8 +6889,15 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
+        # Normalize the timeout before handing it to httpx. `None` resolves to the
+        # configured default (`HF_HUB_DOWNLOAD_TIMEOUT`), while `0` is the documented
+        # way to disable the bound entirely. Note that for httpx `0` means a
+        # zero-second timeout (i.e. immediate failure), so we translate it to `None`,
+        # which is the only value that actually disables timeouts.
         if timeout is None:
             timeout = constants.HF_HUB_DOWNLOAD_TIMEOUT
+        elif timeout == 0:
+            timeout = None
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
         )
