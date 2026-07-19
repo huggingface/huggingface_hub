@@ -17,7 +17,7 @@ import pytest
 
 from huggingface_hub import constants
 from huggingface_hub.errors import HfUriError
-from huggingface_hub.utils import HfMount, HfUri, parse_hf_mount, parse_hf_uri
+from huggingface_hub.utils import HfMount, HfUri, is_hf_uri, parse_hf_mount, parse_hf_uri
 
 
 # ---------------------------------------------------------------------------
@@ -622,6 +622,14 @@ def test_parse_hf_uri_failure(uri: str, error_substring: str) -> None:
     assert exc_info.value.uri == uri
 
 
+@pytest.mark.parametrize("uri", ["[::1/path", "[::1"])
+def test_malformed_scheme_less_url_is_rejected(uri: str) -> None:
+    with pytest.raises(HfUriError, match="Must start with 'hf://'"):
+        parse_hf_uri(uri)
+
+    assert not is_hf_uri(uri)
+
+
 @pytest.mark.parametrize(("kwargs", "error_substring"), URI_DIRECT_INIT_INVALID_CASES)
 def test_hf_uri_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring):
@@ -650,6 +658,11 @@ def test_parse_hf_uri_custom_endpoint() -> None:
     # ... including self-hosted endpoints that carry a path prefix (stripped before parsing).
     assert parse_hf_uri(
         "http://localhost:8080/hf/my-org/my-model",
+        endpoint="http://localhost:8080/hf",
+    ) == HfUri(type="model", id="my-org/my-model", revision=None, path_in_repo="")
+
+    assert parse_hf_uri(
+        "localhost:8080/hf/my-org/my-model",
         endpoint="http://localhost:8080/hf",
     ) == HfUri(type="model", id="my-org/my-model", revision=None, path_in_repo="")
 

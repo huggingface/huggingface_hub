@@ -344,8 +344,16 @@ def _looks_like_hf_url(uri: str, endpoint: str | None = None) -> bool:
     lowered = uri.lower()
     if lowered.startswith(("http://", "https://")):
         return True
-    # Scheme-less host (e.g. 'huggingface.co/org/model').
-    return any(lowered == host or lowered.startswith(host + "/") for host in _recognized_hosts(endpoint))
+    # Scheme-less host (e.g. 'huggingface.co/org/model'). Parse it instead of
+    # comparing string prefixes so custom endpoints with a port are supported.
+    try:
+        parsed = urlsplit(f"//{uri}")
+    except ValueError:
+        # Malformed netlocs (for example, an unterminated IPv6 address) are
+        # not Hugging Face URLs and should follow the regular HfUriError path.
+        return False
+    host = parsed.hostname.lower() if parsed.hostname else None
+    return host in _recognized_hosts(endpoint)
 
 
 def _decode_url_path_segment(segment: str) -> str:
