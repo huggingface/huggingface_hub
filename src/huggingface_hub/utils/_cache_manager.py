@@ -789,7 +789,17 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             blob_path = Path(file_path).resolve()
             if not blob_path.exists():
-                raise CorruptedCacheException(f"Blob missing (broken symlink): {blob_path}")
+                # Broken symlink (e.g. blob removed manually or a partial download where
+                # the snapshot link was created before the blob finished writing). Skip the
+                # file instead of dropping the whole repo from the listing: silently
+                # omitting an entire cached repo just because one file is missing is
+                # surprising and hides potentially large amounts of cached data.
+                logger.warning(
+                    "Ignored broken symlink in cache (blob missing): %s. The file is kept"
+                    " on disk but not counted in the cache report.",
+                    blob_path,
+                )
+                continue
 
             if blob_path not in blob_stats:
                 blob_stats[blob_path] = blob_path.stat()

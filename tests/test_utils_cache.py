@@ -43,6 +43,89 @@ class TestMissingCacheUtils:
             scan_cache_dir(file_path)
 
 
+class TestScanBrokenSymlink:
+    """Local (offline) tests for how `scan_cache_dir` handles broken symlinks.
+
+    A partial download or a manually pruned cache can leave snapshot entries that are
+    symlinks pointing to blobs that no longer exist. Previously this dropped the entire
+    repo from the listing (the exception was swallowed into `warnings`); the repo should
+    instead be listed with only the resolvable files counted.
+    """
+
+    @staticmethod
+    def _make_repo(repo_path: Path, commit_hash: str, files: dict[str, str], broken: list[str]) -> None:
+        """Create a fake cached repo under `repo_path`.
+
+        `files` maps snapshot filename -> blob content (valid symlinks).
+        `broken` lists snapshot filenames whose blob is intentionally not created.
+        """
+        snapshots = repo_path / "snapshots" / commit_hash
+        refs = repo_path / "refs"
+        blobs = repo_path / "blobs"
+        snapshots.mkdir(parents=True)
+        refs.mkdir(parents=True)
+        blobs.mkdir()
+        (refs / "main").write_text(commit_hash)
+        for filename, content in files.items():
+            blob_name = f"blob_{filename}"
+            (blobs / blob_name).write_text(content)
+            (snapshots / filename).symlink_to(blobs / blob_name)
+        for filename in broken:
+            (snapshots / filename).symlink_to(blobs / f"missing_{filename}")
+
+    def test_repo_with_broken_symlink_is_still_listed(self, tmp_path, caplog) -> None:
+        """A broken symlink must not hide the whole repo from the listing."""
+        cache_dir = tmp_path / "hub"
+        self._make_repo(
+            cache_dir / "models--org--partial",
+            commit_hash="abc123",
+            files={"config.json": "{}"},
+            broken=["weights.gguf"],
+        )
+
+        with caplog.at_level("WARNING", logger="huggingface_hub.utils._cache_manager"):
+            report = scan_cache_dir(cache_dir)
+
+        # Repo is listed (not swallowed into warnings)
+        assert len(report.repos) == 1
+        assert len(report.warnings) == 0
+
+        repo = list(report.repos)[0]
+        assert repo.repo_id == "org/partial"
+        assert repo.repo_type == "model"
+
+        # Only the resolvable file is counted; the broken one is skipped
+        revision = list(repo.revisions)[0]
+        assert revision.commit_hash == "abc123"
+        assert revision.nb_files == 1
+        assert revision.size_on_disk == len("{}")
+        # The `main` ref is preserved
+        assert revision.refs == frozenset({"main"})
+
+        # A warning was logged about the ignored broken symlink
+        assert any("broken symlink" in record.message for record in caplog.records)
+
+    def test_repo_with_only_broken_symlinks_is_listed_as_empty(self, tmp_path) -> None:
+        """If every file in the revision is a broken symlink, the repo is still listed."""
+        cache_dir = tmp_path / "hub"
+        self._make_repo(
+            cache_dir / "models--org--allbroken",
+            commit_hash="def456",
+            files={},
+            broken=["a.bin", "b.bin"],
+        )
+
+        report = scan_cache_dir(cache_dir)
+
+        assert len(report.repos) == 1
+        assert len(report.warnings) == 0
+        repo = list(report.repos)[0]
+        assert repo.size_on_disk == 0
+        revision = list(repo.revisions)[0]
+        assert revision.nb_files == 0
+        assert revision.refs == frozenset({"main"})
+
+
 @pytest.mark.production
 class TestValidCacheUtils:
     @pytest.fixture(autouse=True)
