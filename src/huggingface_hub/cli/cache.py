@@ -517,7 +517,7 @@ def ls(
     if len(hf_cache_info.warnings):
         if show_warnings:
             for warning in hf_cache_info.warnings:
-                out.warning(f"{warning}. Repo ignored.")
+                out.warning(str(warning).rstrip(".") + ". Repo ignored.")
         else:
             out.warning(
                 f"Found {len(hf_cache_info.warnings)} cache inconsistencies. Re-run with `--show-warnings` to display them."
