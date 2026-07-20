@@ -3443,6 +3443,23 @@ class TestJobsCommand:
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
+    def test_ls_label_filter_accepts_value_containing_equals_sign(self, runner: CliRunner) -> None:
+        """Regression: a label value with an embedded '=' (e.g. a base64 blob, URL, or JSON
+        fragment) must not crash the CLI. Before the fix, `item.split("=")` raised
+        `ValueError: too many values to unpack` because it yielded more than 2 parts."""
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(
+                app, ["jobs", "ls", "--label", "token=abc=def==ghi", "--label", "url=https://example.co/x?a=1"]
+            )
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["labels"] == {
+            "token": "abc=def==ghi",
+            "url": "https://example.co/x?a=1",
+        }
+
     def test_ls_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ls -a --format json` outputs valid JSON with all fields."""
         import json
