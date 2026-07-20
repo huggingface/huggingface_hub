@@ -107,7 +107,7 @@ def collections_create(
     ] = None,
     description: Annotated[
         str | None,
-        Option(help="A description for the collection."),
+        Option(help="A description for the collection (max 150 characters)."),
     ] = None,
     private: Annotated[
         bool,
@@ -147,7 +147,7 @@ def collections_update(
     ] = None,
     description: Annotated[
         str | None,
-        Option(help="The new description for the collection."),
+        Option(help="The new description for the collection (max 150 characters)."),
     ] = None,
     position: Annotated[
         int | None,

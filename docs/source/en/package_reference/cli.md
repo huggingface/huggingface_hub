@@ -766,7 +766,7 @@ $ hf collections create [OPTIONS] TITLE
 **Options**:
 
 * `--namespace TEXT`: The namespace (username or organization). Defaults to the authenticated user.
-* `--description TEXT`: A description for the collection.
+* `--description TEXT`: A description for the collection (max 150 characters).
 * `--private / --no-private`: Create a private collection.  [default: no-private]
 * `--exists-ok / --no-exists-ok`: Do not raise an error if the collection already exists.  [default: no-exists-ok]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -905,7 +905,7 @@ $ hf collections update [OPTIONS] COLLECTION_SLUG
 **Options**:
 
 * `--title TEXT`: The new title for the collection.
-* `--description TEXT`: The new description for the collection.
+* `--description TEXT`: The new description for the collection (max 150 characters).
 * `--position INTEGER`: The new position of the collection in the owner's list.
 * `--private / --no-private`: Whether the collection should be private.
 * `--theme TEXT`: The theme color for the collection (e.g., 'green', 'blue').

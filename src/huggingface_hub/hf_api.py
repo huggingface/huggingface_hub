@@ -10015,7 +10015,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 Namespace of the collection to create (username or org). Will default to the owner name.
             description (`str`, *optional*):
-                Description of the collection to create.
+                Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
             exists_ok (`bool`, *optional*):
@@ -10086,7 +10086,7 @@ class HfApi:
             title (`str`):
                 Title of the collection to update.
             description (`str`, *optional*):
-                Description of the collection to update.
+                Description of the collection to update. The maximum size for a description is 150 characters.
             position (`int`, *optional*):
                 New position of the collection in the list of collections of the user.
             private (`bool`, *optional*):
