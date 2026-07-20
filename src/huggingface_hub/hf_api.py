@@ -4693,10 +4693,11 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code in (401, 403):
+            elif exist_ok and err.response.status_code in (401, 402, 403):
                 # 401 -> if JWT token without create repo scope
+                # 402 -> if payment required (e.g. if Gradio/Docker Space and free user)
                 # 403 -> if no write permission on the namespace
-                # In both cases, repo might already exist
+                # In all 3 cases, repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
@@ -6693,6 +6694,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6719,6 +6721,10 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up, passed to each request that
+                fetches a safetensors file header. Set to `None` to disable the timeout (not recommended, as a stalled
+                connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -6770,6 +6776,7 @@ class HfApi:
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                timeout=timeout,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -6804,7 +6811,12 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    timeout=timeout,
                 )
 
             thread_map(
@@ -6834,6 +6846,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6858,6 +6871,9 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -6881,7 +6897,7 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, timeout=timeout)
         hf_raise_for_status(response)
 
         # 2. Parse and validate metadata size using shared helper
@@ -6891,7 +6907,9 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            response = get_session().get(
+                url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"}, timeout=timeout
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -9997,7 +10015,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 Namespace of the collection to create (username or org). Will default to the owner name.
             description (`str`, *optional*):
-                Description of the collection to create.
+                Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
             exists_ok (`bool`, *optional*):
@@ -10068,7 +10086,7 @@ class HfApi:
             title (`str`):
                 Title of the collection to update.
             description (`str`, *optional*):
-                Description of the collection to update.
+                Description of the collection to update. The maximum size for a description is 150 characters.
             position (`int`, *optional*):
                 New position of the collection in the list of collections of the user.
             private (`bool`, *optional*):
@@ -11808,6 +11826,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -11840,6 +11859,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11906,6 +11929,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12434,6 +12458,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12473,6 +12498,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12566,6 +12595,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12586,6 +12616,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12627,6 +12658,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12685,6 +12720,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12968,6 +13004,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -13016,6 +13053,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13093,6 +13134,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,

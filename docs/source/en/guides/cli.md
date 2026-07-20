@@ -1795,7 +1795,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Directly run Python code
->>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
+>>> hf jobs run --name hello-world python:3.12 python -c 'print("Hello from the cloud!")'
 
 # Use GPUs without any setup
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
@@ -1808,7 +1808,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 >>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c 'select "hello world"'
 
 # Run a Python script with `uv` (experimental)
->>> hf jobs uv run my_script.py
+>>> hf jobs uv run --name my-script my_script.py
 ```
 
 > [!TIP]
@@ -2028,6 +2028,13 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. You can also name an existing Job:
+
+```bash
+>>> hf jobs run --name training-v2 python:3.12 python train.py
+>>> hf jobs labels <job_id> --name training-v2
+```
+
 Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
 
 ```bash
@@ -2117,7 +2124,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 
 ```bash
 # Schedule a job that runs every hour
->>> hf jobs scheduled run @hourly python:3.12 python -c 'print("This runs every hour!")'
+>>> hf jobs scheduled run @hourly --name hourly-task python:3.12 python -c 'print("This runs every hour!")'
 
 # Use the CRON syntax
 >>> hf jobs scheduled run "*/5 * * * *" python:3.12 python -c 'print("This runs every 5 minutes!")'
@@ -2127,7 +2134,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 ... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
 
 # Schedule a UV script
->>> hf jobs scheduled uv run @hourly my_script.py
+>>> hf jobs scheduled uv run @hourly --name hourly-script my_script.py
 ```
 
 Use the same parameters as `hf jobs run` to pass environment variables, secrets, timeout, etc.

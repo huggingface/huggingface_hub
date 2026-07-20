@@ -431,15 +431,26 @@ def _huggingface_dir(local_dir: Path) -> Path:
     """Return the path to the `.cache/huggingface` directory in a local directory."""
     # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times
     path = local_dir / ".cache" / "huggingface"
-    path.mkdir(exist_ok=True, parents=True)
+    # Without long path support enabled, Windows caps directory paths at 247 characters
+    # (MAX_PATH minus room for an 8.3 file name), so creating the `.cache/huggingface` directory
+    # (and the bookkeeping files below) fails for a deep `local_dir`.
+    # Use the extended-length "\\?\" prefix for the filesystem operations, matching what
+    # `get_local_download_paths`/`get_local_upload_paths` already do for the download/upload paths.
+    # The un-prefixed `path` is still returned so callers keep re-deriving/prefixing as before.
+    target = path
+    if os.name == "nt":
+        abs_path = os.path.abspath(path)
+        if len(abs_path) > 247 and not abs_path.startswith("\\\\?\\"):
+            target = Path("\\\\?\\" + abs_path)
+    target.mkdir(exist_ok=True, parents=True)
 
     # Create a CACHEDIR.TAG so backup tools can skip this directory.
-    _create_cachedir_tag(path)
+    _create_cachedir_tag(target)
 
     # Create a .gitignore file in the .cache/huggingface directory if it doesn't exist
     # Should be thread-safe enough like this.
-    gitignore = path / ".gitignore"
-    gitignore_lock = path / ".gitignore.lock"
+    gitignore = target / ".gitignore"
+    gitignore_lock = target / ".gitignore.lock"
     if not gitignore.exists():
         try:
             with WeakFileLock(gitignore_lock, timeout=0.1):

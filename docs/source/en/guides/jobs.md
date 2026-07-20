@@ -28,15 +28,15 @@ Use the [`hf jobs` CLI](./cli#hf-jobs) to run Jobs from the command line, and pa
 `hf jobs run` runs Jobs with a Docker image and a command with a familiar Docker-like interface. Think `docker run`, but for running code on any hardware:
 
 ```bash
->>> hf jobs run python:3.12 python -c "print('Hello world')"
->>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
+>>> hf jobs run --name hello-world python:3.12 python -c "print('Hello world')"
+>>> hf jobs run --name gpu-check --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python -c "import torch; print(torch.cuda.get_device_name())"
 ```
 
 Use `hf jobs uv run` to run local or remote UV scripts:
 
 ```bash
->>> hf jobs uv run my_script.py
->>> hf jobs uv run --flavor a10g-small "https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py" 
+>>> hf jobs uv run --name my-script my_script.py
+>>> hf jobs uv run --name sft-training --flavor a10g-small "https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py"
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax defined in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
@@ -506,6 +506,20 @@ These variables are useful when you need to create unique identifiers for output
 ## Labels
 
 Labels are key=value pairs that attach metadata to a Job:
+
+Use `name` to make Jobs easier to find and identify in the UI. Names are optional and do not have to be unique:
+
+```python
+>>> from huggingface_hub import run_job
+>>> run_job(name="daily-report", image="python:3.12", command=["python", "report.py"])
+```
+
+From the CLI, pass `--name` when creating a Job, or name an existing Job through the labels command:
+
+```bash
+>>> hf jobs run --name daily-report python:3.12 python report.py
+>>> hf jobs labels <job_id> --name daily-report
+```
 
 ```python
 # Pass extra metadata with Labels

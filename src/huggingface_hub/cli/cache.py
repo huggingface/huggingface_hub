@@ -418,6 +418,12 @@ def ls(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
     ] = None,
+    show_warnings: Annotated[
+        bool,
+        Option(
+            help="Show warnings about cache inconsistencies.",
+        ),
+    ] = False,
 ) -> None:
     """List cached repositories or revisions."""
     try:
@@ -507,6 +513,15 @@ def ls(
                 f" and {_format_size(total_size)} on disk."
             )
         )
+
+    if len(hf_cache_info.warnings):
+        if show_warnings:
+            for warning in hf_cache_info.warnings:
+                out.warning(str(warning).rstrip(".") + ". Repo ignored.")
+        else:
+            out.warning(
+                f"Found {len(hf_cache_info.warnings)} cache inconsistencies. Re-run with `--show-warnings` to display them."
+            )
 
     incomplete_files = hf_cache_info.incomplete_files
     if incomplete_files:
