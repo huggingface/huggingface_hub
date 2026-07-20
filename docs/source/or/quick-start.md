@@ -16,7 +16,7 @@ rendered properly in your Markdown viewer.
 pip install --upgrade huggingface_hub
 ```
 
-ଅଧିକ ବିବରଣୀ ପାଇଁ, [installation](इंस्टॉलेशन) ଗାଇଡ୍‌ଟି ଦେଖନ୍ତୁ।
+ଅଧିକ ବିବରଣୀ ପାଇଁ, [installation](ଇନ୍‌ଷ୍ଟଲେସନ୍) ଗାଇଡ୍‌ଟି ଦେଖନ୍ତୁ।
 
 ## ଫାଇଲ୍‌ଗୁଡ଼ିକ ଡାଉନଲୋଡ୍ କରନ୍ତୁ
 
