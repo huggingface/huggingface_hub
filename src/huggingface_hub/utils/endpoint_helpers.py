@@ -54,7 +54,7 @@ def _is_emission_within_threshold(model_info: "ModelInfo", minimum_threshold: fl
     emission = card_data.get("co2_eq_emissions", None)
     if isinstance(emission, dict):
         emission = emission["emissions"]
-    if not emission:
+    if emission is None:
         return False
 
     # Filter out if value is missing or out of range

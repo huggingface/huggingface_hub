@@ -2395,6 +2395,17 @@ class TestHfApiPublicProduction:
         model = ModelInfo(**kwargs)
         assert _is_emission_within_threshold(model, -1, 100)
 
+    def test_is_emission_within_threshold_includes_zero(self):
+        # a model reporting 0 emissions is within range and must not be dropped
+        # by the falsy guard (0 is legitimate emission data, not missing data)
+        kwargs = {field.name: None for field in fields(ModelInfo) if field.init}
+
+        model = ModelInfo(**{**kwargs, "card_data": ModelCardData(co2_eq_emissions=0)})
+        assert _is_emission_within_threshold(model, -1, 100)
+
+        model = ModelInfo(**{**kwargs, "card_data": ModelCardData(co2_eq_emissions={"emissions": 0})})
+        assert _is_emission_within_threshold(model, -1, 100)
+
     def test_filter_emissions_with_max(self, api: HfApi):
         assert all(
             model.card_data["co2_eq_emissions"] <= 100
