@@ -592,6 +592,22 @@ def jobs_ps(
             help="Maximum number of Jobs to display. Set to 0 to show all (no limit).",
         ),
     ] = 100,
+    sort: Annotated[
+        str,
+        Option(
+            "--sort",
+            click_type=SoftChoice(["created", "status", "runtime", "id"]),
+            help="Sort Jobs by field: created, status, runtime, or id. Default: created.",
+        ),
+    ] = "created",
+    reverse: Annotated[
+        bool,
+        Option(
+            "-r",
+            "--reverse",
+            help="Reverse the sort order.",
+        ),
+    ] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -606,7 +622,8 @@ def jobs_ps(
     """List Jobs.
 
     Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
-    labels. A Job must match every filter to be listed.
+    labels. A Job must match every filter to be listed. Use `--sort` / `--reverse` to reorder and `--limit` to trim
+    the table.
     """
     api = get_hf_api(token=token)
 
@@ -642,15 +659,8 @@ def jobs_ps(
 
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
-    # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
-    truncated = False
-    if limit > 0:
-        jobs = list(itertools.islice(jobs_iter, limit + 1))
-        if len(jobs) > limit:
-            truncated = True
-            jobs = jobs[:limit]
-    else:
-        jobs = list(jobs_iter)
+    # Materialize all matching Jobs so client-side sort is correct before applying --limit.
+    jobs = list(jobs_iter)
 
     # Build display items. Augment the raw api dict with curated, table-friendly columns.
     job_items: list[dict[str, Any]] = []
@@ -664,7 +674,30 @@ def jobs_ps(
         job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
         job_item["status"] = (job_item.get("status") or {}).get("stage", "UNKNOWN")
         job_item["runtime"] = format_duration(durations.get("running_secs"))
+        job_item["_runtime_secs"] = durations.get("running_secs")
         job_items.append(job_item)
+
+    # Client-side sort (API returns Jobs without a sort parameter).
+    def _sort_key(item: dict[str, Any]) -> Any:
+        if sort == "created":
+            return item.get("created_at") or ""
+        if sort == "status":
+            return item.get("status") or ""
+        if sort == "runtime":
+            # Missing runtime sorts as 0 so finished/empty jobs stay stable.
+            return item.get("_runtime_secs") or 0
+        # id
+        return item.get("id") or item.get("job_id") or ""
+
+    job_items.sort(key=_sort_key, reverse=reverse)
+    for item in job_items:
+        item.pop("_runtime_secs", None)
+
+    # Apply display limit after sort.
+    truncated = False
+    if limit > 0 and len(job_items) > limit:
+        truncated = True
+        job_items = job_items[:limit]
 
     out.table(
         job_items,
