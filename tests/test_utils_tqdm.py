@@ -1,6 +1,7 @@
 import io
 import logging
 import sys
+import threading
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from huggingface_hub.utils import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
+    hf_thread_map,
     tqdm,
     tqdm_stream_file,
 )
@@ -255,6 +257,74 @@ class TestDisableProgressBarsContextManager:
             pass
         captured = capsys.readouterr()
         assert "10/10" in captured.err
+
+
+class TestHfThreadMap:
+    def test_returns_results_in_input_order(self):
+        # Earlier items finish later, so completion order differs from input order.
+        def fn(x):
+            time.sleep(0.02 * (4 - x))
+            return x * 10
+
+        assert hf_thread_map(fn, range(5), max_workers=5, disable=True) == [0, 10, 20, 30, 40]
+
+    def test_bar_advances_on_completion_not_submission_order(self):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/4518: a slow
+        # first-submitted item must not prevent the bar from advancing when later items complete.
+        slow_release = threading.Event()
+        fast_done = threading.Event()
+        updates = []
+
+        class RecordingTqdm(vanilla_tqdm):
+            def update(self, n=1):
+                updates.append(n)
+                return super().update(n)
+
+        def fn(x):
+            if x == 0:
+                slow_release.wait(timeout=5)  # first-submitted item stays blocked
+            else:
+                fast_done.set()
+            return x
+
+        results = []
+
+        def run():
+            results.append(hf_thread_map(fn, range(2), max_workers=2, tqdm_class=RecordingTqdm, disable=True))
+
+        worker = threading.Thread(target=run)
+        worker.start()
+        try:
+            assert fast_done.wait(timeout=5)
+            # The fast item completed; the bar should advance even though the slow item is still blocked.
+            deadline = time.time() + 5
+            while not updates and time.time() < deadline:
+                time.sleep(0.01)
+            assert updates
+        finally:
+            slow_release.set()
+            worker.join(timeout=5)
+
+        assert not worker.is_alive()
+        assert results == [[0, 1]]
+
+    def test_cancels_pending_tasks_on_error(self):
+        started = []
+        lock = threading.Lock()
+
+        def fn(x):
+            with lock:
+                started.append(x)
+            if x == 0:
+                raise ValueError("boom")
+            time.sleep(0.05)
+            return x
+
+        with pytest.raises(ValueError, match="boom"):
+            hf_thread_map(fn, range(50), max_workers=1, disable=True)
+
+        # The failing first task cancels the queued tasks instead of running all 50.
+        assert len(started) < 50
 
 
 class TestCreateProgressBarCustomClass:

@@ -387,15 +387,12 @@ def hf_thread_map(
 ) -> list[R]:
     """Drop-in replacement for `tqdm.contrib.concurrent.thread_map`.
 
-    The version shipped by `tqdm` consumes results in submission order (it iterates over
-    `Executor.map()`), so the progress bar only advances when the *next item in input order*
-    finishes. A single slow early item therefore pins the bar near zero while later items
-    complete, with everything flushed at once at the end (see
-    https://github.com/huggingface/huggingface_hub/issues/4518).
+    The version shipped by `tqdm` consumes results in submission order and the progress bar only advances when the "next
+    item in input order" finishes. A single slow early item pins the bar near zero while later items
+    complete, with everything flushed at once at the end. This helper avoids that problem by consuming items in completion
+    order.
 
-    This implementation submits all tasks to a `ThreadPoolExecutor` and consumes them with
-    `as_completed`, updating the bar as each task *actually completes*. Results are still
-    returned in input order to preserve the `list(map(fn, iterable))` contract.
+    See https://github.com/huggingface/huggingface_hub/issues/4518 for more details.
 
     Args:
         fn (`Callable`):
@@ -403,11 +400,9 @@ def hf_thread_map(
         iterable (`Iterable`):
             Items to process.
         max_workers (`int`, *optional*):
-            Maximum number of worker threads. Defaults to tqdm's own default
-            (`min(32, cpu_count() + 4)`).
+            Maximum number of worker threads. Defaults to tqdm's own default.
         tqdm_class (`type`, *optional*):
-            Progress bar class to use. Defaults to `huggingface_hub`'s `tqdm` (which respects
-            `HF_HUB_DISABLE_PROGRESS_BARS` and group-based disabling).
+            Progress bar class to use. Defaults to `huggingface_hub`'s `tqdm`.
         **tqdm_kwargs:
             Additional keyword arguments forwarded to the progress bar (e.g. `desc`).
 
@@ -424,7 +419,14 @@ def hf_thread_map(
         ThreadPoolExecutor(max_workers=max_workers) as executor,
     ):
         future_to_index = {executor.submit(fn, item): index for index, item in enumerate(items)}
-        for future in as_completed(future_to_index):
-            results[future_to_index[future]] = future.result()
-            pbar.update(1)
+        try:
+            for future in as_completed(future_to_index):
+                results[future_to_index[future]] = future.result()
+                pbar.update(1)
+        except BaseException:
+            # Cancel not-yet-started tasks so a single failure doesn't keep the whole queue running
+            # (mirrors `tqdm.contrib.concurrent.thread_map`, which relies on `Executor.map` for this).
+            for future in future_to_index:
+                future.cancel()
+            raise
     return cast("list[R]", results)
