@@ -35,7 +35,6 @@ from urllib.parse import quote
 import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._buckets import (
@@ -137,6 +136,7 @@ from .utils import (
     parse_hf_uri,
     parse_xet_file_data_from_response,
     silent_tqdm,
+    thread_map,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm

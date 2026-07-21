@@ -128,6 +128,7 @@ from .tqdm import (
     enable_progress_bars,
     is_tqdm_disabled,
     silent_tqdm,
+    thread_map,
     tqdm,
     tqdm_stream_file,
 )

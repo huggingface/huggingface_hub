@@ -16,8 +16,6 @@ from itertools import groupby
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NamedTuple, Union
 
-from tqdm.contrib.concurrent import thread_map
-
 from . import constants
 from .errors import EntryNotFoundError
 from .file_download import hf_hub_url
@@ -31,6 +29,7 @@ from .utils import (
     http_backoff,
     logging,
     sha,
+    thread_map,
     tqdm_stream_file,
     validate_hf_hub_args,
 )

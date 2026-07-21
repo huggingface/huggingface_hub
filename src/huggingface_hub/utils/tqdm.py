@@ -84,10 +84,11 @@ import logging
 import os
 import threading
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager
+from typing import Callable, ContextManager, TypeVar, cast
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -370,3 +371,60 @@ def _get_progress_bar_context(
         initial=initial,
         desc=desc,
     )
+
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+
+def thread_map(
+    fn: Callable[[T], R],
+    iterable: Iterable[T],
+    *,
+    max_workers: int | None = None,
+    tqdm_class: type[old_tqdm] | None = None,
+    **tqdm_kwargs,
+) -> list[R]:
+    """Drop-in replacement for `tqdm.contrib.concurrent.thread_map`.
+
+    The version shipped by `tqdm` consumes results in submission order (it iterates over
+    `Executor.map()`), so the progress bar only advances when the *next item in input order*
+    finishes. A single slow early item therefore pins the bar near zero while later items
+    complete, with everything flushed at once at the end (see
+    https://github.com/huggingface/huggingface_hub/issues/4518).
+
+    This implementation submits all tasks to a `ThreadPoolExecutor` and consumes them with
+    `as_completed`, updating the bar as each task *actually completes*. Results are still
+    returned in input order to preserve the `list(map(fn, iterable))` contract.
+
+    Args:
+        fn (`Callable`):
+            Function to apply to each item.
+        iterable (`Iterable`):
+            Items to process.
+        max_workers (`int`, *optional*):
+            Maximum number of worker threads. Defaults to tqdm's own default
+            (`min(32, cpu_count() + 4)`).
+        tqdm_class (`type`, *optional*):
+            Progress bar class to use. Defaults to `huggingface_hub`'s `tqdm` (which respects
+            `HF_HUB_DISABLE_PROGRESS_BARS` and group-based disabling).
+        **tqdm_kwargs:
+            Additional keyword arguments forwarded to the progress bar (e.g. `desc`).
+
+    Returns:
+        `list`: Results in the same order as `iterable`.
+    """
+    items = list(iterable)
+    if max_workers is None:
+        max_workers = min(32, (os.cpu_count() or 1) + 4)
+    tqdm_kwargs.setdefault("total", len(items))
+    results: list[R | None] = [None] * len(items)
+    with (
+        (tqdm_class or tqdm)(**tqdm_kwargs) as pbar,
+        ThreadPoolExecutor(max_workers=max_workers) as executor,
+    ):
+        future_to_index = {executor.submit(fn, item): index for index, item in enumerate(items)}
+        for future in as_completed(future_to_index):
+            results[future_to_index[future]] = future.result()
+            pbar.update(1)
+    return cast("list[R]", results)
