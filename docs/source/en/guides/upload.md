@@ -93,7 +93,9 @@ Found 5,000 files to upload
   Committing  ██████████████████░░  4,580 / 5,000  6 commits
 ```
 
-If `hf_xet` is not installed, [`upload_folder`] falls back to the legacy behavior: hash everything first, upload over HTTP, then create a single commit. We always recommend to keep `hf_xet` installed for better robustness
+If `hf_xet` is not installed, [`upload_folder`] falls back to the legacy behavior: hash everything first, upload over HTTP, then create a single commit. We always recommend to keep `hf_xet` installed for better robustness.
+
+If `hf_xet` **is** installed but the target Hub does not support Xet server-side (for example `/api/{type}/{repo}/xet-write-token/{revision}` returns 404, or the repo reports `xetEnabled: false`), there is **no automatic transport fallback**. Set [`HF_HUB_DISABLE_XET=1`](../package_reference/environment_variables.md#hfhubdisablexet) to force the legacy upload path. Self-hosted or non-Xet Hub deployments should use that env var (or uninstall `hf_xet`) rather than expecting a silent client-side fallback.
 
 ## Upload from the CLI
 

@@ -5751,7 +5751,7 @@ class HfApi:
         read pass), and large folders are automatically committed in several batches to stay below server limits
         (follow-up commits get a ` (part N)` suffix on the commit message). If the upload is interrupted, re-running
         the same call resumes it: already-committed files are skipped and already-uploaded data is deduplicated. When
-        `hf_xet` is not installed, falls back to a single commit created with [`create_commit`].
+        `hf_xet` is not installed, falls back to a single commit created with [`create_commit`]. If `hf_xet` is installed but the Hub does not support Xet server-side, set `HF_HUB_DISABLE_XET=1` to force the legacy path (there is no automatic transport fallback).
 
         Args:
             repo_id (`str`):
