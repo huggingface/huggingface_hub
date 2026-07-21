@@ -1312,6 +1312,22 @@ def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> d
     return labels_map
 
 
+def _truncate_to_width(value: str, col_width: int) -> str:
+    """Truncate ``value`` to ``col_width`` columns, appending ``...`` when truncated.
+
+    Handles ``col_width < 3`` (which the terminal-fit loop in :func:`_tabulate` can
+    produce): the previous ``value[: col_width - 3] + "..."`` form turned into a
+    negative slice that dropped trailing chars and then overflowed the column
+    with the ellipsis.
+    """
+    if len(value) <= col_width:
+        return value
+    if col_width <= 3:
+        # Not enough room for an ellipsis; hard-truncate to the exact width.
+        return value[:col_width]
+    return value[: col_width - 3] + "..."
+
+
 def _tabulate(rows: list[list[str | int]], headers: list[str]) -> str:
     """
     Inspired by:
@@ -1331,10 +1347,7 @@ def _tabulate(rows: list[list[str | int]], headers: list[str]) -> str:
     lines.append(row_format.format(*headers))
     lines.append(row_format.format(*["-" * w for w in col_widths]))
     for row in rows:
-        row_format_args = [
-            str(x)[: col_width - 3] + "..." if len(str(x)) > col_width else str(x)
-            for x, col_width in zip(row, col_widths)
-        ]
+        row_format_args = [_truncate_to_width(str(x), col_width) for x, col_width in zip(row, col_widths)]
         lines.append(row_format.format(*row_format_args))
     return "\n".join(lines)
 
