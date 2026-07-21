@@ -129,6 +129,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     paginate,
@@ -136,7 +137,6 @@ from .utils import (
     parse_hf_uri,
     parse_xet_file_data_from_response,
     silent_tqdm,
-    thread_map,
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
@@ -6819,7 +6819,7 @@ class HfApi:
                     timeout=timeout,
                 )
 
-            thread_map(
+            hf_thread_map(
                 _parse,
                 set(weight_map.values()),
                 desc="Parse safetensors files",
@@ -13949,7 +13949,7 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
-            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:

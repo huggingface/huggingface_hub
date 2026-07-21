@@ -377,7 +377,7 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-def thread_map(
+def hf_thread_map(
     fn: Callable[[T], R],
     iterable: Iterable[T],
     *,

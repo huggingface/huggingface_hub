@@ -26,10 +26,10 @@ from .utils import (
     chunk_iterable,
     get_session,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     sha,
-    thread_map,
     tqdm_stream_file,
     validate_hf_hub_args,
 )
@@ -535,7 +535,7 @@ def _upload_lfs_files(
         logger.debug(
             f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
-        thread_map(
+        hf_thread_map(
             _wrapped_lfs_upload,
             filtered_actions,
             desc=f"Upload {len(filtered_actions)} LFS files",
