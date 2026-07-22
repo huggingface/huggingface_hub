@@ -367,7 +367,7 @@ def jobs_run(
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
-    if name is None:
+    if not _has_explicit_name(name, label):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -954,7 +954,7 @@ def jobs_uv_run(
         namespace=namespace,
     )
     out.result("Job started", id=job.id, url=job.url)
-    if name is None:
+    if not _has_explicit_name(name, label):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1022,7 +1022,7 @@ def scheduled_run(
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=scheduled_job.id)
-    if name is None:
+    if not _has_explicit_name(name, label):
         auto_name = (scheduled_job.job_spec.labels or {}).get("name")
         out.hint(
             f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1292,7 +1292,7 @@ def scheduled_uv_run(
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=job.id)
-    if name is None:
+    if not _has_explicit_name(name, label):
         auto_name = (job.job_spec.labels or {}).get("name")
         out.hint(
             f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1302,6 +1302,11 @@ def scheduled_uv_run(
 
 
 ### UTILS
+
+
+def _has_explicit_name(name: str | None, label: list[str] | None) -> bool:
+    """Whether the user explicitly named the Job (via `--name` or a `name=` label)."""
+    return name is not None or any(item.split("=", 1)[0] == "name" for item in label or [])
 
 
 def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> dict[str, str] | None:

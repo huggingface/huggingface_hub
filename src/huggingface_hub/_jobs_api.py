@@ -13,6 +13,7 @@
 # limitations under the License.
 import hashlib
 import platform
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -90,6 +91,14 @@ class JobStage(str, Enum):
 
 # Stages indicating the Job has reached a terminal state and will not run further.
 TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
+
+# URL prefixes identifying an image that points to a HF Space rather than a Docker image.
+_SPACE_IMAGE_PREFIXES = (
+    "https://huggingface.co/spaces/",
+    "https://hf.co/spaces/",
+    "huggingface.co/spaces/",
+    "hf.co/spaces/",
+)
 
 
 @dataclass
@@ -510,28 +519,40 @@ def _derive_job_volume_name(source: str | Path) -> str:
     return f"{dirname}-{digest}"
 
 
+def _sanitize_job_name(name: str) -> str:
+    """Sanitize a string so it is a valid Job `name` label.
+
+    Job names must match `^[a-zA-Z0-9._-]*$` and are also stored as tags, which only allow
+    alphanumerics, `-` and `_`. Every other character (including `/`, `:` and `.`) is replaced with `-`.
+    """
+    return re.sub(r"[^a-zA-Z0-9_-]", "-", name)
+
+
 def _default_job_name_from_image(image: str) -> str:
     """Derive a default Job name from a Docker image or Space reference.
 
-    Drops the registry host, namespace and tag/digest, keeping the final image name.
-    E.g. `python:3.12` -> `python`, `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel` -> `pytorch`,
-    `hf.co/spaces/lhoestq/duckdb` -> `duckdb`.
+    For a Space reference, keeps the `namespace/repo` id (e.g. `hf.co/spaces/lhoestq/duckdb` -> `lhoestq-duckdb`).
+    For a Docker image, keeps the final `name:tag` component, dropping the registry host and any namespace
+    (e.g. `python:3.12` -> `python-3-12`, `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel` -> `pytorch-2-6-0-cuda12-4-cudnn9-devel`).
+    The result is sanitized to a valid `name` label (see [`_sanitize_job_name`]).
     """
-    name = image.rstrip("/").split("/")[-1]  # keep the last path component
-    name = name.split("@", 1)[0].split(":", 1)[0]  # drop the tag or digest
-    return name or image
+    for prefix in _SPACE_IMAGE_PREFIXES:
+        if image.startswith(prefix):
+            return _sanitize_job_name(image[len(prefix) :] or image)
+    name = image.rstrip("/").split("/")[-1] or image  # keep the last path component (registry/namespace dropped)
+    return _sanitize_job_name(name)
 
 
 def _default_job_name_from_script(script: str) -> str:
     """Derive a default Job name from a UV script path, URL, or command.
 
-    Keeps the final path component and drops a trailing `.py` extension.
-    E.g. `my_script.py` -> `my_script`, `https://.../sft.py?raw=1` -> `sft`, `lighteval` -> `lighteval`.
+    Keeps the final path component, drops a trailing `.py` extension, and sanitizes the result to a
+    valid `name` label. E.g. `my_script.py` -> `my_script`, `https://.../sft.py?raw=1` -> `sft`, `lighteval` -> `lighteval`.
     """
     name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
     if name.endswith(".py"):
         name = name[: -len(".py")]
-    return name or script
+    return _sanitize_job_name(name or script)
 
 
 def _create_job_spec(
@@ -583,12 +604,7 @@ def _create_job_spec(
     if ssh:
         job_spec["ssh"] = {"enabled": True}
     # input is either from docker hub or from HF spaces
-    for prefix in (
-        "https://huggingface.co/spaces/",
-        "https://hf.co/spaces/",
-        "huggingface.co/spaces/",
-        "hf.co/spaces/",
-    ):
+    for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
             job_spec["spaceId"] = image[len(prefix) :]
             break

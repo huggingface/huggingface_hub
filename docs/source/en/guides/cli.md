@@ -2028,7 +2028,7 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, one is derived automatically from the Docker image (`hf jobs run`) or the script (`hf jobs uv run`), e.g. `python:3.12` → `python` and `train.py` → `train`. You can also name an existing Job:
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, one is derived automatically from the Docker image (`hf jobs run`) or the script (`hf jobs uv run`), e.g. `python:3.12` → `python-3-12` and `train.py` → `train`. Characters not allowed in a name (`/`, `:`, `.`, ...) are replaced with `-`. You can also name an existing Job:
 
 ```bash
 >>> hf jobs run --name training-v2 python:3.12 python train.py
