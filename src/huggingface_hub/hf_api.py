@@ -422,7 +422,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
     if repo_type == "":
         repo_type = None
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
