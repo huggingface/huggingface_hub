@@ -126,6 +126,7 @@ from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
+    hf_thread_map,
     is_tqdm_disabled,
     silent_tqdm,
     tqdm,

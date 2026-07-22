@@ -2295,7 +2295,7 @@ $ hf jobs labels [OPTIONS] JOB_ID
 
 **Options**:
 
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--clear`: Remove all labels from the job.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2407,7 +2407,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
 * `--env-file TEXT`: Read in a file of environment variables.
@@ -2531,7 +2531,7 @@ $ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
 
 **Options**:
 
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--clear`: Remove all labels from the scheduled job.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2624,7 +2624,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
 * `--env-file TEXT`: Read in a file of environment variables.
@@ -2742,7 +2742,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
 * `--env-file TEXT`: Read in a file of environment variables.
@@ -2867,7 +2867,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
 * `--env-file TEXT`: Read in a file of environment variables.

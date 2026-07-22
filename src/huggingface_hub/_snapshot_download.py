@@ -4,7 +4,6 @@ from typing import Literal, overload
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
@@ -28,7 +27,7 @@ from .utils._xet_progress_reporting import (
     _set_aggregate_rate_postfix,
     _update_transfer_bar,
 )
-from .utils.tqdm import _create_progress_bar
+from .utils.tqdm import _create_progress_bar, hf_thread_map
 from .utils.tqdm import tqdm as hf_tqdm
 
 
@@ -512,7 +511,7 @@ def snapshot_download(
             )
         )
 
-    thread_map(
+    hf_thread_map(
         _inner_hf_hub_download,
         filtered_repo_files,
         desc=tqdm_desc,

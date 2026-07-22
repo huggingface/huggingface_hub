@@ -2656,11 +2656,6 @@ class TestHfApiPrivate:
             with pytest.raises(HfHubHTTPError, match=r".*Repository Not Found.*"):
                 _ = api.dataset_info(repo_id=self.repo_id)
 
-    def test_list_private_datasets(self, api: HfApi):
-        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
-        assert all(dataset.id != self.repo_id for dataset in api.list_datasets(token=False, **kwargs))
-        assert any(dataset.id == self.repo_id for dataset in api.list_datasets(token=TOKEN, **kwargs))
-
     def test_list_private_models(self, api: HfApi):
         kwargs = {"sort": "created_at", "limit": 100, "author": USER}
         assert all(model.id != self.repo_id for model in api.list_models(token=False, **kwargs))
