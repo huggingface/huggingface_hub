@@ -165,7 +165,7 @@ NameOpt = Annotated[
     str | None,
     Option(
         "--name",
-        help="Name the Job. Stored as the `name` label. Names do not have to be unique.",
+        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name.",
     ),
 ]
 
@@ -368,7 +368,11 @@ def jobs_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if name is None:
-        out.hint(f"Name this Job with `hf jobs labels {job.owner.name}/{job.id} --name NAME`.")
+        auto_name = (job.labels or {}).get("name")
+        out.hint(
+            f"Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
@@ -951,7 +955,11 @@ def jobs_uv_run(
     )
     out.result("Job started", id=job.id, url=job.url)
     if name is None:
-        out.hint(f"Name this Job with `hf jobs labels {job.owner.name}/{job.id} --name NAME`.")
+        auto_name = (job.labels or {}).get("name")
+        out.hint(
+            f"Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
@@ -1015,8 +1023,10 @@ def scheduled_run(
     )
     out.result("Scheduled Job created", id=scheduled_job.id)
     if name is None:
+        auto_name = (scheduled_job.job_spec.labels or {}).get("name")
         out.hint(
-            f"Name this scheduled Job with `hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME`."
+            f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME` to rename it."
         )
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
@@ -1283,7 +1293,11 @@ def scheduled_uv_run(
     )
     out.result("Scheduled Job created", id=job.id)
     if name is None:
-        out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME`.")
+        auto_name = (job.job_spec.labels or {}).get("name")
+        out.hint(
+            f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
     out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to view its details.")
 
 

@@ -510,6 +510,30 @@ def _derive_job_volume_name(source: str | Path) -> str:
     return f"{dirname}-{digest}"
 
 
+def _default_job_name_from_image(image: str) -> str:
+    """Derive a default Job name from a Docker image or Space reference.
+
+    Drops the registry host, namespace and tag/digest, keeping the final image name.
+    E.g. `python:3.12` -> `python`, `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel` -> `pytorch`,
+    `hf.co/spaces/lhoestq/duckdb` -> `duckdb`.
+    """
+    name = image.rstrip("/").split("/")[-1]  # keep the last path component
+    name = name.split("@", 1)[0].split(":", 1)[0]  # drop the tag or digest
+    return name or image
+
+
+def _default_job_name_from_script(script: str) -> str:
+    """Derive a default Job name from a UV script path, URL, or command.
+
+    Keeps the final path component and drops a trailing `.py` extension.
+    E.g. `my_script.py` -> `my_script`, `https://.../sft.py?raw=1` -> `sft`, `lighteval` -> `lighteval`.
+    """
+    name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
+    if name.endswith(".py"):
+        name = name[: -len(".py")]
+    return name or script
+
+
 def _create_job_spec(
     *,
     image: str,
