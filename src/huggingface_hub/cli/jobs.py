@@ -637,7 +637,7 @@ def jobs_ps(
     for item in label or []:
         if "=" not in item:
             raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
-        key, value = item.split("=")
+        key, value = item.split("=", 1)
         labels[key] = value
 
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)

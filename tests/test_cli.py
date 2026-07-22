@@ -3443,6 +3443,21 @@ class TestJobsCommand:
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
+    def test_ls_label_value_containing_equals_sign(self, runner: CliRunner) -> None:
+        """A label value containing '=' must not crash the key/value unpacking.
+
+        Regression test: `item.split('=')` raised `ValueError: too many values to
+        unpack` for a value like `callback=https://x?a=1`. Only the first '=' is the
+        key/value delimiter; any further '=' belong to the value.
+        """
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_jobs.return_value = self._make_mock_jobs()
+            result = runner.invoke(app, ["jobs", "ls", "--label", "callback=https://x?a=1&b=2"])
+        assert result.exit_code == 0
+        kwargs = api.list_jobs.call_args.kwargs
+        assert kwargs["labels"] == {"callback": "https://x?a=1&b=2"}
+
     def test_ls_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ls -a --format json` outputs valid JSON with all fields."""
         import json
