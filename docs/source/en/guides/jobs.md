@@ -514,7 +514,6 @@ Use `name` to make Jobs easier to find and identify in the UI. Names are optiona
 >>> run_job(name="daily-report", image="python:3.12", command=["python", "report.py"])
 ```
 
-
 From the CLI, pass `--name` when creating a Job, or name an existing Job through the labels command:
 
 ```bash
