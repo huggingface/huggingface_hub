@@ -577,6 +577,7 @@ $ hf cache list [OPTIONS]
 * `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
 * `--sort [accessed|accessed:asc|accessed:desc|modified|modified:asc|modified:desc|name|name:asc|name:desc|size|size:asc|size:desc]`: Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); 'name' defaults to 'asc' (alphabetical).
 * `--limit INTEGER`: Limit the number of results returned. Returns only the top N entries after sorting.
+* `--show-warnings / --no-show-warnings`: Show warnings about cache inconsistencies.  [default: no-show-warnings]
 * `--help`: Show this message and exit.
 
 Examples
@@ -765,7 +766,7 @@ $ hf collections create [OPTIONS] TITLE
 **Options**:
 
 * `--namespace TEXT`: The namespace (username or organization). Defaults to the authenticated user.
-* `--description TEXT`: A description for the collection.
+* `--description TEXT`: A description for the collection (max 150 characters).
 * `--private / --no-private`: Create a private collection.  [default: no-private]
 * `--exists-ok / --no-exists-ok`: Do not raise an error if the collection already exists.  [default: no-exists-ok]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -904,7 +905,7 @@ $ hf collections update [OPTIONS] COLLECTION_SLUG
 **Options**:
 
 * `--title TEXT`: The new title for the collection.
-* `--description TEXT`: The new description for the collection.
+* `--description TEXT`: The new description for the collection (max 150 characters).
 * `--position INTEGER`: The new position of the collection in the owner's list.
 * `--private / --no-private`: Whether the collection should be private.
 * `--theme TEXT`: The theme color for the collection (e.g., 'green', 'blue').

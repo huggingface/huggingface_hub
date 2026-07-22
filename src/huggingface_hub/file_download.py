@@ -272,7 +272,7 @@ def hf_hub_url(
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id  # type: ignore
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
@@ -1179,6 +1179,15 @@ def _hf_hub_download_to_cache_dir(
             will_download=force_download or not is_cached,
         )
 
+    # Pointer already exists -> update the ref best-effort, then return without
+    # attempting to write to the cache (which may be mounted read-only).
+    if not force_download and os.path.exists(pointer_path):
+        try:
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+        except OSError:
+            pass
+        return pointer_path
+
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
@@ -1214,10 +1223,6 @@ def _hf_hub_download_to_cache_dir(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-
-    # pointer already exists -> immediate return
-    if not force_download and os.path.exists(pointer_path):
-        return pointer_path
 
     # Blob exists but pointer must be (safely) created -> take the lock
     if not force_download and os.path.exists(blob_path):
