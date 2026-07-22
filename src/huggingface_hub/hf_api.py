@@ -12576,7 +12576,7 @@ class HfApi:
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
         secrets = secrets or {}
-        # Auto-name from the script (rather than the uv wrapper image) unless already named.
+
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_script(script)
 
@@ -13118,9 +13118,9 @@ class HfApi:
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
-        # Auto-name from the script (rather than the uv wrapper image) unless already named.
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_script(script)
+
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,

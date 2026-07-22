@@ -531,10 +531,8 @@ def _sanitize_job_name(name: str) -> str:
 def _default_job_name_from_image(image: str) -> str:
     """Derive a default Job name from a Docker image or Space reference.
 
-    For a Space reference, keeps the `namespace/repo` id (e.g. `hf.co/spaces/lhoestq/duckdb` -> `lhoestq-duckdb`).
-    For a Docker image, keeps the final `name:tag` component, dropping the registry host and any namespace
-    (e.g. `python:3.12` -> `python-3-12`, `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel` -> `pytorch-2-6-0-cuda12-4-cudnn9-devel`).
-    The result is sanitized to a valid `name` label (see [`_sanitize_job_name`]).
+    e.g. hf.co/spaces/lhoestq/duckdb                 -> lhoestq-duckdb
+         pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel -> pytorch-2-6-0-cuda12-4-cudnn9-devel
     """
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
@@ -546,8 +544,9 @@ def _default_job_name_from_image(image: str) -> str:
 def _default_job_name_from_script(script: str) -> str:
     """Derive a default Job name from a UV script path, URL, or command.
 
-    Keeps the final path component, drops a trailing `.py` extension, and sanitizes the result to a
-    valid `name` label. E.g. `my_script.py` -> `my_script`, `https://.../sft.py?raw=1` -> `sft`, `lighteval` -> `lighteval`.
+    e.g. my_script.py             -> my_script
+         https://.../sft.py?raw=1 -> sft
+         lighteval                -> lighteval
     """
     name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
     if name.endswith(".py"):
