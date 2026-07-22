@@ -968,19 +968,13 @@ def jobs_uv_run(
         ssh=ssh,
         namespace=namespace,
     )
-<<<<<<< HEAD
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
-    if name is None:
-        out.hint(f"Name this Job with `hf jobs labels {job.owner.name}/{job.id} --name NAME`.")
-=======
-    out.result("Job started", id=job.id, url=job.url)
     if not _has_explicit_name(name, label):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
->>>>>>> main
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
@@ -1042,14 +1036,9 @@ def scheduled_run(
         expose=expose,
         namespace=namespace,
     )
-<<<<<<< HEAD
     out.result("Scheduled Job created", id=scheduled_job.id, name=(scheduled_job.job_spec.labels or {}).get("name"))
-    if name is None:
-=======
-    out.result("Scheduled Job created", id=scheduled_job.id)
     if not _has_explicit_name(name, label):
         auto_name = (scheduled_job.job_spec.labels or {}).get("name")
->>>>>>> main
         out.hint(
             f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME` to rename it."
@@ -1325,26 +1314,19 @@ def scheduled_uv_run(
         expose=expose,
         namespace=namespace,
     )
-<<<<<<< HEAD
     out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
-    if name is None:
-        out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME`.")
-=======
-    out.result("Scheduled Job created", id=job.id)
     if not _has_explicit_name(name, label):
         auto_name = (job.job_spec.labels or {}).get("name")
         out.hint(
             f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
->>>>>>> main
     out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to view its details.")
 
 
 ### UTILS
 
 
-<<<<<<< HEAD
 def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dict[str, Any]:
     """Promote the `name` label to a top-level `name` field for display.
 
@@ -1355,11 +1337,11 @@ def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dic
     if name is None:
         return item
     return {"name": name, **item}
-=======
+
+
 def _has_explicit_name(name: str | None, label: list[str] | None) -> bool:
     """Whether the user explicitly named the Job (via `--name` or a `name=` label)."""
     return name is not None or any(item.split("=", 1)[0] == "name" for item in label or [])
->>>>>>> main
 
 
 def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> dict[str, str] | None:
