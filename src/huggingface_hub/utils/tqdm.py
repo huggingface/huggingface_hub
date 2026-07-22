@@ -377,6 +377,22 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
+def _make_thread_pool_executor(*, max_workers: int | None, bar_class: type[old_tqdm]) -> ThreadPoolExecutor:
+    """Create a `ThreadPoolExecutor` that shares the tqdm lock with its worker threads.
+
+    Like `tqdm.contrib.concurrent.thread_map`, we make sure the bar class has a lock and pass it to the
+    worker threads, so that bars created inside the mapped function (e.g. the per-file download bars in
+    `snapshot_download`) don't race on concurrent `update()` calls. `get_lock()` creates the shared
+    class-level lock if needed. Classes that don't implement tqdm's locking API (e.g. `silent_tqdm`)
+    render nothing anyway, so no lock is needed.
+    """
+    if hasattr(bar_class, "get_lock") and hasattr(bar_class, "set_lock"):
+        return ThreadPoolExecutor(
+            max_workers=max_workers, initializer=bar_class.set_lock, initargs=(bar_class.get_lock(),)
+        )
+    return ThreadPoolExecutor(max_workers=max_workers)
+
+
 def hf_thread_map(
     fn: Callable[[T], R],
     iterable: Iterable[T],
@@ -413,10 +429,11 @@ def hf_thread_map(
     if max_workers is None:
         max_workers = min(32, (os.cpu_count() or 1) + 4)
     tqdm_kwargs.setdefault("total", len(items))
+    bar_class = tqdm_class or tqdm
     results: list[R | None] = [None] * len(items)
     with (
-        (tqdm_class or tqdm)(**tqdm_kwargs) as pbar,
-        ThreadPoolExecutor(max_workers=max_workers) as executor,
+        bar_class(**tqdm_kwargs) as pbar,
+        _make_thread_pool_executor(max_workers=max_workers, bar_class=bar_class) as executor,
     ):
         future_to_index = {executor.submit(fn, item): index for index, item in enumerate(items)}
         try:

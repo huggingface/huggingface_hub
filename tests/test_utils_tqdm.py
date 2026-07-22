@@ -326,6 +326,32 @@ class TestHfThreadMap:
         # The failing first task cancels the queued tasks instead of running all 50.
         assert len(started) < 50
 
+    def test_shares_tqdm_lock_with_worker_threads(self):
+        # A custom bar class: hf_thread_map must share a single lock with the worker threads so bars
+        # created inside `fn` don't race on concurrent updates (mirrors tqdm.contrib's `ensure_lock`).
+        class CustomTqdm(vanilla_tqdm):
+            pass
+
+        seen_locks = []
+        lock = threading.Lock()
+
+        def fn(x):
+            with lock:
+                seen_locks.append(CustomTqdm.get_lock())
+            return x
+
+        hf_thread_map(fn, range(8), max_workers=4, tqdm_class=CustomTqdm, disable=True)
+
+        # Every worker thread observed the same, single shared lock.
+        assert seen_locks
+        assert all(observed is seen_locks[0] for observed in seen_locks)
+
+    def test_works_with_class_without_lock_api(self):
+        # Classes that don't implement tqdm's locking API (e.g. `silent_tqdm`) must not crash.
+        from huggingface_hub.utils import silent_tqdm
+
+        assert hf_thread_map(lambda x: x * 2, range(4), max_workers=2, tqdm_class=silent_tqdm) == [0, 2, 4, 6]
+
 
 class TestCreateProgressBarCustomClass:
     def test_custom_class_not_disabled_in_non_tty(self):
