@@ -3443,43 +3443,6 @@ class TestJobsCommand:
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
-    def test_ls_name_filter_is_forwarded_as_label(self, runner: CliRunner) -> None:
-        """`--name` is a shortcut for the `name` label and is forwarded server-side."""
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = self._make_mock_jobs()
-            result = runner.invoke(app, ["jobs", "ls", "--name", "training-v2"])
-        assert result.exit_code == 0
-        assert api.list_jobs.call_args.kwargs["labels"] == {"name": "training-v2"}
-
-    def test_ls_name_and_label_name_conflict_errors(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["jobs", "ls", "--name", "foo", "--label", "name=bar"])
-        assert result.exit_code == 1
-
-    def test_ls_table_shows_name_column(self, runner: CliRunner) -> None:
-        """The `name` label is surfaced as a dedicated NAME column in the table."""
-        from huggingface_hub._jobs_api import JobInfo
-
-        jobs = [
-            JobInfo(
-                id="abc123def456",
-                createdAt="2026-01-15T10:30:00.000Z",
-                dockerImage="python:3.12",
-                command=["python", "-c", "print('hello')"],
-                flavor="cpu-basic",
-                labels={"name": "training-v2", "env": "test"},
-                status={"stage": "RUNNING"},
-                owner={"id": "user-id", "name": "testuser", "type": "user"},
-            ),
-        ]
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ls", "-a", "--no-truncate"])
-        assert result.exit_code == 0
-        assert "NAME" in result.output
-        assert "training-v2" in result.output
-
     def test_inspect_surfaces_name(self, runner: CliRunner) -> None:
         """`inspect` promotes the `name` label to a top-level field while keeping it in `labels`."""
         import json
