@@ -514,7 +514,6 @@ Use `name` to make Jobs easier to find and identify in the UI. Names are optiona
 >>> run_job(name="daily-report", image="python:3.12", command=["python", "report.py"])
 ```
 
-If you don't pass a name, one is derived automatically: from the Docker image for `run_job`/`create_scheduled_job` (e.g. `python:3.12` → `python-3-12`, `hf.co/spaces/lhoestq/duckdb` → `lhoestq-duckdb`) and from the script for `run_uv_job`/`create_scheduled_uv_job` (e.g. `train.py` → `train`). Characters not allowed in a name (`/`, `:`, `.`, ...) are replaced with `-`.
 
 From the CLI, pass `--name` when creating a Job, or name an existing Job through the labels command:
 
@@ -532,6 +531,8 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 ...     labels={"my-label": "my-value", "foo": "bar"},
 ... )
 ```
+
+If you don't pass `--name`, a name is derived automatically from the Docker image or the script, e.g. `python:3.12` → `python-3-12`
 
 ### Update labels
 
