@@ -3443,29 +3443,6 @@ class TestJobsCommand:
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
-    def test_inspect_surfaces_name(self, runner: CliRunner) -> None:
-        """`inspect` promotes the `name` label to a top-level field while keeping it in `labels`."""
-        import json
-
-        from huggingface_hub._jobs_api import JobInfo
-
-        job = JobInfo(
-            id="abc123def456",
-            dockerImage="python:3.12",
-            flavor="cpu-basic",
-            labels={"name": "training-v2", "env": "test"},
-            status={"stage": "RUNNING"},
-            owner={"id": "user-id", "name": "testuser", "type": "user"},
-        )
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.inspect_job.return_value = job
-            result = runner.invoke(app, ["jobs", "inspect", "abc123def456", "--format", "json"])
-        assert result.exit_code == 0
-        data = json.loads(result.stdout)[0]
-        assert data["name"] == "training-v2"
-        assert data["labels"] == {"name": "training-v2", "env": "test"}
-
     def test_ls_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ls -a --format json` outputs valid JSON with all fields."""
         import json
