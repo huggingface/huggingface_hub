@@ -2035,7 +2035,7 @@ Use `--name` to add the `name` label when creating a Job. Names make Jobs easier
 >>> hf jobs labels <job_id> --name training-v2
 ```
 
-Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
+Use `--status`, `--label` and `--name` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses, `--label` takes `key=value` pairs, and `--name` is a shortcut for `--label name=NAME`. A Job must match every filter to be listed. The Job name is also shown as its own `NAME` column:
 
 ```bash
 # Show completed Jobs
@@ -2043,6 +2043,9 @@ Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes on
 
 # Show running or scheduling Jobs
 >>> hf jobs ls --status running,scheduling
+
+# Show Jobs named `training-v2`
+>>> hf jobs ls -a --name training-v2
 
 # Show Jobs with the `model=Qwen3-06B` label
 >>> hf jobs ls -a --label model=Qwen3-06B

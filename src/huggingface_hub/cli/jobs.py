@@ -366,7 +366,7 @@ def jobs_run(
         ssh=ssh,
         namespace=namespace,
     )
-    out.result("Job started", id=job.id, url=job.url)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
     if name is None:
         out.hint(f"Name this Job with `hf jobs labels {job.owner.name}/{job.id} --name NAME`.")
     if isinstance(job.status.expose_urls, list):
@@ -556,6 +556,7 @@ def jobs_stats(
         "hf jobs ls",
         "hf jobs ls -a",
         "hf jobs ls --status running,scheduling",
+        "hf jobs ls --name training-v2",
         "hf jobs ls --label env=prod --label team=ml",
         "hf jobs ls --all --label hf-sandbox=1",
     ],
@@ -583,6 +584,13 @@ def jobs_ps(
             "-l",
             "--label",
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show Jobs with the given name (shortcut for `--label name=NAME`).",
         ),
     ] = None,
     limit: Annotated[
@@ -640,6 +648,12 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
@@ -659,6 +673,7 @@ def jobs_ps(
         durations = job_item.get("durations") or {}
         cmd = job_item.get("command") or []
         job_item["job_id"] = job_item.get("id", "")
+        job_item["name"] = (job_item.get("labels") or {}).get("name") or "N/A"
         job_item["image/space"] = job_item.get("docker_image") or "N/A"
         job_item["command"] = " ".join(cmd) if cmd else "N/A"
         job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
@@ -668,7 +683,7 @@ def jobs_ps(
 
     out.table(
         job_items,
-        headers=["job_id", "image/space", "command", "created", "status", "runtime"],
+        headers=["job_id", "name", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
     if truncated:
@@ -730,7 +745,7 @@ def jobs_inspect(
     job_ids = parsed_ids
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    out.table([_dataclass_to_dict(job) for job in jobs])
+    out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs])
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -843,7 +858,7 @@ def jobs_labels(
     else:
         labels = _parse_labels_map(label, name=name) or {}
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
-    out.result("Labels updated", id=job.id)
+    out.result("Labels updated", id=job.id, name=labels.get("name"))
 
 
 @jobs_cli.command(
@@ -949,7 +964,7 @@ def jobs_uv_run(
         ssh=ssh,
         namespace=namespace,
     )
-    out.result("Job started", id=job.id, url=job.url)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
     if name is None:
         out.hint(f"Name this Job with `hf jobs labels {job.owner.name}/{job.id} --name NAME`.")
     if isinstance(job.status.expose_urls, list):
@@ -1013,7 +1028,7 @@ def scheduled_run(
         expose=expose,
         namespace=namespace,
     )
-    out.result("Scheduled Job created", id=scheduled_job.id)
+    out.result("Scheduled Job created", id=scheduled_job.id, name=(scheduled_job.job_spec.labels or {}).get("name"))
     if name is None:
         out.hint(
             f"Name this scheduled Job with `hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME`."
@@ -1068,7 +1083,14 @@ def scheduled_ps(
         image_or_space = scheduled_job.job_spec.docker_image or "N/A"
         cmd = scheduled_job.job_spec.command or []
         command_str = " ".join(cmd) if cmd else "N/A"
-        props = {"id": scheduled_job.id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+        job_name = (scheduled_job.job_spec.labels or {}).get("name") or "N/A"
+        props = {
+            "id": scheduled_job.id,
+            "name": job_name,
+            "image": image_or_space,
+            "suspend": str(suspend),
+            "command": command_str,
+        }
         if not _matches_filters(props, filters):
             continue
         filtered_jobs.append(scheduled_job)
@@ -1081,6 +1103,7 @@ def scheduled_ps(
         status_dict = item.get("status") or {}
         last_job = status_dict.get("last_job")
         cmd = job_spec.get("command") or []
+        item["name"] = (job_spec.get("labels") or {}).get("name") or "N/A"
         item["image/space"] = job_spec.get("docker_image") or "N/A"
         item["command"] = " ".join(cmd) if cmd else "N/A"
         item["last_run"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
@@ -1092,7 +1115,7 @@ def scheduled_ps(
 
     out.table(
         items,
-        headers=["id", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
+        headers=["id", "name", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
     if not items and filters:
@@ -1126,7 +1149,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    out.table([_dataclass_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
+    out.table([_surface_name(_dataclass_to_dict(sj), labels=sj.job_spec.labels) for sj in scheduled_jobs])
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
@@ -1221,7 +1244,7 @@ def scheduled_labels(
     scheduled_job = api.update_scheduled_job_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
-    out.result("Labels updated", id=scheduled_job.id)
+    out.result("Labels updated", id=scheduled_job.id, name=labels.get("name"))
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
@@ -1281,13 +1304,25 @@ def scheduled_uv_run(
         expose=expose,
         namespace=namespace,
     )
-    out.result("Scheduled Job created", id=job.id)
+    out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
     if name is None:
         out.hint(f"Name this scheduled Job with `hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME`.")
     out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to view its details.")
 
 
 ### UTILS
+
+
+def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dict[str, Any]:
+    """Promote the `name` label to a top-level `name` field for display.
+
+    The `name` is kept inside `labels` too (the dataclasses and API payloads are unchanged); this
+    only makes it a first-class column/field in command outputs. No-op when there is no name.
+    """
+    name = (labels or {}).get("name")
+    if name is None:
+        return item
+    return {"name": name, **item}
 
 
 def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> dict[str, str] | None:
