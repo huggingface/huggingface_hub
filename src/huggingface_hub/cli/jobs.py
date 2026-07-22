@@ -165,7 +165,7 @@ NameOpt = Annotated[
     str | None,
     Option(
         "--name",
-        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name.",
+        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.",
     ),
 ]
 

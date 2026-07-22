@@ -528,30 +528,44 @@ def _sanitize_job_name(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "-", name)
 
 
-def _default_job_name_from_image(image: str) -> str:
-    """Derive a default Job name from a Docker image or Space reference.
+def _short_invocation_hash(parts: list[str]) -> str:
+    """Short, stable hash of a Job invocation (image/script + command line).
 
-    e.g. hf.co/spaces/lhoestq/duckdb                 -> lhoestq-duckdb
-         pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel -> pytorch-2-6-0-cuda12-4-cudnn9-devel
+    Appended to auto-generated names so reruns of the same command share a name while different ones don't.
+    """
+    return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:8]
+
+
+def _default_job_name_from_image(image: str, command: list[str]) -> str:
+    """Derive a default Job name from a Docker image or Space reference and its command.
+
+    A short hash of the full command line is appended to group reruns of the same command.
+    e.g. python:3.12 + [foo, --truc]             -> python-3-12-1a2b3c4d
+         hf.co/spaces/lhoestq/duckdb             -> lhoestq-duckdb-<hash>
+         pytorch/pytorch:2.6.0-cuda12.4-...      -> pytorch-2-6-0-cuda12-4-...-<hash>
     """
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
-            return _sanitize_job_name(image[len(prefix) :] or image)
-    name = image.rstrip("/").split("/")[-1] or image  # keep the last path component (registry/namespace dropped)
-    return _sanitize_job_name(name)
+            base = _sanitize_job_name(image[len(prefix) :] or image)
+            break
+    else:
+        base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
+    return f"{base}-{_short_invocation_hash([image, *command])}"
 
 
-def _default_job_name_from_script(script: str) -> str:
-    """Derive a default Job name from a UV script path, URL, or command.
+def _default_job_name_from_script(script: str, script_args: list[str]) -> str:
+    """Derive a default Job name from a UV script path, URL, or command and its arguments.
 
-    e.g. my_script.py             -> my_script
-         https://.../sft.py?raw=1 -> sft
-         lighteval                -> lighteval
+    A short hash of the full command line is appended to group reruns of the same command.
+    e.g. my_script.py + [--epochs, 3]  -> my_script-1a2b3c4d
+         https://.../sft.py?raw=1      -> sft-<hash>
+         lighteval                     -> lighteval-<hash>
     """
     name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
     if name.endswith(".py"):
         name = name[: -len(".py")]
-    return _sanitize_job_name(name or script)
+    base = _sanitize_job_name(name or script)
+    return f"{base}-{_short_invocation_hash([script, *script_args])}"
 
 
 def _create_job_spec(

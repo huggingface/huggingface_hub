@@ -96,7 +96,8 @@ class TestWaitForJob:
     ],
 )
 def test_default_job_name_from_image(image: str, expected: str) -> None:
-    assert _default_job_name_from_image(image) == expected
+    # The base name is derived from the image; a short hash of the command line is appended.
+    assert _default_job_name_from_image(image, ["python", "-c", "print(1)"]).startswith(expected + "-")
 
 
 @pytest.mark.parametrize(
@@ -115,4 +116,16 @@ def test_default_job_name_from_image(image: str, expected: str) -> None:
     ],
 )
 def test_default_job_name_from_script(script: str, expected: str) -> None:
-    assert _default_job_name_from_script(script) == expected
+    # The base name is derived from the script; a short hash of the command line is appended.
+    assert _default_job_name_from_script(script, []).startswith(expected + "-")
+
+
+def test_default_job_name_hash_groups_and_splits_by_command() -> None:
+    # Same image but different commands must yield different names (splits distinct runs)...
+    truc = _default_job_name_from_image("python:3.12", ["foo", "--truc"])
+    bar = _default_job_name_from_image("python:3.12", ["foo", "--bar"])
+    assert truc.startswith("python-3-12-")
+    assert bar.startswith("python-3-12-")
+    assert truc != bar
+    # ...while the same command yields the same name (groups identical runs).
+    assert truc == _default_job_name_from_image("python:3.12", ["foo", "--truc"])
