@@ -238,6 +238,26 @@ def spaces_card(
 
 
 @spaces_cli.command(
+    "templates",
+    examples=["hf spaces templates"],
+)
+def spaces_templates(
+    token: TokenOpt = None,
+) -> None:
+    """List the available Space templates.
+
+    The `repo_id` (or `name`) of a template can be passed to `hf repos create --template ...` to
+    create a new Space from that template.
+    """
+    api = get_hf_api(token=token)
+    templates = [_dataclass_to_dict(template) for template in api.list_space_templates()]
+    out.table(templates, id_key="name")
+    out.hint(
+        "Create a Space from a template with `hf repos create <id> --type space --space-sdk <sdk> --template <repo_id>`."
+    )
+
+
+@spaces_cli.command(
     "search",
     examples=[
         'hf spaces search "generate image"',

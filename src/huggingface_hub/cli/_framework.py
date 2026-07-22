@@ -257,6 +257,8 @@ def _build_click_param(
     """Build a Click ``Parameter`` (and its post-parse value convertor) for one function param."""
     required = signature_default is inspect.Parameter.empty
     default_value = None if required else signature_default
+    if isinstance(default_value, enum.Enum):
+        default_value = default_value.value
     if info is None:
         # A bare annotation with no marker: required positional -> Argument, else Option.
         info = Argument() if required else Option()

@@ -143,6 +143,33 @@ def test_local_download_paths_long_paths(tmp_path: Path):
     assert str(paths.metadata_path).startswith("\\\\?\\")
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+@pytest.mark.parametrize("cache_dir_len", [252, 300])
+def test_local_download_paths_long_local_dir(tmp_path: Path, cache_dir_len: int):
+    r"""A deep ``local_dir`` must not crash when its ``.cache/huggingface`` folder exceeds the
+    Windows directory path limit (247 chars, i.e. MAX_PATH minus room for an 8.3 file name).
+
+    Unlike ``test_local_download_paths_long_paths`` (long *filename*, short dir), here the
+    ``local_dir`` itself is long, so the limit is first hit while ``_huggingface_dir`` creates
+    ``<local_dir>/.cache/huggingface``. Without the extended-length ``\\?\`` prefix that ``mkdir``
+    raised ``FileNotFoundError`` (WinError 206) before the download/upload paths were built.
+    Both boundary cases are covered: 248-259 (only directory creation exceeds the limit) and
+    260+ (file creation would fail too).
+    """
+    # Create a `local_dir` so that `<local_dir>/.cache/huggingface` is `cache_dir_len` chars long.
+    # Use the extended-length prefix here since a plain mkdir of such a path would itself fail.
+    padding = "d" * max(1, cache_dir_len - len(str(tmp_path / ".cache" / "huggingface")) - 1)
+    local_dir = tmp_path / padding
+    os.makedirs("\\\\?\\" + os.path.abspath(local_dir), exist_ok=True)
+    assert len(str(local_dir / ".cache" / "huggingface")) >= max(cache_dir_len, 248)
+
+    # Must not raise, and the (extended-length) parent directories must have been created.
+    paths = get_local_download_paths(local_dir, "config.json")
+    assert str(paths.metadata_path).startswith("\\\\?\\")
+    assert paths.metadata_path.parent.is_dir()
+    assert paths.file_path.parent.is_dir()
+
+
 def test_write_download_metadata(tmp_path: Path):
     """Test download metadata content is valid."""
     # Write metadata

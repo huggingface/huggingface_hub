@@ -21,6 +21,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
+from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
@@ -1504,7 +1505,7 @@ class TestRepoCreateCommand:
                     "my-space",
                     "--type",
                     "space",
-                    "--space-sdk",
+                    "--sdk",
                     "gradio",
                     "--flavor",
                     "t4-medium",
@@ -1539,6 +1540,7 @@ class TestRepoCreateCommand:
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
             space_volumes=[Volume(type="model", source="org/gpt2", mount_path="/model", read_only=None, path=None)],
+            space_template=None,
         )
 
     def test_repo_create_without_space_options(self, runner: CliRunner) -> None:
@@ -1562,6 +1564,7 @@ class TestRepoCreateCommand:
             space_secrets=None,
             space_variables=None,
             space_volumes=None,
+            space_template=None,
         )
 
 
@@ -4463,8 +4466,6 @@ class TestSkillGeneration:
     """Tests for SKILL.md generation (build_skill_md and helpers)."""
 
     def test_build_skill_md_has_expected_structure(self) -> None:
-        from huggingface_hub.cli.skills import build_skill_md
-
         md = build_skill_md()
         assert md.startswith("---\nname: hf-cli")
         assert "## Commands" in md
@@ -4474,16 +4475,12 @@ class TestSkillGeneration:
 
     def test_build_skill_md_expands_nested_groups(self) -> None:
         """Nested groups like `hf repos tag` should be expanded to leaf commands."""
-        from huggingface_hub.cli.skills import build_skill_md
-
         md = build_skill_md()
         assert "hf repos tag create" in md
         assert "hf repos tag delete" in md
         assert "hf repos branch create" in md
 
     def test_build_skill_md_shows_inline_flags(self) -> None:
-        from huggingface_hub.cli.skills import build_skill_md
-
         md = build_skill_md()
         download_line = [line for line in md.splitlines() if "hf download" in line][0]
         # Command-specific flags appear inline
@@ -4496,16 +4493,12 @@ class TestSkillGeneration:
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""
-        from huggingface_hub.cli.skills import build_skill_md
-
         md = build_skill_md()
         webhooks_create_line = [line for line in md.splitlines() if "hf webhooks create" in line][0]
         assert "--watch TEXT" in webhooks_create_line, "Required option --watch should have -- prefix"
         assert "` watch`" not in webhooks_create_line, "Should not render as bare 'watch'"
 
     def test_common_options_glossary(self) -> None:
-        from huggingface_hub.cli.skills import build_skill_md
-
         md = build_skill_md()
         assert "`--token`" in md
         assert "Prefer setting `HF_TOKEN` env var instead of passing `--token`." in md
@@ -4526,6 +4519,20 @@ class TestSkillGeneration:
         leaf_paths = [" ".join(path) for path, _ in leaves]
         assert any("jobs scheduled run" in p for p in leaf_paths)
         assert any("jobs uv run" in p for p in leaf_paths)
+
+
+class TestSkillsHfCliCLI:
+    def test_add_and_update_generate_skill_locally(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The default `hf-cli` skill is generated locally from the installed CLI (no marketplace download)."""
+        dest = tmp_path / "managed-skills"
+        skill_file = dest / "hf-cli" / "SKILL.md"
+
+        runner.invoke(app, ["skills", "add", "--dest", str(dest)])
+        assert skill_file.read_text(encoding="utf-8") == build_skill_md()
+
+        skill_file.write_text("stale content")
+        runner.invoke(app, ["skills", "update", "--dest", str(dest)])
+        assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
 
 @pytest.mark.xet

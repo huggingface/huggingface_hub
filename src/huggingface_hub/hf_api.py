@@ -35,11 +35,6 @@ from urllib.parse import quote
 import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
-
-from huggingface_hub.utils._xet import (
-    reset_xet_connection_info_cache_for_repo,
-)
 
 from . import constants
 from ._buckets import (
@@ -89,6 +84,7 @@ from ._space_api import (
     SpaceSearchResult,
     SpaceSecret,
     SpaceStorage,
+    SpaceTemplate,
     SpaceVariable,
     Volume,
 )
@@ -133,6 +129,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     paginate,
@@ -150,13 +147,12 @@ from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
-from .utils.tqdm import _get_progress_bar_context
 
 
 if TYPE_CHECKING:
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
-    from .utils._xet_progress_reporting import XetProgressReporter
+    from .utils._xet_progress_reporting import XetUploadProgressReporter
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
@@ -426,7 +422,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
     if repo_type == "":
         repo_type = None
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
@@ -4469,6 +4465,34 @@ class HfApi:
             response = get_session().post(url, headers=headers, json=payload)
             hf_raise_for_status(response)
 
+    def list_space_templates(self, *, token: str | bool | None = None) -> list[SpaceTemplate]:
+        """List the official Space templates available on the Hub.
+
+        The `repo_id` of a returned template (or its short `name`) can be passed as `space_template`
+        to [`HfApi.create_repo`] to seed a new Space from that template.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[SpaceTemplate]`: The list of available Space templates.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import list_space_templates
+            >>> templates = list_space_templates()
+            >>> templates[0]
+            SpaceTemplate(name='Streamlit', repo_id='streamlit/streamlit-template-space', sdk='docker', preferred_private=False)
+            ```
+        """
+        r = get_session().get(f"{self.endpoint}/api/spaces/templates", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(r)
+        return [SpaceTemplate(item) for item in r.json()["templates"]]
+
     @_deprecate_arguments(
         version="2.0",
         deprecated_args={"space_storage"},
@@ -4493,6 +4517,7 @@ class HfApi:
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
+        space_template: str | None = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -4547,6 +4572,12 @@ class HfApi:
                 (`"bucket"`, `"model"`, `"dataset"`, or `"space"`), a `source` (repo or bucket ID), a `mount_path`
                 (path inside the container), and optional `revision`, `read_only`, and `path` fields.
                 Only applicable if repo_type is "space".
+            space_template (`str`, *optional*):
+                Seed the new Space from an official template. Can be either the template repo id
+                (e.g. `"SpacesExamples/jupyterlab"`) or its short name (e.g. `"JupyterLab"`). Use
+                [`HfApi.list_space_templates`] to list available templates. Only applicable if repo_type is
+                "space". If the template is recommended to be private and visibility is not explicitly set, the Space
+                is created as private.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -4560,6 +4591,37 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type=repo_type)
+
+        resolved_space_template: str | None = None
+        if space_template is not None:
+            if repo_type != constants.REPO_TYPE_SPACE:
+                raise ValueError(f"space_template can only be used with repo_type 'space'. Got repo_type={repo_type}.")
+
+            # space_template passed => resolve it
+            all_templates = self.list_space_templates(token=token)
+            for candidate in all_templates:
+                if candidate.repo_id == space_template:
+                    template = candidate
+                    break
+                if candidate.name.lower() == space_template.lower():
+                    template = candidate
+                    break
+            else:
+                raise ValueError(
+                    f"Unknown Space template '{space_template}'. Expected one of {', '.join(sorted(t.name for t in all_templates))}. Use `HfApi.list_space_templates()` to list templates."
+                )
+
+            resolved_space_template = template.repo_id
+            # If the chosen template is recommended to be private and the user did not explicitly set a
+            # visibility, default to private (mirrors the recommendation shown in the web UI).
+            if template.preferred_private and private is None and visibility is None:
+                resolved_visibility = "private"
+            # space_sdk can be omitted by the user, we set it following server info
+            if space_sdk is not None and space_sdk != template.sdk:
+                raise ValueError(
+                    f"space_sdk must match the SDK of the chosen space_template. Got {space_sdk}, expected {template.sdk}."
+                )
+            space_sdk = template.sdk
 
         payload: dict[str, Any] = {"name": name, "organization": organization}
         if resolved_visibility is not None:
@@ -4575,6 +4637,8 @@ class HfApi:
             if space_sdk not in constants.SPACES_SDK_TYPES:
                 raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
             payload["sdk"] = space_sdk
+            if resolved_space_template is not None:
+                payload["template"] = resolved_space_template
 
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
@@ -4629,10 +4693,11 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code in (401, 403):
+            elif exist_ok and err.response.status_code in (401, 402, 403):
                 # 401 -> if JWT token without create repo scope
+                # 402 -> if payment required (e.g. if Gradio/Docker Space and free user)
                 # 403 -> if no write permission on the namespace
-                # In both cases, repo might already exist
+                # In all 3 cases, repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
@@ -4690,7 +4755,6 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         r = get_session().request("DELETE", path, headers=headers, json=json)
-        reset_xet_connection_info_cache_for_repo(repo_type, repo_id)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -6630,6 +6694,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6656,6 +6721,10 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up, passed to each request that
+                fetches a safetensors file header. Set to `None` to disable the timeout (not recommended, as a stalled
+                connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -6707,6 +6776,7 @@ class HfApi:
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                timeout=timeout,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -6741,10 +6811,15 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    timeout=timeout,
                 )
 
-            thread_map(
+            hf_thread_map(
                 _parse,
                 set(weight_map.values()),
                 desc="Parse safetensors files",
@@ -6771,6 +6846,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6795,6 +6871,9 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -6818,7 +6897,7 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, timeout=timeout)
         hf_raise_for_status(response)
 
         # 2. Parse and validate metadata size using shared helper
@@ -6828,7 +6907,9 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            response = get_session().get(
+                url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"}, timeout=timeout
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -9934,7 +10015,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 Namespace of the collection to create (username or org). Will default to the owner name.
             description (`str`, *optional*):
-                Description of the collection to create.
+                Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
             exists_ok (`bool`, *optional*):
@@ -10005,7 +10086,7 @@ class HfApi:
             title (`str`):
                 Title of the collection to update.
             description (`str`, *optional*):
-                Description of the collection to update.
+                Description of the collection to update. The maximum size for a description is 150 characters.
             position (`int`, *optional*):
                 New position of the collection in the list of collections of the user.
             private (`bool`, *optional*):
@@ -11745,6 +11826,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -11777,6 +11859,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11843,6 +11929,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12371,6 +12458,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12410,6 +12498,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
+                `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12503,6 +12595,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12523,6 +12616,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12564,6 +12658,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12622,6 +12720,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -12905,6 +13004,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
@@ -12953,6 +13053,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            name (`str`, *optional*):
+                A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
+                key in `labels`. Names do not have to be unique.
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13030,6 +13134,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
@@ -13486,7 +13591,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
 
-        reset_xet_connection_info_cache_for_repo("bucket", bucket_id)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -13845,7 +13949,7 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
-            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:
@@ -14062,10 +14166,10 @@ class HfApi:
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         if add and not are_progress_bars_disabled():
-            progress = XetProgressReporter(total_files=len(add))
+            progress = XetUploadProgressReporter(total_files=len(add))
         else:
             progress = None
 
@@ -14092,7 +14196,7 @@ class HfApi:
         copy: list[tuple[str, str, str, str] | _BucketCopyFile] | None = None,
         delete: list[str | _BucketDeleteFile] | None = None,
         token: str | bool | None = None,
-        _progress: XetProgressReporter | None = None,
+        _progress: XetUploadProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
         # Convert public API inputs to internal operation objects
@@ -14137,7 +14241,7 @@ class HfApi:
             xet_connection_info_refresh_url,
             xet_headers_without_auth,
         )
-        from .utils._xet_progress_reporting import XetProgressReporter
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         headers = self._build_hf_headers(token=token)
 
@@ -14161,7 +14265,7 @@ class HfApi:
                 progress.reset_for_next_commit()
                 progress_callback = progress.update_progress
             elif not are_progress_bars_disabled():
-                progress = XetProgressReporter()
+                progress = XetUploadProgressReporter()
                 progress_callback = progress.update_progress
             else:
                 progress, progress_callback = None, None
@@ -14396,31 +14500,23 @@ class HfApi:
         xet_headers = xet_headers_without_auth(headers)
 
         # Download files
-        progress_cm = _get_progress_bar_context(
-            desc="Downloading bucket files",
-            log_level=logger.getEffectiveLevel(),
-            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
-            initial=0,
-            name="huggingface_hub.download_bucket_files",
-        )
+        from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
         session = get_xet_session()
 
-        with progress_cm as progress:
-            prev = 0
-
-            def _on_progress(group_report, _):
-                nonlocal prev
-                current = group_report.total_bytes_completed
-                progress.update(max(0, current - prev))
-                prev = current
-
+        with XetDownloadProgressReporter(
+            reconstruction_desc="Downloading bucket files",
+            transfer_desc="Downloading bytes",
+            total=sum(xet_info.file_size for xet_info, _ in non_zero_download_items),
+            log_level=logger.getEffectiveLevel(),
+            name="huggingface_hub.download_bucket_files",
+        ) as progress:
             try:
                 with session.new_file_download_group(
                     token_refresh_url=metadata.xet_file_data.refresh_route,
                     token_refresh_headers=headers,
                     custom_headers=xet_headers,
-                    progress_callback=_on_progress,
+                    progress_callback=progress.update_progress,
                 ) as group:
                     for xet_info, dest in non_zero_download_items:
                         group.start_download_file(xet_info, dest)
@@ -14724,6 +14820,7 @@ dataset_info = api.dataset_info
 get_dataset_leaderboard = api.get_dataset_leaderboard
 
 list_spaces = api.list_spaces
+list_space_templates = api.list_space_templates
 search_spaces = api.search_spaces
 space_info = api.space_info
 

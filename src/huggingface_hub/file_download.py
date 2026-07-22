@@ -271,7 +271,7 @@ def hf_hub_url(
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id  # type: ignore
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
@@ -391,6 +391,8 @@ def http_get(
                 # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
                 # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
                 _tqdm_bar.update(-resume_size)
+                if callable(update_transfer := getattr(_tqdm_bar, "update_transfer", None)):
+                    update_transfer(-resume_size)
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
@@ -435,6 +437,8 @@ def http_get(
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                     if chunk:  # filter out keep-alive new chunks
                         progress.update(len(chunk))
+                        if callable(update_transfer := getattr(progress, "update_transfer", None)):
+                            update_transfer(len(chunk))
                         temp_file.write(chunk)
                         new_resume_size += len(chunk)
                         # Some data has been downloaded from the server so we reset the number of retries.
@@ -539,37 +543,28 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    progress_cm = _get_progress_bar_context(
-        desc=displayed_filename,
-        log_level=logger.getEffectiveLevel(),
-        total=expected_size,
-        initial=0,
-        name="huggingface_hub.xet_get",
-        tqdm_class=tqdm_class,
-        _tqdm_bar=_tqdm_bar,
-    )
-
     from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+    from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
 
     session = get_xet_session()
 
-    with progress_cm as progress:
-        _prev = 0
-
-        def _on_progress(group_report, _):
-            nonlocal _prev
-            current = group_report.total_bytes_completed
-            progress.update(max(0, current - _prev))
-            _prev = current
-
+    with XetDownloadProgressReporter(
+        reconstruction_desc=f"{displayed_filename}: reconstructing file",
+        transfer_desc=f"{displayed_filename}: downloading bytes",
+        total=expected_size,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.xet_get",
+        tqdm_class=tqdm_class,
+        external_reconstruction_bar=_tqdm_bar,
+    ) as progress:
         try:
             with session.new_file_download_group(
                 token_refresh_url=xet_file_data.refresh_route,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
-                progress_callback=_on_progress,
+                progress_callback=progress.update_progress,
             ) as group:
                 group.start_download_file(
                     XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
@@ -913,7 +908,7 @@ def hf_hub_download(
             the local cache.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `requests.request`.
+            data before giving up, which is passed to `httpx.request`.
         token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
@@ -1188,6 +1183,15 @@ def _hf_hub_download_to_cache_dir(
             will_download=force_download or not is_cached,
         )
 
+    # Pointer already exists -> update the ref best-effort, then return without
+    # attempting to write to the cache (which may be mounted read-only).
+    if not force_download and os.path.exists(pointer_path):
+        try:
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+        except OSError:
+            pass
+        return pointer_path
+
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
@@ -1223,10 +1227,6 @@ def _hf_hub_download_to_cache_dir(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-
-    # pointer already exists -> immediate return
-    if not force_download and os.path.exists(pointer_path):
-        return pointer_path
 
     # Blob exists but pointer must be (safely) created -> take the lock
     if not force_download and os.path.exists(blob_path):

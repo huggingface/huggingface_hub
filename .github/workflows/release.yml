@@ -883,13 +883,13 @@ jobs:
             git add src/transformers/dependency_versions_table.py
 
             # The current Transformers PR CI delegates to reusable workflows from
-            # huggingface/transformers-test-ci. Copy those workflows into this test
+            # huggingface/transformers-ci. Copy those workflows into this test
             # branch so the prerelease patch applies to the actual quality install.
-            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-test-ci/main/.github/workflows/pr-ci_dynamic_caller_example.yml \
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_dynamic_caller_example.yml \
               -o .github/workflows/pr-ci_dynamic_caller_example.yml
-            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-test-ci/main/.github/workflows/pr-ci_reusable_test_job.yml \
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_reusable_test_job.yml \
               -o .github/workflows/pr-ci_reusable_test_job.yml
-            sed -i -E "s|uses: huggingface/transformers-test-ci/\.github/workflows/pr-ci_dynamic_caller_example\.yml@[^[:space:]]+.*|uses: ./.github/workflows/pr-ci_dynamic_caller_example.yml # patched for hfh prerelease|" .github/workflows/pr-ci-caller.yml
+            sed -i -E "s|uses: huggingface/transformers-ci/\.github/workflows/pr-ci_dynamic_caller_example\.yml@[^[:space:]]+.*|uses: ./.github/workflows/pr-ci_dynamic_caller_example.yml # patched for hfh prerelease|" .github/workflows/pr-ci-caller.yml
             git add .github/workflows/pr-ci-caller.yml .github/workflows/pr-ci_dynamic_caller_example.yml .github/workflows/pr-ci_reusable_test_job.yml
           fi
 

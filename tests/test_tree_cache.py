@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
+from huggingface_hub import RepoFile, get_cached_repo_tree
 from huggingface_hub._tree_cache import (
     _IN_MEMORY_TREE_CACHE,
     TREE_CACHE_FORMAT_VERSION,
@@ -25,6 +26,7 @@ from huggingface_hub._tree_cache import (
     tree_cache_folder_for_local_dir,
     write_tree_cache,
 )
+from huggingface_hub.errors import CachedRepoTreeNotFoundError
 from huggingface_hub.file_download import (
     _get_metadata_or_catch_error,
     _xet_file_metadata_from_tree_cache,
@@ -233,6 +235,48 @@ class TestTreeCacheSkipsHeadCall:
                     local_files_only=False,
                     tree_cache_folder=tree_cache_folder,
                 )
+
+
+class TestGetCachedRepoTree:
+    def test_returns_cached_files_as_repo_files(self, tmp_path: Path):
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
+
+        files = get_cached_repo_tree("user/repo", revision=COMMIT_HASH, cache_dir=str(tmp_path))
+
+        assert all(isinstance(f, RepoFile) for f in files)
+        by_path = {f.path: f for f in files}
+        assert set(by_path) == {"config.json", "model.safetensors"}
+
+        config = by_path["config.json"]
+        assert config.size == 5
+        assert config.blob_id == "blob-config"
+        assert config.lfs is None
+
+        model = by_path["model.safetensors"]
+        assert model.size == 42
+        assert model.blob_id == "blob-model"
+        assert model.xet_hash == "xet-model"
+        assert model.lfs is None
+
+    def test_resolves_branch_via_refs(self, tmp_path: Path):
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries())
+        ref_path = storage_folder / "refs" / "main"
+        ref_path.parent.mkdir(parents=True)
+        ref_path.write_text(COMMIT_HASH)
+
+        files = get_cached_repo_tree("user/repo", revision="main", cache_dir=str(tmp_path))
+        assert {f.path for f in files} == {"config.json", "model.safetensors"}
+
+    def test_raises_when_commit_not_cached(self, tmp_path: Path):
+        with pytest.raises(CachedRepoTreeNotFoundError):
+            get_cached_repo_tree("user/repo", revision=COMMIT_HASH, cache_dir=str(tmp_path))
+
+    def test_raises_when_branch_not_cached(self, tmp_path: Path):
+        # No `refs/main` on disk => cannot resolve the branch to a commit hash.
+        with pytest.raises(CachedRepoTreeNotFoundError):
+            get_cached_repo_tree("user/repo", revision="main", cache_dir=str(tmp_path))
 
 
 class TestTreeCacheForLocalDir:

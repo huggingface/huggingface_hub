@@ -84,10 +84,11 @@ import logging
 import os
 import threading
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import ContextManager
+from typing import Callable, ContextManager, TypeVar, cast
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -370,3 +371,79 @@ def _get_progress_bar_context(
         initial=initial,
         desc=desc,
     )
+
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+
+def _make_thread_pool_executor(*, max_workers: int | None, bar_class: type[old_tqdm]) -> ThreadPoolExecutor:
+    """Create a `ThreadPoolExecutor` that shares the tqdm lock with its worker threads.
+
+    Like `tqdm.contrib.concurrent.thread_map`, we make sure the bar class has a lock and pass it to the
+    worker threads, so that bars created inside the mapped function (e.g. the per-file download bars in
+    `snapshot_download`) don't race on concurrent `update()` calls. `get_lock()` creates the shared
+    class-level lock if needed. Classes that don't implement tqdm's locking API (e.g. `silent_tqdm`)
+    render nothing anyway, so no lock is needed.
+    """
+    if hasattr(bar_class, "get_lock") and hasattr(bar_class, "set_lock"):
+        return ThreadPoolExecutor(
+            max_workers=max_workers, initializer=bar_class.set_lock, initargs=(bar_class.get_lock(),)
+        )
+    return ThreadPoolExecutor(max_workers=max_workers)
+
+
+def hf_thread_map(
+    fn: Callable[[T], R],
+    iterable: Iterable[T],
+    *,
+    max_workers: int | None = None,
+    tqdm_class: type[old_tqdm] | None = None,
+    **tqdm_kwargs,
+) -> list[R]:
+    """Drop-in replacement for `tqdm.contrib.concurrent.thread_map`.
+
+    The version shipped by `tqdm` consumes results in submission order and the progress bar only advances when the "next
+    item in input order" finishes. A single slow early item pins the bar near zero while later items
+    complete, with everything flushed at once at the end. This helper avoids that problem by consuming items in completion
+    order.
+
+    See https://github.com/huggingface/huggingface_hub/issues/4518 for more details.
+
+    Args:
+        fn (`Callable`):
+            Function to apply to each item.
+        iterable (`Iterable`):
+            Items to process.
+        max_workers (`int`, *optional*):
+            Maximum number of worker threads. Defaults to tqdm's own default.
+        tqdm_class (`type`, *optional*):
+            Progress bar class to use. Defaults to `huggingface_hub`'s `tqdm`.
+        **tqdm_kwargs:
+            Additional keyword arguments forwarded to the progress bar (e.g. `desc`).
+
+    Returns:
+        `list`: Results in the same order as `iterable`.
+    """
+    items = list(iterable)
+    if max_workers is None:
+        max_workers = min(32, (os.cpu_count() or 1) + 4)
+    tqdm_kwargs.setdefault("total", len(items))
+    bar_class = tqdm_class or tqdm
+    results: list[R | None] = [None] * len(items)
+    with (
+        bar_class(**tqdm_kwargs) as pbar,
+        _make_thread_pool_executor(max_workers=max_workers, bar_class=bar_class) as executor,
+    ):
+        future_to_index = {executor.submit(fn, item): index for index, item in enumerate(items)}
+        try:
+            for future in as_completed(future_to_index):
+                results[future_to_index[future]] = future.result()
+                pbar.update(1)
+        except BaseException:
+            # Cancel not-yet-started tasks so a single failure doesn't keep the whole queue running
+            # (mirrors `tqdm.contrib.concurrent.thread_map`, which relies on `Executor.map` for this).
+            for future in future_to_index:
+                future.cancel()
+            raise
+    return cast("list[R]", results)

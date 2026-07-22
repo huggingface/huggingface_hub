@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.23.0.dev0"
+__version__ = "1.25.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -109,6 +109,7 @@ _SUBMOD_ATTRS = {
         "SandboxProcess",
     ],
     "_snapshot_download": [
+        "get_cached_repo_tree",
         "snapshot_download",
     ],
     "_space_api": [
@@ -201,6 +202,7 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "SpaceInfo",
         "SpaceSearchResult",
+        "SpaceTemplate",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -305,6 +307,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_space_templates",
         "list_spaces",
         "list_spaces_hardware",
         "list_user_followers",
@@ -834,6 +837,7 @@ __all__ = [
     "SpaceSecret",
     "SpaceStage",
     "SpaceStorage",
+    "SpaceTemplate",
     "SpaceVariable",
     "StateDictSplit",
     "SummarizationInput",
@@ -995,6 +999,7 @@ __all__ = [
     "get_async_session",
     "get_bucket_file_metadata",
     "get_bucket_paths_info",
+    "get_cached_repo_tree",
     "get_collection",
     "get_dataset_leaderboard",
     "get_dataset_tags",
@@ -1051,6 +1056,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_space_templates",
     "list_spaces",
     "list_spaces_hardware",
     "list_user_followers",
@@ -1292,7 +1298,10 @@ if TYPE_CHECKING:  # pragma: no cover
         SandboxPool,  # noqa: F401
         SandboxProcess,  # noqa: F401
     )
-    from ._snapshot_download import snapshot_download  # noqa: F401
+    from ._snapshot_download import (
+        get_cached_repo_tree,  # noqa: F401
+        snapshot_download,  # noqa: F401
+    )
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
@@ -1381,6 +1390,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
+        SpaceTemplate,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1485,6 +1495,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
         list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401

@@ -174,9 +174,9 @@ class SandboxFiles:
     # Above this size, transfers are split into ranged requests over parallel
     # connections: a single TCP stream through the jobs proxy is limited by the
     # bandwidth-delay product (~2 MiB/s at ~100ms RTT); parallel streams scale it.
-    PARALLEL_THRESHOLD = 8 * 1024 * 1024
-    PARALLEL_CHUNK_SIZE = 4 * 1024 * 1024
-    PARALLEL_MAX_WORKERS = 8
+    PARALLEL_THRESHOLD = 2 * 1024 * 1024
+    PARALLEL_CHUNK_SIZE = 1 * 1024 * 1024
+    PARALLEL_MAX_WORKERS = 16
 
     def __init__(self, sandbox: "Sandbox") -> None:
         self._sandbox = sandbox

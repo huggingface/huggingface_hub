@@ -20,6 +20,7 @@ import click
 
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
+from huggingface_hub.inference._providers import PROVIDER_T
 from huggingface_hub.repocard import ModelCard
 
 from ._cli_utils import (
@@ -29,6 +30,7 @@ from ._cli_utils import (
     LimitOpt,
     RevisionOpt,
     SearchOpt,
+    SoftChoice,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -42,6 +44,9 @@ from ._output import _dataclass_to_dict, out
 _EXPAND_PROPERTIES = sorted(get_args(ExpandModelProperty_T))
 _SORT_OPTIONS = get_args(ModelSort_T)
 ModelSortEnum = enum.Enum("ModelSortEnum", {s: s for s in _SORT_OPTIONS}, type=str)  # type: ignore[misc]
+InferenceProviderEnum = enum.Enum(  # type: ignore[misc]
+    "InferenceProviderEnum", {p: p for p in sorted(get_args(PROVIDER_T))}, type=str
+)
 
 
 ExpandOpt = Annotated[
@@ -61,7 +66,12 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
     examples=[
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',
+        "hf models ls --pipeline-tag text-generation --warm",
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
+        "hf models ls --no-gated --author google",
+        "hf models ls --apps llama.cpp --apps vllm",
+        "hf models ls --inference-provider fireworks-ai --sort downloads",
+        "hf models ls --warm --search llama",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct -R",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h",
@@ -75,10 +85,37 @@ def models_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    pipeline_tag: Annotated[
+        str | None,
+        Option("--pipeline-tag", help="Filter by pipeline tag (canonical task), e.g. 'summarization'."),
+    ] = None,
+    gated: Annotated[
+        bool | None,
+        Option(
+            "--gated/--no-gated",
+            help="Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.",
+        ),
+    ] = None,
+    apps: Annotated[
+        list[str] | None,
+        Option("--apps", help="Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'."),
+    ] = None,
     num_parameters: Annotated[
         str | None,
         Option(help="Filter by parameter count, e.g. 'min:6B,max:128B'."),
     ] = None,
+    inference_provider: Annotated[
+        list[str] | None,
+        Option(
+            "--inference-provider",
+            click_type=SoftChoice(InferenceProviderEnum),
+            help="Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.",
+        ),
+    ] = None,
+    warm: Annotated[
+        bool,
+        Option("--warm", help="Only list models currently served by at least one inference provider."),
+    ] = False,
     sort: Annotated[
         ModelSortEnum | None,
         Option(help="Sort results."),
@@ -112,8 +149,18 @@ def models_ls(
             raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
             raise click.BadParameter("Cannot use --filter when listing files.")
+        if pipeline_tag is not None:
+            raise click.BadParameter("Cannot use --pipeline-tag when listing files.")
+        if gated is not None:
+            raise click.BadParameter("Cannot use --gated/--no-gated when listing files.")
+        if apps is not None:
+            raise click.BadParameter("Cannot use --apps when listing files.")
         if num_parameters is not None:
             raise click.BadParameter("Cannot use --num-parameters when listing files.")
+        if inference_provider is not None:
+            raise click.BadParameter("Cannot use --inference-provider when listing files.")
+        if warm:
+            raise click.BadParameter("Cannot use --warm when listing files.")
         if sort is not None:
             raise click.BadParameter("Cannot use --sort when listing files.")
         if limit != REPO_LIST_DEFAULT_LIMIT:
@@ -138,6 +185,8 @@ def models_ls(
         raise click.BadParameter("Cannot use --human-readable when listing models.")
     if revision is not None:
         raise click.BadParameter("Cannot use --revision when listing models.")
+    if warm and inference_provider is not None:
+        raise click.BadParameter("Cannot use --warm together with --inference-provider.")
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
@@ -146,13 +195,22 @@ def models_ls(
             filter=filter,
             author=author,
             search=search,
+            pipeline_tag=pipeline_tag,
+            gated=gated,
+            apps=apps,
             num_parameters=num_parameters,
+            inference="warm" if warm else None,
+            inference_provider=inference_provider,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
         )
     ]
     out.table(results)
+    if (inference_provider is not None or warm) and not expand:
+        out.hint(
+            "Use `--expand inferenceProviderMapping` to see which provider serves each model and the provider-specific model id."
+        )
 
 
 @models_cli.command(

@@ -518,11 +518,17 @@ def _create_job_spec(
     secrets: dict[str, Any] | None,
     flavor: JobHardware | str | None,
     timeout: int | float | str | None,
+    name: str | None = None,
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
     ssh: bool = False,
 ) -> dict[str, Any]:
+    if name is not None:
+        if labels is not None and "name" in labels:
+            raise ValueError("`name` and the `name` key in `labels` cannot both be provided.")
+        labels = {**(labels or {}), "name": name}
+
     # prepare job spec to send to HF Jobs API
     job_spec: dict[str, Any] = {
         "command": command,

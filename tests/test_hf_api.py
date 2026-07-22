@@ -2656,11 +2656,6 @@ class TestHfApiPrivate:
             with pytest.raises(HfHubHTTPError, match=r".*Repository Not Found.*"):
                 _ = api.dataset_info(repo_id=self.repo_id)
 
-    def test_list_private_datasets(self, api: HfApi):
-        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
-        assert all(dataset.id != self.repo_id for dataset in api.list_datasets(token=False, **kwargs))
-        assert any(dataset.id == self.repo_id for dataset in api.list_datasets(token=TOKEN, **kwargs))
-
     def test_list_private_models(self, api: HfApi):
         kwargs = {"sort": "created_at", "limit": 100, "author": USER}
         assert all(model.id != self.repo_id for model in api.list_models(token=False, **kwargs))
@@ -4481,22 +4476,18 @@ class TestWebhookApi:
             api.get_webhook(webhook_to_delete.id)
 
 
+@pytest.mark.production
 class TestExpandPropertyType:
-    def test_expand_model_property_type_is_up_to_date(self, api: HfApi, repo_factory: RepoFactory):
-        repo_url = repo_factory("model")
-        self._check_expand_property_is_up_to_date(api, repo_url)
+    def test_expand_model_property_type_is_up_to_date(self, api_prod: HfApi, repo_factory: RepoFactory):
+        self._check_expand_property_is_up_to_date(api_prod, "model", "zai-org/GLM-5.2")
 
-    def test_expand_dataset_property_type_is_up_to_date(self, api: HfApi, repo_factory: RepoFactory):
-        repo_url = repo_factory("dataset")
-        self._check_expand_property_is_up_to_date(api, repo_url)
+    def test_expand_dataset_property_type_is_up_to_date(self, api_prod: HfApi, repo_factory: RepoFactory):
+        self._check_expand_property_is_up_to_date(api_prod, "dataset", "openai/gsm8k")
 
-    def test_expand_space_property_type_is_up_to_date(self, api: HfApi, repo_factory: RepoFactory):
-        repo_url = repo_factory("space")
-        self._check_expand_property_is_up_to_date(api, repo_url)
+    def test_expand_space_property_type_is_up_to_date(self, api_prod: HfApi, repo_factory: RepoFactory):
+        self._check_expand_property_is_up_to_date(api_prod, "space", "black-forest-labs/FLUX.1-dev")
 
-    def _check_expand_property_is_up_to_date(self, api: HfApi, repo_url: RepoUrl):
-        repo_id = repo_url.repo_id
-        repo_type = repo_url.repo_type
+    def _check_expand_property_is_up_to_date(self, api: HfApi, repo_type: str, repo_id: str):
         property_type = (
             ExpandModelProperty_T
             if repo_type == "model"

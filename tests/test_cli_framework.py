@@ -164,6 +164,20 @@ class TestInvocation:
         assert result.exit_code == 0, result.output
         assert captured == {"repo_id": "r", "color": Color.blue, "force": True, "volumes": ["a", "b"]}
 
+    def test_enum_member_default_reaches_handler(self):
+        class Mode(str, enum.Enum):
+            ON = "on"
+            AUTO = "auto"
+
+        captured = {}
+
+        def f(mode: Annotated[Mode, Option("--mode")] = Mode.AUTO):
+            captured["mode"] = mode
+
+        result = CliRunner().invoke(build_command(f, name="run"), [])
+        assert result.exit_code == 0, result.output
+        assert captured["mode"] is Mode.AUTO
+
     def test_value_callback_is_applied(self):
         seen = {}
 
