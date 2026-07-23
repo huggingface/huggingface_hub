@@ -767,11 +767,11 @@ class TestRegexYamlBlock:
         "payload",
         [
             # Valid `---` opener followed by a long newline run and no closing fence.
-            "---\n" + "\n" * 200_000,
+            pytest.param("---\n" + "\n" * 200_000, id="lf"),
             # Same, but with a title line and trailing body so it resembles real card text.
-            "---\ntitle: x\n" + "\n" * 200_000 + "not a fence",
+            pytest.param("---\ntitle: x\n" + "\n" * 200_000 + "not a fence", id="lf-with-body"),
             # CRLF variant.
-            "---\r\n" + "\r\n" * 200_000,
+            pytest.param("---\r\n" + "\r\n" * 200_000, id="crlf"),
         ],
     )
     def test_no_catastrophic_backtracking(self, payload):
