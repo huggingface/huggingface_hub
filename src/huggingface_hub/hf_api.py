@@ -35,7 +35,6 @@ from urllib.parse import quote
 import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._buckets import (
@@ -76,6 +75,8 @@ from ._jobs_api import (
     JobStage,
     ScheduledJobInfo,
     _create_job_spec,
+    _default_job_name_from_image,
+    _default_job_name_from_script,
     _derive_job_volume_name,
 )
 from ._space_api import (
@@ -130,6 +131,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     paginate,
@@ -422,7 +424,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
     if repo_type == "":
         repo_type = None
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
@@ -6819,7 +6821,7 @@ class HfApi:
                     timeout=timeout,
                 )
 
-            thread_map(
+            hf_thread_map(
                 _parse,
                 set(weight_map.values()),
                 desc="Parse safetensors files",
@@ -11862,7 +11864,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11922,6 +11924,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
             image=image,
             command=command,
@@ -12501,7 +12505,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12572,6 +12576,9 @@ class HfApi:
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
         env = env or {}
         secrets = secrets or {}
+
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
 
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
@@ -12661,7 +12668,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12711,6 +12718,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
 
         # prepare payload to send to HF Jobs API
         job_spec = _create_job_spec(
@@ -13056,7 +13065,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13109,6 +13118,9 @@ class HfApi:
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
+
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
@@ -13949,7 +13961,7 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
-            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:

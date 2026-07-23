@@ -73,6 +73,19 @@ class TestBaseCardData:
         # .pop
         assert metadata.pop("foo") == "BAR"
 
+    def test_to_yaml_preserves_order_of_appended_keys(self):
+        # Keys not listed in `original_order` must be appended in their existing
+        # (insertion) order and deterministically, as documented -- not shuffled
+        # through set() ordering.
+        metadata = CardData(license="mit", tags=["a"])
+        for key in ["zzz", "aaa", "mmm", "bbb"]:
+            metadata[key] = "x"
+
+        yaml_block = metadata.to_yaml(original_order=["license", "tags"])
+        keys = [line.split(":")[0] for line in yaml_block.splitlines() if line and not line.startswith((" ", "-"))]
+
+        assert keys == ["license", "tags", "zzz", "aaa", "mmm", "bbb"]
+
 
 class TestModelCardData:
     def test_eval_results_to_model_index(self):

@@ -3,7 +3,11 @@ from unittest.mock import patch
 import pytest
 
 from huggingface_hub import HfApi, JobStage
-from huggingface_hub._jobs_api import JobInfo
+from huggingface_hub._jobs_api import (
+    JobInfo,
+    _default_job_name_from_image,
+    _default_job_name_from_script,
+)
 
 
 def _job_info(stage: str, job_id: str = "job-id") -> JobInfo:
@@ -74,3 +78,54 @@ class TestWaitForJob:
         ):
             job = self.api.wait_for_job(job_id="job-id", namespace="user", stages=[JobStage.RUNNING])
         assert job.status.stage == "ERROR"
+
+
+@pytest.mark.parametrize(
+    "image, expected",
+    [
+        # Plain image (no registry, no tag).
+        ("ubuntu", "ubuntu"),
+        # Tag is kept, with disallowed chars replaced by '-'.
+        ("python:3.12", "python-3-12"),
+        # Registry host and namespace are dropped, last component + tag is kept.
+        ("pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel", "pytorch-2-6-0-cuda12-4-cudnn9-devel"),
+        ("ghcr.io/astral-sh/uv:python3.12-bookworm", "uv-python3-12-bookworm"),
+        # Space references keep the `namespace/repo` id (sanitized), for every supported prefix.
+        ("hf.co/spaces/lhoestq/duckdb", "lhoestq-duckdb"),
+        ("https://huggingface.co/spaces/lhoestq/duckdb", "lhoestq-duckdb"),
+    ],
+)
+def test_default_job_name_from_image(image: str, expected: str) -> None:
+    # The base name is derived from the image; a short hash of the command line is appended.
+    assert _default_job_name_from_image(image, ["python", "-c", "print(1)"]).startswith(expected + "-")
+
+
+@pytest.mark.parametrize(
+    "script, expected",
+    [
+        # Local script: keep the stem, drop the '.py' extension.
+        ("my_script.py", "my_script"),
+        ("./train.py", "train"),
+        # URL: keep the last path component, drop query/fragment and extension.
+        ("https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py", "sft"),
+        ("https://example.co/a/sft.py?raw=1", "sft"),
+        # Command (no extension): kept as-is.
+        ("lighteval", "lighteval"),
+        # Dots in the stem are disallowed chars and get replaced by '-'.
+        ("my.weird.script.py", "my-weird-script"),
+    ],
+)
+def test_default_job_name_from_script(script: str, expected: str) -> None:
+    # The base name is derived from the script; a short hash of the command line is appended.
+    assert _default_job_name_from_script(script, []).startswith(expected + "-")
+
+
+def test_default_job_name_hash_groups_and_splits_by_command() -> None:
+    # Same image but different commands must yield different names (splits distinct runs)...
+    truc = _default_job_name_from_image("python:3.12", ["foo", "--truc"])
+    bar = _default_job_name_from_image("python:3.12", ["foo", "--bar"])
+    assert truc.startswith("python-3-12-")
+    assert bar.startswith("python-3-12-")
+    assert truc != bar
+    # ...while the same command yields the same name (groups identical runs).
+    assert truc == _default_job_name_from_image("python:3.12", ["foo", "--truc"])

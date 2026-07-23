@@ -13,6 +13,7 @@
 # limitations under the License.
 import hashlib
 import platform
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -90,6 +91,14 @@ class JobStage(str, Enum):
 
 # Stages indicating the Job has reached a terminal state and will not run further.
 TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
+
+# URL prefixes identifying an image that points to a HF Space rather than a Docker image.
+_SPACE_IMAGE_PREFIXES = (
+    "https://huggingface.co/spaces/",
+    "https://hf.co/spaces/",
+    "huggingface.co/spaces/",
+    "hf.co/spaces/",
+)
 
 
 @dataclass
@@ -510,6 +519,55 @@ def _derive_job_volume_name(source: str | Path) -> str:
     return f"{dirname}-{digest}"
 
 
+def _sanitize_job_name(name: str) -> str:
+    """Sanitize a string so it is a valid Job `name` label.
+
+    Job names must match `^[a-zA-Z0-9._-]*$` and are also stored as tags, which only allow
+    alphanumerics, `-` and `_`. Every other character (including `/`, `:` and `.`) is replaced with `-`.
+    """
+    return re.sub(r"[^a-zA-Z0-9_-]", "-", name)
+
+
+def _short_invocation_hash(parts: list[str]) -> str:
+    """Short, stable hash of a Job invocation (image/script + command line).
+
+    Appended to auto-generated names so reruns of the same command share a name while different ones don't.
+    """
+    return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:8]
+
+
+def _default_job_name_from_image(image: str, command: list[str]) -> str:
+    """Derive a default Job name from a Docker image or Space reference and its command.
+
+    A short hash of the full command line is appended to group reruns of the same command.
+    e.g. python:3.12 + [foo, --truc]             -> python-3-12-1a2b3c4d
+         hf.co/spaces/lhoestq/duckdb             -> lhoestq-duckdb-<hash>
+         pytorch/pytorch:2.6.0-cuda12.4-...      -> pytorch-2-6-0-cuda12-4-...-<hash>
+    """
+    for prefix in _SPACE_IMAGE_PREFIXES:
+        if image.startswith(prefix):
+            base = _sanitize_job_name(image[len(prefix) :] or image)
+            break
+    else:
+        base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
+    return f"{base}-{_short_invocation_hash([image, *command])}"
+
+
+def _default_job_name_from_script(script: str, script_args: list[str]) -> str:
+    """Derive a default Job name from a UV script path, URL, or command and its arguments.
+
+    A short hash of the full command line is appended to group reruns of the same command.
+    e.g. my_script.py + [--epochs, 3]  -> my_script-1a2b3c4d
+         https://.../sft.py?raw=1      -> sft-<hash>
+         lighteval                     -> lighteval-<hash>
+    """
+    name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
+    if name.endswith(".py"):
+        name = name[: -len(".py")]
+    base = _sanitize_job_name(name or script)
+    return f"{base}-{_short_invocation_hash([script, *script_args])}"
+
+
 def _create_job_spec(
     *,
     image: str,
@@ -559,12 +617,7 @@ def _create_job_spec(
     if ssh:
         job_spec["ssh"] = {"enabled": True}
     # input is either from docker hub or from HF spaces
-    for prefix in (
-        "https://huggingface.co/spaces/",
-        "https://hf.co/spaces/",
-        "huggingface.co/spaces/",
-        "hf.co/spaces/",
-    ):
+    for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
             job_spec["spaceId"] = image[len(prefix) :]
             break
