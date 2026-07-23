@@ -353,6 +353,7 @@ _SUBMOD_ATTRS = {
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
+        "update_collection_resource_group",
         "update_inference_endpoint",
         "update_job_labels",
         "update_repo_settings",
@@ -1127,6 +1128,7 @@ __all__ = [
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
+    "update_collection_resource_group",
     "update_inference_endpoint",
     "update_job_labels",
     "update_repo_settings",
@@ -1541,6 +1543,7 @@ if TYPE_CHECKING:  # pragma: no cover
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
+        update_collection_resource_group,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401
