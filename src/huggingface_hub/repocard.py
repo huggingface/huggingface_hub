@@ -29,15 +29,6 @@ logger = logging.get_logger(__name__)
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
 TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
 
-# Based on the same regex as in the Hub server (moon-landing ViewMarkdown.ts#L18), with a
-# fix for catastrophic backtracking (ReDoS). The original `[\r\n]+` runs at both delimiters
-# let a long newline run be ambiguously redistributed between the opener tail, the lazy body
-# and the closer head, causing quadratic/cubic backtracking on inputs like a `---` opener
-# followed by many newlines and no closing fence. Each delimiter now consumes exactly ONE
-# complete line ending via a bounded non-capturing alternation ordered `\r\n|\r|\n` (the
-# two-char CRLF sequence is tried first so a CRLF opener cannot strand a `\n` that fakes an
-# early closer). No unbounded repetition remains at either delimiter, so the ReDoS fix is
-# preserved. The server-side regex should be mirrored.
 # exact same regex as in the Hub server. Please keep in sync.
 # See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
 REGEX_YAML_BLOCK = re.compile(r"^(\s*---(?:\r\n|\r|\n))([\S\s]*?)((?:\r\n|\r|\n)---[ \t]*(\r\n|\n|$))")
