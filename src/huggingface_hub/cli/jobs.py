@@ -1277,6 +1277,7 @@ def scheduled_uv_run(
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     expose: ExposeOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1303,6 +1304,7 @@ def scheduled_uv_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=job.id)
