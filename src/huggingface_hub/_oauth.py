@@ -269,20 +269,25 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
     )
     if constants.OAUTH_CLIENT_ID is None:
         raise ValueError(msg.format("OAUTH_CLIENT_ID"))
-    if constants.OAUTH_CLIENT_SECRET is None:
-        raise ValueError(msg.format("OAUTH_CLIENT_SECRET"))
     if constants.OAUTH_SCOPES is None:
         raise ValueError(msg.format("OAUTH_SCOPES"))
     if constants.OPENID_PROVIDER_URL is None:
         raise ValueError(msg.format("OPENID_PROVIDER_URL"))
+    # OAUTH_CLIENT_SECRET is optional: public Spaces authenticate with PKCE instead of a
+    # client secret. Older Spaces still receive OAUTH_CLIENT_SECRET and keep working.
 
-    # Register OAuth server
+    # Register OAuth server.
+    # We always use PKCE (S256), which is supported by the HF authorization server. When no
+    # client secret is available, the client authenticates as a public client (PKCE only).
+    client_kwargs = {"scope": constants.OAUTH_SCOPES, "code_challenge_method": "S256"}
+    if constants.OAUTH_CLIENT_SECRET is None:
+        client_kwargs["token_endpoint_auth_method"] = "none"
     oauth = OAuth()
     oauth.register(
         name="huggingface",
         client_id=constants.OAUTH_CLIENT_ID,
         client_secret=constants.OAUTH_CLIENT_SECRET,
-        client_kwargs={"scope": constants.OAUTH_SCOPES},
+        client_kwargs=client_kwargs,
         server_metadata_url=constants.OPENID_PROVIDER_URL + "/.well-known/openid-configuration",
     )
 
