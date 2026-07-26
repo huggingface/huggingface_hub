@@ -531,6 +531,8 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 ... )
 ```
 
+If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`).
+
 ### Update labels
 
 Use [`update_job_labels`] to replace labels on an existing job. This replaces all existing user-provided labels:
