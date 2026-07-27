@@ -1,0 +1,10 @@
+```yaml
+- title: "ଆରମ୍ଭ କରନ୍ତୁ"
+  sections:
+    - local: index
+      title: "ମୁଖ୍ୟ ପୃଷ୍ଠା"
+    - local: quick-start
+      title: "ଆରମ୍ଭ"
+    - local: installation
+      title: "ଇନ୍‌ଷ୍ଟଲେସନ୍"
+```
