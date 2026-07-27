@@ -102,7 +102,7 @@ Defaults to `0` (0 bytes, means chunk cache is disabled).
 
 To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
 
-Defaults to `4000000000` (4GB).
+Defaults to `16000000000` (16GB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 

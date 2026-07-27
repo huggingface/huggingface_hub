@@ -1014,9 +1014,10 @@ class TestCommitApi:
 
     def test_prevent_empty_commit_if_no_op(self, api: HfApi, repo_factory: RepoFactory, caplog) -> None:
         repo_url = repo_factory()
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted while setting up the repo
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(repo_id=repo_url.repo_id, commit_message="Empty commit", operations=[])
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "No files have been modified since last commit. Skipping to prevent empty commit."
         assert records[0].levelname == "WARNING"
 
@@ -1030,6 +1031,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1039,7 +1041,7 @@ class TestCommitApi:
                     CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "Removing 2 file(s) from commit that have not changed."
         assert records[0].levelname == "INFO"
 
@@ -1059,6 +1061,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs_copy.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1068,7 +1071,7 @@ class TestCommitApi:
                     CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "Removing 2 file(s) from commit that have not changed."
         assert records[0].levelname == "INFO"
 
@@ -1110,6 +1113,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1129,7 +1133,7 @@ class TestCommitApi:
                     CommitOperationAdd(path_or_fileobj=b"LFS content 3.0", path_in_repo="lfs3.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
@@ -1170,6 +1174,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1189,7 +1194,7 @@ class TestCommitApi:
                     CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs3.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
@@ -1240,6 +1245,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1253,7 +1259,7 @@ class TestCommitApi:
                     CommitOperationDelete(path_in_repo="file2.txt"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
