@@ -1,4 +1,3 @@
-```yaml
 - title: "ଆରମ୍ଭ କରନ୍ତୁ"
   sections:
     - local: index
@@ -7,4 +6,3 @@
       title: "ଆରମ୍ଭ"
     - local: installation
       title: "ଇନ୍‌ଷ୍ଟଲେସନ୍"
-```
