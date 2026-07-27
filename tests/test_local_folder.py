@@ -32,6 +32,7 @@ from huggingface_hub._local_folder import (
     LocalUploadFilePaths,
     _create_cachedir_tag,
     _huggingface_dir,
+    _validate_relative_filename,
     get_local_download_paths,
     get_local_upload_paths,
     read_download_metadata,
@@ -82,6 +83,57 @@ def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):
         thread.join()
     assert (local_dir / ".cache" / "huggingface" / ".gitignore").exists()
     assert not (local_dir / ".cache" / "huggingface" / ".gitignore.lock").exists()
+
+
+# Filenames that must be rejected because they would escape the target directory when joined onto it.
+# Kept platform-independent on purpose: a file materialized on Linux must not be able to escape when
+# later consumed on Windows, so the validation interprets names under both POSIX and Windows rules.
+# See https://github.com/huggingface/huggingface_hub/pull/1429 (original relative-path fix) and the
+# absolute/UNC variant (CVE-2026-15717).
+UNSAFE_FILENAMES = [
+    "../../../etc/passwd",  # POSIX parent traversal
+    "folder/../../../etc/passwd",  # nested POSIX parent traversal
+    "..\\..\\Windows\\evil",  # Windows parent traversal
+    "folder\\..\\..\\evil",  # nested Windows parent traversal
+    "/etc/passwd",  # POSIX absolute
+    "C:\\Windows\\System32\\evil",  # Windows drive-absolute
+    "C:/Windows/System32/evil",  # Windows drive-absolute (forward slashes)
+    "D:relative\\evil",  # Windows drive-relative
+    "\\\\attacker\\share\\evil",  # UNC path (also triggers SMB auth / NetNTLMv2 leak on Windows)
+    "\\evil",  # Windows root-relative
+    "folder/C:\\Windows\\evil",  # nested Windows drive-absolute
+    "folder/\\\\attacker\\share\\evil",  # nested UNC path
+    "folder/\\evil",  # nested Windows root-relative
+]
+
+SAFE_FILENAMES = [
+    "file.txt",
+    "path/in/repo.txt",
+    "weird but valid/name.txt",
+]
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_validate_relative_filename_rejects_unsafe(filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _validate_relative_filename(filename)
+
+
+@pytest.mark.parametrize("filename", SAFE_FILENAMES)
+def test_validate_relative_filename_accepts_safe(filename: str):
+    _validate_relative_filename(filename)  # does not raise
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_local_download_paths_rejects_unsafe_filename(tmp_path: Path, filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        get_local_download_paths(tmp_path, filename)
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_local_upload_paths_rejects_unsafe_filename(tmp_path: Path, filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        get_local_upload_paths(tmp_path, filename)
 
 
 def test_local_download_paths(tmp_path: Path):

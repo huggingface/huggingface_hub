@@ -54,7 +54,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from .utils import WeakFileLock
 
@@ -196,6 +196,41 @@ class LocalUploadFileMetadata:
             self.timestamp = new_timestamp
 
 
+def _validate_relative_filename(filename: str) -> None:
+    """Validate that a repo filename is safe to use as a path relative to a local directory.
+
+    A repo filename is a POSIX-style ('/'-separated) path relative to the repo root. When materialized
+    on disk (in `local_dir` or in the cache), it is joined onto a base directory. A malicious repository
+    could craft a filename that escapes that base directory, resulting in an arbitrary file write:
+
+    - an absolute path (`/etc/...`),
+    - a Windows drive path (`C:\\Windows\\...`) or drive-relative path (`D:foo`),
+    - a UNC path (`\\\\attacker-host\\share\\...`) — which on Windows additionally makes the client
+      authenticate to the attacker's SMB server during path resolution, leaking a NetNTLMv2 hash,
+    - a path using `..` to traverse upward.
+
+    Such filenames would otherwise cause `local_dir / filename` to discard `local_dir` (when the right
+    side is anchored) or point outside of it (with `..`). We reject them here, before touching the
+    filesystem. The check runs on all platforms and interprets the name under both POSIX and Windows
+    rules, so a file materialized on Linux cannot escape when later consumed on Windows.
+    """
+    # Reject parent-directory traversal ('..' as any segment, whether '/'- or '\'-separated).
+    if ".." in filename.replace("\\", "/").split("/"):
+        raise ValueError(
+            f"Invalid filename '{filename}': cannot contain a '..' path segment. "
+            "Please ask the repository owner to rename this file."
+        )
+    # Reject anchored paths (absolute / drive / root-relative / UNC) under either OS's rules.
+    # Check each POSIX segment under Windows rules because os.path.join handles them separately.
+    pure_paths = [PurePosixPath(filename), *(PureWindowsPath(part) for part in filename.split("/"))]
+    for pure_path in pure_paths:
+        if pure_path.drive or pure_path.root:
+            raise ValueError(
+                f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
+                "Please ask the repository owner to rename this file."
+            )
+
+
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
     """Compute paths to the files related to a download process.
 
@@ -210,15 +245,10 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     Return:
         [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
+    _validate_relative_filename(filename)
     # filename is the path in the Hub repository (separated by '/')
     # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
@@ -250,15 +280,10 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     Return:
         [`LocalUploadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path).
     """
+    _validate_relative_filename(filename)
     # filename is the path in the Hub repository (separated by '/')
     # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "upload" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
