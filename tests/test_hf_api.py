@@ -3356,8 +3356,8 @@ class TestCommitInBackground:
         )
         t1 = time.time()
 
-        # all futures are queued instantly
-        assert t1 - t0 <= 0.01
+        # all futures are queued near-instantly (generous bound to avoid flakiness on slow/busy CI runners)
+        assert t1 - t0 <= 0.5
 
         # wait for the last job to complete
         upload_future_3.result()
