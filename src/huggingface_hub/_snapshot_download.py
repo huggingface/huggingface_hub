@@ -20,6 +20,7 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._xet import is_valid_xet_hash
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -381,7 +382,7 @@ def snapshot_download(
                 blob_id=f.blob_id,
                 lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
                 lfs_size=f.lfs.size if f.lfs is not None else None,
-                xet_hash=f.xet_hash,
+                xet_hash=f.xet_hash if f.xet_hash is not None and is_valid_xet_hash(f.xet_hash) else None,
             )
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)

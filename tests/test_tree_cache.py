@@ -52,6 +52,21 @@ def _entries():
     }
 
 
+MASKED_XET_HASH = "*" * 64
+
+
+def _entries_with_masked_xet_hash():
+    return {
+        "model.safetensors": TreeCacheEntry(
+            size=42,
+            blob_id="blob-model",
+            lfs_sha256="sha256-model",
+            lfs_size=1024,
+            xet_hash=MASKED_XET_HASH,
+        ),
+    }
+
+
 class TestTreeCacheReadWrite:
     def test_round_trip(self, tmp_path: Path):
         write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
@@ -158,6 +173,43 @@ class TestTreeCacheSkipsHeadCall:
                 )
                 is None
             )
+
+    def test_xet_file_returns_none_when_xet_hash_is_masked(self, tmp_path: Path):
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            assert (
+                _xet_file_metadata_from_tree_cache(
+                    tree_cache_folder=str(storage_folder),
+                    repo_id="user/repo",
+                    repo_type="model",
+                    commit_hash=COMMIT_HASH,
+                    filename="model.safetensors",
+                    endpoint=None,
+                )
+                is None
+            )
+
+    def test_get_metadata_heads_when_xet_hash_is_masked(self, tmp_path: Path):
+        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
+        with (
+            patch("huggingface_hub.file_download.is_xet_available", return_value=True),
+            patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")),
+        ):
+            with pytest.raises(RuntimeError, match="HEAD called"):
+                _get_metadata_or_catch_error(
+                    repo_id="user/repo",
+                    filename="model.safetensors",
+                    repo_type="model",
+                    revision=COMMIT_HASH,
+                    endpoint=None,
+                    etag_timeout=10,
+                    headers={},
+                    token=None,
+                    local_files_only=False,
+                    tree_cache_folder=str(storage_folder),
+                )
 
     def test_no_tree_cache_returns_none(self, tmp_path: Path):  # not populated
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
