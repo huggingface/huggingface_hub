@@ -101,6 +101,9 @@ UNSAFE_FILENAMES = [
     "D:relative\\evil",  # Windows drive-relative
     "\\\\attacker\\share\\evil",  # UNC path (also triggers SMB auth / NetNTLMv2 leak on Windows)
     "\\evil",  # Windows root-relative
+    "folder/C:\\Windows\\evil",  # nested Windows drive-absolute
+    "folder/\\\\attacker\\share\\evil",  # nested UNC path
+    "folder/\\evil",  # nested Windows root-relative
 ]
 
 SAFE_FILENAMES = [

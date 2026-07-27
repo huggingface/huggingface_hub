@@ -221,7 +221,9 @@ def _validate_relative_filename(filename: str) -> None:
             "Please ask the repository owner to rename this file."
         )
     # Reject anchored paths (absolute / drive / root-relative / UNC) under either OS's rules.
-    for pure_path in (PurePosixPath(filename), PureWindowsPath(filename)):
+    # Check each POSIX segment under Windows rules because os.path.join handles them separately.
+    pure_paths = [PurePosixPath(filename), *(PureWindowsPath(part) for part in filename.split("/"))]
+    for pure_path in pure_paths:
         if pure_path.drive or pure_path.root:
             raise ValueError(
                 f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
