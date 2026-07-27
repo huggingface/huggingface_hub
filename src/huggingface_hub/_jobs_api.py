@@ -581,6 +581,7 @@ def _create_job_spec(
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
     ssh: bool = False,
+    resource_group_id: str | None = None,
 ) -> dict[str, Any]:
     if name is not None:
         if labels is not None and "name" in labels:
@@ -616,6 +617,9 @@ def _create_job_spec(
     # make the job container reachable over SSH
     if ssh:
         job_spec["ssh"] = {"enabled": True}
+    # resource group is optional
+    if resource_group_id:
+        job_spec["resourceGroupId"] = resource_group_id
     # input is either from docker hub or from HF spaces
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):

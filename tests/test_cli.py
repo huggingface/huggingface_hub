@@ -2998,6 +2998,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3025,6 +3026,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3055,6 +3057,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            resource_group_id=None,
             namespace=None,
         )
 
@@ -3082,6 +3085,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3112,6 +3116,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3140,6 +3145,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
 
@@ -3169,6 +3175,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()

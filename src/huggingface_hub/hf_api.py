@@ -11833,6 +11833,7 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11884,6 +11885,10 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the Job in. Resource groups are used to control access to
+                resources within an organization. If not provided, the Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11938,6 +11943,7 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            resource_group_id=resource_group_id,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -12467,6 +12473,7 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12525,6 +12532,10 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the Job in. Resource groups are used to control access to
+                resources within an organization. If not provided, the Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12607,6 +12618,7 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
         )
@@ -12627,6 +12639,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12683,6 +12696,11 @@ class HfApi:
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
 
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the scheduled Job in. Resource groups are used to control
+                access to resources within an organization. If not provided, the scheduled Job is created outside
+                of any resource group.
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -12733,6 +12751,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            resource_group_id=resource_group_id,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -13017,6 +13036,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -13079,6 +13099,11 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the scheduled Job in. Resource groups are used to control
+                access to resources within an organization. If not provided, the scheduled Job is created outside
+                of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -13150,6 +13175,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
         )

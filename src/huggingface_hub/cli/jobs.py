@@ -192,6 +192,14 @@ NamespaceOpt = Annotated[
     ),
 ]
 
+ResourceGroupIdOpt = Annotated[
+    str | None,
+    Option(
+        "--resource-group-id",
+        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization.",
+    ),
+]
+
 ExposeOpt = Annotated[
     list[int] | None,
     Option(
@@ -345,6 +353,7 @@ def jobs_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -364,6 +373,7 @@ def jobs_run(
         timeout=timeout,
         expose=expose,
         ssh=ssh,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
@@ -942,6 +952,7 @@ def jobs_uv_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -966,6 +977,7 @@ def jobs_uv_run(
         timeout=timeout,
         expose=expose,
         ssh=ssh,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
@@ -1013,6 +1025,7 @@ def scheduled_run(
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
     expose: ExposeOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -1034,6 +1047,7 @@ def scheduled_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=scheduled_job.id, name=(scheduled_job.job_spec.labels or {}).get("name"))
@@ -1286,6 +1300,7 @@ def scheduled_uv_run(
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     expose: ExposeOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1312,6 +1327,7 @@ def scheduled_uv_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
     out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
