@@ -17,7 +17,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import DEFAULT
 
 from .validate_notes import find_release_notes_file
 
