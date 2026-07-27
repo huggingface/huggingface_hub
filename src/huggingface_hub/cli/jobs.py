@@ -749,7 +749,7 @@ def jobs_inspect(
     job_ids = parsed_ids
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs])
+    out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -1159,7 +1159,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    out.table([_surface_name(_dataclass_to_dict(sj), labels=sj.job_spec.labels) for sj in scheduled_jobs])
+    out.table([_surface_name(_dataclass_to_dict(sj), labels=sj.job_spec.labels) for sj in scheduled_jobs], id_key="id")
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
