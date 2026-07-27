@@ -10006,6 +10006,7 @@ class HfApi:
         namespace: str | None = None,
         description: str | None = None,
         private: bool = False,
+        resource_group_id: str | None = None,
         exists_ok: bool = False,
         token: bool | str | None = None,
     ) -> Collection:
@@ -10020,6 +10021,9 @@ class HfApi:
                 Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
+            resource_group_id (`str`, *optional*):
+                Assign the collection to a resource group of the owning organization. Only valid for
+                organization-owned collections. The resource group ID is a 24-character hexadecimal string.
             exists_ok (`bool`, *optional*):
                 If `True`, do not raise an error if collection already exists.
             token (`bool` or `str`, *optional*):
@@ -10052,6 +10056,8 @@ class HfApi:
         }
         if description is not None:
             payload["description"] = description
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
 
         r = get_session().post(
             f"{self.endpoint}/api/collections", headers=self._build_hf_headers(token=token), json=payload
@@ -10134,6 +10140,46 @@ class HfApi:
         )
         hf_raise_for_status(r)
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
+
+    def update_collection_resource_group(
+        self,
+        collection_slug: str,
+        resource_group_id: str | None,
+        *,
+        token: bool | str | None = None,
+    ) -> None:
+        """Assign a collection to a resource group, or remove it from any resource group.
+
+        Only valid for organization-owned collections.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            resource_group_id (`str` or `None`):
+                The resource group to assign the collection to, as a 24-character hexadecimal string. If `None`,
+                the collection is removed from any resource group.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_collection_resource_group
+        >>> update_collection_resource_group(
+        ...     collection_slug="my-org/iccv-2023-64f9a55bb3115b4f513ec026",
+        ...     resource_group_id="66980ecfc1e12a49c8f0e42d",
+        ... )
+        ```
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/collections/{collection_slug}/resource-group",
+            headers=self._build_hf_headers(token=token),
+            json={"resourceGroupId": resource_group_id},
+        )
+        hf_raise_for_status(r)
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: bool | str | None = None
@@ -14971,6 +15017,7 @@ get_collection = api.get_collection
 list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
+update_collection_resource_group = api.update_collection_resource_group
 delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item
