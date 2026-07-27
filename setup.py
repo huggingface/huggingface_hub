@@ -60,7 +60,9 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
+        # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+        # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+        "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
         "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
