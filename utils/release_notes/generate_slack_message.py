@@ -8,7 +8,7 @@ This script:
 4. Outputs the final message to .release-notes/
 
 Usage:
-  python -m utils.release_notes.generate_slack_message --version v1.7.0 --rc-version 1.7.0rc0
+  python -m utils.release_notes.generate_slack_message --version v1.7.0 --rc-version 1.7.0.rc0
 """
 
 import argparse
@@ -24,12 +24,11 @@ from .validate_notes import find_release_notes_file
 OUTPUT_DIR = Path(os.environ.get("RELEASE_NOTES_OUTPUT_DIR", ".release-notes"))
 
 # Downstream repos to ping for RC testing.
-# Each entry: (display_label, repo_name)
-DEFAULT_PING_LIST: list[tuple[str, str]] = [
-    ("transformers", "@U01JNPUN1ML", "transformers"),
-    ("datasets", "@U011YKS85FY", "datasets"),
-    ("diffusers", "@U03AU4E7DJB", "diffusers"),
-    ("sentence-transformers", "@U04E4DNPWG7", "sentence-transformers"),
+DEFAULT_PING_LIST: list[str] = [
+    "transformers",
+    "datasets",
+    "diffusers",
+    "sentence-transformers",
 ]
 
 
@@ -37,16 +36,16 @@ def build_ping_section(rc_version: str) -> str:
     """Build the "Ping:" block with CI compare URLs and closing line.
 
     Args:
-        rc_version: RC version for pip install (e.g., "1.7.0rc0")
+        rc_version: RC version used in the CI test branch names (e.g., "1.7.0.rc0")
 
     Returns:
         The ping section + closing line as a string.
     """
 
     lines = ["Ping:"]
-    for label, repo in DEFAULT_PING_LIST:
+    for repo in DEFAULT_PING_LIST:
         url = f"https://github.com/huggingface/{repo}/compare/main...ci-test-huggingface-hub-{rc_version}-release"
-        lines.append(f"- {label}  => {url}")
+        lines.append(f"- {repo}  => {url}")
 
     lines.append("")
     lines.append("Let us know if you spot any regressions! Release should be happening pretty soon :hugging_face:")
@@ -56,7 +55,6 @@ def build_ping_section(rc_version: str) -> str:
 
 def run_opencode_skill(
     version: str,
-    rc_version: str,
     input_file: Path,
     output_file: Path,
 ) -> bool:
@@ -64,7 +62,6 @@ def run_opencode_skill(
 
     Args:
         version: Base version (e.g., "v1.7.0")
-        rc_version: RC version for pip install (e.g., "1.7.0rc0")
         input_file: Path to the release notes markdown
         output_file: Path to write the Slack message body
 
@@ -74,7 +71,6 @@ def run_opencode_skill(
     prompt = (
         f"Run the hf-release-notes:slack skill. "
         f"Generate a Slack announcement message for version {version}. "
-        f"The RC version for the pip install command is {rc_version}. "
         f"Read the release notes from {input_file}. "
         f"Write the message body to {output_file}. "
         f"Do NOT include the Ping section or closing line — those are appended by the script."
@@ -108,7 +104,7 @@ def main(version: str, rc_version: str, input_file: Path | None = None, output_f
 
     Args:
         version: Base version (e.g., "v1.7.0")
-        rc_version: RC version for pip install (e.g., "1.7.0rc0")
+        rc_version: RC version used in the CI test branch names (e.g., "1.7.0.rc0")
         input_file: Path to release notes (auto-detected if None)
         output_file: Output path (defaults to .release-notes/SLACK_MESSAGE_{version}.md)
 
@@ -136,7 +132,7 @@ def main(version: str, rc_version: str, input_file: Path | None = None, output_f
 
     # Generate message body with OpenCode
     body_file = OUTPUT_DIR / f"_slack_body_{version}.md"
-    if not run_opencode_skill(version, rc_version, input_file, body_file):
+    if not run_opencode_skill(version, input_file, body_file):
         print("Failed to generate Slack message body", file=sys.stderr)
         return 1
 
@@ -175,11 +171,11 @@ def cli():
         epilog="""
 Examples:
   # Generate Slack message for v1.7.0 prerelease
-  python -m utils.release_notes.generate_slack_message --version v1.7.0 --rc-version 1.7.0rc0
+  python -m utils.release_notes.generate_slack_message --version v1.7.0 --rc-version 1.7.0.rc0
 
   # With custom input/output paths
   python -m utils.release_notes.generate_slack_message \\
-    --version v1.7.0 --rc-version 1.7.0rc0 \\
+    --version v1.7.0 --rc-version 1.7.0.rc0 \\
     --input .release-notes/RELEASE_NOTES_v1.7.0.md \\
     --output slack_message.md
 """,
@@ -192,7 +188,7 @@ Examples:
     parser.add_argument(
         "--rc-version",
         required=True,
-        help="Full RC version for pip install command (e.g., 1.7.0rc0)",
+        help="Full RC version used in the CI test branch names (e.g., 1.7.0.rc0)",
     )
     parser.add_argument(
         "--input",
