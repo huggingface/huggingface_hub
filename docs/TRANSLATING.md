@@ -59,7 +59,7 @@ Once you have translated the `_toctree.yml` file, you can start translating the 
 If you are adding a brand new language, the documentation for it won't be built until the language code is added to the `languages` list in both [`build_documentation.yaml`](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/build_documentation.yaml) and [`build_pr_documentation.yaml`](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/build_pr_documentation.yaml):
 
 ```yaml
-languages: cn de fr en hi ko or tm # add your LANG-ID here (keep it alphabetically sorted)
+languages: cn de fr en hi ko or ta # add your LANG-ID here (keep it alphabetically sorted)
 ```
 
 > 🙋 If you'd like others to help you with the translation, you should [open an issue](https://github.com/huggingface/huggingface_hub/issues) and tag @Wauplin.
