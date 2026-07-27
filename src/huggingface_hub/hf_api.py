@@ -11933,8 +11933,9 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             resource_group_id (`str`, *optional*):
-                The ID of the resource group to create the Job in. Resource groups are used to control access to
-                resources within an organization. If not provided, the Job is created outside of any resource group.
+                The ID of the resource group to create the Job in. Used to control access to resources within an
+                organization and for cost attribution/spending-limit features. If not provided, the Job is created
+                outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12580,8 +12581,9 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             resource_group_id (`str`, *optional*):
-                The ID of the resource group to create the Job in. Resource groups are used to control access to
-                resources within an organization. If not provided, the Job is created outside of any resource group.
+                The ID of the resource group to create the Job in. Used to control access to resources within an
+                organization and for cost attribution/spending-limit features. If not provided, the Job is created
+                outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12743,9 +12745,9 @@ class HfApi:
                 requires an HF token with read access to the job's namespace.
 
             resource_group_id (`str`, *optional*):
-                The ID of the resource group to create the scheduled Job in. Resource groups are used to control
-                access to resources within an organization. If not provided, the scheduled Job is created outside
-                of any resource group.
+                The ID of the resource group to create the scheduled Job in. Used to control access to resources
+                within an organization and for cost attribution/spending-limit features. If not provided, the
+                scheduled Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -13147,9 +13149,9 @@ class HfApi:
                 requires an HF token with read access to the job's namespace.
 
             resource_group_id (`str`, *optional*):
-                The ID of the resource group to create the scheduled Job in. Resource groups are used to control
-                access to resources within an organization. If not provided, the scheduled Job is created outside
-                of any resource group.
+                The ID of the resource group to create the scheduled Job in. Used to control access to resources
+                within an organization and for cost attribution/spending-limit features. If not provided, the
+                scheduled Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.

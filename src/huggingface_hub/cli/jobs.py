@@ -196,7 +196,7 @@ ResourceGroupIdOpt = Annotated[
     str | None,
     Option(
         "--resource-group-id",
-        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization.",
+        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.",
     ),
 ]
 
