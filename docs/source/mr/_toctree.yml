@@ -1,0 +1,8 @@
+- title: 'सुरुवात करा'
+  sections:
+    - local: index
+      title: होम
+    - local: quick-start
+      title: त्वरित सुरुवात
+    - local: installation
+      title: प्रतिष्ठापन
