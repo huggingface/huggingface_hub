@@ -9,7 +9,7 @@ description: Generate a concise Slack announcement message from drafted release 
 
 Generate a concise Slack announcement message from existing release notes. The message is intended for internal team communication to announce a prerelease and solicit testing from downstream maintainers.
 
-**Important:** You generate ONLY the message body (greeting through the pip install command). The "Ping:" section and closing line are appended by the calling script — do NOT generate those.
+**Important:** You generate ONLY the message body (greeting through the breaking changes line). The "Ping:" section and closing line are appended by the calling script — do NOT generate those.
 
 ## Workflow
 
@@ -17,7 +17,6 @@ Generate a concise Slack announcement message from existing release notes. The m
 
 The prompt will specify:
 - **Version**: The base release version (e.g., `v1.7.0`)
-- **RC version**: The prerelease version for pip install (e.g., `1.7.0rc0`)
 - **Release notes path**: Path to the full release notes markdown file
 - **Output path**: Where to write the Slack message
 
@@ -76,7 +75,8 @@ No breaking changes in this release.
 
 ### 5. Write output
 
-Write ONLY the message body to the specified output path. Stop after the pip install command. Do NOT include:
+Write ONLY the message body to the specified output path. Stop after the breaking changes line. Do NOT include:
+- Any pip install command
 - The "Ping:" section
 - The "Let us know if you spot any regressions..." closing line
 - Any separator lines
@@ -84,7 +84,6 @@ Write ONLY the message body to the specified output path. Stop after the pip ins
 ## Input
 
 - Version string (e.g., `v1.7.0`)
-- RC version string (e.g., `1.7.0rc0`)
 - Path to the release notes markdown file
 - Output path for the Slack message
 

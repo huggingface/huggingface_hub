@@ -2,7 +2,7 @@
 
 This is the template for the Slack announcement message. The script appends the "Ping:" section
 and closing line automatically — the skill only generates the body from the greeting through the
-pip install command.
+breaking changes line.
 
 ## Template
 
