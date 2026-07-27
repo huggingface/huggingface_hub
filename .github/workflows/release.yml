@@ -1165,11 +1165,22 @@ jobs:
           # e.g. PRs merged from a security-advisory private fork). We keep going through the whole
           # list, retry each API call once, and only fail the job at the very end so that as many PRs
           # as possible get notified.
+          # Buffer stdout and only echo it back for the attempt that succeeded: on an HTTP error
+          # `gh api` writes the raw error body to stdout (bypassing --jq), so forwarding a failed
+          # attempt's stdout would pollute the caller's output (e.g. make HAS_BOT_COMMENT non-empty).
           retry() {
-            "$@" && return 0
+            local output
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
             echo "  API call failed, retrying in 2s..." >&2
             sleep 2
-            "$@"
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
+            return 1
           }
 
           # Extract unique PR numbers from commit messages between the two tags
