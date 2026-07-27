@@ -521,6 +521,12 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 >>> hf jobs labels <job_id> --name daily-report
 ```
 
+`hf jobs ls` shows a `NAME` column and can filter by name (a shortcut for `--label name=NAME`):
+
+```bash
+>>> hf jobs ls -a --name daily-report
+```
+
 ```python
 # Pass extra metadata with Labels
 >>> from huggingface_hub import run_job
