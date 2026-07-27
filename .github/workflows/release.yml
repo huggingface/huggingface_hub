@@ -1160,12 +1160,9 @@ jobs:
           RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          # Best-effort by design: a single PR can fail for reasons unrelated to the others (transient
-          # API error, or a number extracted from a commit message that does not exist in this repo —
-          # e.g. PRs merged from a security-advisory private fork). We keep going through the whole
-          # list, retry each API call once, and only fail the job at the very end so that as many PRs
-          # as possible get notified.
-          # Buffer stdout and only echo it back for the attempt that succeeded: on an HTTP error
+          # Best-effort by design: a single PR can fail for reasons unrelated to the others. We keep going through the
+          # whole list, retry each API call once, and only fail the job at the very end so that as many PRs as possible
+          # get notified. Buffer stdout and only echo it back for the attempt that succeeded: on an HTTP error
           # `gh api` writes the raw error body to stdout (bypassing --jq), so forwarding a failed
           # attempt's stdout would pollute the caller's output (e.g. make HAS_BOT_COMMENT non-empty).
           retry() {
