@@ -850,12 +850,21 @@ jobs:
           echo "::error::Package not available on PyPI after 5 minutes"
           exit 1
 
+      - name: Create GitHub App token for downstream testing
+        id: downstream_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+          owner: huggingface
+          repositories: ${{ matrix.target-repo }}
+
       - name: Checkout target repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
-          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
+          token: ${{ steps.downstream_token.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -865,6 +874,13 @@ jobs:
 
       - name: Create test branch and update dependencies
         run: |
+          # Validate target-repo to prevent command injection
+          ALLOWED_REPOS="transformers datasets diffusers sentence-transformers"
+          if ! echo "$ALLOWED_REPOS" | grep -qw "${{ matrix.target-repo }}"; then
+            echo "::error::Invalid target repository: ${{ matrix.target-repo }}"
+            exit 1
+          fi
+          
           cd ${{ matrix.target-repo }}
           VERSION="${{ needs.prepare.outputs.version }}"
           BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
