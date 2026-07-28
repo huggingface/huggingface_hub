@@ -339,6 +339,23 @@ class TestManifestGc:
         assert sweep_shared_blob(store_entry, cache_dir=tmp_path) == len(CONTENT)
         assert not store_entry.exists()
 
+    def test_manifest_io_error_leaks_instead_of_dropping_reference(self, tmp_path: Path) -> None:
+        blob = _publish(tmp_path)
+        store_entry = shared_blob_path(tmp_path, XET_HASH)
+        manifest = shared_blob_manifest_path(tmp_path, XET_HASH)
+        original_readlink = os.readlink
+
+        def fail_blob_readlink(path):
+            if Path(path) == blob:
+                raise OSError("transient filesystem error")
+            return original_readlink(path)
+
+        with patch("huggingface_hub._shared_blobs.os.readlink", side_effect=fail_blob_readlink):
+            assert sweep_shared_blob(store_entry, cache_dir=tmp_path) == 0
+
+        assert manifest.read_text() == "models--org--repoA/blobs/etag\n"
+        assert store_entry.exists()
+
     def test_link_and_gc_are_serialized_per_blob(self, tmp_path: Path) -> None:
         blob_a = _publish(tmp_path)
         store_entry = shared_blob_path(tmp_path, XET_HASH)

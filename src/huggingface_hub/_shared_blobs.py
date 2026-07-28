@@ -211,7 +211,9 @@ def _relative_blob_path(blob_path: str | Path, cache_dir: str | Path) -> str | N
     return None if "\n" in relative_str or "\r" in relative_str else relative_str
 
 
-def _shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | None:
+def _shared_blob_target(
+    blob_path: str | Path, cache_dir: str | Path, *, raise_on_io_error: bool = False
+) -> Path | None:
     """Return the canonical store target if `blob_path` is a managed shared symlink."""
     blob_path = Path(blob_path)
     if _relative_blob_path(blob_path, cache_dir) is None:
@@ -220,7 +222,11 @@ def _shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | 
         if not stat.S_ISLNK(blob_path.lstat().st_mode):
             return None
         link_target = Path(os.readlink(blob_path))
+    except FileNotFoundError:
+        return None
     except OSError:
+        if raise_on_io_error:
+            raise
         return None
 
     comparable_blob_path = _path_for_comparison(blob_path)
@@ -458,7 +464,11 @@ def _read_valid_manifest_references(store_path: Path, cache_dir: str | Path) -> 
         candidate = cache_dir / relative_path
         if _relative_blob_path(candidate, cache_dir) is None:
             continue
-        if _shared_blob_target(candidate, cache_dir) == store_path:
+        try:
+            target = _shared_blob_target(candidate, cache_dir, raise_on_io_error=True)
+        except OSError:
+            return None
+        if target == store_path:
             references.add(candidate)
     return references
 
