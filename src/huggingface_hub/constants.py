@@ -240,7 +240,7 @@ HF_DEBUG = _is_true(os.environ.get("HF_DEBUG"))
 HF_HUB_DISABLE_TELEMETRY = (
     _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable
     or _is_true(os.environ.get("DISABLE_TELEMETRY"))
-    or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
+    or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://donottrack.sh/
 )
 
 HF_TOKEN_PATH = os.path.expandvars(

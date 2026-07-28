@@ -161,6 +161,14 @@ LabelsOpt = Annotated[
     ),
 ]
 
+NameOpt = Annotated[
+    str | None,
+    Option(
+        "--name",
+        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.",
+    ),
+]
+
 TimeoutOpt = Annotated[
     str | None,
     Option(
@@ -181,6 +189,14 @@ NamespaceOpt = Annotated[
     str | None,
     Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
+    ),
+]
+
+ResourceGroupIdOpt = Annotated[
+    str | None,
+    Option(
+        "--resource-group-id",
+        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.",
     ),
 ]
 
@@ -315,7 +331,7 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     "run",
     context_settings={"ignore_unknown_options": True},
     examples=[
-        "hf jobs run python:3.12 python -c 'print(\"Hello!\")'",
+        "hf jobs run --name hello-world python:3.12 python -c 'print(\"Hello!\")'",
         "hf jobs run --detach python:3.12 python script.py",
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
@@ -327,6 +343,7 @@ def jobs_run(
     command: CommandArg,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
@@ -336,6 +353,7 @@ def jobs_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -349,15 +367,22 @@ def jobs_run(
         command=command,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label),
+        labels=_parse_labels_map(label, name=name),
         volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
         ssh=ssh,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Job started", id=job.id, url=job.url)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    if not _has_explicit_name(name, label):
+        auto_name = (job.labels or {}).get("name")
+        out.hint(
+            f"Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
@@ -545,6 +570,7 @@ def jobs_stats(
         "hf jobs ls",
         "hf jobs ls -a",
         "hf jobs ls --status running,scheduling",
+        "hf jobs ls --name training-v2",
         "hf jobs ls --label env=prod --label team=ml",
         "hf jobs ls --all --label hf-sandbox=1",
     ],
@@ -572,6 +598,13 @@ def jobs_ps(
             "-l",
             "--label",
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show Jobs with the given name (shortcut for `--label name=NAME`).",
         ),
     ] = None,
     limit: Annotated[
@@ -629,6 +662,12 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
@@ -648,6 +687,7 @@ def jobs_ps(
         durations = job_item.get("durations") or {}
         cmd = job_item.get("command") or []
         job_item["job_id"] = job_item.get("id", "")
+        job_item["name"] = (job_item.get("labels") or {}).get("name") or "N/A"
         job_item["image/space"] = job_item.get("docker_image") or "N/A"
         job_item["command"] = " ".join(cmd) if cmd else "N/A"
         job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
@@ -657,7 +697,7 @@ def jobs_ps(
 
     out.table(
         job_items,
-        headers=["job_id", "image/space", "command", "created", "status", "runtime"],
+        headers=["job_id", "name", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
     if truncated:
@@ -719,7 +759,7 @@ def jobs_inspect(
     job_ids = parsed_ids
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    out.table([_dataclass_to_dict(job) for job in jobs])
+    out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -801,29 +841,38 @@ def jobs_wait(
 @jobs_cli.command(
     "labels",
     examples=[
+        "hf jobs labels <job_id> --name training-v2",
         "hf jobs labels <job_id> --label env=prod --label team=ml",
         "hf jobs labels <job_id> --clear",
     ],
 )
 def jobs_labels(
     job_id: JobIdArg,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     clear: Annotated[bool, Option("--clear", help="Remove all labels from the job.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update labels on a Job. Replaces all existing labels."""
-    if not label and not clear:
-        raise CLIError("Please set at least one label with --label. To remove all labels, pass --clear.")
-    if label and clear:
+    """Update labels on a Job. Passing --label replaces all existing labels; passing --name alone keeps them."""
+    if not label and name is None and not clear:
         raise CLIError(
-            "Cannot set labels and clear them at the same time. Please use either --label or --clear, not both."
+            "Please set a name with --name or at least one label with --label. To remove all labels, pass --clear."
+        )
+    if (label or name is not None) and clear:
+        raise CLIError(
+            "Cannot set a name or labels and clear them at the same time. Please use --name/--label or --clear, not both."
         )
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
-    labels = _parse_labels_map(label) or {}
     api = get_hf_api(token=token)
+    if name is not None and not label:
+        # Naming a Job should not wipe its existing labels: fetch them and merge the name in.
+        current_labels = api.inspect_job(job_id=job_id, namespace=namespace).labels or {}
+        labels = {**current_labels, "name": name}
+    else:
+        labels = _parse_labels_map(label, name=name) or {}
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
-    out.result("Labels updated", id=job.id)
+    out.result("Labels updated", id=job.id, name=labels.get("name"))
 
 
 @jobs_cli.command(
@@ -880,7 +929,7 @@ jobs_cli.add_group(uv_app, name="uv")
     "run",
     context_settings={"ignore_unknown_options": True},
     examples=[
-        "hf jobs uv run my_script.py",
+        "hf jobs uv run --name my-script my_script.py",
         "hf jobs uv run --detach my_script.py",
         "hf jobs uv run ml_training.py --flavor a10g-small",
         "hf jobs uv run --with transformers train.py",
@@ -894,6 +943,7 @@ def jobs_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
@@ -902,6 +952,7 @@ def jobs_uv_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -920,15 +971,22 @@ def jobs_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label),
+        labels=_parse_labels_map(label, name=name),
         volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
         ssh=ssh,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Job started", id=job.id, url=job.url)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    if not _has_explicit_name(name, label):
+        auto_name = (job.labels or {}).get("name")
+        out.hint(
+            f"Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
@@ -949,7 +1007,7 @@ jobs_cli.add_group(scheduled_app, name="scheduled")
 @scheduled_app.command(
     "run",
     context_settings={"ignore_unknown_options": True},
-    examples=['hf jobs scheduled run "0 0 * * *" python:3.12 python script.py'],
+    examples=['hf jobs scheduled run "0 0 * * *" --name daily-script python:3.12 python script.py'],
 )
 def scheduled_run(
     schedule: ScheduleArg,
@@ -959,6 +1017,7 @@ def scheduled_run(
     concurrency: ConcurrencyOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
@@ -966,6 +1025,7 @@ def scheduled_run(
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
     expose: ExposeOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -982,15 +1042,22 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label),
+        labels=_parse_labels_map(label, name=name),
         volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Scheduled Job created", id=scheduled_job.id)
-    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.id}` to view its details.")
+    out.result("Scheduled Job created", id=scheduled_job.id, name=(scheduled_job.job_spec.labels or {}).get("name"))
+    if not _has_explicit_name(name, label):
+        auto_name = (scheduled_job.job_spec.labels or {}).get("name")
+        out.hint(
+            f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs scheduled labels {scheduled_job.owner.name}/{scheduled_job.id} --name NAME` to rename it."
+        )
+    out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
 
 @scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
@@ -1040,7 +1107,14 @@ def scheduled_ps(
         image_or_space = scheduled_job.job_spec.docker_image or "N/A"
         cmd = scheduled_job.job_spec.command or []
         command_str = " ".join(cmd) if cmd else "N/A"
-        props = {"id": scheduled_job.id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
+        job_name = (scheduled_job.job_spec.labels or {}).get("name") or "N/A"
+        props = {
+            "id": scheduled_job.id,
+            "name": job_name,
+            "image": image_or_space,
+            "suspend": str(suspend),
+            "command": command_str,
+        }
         if not _matches_filters(props, filters):
             continue
         filtered_jobs.append(scheduled_job)
@@ -1053,6 +1127,7 @@ def scheduled_ps(
         status_dict = item.get("status") or {}
         last_job = status_dict.get("last_job")
         cmd = job_spec.get("command") or []
+        item["name"] = (job_spec.get("labels") or {}).get("name") or "N/A"
         item["image/space"] = job_spec.get("docker_image") or "N/A"
         item["command"] = " ".join(cmd) if cmd else "N/A"
         item["last_run"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
@@ -1064,7 +1139,7 @@ def scheduled_ps(
 
     out.table(
         items,
-        headers=["id", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
+        headers=["id", "name", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
     if not items and filters:
@@ -1098,7 +1173,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    out.table([_dataclass_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
+    out.table([_surface_name(_dataclass_to_dict(sj), labels=sj.job_spec.labels) for sj in scheduled_jobs], id_key="id")
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
@@ -1158,31 +1233,42 @@ def scheduled_trigger(
 @scheduled_app.command(
     "labels",
     examples=[
+        "hf jobs scheduled labels <id> --name daily-script",
         "hf jobs scheduled labels <id> --label env=prod --label team=ml",
         "hf jobs scheduled labels <id> --clear",
     ],
 )
 def scheduled_labels(
     scheduled_job_id: ScheduledJobIdArg,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     clear: Annotated[bool, Option("--clear", help="Remove all labels from the scheduled job.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update labels on a scheduled Job. Replaces all existing labels."""
-    if not label and not clear:
-        raise CLIError("Please set at least one label with --label. To remove all labels, pass --clear.")
-    if label and clear:
+    """Update labels on a scheduled Job. Passing --label replaces all existing labels; passing --name alone keeps them."""
+    if not label and name is None and not clear:
         raise CLIError(
-            "Cannot set labels and clear them at the same time. Please use either --label or --clear, not both."
+            "Please set a name with --name or at least one label with --label. To remove all labels, pass --clear."
+        )
+    if (label or name is not None) and clear:
+        raise CLIError(
+            "Cannot set a name or labels and clear them at the same time. Please use --name/--label or --clear, not both."
         )
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
-    labels = _parse_labels_map(label) or {}
     api = get_hf_api(token=token)
+    if name is not None and not label:
+        # Naming a scheduled Job should not wipe its existing labels: fetch them and merge the name in.
+        current_labels = (
+            api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace).job_spec.labels or {}
+        )
+        labels = {**current_labels, "name": name}
+    else:
+        labels = _parse_labels_map(label, name=name) or {}
     scheduled_job = api.update_scheduled_job_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
-    out.result("Labels updated", id=scheduled_job.id)
+    out.result("Labels updated", id=scheduled_job.id, name=labels.get("name"))
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
@@ -1193,7 +1279,7 @@ scheduled_app.add_group(scheduled_uv_app, name="uv")
     "run",
     context_settings={"ignore_unknown_options": True},
     examples=[
-        'hf jobs scheduled uv run "0 0 * * *" script.py',
+        'hf jobs scheduled uv run "0 0 * * *" --name daily-script script.py',
         'hf jobs scheduled uv run "0 0 * * *" script.py --with pandas',
     ],
 )
@@ -1207,12 +1293,14 @@ def scheduled_uv_run(
     flavor: FlavorOpt = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    name: NameOpt = None,
     label: LabelsOpt = None,
     volume: JobVolumesOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
     expose: ExposeOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1234,35 +1322,63 @@ def scheduled_uv_run(
         image=image,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label),
+        labels=_parse_labels_map(label, name=name),
         volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Scheduled Job created", id=job.id)
-    out.hint(f"Use `hf jobs scheduled inspect {job.id}` to view its details.")
+    out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
+    if not _has_explicit_name(name, label):
+        auto_name = (job.job_spec.labels or {}).get("name")
+        out.hint(
+            f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
+            f"`hf jobs scheduled labels {job.owner.name}/{job.id} --name NAME` to rename it."
+        )
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to view its details.")
 
 
 ### UTILS
 
 
-def _parse_labels_map(labels: list[str] | None) -> dict[str, str] | None:
+def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dict[str, Any]:
+    """Promote the `name` label to a top-level `name` field for display.
+
+    The `name` is kept inside `labels` too (the dataclasses and API payloads are unchanged); this
+    only makes it a first-class column/field in command outputs. No-op when there is no name.
+    """
+    name = (labels or {}).get("name")
+    if name is None:
+        return item
+    return {"name": name, **item}
+
+
+def _has_explicit_name(name: str | None, label: list[str] | None) -> bool:
+    """Whether the user explicitly named the Job (via `--name` or a `name=` label)."""
+    return name is not None or any(item.split("=", 1)[0] == "name" for item in label or [])
+
+
+def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> dict[str, str] | None:
     """Parse label key-value pairs from CLI arguments.
 
     Args:
         labels: List of label strings in KEY=VALUE format. If KEY only, then VALUE is set to empty string.
 
     Returns:
-        Dictionary mapping label keys to values, or None if no labels provided.
+        Dictionary mapping label keys to values, or None if no labels or name provided.
     """
-    if not labels:
+    if not labels and name is None:
         return None
     labels_map: dict[str, str] = {}
-    for label_var in labels:
+    for label_var in labels or []:
         key, value = label_var.split("=", 1) if "=" in label_var else (label_var, "")
         labels_map[key] = value
+    if name is not None:
+        if "name" in labels_map:
+            raise CLIError("--name and --label name=... cannot both be provided.")
+        labels_map["name"] = name
     return labels_map
 
 

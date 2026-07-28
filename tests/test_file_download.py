@@ -1001,12 +1001,18 @@ class TestStagingCachedDownloadOnAwfulFilenames:
 
 
 class TestHfHubDownloadRelativePaths:
-    """Regression test for HackerOne report 1928845.
+    """Regression test for HackerOne report 1928845 and its absolute/UNC follow-up (CVE-2026-15717).
 
-    Issue was that any file outside of the local dir could be overwritten (Windows only).
+    Issue was that a malicious repo could overwrite files outside of the cache/local dir on Windows
+    clients: a crafted filename (`..\\` traversal, absolute `C:\\...`, drive-relative `D:foo`, root-relative
+    `\\foo`, or UNC `\\\\host\\share\\...`) escapes the target directory when joined onto it. The UNC form
+    additionally makes the Windows client authenticate to the attacker's SMB server, leaking a NetNTLMv2
+    hash.
 
-    In the end, multiple protections have been added to prevent this (..\\ in filename forbidden on Windows, always check
-    the filepath is in local_dir/snapshot_dir).
+    Protection is a single validation (`_validate_relative_filename`) applied on both the cache and the
+    `local_dir` download paths, interpreting the filename under both POSIX and Windows rules on all
+    platforms (so a file materialized on Linux cannot escape when later consumed on Windows), backed by
+    the `_get_pointer_path` containment check in the cache path.
     """
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1020,14 +1026,14 @@ class TestHfHubDownloadRelativePaths:
         yield
         api.delete_repo(repo_id=request.cls.repo_id)
 
-    @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_in_cache_dir(self, tmp_path: Path) -> None:
-        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path)
+        with pytest.raises(ValueError, match="Invalid filename"):
+            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path)
 
-    @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_to_local_dir(self, tmp_path: Path) -> None:
         with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path, local_dir=local_dir)
+            with pytest.raises(ValueError, match="Invalid filename"):
+                hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path, local_dir=local_dir)
 
     def test_get_pointer_path_and_valid_relative_filename(self) -> None:
         # Cannot happen because of other protections, but just in case.

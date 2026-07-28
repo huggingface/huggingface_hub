@@ -18,6 +18,7 @@ from tqdm.auto import tqdm as base_tqdm
 from . import constants
 from ._local_folder import (
     _create_cachedir_tag,
+    _validate_relative_filename,
     get_local_download_paths,
     read_download_metadata,
     write_download_metadata,
@@ -277,7 +278,7 @@ def hf_hub_url(
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id  # type: ignore
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
@@ -1064,14 +1065,9 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    _validate_relative_filename(filename)
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
@@ -1201,6 +1197,15 @@ def _hf_hub_download_to_cache_dir(
             will_download=force_download or not is_cached,
         )
 
+    # Pointer already exists -> update the ref best-effort, then return without
+    # attempting to write to the cache (which may be mounted read-only).
+    if not force_download and os.path.exists(pointer_path):
+        try:
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+        except OSError:
+            pass
+        return pointer_path
+
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
@@ -1236,10 +1241,6 @@ def _hf_hub_download_to_cache_dir(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-
-    # pointer already exists -> immediate return
-    if not force_download and os.path.exists(pointer_path):
-        return pointer_path
 
     # Blob exists but pointer must be (safely) created -> take the lock
     if not force_download and os.path.exists(blob_path):

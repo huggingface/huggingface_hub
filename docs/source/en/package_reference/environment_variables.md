@@ -102,7 +102,7 @@ Defaults to `0` (0 bytes, means chunk cache is disabled).
 
 To set the size of the Xet shard cache locally. Increasing this will improve upload efficiency as chunks referenced in cached shard files are not re-uploaded. Note that the default soft limit is likely sufficient for most workloads. 
 
-Defaults to `4000000000` (4GB).
+Defaults to `16000000000` (16GB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 
@@ -237,7 +237,7 @@ Some environment variables are not specific to `huggingface_hub` but are still t
 
 ### DO_NOT_TRACK
 
-Boolean value. Equivalent to `HF_HUB_DISABLE_TELEMETRY`. When set to true, telemetry is globally disabled in the Hugging Face Python ecosystem (`transformers`, `diffusers`, `gradio`, etc.). See https://consoledonottrack.com/ for more details.
+Boolean value. Equivalent to `HF_HUB_DISABLE_TELEMETRY`. When set to true, telemetry is globally disabled in the Hugging Face Python ecosystem (`transformers`, `diffusers`, `gradio`, etc.). See https://donottrack.sh/ for more details.
 
 ### NO_COLOR
 

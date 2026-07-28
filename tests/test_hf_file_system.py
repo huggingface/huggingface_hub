@@ -817,6 +817,15 @@ def test_resolve_path_with_non_matching_revisions():
         fs.resolve_path("username/my_model@dev", revision="main")
 
 
+def test_stream_file_open_if_not_found():
+    # Regression test: opening a missing file in streaming mode (block_size=0) must raise
+    # FileNotFoundError like the buffered HfFileSystemFile, not an AttributeError.
+    fs = HfFileSystem()
+    with patch.object(fs, "resolve_path", side_effect=FileNotFoundError("missing/repo")):
+        with pytest.raises(FileNotFoundError):
+            HfFileSystemStreamFile(fs, "hf://missing/repo/not_existing_file.txt")
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [

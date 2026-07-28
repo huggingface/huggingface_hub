@@ -622,7 +622,9 @@ class _UploadPipeline:
             # Nothing was committed (everything unchanged/ignored): mimic `create_commit` and
             # return info about the latest commit on the target revision.
             logger.warning("No files have been modified since last commit. Skipping to prevent empty commit.")
-            info = self.api.repo_info(repo_id=self.repo_id, repo_type=self.repo_type, revision=self.revision)
+            info = self.api.repo_info(
+                repo_id=self.repo_id, repo_type=self.repo_type, revision=self.revision, token=self.token
+            )
             url_prefix = self.api.endpoint
             if self.repo_type != constants.REPO_TYPE_MODEL:
                 url_prefix = f"{url_prefix}/{self.repo_type}s"
