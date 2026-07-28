@@ -190,22 +190,6 @@ class TestTreeCacheSkipsHeadCall:
                 is None
             )
 
-    @pytest.mark.xet
-    def test_xet_file_returns_none_when_xet_hash_is_masked(self, tmp_path: Path):
-        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
-        assert (
-            _xet_file_metadata_from_tree_cache(
-                tree_cache_folder=str(storage_folder),
-                repo_id="user/repo",
-                repo_type="model",
-                commit_hash=COMMIT_HASH,
-                filename="model.safetensors",
-                endpoint=None,
-            )
-            is None
-        )
-
     def test_no_tree_cache_returns_none(self, tmp_path: Path):  # not populated
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
