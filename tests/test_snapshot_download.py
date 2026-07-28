@@ -1,16 +1,42 @@
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
+from huggingface_hub._tree_cache import read_tree_cache
 from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError, RepositoryNotFoundError
 from huggingface_hub.file_download import repo_folder_name
+from huggingface_hub.hf_api import RepoFile
 from huggingface_hub.utils import SoftTemporaryDirectory, _http
 
 from .testing_constants import TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
+
+
+COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"
+MASKED_XET_HASH = "*" * 64
+
+
+def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
+    repo_file = RepoFile(
+        path="model.safetensors",
+        size=42,
+        oid="blob-model",
+        lfs={"oid": "sha256-model", "size": 42, "pointerSize": 128},
+        xetHash=MASKED_XET_HASH,
+    )
+
+    with (
+        patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
+        patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[repo_file]),
+        patch("huggingface_hub._snapshot_download.hf_thread_map"),
+    ):
+        snapshot_download("user/repo", cache_dir=tmp_path)
+
+    storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+    assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
 class TestSnapshotDownload:

@@ -53,7 +53,7 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
-from .utils._xet import XetTokenType, xet_connection_info_refresh_url
+from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -1819,7 +1819,13 @@ def _xet_file_metadata_from_tree_cache(
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None or entry.xet_hash is None or entry.lfs_sha256 is None or entry.lfs_size is None:
+    if (
+        entry is None
+        or entry.xet_hash is None
+        or not is_valid_xet_hash(entry.xet_hash)
+        or entry.lfs_sha256 is None
+        or entry.lfs_size is None
+    ):
         return None
 
     xet_file_data = XetFileData(
