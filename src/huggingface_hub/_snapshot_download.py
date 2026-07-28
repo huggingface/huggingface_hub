@@ -375,19 +375,29 @@ def snapshot_download(
 
     # Retrieve /tree listing from cache or fetch it
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is not None and any(
+        entry.xet_hash is not None and not is_valid_xet_hash(entry.xet_hash) for entry in tree_entries.values()
+    ):
+        # A redacted Xet hash means the tree was fetched without access to the gated repo contents. Refetch it in
+        # case access has since been granted instead of keeping the redacted tree cached forever.
+        tree_entries = None
     if tree_entries is None:
+        repo_files = [
+            f
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
+            if isinstance(f, RepoFile)
+        ]
         tree_entries = {
             f.path: TreeCacheEntry(
                 size=f.size,
                 blob_id=f.blob_id,
                 lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
                 lfs_size=f.lfs.size if f.lfs is not None else None,
-                xet_hash=f.xet_hash if f.xet_hash is not None and is_valid_xet_hash(f.xet_hash) else None,
+                xet_hash=f.xet_hash,
             )
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
-            if isinstance(f, RepoFile)
+            for f in repo_files
         }
-        if not dry_run:
+        if not dry_run and all(f.xet_hash is None or is_valid_xet_hash(f.xet_hash) for f in repo_files):
             write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
