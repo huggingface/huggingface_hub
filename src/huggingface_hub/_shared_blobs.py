@@ -48,6 +48,7 @@ SHARED_BLOBS_MARKER_NAME = ".huggingface-shared-blobs"
 SHARED_BLOBS_LAYOUT_VERSION = "1"
 _MANIFEST_SUFFIX = ".refs"
 _LOCK_SUFFIX = ".lock"
+_SOFT_LOCK_TIMEOUT = 10
 
 
 def shared_blobs_dir(cache_dir: str | Path) -> Path:
@@ -280,7 +281,7 @@ def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
         # A SoftFileLock uses file existence as the lock, so it cannot reuse the
         # persistent, cross-user-writable flock file prepared above.
         lock = SoftFileLock(f"{lock_path}.soft", mode=0o666)
-        lock.acquire()
+        lock.acquire(timeout=_SOFT_LOCK_TIMEOUT)
     try:
         yield
     finally:

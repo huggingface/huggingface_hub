@@ -153,6 +153,24 @@ class TestStoreHelpers:
         assert blob.read_bytes() == CONTENT
         assert not list(shared_blob_path(tmp_path, XET_HASH).parent.glob("*.soft"))
 
+    @requires_reliable_symlinks
+    def test_stale_soft_lock_fails_without_blocking(self, tmp_path: Path) -> None:
+        _publish(tmp_path)
+        store_path = shared_blob_path(tmp_path, XET_HASH)
+        Path(f"{store_path}.lock.soft").touch()
+        blob = _write_blob(tmp_path / "models--org--repoB" / "blobs" / "etag")
+
+        with (
+            patch("huggingface_hub._shared_blobs.FileLock.acquire", side_effect=NotImplementedError),
+            patch("huggingface_hub._shared_blobs._SOFT_LOCK_TIMEOUT", 0),
+        ):
+            assert not publish_blob_to_shared_store(
+                blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
+            )
+
+        assert blob.is_file() and not blob.is_symlink()
+        assert blob.read_bytes() == CONTENT
+
 
 @requires_reliable_symlinks
 class TestLinkAndPublish:
