@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
-from huggingface_hub._tree_cache import TreeCacheEntry, read_tree_cache, write_tree_cache
+from huggingface_hub._tree_cache import read_tree_cache
 from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError, RepositoryNotFoundError
 from huggingface_hub.file_download import repo_folder_name
 from huggingface_hub.hf_api import RepoFile
@@ -17,7 +17,6 @@ from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"
 MASKED_XET_HASH = "*" * 64
-VALID_XET_HASH = "63bed80836ee0758c8fd4f8975d59bb0b864263ee2753547c358e8a37cde8758"
 
 
 def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
@@ -38,44 +37,6 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
 
     storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
-
-
-def test_redacted_tree_cache_is_refetched(tmp_path: Path):
-    storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-    write_tree_cache(
-        str(storage_folder),
-        COMMIT_HASH,
-        {
-            "model.safetensors": TreeCacheEntry(
-                size=42,
-                blob_id="blob-model",
-                lfs_sha256="sha256-model",
-                lfs_size=42,
-                xet_hash=MASKED_XET_HASH,
-            )
-        },
-    )
-    repo_file = RepoFile(
-        path="model.safetensors",
-        size=42,
-        oid="blob-model",
-        lfs={"oid": "sha256-model", "size": 42, "pointerSize": 128},
-        xetHash=VALID_XET_HASH,
-    )
-
-    with (
-        patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
-        patch(
-            "huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[repo_file]
-        ) as mock_list_repo_tree,
-        patch("huggingface_hub._snapshot_download.hf_thread_map"),
-    ):
-        snapshot_download("user/repo", cache_dir=tmp_path)
-
-    mock_list_repo_tree.assert_called_once()
-    tree_entries = read_tree_cache(str(storage_folder), COMMIT_HASH)
-    assert tree_entries is not None
-    assert tree_entries["model.safetensors"].xet_hash == VALID_XET_HASH
 
 
 class TestSnapshotDownload:

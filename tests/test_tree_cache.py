@@ -175,29 +175,27 @@ class TestTreeCacheSkipsHeadCall:
                 is None
             )
 
+    @pytest.mark.xet
     def test_xet_file_returns_none_when_xet_hash_is_masked(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
-        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            assert (
-                _xet_file_metadata_from_tree_cache(
-                    tree_cache_folder=str(storage_folder),
-                    repo_id="user/repo",
-                    repo_type="model",
-                    commit_hash=COMMIT_HASH,
-                    filename="model.safetensors",
-                    endpoint=None,
-                )
-                is None
+        assert (
+            _xet_file_metadata_from_tree_cache(
+                tree_cache_folder=str(storage_folder),
+                repo_id="user/repo",
+                repo_type="model",
+                commit_hash=COMMIT_HASH,
+                filename="model.safetensors",
+                endpoint=None,
             )
+            is None
+        )
 
+    @pytest.mark.xet
     def test_get_metadata_heads_when_xet_hash_is_masked(self, tmp_path: Path):
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
-        with (
-            patch("huggingface_hub.file_download.is_xet_available", return_value=True),
-            patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")),
-        ):
+        with patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")):
             with pytest.raises(RuntimeError, match="HEAD called"):
                 _get_metadata_or_catch_error(
                     repo_id="user/repo",

@@ -38,6 +38,7 @@ import threading
 from dataclasses import dataclass
 
 from .utils import logging
+from .utils._xet import is_valid_xet_hash
 
 
 logger = logging.get_logger(__name__)
@@ -77,6 +78,11 @@ class TreeCacheEntry:
             lfs_size=info.get("lfs_size"),
             xet_hash=info.get("xet_hash"),
         )
+
+
+def is_valid_tree_entries(entries: dict[str, TreeCacheEntry]) -> bool:
+    """Return whether all Xet hashes in the tree listing are valid."""
+    return all(entry.xet_hash is None or is_valid_xet_hash(entry.xet_hash) for entry in entries.values())
 
 
 def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:

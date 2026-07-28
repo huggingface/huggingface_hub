@@ -6,7 +6,13 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
+from ._tree_cache import (
+    TreeCacheEntry,
+    is_valid_tree_entries,
+    read_tree_cache,
+    tree_cache_folder_for_local_dir,
+    write_tree_cache,
+)
 from .errors import (
     CachedRepoTreeNotFoundError,
     DryRunError,
@@ -20,7 +26,6 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
-from .utils._xet import is_valid_xet_hash
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -375,18 +380,11 @@ def snapshot_download(
 
     # Retrieve /tree listing from cache or fetch it
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
-    if tree_entries is not None and any(
-        entry.xet_hash is not None and not is_valid_xet_hash(entry.xet_hash) for entry in tree_entries.values()
-    ):
+    if tree_entries is not None and not is_valid_tree_entries(tree_entries):
         # A redacted Xet hash means the tree was fetched without access to the gated repo contents. Refetch it in
         # case access has since been granted instead of keeping the redacted tree cached forever.
         tree_entries = None
     if tree_entries is None:
-        repo_files = [
-            f
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        ]
         tree_entries = {
             f.path: TreeCacheEntry(
                 size=f.size,
@@ -395,9 +393,10 @@ def snapshot_download(
                 lfs_size=f.lfs.size if f.lfs is not None else None,
                 xet_hash=f.xet_hash,
             )
-            for f in repo_files
+            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
+            if isinstance(f, RepoFile)
         }
-        if not dry_run and all(f.xet_hash is None or is_valid_xet_hash(f.xet_hash) for f in repo_files):
+        if not dry_run and is_valid_tree_entries(tree_entries):
             write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
