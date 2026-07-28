@@ -560,7 +560,7 @@ class TestDeleteRevisionsDryRun:
         )
         expected = DeleteCacheStrategy(
             # Sum of the unique blob sizes (freed size is computed per blob, taking
-            # hardlinks to the shared blob store into account).
+            # symlinks to the shared blob store into account).
             expected_freed_size=11111,
             blobs=set(),
             refs=set(),

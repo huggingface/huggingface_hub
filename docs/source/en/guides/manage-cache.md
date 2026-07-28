@@ -203,26 +203,55 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
-### Shared blobs across repos (experimental)
+### Shared blobs across repos
 
-By default, blobs are deduplicated within a repo but not across repos: the exact same file cached for two
-different repos is downloaded and stored twice. Set the
-[`HF_HUB_ENABLE_SHARED_BLOBS`](../package_reference/environment_variables#hfhubenablesharedblobs) environment
-variable to `1` to deduplicate Xet files (in practice, all large files on the Hub) across the entire cache.
+Blobs are deduplicated within a repo and, by default, Xet files are also deduplicated
+across repos. A successfully downloaded Xet file is moved into a content-addressed
+store at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`. Each repo keeps its established
+`blobs/<etag>` entry, but that entry is a relative symlink to the shared file. If
+another repo requests the same Xet hash, it creates another symlink instead of
+downloading the file: no bytes are transferred and no additional payload space is
+used. A version marker identifies the top-level store; an existing unmarked `blobs`
+directory is never adopted or cleaned by `huggingface_hub`.
 
-When enabled, downloaded Xet files are hardlinked into a content-addressed store at
-`<CACHE_DIR>/blobs/<prefix>/<xet_hash>`. If a file with the same Xet hash is later requested for another repo,
-it is hardlinked from the store instead of being downloaded: no bytes are transferred and no extra disk space
-is used.
+Each shared file has a `<xet_hash>.refs` manifest containing the relative paths of repo
+blobs that reference it. A reference is flushed to the manifest before its symlink is
+made visible. `hf cache rm` and `hf cache prune` use this manifest to inspect only
+shared blobs affected by the current deletion, rather than scanning the full cache.
+The manifest is only a hint: every line is checked against the actual symlink, stale
+lines are removed, and missing, malformed, or unreadable metadata causes the payload
+to be kept. Cache cleanup therefore prefers leaking reclaimable data over breaking a
+valid cache entry.
 
-Since hardlinks are regular files, older versions of `huggingface_hub` and external tools reading the cache
-keep working unchanged, and deleting a repo can never corrupt another one. Store entries no longer referenced
-by any repo are cleaned up automatically by `hf cache rm` and `hf cache prune`.
+Per-repository size fields remain logical sizes, so the same shared payload is
+attributed to every repo that references it. The cache-wide `size_on_disk` total counts
+each canonical shared payload once and also includes store-only payloads.
 
-The store requires the symlink-based cache layout (it stays disabled in the degraded no-symlink mode described
-above) and hardlink support on the cache filesystem. New entries are only added by verified `hf_xet` downloads,
-and setting `HF_HUB_DISABLE_XET=1` disables the store entirely. When any of these is unavailable, downloads
-silently fall back to the regular behavior.
+Using symlinks instead of hardlinks is important on multi-user clusters. Reading a
+symlink does not require permission to create a hardlink to a file owned by another
+UID, and repository entries do not share an inode whose ownership or mode can conflict
+across users. Shared payloads are made read-only and readable by the user classes that
+can traverse the cache root. Manifests and per-blob locks are writable metadata. A
+cluster administrator should configure the cache root with the intended shared group
+and setgid bit; default ACLs can supplement that policy. Anyone who can write the
+shared cache remains inside its trust boundary and private repositories must not be
+placed in a cache exposed to untrusted users.
+
+The per-repo layout remains readable by older versions of `huggingface_hub`,
+`huggingface.js`, `hf-hub`, `llama.cpp`, and other clients that follow symlinks.
+Their normal downloads also continue to use the established repo folders. However,
+old cache deletion tools resolve the full symlink chain and may delete the canonical
+shared payload, breaking other repo symlinks. Use an up-to-date `huggingface_hub` for
+`hf cache rm`, `hf cache prune`, and programmatic cache deletion after the shared store
+has been populated. Older scanners can also report the reserved top-level `blobs`
+directory as an unknown cache entry.
+
+The store requires the symlink-based cache layout and is disabled when
+`HF_HUB_DISABLE_XET=1`. Unsupported filesystems, permission errors, unmarked
+pre-existing `blobs` directories, or any per-file sharing failure silently fall back
+to regular repo-local storage. Set
+[`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs)
+to opt out entirely.
 
 ## Chunk-based caching (Xet)
 
