@@ -19,7 +19,8 @@ import multiprocessing.pool
 import shlex
 import shutil
 import time
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Generator, Iterable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
@@ -58,7 +59,7 @@ from ._cli_utils import (
 )
 from ._framework import Argument, Option
 from ._output import _dataclass_to_dict, out
-from ._uv_script_header import TABLE_NAME, UvScript, UvScriptHeader, load_uv_script
+from ._uv_script_header import TABLE_NAME, UvScriptHeader, load_uv_script
 
 
 logger = logging.get_logger(__name__)
@@ -158,10 +159,8 @@ class _UvJobConfig:
     from_script: set[str] = field(default_factory=set)
     """Keys whose value comes from the script's `[tool.hf-jobs]` table, for display purposes."""
 
-    source: UvScript | None = None
-    """Kept around so that a downloaded script is not cleaned up before the Job is submitted."""
 
-
+@contextmanager
 def _resolve_uv_job_config(
     *,
     api: HfApi,
@@ -181,86 +180,88 @@ def _resolve_uv_job_config(
     volume: list[str] | None,
     namespace: str | None,
     dry_run: bool,
-) -> _UvJobConfig:
+) -> Generator[_UvJobConfig, None, None]:
     """Merge the CLI flags with the `[tool.hf-jobs]` table the script carries, if any.
 
     An explicit CLI flag always wins over the script; `env`, `labels`, `secrets` and `volumes` are merged
     entry by entry (by key, by name and by mount path respectively), so a script value and a CLI value
     only ever conflict when they target the same entry.
+
+    A URL script is downloaded to a temporary file that lives until the `with` block exits: submit the
+    Job inside the block.
     """
-    source = load_uv_script(script)
-    header = source.header or UvScriptHeader()
-    from_script: set[str] = set()
+    with load_uv_script(script) as source:
+        header = source.header or UvScriptHeader()
+        from_script: set[str] = set()
 
-    def pick(key: str, cli_value: str | None) -> str | None:
-        """Keep the CLI value, and fall back to the script's."""
-        if cli_value is not None:
-            return cli_value
-        if (script_value := getattr(header, key)) is not None:
-            from_script.add(key)
-            return script_value
-        return None
+        def pick(key: str, cli_value: str | None) -> str | None:
+            """Keep the CLI value, and fall back to the script's."""
+            if cli_value is not None:
+                return cli_value
+            if (script_value := getattr(header, key)) is not None:
+                from_script.add(key)
+                return script_value
+            return None
 
-    image = pick("image", image)
-    flavor = pick("flavor", flavor)
-    python = pick("python", python)
-    timeout = pick("timeout", timeout)
-    namespace = pick("namespace", namespace)
+        image = pick("image", image)
+        flavor = pick("flavor", flavor)
+        python = pick("python", python)
+        timeout = pick("timeout", timeout)
+        namespace = pick("namespace", namespace)
 
-    env_map = parse_env_map(env, env_file)
-    script_env = {key: value for key, value in header.env.items() if key not in env_map}
-    from_script.update(f"env.{key}" for key in script_env)
-    env_map = {**script_env, **env_map}
+        env_map = parse_env_map(env, env_file)
+        script_env = {key: value for key, value in header.env.items() if key not in env_map}
+        from_script.update(f"env.{key}" for key in script_env)
+        env_map = {**script_env, **env_map}
 
-    secrets_map = parse_env_map(secrets, secrets_file)
-    script_secrets = _resolve_script_secrets(header.secrets, secrets_map)
-    from_script.update(f"secrets.{key}" for key in script_secrets)
-    secrets_map = {**script_secrets, **secrets_map}
+        secrets_map = parse_env_map(secrets, secrets_file)
+        script_secrets = _resolve_script_secrets(header.secrets, secrets_map)
+        from_script.update(f"secrets.{key}" for key in script_secrets)
+        secrets_map = {**script_secrets, **secrets_map}
 
-    labels_map = _parse_labels_map(label, name=name) or {}
-    # `name = ...` in the script's table is shorthand for the `name` label.
-    script_labels = {**header.labels, **({"name": header.name} if header.name is not None else {})}
-    script_labels = {key: value for key, value in script_labels.items() if key not in labels_map}
-    from_script.update(f"labels.{key}" for key in script_labels)
-    labels_map = {**script_labels, **labels_map}
+        labels_map = _parse_labels_map(label, name=name) or {}
+        # `name = ...` in the script's table is shorthand for the `name` label.
+        script_labels = {**header.labels, **({"name": header.name} if header.name is not None else {})}
+        script_labels = {key: value for key, value in script_labels.items() if key not in labels_map}
+        from_script.update(f"labels.{key}" for key in script_labels)
+        labels_map = {**script_labels, **labels_map}
 
-    volume_specs, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
-    from_script.update(f"volumes.{spec}" for spec in script_volume_specs)
+        volume_specs, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
+        from_script.update(f"volumes.{spec}" for spec in script_volume_specs)
 
-    config = _UvJobConfig(
-        script=source.script,
-        script_args=script_args or [],
-        image=image,
-        flavor=flavor,
-        python=python,
-        timeout=timeout,
-        namespace=namespace,
-        env=env_map,
-        secrets=secrets_map,
-        labels=labels_map,
-        volume_specs=volume_specs,
-        # A dry run must not have side effects: local directories are only synced to a bucket for real runs.
-        volumes=None if dry_run else _parse_and_sync_job_volumes(volume_specs, api=api, namespace=namespace),
-        from_script=from_script,
-        source=source,
-    )
-    if "name" not in config.labels:
-        # `script` (not `config.script`) so that a URL keeps naming the Job after the URL, not after
-        # the temporary file it was downloaded to.
-        config.labels["name"] = _default_job_name_from_script(
-            script,
-            config.script_args,
-            config_parts=_name_hash_parts(
-                flavor=config.flavor,
-                timeout=config.timeout,
-                namespace=config.namespace,
-                env=config.env,
-                secrets=config.secrets,
-                volume_specs=config.volume_specs,
-                extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
-            ),
+        config = _UvJobConfig(
+            script=source.script,
+            script_args=script_args or [],
+            image=image,
+            flavor=flavor,
+            python=python,
+            timeout=timeout,
+            namespace=namespace,
+            env=env_map,
+            secrets=secrets_map,
+            labels=labels_map,
+            volume_specs=volume_specs,
+            # A dry run must not have side effects: local directories are only synced to a bucket for real runs.
+            volumes=None if dry_run else _parse_and_sync_job_volumes(volume_specs, api=api, namespace=namespace),
+            from_script=from_script,
         )
-    return config
+        if "name" not in config.labels:
+            # `script` (not `config.script`) so that a URL keeps naming the Job after the URL, not after
+            # the temporary file it was downloaded to.
+            config.labels["name"] = _default_job_name_from_script(
+                script,
+                config.script_args,
+                config_parts=_name_hash_parts(
+                    flavor=config.flavor,
+                    timeout=config.timeout,
+                    namespace=config.namespace,
+                    env=config.env,
+                    secrets=config.secrets,
+                    volume_specs=config.volume_specs,
+                    extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
+                ),
+            )
+        yield config
 
 
 def _resolve_script_secrets(names: list[str], cli_secrets: dict[str, str | None]) -> dict[str, str]:
@@ -271,6 +272,8 @@ def _resolve_script_secrets(names: list[str], cli_secrets: dict[str, str | None]
     an empty value: forgetting to export a secret before launching is easy, and debugging the Job that
     results from it is not.
     """
+    if not names:
+        return {}
     environ = _get_extended_environ()
     resolved: dict[str, str] = {}
     missing: list[str] = []
@@ -1270,7 +1273,7 @@ def jobs_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     api = get_hf_api(token=token)
-    config = _resolve_uv_job_config(
+    with _resolve_uv_job_config(
         api=api,
         script=script,
         script_args=script_args,
@@ -1288,46 +1291,46 @@ def jobs_uv_run(
         volume=volume,
         namespace=namespace,
         dry_run=dry_run,
-    )
-    _print_job_summary(
-        {
-            "script": script,
-            "args": shlex.join(config.script_args),
-            "with": " ".join(with_ or []),
-            "image": config.image or DEFAULT_UV_IMAGE,
-            "flavor": config.flavor or JobHardware.CPU_BASIC.value,
-            "python": config.python,
-            "timeout": config.timeout,
-            "env": _format_env(config.env, from_script=config.from_script),
-            "secrets": _format_secrets(config.secrets, from_script=config.from_script),
-            "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
-            "labels": _format_labels(config.labels, from_script=config.from_script),
-            "expose": " ".join(str(port) for port in expose or []),
-            "ssh": ssh,
-            "namespace": config.namespace,
-        },
-        from_script=config.from_script,
-        dry_run=dry_run,
-    )
-    if dry_run:
-        return
-    job = api.run_uv_job(
-        script=config.script,
-        script_args=config.script_args,
-        dependencies=with_,
-        python=config.python,
-        image=config.image,
-        env=config.env,
-        secrets=config.secrets,
-        labels=config.labels,
-        volumes=config.volumes,
-        flavor=config.flavor,
-        timeout=config.timeout,
-        expose=expose,
-        ssh=ssh,
-        resource_group_id=resource_group_id,
-        namespace=config.namespace,
-    )
+    ) as config:
+        _print_job_summary(
+            {
+                "script": script,
+                "args": shlex.join(config.script_args),
+                "with": " ".join(with_ or []),
+                "image": config.image or DEFAULT_UV_IMAGE,
+                "flavor": config.flavor or JobHardware.CPU_BASIC.value,
+                "python": config.python,
+                "timeout": config.timeout,
+                "env": _format_env(config.env, from_script=config.from_script),
+                "secrets": _format_secrets(config.secrets, from_script=config.from_script),
+                "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
+                "labels": _format_labels(config.labels, from_script=config.from_script),
+                "expose": " ".join(str(port) for port in expose or []),
+                "ssh": ssh,
+                "namespace": config.namespace,
+            },
+            from_script=config.from_script,
+            dry_run=dry_run,
+        )
+        if dry_run:
+            return
+        job = api.run_uv_job(
+            script=config.script,
+            script_args=config.script_args,
+            dependencies=with_,
+            python=config.python,
+            image=config.image,
+            env=config.env,
+            secrets=config.secrets,
+            labels=config.labels,
+            volumes=config.volumes,
+            flavor=config.flavor,
+            timeout=config.timeout,
+            expose=expose,
+            ssh=ssh,
+            resource_group_id=resource_group_id,
+            namespace=config.namespace,
+        )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
     if not _has_explicit_name(name, label, config.from_script):
         auto_name = (job.labels or {}).get("name")
@@ -1693,7 +1696,7 @@ def scheduled_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     api = get_hf_api(token=token)
-    config = _resolve_uv_job_config(
+    with _resolve_uv_job_config(
         api=api,
         script=script,
         script_args=script_args,
@@ -1711,48 +1714,48 @@ def scheduled_uv_run(
         volume=volume,
         namespace=namespace,
         dry_run=dry_run,
-    )
-    _print_job_summary(
-        {
-            "schedule": schedule,
-            "script": script,
-            "args": shlex.join(config.script_args),
-            "with": " ".join(with_ or []),
-            "image": config.image or DEFAULT_UV_IMAGE,
-            "flavor": config.flavor or JobHardware.CPU_BASIC.value,
-            "python": config.python,
-            "timeout": config.timeout,
-            "env": _format_env(config.env, from_script=config.from_script),
-            "secrets": _format_secrets(config.secrets, from_script=config.from_script),
-            "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
-            "labels": _format_labels(config.labels, from_script=config.from_script),
-            "expose": " ".join(str(port) for port in expose or []),
-            "namespace": config.namespace,
-        },
-        from_script=config.from_script,
-        dry_run=dry_run,
-    )
-    if dry_run:
-        return
-    job = api.create_scheduled_uv_job(
-        script=config.script,
-        script_args=config.script_args,
-        schedule=schedule,
-        suspend=suspend,
-        concurrency=concurrency,
-        dependencies=with_,
-        python=config.python,
-        image=config.image,
-        env=config.env,
-        secrets=config.secrets,
-        labels=config.labels,
-        volumes=config.volumes,
-        flavor=config.flavor,
-        timeout=config.timeout,
-        expose=expose,
-        resource_group_id=resource_group_id,
-        namespace=config.namespace,
-    )
+    ) as config:
+        _print_job_summary(
+            {
+                "schedule": schedule,
+                "script": script,
+                "args": shlex.join(config.script_args),
+                "with": " ".join(with_ or []),
+                "image": config.image or DEFAULT_UV_IMAGE,
+                "flavor": config.flavor or JobHardware.CPU_BASIC.value,
+                "python": config.python,
+                "timeout": config.timeout,
+                "env": _format_env(config.env, from_script=config.from_script),
+                "secrets": _format_secrets(config.secrets, from_script=config.from_script),
+                "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
+                "labels": _format_labels(config.labels, from_script=config.from_script),
+                "expose": " ".join(str(port) for port in expose or []),
+                "namespace": config.namespace,
+            },
+            from_script=config.from_script,
+            dry_run=dry_run,
+        )
+        if dry_run:
+            return
+        job = api.create_scheduled_uv_job(
+            script=config.script,
+            script_args=config.script_args,
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            dependencies=with_,
+            python=config.python,
+            image=config.image,
+            env=config.env,
+            secrets=config.secrets,
+            labels=config.labels,
+            volumes=config.volumes,
+            flavor=config.flavor,
+            timeout=config.timeout,
+            expose=expose,
+            resource_group_id=resource_group_id,
+            namespace=config.namespace,
+        )
     out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
     if not _has_explicit_name(name, label, config.from_script):
         auto_name = (job.job_spec.labels or {}).get("name")

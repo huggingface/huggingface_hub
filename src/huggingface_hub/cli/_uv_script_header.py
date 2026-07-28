@@ -38,14 +38,15 @@ an explicit CLI flag always wins. See `huggingface_hub/cli/jobs.py` for the merg
 
 import re
 import sys
-import tempfile
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import get_session
+from huggingface_hub.utils import SoftTemporaryDirectory, get_session
 
 
 # Reference regex from PEP 723 (https://peps.python.org/pep-0723/#reference-implementation)
@@ -83,30 +84,33 @@ class UvScript:
     header: UvScriptHeader | None = None
     """Parsed `[tool.hf-jobs]` table, or `None` if the script has none."""
 
-    tmp_dir: Any = None
-    """Keeps a downloaded script alive on disk: the `TemporaryDirectory` is cleaned up with this object."""
 
-
-def load_uv_script(script: str) -> UvScript:
+@contextmanager
+def load_uv_script(script: str) -> Generator[UvScript, None, None]:
     """Resolve a `hf jobs uv run` script argument and read its `[tool.hf-jobs]` header.
 
     - a local file is read in place
     - an `http(s)` URL is downloaded to a temporary directory and from there shipped to the Job like
       any local script: the URL is fetched exactly once, at submit time, instead of being fetched
       again by the container (the header has to be read client-side anyway, since `image`, `flavor`,
-      `secrets`, ... are all decided before the container exists)
+      `secrets`, ... are all decided before the container exists). The download lives until the
+      `with` block exits, i.e. until the Job is submitted.
     - anything else is a command (e.g. `lighteval`) and carries no header
     """
     # Scripts are read as UTF-8, not with the locale encoding: a downloaded script is written as raw
     # bytes and a header with non-ASCII values must not fail to decode depending on the platform.
     if script.startswith(("http://", "https://")):
-        local_path, tmp_dir = _download_script(script)
-        header = parse_uv_script_header(Path(local_path).read_text(encoding="utf-8"))
-        return UvScript(script=local_path, header=header, tmp_dir=tmp_dir)
+        with SoftTemporaryDirectory(prefix="hf-jobs-uv-") as tmp_dir:
+            local_path = _download_script(script, Path(tmp_dir))
+            yield UvScript(
+                script=str(local_path), header=parse_uv_script_header(local_path.read_text(encoding="utf-8"))
+            )
+        return
     path = Path(script)
     if path.is_file():
-        return UvScript(script=script, header=parse_uv_script_header(path.read_text(encoding="utf-8")))
-    return UvScript(script=script)
+        yield UvScript(script=script, header=parse_uv_script_header(path.read_text(encoding="utf-8")))
+        return
+    yield UvScript(script=script)
 
 
 def parse_uv_script_header(text: str) -> UvScriptHeader | None:
@@ -140,18 +144,17 @@ def parse_uv_script_header(text: str) -> UvScriptHeader | None:
     )
 
 
-def _download_script(url: str) -> tuple[str, "tempfile.TemporaryDirectory"]:
-    """Download a remote UV script to a temporary directory and return `(local_path, tmp_dir)`."""
+def _download_script(url: str, dest_dir: Path) -> Path:
+    """Download a remote UV script into `dest_dir` and return its local path."""
     name = Path(urlsplit(url).path).name
-    tmp_dir = tempfile.TemporaryDirectory(prefix="hf-jobs-uv-")
-    local_path = Path(tmp_dir.name) / (name if name.endswith(".py") else "script.py")
+    local_path = dest_dir / (name if name.endswith(".py") else "script.py")
     try:
         response = get_session().get(url)
         response.raise_for_status()
     except Exception as e:
         raise CLIError(f"Could not download the UV script from '{url}': {e}") from e
     local_path.write_bytes(response.content)
-    return str(local_path), tmp_dir
+    return local_path
 
 
 def _extract_pep_723_block(text: str) -> str | None:
