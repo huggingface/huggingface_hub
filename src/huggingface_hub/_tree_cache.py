@@ -125,7 +125,10 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
 
 
 def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str, TreeCacheEntry]) -> None:
-    """Write the tree listing of a commit hash to the cache (ignoring any failures)."""
+    """Write a valid tree listing to the cache (ignoring invalid entries and any failures)."""
+    if not is_valid_tree_entries(entries):
+        return
+
     path = _tree_cache_path(tree_cache_folder, commit_hash)
     data = {
         "format_version": TREE_CACHE_FORMAT_VERSION,

@@ -86,7 +86,18 @@ class TestTreeCacheReadWrite:
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
 
     def test_invalid_entries_return_none(self, tmp_path: Path):
-        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries_with_masked_xet_hash())
+        path = tmp_path / "trees" / f"{COMMIT_HASH}.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "format_version": TREE_CACHE_FORMAT_VERSION,
+                    "files": {
+                        file_path: entry.to_json() for file_path, entry in _entries_with_masked_xet_hash().items()
+                    },
+                }
+            )
+        )
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
 
     def test_unknown_format_version_returns_none(self, tmp_path: Path):

@@ -6,13 +6,7 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._tree_cache import (
-    TreeCacheEntry,
-    is_valid_tree_entries,
-    read_tree_cache,
-    tree_cache_folder_for_local_dir,
-    write_tree_cache,
-)
+from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     CachedRepoTreeNotFoundError,
     DryRunError,
@@ -392,7 +386,7 @@ def snapshot_download(
             for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
             if isinstance(f, RepoFile)
         }
-        if not dry_run and is_valid_tree_entries(tree_entries):
+        if not dry_run:
             write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
