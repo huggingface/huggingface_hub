@@ -12527,6 +12527,11 @@ class HfApi:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
+
         Args:
             script (`str`):
                 Path or URL of the UV script, or a command.
@@ -13089,6 +13094,11 @@ class HfApi:
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
+
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
 
         Args:
             script (`str`):

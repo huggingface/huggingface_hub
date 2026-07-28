@@ -539,13 +539,16 @@ def _short_invocation_hash(parts: list[str]) -> str:
     return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:8]
 
 
-def _default_job_name_from_image(image: str, command: list[str]) -> str:
+def _default_job_name_from_image(image: str, command: list[str], *, config_parts: list[str] | None = None) -> str:
     """Derive a default Job name from a Docker image or Space reference and its command.
 
     A short hash of the full command line is appended to group reruns of the same command.
     e.g. python:3.12 + [foo, --truc]             -> python-3-12-1a2b3c4d
          hf.co/spaces/lhoestq/duckdb             -> lhoestq-duckdb-<hash>
          pytorch/pytorch:2.6.0-cuda12.4-...      -> pytorch-2-6-0-cuda12-4-...-<hash>
+
+    `config_parts` adds the rest of the resolved launch configuration (flavor, env, ...) to the hash.
+    The CLI passes it so that the name reflects the values actually submitted.
     """
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
@@ -553,7 +556,7 @@ def _default_job_name_from_image(image: str, command: list[str]) -> str:
             break
     else:
         base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
-    return f"{base}-{_short_invocation_hash([image, *command])}"
+    return f"{base}-{_short_invocation_hash([image, *command, *(config_parts or [])])}"
 
 
 def _default_job_name_from_script(

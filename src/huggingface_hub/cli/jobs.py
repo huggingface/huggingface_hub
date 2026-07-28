@@ -248,7 +248,17 @@ def _resolve_uv_job_config(
         # `script` (not `config.script`) so that a URL keeps naming the Job after the URL, not after
         # the temporary file it was downloaded to.
         config.labels["name"] = _default_job_name_from_script(
-            script, config.script_args, config_parts=_name_hash_parts(config, dependencies)
+            script,
+            config.script_args,
+            config_parts=_name_hash_parts(
+                flavor=config.flavor,
+                timeout=config.timeout,
+                namespace=config.namespace,
+                env=config.env,
+                secrets=config.secrets,
+                volume_specs=config.volume_specs,
+                extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
+            ),
         )
     return config
 
@@ -295,18 +305,30 @@ def _merge_volume_specs(cli_specs: list[str], script_specs: list[str]) -> tuple[
     return kept + cli_specs, kept
 
 
-def _name_hash_parts(config: _UvJobConfig, dependencies: list[str] | None) -> list[str]:
-    """Everything but the script that defines what a UV Job runs, to be hashed into its default name."""
+def _name_hash_parts(
+    *,
+    flavor: str | None,
+    timeout: str | None,
+    namespace: str | None,
+    env: dict[str, str | None],
+    secrets: dict[str, str | None],
+    volume_specs: list[str],
+    extra: list[str] | None = None,
+) -> list[str]:
+    """The resolved launch values hashed into a Job's default name, on top of its image/script.
+
+    Same inputs for `hf jobs run` and `hf jobs uv run`, so that both name Jobs after what they actually
+    submit (`extra` carries what is specific to UV runs). Env *values* are part of the hash since they
+    change what the Job does; secrets only contribute their names, never their values.
+    """
     return [
-        config.image or DEFAULT_UV_IMAGE,
-        config.flavor or JobHardware.CPU_BASIC.value,
-        config.python or "",
-        config.timeout or "",
-        config.namespace or "",
-        *(dependencies or []),
-        *(f"{key}={value}" for key, value in sorted(config.env.items())),
-        *sorted(config.secrets),  # names only: secret values never enter the hash
-        *config.volume_specs,
+        flavor or JobHardware.CPU_BASIC.value,
+        timeout or "",
+        namespace or "",
+        *(extra or []),
+        *(f"{key}={value}" for key, value in sorted(env.items())),
+        *sorted(secrets),
+        *volume_specs,
     ]
 
 
@@ -612,7 +634,21 @@ def jobs_run(
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
-    labels_map.setdefault("name", _default_job_name_from_image(image, command))
+    labels_map.setdefault(
+        "name",
+        _default_job_name_from_image(
+            image,
+            command,
+            config_parts=_name_hash_parts(
+                flavor=flavor,
+                timeout=timeout,
+                namespace=namespace,
+                env=env_map,
+                secrets=secrets_map,
+                volume_specs=volume or [],
+            ),
+        ),
+    )
 
     api = get_hf_api(token=token)
     volumes = None if dry_run else _parse_and_sync_job_volumes(volume, api=api, namespace=namespace)
@@ -1346,7 +1382,21 @@ def scheduled_run(
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
-    labels_map.setdefault("name", _default_job_name_from_image(image, command))
+    labels_map.setdefault(
+        "name",
+        _default_job_name_from_image(
+            image,
+            command,
+            config_parts=_name_hash_parts(
+                flavor=flavor,
+                timeout=timeout,
+                namespace=namespace,
+                env=env_map,
+                secrets=secrets_map,
+                volume_specs=volume or [],
+            ),
+        ),
+    )
 
     api = get_hf_api(token=token)
     volumes = None if dry_run else _parse_and_sync_job_volumes(volume, api=api, namespace=namespace)

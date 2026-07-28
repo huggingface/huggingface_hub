@@ -97,14 +97,15 @@ def load_uv_script(script: str) -> UvScript:
       `secrets`, ... are all decided before the container exists)
     - anything else is a command (e.g. `lighteval`) and carries no header
     """
+    # Scripts are read as UTF-8, not with the locale encoding: a downloaded script is written as raw
+    # bytes and a header with non-ASCII values must not fail to decode depending on the platform.
     if script.startswith(("http://", "https://")):
         local_path, tmp_dir = _download_script(script)
-        return UvScript(
-            script=local_path, header=parse_uv_script_header(Path(local_path).read_text()), tmp_dir=tmp_dir
-        )
+        header = parse_uv_script_header(Path(local_path).read_text(encoding="utf-8"))
+        return UvScript(script=local_path, header=header, tmp_dir=tmp_dir)
     path = Path(script)
     if path.is_file():
-        return UvScript(script=script, header=parse_uv_script_header(path.read_text()))
+        return UvScript(script=script, header=parse_uv_script_header(path.read_text(encoding="utf-8")))
     return UvScript(script=script)
 
 

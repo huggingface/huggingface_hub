@@ -14,13 +14,7 @@ from click.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import (
-    JobInfo,
-    JobOwner,
-    _create_job_spec,
-    _default_job_name_from_image,
-    _derive_job_volume_name,
-)
+from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
@@ -3000,7 +2994,7 @@ class TestJobsCommand:
             command=["echo", "hello"],
             env={},
             secrets={},
-            labels={"name": _default_job_name_from_image("ubuntu", ["echo", "hello"])},
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3023,13 +3017,12 @@ class TestJobsCommand:
                 app, ["jobs", "run", "--detach", "python:3.12", "python", "-c", "'print(\"Hello from the cloud!\")'"]
             )
         assert result.exit_code == 0
-        command = ["python", "-c", "'print(\"Hello from the cloud!\")'"]
         api.run_job.assert_called_once_with(
             image="python:3.12",
-            command=command,
+            command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
             env={},
             secrets={},
-            labels={"name": _default_job_name_from_image("python:3.12", command)},
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3061,7 +3054,7 @@ class TestJobsCommand:
             concurrency=None,
             env={},
             secrets={},
-            labels={"name": _default_job_name_from_image("ubuntu", ["echo", "hello"])},
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3772,6 +3765,27 @@ print("hello")
         assert result.exit_code == 1
         assert "MY_SECRET" in str(result.exception)
         api.run_uv_job.assert_not_called()
+
+    def test_default_name_reflects_resolved_config(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The default name hashes the resolved config, so a different runtime gives a different name."""
+
+        def auto_name(table: str, *args: str) -> str:
+            script = self._write_script(tmp_path, table)
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                assert runner.invoke(app, ["jobs", "uv", "run", "--detach", script, *args]).exit_code == 0
+                return api.run_uv_job.call_args.kwargs["labels"]["name"]
+
+        baseline = auto_name("# flavor = 'l4x1'")
+        assert baseline == auto_name("# flavor = 'l4x1'")  # deterministic
+        assert baseline != auto_name("# flavor = 'a10g-small'")  # from the script
+        assert baseline != auto_name("# flavor = 'l4x1'", "--timeout", "2h")  # from the command line
+        # Env values change what the Job does, so they are hashed; secret values are not (only their names).
+        assert auto_name("", "-e", "FOO=a") != auto_name("", "-e", "FOO=b")
+        assert auto_name("", "-s", "TOK=a") == auto_name("", "-s", "TOK=b")
 
     def test_dry_run(self, runner: CliRunner, tmp_path: Path) -> None:
         script = self._write_script(tmp_path, "# flavor = 'l4x1'")

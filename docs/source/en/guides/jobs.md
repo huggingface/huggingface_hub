@@ -612,7 +612,10 @@ A script that only runs correctly on a specific runtime can carry that runtime w
 # ///
 ```
 
-`hf jobs uv run ocr.py` then launches with the right image, hardware and interpreter, and `--flavor`, `-e`, ... still override what the script declares. This is read by the `hf` CLI only; see the [CLI guide](./cli#ship-the-launch-config-with-the-script) for the full list of keys and the merge rules.
+`hf jobs uv run ocr.py` then launches with the right image, hardware and interpreter, and `--flavor`, `-e`, ... still override what the script declares. See the [CLI guide](./cli#ship-the-launch-config-with-the-script) for the full list of keys and the merge rules.
+
+> [!WARNING]
+> The table is read by the `hf` CLI only: [`run_uv_job`] and [`create_scheduled_uv_job`] ignore it and use exactly the arguments they are given. In other words `run_uv_job("ocr.py")` and `hf jobs uv run ocr.py` do **not** run the same Job — the Python API needs `image=`, `flavor=`, ... to be passed explicitly.
 
 
 #### Docker Images for UV Scripts
