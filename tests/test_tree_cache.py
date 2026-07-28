@@ -85,6 +85,10 @@ class TestTreeCacheReadWrite:
     def test_missing_file_returns_none(self, tmp_path: Path):
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
 
+    def test_invalid_entries_return_none(self, tmp_path: Path):
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries_with_masked_xet_hash())
+        assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
+
     def test_unknown_format_version_returns_none(self, tmp_path: Path):
         path = tmp_path / "trees" / f"{COMMIT_HASH}.json"
         path.parent.mkdir(parents=True)
@@ -190,25 +194,6 @@ class TestTreeCacheSkipsHeadCall:
             )
             is None
         )
-
-    @pytest.mark.xet
-    def test_get_metadata_heads_when_xet_hash_is_masked(self, tmp_path: Path):
-        storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
-        write_tree_cache(str(storage_folder), COMMIT_HASH, _entries_with_masked_xet_hash())
-        with patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")):
-            with pytest.raises(RuntimeError, match="HEAD called"):
-                _get_metadata_or_catch_error(
-                    repo_id="user/repo",
-                    filename="model.safetensors",
-                    repo_type="model",
-                    revision=COMMIT_HASH,
-                    endpoint=None,
-                    etag_timeout=10,
-                    headers={},
-                    token=None,
-                    local_files_only=False,
-                    tree_cache_folder=str(storage_folder),
-                )
 
     def test_no_tree_cache_returns_none(self, tmp_path: Path):  # not populated
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")

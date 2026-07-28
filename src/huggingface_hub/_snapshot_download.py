@@ -380,10 +380,6 @@ def snapshot_download(
 
     # Retrieve /tree listing from cache or fetch it
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
-    if tree_entries is not None and not is_valid_tree_entries(tree_entries):
-        # A redacted Xet hash means the tree was fetched without access to the gated repo contents. Refetch it in
-        # case access has since been granted instead of keeping the redacted tree cached forever.
-        tree_entries = None
     if tree_entries is None:
         tree_entries = {
             f.path: TreeCacheEntry(

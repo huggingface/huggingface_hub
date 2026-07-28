@@ -95,15 +95,17 @@ def tree_cache_folder_for_local_dir(local_dir: str) -> str:
 
 
 def read_tree_cache(tree_cache_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:
-    """Return the cached tree listing for a commit hash, or `None` if not cached (or unreadable)."""
+    """Return the cached tree listing for a commit hash, or `None` if not cached, invalid, or unreadable."""
     path = _tree_cache_path(tree_cache_folder, commit_hash)
     with _IN_MEMORY_TREE_CACHE_LOCK:
         if path in _IN_MEMORY_TREE_CACHE:
-            return _IN_MEMORY_TREE_CACHE[path]
+            entries = _IN_MEMORY_TREE_CACHE[path]
+            return entries if is_valid_tree_entries(entries) else None
     entries = _read_tree_cache_from_disk(path)
-    if entries is not None:
-        with _IN_MEMORY_TREE_CACHE_LOCK:
-            _IN_MEMORY_TREE_CACHE[path] = entries
+    if entries is None or not is_valid_tree_entries(entries):
+        return None
+    with _IN_MEMORY_TREE_CACHE_LOCK:
+        _IN_MEMORY_TREE_CACHE[path] = entries
     return entries
 
 
