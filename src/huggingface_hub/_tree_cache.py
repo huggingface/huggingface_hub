@@ -99,8 +99,8 @@ def read_tree_cache(tree_cache_folder: str, commit_hash: str) -> dict[str, TreeC
     path = _tree_cache_path(tree_cache_folder, commit_hash)
     with _IN_MEMORY_TREE_CACHE_LOCK:
         if path in _IN_MEMORY_TREE_CACHE:
-            entries = _IN_MEMORY_TREE_CACHE[path]
-            return entries if is_valid_tree_entries(entries) else None
+            cached_entries = _IN_MEMORY_TREE_CACHE[path]
+            return cached_entries if is_valid_tree_entries(cached_entries) else None
     entries = _read_tree_cache_from_disk(path)
     if entries is None or not is_valid_tree_entries(entries):
         return None
