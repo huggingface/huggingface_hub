@@ -1,11 +1,12 @@
 import json
 import os
+import re
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import click
 import pytest
@@ -13,10 +14,17 @@ from click.testing import CliRunner
 
 from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
+from huggingface_hub._jobs_api import (
+    JobInfo,
+    JobOwner,
+    _create_job_spec,
+    _default_job_name_from_image,
+    _derive_job_volume_name,
+)
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
+from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -2992,7 +3000,7 @@ class TestJobsCommand:
             command=["echo", "hello"],
             env={},
             secrets={},
-            labels=None,
+            labels={"name": _default_job_name_from_image("ubuntu", ["echo", "hello"])},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3015,12 +3023,13 @@ class TestJobsCommand:
                 app, ["jobs", "run", "--detach", "python:3.12", "python", "-c", "'print(\"Hello from the cloud!\")'"]
             )
         assert result.exit_code == 0
+        command = ["python", "-c", "'print(\"Hello from the cloud!\")'"]
         api.run_job.assert_called_once_with(
             image="python:3.12",
-            command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
+            command=command,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": _default_job_name_from_image("python:3.12", command)},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3052,7 +3061,7 @@ class TestJobsCommand:
             concurrency=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": _default_job_name_from_image("ubuntu", ["echo", "hello"])},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3079,7 +3088,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3110,7 +3119,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3122,32 +3131,28 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_remote_script(self, runner: CliRunner) -> None:
+        """A remote script is downloaded once at submit time, then shipped like a local script."""
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._uv_script_header.get_session") as session,
         ):
+            session.return_value.get.return_value = Mock(content=b"print('hello')")
             api = api_cls.return_value
             api.run_uv_job.return_value = job
-            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://.../script.py"])
+            downloaded = []
+            api.run_uv_job.side_effect = lambda script, **kwargs: (
+                downloaded.append((Path(script).name, Path(script).read_text())),
+                job,
+            )[1]
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://example.co/script.py"])
         assert result.exit_code == 0
-        api.run_uv_job.assert_called_once_with(
-            script="https://.../script.py",
-            script_args=[],
-            dependencies=None,
-            python=None,
-            image=None,
-            env={},
-            secrets={},
-            labels=None,
-            volumes=None,
-            flavor=None,
-            timeout=None,
-            expose=None,
-            ssh=False,
-            resource_group_id=None,
-            namespace=None,
-        )
+        session.return_value.get.assert_called_once_with("https://example.co/script.py")
+        # The downloaded copy is on disk while the Job is submitted (and cleaned up afterwards).
+        assert downloaded == [("script.py", "print('hello')")]
+        # The Job is still named after the URL, not after the temporary file it was downloaded to.
+        assert api.run_uv_job.call_args.kwargs["labels"]["name"].startswith("script-")
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
         script_path = tmp_path / "script.py"
@@ -3169,7 +3174,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3622,6 +3627,162 @@ class TestJobsWaitCommand:
         assert isinstance(result.exception, CLIError)
         assert "same namespace" in str(result.exception)
         api.wait_for_job.assert_not_called()
+
+
+class TestUvScriptHeader:
+    """Tests for the `[tool.hf-jobs]` table a UV script can carry in its PEP 723 header."""
+
+    FULL_HEADER = """
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm"]
+#
+# [tool.uv]
+# exclude-newer = "2026-01-01T00:00:00Z"
+#
+# [tool.hf-jobs]
+# image     = "vllm/vllm-openai:latest"
+# flavor    = "l4x1"
+# python    = "/usr/bin/python3"
+# timeout   = "2h"
+# name      = "ocr"
+# namespace = "my-org"
+# env       = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets   = ["MY_SECRET"]
+# labels    = { template = "uv-ocr:1" }
+# volumes   = ["hf://datasets/org/pdfs:/input"]
+# ///
+print("hello")
+"""
+
+    def test_parses_full_table(self) -> None:
+        header = parse_uv_script_header(self.FULL_HEADER)
+        assert header == UvScriptHeader(
+            image="vllm/vllm-openai:latest",
+            flavor="l4x1",
+            python="/usr/bin/python3",
+            timeout="2h",
+            name="ocr",
+            namespace="my-org",
+            env={"PYTHONPATH": "/usr/local/lib/python3.12/dist-packages"},
+            secrets=["MY_SECRET"],
+            labels={"template": "uv-ocr:1"},
+            volumes=["hf://datasets/org/pdfs:/input"],
+        )
+
+    def test_parses_crlf_script(self) -> None:
+        """The PEP 723 regex anchors on '\\n': a Windows/HTTP script must not parse as "no header"."""
+        header = parse_uv_script_header(self.FULL_HEADER.replace("\n", "\r\n"))
+        assert header is not None
+        assert header.flavor == "l4x1"
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'print("hello")',  # no PEP 723 header at all
+            '# /// script\n# dependencies = ["vllm"]\n# ///\nprint("hello")',  # header without the table
+            '# /// pyproject\n# [tool.hf-jobs]\n# flavor = "l4x1"\n# ///',  # not a `script` block
+        ],
+    )
+    def test_no_table(self, text: str) -> None:
+        assert parse_uv_script_header(text) is None
+
+    @pytest.mark.parametrize(
+        "table, expected_error",
+        [
+            ('flavour = "l4x1"', "Unknown key(s) 'flavour'"),  # a typo must not silently drop the intent
+            ("flavor = 4", "'flavor' in the script's [tool.hf-jobs] table must be a string"),
+            ("env = { DEBUG = true }", "'env.DEBUG' in the script's [tool.hf-jobs] table must be a string"),
+            ('secrets = { HF_TOKEN = "hf_xxx" }', "must be a list of names"),  # values never live in the script
+            ('image = "unclosed', "Invalid TOML"),
+        ],
+    )
+    def test_invalid_table(self, table: str, expected_error: str) -> None:
+        with pytest.raises(CLIError, match=re.escape(expected_error)):
+            parse_uv_script_header(f"# /// script\n# [tool.hf-jobs]\n# {table}\n# ///")
+
+    def _write_script(self, tmp_path: Path, table: str) -> str:
+        script_path = tmp_path / "script.py"
+        script_path.write_text(f"# /// script\n# [tool.hf-jobs]\n{table}\n# ///\nprint('hello')")
+        return str(script_path)
+
+    def test_cli_flag_wins_over_script(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Script values are defaults: an explicit flag overrides them, entry by entry for env/labels/volumes."""
+        script = self._write_script(
+            tmp_path,
+            "# image = 'vllm/vllm-openai:latest'\n"
+            "# flavor = 'l4x1'\n"
+            "# name = 'from-script'\n"
+            "# timeout = '2h'\n"
+            "# env = { A = 'from-script', B = 'from-script' }\n"
+            "# secrets = ['MY_SECRET']\n"
+            "# volumes = ['hf://datasets/org/pdfs:/input', 'hf://datasets/org/models:/models']",
+        )
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(
+                app,
+                # fmt: off
+                [
+                    "jobs",
+                    "uv",
+                    "run",
+                    "--detach",
+                    script,
+                    "--flavor",
+                    "a10g-small",
+                    "--name",
+                    "from-cli",
+                    "-e",
+                    "B=from-cli",
+                    "-v",
+                    "hf://datasets/org/other:/input",
+                ],
+                # fmt: on
+            )
+        assert result.exit_code == 0
+        kwargs = api.run_uv_job.call_args.kwargs
+        assert kwargs["image"] == "vllm/vllm-openai:latest"  # only in the script
+        assert kwargs["flavor"] == "a10g-small"  # CLI wins
+        assert kwargs["timeout"] == "2h"
+        assert kwargs["labels"] == {"name": "from-cli"}  # CLI wins
+        assert kwargs["env"] == {"A": "from-script", "B": "from-cli"}  # merged, CLI wins per key
+        assert kwargs["secrets"] == {"MY_SECRET": "s3cret"}  # value read from the local environment
+        # '/input' is overridden by the CLI, '/models' still comes from the script
+        assert [(volume.source, volume.mount_path) for volume in kwargs["volumes"]] == [
+            ("org/models", "/models"),
+            ("org/other", "/input"),
+        ]
+
+    def test_missing_secret_is_an_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A secret requested by the script but not set locally must not be submitted as an empty value."""
+        script = self._write_script(tmp_path, "# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "uv", "run", script])
+        assert result.exit_code == 1
+        assert "MY_SECRET" in str(result.exception)
+        api.run_uv_job.assert_not_called()
+
+    def test_dry_run(self, runner: CliRunner, tmp_path: Path) -> None:
+        script = self._write_script(tmp_path, "# flavor = 'l4x1'")
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "uv", "run", "--dry-run", script])
+        assert result.exit_code == 0
+        assert "flavor" in result.output
+        assert "l4x1 (from script)" in result.output
+        assert "(dry run) Job not submitted." in result.output
+        api.run_uv_job.assert_not_called()
 
 
 class TestBucketTransport:
