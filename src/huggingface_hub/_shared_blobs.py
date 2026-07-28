@@ -416,9 +416,9 @@ def publish_blob_to_shared_store(
             try:
                 shutil.copyfile(store_path, blob_path_obj)
             except OSError as restore_error:
-                logger.warning(
-                    f"Could not restore repo blob '{blob_path}' after shared-store failure: {restore_error}"
-                )
+                raise OSError(
+                    f"Could not restore repo blob '{blob_path}' after shared-store failure"
+                ) from restore_error
         return False
     finally:
         if tmp_link is not None:

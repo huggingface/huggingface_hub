@@ -250,6 +250,30 @@ class TestLinkAndPublish:
         assert blob.is_file() and not blob.is_symlink()
         assert blob.read_bytes() == CONTENT
 
+    def test_failed_publish_raises_when_regular_repo_blob_cannot_be_restored(self, tmp_path: Path) -> None:
+        blob = _write_blob(tmp_path / "models--org--repoA" / "blobs" / "etag")
+
+        from huggingface_hub import _shared_blobs
+
+        original_replace = _shared_blobs.os.replace
+
+        def fail_repo_symlink_replace(src, dst):
+            if Path(dst) == blob and Path(src).name.endswith(".shared"):
+                raise PermissionError("cannot publish repo symlink")
+            return original_replace(src, dst)
+
+        with (
+            patch("huggingface_hub._shared_blobs.os.replace", side_effect=fail_repo_symlink_replace),
+            patch("huggingface_hub._shared_blobs.shutil.copyfile", side_effect=PermissionError("cannot restore blob")),
+            pytest.raises(OSError, match="Could not restore repo blob"),
+        ):
+            publish_blob_to_shared_store(
+                blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
+            )
+
+        assert not os.path.lexists(blob)
+        assert shared_blob_path(tmp_path, XET_HASH).read_bytes() == CONTENT
+
 
 @requires_reliable_symlinks
 class TestManifestGc:
