@@ -1175,11 +1175,11 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        # A valid shared blob store entry counts as cached: the real call hardlinks it
+        # A valid shared blob store entry counts as cached: the real call symlinks it
         # into the repo without any transfer. `has_shared_blob` is read-only (no
-        # eviction, no repo link) and skips the hardlink/symlink filesystem probes so a
-        # dry run never writes to the cache - on a filesystem without hardlink support
-        # the preview is optimistic and the real call downloads instead.
+        # eviction, no repo link) and skips the symlink filesystem probe so a dry run
+        # never writes to the cache. On a filesystem without symlink support the preview
+        # is optimistic and the real call downloads instead.
         is_cached = (
             os.path.exists(pointer_path)
             or os.path.exists(blob_path)
@@ -1251,8 +1251,8 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    # Shared blob store (opt-in): identical Xet files across repos are stored on disk only
-    # once and hardlinked into each repo's `blobs/`. `xet_hash` is left set only when the
+    # Shared blob store: identical Xet files across repos are stored on disk only once
+    # and symlinked into each repo's `blobs/`. `xet_hash` is left set only when the
     # store can be used for this download. The symlink-based layout is required: in the
     # degraded no-symlink mode there is no per-repo blob to link, and snapshot files are
     # user-editable so a shared inode would propagate edits across repos. See the
@@ -1270,6 +1270,7 @@ def _hf_hub_download_to_cache_dir(
                 blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir, expected_size=expected_size
             )
         )
+        blob_is_shared = blob_reused_from_store
         if not blob_reused_from_store:
             will_download = force_download or not os.path.exists(blob_path)
             _download_to_tmp_and_move(
@@ -1285,11 +1286,20 @@ def _hf_hub_download_to_cache_dir(
                 tqdm_class=tqdm_class,
             )
             if xet_hash is not None and will_download and is_xet_available():
-                # Only content downloaded through the Xet-verified path is published to
-                # the store (never the plain HTTP fallback).
-                publish_blob_to_shared_store(blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir)
+                # Only content successfully downloaded through the Xet path is
+                # published to the store (never the plain HTTP fallback).
+                blob_is_shared = publish_blob_to_shared_store(
+                    blob_path=blob_path,
+                    xet_hash=xet_hash,
+                    cache_dir=cache_dir,
+                    expected_size=expected_size,
+                    replace_existing=force_download,
+                )
         if not os.path.exists(pointer_path):
-            _create_symlink(blob_path, pointer_path, new_blob=True)
+            # A shared repo blob is itself a symlink. If snapshot symlink creation
+            # unexpectedly fails, copy through it instead of moving it away and
+            # breaking the repo cache layout.
+            _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
     return pointer_path
 
@@ -2034,15 +2044,43 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    if dst.exists():
-        # Only `force_download` reaches this with an existing destination. `shutil.move`
-        # falls back to an in-place copy when the rename fails (e.g. on Windows, where
-        # renaming over an existing file raises): with the shared blob store, `dst` can
-        # be an inode hardlinked by other repos and the store, and copying into it would
-        # rewrite them all. `os.replace` atomically swaps the directory entry instead,
-        # leaving other hardlinks on the old inode. Same-volume is guaranteed (see above)
-        # so raising on failure is safer than any copy fallback.
-        os.replace(src, dst)
+    if os.path.lexists(dst):
+        # Replace the directory entry so a force download never writes through a
+        # repo-local symlink into the shared store. Some mounted filesystems reject
+        # replace-over-existing. Stage the new file and move the old directory entry
+        # aside before falling back, so either one can be restored if publication fails.
+        try:
+            os.replace(src, dst)
+        except OSError:
+            staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
+            backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
+            backup_holds_previous_entry = False
+            try:
+                shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
+                os.rename(dst, backup_dst)
+                backup_holds_previous_entry = True
+                try:
+                    shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
+                except OSError as move_error:
+                    try:
+                        if os.path.lexists(dst):
+                            os.unlink(dst)
+                        os.rename(backup_dst, dst)
+                        backup_holds_previous_entry = False
+                    except OSError as restore_error:
+                        raise OSError(
+                            f"Could not restore previous destination '{dst}' from '{backup_dst}'"
+                        ) from restore_error
+                    raise move_error
+                try:
+                    backup_dst.unlink()
+                    backup_holds_previous_entry = False
+                except OSError as cleanup_error:
+                    logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
+            finally:
+                staged_dst.unlink(missing_ok=True)
+                if not backup_holds_previous_entry:
+                    backup_dst.unlink(missing_ok=True)
     else:
         shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 

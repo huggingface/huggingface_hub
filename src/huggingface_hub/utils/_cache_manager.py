@@ -48,7 +48,8 @@ class CachedFileInfo:
             Path of the file in the `snapshots` directory. The file path is a symlink
             referring to a blob in the `blobs` folder.
         blob_path (`Path`):
-            Path of the blob file. This is equivalent to `file_path.resolve()`.
+            Path of the repo-local blob entry referenced by `file_path`. The blob entry
+            can itself be a symlink to the cache-wide shared blob store.
         size_on_disk (`int`):
             Size of the blob file in bytes.
         blob_last_accessed (`float`):
@@ -276,8 +277,8 @@ class DeleteCacheStrategy:
         snapshots (`frozenset[Path]`):
             Set of snapshots to be deleted (directory of symlinks).
         cache_dir (`Path` or `None`):
-            Cache directory the strategy was computed from. Used to sweep shared blob
-            store entries orphaned by the deletion (see `_shared_blobs`).
+            Cache directory the strategy was computed from. Used to collect shared
+            blobs referenced by repo-local symlinks removed by the deletion.
     """
 
     expected_freed_size: int
@@ -308,6 +309,22 @@ class DeleteCacheStrategy:
         > This method is irreversible. If executed, cached files are erased and must be
         > downloaded again.
         """
+        # Record the shared targets before deleting their repo-local symlinks. Only
+        # those manifests are checked after deletion, keeping GC proportional to this
+        # strategy instead of to the entire cache.
+        shared_store_paths: set[Path] = set()
+        if self.cache_dir is not None:
+            blob_paths = set(self.blobs)
+            for repo_path in self.repos:
+                blobs_dir = repo_path / "blobs"
+                try:
+                    blob_paths.update(blobs_dir.iterdir())
+                except OSError:
+                    pass
+            for blob_path in blob_paths:
+                if store_path := _shared_blobs.shared_blob_target(blob_path, self.cache_dir):
+                    shared_store_paths.add(store_path)
+
         # Deletion order matters. Blobs are deleted in last so that the user can't end
         # up in a state where a `ref`` refers to a missing snapshot or a snapshot
         # symlink refers to a deleted blob.
@@ -328,10 +345,11 @@ class DeleteCacheStrategy:
         for path in self.blobs:
             _try_delete_path(path, path_type="blob")
 
-        # Remove shared blob store entries orphaned by the deletion. For blobs
-        # deduplicated across repos, this is what actually frees the disk space.
+        # Remove only shared entries affected by this deletion. Manifest entries are
+        # validated against the filesystem; failures conservatively leak data.
         if self.cache_dir is not None:
-            _shared_blobs.sweep_shared_blobs(self.cache_dir)
+            for store_path in shared_store_paths:
+                _shared_blobs.sweep_shared_blob(store_path, cache_dir=self.cache_dir)
 
         logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
@@ -456,9 +474,7 @@ class HFCacheInfo:
         delete_strategy_repos: set[Path] = set()
         delete_strategy_snapshots: set[Path] = set()
 
-        # Blob entries the strategy will unlink (path -> scanned size). Freed size is
-        # predicted over the whole plan: hardlinked blobs only free disk space once
-        # their last link is removed.
+        # Blob entries the strategy will unlink (path -> scanned size).
         blobs_to_unlink: dict[Path, int] = {}
 
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
@@ -500,15 +516,13 @@ class HFCacheInfo:
                             delete_strategy_blobs.add(file.blob_path)
                             blobs_to_unlink[file.blob_path] = file.size_on_disk
 
-        store_inodes = _shared_blobs.shared_store_inodes(self.cache_dir) if self.cache_dir is not None else set()
-
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
             blobs=frozenset(delete_strategy_blobs),
             refs=frozenset(delete_strategy_refs),
             repos=frozenset(delete_strategy_repos),
             snapshots=frozenset(delete_strategy_snapshots),
-            expected_freed_size=_expected_freed_size(blobs_to_unlink, store_inodes),
+            expected_freed_size=_expected_freed_size(blobs_to_unlink, self.cache_dir),
             cache_dir=self.cache_dir,
         )
 
@@ -711,16 +725,34 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
             continue
         if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
-        if repo_path.name == _shared_blobs.SHARED_BLOBS_DIR_NAME:  # skip the shared blob store
+        if repo_path.name == _shared_blobs.SHARED_BLOBS_DIR_NAME and _shared_blobs.is_shared_blobs_dir(repo_path):
             continue
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
             warnings.append(e)
 
+    # `CachedRepoInfo.size_on_disk` remains the logical size attributed to each repo.
+    # The cache-wide total counts each shared canonical payload once and includes
+    # store-only entries left by manual or old-client repo deletion.
+    repo_blob_paths = {
+        file.blob_path
+        for repo in repos
+        for revision in repo.revisions
+        for file in revision.files
+        if _shared_blobs.shared_blob_target(file.blob_path, cache_dir) is None
+    }
+    physical_blob_paths = repo_blob_paths | _shared_blobs.shared_store_blob_paths(cache_dir)
+    physical_size = 0
+    for blob_path in physical_blob_paths:
+        try:
+            physical_size += blob_path.stat().st_size
+        except OSError:
+            pass
+
     return HFCacheInfo(
         repos=frozenset(repos),
-        size_on_disk=sum(repo.size_on_disk for repo in repos),
+        size_on_disk=physical_size,
         incomplete_files=_scan_incomplete_files(cache_dir),
         warnings=warnings,
         cache_dir=cache_dir,
@@ -812,7 +844,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             if file_path.is_dir():
                 continue
 
-            blob_path = Path(file_path).resolve()
+            # Resolve only the snapshot's first symlink. A repo-local blob can itself
+            # be a symlink to the cache-wide store; keeping that first-hop path is what
+            # lets current cache deletion unlink the repo reference rather than the
+            # canonical shared payload.
+            if file_path.is_symlink():
+                first_hop = Path(os.path.abspath(file_path.parent / os.readlink(file_path)))
+                blob_path = first_hop if first_hop.parent == repo_path / "blobs" else file_path.resolve()
+            else:
+                blob_path = file_path
             if not blob_path.exists():
                 raise CorruptedCacheException(f"Blob missing (broken symlink): {blob_path}")
 
@@ -892,31 +932,27 @@ def _format_size(num: int) -> str:
     return f"{num_f:.1f}Y"
 
 
-def _expected_freed_size(blobs_to_unlink: dict[Path, int], store_inodes: set[tuple[int, int]]) -> int:
+def _expected_freed_size(blobs_to_unlink: dict[Path, int], cache_dir: Path | None) -> int:
     """Expected number of bytes freed by unlinking a set of blob files.
 
-    Blobs are grouped by `(st_dev, st_ino)` so hardlinks are handled correctly: an
-    inode's size counts once, when the plan removes its last link - or its last-but-one
-    when the only remaining link is a shared blob store entry, since the post-deletion
-    sweep removes orphaned store entries (see `DeleteCacheStrategy.execute`).
+    Regular repo blobs retain the historical logical accounting. Shared symlinks count
+    their canonical payload once only when every currently valid manifest reference is
+    included in the deletion plan.
     """
     expected_freed_size = 0
-    links_to_remove: dict[tuple[int, int], int] = defaultdict(int)
-    inode_stats: dict[tuple[int, int], os.stat_result] = {}
+    shared_store_paths: set[Path] = set()
+    blob_paths_to_delete = set(blobs_to_unlink)
     for blob_path, size_on_disk in blobs_to_unlink.items():
-        try:
-            blob_stat = os.stat(blob_path)
-        except OSError:
-            expected_freed_size += size_on_disk  # missing file: fall back to the scanned size
+        store_path = _shared_blobs.shared_blob_target(blob_path, cache_dir) if cache_dir is not None else None
+        if store_path is None:
+            expected_freed_size += size_on_disk
             continue
-        key = (blob_stat.st_dev, blob_stat.st_ino)
-        links_to_remove[key] += 1
-        inode_stats[key] = blob_stat
-    for key, removed_links in links_to_remove.items():
-        blob_stat = inode_stats[key]
-        remaining_links = blob_stat.st_nlink - removed_links
-        if remaining_links <= 0 or (remaining_links == 1 and key in store_inodes):
-            expected_freed_size += blob_stat.st_size
+        shared_store_paths.add(store_path)
+    if cache_dir is not None:
+        for store_path in shared_store_paths:
+            expected_freed_size += _shared_blobs.expected_shared_blob_freed_size(
+                store_path, blob_paths_to_delete=blob_paths_to_delete, cache_dir=cache_dir
+            )
     return expected_freed_size
 
 
@@ -933,7 +969,7 @@ def _try_delete_path(path: Path, path_type: str) -> None:
     """
     logger.info(f"Delete {path_type}: {path}")
     try:
-        if path.is_file():
+        if path.is_file() or path.is_symlink():
             os.remove(path)
         else:
             shutil.rmtree(path)
