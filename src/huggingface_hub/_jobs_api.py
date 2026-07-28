@@ -14,15 +14,23 @@
 import hashlib
 import platform
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 from huggingface_hub import constants
 from huggingface_hub._space_api import Volume
 from huggingface_hub.utils._datetime import parse_datetime
+from huggingface_hub.utils._hf_uris import parse_hf_mount
 
 
 class JobHardware(str, Enum):
@@ -91,6 +99,9 @@ class JobStage(str, Enum):
 
 # Stages indicating the Job has reached a terminal state and will not run further.
 TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
+
+# Default image used to run UV scripts: Debian Bookworm with Python 3.12 and `uv` pre-installed.
+DEFAULT_UV_IMAGE = "ghcr.io/astral-sh/uv:python3.12-bookworm"
 
 # URL prefixes identifying an image that points to a HF Space rather than a Docker image.
 _SPACE_IMAGE_PREFIXES = (
@@ -553,10 +564,14 @@ def _default_job_name_from_image(image: str, command: list[str]) -> str:
     return f"{base}-{_short_invocation_hash([image, *command])}"
 
 
-def _default_job_name_from_script(script: str, script_args: list[str]) -> str:
+def _default_job_name_from_script(
+    script: str, script_args: list[str], extra_hash_parts: list[str] | None = None
+) -> str:
     """Derive a default Job name from a UV script path, URL, or command and its arguments.
 
     A short hash of the full command line is appended to group reruns of the same command.
+    `extra_hash_parts` (e.g. the resolved image/flavor) only affects the hash, not the base name:
+    the same script launched with a different runtime gets a different name.
     e.g. my_script.py + [--epochs, 3]  -> my_script-1a2b3c4d
          https://.../sft.py?raw=1      -> sft-<hash>
          lighteval                     -> lighteval-<hash>
@@ -565,7 +580,163 @@ def _default_job_name_from_script(script: str, script_args: list[str]) -> str:
     if name.endswith(".py"):
         name = name[: -len(".py")]
     base = _sanitize_job_name(name or script)
-    return f"{base}-{_short_invocation_hash([script, *script_args])}"
+    return f"{base}-{_short_invocation_hash([script, *script_args, *(extra_hash_parts or [])])}"
+
+
+# PEP 723 reference regex (https://peps.python.org/pep-0723/#reference-implementation), matching the
+# first `script` block. CRLF must be normalized before applying it: the anchors are `\n`-based.
+_PEP_723_SCRIPT_BLOCK_REGEX = re.compile(r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\n(?P<content>(^#(| .*)$\n)+)^# ///$")
+
+# Keys supported in the `[tool.hf-jobs]` table of a UV script header (v1).
+_UV_JOB_HEADER_KEYS = (
+    "image",
+    "flavor",
+    "python",
+    "env",
+    "secrets",
+    "timeout",
+    "namespace",
+    "volumes",
+    "labels",
+    "name",
+)
+
+
+@dataclass
+class UvJobHeaderConfig:
+    """Runtime configuration parsed from the `[tool.hf-jobs]` table of a UV script's PEP 723 header.
+
+    Values are script-inherent defaults: explicit caller arguments always take precedence over them.
+    """
+
+    image: str | None = None
+    flavor: str | None = None
+    python: str | None = None
+    env: dict[str, str] | None = None
+    secrets: list[str] | None = None  # names only, values always come from the caller's environment
+    timeout: str | int | None = None
+    namespace: str | None = None
+    volumes: list[Volume] | None = None
+    labels: dict[str, str] | None = None
+    name: str | None = None
+
+    def is_empty(self) -> bool:
+        return all(getattr(self, field) is None for field in _UV_JOB_HEADER_KEYS)
+
+
+def _read_pep_723_script_block(script_text: str) -> str | None:
+    """Extract the TOML content of the first PEP 723 `script` block, or None if the script has none."""
+    matches = [
+        match
+        for match in _PEP_723_SCRIPT_BLOCK_REGEX.finditer(script_text.replace("\r\n", "\n").replace("\r", "\n"))
+        if match.group("type") == "script"
+    ]
+    if not matches:
+        return None
+    return "\n".join(
+        line[2:] if line.startswith("# ") else line[1:] for line in matches[0].group("content").splitlines()
+    )
+
+
+def _parse_uv_job_header(script_text: str, *, script: str) -> UvJobHeaderConfig:
+    """Parse the `[tool.hf-jobs]` table of a UV script's PEP 723 header.
+
+    The table lets a script carry its own runtime config (image, flavor, secrets, ...) so that
+    `hf jobs uv run script.py` works out of the box. Unknown keys and wrong value types are
+    rejected with an actionable error: a silently dropped key would recreate the corrupt-run
+    failure mode this feature exists to prevent.
+    """
+    block = _read_pep_723_script_block(script_text)
+    if block is None:
+        return UvJobHeaderConfig()
+    try:
+        tool_table = tomllib.loads(block).get("tool") or {}
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"Invalid TOML in the PEP 723 header of '{script}': {e}") from e
+    raw_config = tool_table.get("hf-jobs") or {}
+    if not raw_config:
+        return UvJobHeaderConfig()
+    if not isinstance(raw_config, dict):
+        raise ValueError(f"Invalid `[tool.hf-jobs]` table in '{script}': expected a TOML table, got {raw_config!r}.")
+
+    unknown_keys = sorted(set(raw_config) - set(_UV_JOB_HEADER_KEYS))
+    if unknown_keys:
+        raise ValueError(
+            f"Unknown key(s) {', '.join(repr(k) for k in unknown_keys)} in the `[tool.hf-jobs]` table of '{script}'. "
+            f"Valid keys are: {', '.join(_UV_JOB_HEADER_KEYS)}."
+        )
+
+    def _str_value(key: str) -> str | None:
+        value = raw_config.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(
+                f"Invalid `{key}` value in the `[tool.hf-jobs]` table of '{script}': expected a string, got {value!r}."
+            )
+        return value
+
+    def _str_map(key: str) -> dict[str, str] | None:
+        value = raw_config.get(key)
+        if value is None:
+            return None
+        if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+            raise ValueError(
+                f"Invalid `{key}` value in the `[tool.hf-jobs]` table of '{script}': "
+                f'expected a table of strings (e.g. `{key} = {{ KEY = "value" }}`), got {value!r}.'
+            )
+        return dict(value)
+
+    def _str_list(key: str) -> list[str] | None:
+        value = raw_config.get(key)
+        if value is None:
+            return None
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise ValueError(
+                f"Invalid `{key}` value in the `[tool.hf-jobs]` table of '{script}': "
+                f"expected an array of strings, got {value!r}."
+            )
+        return [item for item in value if isinstance(item, str)]
+
+    timeout = raw_config.get("timeout")
+    if timeout is not None and (not isinstance(timeout, (str, int)) or isinstance(timeout, bool)):
+        raise ValueError(
+            f"Invalid `timeout` value in the `[tool.hf-jobs]` table of '{script}': "
+            f'expected a duration string (e.g. "30m") or seconds as an integer, got {timeout!r}.'
+        )
+
+    volumes = None
+    if (raw_volumes := _str_list("volumes")) is not None:
+        volumes = []
+        for raw_spec in raw_volumes:
+            try:
+                mount = parse_hf_mount(raw_spec)
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid volume spec {raw_spec!r} in the `[tool.hf-jobs]` table of '{script}': {e}. "
+                    "Expected 'hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw]' (e.g. 'hf://datasets/org/ds:/data:ro')."
+                ) from e
+            volumes.append(
+                Volume(
+                    type=mount.source.type,
+                    source=mount.source.id,
+                    mount_path=mount.mount_path,
+                    read_only=mount.read_only,
+                    path=mount.source.path_in_repo or None,
+                    revision=mount.source.revision or None,
+                )
+            )
+
+    return UvJobHeaderConfig(
+        image=_str_value("image"),
+        flavor=_str_value("flavor"),
+        python=_str_value("python"),
+        env=_str_map("env"),
+        secrets=_str_list("secrets"),
+        timeout=timeout,
+        namespace=_str_value("namespace"),
+        volumes=volumes,
+        labels=_str_map("labels"),
+        name=_str_value("name"),
+    )
 
 
 def _create_job_spec(

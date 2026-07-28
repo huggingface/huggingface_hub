@@ -7,6 +7,7 @@ from huggingface_hub._jobs_api import (
     JobInfo,
     _default_job_name_from_image,
     _default_job_name_from_script,
+    _parse_uv_job_header,
 )
 
 
@@ -129,3 +130,204 @@ def test_default_job_name_hash_groups_and_splits_by_command() -> None:
     assert truc != bar
     # ...while the same command yields the same name (groups identical runs).
     assert truc == _default_job_name_from_image("python:3.12", ["foo", "--truc"])
+
+
+def _uv_script(header_lines: str) -> str:
+    return f"# /// script\n# requires-python = \">=3.11\"\n{header_lines}# ///\nprint('hi')\n"
+
+
+class TestParseUvJobHeader:
+    def test_no_header(self) -> None:
+        assert _parse_uv_job_header("print('hi')", script="x.py").is_empty()
+
+    def test_header_without_hf_jobs_table(self) -> None:
+        script = "# /// script\n# dependencies = []\n# ///\n"
+        assert _parse_uv_job_header(script, script="x.py").is_empty()
+
+    def test_full_header(self) -> None:
+        script = _uv_script(
+            "#\n"
+            "# [tool.hf-jobs]\n"
+            '# image = "vllm/vllm-openai:latest"\n'
+            '# flavor = "l4x1"\n'
+            '# python = "/usr/bin/python3"\n'
+            '# env = { PYTHONPATH = "/usr/local/lib" }\n'
+            '# secrets = ["HF_TOKEN"]\n'
+            '# timeout = "30m"\n'
+            '# namespace = "my-org"\n'
+            '# volumes = ["hf://datasets/org/ds:/data:ro"]\n'
+            '# labels = { team = "ml" }\n'
+            '# name = "ocr-job"\n'
+        )
+        cfg = _parse_uv_job_header(script, script="ocr.py")
+        assert cfg.image == "vllm/vllm-openai:latest"
+        assert cfg.flavor == "l4x1"
+        assert cfg.python == "/usr/bin/python3"
+        assert cfg.env == {"PYTHONPATH": "/usr/local/lib"}
+        assert cfg.secrets == ["HF_TOKEN"]
+        assert cfg.timeout == "30m"
+        assert cfg.namespace == "my-org"
+        assert cfg.labels == {"team": "ml"}
+        assert cfg.name == "ocr-job"
+        assert not cfg.is_empty()
+        volume = cfg.volumes[0]
+        assert (volume.type, volume.source, volume.mount_path, volume.read_only) == (
+            "dataset",
+            "org/ds",
+            "/data",
+            True,
+        )
+
+    def test_crlf_is_normalized(self) -> None:
+        script = _uv_script('# [tool.hf-jobs]\n# flavor = "l4x1"\n').replace("\n", "\r\n")
+        assert _parse_uv_job_header(script, script="x.py").flavor == "l4x1"
+
+    def test_timeout_as_int_seconds(self) -> None:
+        cfg = _parse_uv_job_header(_uv_script("# [tool.hf-jobs]\n# timeout = 300\n"), script="x.py")
+        assert cfg.timeout == 300
+
+    def test_unknown_key_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Unknown key.*'flavour'.*Valid keys"):
+            _parse_uv_job_header(_uv_script('# [tool.hf-jobs]\n# flavour = "l4x1"\n'), script="x.py")
+
+    @pytest.mark.parametrize(
+        "line, key",
+        [
+            ("# flavor = 4\n", "flavor"),
+            ("# env = { DEBUG = true }\n", "env"),
+            ('# secrets = "HF_TOKEN"\n', "secrets"),
+            ('# labels = [ "team" ]\n', "labels"),
+        ],
+    )
+    def test_wrong_type_rejected(self, line: str, key: str) -> None:
+        with pytest.raises(ValueError, match=f"Invalid `{key}` value"):
+            _parse_uv_job_header(_uv_script(f"# [tool.hf-jobs]\n{line}"), script="x.py")
+
+    def test_invalid_volume_spec_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid volume spec"):
+            _parse_uv_job_header(_uv_script('# [tool.hf-jobs]\n# volumes = ["not-a-mount"]\n'), script="x.py")
+
+    def test_invalid_toml_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid TOML"):
+            _parse_uv_job_header("# /// script\n# [tool.hf-jobs\n# ///\n", script="x.py")
+
+
+class TestRunUvJobHeaderConfig:
+    """Header config resolution in `run_uv_job`: header values are defaults, explicit args win."""
+
+    api = HfApi(token="hf_test")
+
+    def _run(self, script_path, **kwargs):
+        from unittest.mock import MagicMock
+
+        with (
+            patch.object(self.api, "whoami", return_value={"name": "user"}),
+            patch.object(self.api, "create_bucket") as mock_bucket,
+            patch.object(self.api, "batch_bucket_files"),
+            patch.object(self.api, "run_job") as mock_run,
+        ):
+            mock_bucket.return_value = MagicMock(url="https://huggingface.co/buckets/user/jobs-artifacts")
+            mock_run.return_value = MagicMock(id="job-id")
+            self.api.run_uv_job(str(script_path), **kwargs)
+        return mock_run.call_args.kwargs
+
+    def test_header_values_used_as_defaults(self, tmp_path) -> None:
+        script = tmp_path / "ocr.py"
+        script.write_text(
+            _uv_script(
+                "# [tool.hf-jobs]\n"
+                '# image = "vllm/vllm-openai:latest"\n'
+                '# flavor = "l4x1"\n'
+                '# timeout = "30m"\n'
+                '# env = { PYTHONPATH = "/usr/local/lib" }\n'
+                '# labels = { team = "ml" }\n'
+                '# name = "ocr-job"\n'
+            )
+        )
+        call = self._run(script)
+        assert call["image"] == "vllm/vllm-openai:latest"
+        assert call["flavor"] == "l4x1"
+        assert call["timeout"] == "30m"
+        assert call["env"] == {"PYTHONPATH": "/usr/local/lib"}
+        assert call["labels"] == {"team": "ml"}
+        assert call["name"] == "ocr-job"
+
+    def test_explicit_args_override_header(self, tmp_path) -> None:
+        script = tmp_path / "ocr.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# flavor = "l4x1"\n# env = { A = "1", B = "2" }\n'))
+        call = self._run(script, flavor="a10g-small", env={"B": "override", "C": "3"})
+        assert call["flavor"] == "a10g-small"
+        # env merges per-key: explicit wins, header-only keys kept
+        assert call["env"] == {"A": "1", "B": "override", "C": "3"}
+
+    def test_cli_label_name_overrides_header_name(self, tmp_path) -> None:
+        script = tmp_path / "ocr.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# name = "header-name"\n# labels = { team = "ml" }\n'))
+        call = self._run(script, labels={"name": "cli-name"})
+        assert call["labels"] == {"team": "ml", "name": "cli-name"}
+        assert call["name"] is None
+
+    def test_header_secret_resolved_from_env(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setenv("MY_API_KEY", "secret-value")
+        script = tmp_path / "job.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# secrets = ["MY_API_KEY"]\n'))
+        call = self._run(script)
+        assert call["secrets"] == {"MY_API_KEY": "secret-value"}
+
+    def test_header_hf_token_falls_back_to_saved_token(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.delenv("HF_TOKEN", raising=False)
+        script = tmp_path / "job.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# secrets = ["HF_TOKEN"]\n'))
+        with patch("huggingface_hub.hf_api.get_token", return_value="hf_saved"):
+            call = self._run(script)
+        assert call["secrets"] == {"HF_TOKEN": "hf_saved"}
+
+    def test_missing_header_secret_is_an_error(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.delenv("MY_API_KEY", raising=False)
+        script = tmp_path / "job.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# secrets = ["MY_API_KEY"]\n'))
+        with pytest.raises(ValueError, match="requires secret.*MY_API_KEY"):
+            self._run(script)
+
+    def test_dry_run_returns_spec_without_creating_job(self, tmp_path) -> None:
+        from unittest.mock import MagicMock
+
+        script = tmp_path / "ocr.py"
+        script.write_text(_uv_script('# [tool.hf-jobs]\n# flavor = "l4x1"\n# timeout = "30m"\n# name = "ocr-job"\n'))
+        with (
+            patch.object(self.api, "whoami", return_value={"name": "user"}),
+            patch.object(self.api, "create_bucket") as mock_bucket,
+            patch.object(self.api, "batch_bucket_files"),
+            patch.object(self.api, "run_job") as mock_run,
+        ):
+            mock_bucket.return_value = MagicMock(url="https://huggingface.co/buckets/user/jobs-artifacts")
+            spec = self.api.run_uv_job(str(script), _dry_run=True)
+        mock_run.assert_not_called()
+        assert spec["flavor"] == "l4x1"
+        assert spec["timeoutSeconds"] == 1800
+        assert spec["labels"] == {"name": "ocr-job"}
+        assert spec["command"][:2] == ["uv", "run"]
+
+    def test_url_script_downloaded_and_uploaded_to_bucket(self) -> None:
+        from unittest.mock import MagicMock
+
+        content = _uv_script('# [tool.hf-jobs]\n# flavor = "a10g-small"\n').encode()
+        url = "https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py"
+        with (
+            patch.object(self.api, "whoami", return_value={"name": "user"}),
+            patch.object(self.api, "create_bucket") as mock_bucket,
+            patch.object(self.api, "batch_bucket_files") as mock_batch,
+            patch.object(self.api, "run_job") as mock_run,
+            patch("huggingface_hub.hf_api.get_session") as mock_session,
+        ):
+            mock_bucket.return_value = MagicMock(url="https://huggingface.co/buckets/user/jobs-artifacts")
+            mock_run.return_value = MagicMock(id="job-id")
+            mock_session.return_value.get.return_value = MagicMock(content=content)
+            self.api.run_uv_job(url, script_args=["--push_to_hub"])
+        call = mock_run.call_args.kwargs
+        assert call["flavor"] == "a10g-small"  # from header
+        # script rewritten to the mounted bucket path, not run from the URL
+        assert call["command"] == ["uv", "run", "/data/sft.py", "--push_to_hub"]
+        add_ops = mock_batch.call_args.kwargs["add"]
+        assert add_ops[0][0] == content  # downloaded content uploaded
+        assert add_ops[0][1].endswith("/sft.py")

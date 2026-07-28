@@ -26,7 +26,7 @@ from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
-from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
+from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES, _parse_uv_job_header
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -265,6 +265,15 @@ ScriptArgsArg = Annotated[
     list[str] | None,
     Argument(
         help="Arguments for the script",
+    ),
+]
+
+
+DryRunOpt = Annotated[
+    bool,
+    Option(
+        "--dry-run",
+        help="Print the resolved Job spec without launching the Job.",
     ),
 ]
 
@@ -957,12 +966,39 @@ def jobs_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    dry_run: DryRunOpt = False,
 ) -> None:
-    """Run a UV script (local file or URL) on HF infrastructure"""
+    """Run a UV script (local file or URL) on HF infrastructure.
+
+    A script can carry its own runtime config in a `[tool.hf-jobs]` table of its PEP 723
+    header (image, flavor, secrets, volumes, ...). Explicit flags always take precedence.
+    """
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
+    if dry_run:
+        job_spec = api.run_uv_job(
+            script=script,
+            script_args=script_args or [],
+            dependencies=with_,
+            python=python,
+            image=image,
+            env=env_map,
+            secrets=secrets_map,
+            labels=_parse_labels_map(label, name=name),
+            volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
+            flavor=flavor,
+            timeout=timeout,
+            expose=expose,
+            ssh=ssh,
+            resource_group_id=resource_group_id,
+            namespace=namespace,
+            _dry_run=True,
+        )
+        _print_uv_job_summary(job_spec, script=script, script_args=script_args or [])
+        out.hint("Dry run: no Job was created. Remove `--dry-run` to launch it.")
+        return
     job = api.run_uv_job(
         script=script,
         script_args=script_args or [],
@@ -980,8 +1016,9 @@ def jobs_uv_run(
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
+    _print_uv_job_summary(_uv_job_summary_spec(job), script=script, script_args=script_args or [])
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
-    if not _has_explicit_name(name, label):
+    if not _has_explicit_name(name, label) and not _script_has_header_name(script):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1305,12 +1342,41 @@ def scheduled_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    dry_run: DryRunOpt = False,
 ) -> None:
-    """Run a UV script (local file or URL) on HF infrastructure"""
+    """Schedule a UV script (local file or URL) on HF infrastructure.
+
+    A script can carry its own runtime config in a `[tool.hf-jobs]` table of its PEP 723
+    header (image, flavor, secrets, volumes, ...). Explicit flags always take precedence.
+    """
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
 
     api = get_hf_api(token=token)
+    if dry_run:
+        job_spec = api.create_scheduled_uv_job(
+            script=script,
+            script_args=script_args or [],
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            dependencies=with_,
+            python=python,
+            image=image,
+            env=env_map,
+            secrets=secrets_map,
+            labels=_parse_labels_map(label, name=name),
+            volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
+            flavor=flavor,
+            timeout=timeout,
+            expose=expose,
+            resource_group_id=resource_group_id,
+            namespace=namespace,
+            _dry_run=True,
+        )
+        _print_uv_job_summary(job_spec, script=script, script_args=script_args or [])
+        out.hint("Dry run: no scheduled Job was created. Remove `--dry-run` to create it.")
+        return
     job = api.create_scheduled_uv_job(
         script=script,
         script_args=script_args or [],
@@ -1330,6 +1396,7 @@ def scheduled_uv_run(
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
+    _print_uv_job_summary(_uv_job_summary_spec(job.job_spec), script=script, script_args=script_args or [])
     out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
     if not _has_explicit_name(name, label):
         auto_name = (job.job_spec.labels or {}).get("name")
@@ -1341,6 +1408,84 @@ def scheduled_uv_run(
 
 
 ### UTILS
+
+
+def _trim_value(value: str, max_length: int = 60) -> str:
+    """Trim a long value for display in the launch summary."""
+    return value if len(value) <= max_length else value[: max_length - 3] + "..."
+
+
+def _uv_job_summary_spec(job_or_spec: Any) -> dict[str, Any]:
+    """Build the summary payload from a returned Job/JobSpec, preferring the resolved spec.
+
+    `run_uv_job` attaches the exact spec sent to the API as `job._job_spec`; use it when present
+    (it includes the artifacts volume and resolved timeout). Fall back to the object's fields.
+    """
+    spec = getattr(job_or_spec, "_job_spec", None)
+    if isinstance(spec, dict):
+        return spec
+    volumes = getattr(job_or_spec, "volumes", None)
+    return {
+        "dockerImage": getattr(job_or_spec, "docker_image", None),
+        "spaceId": getattr(job_or_spec, "space_id", None),
+        "flavor": getattr(job_or_spec, "flavor", None),
+        "command": getattr(job_or_spec, "command", None),
+        "environment": getattr(job_or_spec, "environment", None),
+        "secrets": getattr(job_or_spec, "secrets", None),
+        "labels": getattr(job_or_spec, "labels", None),
+        "volumes": [v.to_dict() for v in volumes] if isinstance(volumes, list) else [],
+    }
+
+
+def _print_uv_job_summary(job_spec: dict[str, Any], *, script: str, script_args: list[str]) -> None:
+    """Print the resolved Job parameters before launching (or for `--dry-run`).
+
+    Secret values are redacted and long env values trimmed, so the summary is always safe to show.
+    Display-only: it must never crash a successful launch, so values are coerced defensively.
+    """
+
+    def _as_dict(value: Any) -> dict:
+        return value if isinstance(value, dict) else {}
+
+    def _as_list(value: Any) -> list:
+        return value if isinstance(value, list) else []
+
+    lines = [f"  script:    {script}" + (f" {' '.join(script_args)}" if script_args else "")]
+    image = job_spec.get("dockerImage") or job_spec.get("spaceId")
+    if image:
+        lines.append(f"  image:     {image}")
+    if job_spec.get("flavor"):
+        lines.append(f"  flavor:    {job_spec['flavor']}")
+    if job_spec.get("timeoutSeconds"):
+        lines.append(f"  timeout:   {job_spec['timeoutSeconds']}s")
+    command = " ".join(str(part) for part in _as_list(job_spec.get("command")))
+    if command:
+        lines.append(f"  command:   {_trim_value(command)}")
+    for key, value in sorted(_as_dict(job_spec.get("environment")).items()):
+        lines.append(f"  env:       {key}={_trim_value(str(value))}")
+    for key in sorted(_as_dict(job_spec.get("secrets"))):
+        lines.append(f"  secret:    {key}=***")
+    for key, value in sorted(_as_dict(job_spec.get("labels")).items()):
+        lines.append(f"  label:     {key}={value}")
+    for volume in _as_list(job_spec.get("volumes")):
+        if not isinstance(volume, dict):
+            continue
+        mount_path = volume.get("mountPath") or volume.get("mount_path")
+        read_only = volume.get("readOnly") if "readOnly" in volume else volume.get("read_only")
+        ro = ":ro" if read_only else ""
+        lines.append(f"  volume:    hf://{volume.get('type')}s/{volume.get('source')}:{mount_path}{ro}")
+    out.log("Job parameters:\n" + "\n".join(lines))
+
+
+def _script_has_header_name(script: str) -> bool:
+    """Whether a local UV script sets a `name` in its `[tool.hf-jobs]` header (best-effort, for the auto-name hint)."""
+    try:
+        path = Path(script)
+        if not path.is_file():
+            return False
+        return _parse_uv_job_header(path.read_text(), script=script).name is not None
+    except Exception:
+        return False
 
 
 def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dict[str, Any]:

@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 import itertools
 import json
+import os
 import re
 import struct
 import time
@@ -67,6 +68,7 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import (
+    DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
     JobHardware,
     JobHardwareInfo,
@@ -74,10 +76,12 @@ from ._jobs_api import (
     JobSpec,
     JobStage,
     ScheduledJobInfo,
+    UvJobHeaderConfig,
     _create_job_spec,
     _default_job_name_from_image,
     _default_job_name_from_script,
     _derive_job_volume_name,
+    _parse_uv_job_header,
 )
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -12522,7 +12526,8 @@ class HfApi:
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> JobInfo:
+        _dry_run: bool = False,
+    ) -> JobInfo | dict[str, Any]:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
@@ -12629,13 +12634,50 @@ class HfApi:
             >>> checkpoints_bucket = Volume(type="bucket", source="username/my-bucket", mount_path="/training-outputs")
             >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
             ```
+
+            Let the script carry its own runtime config with a `[tool.hf-jobs]` table in its PEP 723 header
+            (explicit arguments always take precedence over the header):
+
+            ```python
+            # /// script
+            # requires-python = ">=3.11"
+            # dependencies = ["vllm", "datasets"]
+            #
+            # [tool.hf-jobs]
+            # image   = "vllm/vllm-openai:latest"
+            # flavor  = "l4x1"
+            # secrets = ["HF_TOKEN"]
+            # ///
+            ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        script_args = script_args or []
+        script_content = self._read_uv_script_content(script, token=token)
+        header_config = (
+            _parse_uv_job_header(script_content.decode(), script=script) if script_content is not None else None
+        )
+        image, flavor, python, timeout, namespace, env, secrets, labels, volumes, name = (
+            self._resolve_uv_job_header_config(
+                header_config,
+                script=script,
+                image=image,
+                flavor=flavor,
+                python=python,
+                timeout=timeout,
+                namespace=namespace,
+                env=env,
+                secrets=secrets,
+                labels=labels,
+                volumes=volumes,
+                name=name,
+            )
+        )
+
+        image = image or DEFAULT_UV_IMAGE
         env = env or {}
         secrets = secrets or {}
 
         if name is None and not (labels and "name" in labels):
-            name = _default_job_name_from_script(script, script_args or [])
+            name = _default_job_name_from_script(script, script_args, extra_hash_parts=[image, str(flavor)])
 
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
@@ -12648,11 +12690,29 @@ class HfApi:
             namespace=namespace,
             token=token,
             volumes=volumes,
+            script_content=script_content,
         )
         if extra_volumes:
             volumes = (volumes or []) + extra_volumes
+        job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            name=name,
+            labels=labels,
+            volumes=volumes,
+            expose=expose,
+            ssh=ssh,
+            resource_group_id=resource_group_id,
+        )
+        if _dry_run:
+            # Return the payload that would be sent to the Jobs API, without creating the Job.
+            return job_spec
         # Create RunCommand args
-        return self.run_job(
+        job = self.run_job(
             image=image,
             command=command,
             env=env,
@@ -12668,6 +12728,8 @@ class HfApi:
             namespace=namespace,
             token=token,
         )
+        job._job_spec = job_spec  # resolved spec sent to the API (used e.g. for the CLI launch summary)
+        return job
 
     def create_scheduled_job(
         self,
@@ -13085,7 +13147,8 @@ class HfApi:
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
-    ) -> ScheduledJobInfo:
+        _dry_run: bool = False,
+    ) -> ScheduledJobInfo | dict[str, Any]:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
@@ -13188,9 +13251,31 @@ class HfApi:
             >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        script_args = script_args or []
+        script_content = self._read_uv_script_content(script, token=token)
+        header_config = (
+            _parse_uv_job_header(script_content.decode(), script=script) if script_content is not None else None
+        )
+        image, flavor, python, timeout, namespace, env, secrets, labels, volumes, name = (
+            self._resolve_uv_job_header_config(
+                header_config,
+                script=script,
+                image=image,
+                flavor=flavor,
+                python=python,
+                timeout=timeout,
+                namespace=namespace,
+                env=env,
+                secrets=secrets,
+                labels=labels,
+                volumes=volumes,
+                name=name,
+            )
+        )
+
+        image = image or DEFAULT_UV_IMAGE
         if name is None and not (labels and "name" in labels):
-            name = _default_job_name_from_script(script, script_args or [])
+            name = _default_job_name_from_script(script, script_args, extra_hash_parts=[image, str(flavor)])
 
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
@@ -13203,9 +13288,25 @@ class HfApi:
             namespace=namespace,
             token=token,
             volumes=volumes,
+            script_content=script_content,
         )
         if extra_volumes:
             volumes = (volumes or []) + extra_volumes
+        if _dry_run:
+            # Return the payload that would be sent to the Jobs API, without creating the scheduled Job.
+            return _create_job_spec(
+                image=image,
+                command=command,
+                env=env,
+                secrets=secrets,
+                flavor=flavor,
+                timeout=timeout,
+                name=name,
+                labels=labels,
+                volumes=volumes,
+                expose=expose,
+                resource_group_id=resource_group_id,
+            )
         # Create RunCommand args
         return self.create_scheduled_job(
             image=image,
@@ -13226,6 +13327,97 @@ class HfApi:
             token=token,
         )
 
+    def _read_uv_script_content(self, script: str, *, token: bool | str | None) -> bytes | None:
+        """Read a UV script's content (local file or URL), or return None for commands.
+
+        URL scripts are downloaded once at submit time, then shipped to the Job like a local
+        script: the `[tool.hf-jobs]` header is parsed client-side and the container doesn't
+        re-download the script.
+        """
+        if Path(script).is_file():
+            return Path(script).read_bytes()
+        if script.startswith(("https://", "http://")):
+            return get_session().get(script, headers=self._build_hf_headers(token=token)).content
+        return None
+
+    def _resolve_uv_job_header_config(
+        self,
+        header_config: UvJobHeaderConfig | None,
+        *,
+        script: str,
+        image: str | None,
+        flavor: JobHardware | str | None,
+        python: str | None,
+        timeout: int | float | str | None,
+        namespace: str | None,
+        env: dict[str, Any] | None,
+        secrets: dict[str, Any] | None,
+        labels: dict[str, str] | None,
+        volumes: list[Volume] | None,
+        name: str | None,
+    ) -> tuple[
+        str | None,
+        JobHardware | str | None,
+        str | None,
+        int | float | str | None,
+        str | None,
+        dict[str, Any] | None,
+        dict[str, Any] | None,
+        dict[str, str] | None,
+        list[Volume] | None,
+        str | None,
+    ]:
+        """Merge a UV script's `[tool.hf-jobs]` header config with the caller's arguments.
+
+        Header values are script-inherent defaults: explicit arguments always take precedence.
+        For `env` and `labels`, precedence applies per key. Header `secrets` are names only —
+        values are resolved from the caller's environment (or the saved HF token for `HF_TOKEN`)
+        and missing values are an error, since a silently empty secret fails much later.
+        """
+        if header_config is None or header_config.is_empty():
+            return image, flavor, python, timeout, namespace, env, secrets, labels, volumes, name
+
+        image = image if image is not None else header_config.image
+        flavor = flavor if flavor is not None else header_config.flavor
+        python = python if python is not None else header_config.python
+        timeout = timeout if timeout is not None else header_config.timeout
+        namespace = namespace if namespace is not None else header_config.namespace
+        env = {**(header_config.env or {}), **(env or {})}
+        labels = {**(header_config.labels or {}), **(labels or {})} or None
+        volumes = [*(header_config.volumes or []), *(volumes or [])] or None
+        if name is None and not (labels and "name" in labels):
+            name = header_config.name
+        if header_config.secrets:
+            logger.warning(
+                f"Script '{script}' requests secret(s) {', '.join(header_config.secrets)} from its `[tool.hf-jobs]`"
+                " header. They will be read from your environment and shared with the Job."
+            )
+            missing_secrets = []
+            resolved_secrets = dict(secrets or {})
+            for secret_name in header_config.secrets:
+                if secret_name in resolved_secrets:
+                    continue
+                value = os.environ.get(secret_name)
+                if value is None and secret_name == "HF_TOKEN":
+                    value = get_token()  # fall back to the locally saved token (`hf auth login`)
+                if value is not None:
+                    resolved_secrets[secret_name] = value
+                else:
+                    missing_secrets.append(secret_name)
+            if missing_secrets:
+                raise ValueError(
+                    f"The script '{script}' requires secret(s) {', '.join(missing_secrets)} (from its"
+                    " `[tool.hf-jobs]` header) but they are not set in your environment"
+                    + (
+                        " (run `hf auth login` or set the HF_TOKEN environment variable)"
+                        if "HF_TOKEN" in missing_secrets
+                        else ""
+                    )
+                    + "."
+                )
+            secrets = resolved_secrets
+        return image, flavor, python, timeout, namespace, env, secrets, labels, volumes, name
+
     def _create_uv_command_env_and_secrets(
         self,
         *,
@@ -13238,6 +13430,7 @@ class HfApi:
         namespace: str | None,
         token: bool | str | None,
         volumes: list[Volume] | None = None,
+        script_content: bytes | None = None,
     ) -> tuple[list[str], dict[str, Any], dict[str, Any], list[Volume]]:
         env = env or {}
         secrets = secrets or {}
@@ -13268,8 +13461,8 @@ class HfApi:
         if missing_local_files:
             raise FileNotFoundError(", ".join(missing_local_files))
 
-        if len(local_files_to_include) == 0:
-            # Direct URL execution or command - no upload needed
+        if len(local_files_to_include) == 0 and script_content is None:
+            # Command - no upload needed
             command = ["uv", "run"] + uv_args + [script] + script_args
             return command, env, secrets, []
 
@@ -13299,16 +13492,37 @@ class HfApi:
                 f"Mount path {constants.HF_JOBS_ARTIFACTS_MOUNT_PATH!r} is reserved for Jobs artifacts when running local scripts. Mount your volume at a different path."
             )
 
+        # A URL script is uploaded under its filename, from the content downloaded at submit time.
+        url_script_remote_name: str | None = None
+        if script_content is not None and script not in local_to_remote_file_names:
+            url_script_remote_name = (
+                script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1].replace(" ", "_")
+            )
+            if not url_script_remote_name.endswith(".py"):
+                url_script_remote_name += ".py"
+            if url_script_remote_name in remote_to_local_file_names:
+                for i in itertools.count():
+                    candidate_name = str(
+                        Path(url_script_remote_name).with_stem(Path(url_script_remote_name).stem + f"({i})")
+                    )
+                    if candidate_name not in remote_to_local_file_names:
+                        url_script_remote_name = candidate_name
+                        break
+
         extra_volumes = self._upload_scripts_to_bucket(
             namespace=namespace,
             remote_to_local_file_names=remote_to_local_file_names,
+            url_script_content=script_content if url_script_remote_name is not None else None,
+            url_script_remote_name=url_script_remote_name,
             token=token,
         )
         # Rewrite script and script_args to reference the mounted path. The bucket
         # volume is scoped to the per-job subfolder (via `Volume.path`), so the job
         # container sees the uploaded files directly at the mount root.
         mount_path = constants.HF_JOBS_ARTIFACTS_MOUNT_PATH
-        if script in local_to_remote_file_names:
+        if url_script_remote_name is not None:
+            script = f"{mount_path}/{url_script_remote_name}"
+        elif script in local_to_remote_file_names:
             script = f"{mount_path}/{local_to_remote_file_names[script]}"
         script_args = [
             f"{mount_path}/{local_to_remote_file_names[arg]}" if arg in local_to_remote_file_names else arg
@@ -13323,6 +13537,8 @@ class HfApi:
         namespace: str,
         remote_to_local_file_names: dict[str, str],
         token: bool | str | None,
+        url_script_content: bytes | None = None,
+        url_script_remote_name: str | None = None,
     ) -> list[Volume]:
         """Upload script files to a per-job subfolder in the artifacts bucket.
 
@@ -13339,6 +13555,8 @@ class HfApi:
             (Path(local_path), f"{subfolder_id}/{remote_name}")
             for remote_name, local_path in remote_to_local_file_names.items()
         ]
+        if url_script_content is not None and url_script_remote_name is not None:
+            add_ops.append((url_script_content, f"{subfolder_id}/{url_script_remote_name}"))
         self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
         print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
 

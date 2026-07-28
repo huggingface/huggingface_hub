@@ -616,6 +616,43 @@ The above command will run using the `vllm/vllm-openai:latest` image. This appro
 > [!TIP]
 > Many inference frameworks provide optimized docker images. As uv is increasingly adopted in the Python ecosystem more of these will also have uv pre-installed meaning they will work when using hf jobs uv run.
 
+#### Script-inherent config with `[tool.hf-jobs]`
+
+Some scripts must launch with a specific runtime to work well (a specific image, flavor, or interpreter). Instead of documenting the flags in a README, a script can carry its own runtime config in a `[tool.hf-jobs]` table of its PEP 723 header, so `hf jobs uv run script.py` works out of the box:
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm", "datasets"]
+#
+# [tool.hf-jobs]
+# image   = "vllm/vllm-openai:latest"
+# flavor  = "l4x1"
+# python  = "/usr/bin/python3"
+# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets = ["HF_TOKEN"]
+# timeout = "30m"
+# volumes = ["hf://datasets/org/ds:/input:ro"]
+# name    = "ocr-job"
+# ///
+```
+
+Supported keys: `image`, `flavor`, `python`, `env` (table of strings), `secrets` (array of names), `timeout`, `namespace`, `volumes` (array of `hf://...` mounts), `labels` (table of strings), and `name`.
+
+A few rules:
+
+- **Explicit flags win.** Anything you pass on the command line (or to [`run_uv_job`]) takes precedence over the header — e.g. relaunch on a bigger flavor with `--flavor a10g-large` when a queue is full. `env` and `labels` merge per-key.
+- **`secrets` are names only.** Values come from your environment (or the saved token for `HF_TOKEN`), never from the header — so scripts stay safe to share publicly. A secret that isn't set locally is an error, not an empty value.
+- **Unknown keys are rejected** with an error listing the valid keys, so a typo can't silently drop the author's intent.
+
+Before launching, the resolved parameters are always printed (secrets redacted). Use `--dry-run` to see the resolved Job spec without creating the Job:
+
+```bash
+hf jobs uv run --dry-run ocr.py
+```
+
+URL scripts work too: the script is downloaded once at submit time, its header parsed, and the script shipped to the Job like a local file.
+
 ### Scheduled Jobs
 
 Schedule and manage jobs that will run on HF infrastructure.

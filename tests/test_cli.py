@@ -3180,6 +3180,41 @@ class TestJobsCommand:
         )
         api.fetch_job_logs.assert_not_called()
 
+    def test_uv_dry_run_prints_resolved_spec(self, runner: CliRunner, tmp_path: Path) -> None:
+        script_path = tmp_path / "ocr.py"
+        script_path.write_text(
+            "# /// script\n"
+            '# requires-python = ">=3.11"\n'
+            "# [tool.hf-jobs]\n"
+            '# image = "vllm/vllm-openai:latest"\n'
+            '# flavor = "l4x1"\n'
+            '# name = "ocr-job"\n'
+            "# ///\n"
+            "print('ocr')\n"
+        )
+        job_spec = {
+            "dockerImage": "vllm/vllm-openai:latest",
+            "flavor": "l4x1",
+            "command": ["uv", "run", "/data/ocr.py"],
+            "labels": {"name": "ocr-job"},
+        }
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job_spec
+            result = runner.invoke(app, ["jobs", "uv", "run", "--dry-run", str(script_path)])
+        assert result.exit_code == 0
+        # dry-run passes `_dry_run=True` and does not stream logs
+        assert api.run_uv_job.call_args.kwargs["_dry_run"] is True
+        api.fetch_job_logs.assert_not_called()
+        # resolved spec is printed
+        assert "vllm/vllm-openai:latest" in result.output
+        assert "l4x1" in result.output
+        assert "ocr-job" in result.output
+        assert "Dry run" in result.output
+
     def test_run_fetches_logs_with_correct_namespace(self, runner: CliRunner) -> None:
         """Test that fetch_job_logs uses job.owner.name.
 
