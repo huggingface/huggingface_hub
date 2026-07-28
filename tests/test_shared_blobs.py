@@ -12,6 +12,7 @@ import pytest
 
 from huggingface_hub import constants
 from huggingface_hub._shared_blobs import (
+    _relative_blob_path,
     is_shared_blobs_dir,
     publish_blob_to_shared_store,
     shared_blob_manifest_path,
@@ -95,6 +96,11 @@ class TestStoreHelpers:
     def test_shared_blob_path_prefix_split(self, tmp_path: Path) -> None:
         assert shared_blob_path(tmp_path, XET_HASH) == tmp_path / "blobs" / "cf" / XET_HASH
         assert shared_blob_manifest_path(tmp_path, XET_HASH) == tmp_path / "blobs" / "cf" / f"{XET_HASH}.refs"
+
+    def test_relative_blob_path_accepts_windows_extended_length_prefix(self, tmp_path: Path) -> None:
+        blob = tmp_path / "models--org--repo" / "blobs" / "etag"
+
+        assert _relative_blob_path(f"\\\\?\\{blob}", tmp_path) == "models--org--repo/blobs/etag"
 
     @pytest.mark.parametrize("bad_hash", ["", "abc", "CF" + "AB" * 31, "../" + "a" * 61, "g" * 64])
     def test_shared_blob_path_invalid_hash(self, tmp_path: Path, bad_hash: str) -> None:
@@ -603,3 +609,28 @@ def test_force_move_fallback_unlinks_symlink_without_mutating_target(tmp_path: P
     assert target.read_bytes() == b"old"
     assert destination.read_bytes() == b"new"
     assert not destination.is_symlink()
+
+
+@requires_reliable_symlinks
+def test_force_move_fallback_restores_symlink_when_publication_fails(tmp_path: Path) -> None:
+    target = _write_blob(tmp_path / "target", b"old")
+    destination = tmp_path / "destination"
+    destination.symlink_to(target)
+    source = _write_blob(tmp_path / "source", b"new")
+    original_move = shutil.move
+
+    def fail_final_move(src, dst, **kwargs):
+        if Path(dst) == destination:
+            raise OSError("cannot publish staged file")
+        return original_move(src, dst, **kwargs)
+
+    with (
+        patch("huggingface_hub.file_download.os.replace", side_effect=OSError("not supported")),
+        patch("huggingface_hub.file_download.shutil.move", side_effect=fail_final_move),
+        pytest.raises(OSError, match="cannot publish staged file"),
+    ):
+        _chmod_and_move(source, destination)
+
+    assert target.read_bytes() == b"old"
+    assert destination.is_symlink()
+    assert destination.read_bytes() == b"old"

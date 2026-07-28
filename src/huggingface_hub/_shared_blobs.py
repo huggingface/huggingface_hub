@@ -182,9 +182,19 @@ def _prepare_shared_blob_permissions(blob_path: Path, prefix_dir: Path, cache_di
             raise
 
 
+def _path_for_comparison(path: str | Path) -> Path:
+    """Return an absolute path without the Windows extended-length prefix."""
+    path_str = os.fspath(path)
+    if path_str[:8].lower() == "\\\\?\\unc\\":
+        path_str = f"\\\\{path_str[8:]}"
+    elif path_str.startswith("\\\\?\\"):
+        path_str = path_str[4:]
+    return Path(os.path.abspath(path_str))
+
+
 def _relative_blob_path(blob_path: str | Path, cache_dir: str | Path) -> str | None:
-    blob_path = Path(os.path.abspath(blob_path))
-    cache_dir = Path(os.path.abspath(cache_dir))
+    blob_path = _path_for_comparison(blob_path)
+    cache_dir = _path_for_comparison(cache_dir)
     try:
         relative_path = blob_path.relative_to(cache_dir)
     except ValueError:
@@ -212,9 +222,10 @@ def _shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | 
     except OSError:
         return None
 
-    target = link_target if link_target.is_absolute() else blob_path.parent / link_target
-    target = Path(os.path.abspath(target))
-    store_dir = Path(os.path.abspath(shared_blobs_dir(cache_dir)))
+    comparable_blob_path = _path_for_comparison(blob_path)
+    target = link_target if link_target.is_absolute() else comparable_blob_path.parent / link_target
+    target = _path_for_comparison(target)
+    store_dir = _path_for_comparison(shared_blobs_dir(cache_dir))
     try:
         relative_target = target.relative_to(store_dir)
     except ValueError:
@@ -225,7 +236,7 @@ def _shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | 
         or relative_target.parts[0] != relative_target.parts[1][:2]
     ):
         return None
-    return target
+    return shared_blobs_dir(cache_dir) / relative_target
 
 
 def shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | None:
@@ -303,7 +314,7 @@ def _append_manifest_reference(manifest_path: Path, relative_blob_path: str) -> 
 
 def _make_temporary_symlink(blob_path: Path, store_path: Path) -> Path:
     tmp_link = blob_path.with_name(f".{blob_path.name}.{uuid.uuid4().hex[:8]}.shared")
-    relative_target = os.path.relpath(store_path, start=blob_path.parent)
+    relative_target = os.path.relpath(_path_for_comparison(store_path), start=_path_for_comparison(blob_path).parent)
     os.symlink(relative_target, tmp_link)
     return tmp_link
 

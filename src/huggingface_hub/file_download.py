@@ -2047,13 +2047,40 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
     if os.path.lexists(dst):
         # Replace the directory entry so a force download never writes through a
         # repo-local symlink into the shared store. Some mounted filesystems reject
-        # replace-over-existing; unlinking only the destination entry restores the
-        # historical move/copy fallback without mutating the shared target.
+        # replace-over-existing. Stage the new file and move the old directory entry
+        # aside before falling back, so either one can be restored if publication fails.
         try:
             os.replace(src, dst)
         except OSError:
-            os.unlink(dst)
-            shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+            staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
+            backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
+            backup_holds_previous_entry = False
+            try:
+                shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
+                os.rename(dst, backup_dst)
+                backup_holds_previous_entry = True
+                try:
+                    shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
+                except OSError as move_error:
+                    try:
+                        if os.path.lexists(dst):
+                            os.unlink(dst)
+                        os.rename(backup_dst, dst)
+                        backup_holds_previous_entry = False
+                    except OSError as restore_error:
+                        raise OSError(
+                            f"Could not restore previous destination '{dst}' from '{backup_dst}'"
+                        ) from restore_error
+                    raise move_error
+                try:
+                    backup_dst.unlink()
+                    backup_holds_previous_entry = False
+                except OSError as cleanup_error:
+                    logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
+            finally:
+                staged_dst.unlink(missing_ok=True)
+                if not backup_holds_previous_entry:
+                    backup_dst.unlink(missing_ok=True)
     else:
         shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 
