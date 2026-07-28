@@ -120,15 +120,13 @@ def _ensure_shared_blobs_dir(cache_dir: str | Path) -> bool:
     store_dir = shared_blobs_dir(cache_dir)
     marker_path = store_dir / SHARED_BLOBS_MARKER_NAME
     try:
-        store_was_missing = not os.path.lexists(store_dir)
         store_dir.mkdir(exist_ok=True)
-        if store_was_missing:
-            store_dir.chmod(_shared_directory_mode(cache_dir))
         if is_shared_blobs_dir(store_dir):
             return True
         if not _is_directory(store_dir) or not _cleanup_abandoned_marker_temps(store_dir):
             logger.debug(f"Refusing to use unmarked shared blob directory '{store_dir}'.")
             return False
+        _repair_shared_directory_mode(store_dir, cache_dir)
 
         tmp_marker = marker_path.with_name(f"{marker_path.name}.{uuid.uuid4().hex[:8]}.tmp")
         try:
@@ -148,15 +146,17 @@ def _ensure_prefix_dir(cache_dir: str | Path, xet_hash: str) -> Path | None:
         return None
     prefix_dir = shared_blob_path(cache_dir, xet_hash).parent
     try:
-        prefix_was_missing = not os.path.lexists(prefix_dir)
         prefix_dir.mkdir(exist_ok=True)
-        if prefix_was_missing:
-            prefix_dir.chmod(_shared_directory_mode(cache_dir))
     except OSError as e:
         logger.debug(f"Could not create shared blob prefix directory '{prefix_dir}': {e}")
         return None
     if not _is_directory(prefix_dir):
         logger.debug(f"Refusing to use non-directory shared blob prefix '{prefix_dir}'.")
+        return None
+    try:
+        _repair_shared_directory_mode(prefix_dir, cache_dir)
+    except OSError as e:
+        logger.debug(f"Could not set shared blob prefix permissions on '{prefix_dir}': {e}")
         return None
     return prefix_dir
 
@@ -181,6 +181,12 @@ def _shared_directory_mode(cache_dir: str | Path) -> int:
     except OSError:
         return 0o700
     return cache_mode & (0o777 | stat.S_ISGID | stat.S_ISVTX)
+
+
+def _repair_shared_directory_mode(path: Path, cache_dir: str | Path) -> None:
+    expected_mode = _shared_directory_mode(cache_dir)
+    if stat.S_IMODE(path.lstat().st_mode) != expected_mode:
+        path.chmod(expected_mode)
 
 
 def _prepare_shared_blob_permissions(blob_path: Path, prefix_dir: Path, cache_dir: str | Path) -> None:

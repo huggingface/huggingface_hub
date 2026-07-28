@@ -130,6 +130,29 @@ class TestStoreHelpers:
         assert is_shared_blobs_dir(store_dir)
         assert not marker_temp.exists()
 
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are required")
+    def test_existing_empty_store_recovers_shared_mode(self, tmp_path: Path) -> None:
+        tmp_path.chmod(0o2770)
+        store_dir = shared_blobs_dir(tmp_path)
+        store_dir.mkdir(mode=0o700)
+        store_dir.chmod(0o700)
+
+        _publish(tmp_path)
+
+        assert store_dir.stat().st_mode & 0o7777 == 0o2770
+
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are required")
+    def test_existing_empty_prefix_recovers_shared_mode(self, tmp_path: Path) -> None:
+        tmp_path.chmod(0o2770)
+        _publish(tmp_path)
+        prefix_dir = shared_blob_path(tmp_path, OTHER_XET_HASH).parent
+        prefix_dir.mkdir(mode=0o700)
+        prefix_dir.chmod(0o700)
+
+        _publish(tmp_path, repo_folder="models--org--repoB", xet_hash=OTHER_XET_HASH)
+
+        assert prefix_dir.stat().st_mode & 0o7777 == 0o2770
+
     def test_symlinked_prefix_is_refused(self, tmp_path: Path) -> None:
         first_blob = _publish(tmp_path)
         first_blob.unlink()
