@@ -165,6 +165,21 @@ def _shared_directory_mode(cache_dir: str | Path) -> int:
     return cache_mode & (0o777 | stat.S_ISGID | stat.S_ISVTX)
 
 
+def _shared_metadata_mode(cache_dir: str | Path) -> int:
+    """Make metadata writable only by identities allowed to write the cache root."""
+    try:
+        cache_mode = stat.S_IMODE(Path(cache_dir).stat().st_mode)
+    except OSError:
+        return 0o600
+    return (
+        0o600
+        | (0o040 if cache_mode & stat.S_IXGRP else 0)
+        | (0o020 if cache_mode & stat.S_IWGRP else 0)
+        | (0o004 if cache_mode & stat.S_IXOTH else 0)
+        | (0o002 if cache_mode & stat.S_IWOTH else 0)
+    )
+
+
 def _prepare_shared_blob_permissions(blob_path: Path, prefix_dir: Path, cache_dir: str | Path) -> None:
     """Make a payload immutable and readable according to the shared cache policy."""
     blob_mode = _shared_blob_mode(cache_dir)
@@ -257,30 +272,31 @@ def _lock_path_for_store_path(store_path: Path) -> Path:
 
 
 @contextmanager
-def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
+def _shared_blob_lock(store_path: Path, cache_dir: str | Path) -> Generator[None, None, None]:
     """Lock publication, reference creation, and GC for one content hash."""
     lock_path = _lock_path_for_store_path(store_path)
+    lock_mode = _shared_metadata_mode(cache_dir)
     flags = os.O_WRONLY | os.O_CREAT
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    fd = os.open(lock_path, flags, 0o666)
+    fd = os.open(lock_path, flags, lock_mode)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise OSError(f"Shared blob lock is not a regular file: '{lock_path}'.")
         if hasattr(os, "fchmod"):
             try:
-                os.fchmod(fd, 0o666)
+                os.fchmod(fd, lock_mode)
             except OSError:
                 pass
     finally:
         os.close(fd)
-    lock = FileLock(lock_path, mode=0o666)
+    lock = FileLock(lock_path, mode=lock_mode)
     try:
         lock.acquire()
     except NotImplementedError:
         # A SoftFileLock uses file existence as the lock, so it cannot reuse the
         # persistent, cross-user-writable flock file prepared above.
-        lock = SoftFileLock(f"{lock_path}.soft", mode=0o666)
+        lock = SoftFileLock(f"{lock_path}.soft", mode=lock_mode)
         lock.acquire(timeout=_SOFT_LOCK_TIMEOUT)
     try:
         yield
@@ -291,18 +307,19 @@ def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
             pass
 
 
-def _append_manifest_reference(manifest_path: Path, relative_blob_path: str) -> None:
+def _append_manifest_reference(manifest_path: Path, relative_blob_path: str, cache_dir: str | Path) -> None:
     """Append and flush one reference before its symlink is made visible."""
+    manifest_mode = _shared_metadata_mode(cache_dir)
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    fd = os.open(manifest_path, flags, 0o666)
+    fd = os.open(manifest_path, flags, manifest_mode)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise OSError(f"Shared blob manifest is not a regular file: '{manifest_path}'.")
         if hasattr(os, "fchmod"):
             try:
-                os.fchmod(fd, 0o666)
+                os.fchmod(fd, manifest_mode)
             except OSError:
                 pass
         line = f"{relative_blob_path}\n".encode()
@@ -342,7 +359,7 @@ def try_link_from_shared_store(
 
     tmp_link: Path | None = None
     try:
-        with _shared_blob_lock(store_path):
+        with _shared_blob_lock(store_path, cache_dir):
             if not _is_regular_file(store_path):
                 return False
             store_stat = store_path.lstat()
@@ -351,7 +368,7 @@ def try_link_from_shared_store(
                 return False
 
             tmp_link = _make_temporary_symlink(Path(blob_path), store_path)
-            _append_manifest_reference(_manifest_path_for_store_path(store_path), relative_blob_path)
+            _append_manifest_reference(_manifest_path_for_store_path(store_path), relative_blob_path, cache_dir)
             os.replace(tmp_link, blob_path)
     except OSError as e:
         logger.debug(f"Could not symlink '{blob_path}' from shared blob store: {e}")
@@ -408,14 +425,14 @@ def publish_blob_to_shared_store(
     tmp_link: Path | None = None
     blob_moved = False
     try:
-        with _shared_blob_lock(store_path):
+        with _shared_blob_lock(store_path, cache_dir):
             tmp_link = _make_temporary_symlink(blob_path_obj, store_path)
             store_is_usable = (
                 not replace_existing
                 and _is_regular_file(store_path)
                 and (expected_size is None or store_path.lstat().st_size == expected_size)
             )
-            _append_manifest_reference(manifest_path, relative_blob_path)
+            _append_manifest_reference(manifest_path, relative_blob_path, cache_dir)
             if not store_is_usable:
                 _prepare_shared_blob_permissions(blob_path_obj, prefix_dir, cache_dir)
                 os.replace(blob_path_obj, store_path)
@@ -509,7 +526,7 @@ def _rewrite_manifest(manifest_path: Path, references: set[Path], cache_dir: str
     try:
         content = "".join(f"{path.relative_to(cache_dir).as_posix()}\n" for path in sorted(references))
         tmp_path.write_text(content)
-        tmp_path.chmod(0o666)
+        tmp_path.chmod(_shared_metadata_mode(cache_dir))
         with tmp_path.open("rb") as file:
             os.fsync(file.fileno())
         os.replace(tmp_path, manifest_path)
@@ -539,7 +556,7 @@ def sweep_shared_blob(store_path: Path, *, cache_dir: str | Path) -> int:
         return 0
 
     try:
-        with _shared_blob_lock(store_path):
+        with _shared_blob_lock(store_path, cache_dir):
             references = _read_valid_manifest_references(store_path, cache_dir)
             if references is None:
                 return 0

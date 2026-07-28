@@ -142,8 +142,15 @@ class TestStoreHelpers:
         assert store_entry.parent.stat().st_mode & 0o7777 == 0o2770
         assert store_entry.stat().st_mode & 0o777 == 0o440
         assert store_entry.stat().st_gid == store_entry.parent.stat().st_gid
-        assert shared_blob_manifest_path(tmp_path, XET_HASH).stat().st_mode & 0o777 == 0o666
+        assert shared_blob_manifest_path(tmp_path, XET_HASH).stat().st_mode & 0o777 == 0o660
         assert blob.is_symlink()
+
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are required")
+    def test_world_readable_cache_does_not_make_metadata_world_writable(self, tmp_path: Path) -> None:
+        tmp_path.chmod(0o755)
+        _publish(tmp_path)
+
+        assert shared_blob_manifest_path(tmp_path, XET_HASH).stat().st_mode & 0o777 == 0o644
 
     @requires_reliable_symlinks
     def test_lock_falls_back_when_flock_is_unsupported(self, tmp_path: Path) -> None:
