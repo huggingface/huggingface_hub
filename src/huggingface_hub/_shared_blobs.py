@@ -49,6 +49,7 @@ SHARED_BLOBS_LAYOUT_VERSION = "1"
 _MANIFEST_SUFFIX = ".refs"
 _LOCK_SUFFIX = ".lock"
 _SOFT_LOCK_TIMEOUT = 10
+_MARKER_TMP_REGEX = re.compile(rf"{re.escape(SHARED_BLOBS_MARKER_NAME)}\.[0-9a-f]{{8}}\.tmp")
 
 
 def shared_blobs_dir(cache_dir: str | Path) -> Path:
@@ -97,6 +98,23 @@ def is_shared_blobs_dir(path: str | Path) -> bool:
         return False
 
 
+def _cleanup_abandoned_marker_temps(store_dir: Path) -> bool:
+    """Remove owned marker temporaries, refusing unexpected directory content."""
+    expected_content = f"{SHARED_BLOBS_LAYOUT_VERSION}\n"
+    entries = list(store_dir.iterdir())
+    for entry in entries:
+        if _MARKER_TMP_REGEX.fullmatch(entry.name) is None or not _is_regular_file(entry):
+            return False
+        try:
+            if not expected_content.startswith(entry.read_text()):
+                return False
+        except (OSError, UnicodeError):
+            return False
+    for entry in entries:
+        entry.unlink(missing_ok=True)
+    return not any(store_dir.iterdir())
+
+
 def _ensure_shared_blobs_dir(cache_dir: str | Path) -> bool:
     """Create and mark the shared store, refusing to adopt an unmarked directory."""
     store_dir = shared_blobs_dir(cache_dir)
@@ -108,7 +126,7 @@ def _ensure_shared_blobs_dir(cache_dir: str | Path) -> bool:
             store_dir.chmod(_shared_directory_mode(cache_dir))
         if is_shared_blobs_dir(store_dir):
             return True
-        if not _is_directory(store_dir) or any(store_dir.iterdir()):
+        if not _is_directory(store_dir) or not _cleanup_abandoned_marker_temps(store_dir):
             logger.debug(f"Refusing to use unmarked shared blob directory '{store_dir}'.")
             return False
 

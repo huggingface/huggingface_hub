@@ -118,6 +118,18 @@ class TestStoreHelpers:
         assert blob.is_file() and not blob.is_symlink()
         assert not is_shared_blobs_dir(shared_blobs_dir(tmp_path))
 
+    def test_abandoned_marker_temp_does_not_disable_store(self, tmp_path: Path) -> None:
+        store_dir = shared_blobs_dir(tmp_path)
+        store_dir.mkdir()
+        marker_temp = store_dir / ".huggingface-shared-blobs.deadbeef.tmp"
+        marker_temp.write_text("1\n")
+
+        blob = _publish(tmp_path)
+
+        assert blob.read_bytes() == CONTENT
+        assert is_shared_blobs_dir(store_dir)
+        assert not marker_temp.exists()
+
     def test_symlinked_prefix_is_refused(self, tmp_path: Path) -> None:
         first_blob = _publish(tmp_path)
         first_blob.unlink()
