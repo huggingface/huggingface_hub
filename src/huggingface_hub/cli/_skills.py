@@ -326,8 +326,7 @@ _GENERATED_VERSION_RE = re.compile(r"Generated with `huggingface_hub v([^`]+)`")
 def check_skill_update() -> None:
     """Hint at installing or updating the `hf-cli` skill, at most once every 24 hours.
 
-    Never installs or updates anything: printing a hint is deliberate, we don't want to
-    silently write to the user's skills directories.
+    Only prints a hint: installing or updating stays an explicit user action.
 
     Skipped entirely if `HF_HUB_DISABLE_UPDATE_CHECK` is set. Called at the entry point of
     the CLI, so any error is caught and logged to avoid breaking the CLI.

@@ -18,8 +18,8 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > # includes the above + Claude Code
 > hf skills add --claude
 > ```
-> The standalone installer can do it for you with `--include-skills` (see below). Otherwise, the CLI suggests
-> installing or updating the skill at most once a day - it never writes to your skills directories on its own.
+> The standalone installer can install it for you with `--include-skills` (see below), and `hf update` refreshes it.
+> Otherwise, the CLI merely suggests `hf skills add` / `hf skills update` at most once a day.
 
 ## Getting started
 
