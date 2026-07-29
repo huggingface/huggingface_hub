@@ -3708,9 +3708,8 @@ class HfApi:
 
         Example:
             ```py
-            >>> from huggingface_hub import HfApi, hf_hub_download
-            >>> api = HfApi()
-            >>> revision = api.resolve_revision("openai-community/gpt2")
+            >>> from huggingface_hub import hf_hub_download, resolve_revision
+            >>> revision = resolve_revision("openai-community/gpt2")
             >>> revision
             ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
 
@@ -3907,10 +3906,6 @@ class HfApi:
             False
             ```
         """
-        if isinstance(revision, ResolvedRevision):
-            # Revision has already been resolved to a commit hash (see [`resolve_revision`]) => use it directly.
-            # Whether a file exists is fully determined by the commit hash, so the answer is the same.
-            revision = revision.resolved
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
         )

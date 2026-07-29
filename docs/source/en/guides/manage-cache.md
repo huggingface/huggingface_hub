@@ -228,7 +228,7 @@ True
 '607a30d783dfa663caf39e06633721c8d4cfcd7e'
 ```
 
-Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`], [`file_exists`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
+Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
 
 ```py
 >>> from huggingface_hub import hf_hub_download
