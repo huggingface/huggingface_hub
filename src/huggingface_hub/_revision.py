@@ -19,8 +19,8 @@ class RevisionStr(str):
 
     Example:
     ```python
-    >>> from huggingface_hub import HfApi
-    >>> revision = HfApi().resolve_revision("gpt2")
+    >>> from huggingface_hub import resolve_revision
+    >>> revision = resolve_revision("openai-community/gpt2")
     >>> revision
     RevisionStr(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
     >>> revision == "main"  # it's a string
