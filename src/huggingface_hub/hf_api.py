@@ -79,7 +79,7 @@ from ._jobs_api import (
     _default_job_name_from_script,
     _derive_job_volume_name,
 )
-from ._revision import RevisionStr
+from ._revision import ResolvedRevision
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
     SpaceHardware,
@@ -3659,11 +3659,11 @@ class HfApi:
         cache_dir: str | Path | None = None,
         local_files_only: bool = False,
         token: bool | str | None = None,
-    ) -> RevisionStr:
+    ) -> ResolvedRevision:
         """Resolve a revision (branch, tag, PR ref) to a commit hash.
 
         This is meant for libraries that download and load several components of a repo separately (config,
-        weights, tokenizer, ...). Resolving the revision once and passing the returned [`RevisionStr`] around
+        weights, tokenizer, ...). Resolving the revision once and passing the returned [`ResolvedRevision`] around
         guarantees that every subsequent call targets the exact same commit, even if the repo is updated in the
         meantime. It also saves HTTP calls, as downloads made with a commit hash can be served from the local
         cache without contacting the Hub.
@@ -3684,7 +3684,7 @@ class HfApi:
                 `None` or `"model"` if it is a model. Default is `None`.
             revision (`str`, *optional*):
                 The revision to resolve. Can be a branch name, a tag, a PR ref or a commit hash. Defaults to the
-                default branch. If a [`RevisionStr`] is passed, it is returned as is.
+                default branch. If a [`ResolvedRevision`] is passed, it is returned as is.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -3695,7 +3695,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`RevisionStr`]: A `str` subclass holding both the requested revision and the commit hash it resolves to.
+            [`ResolvedRevision`]: A `str` subclass holding both the requested revision and the commit hash it resolves to.
 
         Raises:
             [`~errors.RevisionResolutionError`]
@@ -3712,17 +3712,17 @@ class HfApi:
             >>> api = HfApi()
             >>> revision = api.resolve_revision("openai-community/gpt2")
             >>> revision
-            RevisionStr(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+            ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
 
             # Pass it around: every download is pinned to the same commit
             >>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
-        if isinstance(revision, RevisionStr):
+        if isinstance(revision, ResolvedRevision):
             return revision
         if revision is not None and REGEX_COMMIT_HASH.match(revision):
-            return RevisionStr(resolved=revision, initial=revision)
+            return ResolvedRevision(resolved=revision, initial=revision)
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
@@ -3743,7 +3743,7 @@ class HfApi:
                     )
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
-                return RevisionStr(resolved=sha, initial=revision)
+                return ResolvedRevision(resolved=sha, initial=revision)
             except httpx.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
@@ -3759,7 +3759,7 @@ class HfApi:
         if ref_path.is_file():
             if error is not None:
                 logger.warning(f"Could not reach the Hub ({error}). Using cached commit hash for '{repo_id}'.")
-            return RevisionStr(resolved=ref_path.read_text().strip(), initial=revision)
+            return ResolvedRevision(resolved=ref_path.read_text().strip(), initial=revision)
 
         reason = (
             "'local_files_only=True' is set"
@@ -3907,7 +3907,7 @@ class HfApi:
             False
             ```
         """
-        if isinstance(revision, RevisionStr):
+        if isinstance(revision, ResolvedRevision):
             # Revision has already been resolved to a commit hash (see [`resolve_revision`]) => use it directly.
             # Whether a file exists is fully determined by the commit hash, so the answer is the same.
             revision = revision.resolved

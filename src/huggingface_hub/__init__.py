@@ -103,7 +103,7 @@ _SUBMOD_ATTRS = {
         "parse_huggingface_oauth",
     ],
     "_revision": [
-        "RevisionStr",
+        "ResolvedRevision",
     ],
     "_sandbox": [
         "Sandbox",
@@ -827,7 +827,7 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
-    "RevisionStr",
+    "ResolvedRevision",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -1300,7 +1300,7 @@ if TYPE_CHECKING:  # pragma: no cover
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
     )
-    from ._revision import RevisionStr  # noqa: F401
+    from ._revision import ResolvedRevision  # noqa: F401
     from ._sandbox import (
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401

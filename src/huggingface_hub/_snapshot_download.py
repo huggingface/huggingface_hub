@@ -6,7 +6,7 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
-from ._revision import RevisionStr
+from ._revision import ResolvedRevision
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     CachedRepoTreeNotFoundError,
@@ -251,13 +251,13 @@ def snapshot_download(
     )
 
     # The revision is already a commit hash if:
-    # - it's a `RevisionStr` (already resolved, see [`HfApi.resolve_revision`]). `revision` itself is kept as is:
+    # - it's a `ResolvedRevision` (already resolved, see [`HfApi.resolve_revision`]). `revision` itself is kept as is:
     #   its string value is the revision initially requested, which is what we want for the `refs/` entry and the
     #   error messages.
     # - it's a commit hash, which is immutable
     # => in both cases, there is nothing to resolve and the `repo_info` call can be skipped.
     commit_hash: str | None = None
-    if isinstance(revision, RevisionStr):
+    if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
     elif REGEX_COMMIT_HASH.match(revision):
         commit_hash = revision
@@ -415,7 +415,7 @@ def snapshot_download(
     # then revision has to be a branch name or tag name.
     # In that case store a ref. Nothing to do for an already resolved revision: the ref has been written by
     # `resolve_revision` and the pinned commit hash might be older than the one currently cached.
-    if not isinstance(revision, RevisionStr) and revision != commit_hash:
+    if not isinstance(revision, ResolvedRevision) and revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
         try:
             os.makedirs(os.path.dirname(ref_path), exist_ok=True)
@@ -654,7 +654,7 @@ def get_cached_repo_tree(
 
     # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
     # or it's a branch/tag name recorded in `refs/` by a previous download.
-    if isinstance(revision, RevisionStr):
+    if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
     elif REGEX_COMMIT_HASH.match(revision):
         commit_hash = revision

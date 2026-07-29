@@ -210,16 +210,16 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 When a library downloads several files one by one, each call has to resolve `revision="main"` into a commit hash again. This costs one HTTP call per file and, worse, two calls made a few seconds apart can land on two different commits if the repo is updated in between.
 
-[`HfApi.resolve_revision`] resolves the revision once and returns a [`RevisionStr`]:
+[`HfApi.resolve_revision`] resolves the revision once and returns a [`ResolvedRevision`]:
 
 ```py
 >>> from huggingface_hub import resolve_revision
 >>> revision = resolve_revision("openai-community/gpt2")
 >>> revision
-RevisionStr(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
 ```
 
-[`RevisionStr`] is a `str` subclass, so it can be passed to any `huggingface_hub` method taking a `revision` argument. Its string value is what the user initially requested (`"main"` here, hence readable error messages), while `.resolved` holds the commit hash:
+[`ResolvedRevision`] is a `str` subclass, so it can be passed to any `huggingface_hub` method taking a `revision` argument. Its string value is what the user initially requested (`"main"` here, hence readable error messages), while `.resolved` holds the commit hash:
 
 ```py
 >>> revision == "main"
@@ -228,7 +228,7 @@ True
 '607a30d783dfa663caf39e06633721c8d4cfcd7e'
 ```
 
-Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`], [`file_exists`]) detect a [`RevisionStr`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
+Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`], [`file_exists`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
 
 ```py
 >>> from huggingface_hub import hf_hub_download

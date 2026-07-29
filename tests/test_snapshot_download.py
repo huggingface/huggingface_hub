@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from huggingface_hub import CommitOperationAdd, HfApi, RevisionStr, hf_hub_download, snapshot_download
+from huggingface_hub import CommitOperationAdd, HfApi, ResolvedRevision, hf_hub_download, snapshot_download
 from huggingface_hub._tree_cache import read_tree_cache
 from huggingface_hub.errors import (
     IncompleteSnapshotError,
@@ -350,13 +350,13 @@ class TestSnapshotDownload:
 
 
 def test_revision_str():
-    revision = RevisionStr(resolved=COMMIT_HASH)
+    revision = ResolvedRevision(resolved=COMMIT_HASH)
     assert revision == "main"  # defaults to `main` when no revision was requested
     assert revision.initial is None
     assert revision.resolved == COMMIT_HASH
-    assert repr(revision) == f"RevisionStr(initial=None, resolved='{COMMIT_HASH}')"
+    assert repr(revision) == f"ResolvedRevision(initial=None, resolved='{COMMIT_HASH}')"
 
-    revision = RevisionStr(resolved=COMMIT_HASH, initial="refs/pr/4")
+    revision = ResolvedRevision(resolved=COMMIT_HASH, initial="refs/pr/4")
     assert revision == "refs/pr/4"
     assert revision.resolved == COMMIT_HASH
 
