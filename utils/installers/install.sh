@@ -46,7 +46,6 @@ SKIP_PATH_UPDATE="false"
 UPDATED_FISH_PATH="false"
 WITH_TRANSFORMERS="false"
 EXCLUDE_SKILL="false"
-SKILL_INSTALLED="false"
 
 # Logging functions
 log_debug() {
@@ -396,9 +395,8 @@ install_skill() {
         log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
         return
     fi
-    SKILL_INSTALLED="true"
     log_info "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
-    log_info "Pass --exclude-skill to skip it, or remove it later (see uninstall instructions below)."
+    log_info "Pass --exclude-skill to skip it."
 }
 
 # Update PATH if needed
@@ -515,9 +513,6 @@ show_uninstall_info() {
     log_info "To uninstall the Hugging Face CLI, run:"
     log_info "  rm -rf $HF_CLI_DIR"
     log_info "  rm -f $BIN_DIR/hf"
-    if [ "$SKILL_INSTALLED" = "true" ]; then
-        log_info "  rm -rf $HOME/.agents/skills/hf-cli $HOME/.claude/skills/hf-cli   # hf-cli skill"
-    fi
     log_info ""
     if [ -n "$UPDATED_RC_FILE" ]; then
         log_info "  (shell) Undo PATH entry: sed -i.bak '/Added by Hugging Face CLI installer/d' $UPDATED_RC_FILE && rm -f ${UPDATED_RC_FILE}.bak"

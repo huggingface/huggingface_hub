@@ -46,7 +46,6 @@ param(
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
 $script:PathUpdated = $false
-$script:SkillInstalled = $false
 
 if ($Verbose) {
     $env:HF_CLI_VERBOSE_PIP = '1'
@@ -355,9 +354,8 @@ function Install-Skill {
         Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
         return
     }
-    $script:SkillInstalled = $true
     Write-Log "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
-    Write-Log "Pass -ExcludeSkill to skip it, or remove it later (see uninstall instructions below)."
+    Write-Log "Pass -ExcludeSkill to skip it."
 }
 
 function Update-Path {
@@ -427,9 +425,6 @@ function Show-UninstallInfo {
     Write-Log "  Remove-Item -Path '$HF_CLI_DIR' -Recurse -Force"
     Write-Log "  Remove-Item -Path '$BIN_DIR\hf.exe'"
     Write-Log "  Remove-Item -Path '$BIN_DIR\hf-script.py' (if present)"
-    if ($script:SkillInstalled) {
-        Write-Log "  Remove-Item -Recurse -Force '$env:USERPROFILE\.agents\skills\hf-cli', '$env:USERPROFILE\.claude\skills\hf-cli'  # hf-cli skill"
-    }
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
