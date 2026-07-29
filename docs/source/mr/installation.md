@@ -69,7 +69,7 @@ pip install 'huggingface_hub[mcp,torch]'
 pip install git+https://github.com/huggingface/huggingface_hub
 ```
 
-Source मधून इंस्टॉल करताना, तुम्ही विशिष्ट branch देखील निवडू शकता.
+Source मधून install करताना, तुम्ही विशिष्ट branch देखील निवडू शकता.
 जर तुम्हाला अद्याप merge न झालेल्या नवीन feature किंवा bug fix ची चाचणी करायची असेल, तर हे उपयुक्त ठरते.
 
 ```bash
