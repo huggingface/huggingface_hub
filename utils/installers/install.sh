@@ -45,6 +45,7 @@ UPDATED_RC_FILE=""
 SKIP_PATH_UPDATE="false"
 UPDATED_FISH_PATH="false"
 WITH_TRANSFORMERS="false"
+INCLUDE_SKILLS="false"
 
 # Logging functions
 log_debug() {
@@ -96,6 +97,7 @@ Options:
   --force             Recreate the Hugging Face CLI virtual environment if it exists
   --no-modify-path    Skip adding the hf wrapper directory to PATH
   --with-transformers Also install the transformers CLI
+  --include-skills    Also install the `hf-cli` skill globally, for AI agents
   -v, --verbose       Enable verbose output (includes full pip logs)
   --help, -h          Show this message and exit
 
@@ -138,6 +140,9 @@ while [ $# -gt 0 ]; do
             ;;
         --with-transformers)
             WITH_TRANSFORMERS="true"
+            ;;
+        --include-skills)
+            INCLUDE_SKILLS="true"
             ;;
         -v|--verbose)
             LOG_LEVEL=2
@@ -378,6 +383,21 @@ expose_cli_command() {
     log_info "Run without touching PATH: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
 }
 
+# Install the `hf-cli` skill globally (opt-in with --include-skills)
+install_skills() {
+    if [ "$INCLUDE_SKILLS" != "true" ]; then
+        return
+    fi
+
+    log_info "Installing the hf-cli skill for AI agents..."
+    if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
+        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
+        return
+    fi
+    log_info "Installed automatically because of --include-skills. Remove it with:"
+    log_info "  rm -rf ~/.agents/skills/hf-cli ~/.claude/skills/hf-cli"
+}
+
 # Update PATH if needed
 update_path() {
     local shell_rc=""
@@ -512,6 +532,7 @@ main() {
     log_info "Install dir: $HF_CLI_DIR"
     log_info "Bin dir: $BIN_DIR"
     log_info "Skip PATH update: $SKIP_PATH_UPDATE"
+    log_info "Include skills: $INCLUDE_SKILLS"
 
     ensure_python
     create_directories
@@ -519,6 +540,7 @@ main() {
     install_hf_hub
     install_transformers
     expose_cli_command
+    install_skills
     update_path
     verify_installation
 

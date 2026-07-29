@@ -27,7 +27,13 @@ from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
 from ._framework import Argument, Option
 from ._output import out
-from ._skills import DEFAULT_SKILL_ID
+from ._skills import (
+    CENTRAL_GLOBAL,
+    CENTRAL_LOCAL,
+    CLAUDE_GLOBAL,
+    CLAUDE_LOCAL,
+    DEFAULT_SKILL_ID,
+)
 
 
 _SKILL_DESCRIPTION = (
@@ -86,10 +92,6 @@ Some command examples:
 - Update the CLI with `hf update` (uses the correct command for the detected install method)
 """
 
-CENTRAL_LOCAL = Path(".agents/skills")
-CENTRAL_GLOBAL = Path("~/.agents/skills")
-CLAUDE_LOCAL = Path(".claude/skills")
-CLAUDE_GLOBAL = Path("~/.claude/skills")
 # Flags worth explaining in the common-options glossary. Self-explanatory flags
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}

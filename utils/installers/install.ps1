@@ -21,6 +21,9 @@ Skips PATH modifications; `hf` must be invoked via its full path unless you add 
 .PARAMETER WithTransformers
 Also install the transformers CLI.
 
+.PARAMETER IncludeSkills
+Also install the `hf-cli` skill globally, for AI agents.
+
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
 powershell -c "irm https://hf.co/cli/install.ps1 | iex" -WithTransformers
@@ -37,7 +40,8 @@ param(
     [switch]$Force = $false,
     [switch]$Verbose,
     [switch]$NoModifyPath,
-    [switch]$WithTransformers = $false
+    [switch]$WithTransformers = $false,
+    [switch]$IncludeSkills = $false
 )
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
@@ -336,6 +340,23 @@ function Publish-HfCommand {
     Write-Log ('Run without updating PATH: & "{0}" --help' -f $hfExeTarget)
 }
 
+function Install-Skills {
+    # Opt-in with -IncludeSkills
+    if (-not $IncludeSkills) {
+        return
+    }
+
+    Write-Log "Installing the hf-cli skill for AI agents..."
+    $hfExecutable = Join-Path $BIN_DIR "hf.exe"
+    & $hfExecutable skills add hf-cli --global --claude --force
+    if (-not $?) {
+        Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
+        return
+    }
+    Write-Log "Installed automatically because of -IncludeSkills. Remove it with:"
+    Write-Log "  Remove-Item -Recurse -Force '$env:USERPROFILE\.agents\skills\hf-cli', '$env:USERPROFILE\.claude\skills\hf-cli'"
+}
+
 function Update-Path {
     Write-Log "Checking PATH configuration..."
 
@@ -441,6 +462,7 @@ function Main {
         Install-HuggingFaceHub
         Install-Transformers
         Publish-HfCommand
+        Install-Skills
         if ($NoModifyPath) {
             Write-Log 'Skipping PATH modification (--no-modify-path).'
         } else {

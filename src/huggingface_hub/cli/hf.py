@@ -24,6 +24,7 @@ from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_grou
 from huggingface_hub.cli._cp import CP_EXAMPLES, make_cp
 from huggingface_hub.cli._errors import format_known_exception
 from huggingface_hub.cli._output import out
+from huggingface_hub.cli._skills import check_skill_update
 from huggingface_hub.cli.auth import auth_cli
 from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
@@ -123,6 +124,8 @@ def main():
         if not constants.HF_DEBUG:
             logging.set_verbosity_info()
         check_cli_update("huggingface_hub")
+        if sys.argv[1:2] != ["skills"]:  # don't nag while the user is already managing skills
+            check_skill_update()
 
     try:
         app()

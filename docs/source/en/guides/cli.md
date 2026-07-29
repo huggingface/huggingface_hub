@@ -18,6 +18,8 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > # includes the above + Claude Code
 > hf skills add --claude
 > ```
+> The standalone installer can do it for you with `--include-skills` (see below). Otherwise, the CLI suggests
+> installing or updating the skill at most once a day - it never writes to your skills directories on its own.
 
 ## Getting started
 
@@ -35,6 +37,16 @@ On Windows:
 
 ```powershell
 >>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
+
+To also install the [`hf-cli` skill](https://huggingface.co/docs/hub/agents-cli) globally (for Claude Code and any agent reading `~/.agents/skills`), pass `--include-skills`:
+
+```bash
+>>> curl -LsSf https://hf.co/cli/install.sh | bash -s -- --include-skills
+```
+
+```powershell
+>>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex" -IncludeSkills
 ```
 
 Once installed, you can check that the CLI is correctly set up:
@@ -122,7 +134,7 @@ To upgrade to the latest version, run:
 >>> hf update
 ```
 
-This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command. If the `hf-cli` skill is installed globally, it is refreshed as well so agents see the new command surface.
 
 By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
 

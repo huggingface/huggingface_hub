@@ -11,10 +11,11 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
+from huggingface_hub.cli import _skills
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
@@ -4540,6 +4541,49 @@ class TestSkillsHfCliCLI:
         skill_file.write_text("stale content")
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
+
+
+class TestSkillUpdateCheck:
+    """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(_skills, "CENTRAL_GLOBAL", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(_skills, "CLAUDE_GLOBAL", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(_skills, "CENTRAL_LOCAL", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(_skills, "CLAUDE_LOCAL", tmp_path / "local/.claude/skills")
+        monkeypatch.setattr(constants, "CHECK_FOR_SKILL_UPDATE_DONE_PATH", str(tmp_path / ".check_done"))
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
+
+    def _write_global_skill(self, tmp_path: Path, content: str) -> Path:
+        skill_dir = tmp_path / "global/.agents/skills/hf-cli"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text(content, encoding="utf-8")
+        return skill_file
+
+    def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
+        _skills.check_skill_update()
+        assert "hf skills add -g --claude" in capsys.readouterr().err
+
+    def test_hints_to_update_when_generated_by_another_version(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
+        _skills.check_skill_update()
+        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+
+    def test_silent_when_up_to_date_and_throttled_afterwards(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        skill_file = self._write_global_skill(tmp_path, build_skill_md())
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+        # Checked less than 24 hours ago: stays silent even though the skill is now outdated.
+        skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
 
 
 @pytest.mark.xet
