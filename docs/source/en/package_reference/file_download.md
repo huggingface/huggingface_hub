@@ -24,8 +24,7 @@ rendered properly in your Markdown viewer.
 
 ## Resolve a revision
 
-Resolve a branch/tag name to a commit hash once, then pass the result around to pin every download to the same
-commit. See [`HfApi.resolve_revision`] and the [cache-system guide](../guides/manage-cache#pin-a-revision-advanced).
+Resolve a branch/tag name to a commit hash once, then pass the result around to pin every download to the same commit. See [`HfApi.resolve_revision`] and the [cache-system guide](../guides/manage-cache#pin-a-revision-advanced).
 
 ### RevisionStr
 
