@@ -21,8 +21,8 @@ Skips PATH modifications; `hf` must be invoked via its full path unless you add 
 .PARAMETER WithTransformers
 Also install the transformers CLI.
 
-.PARAMETER IncludeSkills
-Also install the `hf-cli` skill globally, for AI agents.
+.PARAMETER ExcludeSkill
+Skip installing the `hf-cli` skill for AI agents.
 
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
@@ -41,11 +41,12 @@ param(
     [switch]$Verbose,
     [switch]$NoModifyPath,
     [switch]$WithTransformers = $false,
-    [switch]$IncludeSkills = $false
+    [switch]$ExcludeSkill = $false
 )
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
 $script:PathUpdated = $false
+$script:SkillInstalled = $false
 
 if ($Verbose) {
     $env:HF_CLI_VERBOSE_PIP = '1'
@@ -340,9 +341,10 @@ function Publish-HfCommand {
     Write-Log ('Run without updating PATH: & "{0}" --help' -f $hfExeTarget)
 }
 
-function Install-Skills {
-    # Opt-in with -IncludeSkills
-    if (-not $IncludeSkills) {
+function Install-Skill {
+    # Opt-out with -ExcludeSkill
+    if ($ExcludeSkill) {
+        Write-Log "Skipping the hf-cli skill (-ExcludeSkill)"
         return
     }
 
@@ -351,7 +353,11 @@ function Install-Skills {
     & $hfExecutable skills add hf-cli --global --claude --force
     if (-not $?) {
         Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
+        return
     }
+    $script:SkillInstalled = $true
+    Write-Log "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
+    Write-Log "Pass -ExcludeSkill to skip it, or remove it later (see uninstall instructions below)."
 }
 
 function Update-Path {
@@ -421,6 +427,9 @@ function Show-UninstallInfo {
     Write-Log "  Remove-Item -Path '$HF_CLI_DIR' -Recurse -Force"
     Write-Log "  Remove-Item -Path '$BIN_DIR\hf.exe'"
     Write-Log "  Remove-Item -Path '$BIN_DIR\hf-script.py' (if present)"
+    if ($script:SkillInstalled) {
+        Write-Log "  Remove-Item -Recurse -Force '$env:USERPROFILE\.agents\skills\hf-cli', '$env:USERPROFILE\.claude\skills\hf-cli'  # hf-cli skill"
+    }
     Write-Log ""
     if ($script:PathUpdated) {
         Write-Log "Remove '$BIN_DIR' from your user PATH via Settings ▸ Environment Variables," "INFO"
@@ -459,7 +468,7 @@ function Main {
         Install-HuggingFaceHub
         Install-Transformers
         Publish-HfCommand
-        Install-Skills
+        Install-Skill
         if ($NoModifyPath) {
             Write-Log 'Skipping PATH modification (--no-modify-path).'
         } else {

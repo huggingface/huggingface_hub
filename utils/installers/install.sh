@@ -45,7 +45,8 @@ UPDATED_RC_FILE=""
 SKIP_PATH_UPDATE="false"
 UPDATED_FISH_PATH="false"
 WITH_TRANSFORMERS="false"
-INCLUDE_SKILLS="false"
+EXCLUDE_SKILL="false"
+SKILL_INSTALLED="false"
 
 # Logging functions
 log_debug() {
@@ -97,7 +98,7 @@ Options:
   --force             Recreate the Hugging Face CLI virtual environment if it exists
   --no-modify-path    Skip adding the hf wrapper directory to PATH
   --with-transformers Also install the transformers CLI
-  --include-skills    Also install the `hf-cli` skill globally, for AI agents
+  --exclude-skill     Skip installing the `hf-cli` skill for AI agents
   -v, --verbose       Enable verbose output (includes full pip logs)
   --help, -h          Show this message and exit
 
@@ -141,8 +142,8 @@ while [ $# -gt 0 ]; do
         --with-transformers)
             WITH_TRANSFORMERS="true"
             ;;
-        --include-skills)
-            INCLUDE_SKILLS="true"
+        --exclude-skill)
+            EXCLUDE_SKILL="true"
             ;;
         -v|--verbose)
             LOG_LEVEL=2
@@ -383,16 +384,21 @@ expose_cli_command() {
     log_info "Run without touching PATH: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
 }
 
-# Install the `hf-cli` skill globally (opt-in with --include-skills)
-install_skills() {
-    if [ "$INCLUDE_SKILLS" != "true" ]; then
+# Install the `hf-cli` skill globally (opt-out with --exclude-skill)
+install_skill() {
+    if [ "$EXCLUDE_SKILL" = "true" ]; then
+        log_info "Skipping the hf-cli skill (--exclude-skill)"
         return
     fi
 
     log_info "Installing the hf-cli skill for AI agents..."
     if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
         log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
+        return
     fi
+    SKILL_INSTALLED="true"
+    log_info "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
+    log_info "Pass --exclude-skill to skip it, or remove it later (see uninstall instructions below)."
 }
 
 # Update PATH if needed
@@ -509,6 +515,9 @@ show_uninstall_info() {
     log_info "To uninstall the Hugging Face CLI, run:"
     log_info "  rm -rf $HF_CLI_DIR"
     log_info "  rm -f $BIN_DIR/hf"
+    if [ "$SKILL_INSTALLED" = "true" ]; then
+        log_info "  rm -rf $HOME/.agents/skills/hf-cli $HOME/.claude/skills/hf-cli   # hf-cli skill"
+    fi
     log_info ""
     if [ -n "$UPDATED_RC_FILE" ]; then
         log_info "  (shell) Undo PATH entry: sed -i.bak '/Added by Hugging Face CLI installer/d' $UPDATED_RC_FILE && rm -f ${UPDATED_RC_FILE}.bak"
@@ -529,7 +538,7 @@ main() {
     log_info "Install dir: $HF_CLI_DIR"
     log_info "Bin dir: $BIN_DIR"
     log_info "Skip PATH update: $SKIP_PATH_UPDATE"
-    log_info "Include skills: $INCLUDE_SKILLS"
+    log_info "Exclude skill: $EXCLUDE_SKILL"
 
     ensure_python
     create_directories
@@ -537,7 +546,7 @@ main() {
     install_hf_hub
     install_transformers
     expose_cli_command
-    install_skills
+    install_skill
     update_path
     verify_installation
 
