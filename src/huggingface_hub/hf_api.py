@@ -7037,8 +7037,8 @@ class HfApi:
         # 2. Parse and validate metadata size using shared helper
         metadata_size = _get_safetensors_metadata_size(response.content[:8], filename, context_msg)
 
-        # 3.a. Get metadata from payload
-        if metadata_size <= 100000:
+        # 3.a. Get metadata from payload, if fully contained in the response (minus the 8-byte size prefix)
+        if metadata_size <= len(response.content) - 8:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
             response = get_session().get(
@@ -9636,6 +9636,10 @@ class HfApi:
         > `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        if token is False:
+            raise ValueError(
+                "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
+            )
         token = token or self.token or get_token()
         payload: dict = {
             "namespace": namespace or self._get_namespace(token=token),

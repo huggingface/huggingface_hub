@@ -2592,6 +2592,19 @@ class TestHfApiPublicProduction:
         assert tensor.parameter_count == 4096
         assert info.parameter_count == {"BF16": 989888512}
 
+    def test_parse_safetensors_metadata_100kb_header(self, api: HfApi) -> None:
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4602.
+
+        This file has a header of exactly 100_000 bytes, which used to be truncated: HTTP ranges are
+        inclusive, so `bytes=0-100000` only returns 99_993 header bytes after the 8-byte size prefix.
+        """
+        info = api.parse_safetensors_file_metadata(
+            "nvidia/GLM-5-NVFP4",
+            "model-00008-of-00282.safetensors",
+            revision="dc54ff55a7e9e71b85db953d8bc22eca894b44c6",
+        )
+        assert len(info.tensors) == 852
+
     def test_not_a_safetensors_file(self, api: HfApi) -> None:
         with pytest.raises(SafetensorsParsingError):
             api.parse_safetensors_file_metadata("HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin")
@@ -4650,6 +4663,14 @@ class TestHfApiInferenceCatalog:
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+
+    def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
+        # `token=False` means "do not authenticate", but this endpoint cannot be created without
+        # authentication. Reject it explicitly instead of silently falling back to a stored token.
+        with pytest.raises(ValueError, match="Cannot use `token=False`"):
+            api.create_inference_endpoint_from_catalog(
+                repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
+            )
 
 
 @pytest.mark.parametrize(
