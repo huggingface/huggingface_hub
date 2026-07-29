@@ -3904,6 +3904,10 @@ class HfApi:
             False
             ```
         """
+        if isinstance(revision, RevisionStr):
+            # Revision has already been resolved to a commit hash (see [`resolve_revision`]) => use it directly.
+            # Whether a file exists is fully determined by the commit hash, so the answer is the same.
+            revision = revision.resolved
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
         )
