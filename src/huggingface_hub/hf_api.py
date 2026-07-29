@@ -9504,6 +9504,10 @@ class HfApi:
         > `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        if token is False:
+            raise ValueError(
+                "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
+            )
         token = token or self.token or get_token()
         payload: dict = {
             "namespace": namespace or self._get_namespace(token=token),
