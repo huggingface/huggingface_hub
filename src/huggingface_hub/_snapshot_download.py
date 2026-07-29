@@ -251,9 +251,7 @@ def snapshot_download(
     )
 
     # The revision is already a commit hash if:
-    # - it's a `ResolvedRevision` (already resolved, see [`HfApi.resolve_revision`]). `revision` itself is kept as is:
-    #   its string value is the revision initially requested, which is what we want for the `refs/` entry and the
-    #   error messages.
+    # - it's a `ResolvedRevision` (already resolved, see [`HfApi.resolve_revision`])
     # - it's a commit hash, which is immutable
     # => in both cases, there is nothing to resolve and the `repo_info` call can be skipped.
     commit_hash: str | None = None
