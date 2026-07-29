@@ -411,8 +411,7 @@ def snapshot_download(
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
-    # In that case store a ref. Nothing to do for an already resolved revision: the ref has been written by
-    # `resolve_revision` and the pinned commit hash might be older than the one currently cached.
+    # In that case store a ref (except if ResolvedRevision, in which case it's already done).
     if not isinstance(revision, ResolvedRevision) and revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
         try:
